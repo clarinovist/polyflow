@@ -118,7 +118,7 @@ export function ProductionOrderForm({ boms, machines, locations, operators, help
         return boms.filter(bom => bom.productVariantId === selectedProductVariantId);
     }, [boms, selectedProductVariantId]);
 
-    const form = useForm<FormValues>({
+    const form = useForm({
         resolver: zodResolver(formSchema), // Use our new UI schema
         defaultValues: {
             plannedQuantity: 0,
@@ -148,7 +148,7 @@ export function ProductionOrderForm({ boms, machines, locations, operators, help
     });
 
     // Helper to get selected operators to disable them in other rows
-    const selectedOperatorIds = form.watch('initialShift.teamMembers')?.map(m => m.operatorId) || [];
+    const selectedOperatorIds = form.watch('initialShift.teamMembers')?.map((m: any) => m.operatorId) || [];
 
     // Flexible BOM Logic
     const watchBomId = form.watch('bomId');
@@ -513,7 +513,7 @@ export function ProductionOrderForm({ boms, machines, locations, operators, help
                                     </TableRow>
                                 )}
 
-                                {materialFields.map((field, index) => {
+                                {materialFields.map((field: any, index) => {
                                     const info = materialInfo[field.productVariantId];
                                     const currentQty = form.watch(`items.${index}.quantity`);
                                     const isLowStock = info && currentQty > info.currentStock;
@@ -602,7 +602,7 @@ export function ProductionOrderForm({ boms, machines, locations, operators, help
                                     <input type="hidden" {...field} />
                                 )}
                             />
-                            <FormMessage>{form.formState.errors.initialShift?.shiftName?.message}</FormMessage>
+                            <FormMessage>{(form.formState.errors.initialShift as any)?.shiftName?.message}</FormMessage>
                         </div>
                         <div className='hidden md:block' /> {/* Spacer */}
 
@@ -664,8 +664,8 @@ export function ProductionOrderForm({ boms, machines, locations, operators, help
                         <div className="flex items-center justify-between">
                             <h4 className="text-sm font-medium">Team Members</h4>
                             <div className="text-xs text-slate-500">
-                                {form.formState.errors.initialShift?.teamMembers?.root?.message ||
-                                    form.formState.errors.initialShift?.teamMembers?.message}
+                                {(form.formState.errors.initialShift as any)?.teamMembers?.root?.message ||
+                                    (form.formState.errors.initialShift as any)?.teamMembers?.message}
                             </div>
                         </div>
 

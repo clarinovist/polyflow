@@ -364,7 +364,7 @@ const newSKU = await generateNextSKU('RM', 'PPG'); // Returns: RMPPG001, RMPPG00
 
 ---
 
-**Last Updated**: January 4, 2026
+**Last Updated**: January 5, 2026
 
 **Version**: 1.0
 

@@ -8,8 +8,12 @@ export default async function HistoryPage() {
     const movements = await getStockMovements(100);
 
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold tracking-tight">Stock Movement History</h2>
+        <div className="p-6 space-y-6">
+            {/* Page Header */}
+            <div>
+                <h1 className="text-3xl font-bold text-slate-900">Stock Movement History</h1>
+                <p className="text-slate-600 mt-2">Track all inventory transactions and movements</p>
+            </div>
 
             <Card>
                 <CardHeader>

@@ -120,23 +120,22 @@ export function SidebarNav({ user }: SidebarNavProps) {
 
                 {/* User Section */}
                 <div className="border-t border-slate-200 p-4">
-                    <div className="flex items-center gap-3 px-3 py-2">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                            <UserIcon className="h-4 w-4" />
+                    <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3 border border-slate-100">
+                        <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 font-medium text-sm">
+                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div className="flex-1 overflow-hidden">
+                        <div className="flex-1 overflow-hidden min-w-0">
                             <p className="text-sm font-semibold text-slate-900 truncate">{user.name || 'User'}</p>
-                            <p className="text-xs text-slate-500 uppercase font-medium">{user.role || 'Warehouse'}</p>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
                         </div>
+                        <button
+                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            title="Logout"
+                        >
+                            <LogOut className="h-4 w-4" />
+                        </button>
                     </div>
-
-                    <button
-                        onClick={() => signOut({ callbackUrl: '/login' })}
-                        className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 transition-colors font-medium mt-2"
-                    >
-                        <LogOut className="h-5 w-5" />
-                        <span>Logout</span>
-                    </button>
                 </div>
             </div>
         </aside>

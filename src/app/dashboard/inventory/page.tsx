@@ -121,9 +121,17 @@ export default async function InventoryDashboard({
 
 
     return (
-        <div className="space-y-8">
+        <div className="p-6 space-y-6">
+            {/* Page Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900">Inventory Overview</h1>
+                    <p className="text-slate-600 mt-2">Monitor stock levels across all warehouse locations</p>
+                </div>
+            </div>
+
             {/* Warehouse Summary Cards (Always Live) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Link href="/dashboard/inventory" className="block">
                     <Card className={`h-full transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer ${!params.locationId ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

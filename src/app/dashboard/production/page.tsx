@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Factory, Clock, CheckCircle, AlertCircle, Plus, ChevronRight, FlaskConical, Users } from 'lucide-react';
+import { Clock, CheckCircle, Plus, ChevronRight, Factory } from 'lucide-react';
 import Link from 'next/link';
 import { getProductionOrders } from '@/actions/production';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export default async function ProductionDashboardPage() {
     const recentOrders = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900">Production</h1>
@@ -28,24 +28,6 @@ export default async function ProductionDashboardPage() {
                 </div>
                 <div className="flex gap-2">
                     <ProductionGlossary />
-                    <Link href="/dashboard/production/resources/machines">
-                        <Button variant="outline" className="gap-2">
-                            <Factory className="h-4 w-4" />
-                            Machines
-                        </Button>
-                    </Link>
-                    <Link href="/dashboard/production/resources/employees">
-                        <Button variant="outline" className="gap-2">
-                            <Users className="h-4 w-4" />
-                            Staff
-                        </Button>
-                    </Link>
-                    <Link href="/dashboard/production/boms">
-                        <Button variant="outline" className="gap-2">
-                            <FlaskConical className="h-4 w-4" />
-                            Manage Recipes
-                        </Button>
-                    </Link>
                     <Link href="/dashboard/production/orders/create">
                         <Button className="gap-2">
                             <Plus className="h-4 w-4" />

@@ -11,11 +11,11 @@ export default async function OpnameListPage() {
     const sessions = await getOpnameSessions();
 
     return (
-        <div className="space-y-8">
+        <div className="p-6 space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">Stock Opname</h2>
-                    <p className="text-slate-500 mt-1">Manage physical inventory audits and reconciliation.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Stock Opname</h1>
+                    <p className="text-slate-600 mt-2">Manage physical inventory audits and reconciliation</p>
                 </div>
                 <CreateOpnameDialog />
             </div>

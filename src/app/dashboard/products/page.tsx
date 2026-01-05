@@ -22,7 +22,12 @@ export default async function ProductsPage() {
     );
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="p-6 space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-900">Products</h1>
+                <p className="text-slate-600 mt-2">Manage your product catalog</p>
+            </div>
+
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Product Master</CardTitle>

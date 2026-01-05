@@ -23,7 +23,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const form = useForm<CreateBomValues>({
+    const form = useForm({
         resolver: zodResolver(createBomSchema),
         defaultValues: {
             name: initialData?.name || '',

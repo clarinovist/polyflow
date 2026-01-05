@@ -14,9 +14,6 @@ export default async function MachinesPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <Link href="/dashboard/production" className="text-sm text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-2">
-                        ← Back to Dashboard
-                    </Link>
                     <h1 className="text-3xl font-bold text-slate-900">Machines</h1>
                     <p className="text-slate-600">Manage production machinery and equipment</p>
                 </div>

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronRight, FlaskConical, ArrowLeft } from 'lucide-react';
+import { Plus, ChevronRight, FlaskConical } from 'lucide-react';
 import Link from 'next/link';
 import { getBoms } from '@/actions/boms';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +13,7 @@ export default async function BomListPage() {
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
-            <Link
-                href="/dashboard/production"
-                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors w-fit"
-            >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm font-medium">Back to Production</span>
-            </Link>
+
 
             <div className="flex items-center justify-between">
                 <div>

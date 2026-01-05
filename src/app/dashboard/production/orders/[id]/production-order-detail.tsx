@@ -81,7 +81,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     </div>
                     <div className="flex items-center gap-4 text-sm text-slate-500">
                         <span className="flex items-center gap-1"><Package className="w-4 h-4" /> {order.bom.productVariant.product.name} ({order.bom.productVariant.name})</span>
-                        <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {Number(order.actualQuantity || 0)} / {order.plannedQuantity} {order.bom.productVariant.primaryUnit}</span>
+                        <span className="flex items-center gap-1"><CheckCircle className="w-4 h-4" /> {Number(order.actualQuantity || 0)} / {Number(order.plannedQuantity)} {order.bom.productVariant.primaryUnit}</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

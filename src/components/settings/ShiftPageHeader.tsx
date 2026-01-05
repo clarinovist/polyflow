@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ShiftDialog } from './ShiftDialog';
 
 export function ShiftPageHeader() {
@@ -11,10 +11,6 @@ export function ShiftPageHeader() {
     return (
         <div className="flex justify-between items-center">
             <div className="flex flex-col gap-1">
-                <Button variant="ghost" size="sm" className="-ml-2 h-8 w-fit text-slate-500" onClick={() => window.history.back()}>
-                    <ArrowLeft className="w-4 h-4 mr-1" />
-                    Back
-                </Button>
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Shift Management</h2>
                     <p className="text-muted-foreground">
