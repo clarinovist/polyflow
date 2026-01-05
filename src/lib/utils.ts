@@ -19,8 +19,11 @@ export function serializeData(obj: any): any {
   }
 
   // Handle Prisma Decimal
-  if (typeof obj.toNumber === 'function') {
+  if (obj && typeof obj === 'object' && typeof obj.toNumber === 'function') {
     return obj.toNumber();
+  }
+  if (obj && typeof obj === 'object' && typeof obj.toString === 'function' && obj.constructor?.name === 'Decimal') {
+    return parseFloat(obj.toString());
   }
 
   // Handle already serialized decimals that might be coming as strings/numbers in some contexts

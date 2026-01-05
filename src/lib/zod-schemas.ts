@@ -106,16 +106,8 @@ export const createProductionOrderSchema = z.object({
     plannedQuantity: z.coerce.number().positive("Planned quantity must be positive"),
     plannedStartDate: z.date(),
     plannedEndDate: z.date().optional(),
-    machineId: z.string().optional(),
     locationId: z.string().min(1, "Output location is required"),
-    // Optional Initial Shift Assignment
-    initialShift: z.object({
-        shiftName: z.string().min(1, "Shift name is required"),
-        operatorId: z.string().min(1, "Operator is required"),
-        helperIds: z.array(z.string()).optional(),
-        startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-        endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    }).optional(),
+
     // Flexible BOM Items
     items: z.array(z.object({
         productVariantId: z.string(),
@@ -172,4 +164,20 @@ export const createBomSchema = z.object({
     })).min(1, "At least one ingredient is required"),
 });
 
+
 export type CreateBomValues = z.infer<typeof createBomSchema>;
+
+export const productionOutputSchema = z.object({
+    productionOrderId: z.string().min(1, "Production Order ID is required"),
+    machineId: z.string().optional(),
+    operatorId: z.string().optional(),
+    shiftId: z.string().optional(),
+    quantityProduced: z.coerce.number().positive("Quantity must be positive"),
+    scrapQuantity: z.coerce.number().nonnegative("Scrap quantity must be non-negative").default(0),
+    startTime: z.coerce.date(),
+    endTime: z.coerce.date(),
+    notes: z.string().optional(),
+});
+
+export type ProductionOutputValues = z.infer<typeof productionOutputSchema>;
+

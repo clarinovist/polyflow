@@ -32,8 +32,9 @@ model Employee {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  shiftsAsOperator ProductionShift[] @relation("ShiftOperator")
-  shiftsAsHelper   ProductionShift[] @relation("ShiftHelpers")
+  shiftsAsOperator ProductionShift[]     @relation("ShiftOperator")
+  shiftsAsHelper   ProductionShift[]     @relation("ShiftHelpers")
+  executionsAsOperator ProductionExecution[] @relation("ExecutionOperator")
 }
 
 model ProductionShift {
@@ -190,6 +191,7 @@ model Machine {
   updatedAt       DateTime          @updatedAt
   location        Location          @relation(fields: [locationId], references: [id])
   ProductionOrder ProductionOrder[]
+  executions      ProductionExecution[]
 }
 
 model Batch {
@@ -275,6 +277,7 @@ model ProductionOrder {
   scrapRecords     ScrapRecord[]
   shifts           ProductionShift[]
   plannedMaterials ProductionMaterial[]
+  executions       ProductionExecution[]
 }
 
 model MaterialIssue {
@@ -424,14 +427,37 @@ model ProductionMaterial {
   @@index([productVariantId])
 }
 
+
+model ProductionExecution {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  machineId         String?
+  machine           Machine?        @relation(fields: [machineId], references: [id])
+  operatorId        String?
+  operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
+  shiftId           String?
+  shift             WorkShift?      @relation(fields: [shiftId], references: [id])
+  quantityProduced  Decimal         @db.Decimal(15, 4)
+  scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
+  startTime         DateTime
+  endTime           DateTime
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([productionOrderId])
+}
+
 model WorkShift {
-  id        String          @id @default(uuid())
-  name      String
-  startTime String // Format: "HH:mm"
-  endTime   String // Format: "HH:mm"
-  status    WorkShiftStatus @default(ACTIVE)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id                   String                @id @default(uuid())
+  name                 String
+  startTime            String                // Format: "HH:mm"
+  endTime              String                // Format: "HH:mm"
+  status               WorkShiftStatus       @default(ACTIVE)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  productionExecutions ProductionExecution[]
 }
 
 enum WorkShiftStatus {
