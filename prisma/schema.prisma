@@ -1,0 +1,447 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  name               String?
+  password           String
+  role               Role                @default(WAREHOUSE)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  materialIssues     MaterialIssue[]
+  productionCreator  ProductionOrder[]   @relation("ProductionCreator")
+  inspections        QualityInspection[]
+  scrapRecords       ScrapRecord[]
+  movements          StockMovement[]
+  opnames            StockOpname[]
+}
+
+model Employee {
+  id        String         @id @default(uuid())
+  name      String
+  code      String         @unique
+  role      String
+  status    EmployeeStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  shiftsAsOperator ProductionShift[] @relation("ShiftOperator")
+  shiftsAsHelper   ProductionShift[] @relation("ShiftHelpers")
+}
+
+model ProductionShift {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  shiftName         String
+  startTime         DateTime
+  endTime           DateTime
+  operatorId        String?
+  outputQuantity    Decimal?        @db.Decimal(15, 4)
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  operator        Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
+  helpers         Employee[]      @relation("ShiftHelpers")
+}
+
+model Contact {
+  id             String           @id @default(uuid())
+  name           String
+  type           ContactType
+  phone          String?
+  address        String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  ProductVariant ProductVariant[]
+}
+
+model Location {
+  id               String             @id @default(uuid())
+  name             String
+  slug             String             @unique
+  description      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  Batch            Batch[]
+  inventories      Inventory[]
+  machines         Machine[]
+  ProductionOrder  ProductionOrder[]
+  movementsFrom    StockMovement[]    @relation("FromLocation")
+  movementsTo      StockMovement[]    @relation("ToLocation")
+  opnames          StockOpname[]
+  StockReservation StockReservation[]
+}
+
+model Product {
+  id          String           @id @default(uuid())
+  name        String
+  productType ProductType
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  variants    ProductVariant[]
+}
+
+model ProductVariant {
+  id                  String             @id @default(uuid())
+  productId           String
+  name                String
+  skuCode             String             @unique
+  price               Decimal?           @db.Decimal(10, 2)
+  buyPrice            Decimal?           @db.Decimal(10, 2)
+  sellPrice           Decimal?           @db.Decimal(10, 2)
+  primaryUnit         Unit
+  salesUnit           Unit?
+  conversionFactor    Decimal            @default(1.0) @db.Decimal(10, 4)
+  attributes          Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  minStockAlert       Decimal?           @db.Decimal(15, 4)
+  leadTimeDays        Int?
+  preferredSupplierId String?
+  reorderPoint        Decimal?           @db.Decimal(15, 4)
+  reorderQuantity     Decimal?           @db.Decimal(15, 4)
+  Batch               Batch[]
+  productionBoms      Bom[]              @relation("ProductBom")
+  ingredientInBoms    BomItem[]          @relation("Ingredient")
+  inventories         Inventory[]
+  productionMaterials ProductionMaterial[]
+  MaterialIssue       MaterialIssue[]
+  preferredSupplier   Contact?           @relation(fields: [preferredSupplierId], references: [id])
+  product             Product            @relation(fields: [productId], references: [id])
+  ScrapRecord         ScrapRecord[]
+  movements           StockMovement[]
+  opnameItems         StockOpnameItem[]
+  StockReservation    StockReservation[]
+}
+
+model Bom {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  productVariantId String
+  outputQuantity   Decimal           @default(1.0) @db.Decimal(10, 4)
+  isDefault        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  productVariant   ProductVariant    @relation("ProductBom", fields: [productVariantId], references: [id])
+  items            BomItem[]
+  ProductionOrder  ProductionOrder[]
+}
+
+model BomItem {
+  id               String         @id @default(uuid())
+  bomId            String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(10, 4)
+  scrapPercentage  Decimal?       @db.Decimal(5, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  bom              Bom            @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation("Ingredient", fields: [productVariantId], references: [id])
+}
+
+model StockMovement {
+  id               String         @id @default(uuid())
+  type             MovementType
+  productVariantId String
+  fromLocationId   String?
+  toLocationId     String?
+  quantity         Decimal        @db.Decimal(15, 4)
+  reference        String?
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  batchId          String?
+  batch            Batch?         @relation(fields: [batchId], references: [id])
+  createdBy        User?          @relation(fields: [createdById], references: [id])
+  fromLocation     Location?      @relation("FromLocation", fields: [fromLocationId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
+}
+
+model Inventory {
+  id               String         @id @default(uuid())
+  locationId       String
+  productVariantId String
+  quantity         Decimal        @default(0) @db.Decimal(15, 4)
+  updatedAt        DateTime       @updatedAt
+  location         Location       @relation(fields: [locationId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@unique([locationId, productVariantId])
+}
+
+model Machine {
+  id              String            @id @default(uuid())
+  name            String
+  code            String            @unique
+  type            MachineType
+  locationId      String
+  status          MachineStatus     @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  location        Location          @relation(fields: [locationId], references: [id])
+  ProductionOrder ProductionOrder[]
+}
+
+model Batch {
+  id                String          @id @default(uuid())
+  batchNumber       String          @unique
+  productVariantId  String
+  locationId        String
+  quantity          Decimal         @db.Decimal(15, 4)
+  manufacturingDate DateTime
+  expiryDate        DateTime?
+  status            BatchStatus     @default(ACTIVE)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  location          Location        @relation(fields: [locationId], references: [id])
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  movements         StockMovement[]
+}
+
+model StockReservation {
+  id               String            @id @default(uuid())
+  productVariantId String
+  locationId       String
+  quantity         Decimal           @db.Decimal(15, 4)
+  reservedFor      ReservationType
+  referenceId      String
+  reservedUntil    DateTime?
+  status           ReservationStatus @default(ACTIVE)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  location         Location          @relation(fields: [locationId], references: [id])
+  productVariant   ProductVariant    @relation(fields: [productVariantId], references: [id])
+}
+
+model StockOpname {
+  id          String            @id @default(uuid())
+  locationId  String
+  status      OpnameStatus      @default(OPEN)
+  remarks     String?
+  createdById String?
+  createdAt   DateTime          @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime          @updatedAt
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  location    Location          @relation(fields: [locationId], references: [id])
+  items       StockOpnameItem[]
+}
+
+model StockOpnameItem {
+  id               String         @id @default(uuid())
+  opnameId         String
+  productVariantId String
+  systemQuantity   Decimal        @db.Decimal(15, 4)
+  countedQuantity  Decimal?       @db.Decimal(15, 4)
+  notes            String?
+  opname           StockOpname    @relation(fields: [opnameId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@unique([opnameId, productVariantId])
+}
+
+model ProductionOrder {
+  id               String              @id @default(uuid())
+  orderNumber      String              @unique
+  bomId            String
+  plannedQuantity  Decimal             @db.Decimal(15, 4)
+  plannedStartDate DateTime
+  plannedEndDate   DateTime?
+  actualQuantity   Decimal?            @db.Decimal(15, 4)
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+  status           ProductionStatus    @default(DRAFT)
+  machineId        String?
+  locationId       String
+  createdById      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  materialIssues   MaterialIssue[]
+  bom              Bom                 @relation(fields: [bomId], references: [id])
+  createdBy        User?               @relation("ProductionCreator", fields: [createdById], references: [id])
+  location         Location            @relation(fields: [locationId], references: [id])
+  machine          Machine?            @relation(fields: [machineId], references: [id])
+  inspections      QualityInspection[]
+  scrapRecords     ScrapRecord[]
+  shifts           ProductionShift[]
+  plannedMaterials ProductionMaterial[]
+}
+
+model MaterialIssue {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  productVariantId  String
+  quantity          Decimal         @db.Decimal(15, 4)
+  issuedAt          DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation(fields: [createdById], references: [id])
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+}
+
+model ScrapRecord {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  productVariantId  String
+  quantity          Decimal         @db.Decimal(15, 4)
+  reason            String?
+  recordedAt        DateTime        @default(now())
+  createdById       String?
+  createdBy         User?           @relation(fields: [createdById], references: [id])
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+}
+
+model QualityInspection {
+  id                String           @id @default(uuid())
+  productionOrderId String
+  inspectorId       String?
+  result            InspectionResult
+  notes             String?
+  inspectedAt       DateTime         @default(now())
+  inspector         User?            @relation(fields: [inspectorId], references: [id])
+  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  WAREHOUSE
+  PRODUCTION
+  SALES
+}
+
+enum ProductType {
+  RAW_MATERIAL
+  INTERMEDIATE
+  PACKAGING
+  WIP
+  FINISHED_GOOD
+  SCRAP
+}
+
+enum ContactType {
+  SUPPLIER
+  CUSTOMER
+}
+
+enum Unit {
+  KG
+  ROLL
+  BAL
+  PCS
+  ZAK
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum MachineType {
+  MIXER
+  EXTRUDER
+  REWINDER
+  PACKER
+  GRANULATOR
+}
+
+enum MachineStatus {
+  ACTIVE
+  MAINTENANCE
+  BROKEN
+}
+
+enum OpnameStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum BatchStatus {
+  ACTIVE
+  QUARANTINE
+  EXPIRED
+  CONSUMED
+}
+
+enum ReservationType {
+  SALES_ORDER
+  PRODUCTION_ORDER
+  TRANSFER_ORDER
+}
+
+enum ReservationStatus {
+  ACTIVE
+  FULFILLED
+  CANCELLED
+  EXPIRED
+}
+
+enum ProductionStatus {
+  DRAFT
+  RELEASED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InspectionResult {
+  PASS
+  FAIL
+  QUARANTINE
+}
+
+
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model ProductionMaterial {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productVariantId  String
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  quantity          Decimal         @db.Decimal(15, 4)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([productionOrderId])
+  @@index([productVariantId])
+}
+
+model WorkShift {
+  id        String          @id @default(uuid())
+  name      String
+  startTime String // Format: "HH:mm"
+  endTime   String // Format: "HH:mm"
+  status    WorkShiftStatus @default(ACTIVE)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+enum WorkShiftStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model JobRole {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
