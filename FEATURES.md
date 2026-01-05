@@ -384,6 +384,7 @@ All stats computed server-side via `getDashboardStats()` Server Action using Pri
 8. ✅ **BOM support** - Production recipes with scrap tracking
 9. ✅ **Machine master data** - Equipment tracking by location
 10. ✅ **Dual-unit logic** - Primary + sales unit with conversion
+11. ✅ **Production Order Execution** - Output recording with discrete roll tracking and scrap entry
 
 ### 🚧 Planned Features
 

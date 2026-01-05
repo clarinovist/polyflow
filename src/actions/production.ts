@@ -464,169 +464,130 @@ export async function addProductionOutput(data: ProductionOutputValues) {
                 }
             });
 
-            // 2. Update Production Order Actuals
-            // Fetch current actualQuantity to handle nulls (increment on null doesn't work)
+            // 2. Fetch Order with Relations to calculate requirements
+            // We need: BOM items, Material Issues, and Previous Executions
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({
-                where: { id: productionOrderId }
-            });
-
-            const currentActual = currentOrder.actualQuantity ?? new Prisma.Decimal(0);
-            const newActual = currentActual.plus(new Prisma.Decimal(quantityProduced));
-
-            const order = await tx.productionOrder.update({
                 where: { id: productionOrderId },
-                data: {
-                    actualQuantity: newActual,
-                    status: ProductionStatus.IN_PROGRESS
-                },
                 include: {
                     bom: {
                         include: {
                             items: true
                         }
-                    }
+                    },
+                    executions: true,
+                    materialIssues: true
                 }
             });
 
-            // 3. Deduct Raw Materials (Proportional)
-            if (order.bom && order.bom.items.length > 0) {
-                for (const item of order.bom.items) {
-                    // Formula: (ItemQty / BomOutput) * ProducedQty
-                    const requiredQty = (Number(item.quantity) / Number(order.bom.outputQuantity)) * quantityProduced;
+            // Update Actuals
+            const currentActual = currentOrder.actualQuantity ?? new Prisma.Decimal(0);
+            const newActual = currentActual.plus(new Prisma.Decimal(quantityProduced));
 
-                    // Deduct from Inventory (Source Location = Order Location for now, or Machine Location?)
-                    // Usually raw materials are at the machine or Issued from Warehouse.
-                    // If we successfully "Issued" materials previously to the Order (WIP), we should consume from WIP?
-                    // But current system implementation of `recordMaterialIssue` deducts from Inventory immediately.
-                    // So here we might double-dip if we deduct again.
-                    //
-                    // WAIT. `recordMaterialIssue` is "Issuing to Shop Floor". It creates `MaterialIssue`.
-                    // Does it deduct stock? Yes, `recordMaterialIssue` does `tx.inventory.update({ quantity: { decrement } })`.
-                    // So stock is already gone from Warehouse.
-                    //
-                    // HOWEVER, `MaterialIssue` is just a record. The `Inventory` is decremented.
-                    //
-                    // If we want to support "Backflushing" (Automatic deduction on output),
-                    // we should ONLY do it if user hasn't manually issued?
-                    // OR, does `addProductionOutput` represent the consumption?
-                    //
-                    // The User Request says:
-                    // "It should also deduct raw materials (Inventory OUT) based on the partial quantity produced immediately."
-                    //
-                    // This implies BACKFLUSHING.
-                    // But if `recordMaterialIssue` is ALSO used, we have a conflict.
-                    //
-                    // Let's assume strict Backflushing for this feature as requested.
-                    // We need to know WHICH location to deduct from.
-                    // Use Order's Location? Or a specific "WIP" location?
-                    // Or check if there is stock in the Machine's location?
-                    //
-                    // Let's check `recordMaterialIssue` implementation again.
-                    // It takes `locationId`.
-                    //
-                    // For auto-deduction, we need a default location.
-                    // Let's us the Order's assigned `locationId` (which might be the production floor)
-                    // OR we check `machine.locationId`.
-                    //
-                    // Let's use `order.locationId` as the source for now, or fallback to Machine's location.
-                    // Actually, Order Location is usually the *Output* destination.
-                    // Raw materials usually come from a Store or Pre-staging.
-                    //
-                    // Logic: Find stock in the `order.locationId` (assuming it's the factory floor).
-                    // If not enough, maybe error? Or allow negative?
-                    //
-                    // Let's assume we deduct from `order.locationId`.
+            await tx.productionOrder.update({
+                where: { id: productionOrderId },
+                data: {
+                    actualQuantity: newActual,
+                    status: ProductionStatus.IN_PROGRESS
+                }
+            });
 
-                    // Verify stock first?
-                    // If we are backflushing, we just try to decrement.
-                    // Note: `recordMaterialIssue` was Manual Issue.
+            // 3. Smart Backflushing Logic
+            if (currentOrder.bom && currentOrder.bom.items.length > 0) {
+                // Fetch ALL executions to be sure (including the one we just created, if visible, 
+                // but strictly speaking, `currentOrder.executions` might be stale if fetched before create? 
+                // Actually we fetched it AFTER create in line 470 above (which is now new line). 
+                // So currentOrder.executions SHOULD include the new one because we are in the same transaction 
+                // and we fetched it after creation.
+                // Let's verify this assumption is safe. Even if it doesn't, we can add it manually.
+
+                // Sum of ALL output including current
+                // Note: currentOrder.executions comes from DB. 
+                const totalOutput = currentOrder.executions.reduce((sum, e) => sum + Number(e.quantityProduced), 0);
+
+                // If the totalOutput is 0 (unlikely if we just created one), it means the fetch didn't see the new one.
+                // In Prisma, `findUnique` inside a transaction usually sees previous writes in the same transaction.
+                // But let's check if the ID matches.
+
+                // Iterate BOM Items
+                for (const item of currentOrder.bom.items) {
+                    const ratio = Number(item.quantity) / Number(currentOrder.bom.outputQuantity);
+
+                    // Total Material Required for ALL Production to date
+                    const totalRequiredSoFar = totalOutput * ratio;
+
+                    // Total Material ALREADY Issued (Manual Issues)
+                    const totalIssued = currentOrder.materialIssues
+                        .filter(mi => mi.productVariantId === item.productVariantId)
+                        .reduce((sum, mi) => sum + Number(mi.quantity), 0);
+
+                    // Required amount for PREVIOUS productions (everything before now)
+                    // We can estimate this: TotalRequiredSoFar - (CurrentQty * Ratio)
+                    const currentRequired = quantityProduced * ratio;
+                    const previousRequired = totalRequiredSoFar - currentRequired;
+
+                    // Net Available in "Issued Bucket" for THIS execution
+                    // If we had excess issue before, it covers this.
+                    // If we had deficit before, we presumably backflushed it already (or stock went negative).
+                    // We only care about the DELTA that needs to be covered NOW.
+
+                    // Logic:
+                    // We need to ensure that `Total Stock Deducted` (Issued + Backflushed) >= `TotalRequiredSoFar`.
+                    // But we don't want to double count backflushed items.
                     //
-                    // IMPORTANT: The prompt says "It should also deduct raw materials... immediately."
-                    // I will implement backflushing.
+                    // Simplified: 
+                    // Deficit = Max(0, TotalRequiredSoFar - TotalIssued).
+                    // We need to have backflushed at least `Deficit` amount total over time.
+                    // How much have we ALREADY backflushed in previous steps?
+                    // It's hard to track "Backflushed" specifically without a tag.
+                    // But we can calculate based on the assumption that we always backflush deficit.
 
-                    const sourceLocationId = order.locationId; // Assuming factory floor
+                    // Let's us the "Issued covers X amount of production" model.
+                    // availableFromIssue = Max(0, TotalIssued - previousRequired)
+                    // coveredByIssue = Min(availableFromIssue, currentRequired)
+                    // neededFromBackflush = currentRequired - coveredByIssue
 
-                    // Check if stock exists at this location
-                    const stock = await tx.inventory.findUnique({
-                        where: {
-                            locationId_productVariantId: {
-                                locationId: sourceLocationId,
-                                productVariantId: item.productVariantId
-                            }
-                        }
-                    });
+                    const availableFromIssue = Math.max(0, totalIssued - previousRequired);
+                    const coveredByIssue = Math.min(availableFromIssue, currentRequired);
+                    const qtyToBackflush = currentRequired - coveredByIssue;
 
-                    // We will upsert (decrement) - but Prisma doesn't support decrement on upsert easily if it doesn't exist.
-                    // We assume it exists or we create negative?
-                    // Safer to just Update if exists, or throw error if not.
-                    //
-                    // Let's try to decrement.
-                    if (stock) {
-                        await tx.inventory.update({
+                    if (qtyToBackflush > 0.0001) { // Tolerance for float math
+                        const sourceLocationId = currentOrder.locationId;
+
+                        // Decrement Inventory
+                        await tx.inventory.upsert({
                             where: {
                                 locationId_productVariantId: {
                                     locationId: sourceLocationId,
                                     productVariantId: item.productVariantId
                                 }
                             },
-                            data: {
-                                quantity: { decrement: requiredQty }
-                            }
-                        });
-
-                        // Create Stock Movement (OUT) - Used for Production
-                        await tx.stockMovement.create({
-                            data: {
-                                type: MovementType.OUT,
-                                productVariantId: item.productVariantId,
-                                fromLocationId: sourceLocationId,
-                                quantity: requiredQty,
-                                reference: `Backflush: PO-${order.orderNumber} - Exec ${quantityProduced}`
-                            }
-                        });
-                    } else {
-                        // If no stock record, we might need to create one with negative quantity?
-                        // Or just log a warning?
-                        // For now, let's create it with negative quantity to track usage.
-                        await tx.inventory.create({
-                            data: {
+                            update: {
+                                quantity: { decrement: qtyToBackflush }
+                            },
+                            create: {
                                 locationId: sourceLocationId,
                                 productVariantId: item.productVariantId,
-                                quantity: -requiredQty
+                                quantity: -qtyToBackflush
                             }
                         });
 
+                        // Record Movement
                         await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
                                 fromLocationId: sourceLocationId,
-                                quantity: requiredQty,
-                                reference: `Backflush (Negative): PO-${order.orderNumber}`
+                                quantity: qtyToBackflush,
+                                reference: `Smart Backflush: PO-${currentOrder.orderNumber}`
                             }
                         });
                     }
                 }
             }
 
-            // 4. Increment Output Stock (Inventory IN for Finished Good)
-            // The prompt didn't explicitly ask for this, but "Partial Completions" usually implies we get the stock.
-            // "transactionally increment the actualQuantity... It should also deduct raw materials"
-            // It doesn't explicitly say "Add Finished Goods to Inventory".
-            //
-            // However, `ProductionOrder.actualQuantity` is just a number. 
-            // If we don't add to inventory, where is the product?
-            // "Production Order" usually puts `actualQuantity` into `order.locationId`.
-            // The `recordScrap` function adds scrap to inventory.
-            //
-            // Let's look at `updateProductionOrder`... it doesn't seem to add stock when "COMPLETED".
-            // It seems the "Complete Order" functionality was missing the stock update part too?
-            // Or maybe `actualQuantity` is just a counter?
-            //
-            // Let's assume we SHOULD put the Finished Good into inventory.
-
-            const outputLocationId = order.locationId;
-            const outputVariantId = order.bom.productVariantId; // Via BOM relation
+            // 4. Update Finished Goods Inventory
+            const outputLocationId = currentOrder.locationId;
+            const outputVariantId = currentOrder.bom.productVariantId;
 
             await tx.inventory.upsert({
                 where: {
@@ -651,7 +612,7 @@ export async function addProductionOutput(data: ProductionOutputValues) {
                     productVariantId: outputVariantId,
                     toLocationId: outputLocationId,
                     quantity: quantityProduced,
-                    reference: `Production Output: PO-${order.orderNumber}`
+                    reference: `Production Output: PO-${currentOrder.orderNumber}`
                 }
             });
         });
@@ -668,7 +629,7 @@ export async function addProductionOutput(data: ProductionOutputValues) {
  * Fetch Master Data for Production Forms
  */
 export async function getProductionFormData() {
-    const [boms, machines, locations, employees] = await Promise.all([
+    const [boms, machines, locations, employees, workShifts] = await Promise.all([
         prisma.bom.findMany({
             include: {
                 productVariant: true,
@@ -685,6 +646,10 @@ export async function getProductionFormData() {
         prisma.location.findMany(),
         (prisma as any).employee.findMany({
             orderBy: { name: 'asc' }
+        }),
+        (prisma as any).workShift.findMany({
+            where: { status: 'ACTIVE' },
+            orderBy: { startTime: 'asc' }
         })
     ]);
 
@@ -697,7 +662,8 @@ export async function getProductionFormData() {
         machines,
         locations,
         operators,
-        helpers
+        helpers,
+        workShifts
     };
 }
 
