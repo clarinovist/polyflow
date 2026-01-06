@@ -15,6 +15,11 @@
     ```bash
     openssl rand -base64 32
     ```
+    **Critical**: Set `AUTH_URL` to your canonical public domain (especially for VPS):
+    ```bash
+    AUTH_URL=https://your-domain.com # e.g. https://erp.nugrohopramono.my.id
+    ```
+    
     Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, ensure it points to the internal port 5434:
     `DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow`
 
