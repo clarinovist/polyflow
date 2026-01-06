@@ -145,9 +145,24 @@ export const qualityInspectionSchema = z.object({
     notes: z.string().optional(),
 });
 
+export const batchMaterialIssueSchema = z.object({
+    productionOrderId: z.string().min(1, "Production Order ID is required"),
+    locationId: z.string().min(1, "Source location is required"),
+    items: z.array(z.object({
+        productVariantId: z.string().min(1, "Material variant is required"),
+        quantity: z.coerce.number().positive("Quantity must be positive"),
+    })).min(0, "Items can be empty if only updating plan"),
+    removedPlannedMaterialIds: z.array(z.string()).optional(),
+    addedPlannedMaterials: z.array(z.object({
+        productVariantId: z.string(),
+        quantity: z.coerce.number().nonnegative()
+    })).optional(),
+});
+
 export type CreateProductionOrderValues = z.infer<typeof createProductionOrderSchema>;
 export type UpdateProductionOrderValues = z.infer<typeof updateProductionOrderSchema>;
 export type MaterialIssueValues = z.infer<typeof materialIssueSchema>;
+export type BatchMaterialIssueValues = z.infer<typeof batchMaterialIssueSchema>;
 export type ScrapRecordValues = z.infer<typeof scrapRecordSchema>;
 export type QualityInspectionValues = z.infer<typeof qualityInspectionSchema>;
 

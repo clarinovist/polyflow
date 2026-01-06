@@ -1,48 +1,44 @@
 'use client';
 
 import {
-    ProductionOrder, Bom, Machine, Location, User, MaterialIssue, ScrapRecord, QualityInspection,
-    ProductionStatus,
-    ProductVariant,
-    Employee,
-    WorkShift,
-    ProductionExecution
+    Machine, Location, ProductVariant, Employee, WorkShift
 } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { updateProductionOrder, recordMaterialIssue, recordScrap, recordQualityInspection, addProductionOutput } from '@/actions/production';
+import { updateProductionOrder, deleteProductionOrder } from '@/actions/production';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
-    Play, CheckCircle, Package, AlertTriangle, FileText,
-    Settings, Users, ClipboardCheck, ArrowRight, XCircle, ArrowLeft, Plus, History, Trash2
+    Play, CheckCircle, Package, History, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Progress } from '@/components/ui/progress';
-import { Checkbox } from '@/components/ui/checkbox';
 
 import { ShiftManager } from '@/components/production/ShiftManager';
 
-// Extended Types to match Server Action Return
-type ExtendedProductionOrder = ProductionOrder & {
-    bom: Bom & { productVariant: ProductVariant & { product: any }, items: any[] };
-    machine: Machine | null;
-    location: Location;
-    shifts: (any)[];
-    materialIssues: (MaterialIssue & { productVariant: ProductVariant, createdBy: User | null })[];
-    scrapRecords: (ScrapRecord & { productVariant: ProductVariant, createdBy: User | null })[];
-    inspections: (QualityInspection & { inspector: User | null })[];
-    executions: (ProductionExecution & { operator: Employee | null, shift: WorkShift | null })[];
-}
+// Imported Components
+import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+import { OrderWorkflowStepper } from '@/components/production/order-detail/OrderWorkflowStepper';
+import { AddOutputDialog } from '@/components/production/order-detail/AddOutputDialog';
+import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
+import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIssueButton';
+import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
+import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
 
 interface PageProps {
     order: any; // Type assertion needed due to serialization
@@ -51,17 +47,45 @@ interface PageProps {
         operators: Employee[];
         helpers: Employee[];
         workShifts: WorkShift[];
+        machines: Machine[];
+        rawMaterials: ProductVariant[];
     }
 }
 
 
 export function ProductionOrderDetail({ order: initialOrder, formData }: PageProps) {
     const order = initialOrder as ExtendedProductionOrder;
-    const [activeTab, setActiveTab] = useState("overview");
+
+    // Smart Default Tab Logic
+    const getDefaultTab = (status: string) => {
+        switch (status) {
+            case 'RELEASED': return 'materials';
+            case 'IN_PROGRESS': return 'operations';
+            default: return 'overview';
+        }
+    };
+
+    const [activeTab, setActiveTab] = useState(getDefaultTab(order.status));
+    const router = useRouter();
 
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / plannedQty) * 100, 100);
+
+    const handleDelete = async () => {
+        toast.promise(deleteProductionOrder(order.id), {
+            loading: 'Deleting order...',
+            success: (result) => {
+                if (result.success) {
+                    router.push('/dashboard/production/orders');
+                    return 'Order deleted successfully';
+                } else {
+                    throw new Error(result.error);
+                }
+            },
+            error: (err) => `Failed to delete: ${err.message}`
+        });
+    };
 
     // Helper to determine badge color
     const getStatusColor = (status: string) => {
@@ -89,9 +113,30 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                 </div>
                 <div className="flex items-center gap-2">
                     {order.status === 'DRAFT' && (
-                        <Button onClick={() => updateProductionOrder({ id: order.id, status: 'RELEASED' })}>
-                            Release Order
-                        </Button>
+                        <>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon" title="Delete Order">
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the draft production order and its material requirements.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                            <Button onClick={() => updateProductionOrder({ id: order.id, status: 'RELEASED' })}>
+                                Release Order
+                            </Button>
+                        </>
                     )}
                     {order.status === 'RELEASED' && (
                         <Button onClick={() => updateProductionOrder({ id: order.id, status: 'IN_PROGRESS' })}>
@@ -115,13 +160,32 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
             </div>
 
 
+
+            <OrderWorkflowStepper status={order.status} />
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="shifts">Shifts</TabsTrigger>
-                    <TabsTrigger value="materials">Materials</TabsTrigger>
-                    <TabsTrigger value="operations">Operations</TabsTrigger>
-                    <TabsTrigger value="qc">QC</TabsTrigger>
+
+                    <TabsTrigger value="shifts" className="relative">
+                        Shifts
+                        {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+                    </TabsTrigger>
+
+                    <TabsTrigger value="materials" className="relative">
+                        Materials
+                        {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+                    </TabsTrigger>
+
+                    <TabsTrigger value="operations" className="relative">
+                        Operations
+                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
+                    </TabsTrigger>
+
+                    <TabsTrigger value="qc" className="relative">
+                        QC
+                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-6 mt-6">
@@ -225,6 +289,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                         helpers={formData.helpers}
                         readOnly={order.status === 'COMPLETED' || order.status === 'CANCELLED'}
                         workShifts={formData.workShifts}
+                        machines={formData.machines}
                     />
                 </TabsContent>
 
@@ -232,9 +297,13 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
 
                 <TabsContent value="materials" className="space-y-6 mt-6">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Material Usage</h3>
-                        {order.status === 'IN_PROGRESS' && (
-                            <IssueMaterialDialog order={order} locations={formData.locations} />
+                        <h3 className="text-lg font-semibold">Material Requirements</h3>
+                        {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
+                            <BatchIssueMaterialDialog
+                                order={order}
+                                locations={formData.locations}
+                                rawMaterials={formData.rawMaterials || []}
+                            />
                         )}
                     </div>
 
@@ -244,52 +313,104 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                 <thead className="bg-slate-50 text-slate-500">
                                     <tr>
                                         <th className="p-3">Material</th>
-                                        <th className="p-3">Required (Plan)</th>
-                                        <th className="p-3">Actually Issued</th>
+                                        <th className="p-3 text-right">Plan</th>
+                                        <th className="p-3 text-right">Actually Issued</th>
+                                        <th className="p-3 text-right">Remaining</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {order.bom.items.map((item: any) => {
-                                        // Calculate total issued for this variant
-                                        const issued = order.materialIssues
+                                    {(order.plannedMaterials || []).map((item: any) => {
+                                        const issued = (order.materialIssues || [])
                                             .filter((mi: any) => mi.productVariantId === item.productVariantId)
                                             .reduce((sum: number, mi: any) => sum + Number(mi.quantity), 0);
 
-                                        // Also consider BACKFLUSHED quantities if we want to show strict Real-time consumption
-                                        // But our schema separates MaterialIssue (manual) from ProductionExecution (backflush inference).
-                                        // Ideally we should query Inventory Transactions to know true consumption.
-                                        // For now, let's keep showing "Issued" as Manual Issues, 
-                                        // OR we could add a note.
-
-                                        const required = (Number(item.quantity) / Number(order.bom.outputQuantity)) * Number(order.plannedQuantity);
+                                        const required = Number(item.quantity);
+                                        const remaining = Math.max(0, required - issued);
 
                                         return (
-                                            <tr key={item.id}>
-                                                <td className="p-3 font-medium">{item.productVariant.name}</td>
-                                                <td className="p-3">{required.toFixed(2)} {item.productVariant.primaryUnit}</td>
+                                            <tr key={item.id} className="hover:bg-slate-50/50">
                                                 <td className="p-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-slate-900">{item.productVariant.name}</span>
+                                                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Planned</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-right font-medium text-slate-700">{required.toFixed(2)} {item.productVariant.primaryUnit}</td>
+                                                <td className="p-3 text-right">
                                                     <span className={cn(
-                                                        issued < required ? "text-amber-600" : "text-emerald-600",
-                                                        "font-medium"
+                                                        issued < required - 0.01 ? "text-amber-600" : "text-emerald-600",
+                                                        "font-semibold"
                                                     )}>
                                                         {issued.toFixed(2)}
                                                     </span>
                                                 </td>
+                                                <td className="p-3 text-right">
+                                                    {remaining > 0.01 ? (
+                                                        <span className="text-slate-500 font-medium">{remaining.toFixed(2)} {item.productVariant.primaryUnit}</span>
+                                                    ) : (
+                                                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                            ✓ Complete
+                                                        </Badge>
+                                                    )}
+                                                </td>
                                             </tr>
                                         );
                                     })}
+
+                                    {/* Handle Substitute Materials */}
+                                    {(order.materialIssues || [])
+                                        .filter((mi: any) => !(order.plannedMaterials || []).some((pm: any) => pm.productVariantId === mi.productVariantId))
+                                        .reduce((acc: any[], mi: any) => {
+                                            const existing = acc.find(a => a.productVariantId === mi.productVariantId);
+                                            if (existing) {
+                                                existing.quantity += Number(mi.quantity);
+                                            } else {
+                                                acc.push({ ...mi, quantity: Number(mi.quantity) });
+                                            }
+                                            return acc;
+                                        }, [])
+                                        .map((sub: any) => (
+                                            <tr key={sub.productVariantId} className="bg-amber-50/20 hover:bg-amber-100/30">
+                                                <td className="p-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-slate-900">{sub.productVariant.name}</span>
+                                                        <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Unplanned Issue</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-right text-slate-400">-</td>
+                                                <td className="p-3 text-right font-semibold text-amber-600">
+                                                    {Number(sub.quantity).toFixed(2)} {sub.productVariant.primaryUnit}
+                                                </td>
+                                                <td className="p-3 text-right text-slate-400">-</td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                             </table>
                         </CardContent>
                     </Card>
+
                     <div className="mt-6">
                         <h3 className="text-lg font-semibold mb-3">Issue History</h3>
-                        {order.materialIssues.length === 0 ? <p className="text-slate-500">No materials issued yet.</p> : (
-                            <div className="space-y-2">
+                        {order.materialIssues.length === 0 ? (
+                            <p className="text-slate-500 italic">No materials issued yet.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {order.materialIssues.map((issue: any) => (
-                                    <div key={issue.id} className="flex justify-between p-3 bg-slate-50 rounded border">
-                                        <span>{issue.productVariant.name}</span>
-                                        <span className="font-mono">{Number(issue.quantity)} {issue.productVariant.primaryUnit}</span>
+                                    <div key={issue.id} className="flex justify-between items-center p-3 bg-white rounded-lg border shadow-sm hover:border-slate-300 transition-colors">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-slate-900">{issue.productVariant.name}</span>
+                                            <span className="text-[11px] text-slate-400">
+                                                {format(new Date(issue.issuedAt), 'PP p')}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono bg-slate-100 px-2 py-1 rounded text-xs font-semibold">
+                                                {Number(issue.quantity)} {issue.productVariant.primaryUnit}
+                                            </span>
+                                            {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
+                                                <DeleteIssueButton issueId={issue.id} orderId={order.id} />
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -358,7 +479,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     </div>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     );
 }
 
@@ -388,468 +509,3 @@ function StatusBadge({ status, size }: { status: string, size?: 'default' | 'lg'
     );
 }
 
-// --- Dialogs ---
-
-function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, formData: PageProps['formData'] }) {
-    const [open, setOpen] = useState(false);
-    const [rolls, setRolls] = useState<number[]>([]);
-    const [currentRollWeight, setCurrentRollWeight] = useState("");
-
-    // New Scrap Inputs
-    const [scrapProngkol, setScrapProngkol] = useState("");
-    const [scrapDaun, setScrapDaun] = useState("");
-
-    const [notes, setNotes] = useState("");
-    const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
-
-    // Auto-detect Shift
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeVal = currentHour * 60 + currentMinute;
-
-    const matchedShift = formData.workShifts.find(shift => {
-        const [startH, startM] = shift.startTime.split(':').map(Number);
-        const [endH, endM] = shift.endTime.split(':').map(Number);
-        const startVal = startH * 60 + startM;
-        const endVal = endH * 60 + endM;
-
-        if (startVal <= endVal) {
-            return currentTimeVal >= startVal && currentTimeVal <= endVal;
-        } else {
-            return currentTimeVal >= startVal || currentTimeVal <= endVal;
-        }
-    });
-
-    const activeProductionShift = matchedShift
-        ? order.shifts?.find((ps: any) => ps.shiftName === matchedShift.name)
-        : null;
-
-    const defaultShift = matchedShift?.id || formData.workShifts[0]?.id;
-    const defaultOperator = activeProductionShift?.operatorId || formData.operators[0]?.id;
-
-    // Helper handling
-    const toggleHelper = (helperId: string) => {
-        if (selectedHelpers.includes(helperId)) {
-            setSelectedHelpers(selectedHelpers.filter(id => id !== helperId));
-        } else {
-            setSelectedHelpers([...selectedHelpers, helperId]);
-        }
-    };
-
-    const handleAddRoll = () => {
-        const weight = parseFloat(currentRollWeight);
-        if (!isNaN(weight) && weight > 0) {
-            setRolls([...rolls, weight]);
-            setCurrentRollWeight("");
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAddRoll();
-        }
-    };
-
-    const removeRoll = (index: number) => {
-        setRolls(rolls.filter((_, i) => i !== index));
-    };
-
-    const totalGoodQty = rolls.reduce((sum, w) => sum + w, 0);
-
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-
-        let finalNotes = notes || "";
-
-        // Append Helpers
-        if (selectedHelpers.length > 0) {
-            const helperNames = formData.helpers
-                .filter(h => selectedHelpers.includes(h.id))
-                .map(h => h.name)
-                .join(", ");
-            finalNotes += `\nHelpers: ${helperNames}`;
-        }
-
-        // Append Rolls
-        if (rolls.length > 0) {
-            finalNotes += `\n[Auto-Generated] Individual Rolls: ${rolls.join(', ')}`;
-        }
-
-        const nowIso = new Date().toISOString();
-
-        const data = {
-            productionOrderId: order.id,
-            machineId: order.machineId || undefined,
-            operatorId: fd.get('operatorId') as string,
-            shiftId: fd.get('shiftId') as string,
-            quantityProduced: totalGoodQty,
-            scrapProngkolQty: Number(scrapProngkol || 0),
-            scrapDaunQty: Number(scrapDaun || 0),
-            scrapQuantity: 0, // Legacy/Required by type
-            startTime: new Date(nowIso), // Always NOW
-            endTime: new Date(nowIso),   // Always NOW
-            notes: finalNotes
-        };
-
-        const result = await addProductionOutput(data);
-        if (result.success) {
-            toast.success("Production output recorded");
-            setOpen(false);
-            setRolls([]);
-            setScrapProngkol("");
-            setScrapDaun("");
-            setNotes("");
-            setCurrentRollWeight("");
-            setSelectedHelpers([]);
-        } else {
-            toast.error(result.error);
-        }
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <Plus className="w-4 h-4 mr-2" /> Add Output
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[900px]">
-                <DialogHeader><DialogTitle>Record Production Output</DialogTitle></DialogHeader>
-                <form onSubmit={onSubmit}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* LEFT COLUMN: Context & Resources */}
-                        <div className="space-y-6">
-                            <div className="p-4 bg-slate-50 rounded-lg border space-y-4">
-                                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-                                    <Users className="w-4 h-4" /> Context & Team
-                                </h3>
-
-                                <div className="space-y-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-slate-500">Recorded At</Label>
-                                        <div className="text-sm font-medium">
-                                            {format(new Date(), 'PP p')}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <Label className="text-xs">Shift</Label>
-                                        <Select name="shiftId" defaultValue={defaultShift} required>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {formData.workShifts.map(s => (
-                                                    <SelectItem key={s.id} value={s.id}>
-                                                        {s.name} <span className="text-slate-400 text-xs ml-2">({s.startTime} - {s.endTime})</span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {matchedShift && (
-                                            <p className="text-xs text-emerald-600">
-                                                Active: {matchedShift.name} ({matchedShift.startTime} - {matchedShift.endTime})
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <Label className="text-xs">Lead Operator</Label>
-                                        <Select name="operatorId" defaultValue={defaultOperator} required>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {formData.operators.map(op => <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium">Active Helpers</Label>
-                                <div className="border rounded-md p-3 h-[200px] overflow-y-auto space-y-2 bg-slate-50/50">
-                                    {formData.helpers.map(helper => (
-                                        <div key={helper.id} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`helper-${helper.id}`}
-                                                checked={selectedHelpers.includes(helper.id)}
-                                                onCheckedChange={() => toggleHelper(helper.id)}
-                                            />
-                                            <label
-                                                htmlFor={`helper-${helper.id}`}
-                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                            >
-                                                {helper.name}
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* RIGHT COLUMN: Production Data */}
-                        <div className="space-y-6">
-                            {/* Good Goods (Rolls) */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between border-b pb-2">
-                                    <h3 className="font-semibold text-emerald-700 flex items-center gap-2">
-                                        <Package className="w-4 h-4" /> Good Output
-                                    </h3>
-                                    <div className="text-right">
-                                        <span className="text-xs text-slate-500 block">Total Good</span>
-                                        <span className="text-xl font-bold text-emerald-600">{totalGoodQty.toFixed(2)} <span className="text-sm font-normal text-slate-400">kg</span></span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Enter Roll Weight (kg)..."
-                                        type="number"
-                                        step="0.01"
-                                        className="flex-1"
-                                        value={currentRollWeight}
-                                        onChange={(e) => setCurrentRollWeight(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                    />
-                                    <Button type="button" onClick={handleAddRoll} disabled={!currentRollWeight}>Add</Button>
-                                </div>
-
-                                <div className="h-[140px] overflow-y-auto border rounded-md bg-slate-50 p-2 space-y-1">
-                                    {rolls.length === 0 && (
-                                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
-                                            <Package className="w-8 h-8 opacity-20 mb-2" />
-                                            <span>No rolls added yet</span>
-                                        </div>
-                                    )}
-                                    {rolls.map((weight, idx) => (
-                                        <div key={idx} className="flex items-center justify-between bg-white p-2 border rounded shadow-sm text-sm">
-                                            <span className="font-medium">Roll {idx + 1}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-mono">{weight} kg</span>
-                                                <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-red-400 hover:text-red-600" onClick={() => removeRoll(idx)}>
-                                                    <Trash2 className="w-3 h-3" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Scrap / Waste */}
-                            <div className="space-y-4 border-t pt-4">
-                                <h3 className="font-semibold text-red-700 flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4" /> Production Waste / Scrap
-                                </h3>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-slate-500">Affal Prongkol (Lumps)</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                type="number" step="0.01"
-                                                placeholder="0.00"
-                                                className="text-right"
-                                                value={scrapProngkol}
-                                                onChange={(e) => setScrapProngkol(e.target.value)}
-                                            />
-                                            <span className="text-sm text-slate-500">kg</span>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-slate-500">Affal Daun (Trim)</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                type="number" step="0.01"
-                                                placeholder="0.00"
-                                                className="text-right"
-                                                value={scrapDaun}
-                                                onChange={(e) => setScrapDaun(e.target.value)}
-                                            />
-                                            <span className="text-sm text-slate-500">kg</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 border-t pt-4">
-                                <Label>Notes / Comments</Label>
-                                <Textarea
-                                    className="h-[80px]"
-                                    placeholder="Optional notes..."
-                                    name="notes"
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter className="mt-6">
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={rolls.length === 0 && !scrapProngkol && !scrapDaun}>Save Record</Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function IssueMaterialDialog({ order, locations }: { order: ExtendedProductionOrder, locations: Location[] }) {
-    const defaultLocation = order.machine?.locationId || locations[0]?.id;
-    // For simplicity, issue standard raw materials from BOM.
-    // In real app, might want to lookup specific stock available.
-
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            productionOrderId: order.id,
-            productVariantId: formData.get('productVariantId') as string,
-            locationId: formData.get('locationId') as string,
-            quantity: Number(formData.get('quantity'))
-        };
-        await recordMaterialIssue(data);
-    }
-
-    return (
-        <Dialog>
-            <DialogTrigger asChild><Button variant="outline" size="sm">Issue Material</Button></DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Issue Material</DialogTitle></DialogHeader>
-                <form onSubmit={onSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Material</Label>
-                        <Select name="productVariantId" required>
-                            <SelectTrigger><SelectValue placeholder="Select Material" /></SelectTrigger>
-                            <SelectContent>
-                                {order.bom.items.map((item: any) => (
-                                    <SelectItem key={item.id} value={item.productVariantId}>
-                                        {item.productVariant.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Source Location</Label>
-                        <Select name="locationId" defaultValue={defaultLocation} required>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Quantity</Label>
-                        <Input type="number" step="0.01" name="quantity" required />
-                    </div>
-                    <Button type="submit" className="w-full">Confirm Issue</Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function RecordScrapDialog({ order, locations }: { order: ExtendedProductionOrder, locations: Location[] }) {
-    // Usually scrap is the output product variant marked as scrap? or just loss? 
-    // Plan: we need a list of scrap items. For now, let's allow selecting any item or just the output item (as waste).
-    // Actually, usually you produce SCRAP item.
-    // Let's assume user picks from BOM items (waste of input) or Output (bad goods).
-
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            productionOrderId: order.id,
-            productVariantId: formData.get('productVariantId') as string,
-            locationId: formData.get('locationId') as string,
-            quantity: Number(formData.get('quantity')),
-            reason: formData.get('reason') as string
-        };
-        await recordScrap(data);
-    }
-
-    return (
-        <Dialog>
-            <DialogTrigger asChild><Button variant="destructive" size="sm">Record Scrap</Button></DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Record Scrap/Waste</DialogTitle></DialogHeader>
-                <form onSubmit={onSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Item Scrapped</Label>
-                        <Select name="productVariantId" required>
-                            <SelectTrigger><SelectValue placeholder="Select Item" /></SelectTrigger>
-                            <SelectContent>
-                                {/* Output Item as Bad Goods */}
-                                <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
-                                {/* Input Items as Waste */}
-                                {order.bom.items.map((item: any) => (
-                                    <SelectItem key={item.id} value={item.productVariantId}>[Input] {item.productVariant.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Location (Scrap Bin)</Label>
-                        <Select name="locationId" required>
-                            <SelectTrigger><SelectValue placeholder="Select Location" /></SelectTrigger>
-                            <SelectContent>
-                                {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Quantity</Label>
-                        <Input type="number" step="0.01" name="quantity" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Reason</Label>
-                        <Input name="reason" placeholder="e.g. Machine setup, Contamination" />
-                    </div>
-                    <Button type="submit" variant="destructive" className="w-full">Record Scrap</Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function RecordQCDialog({ order }: { order: ExtendedProductionOrder }) {
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const data = {
-            productionOrderId: order.id,
-            result: formData.get('result') as any,
-            notes: formData.get('notes') as string
-        };
-        await recordQualityInspection(data);
-    }
-
-    return (
-        <Dialog>
-            <DialogTrigger asChild><Button size="sm">Add Inspection</Button></DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Quality Inspection</DialogTitle></DialogHeader>
-                <form onSubmit={onSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Result</Label>
-                        <Select name="result" required>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="PASS">PASS</SelectItem>
-                                <SelectItem value="FAIL">FAIL</SelectItem>
-                                <SelectItem value="QUARANTINE">QUARANTINE</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Notes</Label>
-                        <Textarea name="notes" placeholder="Inspection comments..." />
-                    </div>
-                    <Button type="submit" className="w-full">Save Result</Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}

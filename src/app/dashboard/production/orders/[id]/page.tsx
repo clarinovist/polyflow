@@ -23,7 +23,7 @@ export default async function ProductionDetailPage(props: PageProps) {
         notFound();
     }
 
-    const { locations, operators, helpers } = await getProductionFormData();
+    const { locations, operators, helpers, machines, rawMaterials } = await getProductionFormData();
     const workShiftsResult = await getWorkShifts();
     const workShifts = workShiftsResult.success && workShiftsResult.data ? workShiftsResult.data : [];
 
@@ -43,7 +43,9 @@ export default async function ProductionDetailPage(props: PageProps) {
                     locations,
                     operators,
                     helpers,
-                    workShifts
+                    machines,
+                    workShifts,
+                    rawMaterials: serializeData(rawMaterials)
                 }}
             />
         </div>

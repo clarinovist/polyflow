@@ -43,6 +43,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing'>('mixing');
     const [selectedProductVariantId, setSelectedProductVariantId] = useState<string>('');
     const [isCalculating, setIsCalculating] = useState(false);
     const [hasStockIssues, setHasStockIssues] = useState(false);
@@ -63,8 +64,17 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                 });
             }
         });
-        return Array.from(products.values());
-    }, [boms]);
+
+        const allProducts = Array.from(products.values());
+
+        // Filter based on Process Type
+        return allProducts.filter(p => {
+            if (processType === 'mixing') return p.productType === 'INTERMEDIATE';
+            if (processType === 'extrusion') return p.productType === 'FINISHED_GOOD';
+            if (processType === 'packing') return p.productType === 'FINISHED_GOOD';
+            return true;
+        });
+    }, [boms, processType]);
 
     // Filter BOMs based on selected product
     const availableBoms = useMemo(() => {
@@ -78,6 +88,8 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
             plannedQuantity: 0,
             plannedStartDate: new Date(),
             items: [],
+            locationId: '',
+            bomId: '',
         },
     });
 
@@ -90,6 +102,20 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     // Flexible BOM Logic
     const watchBomId = form.watch('bomId');
     const watchPlannedQty = form.watch('plannedQuantity');
+
+    const [planningMode, setPlanningMode] = useState<'weight' | 'batch'>('weight');
+    const [batchCount, setBatchCount] = useState<number>(1);
+
+    // Update Planned Qty when Batch Count or BOM changes in Batch Mode
+    useEffect(() => {
+        if (planningMode === 'batch' && watchBomId) {
+            const bom = boms.find(b => b.id === watchBomId);
+            if (bom) {
+                const totalQty = Number(bom.outputQuantity) * batchCount;
+                form.setValue('plannedQuantity', totalQty);
+            }
+        }
+    }, [planningMode, batchCount, watchBomId, boms, form]);
 
     // Automated Source Location Selection
     const [sourceLocationId, setSourceLocationId] = useState<string>('');
@@ -184,35 +210,25 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
 
     // Smart Location Logic
     useEffect(() => {
-        if (!selectedProductVariantId) return;
-
-        const product = availableProducts.find(p => p.id === selectedProductVariantId);
-        if (!product) return;
-
         const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
         const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
         const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
 
-        // Logic:
-        // 1. If Intermediate (Mixing) -> Output: Mixing Warehouse, Source: RM Warehouse
-        // 2. If Finished Good -> Output: FG Warehouse, Source: Mixing Warehouse
-
-        const isMixing =
-            product.productType === 'INTERMEDIATE' ||
-            product.name.toLowerCase().includes('mixed') ||
-            product.name.toLowerCase().includes('adonan');
-
-        const isFinishing = product.productType === 'FINISHED_GOOD';
-
-        if (isMixing) {
+        if (processType === 'mixing') {
+            // Source: RM, Output: Mixing
             if (mixingLoc) form.setValue('locationId', mixingLoc.id);
             if (rmLoc) setSourceLocationId(rmLoc.id);
-        } else if (isFinishing) {
+        } else if (processType === 'extrusion') {
+            // Source: Mixing, Output: FG
             if (fgLoc) form.setValue('locationId', fgLoc.id);
             if (mixingLoc) setSourceLocationId(mixingLoc.id);
+        } else if (processType === 'packing') {
+            // Source: FG, Output: FG (Packing usually takes from FG bulk or WIP and puts back to FG)
+            if (fgLoc) form.setValue('locationId', fgLoc.id);
+            if (fgLoc) setSourceLocationId(fgLoc.id);
         }
 
-    }, [selectedProductVariantId, availableProducts, locations, form]);
+    }, [processType, locations, form]);
 
     const selectedBom = boms.find(b => b.id === watchBomId);
     const selectedProduct = availableProducts.find(p => p.id === selectedProductVariantId);
@@ -224,18 +240,40 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
         }
 
         setIsSubmitting(true);
+        try {
+            // Generate Smart Order Number: PO-YYMMDD-TYPE(2Digits)
+            // Example: PO-260106-MIX01
+            const dateStr = format(new Date(), 'yyMMdd');
+            const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : 'PCK';
 
-        const result = await createProductionOrder(data);
-        setIsSubmitting(false);
+            // Random number between 1 and 99, padded to 2 digits
+            const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+            const orderNumber = `PO-${dateStr}-${typeCode}${randomDigits}`;
 
-        if (result.success) {
-            toast.success("Production Order Created", {
-                description: `Order ${result.data?.orderNumber} has been created successfully.`,
+            const response = await createProductionOrder({
+                ...data,
+                orderNumber, // Inject the generated number
+                locationId: data.locationId, // Ensure hidden field value is passed
+                plannedQuantity: planningMode === 'batch' && selectedBom
+                    ? batchCount * Number(selectedBom.outputQuantity)
+                    : data.plannedQuantity
             });
-            router.push('/dashboard/production/orders');
-        } else {
+
+            setIsSubmitting(false);
+
+            if (response.success) {
+                toast.success("Production Order Created", {
+                    description: `Order ${response.data?.orderNumber} has been created successfully.`,
+                });
+                router.push('/dashboard/production/orders');
+            } else {
+                toast.error("Error", {
+                    description: response.error || "Something went wrong",
+                });
+            }
+        } catch (error) {
+            setIsSubmitting(false);
             toast.error("Error", {
-                description: result.error || "Something went wrong",
             });
         }
     }
@@ -255,10 +293,70 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                 <CardTitle>Production Specification</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6">
+
+                                {/* Stage Selection */}
+                                <div className="space-y-3">
+                                    <FormLabel>Production Stage</FormLabel>
+                                    <div className="flex rounded-md shadow-sm">
+                                        <Button
+                                            type="button"
+                                            variant={processType === 'mixing' ? 'default' : 'outline'}
+                                            className="rounded-r-none h-9 flex-1 text-xs"
+                                            onClick={() => {
+                                                setProcessType('mixing');
+                                                setSelectedProductVariantId('');
+                                                form.setValue('items', []);
+                                                form.setValue('bomId', '');
+                                                form.setValue('plannedQuantity', 0);
+                                                setMaterialInfo({});
+                                                setHasStockIssues(false);
+                                            }}
+                                        >
+                                            Mixing
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={processType === 'extrusion' ? 'default' : 'outline'}
+                                            className="rounded-none h-9 flex-1 text-xs border-l-0"
+                                            onClick={() => {
+                                                setProcessType('extrusion');
+                                                setSelectedProductVariantId('');
+                                                form.setValue('items', []);
+                                                form.setValue('bomId', '');
+                                                form.setValue('plannedQuantity', 0);
+                                                setMaterialInfo({});
+                                                setHasStockIssues(false);
+                                            }}
+                                        >
+                                            Extrusion
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={processType === 'packing' ? 'default' : 'outline'}
+                                            className="rounded-l-none h-9 flex-1 text-xs border-l-0"
+                                            onClick={() => {
+                                                setProcessType('packing');
+                                                setSelectedProductVariantId('');
+                                                form.setValue('items', []);
+                                                form.setValue('bomId', '');
+                                                form.setValue('plannedQuantity', 0);
+                                                setMaterialInfo({});
+                                                setHasStockIssues(false);
+                                            }}
+                                        >
+                                            Packing
+                                        </Button>
+                                    </div>
+                                    <FormDescription>
+                                        Select the production process step.
+                                    </FormDescription>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Product */}
                                     <FormItem>
-                                        <FormLabel>Finished Good (Product)</FormLabel>
+                                        <FormLabel>
+                                            {processType === 'mixing' ? 'Output Product (Intermediate)' : 'Output Product (Finished Good)'}
+                                        </FormLabel>
                                         <Select
                                             value={selectedProductVariantId}
                                             onValueChange={setSelectedProductVariantId}
@@ -318,23 +416,84 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Quantity */}
-                                    <FormField
-                                        control={form.control}
-                                        name="plannedQuantity"
-                                        render={({ field }) => (
+                                    {/* Quantity Section */}
+                                    <div className="space-y-3">
+                                        <FormLabel>Planning Method</FormLabel>
+                                        <div className="flex rounded-md shadow-sm">
+                                            <Button
+                                                type="button"
+                                                variant={planningMode === 'weight' ? 'default' : 'outline'}
+                                                className="rounded-r-none h-9 flex-1 text-xs"
+                                                onClick={() => setPlanningMode('weight')}
+                                            >
+                                                By Weight
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={planningMode === 'batch' ? 'default' : 'outline'}
+                                                className="rounded-l-none h-9 flex-1 text-xs"
+                                                onClick={() => setPlanningMode('batch')}
+                                            >
+                                                By Batch
+                                            </Button>
+                                        </div>
+
+                                        {planningMode === 'batch' ? (
                                             <FormItem>
-                                                <FormLabel>Planned Quantity</FormLabel>
+                                                <FormLabel>Number of Batches (Adonan)</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" step="0.01" {...field} />
+                                                    <Input
+                                                        type="number"
+                                                        value={batchCount.toString()}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val === '') {
+                                                                setBatchCount(0); // or handle as needed
+                                                            } else {
+                                                                setBatchCount(Number(val));
+                                                            }
+                                                        }}
+                                                        min={1}
+                                                    />
                                                 </FormControl>
                                                 <FormDescription>
-                                                    Target output in {selectedProduct?.unit || 'Units'}
+                                                    {selectedBom ? `${batchCount} x ${selectedBom.outputQuantity} = ${Number(selectedBom.outputQuantity) * batchCount} ${selectedBom.productVariant.primaryUnit}` : 'Select Recipe first'}
                                                 </FormDescription>
-                                                <FormMessage />
                                             </FormItem>
+                                        ) : (
+                                            <FormField
+                                                control={form.control}
+                                                name="plannedQuantity"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Target Weight</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" step="0.01" {...field} />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            Manual weight entry
+                                                        </FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         )}
-                                    />
+                                    </div>
+
+                                    {/* Hidden Planned Qty Display for Batch Mode to Ensure Form Submission Works */}
+                                    {planningMode === 'batch' && (
+                                        <FormField
+                                            control={form.control}
+                                            name="plannedQuantity"
+                                            render={({ field }) => (
+                                                <FormItem className="hidden">
+                                                    <FormControl>
+                                                        <Input {...field} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
 
                                     {/* Start Date */}
                                     <FormField
@@ -358,44 +517,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                             </CardContent>
                         </Card>
 
-                        {/* Card 2: Logistics & Resources */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Logistics & Resources</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-
-                                    {/* Output Location */}
-                                    <FormField
-                                        control={form.control}
-                                        name="locationId"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Output Location (Finished Good)</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Where to store FG?" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {locations.map((loc) => (
-                                                            <SelectItem key={loc.id} value={loc.id}>
-                                                                {loc.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
-
                         <div className="flex justify-end gap-4">
                             <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
                             <Button type="submit" disabled={isSubmitting || hasStockIssues}>
@@ -403,6 +524,19 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                 Create Order
                             </Button>
                         </div>
+
+                        {/* Hidden Fields for Logic */}
+                        <FormField
+                            control={form.control}
+                            name="locationId"
+                            render={({ field }) => (
+                                <FormItem className="hidden">
+                                    <FormControl>
+                                        <Input {...field} />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
                     </div>
 
 
@@ -429,13 +563,13 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                         </Alert>
                                     )}
 
-                                    <div className="border rounded-md overflow-hidden max-h-[500px] overflow-y-auto">
+                                    <div className="border rounded-md overflow-hidden max-h-[75vh] overflow-y-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead className="h-8 text-xs">Item</TableHead>
-                                                    <TableHead className="h-8 text-xs w-[80px]">Req</TableHead>
-                                                    <TableHead className="h-8 text-xs w-[80px]">Stock</TableHead>
+                                                    <TableHead className="h-8 text-xs w-[80px] text-right">Req</TableHead>
+                                                    <TableHead className="h-8 text-xs w-[80px] text-right">Stock</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -466,18 +600,20 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                                 <div className="font-medium text-xs">{info?.name || 'Unknown'}</div>
                                                                 <div className="text-[10px] text-slate-400">{field.productVariantId.slice(0, 6)}</div>
                                                             </TableCell>
-                                                            <TableCell className="py-2">
+                                                            <TableCell className="py-2 text-right">
                                                                 <div className="flex flex-col items-end gap-1">
-                                                                    <Input
-                                                                        {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
-                                                                        type="number"
-                                                                        step="0.001"
-                                                                        className="h-6 w-16 text-right text-xs px-1"
-                                                                    />
+                                                                    <span className="text-xs font-semibold">
+                                                                        {Number(currentQty).toFixed(2)}
+                                                                    </span>
                                                                     <span className="text-[10px] text-slate-400">{info?.unit}</span>
+                                                                    {/* Hidden Input to maintain form registration */}
+                                                                    <input
+                                                                        type="hidden"
+                                                                        {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
+                                                                    />
                                                                 </div>
                                                             </TableCell>
-                                                            <TableCell className="py-2">
+                                                            <TableCell className="py-2 text-right">
                                                                 <div className="flex flex-col items-end">
                                                                     <span className={`text-xs ${isLowStock ? 'text-red-600 font-bold' : ''}`}>
                                                                         {info?.currentStock ?? 0}

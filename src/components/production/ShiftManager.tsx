@@ -24,7 +24,7 @@ import { Plus, Trash2, Clock, Users } from 'lucide-react';
 import { addProductionShift, deleteProductionShift } from '@/actions/production';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Employee, ProductionShift, WorkShift } from '@prisma/client';
+import { Employee, ProductionShift, WorkShift, Machine } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -36,9 +36,10 @@ interface ShiftManagerProps {
 
     readOnly?: boolean;
     workShifts: WorkShift[];
+    machines: Machine[];
 }
 
-export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, workShifts }: ShiftManagerProps) {
+export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, workShifts, machines }: ShiftManagerProps) {
     const [isAdding, setIsAdding] = useState(false);
 
     async function handleDelete(shiftId: string) {
@@ -61,6 +62,7 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                         operators={operators}
                         helpers={helpers}
                         workShifts={workShifts}
+                        machines={machines}
                         onOpenChange={setIsAdding}
                     />
                 )}
@@ -131,12 +133,14 @@ function AddShiftDialog({
     helpers,
     onOpenChange,
     workShifts,
+    machines
 }: {
     orderId: string;
     operators: Employee[];
     helpers: Employee[];
     onOpenChange: (open: boolean) => void;
     workShifts: WorkShift[];
+    machines: Machine[];
 }) {
     const [open, setOpen] = useState(false);
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
@@ -190,6 +194,7 @@ function AddShiftDialog({
             endTime: endTimeDate,
             operatorId: formData.get('operatorId') as string || undefined,
             helperIds: selectedHelpers.length > 0 ? selectedHelpers : undefined,
+            machineId: formData.get('machineId') as string || undefined,
         };
 
         const result = await addProductionShift(data);
@@ -255,6 +260,23 @@ function AddShiftDialog({
                     <div className="space-y-2">
                         <Label htmlFor="date">Date</Label>
                         <Input id="date" name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="machineId">Assigned Machine</Label>
+                        <Select name="machineId">
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select Machine (Updates Order)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {machines.map((m) => (
+                                    <SelectItem key={m.id} value={m.id}>
+                                        {m.name} ({m.code})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-slate-500">Selecting a machine here will update the active machine for this order.</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

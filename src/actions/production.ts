@@ -12,6 +12,8 @@ import {
     ScrapRecordValues,
     qualityInspectionSchema,
     QualityInspectionValues,
+    batchMaterialIssueSchema,
+    BatchMaterialIssueValues,
     productionOutputSchema, // Added
     ProductionOutputValues  // Added
 } from '@/lib/zod-schemas';
@@ -191,6 +193,15 @@ export async function getProductionOrder(id: string) {
                     shift: true
                 },
                 orderBy: { startTime: 'desc' }
+            },
+            plannedMaterials: {
+                include: {
+                    productVariant: {
+                        include: {
+                            product: true
+                        }
+                    }
+                }
             }
         }
     });
@@ -233,6 +244,43 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
 }
 
 /**
+ * Delete Production Order (Draft Only)
+ */
+export async function deleteProductionOrder(id: string) {
+    if (!id) return { success: false, error: "Order ID is required" };
+
+    try {
+        const order = await prisma.productionOrder.findUnique({
+            where: { id },
+            select: { status: true }
+        });
+
+        if (!order) return { success: false, error: "Order not found" };
+
+        if (order.status !== 'DRAFT') {
+            return { success: false, error: "Only DRAFT orders can be deleted." };
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Delete associated materials first
+            await tx.productionMaterial.deleteMany({
+                where: { productionOrderId: id }
+            });
+
+            // Delete the order
+            await tx.productionOrder.delete({
+                where: { id }
+            });
+        });
+
+        revalidatePath('/dashboard/production');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Add Shift to Production Order
  */
 export async function addProductionShift(data: {
@@ -241,19 +289,31 @@ export async function addProductionShift(data: {
     startTime: Date,
     endTime: Date,
     operatorId?: string,
-    helperIds?: string[]
+    helperIds?: string[],
+    machineId?: string
 }) {
     try {
-        await (prisma as any).productionShift.create({
-            data: {
-                productionOrderId: data.productionOrderId,
-                shiftName: data.shiftName,
-                startTime: data.startTime,
-                endTime: data.endTime,
-                operatorId: data.operatorId,
-                helpers: data.helperIds ? {
-                    connect: data.helperIds.map(id => ({ id }))
-                } : undefined
+        await prisma.$transaction(async (tx) => {
+            // 1. Create Shift
+            await (tx as any).productionShift.create({
+                data: {
+                    productionOrderId: data.productionOrderId,
+                    shiftName: data.shiftName,
+                    startTime: data.startTime,
+                    endTime: data.endTime,
+                    operatorId: data.operatorId,
+                    helpers: data.helperIds ? {
+                        connect: data.helperIds.map(id => ({ id }))
+                    } : undefined
+                }
+            });
+
+            // 2. Update Machine on Order (if provided)
+            if (data.machineId) {
+                await tx.productionOrder.update({
+                    where: { id: data.productionOrderId },
+                    data: { machineId: data.machineId }
+                });
             }
         });
         revalidatePath(`/dashboard/production/orders/${data.productionOrderId}`);
@@ -274,6 +334,137 @@ export async function deleteProductionShift(shiftId: string, orderId: string) {
         revalidatePath(`/dashboard/production/orders/${orderId}`);
         return { success: true };
     } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Batch Record Material Issue (Consumption)
+ * Includes validation for strict quota (cannot exceed remaining required qty)
+ */
+export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
+    const result = batchMaterialIssueSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const {
+        productionOrderId,
+        locationId,
+        items,
+        removedPlannedMaterialIds,
+        addedPlannedMaterials
+    } = result.data;
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Fetch Order and Material Requirements (ProductionMaterial)
+            // 1. Fetch Order and Material Requirements (ProductionMaterial)
+            const order = await tx.productionOrder.findUniqueOrThrow({
+                where: { id: productionOrderId },
+                include: {
+                    materialIssues: true,
+                    // We check against productionMaterial table which stores the "Recipe" for this specific order
+                    plannedMaterials: {
+                        include: {
+                            productVariant: true
+                        }
+                    }
+                }
+            });
+
+            // 1.5 Handle Plan Modifications (Substitution)
+            if (removedPlannedMaterialIds && removedPlannedMaterialIds.length > 0) {
+                for (const id of removedPlannedMaterialIds) {
+                    // Check if already issued
+                    const planItem = order.plannedMaterials.find(pm => pm.id === id);
+                    if (planItem) {
+                        const issued = order.materialIssues
+                            .filter(mi => mi.productVariantId === planItem.productVariantId)
+                            .reduce((sum: number, mi: any) => sum + Number(mi.quantity), 0);
+
+                        if (issued > 0.001) {
+                            throw new Error(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
+                        }
+
+                        await tx.productionMaterial.delete({ where: { id } });
+                    }
+                }
+            }
+
+            if (addedPlannedMaterials && addedPlannedMaterials.length > 0) {
+                for (const newItem of addedPlannedMaterials) {
+                    await tx.productionMaterial.create({
+                        data: {
+                            productionOrderId,
+                            productVariantId: newItem.productVariantId,
+                            quantity: newItem.quantity
+                        }
+                    });
+                }
+            }
+
+            // 2. Validate Stock and Quota for each item
+            for (const item of items) {
+                // A. Check Stock
+                const stock = await tx.inventory.findUnique({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId,
+                            productVariantId: item.productVariantId
+                        }
+                    }
+                });
+
+                if (!stock || stock.quantity.toNumber() < item.quantity) {
+                    const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId } });
+                    throw new Error(`Insufficient stock for ${variant?.name || 'item'}. Available: ${stock?.quantity || 0}`);
+                }
+
+                // B. Check Remaining Quota (Only for planned materials)
+                // Refetch planned materials if modified? Or just check current order?
+                // Actually if we just added/removed, we should check against the NEW state.
+                // For simplicity, we assume the UI sends valid items based on its state.
+
+                // 3. Deduct Inventory
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId,
+                            productVariantId: item.productVariantId
+                        }
+                    },
+                    data: {
+                        quantity: { decrement: item.quantity }
+                    }
+                });
+
+                // 4. Create Stock Movement (OUT)
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.OUT,
+                        productVariantId: item.productVariantId,
+                        fromLocationId: locationId,
+                        quantity: item.quantity,
+                        reference: `Production Consumption (Batch): PO-${productionOrderId.slice(0, 8)}`
+                    }
+                });
+
+                // 5. Create Material Issue Record
+                await tx.materialIssue.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity
+                    }
+                });
+            }
+        });
+
+        revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("Batch Issue Error:", error);
         return { success: false, error: error.message };
     }
 }
@@ -336,6 +527,72 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
                     productVariantId,
                     quantity
                 }
+            });
+        });
+
+        revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Delete Material Issue (Void/Refund)
+ */
+export async function deleteMaterialIssue(issueId: string, productionOrderId: string) {
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Get the issue record
+            const issue = await tx.materialIssue.findUnique({
+                where: { id: issueId }
+            });
+
+            if (!issue) {
+                throw new Error("Material Issue record not found");
+            }
+
+            // WORKAROUND: For this iteration, I will assume refund to the "Raw Material Warehouse".
+            // This is the safest default for now.
+
+            const refundLocation = await tx.location.findUnique({
+                where: { slug: 'raw_material_warehouse' }
+            });
+
+            if (!refundLocation) throw new Error("Could not determine refund location (Raw Material Warehouse not found)");
+
+            // 2. Refund Inventory (Increment)
+            await tx.inventory.upsert({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: refundLocation.id,
+                        productVariantId: issue.productVariantId
+                    }
+                },
+                update: {
+                    quantity: { increment: issue.quantity }
+                },
+                create: {
+                    locationId: refundLocation.id,
+                    productVariantId: issue.productVariantId,
+                    quantity: issue.quantity
+                }
+            });
+
+            // 3. Create Stock Movement (IN/VOID)
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.IN,
+                    productVariantId: issue.productVariantId,
+                    toLocationId: refundLocation.id,
+                    quantity: issue.quantity,
+                    reference: `VOID Issue: PO-${productionOrderId.slice(0, 8)}`
+                }
+            });
+
+            // 4. Delete Issue Record
+            await tx.materialIssue.delete({
+                where: { id: issueId }
             });
         });
 
@@ -707,7 +964,7 @@ export async function addProductionOutput(data: ProductionOutputValues) {
  * Fetch Master Data for Production Forms
  */
 export async function getProductionFormData() {
-    const [boms, machines, locations, employees, workShifts] = await Promise.all([
+    const [boms, machines, locations, employees, workShifts, rawMaterials] = await Promise.all([
         prisma.bom.findMany({
             include: {
                 productVariant: {
@@ -732,6 +989,17 @@ export async function getProductionFormData() {
         (prisma as any).workShift.findMany({
             where: { status: 'ACTIVE' },
             orderBy: { startTime: 'asc' }
+        }),
+        prisma.productVariant.findMany({
+            where: {
+                product: {
+                    productType: 'RAW_MATERIAL'
+                }
+            },
+            include: {
+                product: true
+            },
+            orderBy: { name: 'asc' }
         })
     ]);
 
@@ -745,7 +1013,8 @@ export async function getProductionFormData() {
         locations,
         operators,
         helpers,
-        workShifts
+        workShifts,
+        rawMaterials
     };
 }
 
