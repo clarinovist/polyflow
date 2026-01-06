@@ -32,7 +32,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
     const {
         bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-        locationId, orderNumber
+        locationId, orderNumber, notes
     } = result.data;
 
     try {
@@ -46,6 +46,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     plannedStartDate,
                     plannedEndDate,
                     locationId,
+                    notes,
                     status: ProductionStatus.DRAFT,
                 }
             });

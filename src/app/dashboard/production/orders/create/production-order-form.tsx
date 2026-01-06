@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { z } from 'zod';
 
 interface ProductionOrderFormProps {
@@ -90,6 +91,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
             items: [],
             locationId: '',
             bomId: '',
+            notes: '',
         },
     });
 
@@ -347,16 +349,11 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                             Packing
                                         </Button>
                                     </div>
-                                    <FormDescription>
-                                        Select the production process step.
-                                    </FormDescription>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Product */}
                                     <FormItem>
-                                        <FormLabel>
-                                            {processType === 'mixing' ? 'Output Product (Intermediate)' : 'Output Product (Finished Good)'}
-                                        </FormLabel>
+                                        <FormLabel>Product</FormLabel>
                                         <Select
                                             value={selectedProductVariantId}
                                             onValueChange={setSelectedProductVariantId}
@@ -374,9 +371,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <FormDescription>
-                                            Select product to manufacture.
-                                        </FormDescription>
                                     </FormItem>
 
                                     {/* BOM */}
@@ -385,7 +379,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                         name="bomId"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Bill of Material (Recipe)</FormLabel>
+                                                <FormLabel>Recipe</FormLabel>
                                                 <Select
                                                     onValueChange={field.onChange}
                                                     value={field.value}
@@ -440,7 +434,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
 
                                         {planningMode === 'batch' ? (
                                             <FormItem>
-                                                <FormLabel>Number of Batches (Adonan)</FormLabel>
+                                                <FormLabel>Total Batches</FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
@@ -470,9 +464,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                         <FormControl>
                                                             <Input type="number" step="0.01" {...field} />
                                                         </FormControl>
-                                                        <FormDescription>
-                                                            Manual weight entry
-                                                        </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -514,6 +505,25 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                         )}
                                     />
                                 </div>
+
+                                {/* Notes Field */}
+                                <FormField
+                                    control={form.control}
+                                    name="notes"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Notes</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    placeholder="Add any specific instructions..."
+                                                    className="resize-none"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </CardContent>
                         </Card>
 
@@ -637,6 +647,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
 
                 </div>
             </form>
-        </Form>
+        </Form >
     );
 }
