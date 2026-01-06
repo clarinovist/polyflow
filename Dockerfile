@@ -28,6 +28,10 @@ RUN npx prisma generate
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
+
+# Compile seed script
+RUN npx tsc prisma/seed.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -61,6 +65,9 @@ COPY --from=builder /app/prisma ./prisma
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs entrypoint.sh ./
 RUN chmod +x entrypoint.sh
+
+# Copy compiled seed script
+COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed.js ./prisma/seed.js
 
 USER nextjs
 

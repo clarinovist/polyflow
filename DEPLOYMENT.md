@@ -35,26 +35,13 @@ The application will be accessible at `http://your-server-ip:3002`.
 
 To populate the database with initial data (users, products, etc.):
 
-**Option 1: Standard Method**
+To populate the database with initial data (users, products, etc.):
+
 ```bash
-docker compose exec app npx prisma db seed
+docker compose exec app node prisma/seed.js
 ```
 
-**Option 2: Manual Method (If Standard Fails)**
-If you encounter errors about missing `ts-node` or config, use this method:
-
-1.  Copy the seed file to the container:
-    ```bash
-    # If the file is already compiled to JS locally:
-    docker cp prisma/seed.js polyflow-app:/app/prisma/seed.js
-    
-    # OR if you only have TS, you might need to compile it first or rely on the build process if it includes it.
-    ```
-    
-2.  Run the seed script directly with Node:
-    ```bash
-    docker compose exec app node prisma/seed.js
-    ```
+**Note**: The seed script is now built into the Docker image, so no manual copying is required.
 
 ## Initial Login
 
