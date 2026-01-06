@@ -61,7 +61,7 @@ export async function createBom(data: CreateBomValues) {
                     create: validated.items.map(item => ({
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
-                        scrapPercentage: item.scrapPercentage
+                        scrapPercentage: 0
                     }))
                 }
             }
@@ -132,7 +132,7 @@ export async function updateBom(id: string, data: CreateBomValues) {
                     bomId: id,
                     productVariantId: item.productVariantId,
                     quantity: item.quantity,
-                    scrapPercentage: item.scrapPercentage
+                    scrapPercentage: 0
                 }))
             });
 

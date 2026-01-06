@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings as SettingsIcon, Clock } from 'lucide-react';
-import Link from 'next/link';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 export default function SettingsPage() {
     return (
@@ -34,21 +33,7 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
 
-            <Card className="max-w-2xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                <Link href="/dashboard/settings/shifts">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 group-hover:text-blue-600 transition-colors">
-                            <Clock className="h-5 w-5" />
-                            Shift Management
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-slate-500">
-                            Configure standard work shifts and durations for production planning.
-                        </p>
-                    </CardContent>
-                </Link>
-            </Card>
+
         </div >
     );
 }

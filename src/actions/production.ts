@@ -442,10 +442,15 @@ export async function addProductionOutput(data: ProductionOutputValues) {
         return { success: false, error: result.error.issues[0].message };
     }
 
+    // Extract new fields
     const {
-        productionOrderId, quantityProduced, scrapQuantity,
+        productionOrderId, quantityProduced,
+        scrapProngkolQty, scrapDaunQty,
         machineId, operatorId, shiftId, startTime, endTime, notes
     } = result.data;
+
+    // Calculate Total Scrap for summary
+    const totalScrap = (scrapProngkolQty || 0) + (scrapDaunQty || 0);
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -457,12 +462,85 @@ export async function addProductionOutput(data: ProductionOutputValues) {
                     operatorId,
                     shiftId,
                     quantityProduced,
-                    scrapQuantity,
+                    scrapQuantity: totalScrap, // Save Aggregate
                     startTime,
                     endTime,
                     notes
                 }
             });
+
+            // 1.5 Handle SCRAP Logic (Prongkol & Daun)
+            // Look up the specific scrap variants
+            // We assume slug convention from Seed: 'scrap_prongkol' -> SKU 'SCRAP-PRONGKOL' and 'scrap_daun' -> SKU 'SCRAP-DAUN'
+
+            // Helper to record scrap
+            const handleScrapRecording = async (skuCode: string, qty: number, reason: string) => {
+                if (qty <= 0) return;
+
+                const scrapVariant = await tx.productVariant.findFirst({
+                    where: { skuCode }
+                });
+
+                if (!scrapVariant) {
+                    // Should not happen if seeded correctly. 
+                    // Fallback: Log a warning or just skip? 
+                    // Ideally throw error to ensure data integrity
+                    throw new Error(`System Error: Scrap Variant ${skuCode} not found.`);
+                }
+
+                // Get Scrap Warehouse
+                const scrapLocation = await tx.location.findUnique({
+                    where: { slug: 'scrap_warehouse' }
+                });
+
+                if (!scrapLocation) {
+                    throw new Error(`System Error: Scrap Warehouse not found.`);
+                }
+
+                // 2. Create Stock Movement (IN) for Scrap
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.IN,
+                        productVariantId: scrapVariant.id,
+                        toLocationId: scrapLocation.id,
+                        quantity: qty,
+                        reference: `Production Scrap (${reason}): PO-${productionOrderId.slice(0, 8)}`
+                    }
+                });
+
+                // 3. Increment Inventory
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: scrapLocation.id,
+                            productVariantId: scrapVariant.id
+                        }
+                    },
+                    update: {
+                        quantity: { increment: qty }
+                    },
+                    create: {
+                        locationId: scrapLocation.id,
+                        productVariantId: scrapVariant.id,
+                        quantity: qty
+                    }
+                });
+
+                // 4. Create Scrap Record
+                await tx.scrapRecord.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId: scrapVariant.id,
+                        quantity: qty,
+                        reason
+                    }
+                });
+            };
+
+            // Process both types
+            await handleScrapRecording('SCRAP-PRONGKOL', scrapProngkolQty || 0, 'Affal Prongkol (Lumps)');
+            await handleScrapRecording('SCRAP-DAUN', scrapDaunQty || 0, 'Affal Daun (Trim)');
+
 
             // 2. Fetch Order with Relations to calculate requirements
             // We need: BOM items, Material Issues, and Previous Executions
@@ -632,7 +710,11 @@ export async function getProductionFormData() {
     const [boms, machines, locations, employees, workShifts] = await Promise.all([
         prisma.bom.findMany({
             include: {
-                productVariant: true,
+                productVariant: {
+                    include: {
+                        product: true
+                    }
+                },
                 items: {
                     include: {
                         productVariant: true

@@ -394,7 +394,11 @@ function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, 
     const [open, setOpen] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
     const [currentRollWeight, setCurrentRollWeight] = useState("");
-    const [scrapWeight, setScrapWeight] = useState("");
+
+    // New Scrap Inputs
+    const [scrapProngkol, setScrapProngkol] = useState("");
+    const [scrapDaun, setScrapDaun] = useState("");
+
     const [notes, setNotes] = useState("");
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
 
@@ -482,7 +486,9 @@ function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, 
             operatorId: fd.get('operatorId') as string,
             shiftId: fd.get('shiftId') as string,
             quantityProduced: totalGoodQty,
-            scrapQuantity: Number(scrapWeight || 0),
+            scrapProngkolQty: Number(scrapProngkol || 0),
+            scrapDaunQty: Number(scrapDaun || 0),
+            scrapQuantity: 0, // Legacy/Required by type
             startTime: new Date(nowIso), // Always NOW
             endTime: new Date(nowIso),   // Always NOW
             notes: finalNotes
@@ -493,7 +499,8 @@ function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, 
             toast.success("Production output recorded");
             setOpen(false);
             setRolls([]);
-            setScrapWeight("");
+            setScrapProngkol("");
+            setScrapDaun("");
             setNotes("");
             setCurrentRollWeight("");
             setSelectedHelpers([]);
@@ -630,18 +637,39 @@ function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, 
                             </div>
 
                             {/* Scrap / Waste */}
-                            <div className="flex items-center justify-between border-t pt-4">
-                                <div className="flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                                    <Label className="text-red-700 font-medium">Scrap / Waste (kg)</Label>
+                            <div className="space-y-4 border-t pt-4">
+                                <h3 className="font-semibold text-red-700 flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4" /> Production Waste / Scrap
+                                </h3>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-slate-500">Affal Prongkol (Lumps)</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="number" step="0.01"
+                                                placeholder="0.00"
+                                                className="text-right"
+                                                value={scrapProngkol}
+                                                onChange={(e) => setScrapProngkol(e.target.value)}
+                                            />
+                                            <span className="text-sm text-slate-500">kg</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-slate-500">Affal Daun (Trim)</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="number" step="0.01"
+                                                placeholder="0.00"
+                                                className="text-right"
+                                                value={scrapDaun}
+                                                onChange={(e) => setScrapDaun(e.target.value)}
+                                            />
+                                            <span className="text-sm text-slate-500">kg</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <Input
-                                    type="number" step="0.01"
-                                    placeholder="0.00"
-                                    className="w-[120px] text-right"
-                                    value={scrapWeight}
-                                    onChange={(e) => setScrapWeight(e.target.value)}
-                                />
                             </div>
 
                             <div className="space-y-2 border-t pt-4">
@@ -659,7 +687,7 @@ function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, 
 
                     <DialogFooter className="mt-6">
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={rolls.length === 0 && !scrapWeight}>Save Record</Button>
+                        <Button type="submit" disabled={rolls.length === 0 && !scrapProngkol && !scrapDaun}>Save Record</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

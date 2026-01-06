@@ -160,7 +160,6 @@ export const createBomSchema = z.object({
     items: z.array(z.object({
         productVariantId: z.string().min(1, "Ingredient is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
-        scrapPercentage: z.coerce.number().min(0).max(100).default(0),
     })).min(1, "At least one ingredient is required"),
 });
 
@@ -173,7 +172,9 @@ export const productionOutputSchema = z.object({
     operatorId: z.string().optional(),
     shiftId: z.string().optional(),
     quantityProduced: z.coerce.number().positive("Quantity must be positive"),
-    scrapQuantity: z.coerce.number().nonnegative("Scrap quantity must be non-negative").default(0),
+    scrapQuantity: z.coerce.number().nonnegative().default(0), // Total Aggregated Scrap (Legacy/KPI)
+    scrapProngkolQty: z.coerce.number().nonnegative().default(0),
+    scrapDaunQty: z.coerce.number().nonnegative().default(0),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
     notes: z.string().optional(),

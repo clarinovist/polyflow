@@ -42,10 +42,10 @@ async function main() {
     // 1. Locations (Factory Stages)
     const locations = [
         { name: 'Raw Material Warehouse', slug: 'rm_warehouse', description: 'Storage for incoming raw materials' },
-        { name: 'Mixing Area', slug: 'mixing_area', description: 'Production Floor 1: Mixing' },
-        { name: 'Extrusion Area', slug: 'extrusion_area', description: 'Production Floor 2: Extrusion' },
-        { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Storage for ready-to-sell items' },
-        { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for production waste' },
+        { name: 'Mixing Warehouse', slug: 'mixing_warehouse', description: 'Storage for the output of the Mixing process (Mixed/Compounded Material)' },
+        // Extrusion output now goes to FG, so no separate Extrusion Warehouse.
+        { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
+        { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for waste/afval' },
     ]
 
     for (const loc of locations) {
@@ -61,145 +61,193 @@ async function main() {
         data: { name: 'Plastic Shop Jaya', type: ContactType.CUSTOMER, phone: '08987654321', address: 'Downtown Market' },
     })
 
-    // 3. Products & Stocks (Full Production Cycle)
+    // 3. Products & Stocks (Full Production Cycle) - BLACK CHAIN (Recycle)
 
-    // --- RAW MATERIALS (RM) ---
-    // A. Pure PP Granules
-    const rmPP = await prisma.product.create({
+    // --- RAW MATERIALS (Recycle Base & Masterbatch) ---
+    // 1. PP Karung Recycle
+    const rmPPKarung = await prisma.product.create({
         data: {
-            name: 'Pure PP Granules',
+            name: 'PP Karung Recycle',
             productType: ProductType.RAW_MATERIAL,
             variants: {
                 create: {
-                    name: 'Pure PP Granules Standard',
-                    skuCode: 'RMPPG001',
-                    price: 15000,
+                    name: 'PP Karung Recycle Standard',
+                    skuCode: 'RM-PP-KARUNG',
+                    price: 12000,
                     primaryUnit: Unit.KG,
                     salesUnit: Unit.KG,
                     conversionFactor: 1.0,
-                    attributes: { color: 'Clear', material: 'PP' },
-                    reorderPoint: 500,
-                    reorderQuantity: 1000,
-                    leadTimeDays: 7,
+                    attributes: { color: 'Mixed', material: 'PP' },
                 },
             },
         },
     })
 
-    // B. Red Colorant
-    const rmColor = await prisma.product.create({
+    // 2. PP Sablon Recycle
+    const rmPPSablon = await prisma.product.create({
         data: {
-            name: 'Red Colorant',
+            name: 'PP Sablon Recycle',
             productType: ProductType.RAW_MATERIAL,
             variants: {
                 create: {
-                    name: 'Red Colorant Masterbatch',
-                    skuCode: 'RMCLR001',
-                    price: 50000,
+                    name: 'PP Sablon Recycle Standard',
+                    skuCode: 'RM-PP-SABLON',
+                    price: 11000,
                     primaryUnit: Unit.KG,
                     salesUnit: Unit.KG,
                     conversionFactor: 1.0,
-                    attributes: { color: 'Red' },
+                    attributes: { color: 'Mixed', material: 'PP' },
                 },
             },
         },
     })
 
-    // --- INTERMEDIATE (Result of Mixing) ---
-    // C. Red Mixed Granules
-    const interMix = await prisma.product.create({
+    // 3. PP Green Recycle
+    const rmPPGreen = await prisma.product.create({
         data: {
-            name: 'Red Mixed Granules',
+            name: 'PP Green Recycle',
+            productType: ProductType.RAW_MATERIAL,
+            variants: {
+                create: {
+                    name: 'PP Green Recycle Standard',
+                    skuCode: 'RM-PP-GREEN-REC',
+                    price: 10000,
+                    primaryUnit: Unit.KG,
+                    salesUnit: Unit.KG,
+                    conversionFactor: 1.0,
+                    attributes: { color: 'Green', material: 'PP' },
+                },
+            },
+        },
+    })
+
+    // 4. Masterbatch Black
+    const rmMasterbatch = await prisma.product.create({
+        data: {
+            name: 'Masterbatch Black',
+            productType: ProductType.RAW_MATERIAL,
+            variants: {
+                create: {
+                    name: 'Masterbatch Black Premium',
+                    skuCode: 'RM-MB-BLACK',
+                    price: 45000,
+                    primaryUnit: Unit.KG,
+                    salesUnit: Unit.KG,
+                    conversionFactor: 1.0,
+                    attributes: { color: 'Black' },
+                },
+            },
+        },
+    })
+
+    // --- LEVEL 1: MIXING (Output: Black Mixed Resin) ---
+    const interMixed = await prisma.product.create({
+        data: {
+            name: 'Black Mixed Resin',
             productType: ProductType.INTERMEDIATE,
             variants: {
                 create: {
-                    name: 'Red Mixed Granules Batch A',
-                    skuCode: 'INMIX001',
-                    price: 18000, // Derived cost
+                    name: 'Black Mixed Resin',
+                    skuCode: 'INT-MIX-BLACK',
+                    price: 13500, // Derived estimate
                     primaryUnit: Unit.KG,
                     salesUnit: Unit.KG,
                     conversionFactor: 1.0,
-                    attributes: { color: 'Red' },
+                    attributes: { color: 'Black' },
                 },
             },
         },
     })
 
-    // --- WIP (Result of Extrusion) ---
-    // D. Red Raffia Jumbo Roll
-    const wipRoll = await prisma.product.create({
+    // --- LEVEL 2: EXTRUSION (Output: Black Jumbo Roll) ---
+    // Output stored in Finished Goods Warehouse
+    const fgJumbo = await prisma.product.create({
         data: {
-            name: 'Red Raffia Jumbo Roll',
-            productType: ProductType.WIP,
-            variants: {
-                create: {
-                    name: 'Red Raffia Jumbo Roll',
-                    skuCode: 'WPRAF001',
-                    price: 20000,
-                    primaryUnit: Unit.KG,
-                    salesUnit: Unit.ROLL, // Internal tracking maybe in Rolls? Or KG. Keeping KG as primary.
-                    conversionFactor: 1.0,
-                    attributes: { color: 'Red', thickness: 'Standard' },
-                },
-            },
-        },
-    })
-
-    // --- FINISHED GOODS (Result of Converting) ---
-    // E. Red Raffia (Bal)
-    const fgRaffia = await prisma.product.create({
-        data: {
-            name: 'Red Raffia',
+            name: 'Black Jumbo Roll',
             productType: ProductType.FINISHED_GOOD,
             variants: {
                 create: {
-                    name: 'Red Raffia - Bal of 10',
-                    skuCode: 'FGRAF001',
-                    price: 90000, // Base Price
-                    sellPrice: 100000, // Sales Price
+                    name: 'Black Jumbo Roll',
+                    skuCode: 'FG-JUMBO-BLACK',
+                    price: 16000,
                     primaryUnit: Unit.KG,
+                    salesUnit: Unit.ROLL,
+                    conversionFactor: 1.0,
+                    attributes: { color: 'Black', thickness: 'Standard' },
+                },
+            },
+        },
+    })
+
+    // --- LEVEL 3: PACKING (Output: Rafia Black Pack 1kg) ---
+    const fgPack = await prisma.product.create({
+        data: {
+            name: 'Rafia Black Pack 1kg',
+            productType: ProductType.FINISHED_GOOD,
+            variants: {
+                create: {
+                    name: 'Rafia Black Pack 1kg',
+                    skuCode: 'FG-PACK-BLACK-1KG',
+                    price: 18000,
+                    sellPrice: 20000,
+                    primaryUnit: Unit.BAL, // Selling Unit
                     salesUnit: Unit.BAL,
-                    conversionFactor: 5.0, // 1 Bal = 5 KG
-                    attributes: { color: 'Red' },
+                    conversionFactor: 1.0,
+                    attributes: { color: 'Black', weight: '1kg packs' },
                 },
             },
         },
     })
 
     // --- SCRAP (Waste) ---
-    // F. Red Waste
-    const scrapRed = await prisma.product.create({
+    // 1. Affal Prongkol (Lumps/Chunks)
+    await prisma.product.create({
         data: {
-            name: 'Red Waste',
+            name: 'Affal Prongkol',
             productType: ProductType.SCRAP,
             variants: {
                 create: {
-                    name: 'Red Waste',
-                    skuCode: 'SCWST001',
-                    price: 3000,
-                    sellPrice: 5000,
+                    name: 'Affal Prongkol',
+                    skuCode: 'SCRAP-PRONGKOL',
+                    price: 2000,
+                    sellPrice: 3000,
                     primaryUnit: Unit.KG,
                     salesUnit: Unit.KG,
                     conversionFactor: 1.0,
-                    attributes: { color: 'Red' },
+                    attributes: { type: 'Lumps', material: 'Mixed' },
                 },
             },
         },
     })
 
-    // 4. Initial Stock & Movements (Simulating the Cycle State)
+    // 2. Affal Daun (Trim/Film Waste)
+    await prisma.product.create({
+        data: {
+            name: 'Affal Daun',
+            productType: ProductType.SCRAP,
+            variants: {
+                create: {
+                    name: 'Affal Daun',
+                    skuCode: 'SCRAP-DAUN',
+                    price: 1500,
+                    sellPrice: 2000,
+                    primaryUnit: Unit.KG,
+                    salesUnit: Unit.KG,
+                    conversionFactor: 1.0,
+                    attributes: { type: 'Trim', material: 'Mixed' },
+                },
+            },
+        },
+    })
 
+    // 4. Initial Stock & Movements
     const locRM = (await prisma.location.findUnique({ where: { slug: 'rm_warehouse' } }))!
-    const locMix = (await prisma.location.findUnique({ where: { slug: 'mixing_area' } }))!
-    const locExt = (await prisma.location.findUnique({ where: { slug: 'extrusion_area' } }))!
+    const locMix = (await prisma.location.findUnique({ where: { slug: 'mixing_warehouse' } }))!
     const locFG = (await prisma.location.findUnique({ where: { slug: 'fg_warehouse' } }))!
     const locScrap = (await prisma.location.findUnique({ where: { slug: 'scrap_warehouse' } }))!
 
     // Helper to seed inventory + movement
     const seedStock = async (product: any, location: any, qty: number, variantIndex = 0) => {
-        // Note: product variable here is the Product model, we need the stored variant
-        // We already created them with `variants: { create: ... }` so we fetch them back or rely on sku codes.
-        // Simpler: Fetch variant by ProductID
         const variants = await prisma.productVariant.findMany({ where: { productId: product.id } })
         const variant = variants[variantIndex]
 
@@ -217,68 +265,93 @@ async function main() {
                 productVariantId: variant.id,
                 toLocationId: location.id,
                 quantity: qty,
-                reference: 'Initial Production State',
+                reference: 'Initial Seed Stock',
             }
         })
     }
 
     // A. RM Stocks
-    await seedStock(rmPP, locRM, 1000)      // 1000 KG Pure PP
-    await seedStock(rmColor, locRM, 50)     // 50 KG Colorant
+    await seedStock(rmPPKarung, locRM, 2000)
+    await seedStock(rmPPSablon, locRM, 2000)
+    await seedStock(rmPPGreen, locRM, 2000)
+    await seedStock(rmMasterbatch, locRM, 500)
 
-    // B. Intermediate Stocks (Mixing Area)
-    await seedStock(interMix, locMix, 200)  // 200 KG Mixed
+    // B. Intermediate Stocks
+    await seedStock(interMixed, locMix, 200)
 
-    // C. WIP Stocks (Extrusion Area)
-    await seedStock(wipRoll, locExt, 500)   // 500 KG Jumbo Rolls
-
-    // D. FG Stocks (FG Warehouse)
-    await seedStock(fgRaffia, locFG, 100)   // 100 KG (approx 20 Bal)
-
-    // E. Scrap Stocks (Scrap Warehouse)
-    await seedStock(scrapRed, locScrap, 30) // 30 KG Scrap
+    // C. Jumbo Roll
+    await seedStock(fgJumbo, locFG, 100)
 
     // 5. Bill of Materials (Recipes)
 
-    // A. Usage: Mixing
-    // Output: 100 KG "Red Mixed Granules" (Intermediate)
-    // Input: 98 KG "Pure PP" + 2 KG "Red Colorant"
-    const interVariant = await prisma.productVariant.findFirst({ where: { skuCode: 'INMIX001' } })
-    const rmPpVariant = await prisma.productVariant.findFirst({ where: { skuCode: 'RMPPG001' } })
-    const rmColorVariant = await prisma.productVariant.findFirst({ where: { skuCode: 'RMCLR001' } })
+    // A. LEVEL 1: MIXING -> "Formula Adonan Hitam Standard"
+    // Output: 102 KG "Black Mixed Resin" (Sum of inputs)
+    // Inputs:
+    // - 40 KG PP Karung
+    // - 30 KG PP Sablon
+    // - 30 KG PP Green
+    // - 2 KG Masterbatch Black
+    const vMixed = await prisma.productVariant.findFirst({ where: { skuCode: 'INT-MIX-BLACK' } })
+    const vPPKarung = await prisma.productVariant.findFirst({ where: { skuCode: 'RM-PP-KARUNG' } })
+    const vPPSablon = await prisma.productVariant.findFirst({ where: { skuCode: 'RM-PP-SABLON' } })
+    const vPPGreen = await prisma.productVariant.findFirst({ where: { skuCode: 'RM-PP-GREEN-REC' } })
+    const vMB = await prisma.productVariant.findFirst({ where: { skuCode: 'RM-MB-BLACK' } })
 
-    if (interVariant && rmPpVariant && rmColorVariant) {
+    if (vMixed && vPPKarung && vPPSablon && vPPGreen && vMB) {
         await prisma.bom.create({
             data: {
-                name: 'Standard Mixing Recipe - Red',
-                productVariantId: interVariant.id,
-                outputQuantity: 100, // Basis 100 KG
+                name: 'Formula Adonan Hitam Standard',
+                productVariantId: vMixed.id,
+                outputQuantity: 102, // 40+30+30+2
                 isDefault: true,
                 items: {
                     create: [
-                        { productVariantId: rmPpVariant.id, quantity: 98, scrapPercentage: 1.0 },
-                        { productVariantId: rmColorVariant.id, quantity: 2 },
+                        { productVariantId: vPPKarung.id, quantity: 40, scrapPercentage: 0 },
+                        { productVariantId: vPPSablon.id, quantity: 30, scrapPercentage: 0 },
+                        { productVariantId: vPPGreen.id, quantity: 30, scrapPercentage: 0 },
+                        { productVariantId: vMB.id, quantity: 2, scrapPercentage: 0 },
                     ],
                 },
             },
         })
     }
 
-    // B. Usage: Extrusion
-    // Output: 100 KG "Red Raffia Jumbo Roll" (WIP)
-    // Input: 100 KG "Red Mixed Granules" (Intermediate)
-    const wipVariant = await prisma.productVariant.findFirst({ where: { skuCode: 'WPRAF001' } })
+    // B. LEVEL 2: EXTRUSION -> "Extrusion Jumbo Hitam"
+    // Output: 50 KG "Black Jumbo Roll"
+    // Input: 50 KG "Black Mixed Resin"
+    const vJumbo = await prisma.productVariant.findFirst({ where: { skuCode: 'FG-JUMBO-BLACK' } })
 
-    if (wipVariant && interVariant) {
+    if (vJumbo && vMixed) {
         await prisma.bom.create({
             data: {
-                name: 'Standard Extrusion Recipe',
-                productVariantId: wipVariant.id,
-                outputQuantity: 100,
+                name: 'Extrusion Jumbo Hitam',
+                productVariantId: vJumbo.id,
+                outputQuantity: 50,
                 isDefault: true,
                 items: {
                     create: [
-                        { productVariantId: interVariant.id, quantity: 100, scrapPercentage: 2.0 },
+                        { productVariantId: vMixed.id, quantity: 50 },
+                    ],
+                },
+            },
+        })
+    }
+
+    // C. LEVEL 3: PACKING -> "Repacking Black 1kg"
+    // Output: 1 BAL "Rafia Black Pack 1kg"
+    // Input: 15 KG "Black Jumbo Roll"
+    const vPack = await prisma.productVariant.findFirst({ where: { skuCode: 'FG-PACK-BLACK-1KG' } })
+
+    if (vPack && vJumbo) {
+        await prisma.bom.create({
+            data: {
+                name: 'Repacking Black 1kg',
+                productVariantId: vPack.id,
+                outputQuantity: 1, // 1 BAL
+                isDefault: true,
+                items: {
+                    create: [
+                        { productVariantId: vJumbo.id, quantity: 15 },
                     ],
                 },
             },
@@ -298,23 +371,16 @@ async function main() {
                 status: MachineStatus.ACTIVE,
             },
             {
-                name: 'Extruder Jumbo 01',
+                name: 'Extruder Jumbo E1',
                 code: 'EXT-01',
                 type: MachineType.EXTRUDER,
-                locationId: locExt.id,
+                locationId: locFG.id, // Output goes to FG
                 status: MachineStatus.ACTIVE,
             },
             {
-                name: 'Rewinder Kecil A',
-                code: 'REW-01',
-                type: MachineType.REWINDER,
-                locationId: locFG.id, // Converting at FG Warehouse stage
-                status: MachineStatus.ACTIVE,
-            },
-            {
-                name: 'Press Bal Manual',
+                name: 'Packing Station P1',
                 code: 'PAK-01',
-                type: MachineType.PACKER,
+                type: MachineType.PACKER, // Assuming PACKER exists in enum
                 locationId: locFG.id, // Packing at FG Warehouse stage
                 status: MachineStatus.ACTIVE,
             },
@@ -343,74 +409,49 @@ async function main() {
         data: { name: 'Asep Helper', code: 'EMP-HLP-002', role: 'HELPER' }
     })
 
-    // 7. Batches & Reservations (Inventory Intelligence)
-    console.log('Seeding batches and reservations...')
-
-    // Seed a Batch for Pure PP
-    if (rmPpVariant) {
+    // 7. Batches (Simple initial)
+    console.log('Seeding batches...')
+    if (vPPKarung) {
         await prisma.batch.create({
             data: {
-                batchNumber: 'BATCH-PP-001',
-                productVariantId: rmPpVariant.id,
+                batchNumber: 'BATCH-PPKARUNG-001',
+                productVariantId: vPPKarung.id,
                 locationId: locRM.id,
-                quantity: 500,
-                manufacturingDate: new Date('2025-12-01'),
-                expiryDate: new Date('2026-12-01'),
+                quantity: 2000,
+                manufacturingDate: new Date(),
                 status: BatchStatus.ACTIVE,
             }
         })
     }
 
-    // Seed a Stock Reservation
-    if (fgRaffia && locFG) {
-        const fgVariant = await prisma.productVariant.findFirst({ where: { productId: fgRaffia.id } })
-        if (fgVariant) {
-            await prisma.stockReservation.create({
-                data: {
-                    productVariantId: fgVariant.id,
-                    locationId: locFG.id,
-                    quantity: 10,
-                    reservedFor: ReservationType.SALES_ORDER,
-                    referenceId: 'SO-DEMO-001',
-                    status: ReservationStatus.ACTIVE,
-                }
-            })
-        }
-    }
-
-    // 8. Production Orders (Phase 3)
+    // 8. Production Orders (Optional: Create one Draft for quick testing)
     console.log('Seeding production orders...')
-
-    // Create a DRAFT Production Order for "Standard Mixing Recipe - Red"
-    const bomMixing = await prisma.bom.findFirst({ where: { name: 'Standard Mixing Recipe - Red' } })
+    const bomMixing = await prisma.bom.findFirst({ where: { name: 'Formula Adonan Hitam Standard' } })
     const mixerMachine = await prisma.machine.findFirst({ where: { code: 'MIX-01' } })
 
     if (bomMixing && mixerMachine) {
         await prisma.productionOrder.create({
             data: {
-                orderNumber: 'PO-2026-001',
+                orderNumber: 'PO-MIX-001',
                 bomId: bomMixing.id,
-                plannedQuantity: 1000, // Plan to produce 1000 KG
-                plannedStartDate: new Date('2026-01-10'),
+                plannedQuantity: 1020, // 10 cycles (102 * 10)
+                plannedStartDate: new Date(),
                 status: ProductionStatus.DRAFT,
                 machineId: mixerMachine.id,
-                locationId: locMix.id, // Output location
+                locationId: locMix.id,
                 shifts: {
                     create: {
                         shiftName: 'Morning Shift',
                         startTime: new Date('2026-01-10T08:00:00'),
                         endTime: new Date('2026-01-10T16:00:00'),
                         operatorId: op1.id,
-                        helpers: {
-                            connect: [{ id: help1.id }]
-                        }
                     }
                 }
             }
         })
     }
 
-    console.log('Seeding completed with Full Production Cycle, BOMs, Machines, Batches, Reservations, and Production Orders.')
+    console.log('Seeding completed with Scrap Refactor.')
 }
 
 main()

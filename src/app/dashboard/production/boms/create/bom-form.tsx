@@ -33,8 +33,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
             items: initialData?.items?.map((item: any) => ({
                 productVariantId: item.productVariantId,
                 quantity: Number(item.quantity),
-                scrapPercentage: Number(item.scrapPercentage || 0)
-            })) || [{ productVariantId: '', quantity: 0, scrapPercentage: 0 }]
+            })) || [{ productVariantId: '', quantity: 0 }]
         } as any, // Cast to any to avoid strict type mismatch with initial string inputs
     });
 
@@ -170,7 +169,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => append({ productVariantId: '', quantity: 1, scrapPercentage: 0 })}
+                            onClick={() => append({ productVariantId: '', quantity: 1 })}
                         >
                             <Plus className="h-4 w-4 mr-2" /> Add Material
                         </Button>
@@ -218,22 +217,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
                                     )}
                                 />
 
-                                <FormField
-                                    control={form.control}
-                                    name={`items.${index}.scrapPercentage`}
-                                    render={({ field }) => (
-                                        <FormItem className="w-full md:w-32">
-                                            <FormLabel className={index !== 0 ? "sr-only" : ""}>Scrap %</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <Input type="number" step="0.1" className="pr-6" {...field} />
-                                                    <span className="absolute right-2 top-2.5 text-xs text-slate-500">%</span>
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+
 
                                 <Button
                                     type="button"

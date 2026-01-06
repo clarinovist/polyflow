@@ -58,7 +58,8 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                 products.set(bom.productVariantId, {
                     id: bom.productVariantId,
                     name: bom.productVariant.name,
-                    unit: bom.productVariant.primaryUnit
+                    unit: bom.productVariant.primaryUnit,
+                    productType: bom.productVariant.product.productType
                 });
             }
         });
@@ -90,11 +91,16 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     const watchBomId = form.watch('bomId');
     const watchPlannedQty = form.watch('plannedQuantity');
 
-    // Automated Source Location Selection (Prefer 'rm_warehouse')
-    const sourceLocationId = useMemo(() => {
+    // Automated Source Location Selection
+    const [sourceLocationId, setSourceLocationId] = useState<string>('');
+
+    // Initialize source location (default to RM)
+    useEffect(() => {
         const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
-        return rmLoc ? rmLoc.id : locations[0]?.id || '';
-    }, [locations]);
+        if (rmLoc && !sourceLocationId) {
+            setSourceLocationId(rmLoc.id);
+        }
+    }, [locations, sourceLocationId]);
 
     // Effect to calculate requirements
     useEffect(() => {
@@ -175,6 +181,38 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
             }
         }
     }, [selectedProductVariantId, boms, form]);
+
+    // Smart Location Logic
+    useEffect(() => {
+        if (!selectedProductVariantId) return;
+
+        const product = availableProducts.find(p => p.id === selectedProductVariantId);
+        if (!product) return;
+
+        const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
+        const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
+        const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
+
+        // Logic:
+        // 1. If Intermediate (Mixing) -> Output: Mixing Warehouse, Source: RM Warehouse
+        // 2. If Finished Good -> Output: FG Warehouse, Source: Mixing Warehouse
+
+        const isMixing =
+            product.productType === 'INTERMEDIATE' ||
+            product.name.toLowerCase().includes('mixed') ||
+            product.name.toLowerCase().includes('adonan');
+
+        const isFinishing = product.productType === 'FINISHED_GOOD';
+
+        if (isMixing) {
+            if (mixingLoc) form.setValue('locationId', mixingLoc.id);
+            if (rmLoc) setSourceLocationId(rmLoc.id);
+        } else if (isFinishing) {
+            if (fgLoc) form.setValue('locationId', fgLoc.id);
+            if (mixingLoc) setSourceLocationId(mixingLoc.id);
+        }
+
+    }, [selectedProductVariantId, availableProducts, locations, form]);
 
     const selectedBom = boms.find(b => b.id === watchBomId);
     const selectedProduct = availableProducts.find(p => p.id === selectedProductVariantId);
@@ -378,7 +416,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                 <CardContent className="space-y-4">
 
                                     <div className="text-xs text-slate-500">
-                                        Source: Raw Material Warehouse
+                                        Source: {locations.find(l => l.id === sourceLocationId)?.name || 'Unknown'}
                                     </div>
 
                                     {hasStockIssues && (
