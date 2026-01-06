@@ -1,4 +1,16 @@
 services:
+  app:
+    build: .
+    container_name: polyflow-app
+    restart: always
+    ports:
+      - "3002:3000"
+    environment:
+      - DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow
+      - AUTH_SECRET=changeme_in_production
+    depends_on:
+      - db
+
   db:
     image: postgres:15-alpine
     container_name: polyflow-db
@@ -7,8 +19,7 @@ services:
       - POSTGRES_USER=polyflow
       - POSTGRES_PASSWORD=polyflow
       - POSTGRES_DB=polyflow
-    ports:
-      - "5432:5432"
+    command: -p 5434
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
