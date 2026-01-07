@@ -4,17 +4,17 @@ services:
       context: .
       dockerfile: Dockerfile
       target: deps # Use deps or a dev specific stage if optimized, but for dev we usually just use node image
-    image: node:20-alpine
     container_name: polyflow-app-dev
-    command: npm run dev
+    working_dir: /app
+    command: sh -c "apk add --no-cache openssl && npx prisma generate && npx prisma migrate deploy && npx prisma db seed && npm run dev"
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5432/polyflow
+      - DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow
       - AUTH_SECRET=dev_secret_key_123
     volumes:
-      - .:/app
+      - .:/app:z
       - /app/node_modules
     depends_on:
       - db
@@ -28,7 +28,7 @@ services:
       - POSTGRES_PASSWORD=polyflow
       - POSTGRES_DB=polyflow
     ports:
-      - "5434:5432"
+      - "5434:5434"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

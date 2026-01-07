@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "dev:db": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db",
+    "dev:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up",
+    "dev:up:build": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
+    "dev:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
