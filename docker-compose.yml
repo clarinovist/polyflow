@@ -1,5 +1,5 @@
 services:
-  app:
+  polyflow:
     build: .
     container_name: polyflow-app
     restart: always
@@ -10,6 +10,9 @@ services:
       - AUTH_SECRET=changeme_in_production
     depends_on:
       - db
+    networks:
+      - default
+      - ceritakita-network
 
   db:
     image: postgres:15-alpine
@@ -25,3 +28,8 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  ceritakita-network:
+    external: true
+    name: ceritakita-network
