@@ -24,6 +24,33 @@ export const adjustStockSchema = z.object({
 export type TransferStockValues = z.infer<typeof transferStockSchema>;
 export type AdjustStockValues = z.infer<typeof adjustStockSchema>;
 
+export const bulkTransferStockSchema = z.object({
+    sourceLocationId: z.string().min(1, "Source location is required"),
+    destinationLocationId: z.string().min(1, "Destination location is required"),
+    items: z.array(z.object({
+        productVariantId: z.string().min(1, "Product is required"),
+        quantity: z.coerce.number().positive("Quantity must be positive"),
+    })).min(1, "At least one item is required"),
+    notes: z.string().optional(),
+    date: z.date().default(() => new Date()),
+}).refine((data) => data.sourceLocationId !== data.destinationLocationId, {
+    message: "Source and destination cannot be the same",
+    path: ["destinationLocationId"],
+});
+
+export const bulkAdjustStockSchema = z.object({
+    locationId: z.string().min(1, "Location is required"),
+    items: z.array(z.object({
+        productVariantId: z.string().min(1, "Product is required"),
+        type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] as const),
+        quantity: z.coerce.number().positive("Quantity must be positive"),
+        reason: z.string().min(3, "Reason is required"),
+    })).min(1, "At least one item is required"),
+});
+
+export type BulkTransferStockValues = z.infer<typeof bulkTransferStockSchema>;
+export type BulkAdjustStockValues = z.infer<typeof bulkAdjustStockSchema>;
+
 // Product Management Schemas
 export const productVariantSchema = z.object({
     id: z.string().optional(), // For editing existing variants

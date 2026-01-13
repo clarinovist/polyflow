@@ -108,18 +108,6 @@ export default async function InventoryDashboard({
     }
 
     // Calculate location summaries for Navigator
-    // We want to know how many SKUs are in each location, and how many are low stock GLOBALLY? 
-    // Or low stock in that location?
-    // Originally: locInventory.filter(isLiveGlobalLowStock).length
-    // We should preserve the original dashboard stats logic for the sidebar usually, 
-    // but maybe simplified.
-    // Let's reuse the logic I saw in the file previously or reconstruct it.
-
-    // Reconstruct `isLiveGlobalLowStock` logic for sidebar counts if needed
-    // But actually, `dashboardStats` might have some pre-calc?
-    // The previous code calculated it manually.
-
-    // Calculate global totals for LIVE data (for accurate sidebar "low stock" counts per location)
     const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: InventoryWithRelations) => {
         const id = item.productVariantId;
         acc[id] = (acc[id] || 0) + (typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber());
@@ -169,18 +157,19 @@ export default async function InventoryDashboard({
         })
     );
 
+
     return (
         <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden">
             {/* Page Header */}
             <div className="flex items-center justify-between shrink-0">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Inventory Overview</h1>
-                    <p className="text-muted-foreground mt-1">Monitor stock levels across all warehouse locations</p>
+                    <p className="text-muted-foreground mt-1">Monitor stock levels and warehouse status</p>
                 </div>
             </div>
 
             {/* 2-Column Grid Layout - Takes remaining height */}
-            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
+            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0">
 
                 {/* Left Column: Warehouse Navigator + Inventory Actions (3 cols) */}
                 <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">

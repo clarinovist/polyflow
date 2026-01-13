@@ -1,40 +1,41 @@
-import { TransferForm } from '@/components/inventory/TransferForm';
-import { getLocations, getProductVariants, getInventoryStats } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TransferForm } from '@/components/inventory/TransferForm';
 
 export default async function TransferPage() {
-    const locationsData = await getLocations();
-    const productsData = await getProductVariants();
-    const inventoryData = await getInventoryStats();
+    const [liveInventory, locations, productsData] = await Promise.all([
+        getInventoryStats(),
+        getLocations(),
+        getProductVariants(),
+    ]);
 
-    const locations = locationsData.map(l => ({ id: l.id, name: l.name }));
-    const products = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
-    const inventory = inventoryData.map(i => ({
+    const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
+    const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
+    const liveInventorySimple = liveInventory.map(i => ({
         locationId: i.locationId,
         productVariantId: i.productVariantId,
         quantity: i.quantity.toNumber(),
     }));
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Page Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">Internal Transfer</h1>
-                <p className="text-muted-foreground mt-2">Move stock between warehouse locations</p>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
+                <h2 className="text-3xl font-bold tracking-tight">Internal Stock Transfer</h2>
             </div>
-
-            <Card className="max-w-2xl border shadow-sm">
-                <CardHeader>
-                    <CardTitle>Internal Stock Transfer</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <TransferForm
-                        locations={locations}
-                        products={products}
-                        inventory={inventory}
-                    />
-                </CardContent>
-            </Card>
+            <div className="grid gap-4 grid-cols-1">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Transfer Stock</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <TransferForm
+                            locations={formLocations}
+                            products={formProducts}
+                            inventory={liveInventorySimple}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

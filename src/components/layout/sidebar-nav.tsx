@@ -5,6 +5,7 @@ import {
     Warehouse,
     ArrowRightLeft,
     ClipboardList,
+
     ClipboardCheck,
     History,
     Factory,
@@ -60,6 +61,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Stock Status", href: "/dashboard/inventory", icon: Warehouse },
             { title: "Transfers", href: "/dashboard/inventory/transfer", icon: ArrowRightLeft },
             { title: "Adjustments", href: "/dashboard/inventory/adjustment", icon: ClipboardList },
+
             { title: "Stock Opname", href: "/dashboard/inventory/opname", icon: ClipboardCheck },
             { title: "History Logs", href: "/dashboard/inventory/history", icon: History },
         ],

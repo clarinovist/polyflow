@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { adjustStockSchema, AdjustStockValues, transferStockSchema, TransferStockValues } from '@/lib/zod-schemas';
+import { adjustStockSchema, AdjustStockValues, transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/zod-schemas';
 import { MovementType, Prisma, Unit, ProductType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -127,7 +127,6 @@ export async function transferStock(data: TransferStockValues) {
                     quantity: true,
                 },
             });
-            console.log("Source Stock:", sourceStock);
 
             if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
                 throw new Error(`Insufficient stock at source location. Current: ${sourceStock?.quantity || 0}`);
@@ -147,7 +146,6 @@ export async function transferStock(data: TransferStockValues) {
                     },
                 },
             });
-            console.log("Source Decremented");
 
             // 3. Increment Destination (Upsert)
             await tx.inventory.upsert({
@@ -168,7 +166,6 @@ export async function transferStock(data: TransferStockValues) {
                     quantity: quantity,
                 },
             });
-            console.log("Dest Incremented");
 
             // 4. Create Movement Record
             await tx.stockMovement.create({
@@ -182,7 +179,6 @@ export async function transferStock(data: TransferStockValues) {
                     createdAt: date,
                 },
             });
-            console.log("Movement Created");
         });
 
         revalidatePath('/dashboard/inventory');
@@ -190,6 +186,100 @@ export async function transferStock(data: TransferStockValues) {
         return { success: true };
     } catch (error) {
         console.error("Transfer Error", error);
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+    }
+}
+
+export async function transferStockBulk(data: BulkTransferStockValues) {
+    const result = bulkTransferStockSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { sourceLocationId, destinationLocationId, items, notes, date } = result.data;
+
+    if (sourceLocationId === destinationLocationId) {
+        return { success: false, error: "Source and destination cannot be the same" };
+    }
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                const { productVariantId, quantity } = item;
+
+                // 1. Check Source Balance
+                const sourceStock = await tx.inventory.findUnique({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: sourceLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    select: {
+                        id: true,
+                        quantity: true,
+                    },
+                });
+
+                if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
+                    throw new Error(`Insufficient stock for product ${productVariantId} at source location.`);
+                }
+
+                // 2. Decrement Source
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: sourceLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    data: {
+                        quantity: {
+                            decrement: quantity,
+                        },
+                    },
+                });
+
+                // 3. Increment Destination (Upsert)
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: destinationLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    update: {
+                        quantity: {
+                            increment: quantity,
+                        },
+                    },
+                    create: {
+                        locationId: destinationLocationId,
+                        productVariantId: productVariantId,
+                        quantity: quantity,
+                    },
+                });
+
+                // 4. Create Movement Record
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.TRANSFER,
+                        productVariantId,
+                        fromLocationId: sourceLocationId,
+                        toLocationId: destinationLocationId,
+                        quantity,
+                        reference: notes,
+                        createdAt: date,
+                    },
+                });
+            }
+        });
+
+        revalidatePath('/dashboard/inventory');
+        revalidatePath('/dashboard/inventory/history');
+        return { success: true };
+    } catch (error) {
+        console.error("Bulk Transfer Error", error);
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
@@ -269,6 +359,94 @@ export async function adjustStock(data: AdjustStockValues) {
                     reference: reason,
                 },
             });
+        });
+
+        revalidatePath('/dashboard/inventory');
+        revalidatePath('/dashboard/inventory/history');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+    }
+}
+
+export async function adjustStockBulk(data: BulkAdjustStockValues) {
+    const result = bulkAdjustStockSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { locationId, items } = result.data;
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                const { productVariantId, type, quantity, reason } = item;
+                const isIncrement = type === 'ADJUSTMENT_IN';
+
+                if (!isIncrement) {
+                    // Validation for OUT
+                    const currentStock = await tx.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId
+                            }
+                        },
+                        select: {
+                            id: true,
+                            quantity: true,
+                        },
+                    });
+                    if (!currentStock || currentStock.quantity.toNumber() < quantity) {
+                        throw new Error(`Insufficient stock to adjust OUT for product ${productVariantId}`);
+                    }
+                }
+
+                // 1. Update Inventory
+                if (isIncrement) {
+                    await tx.inventory.upsert({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId,
+                            },
+                        },
+                        update: {
+                            quantity: { increment: quantity },
+                        },
+                        create: {
+                            locationId,
+                            productVariantId,
+                            quantity,
+                        }
+                    });
+                } else {
+                    await tx.inventory.update({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId,
+                                productVariantId,
+                            },
+                        },
+                        data: {
+                            quantity: { decrement: quantity },
+                        }
+                    });
+                }
+
+                // 2. Create Movement
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.ADJUSTMENT,
+                        productVariantId,
+                        // If IN, From null, To Location. If OUT, From Location, To Null.
+                        fromLocationId: isIncrement ? null : locationId,
+                        toLocationId: isIncrement ? locationId : null,
+                        quantity,
+                        reference: reason,
+                    },
+                });
+            }
         });
 
         revalidatePath('/dashboard/inventory');

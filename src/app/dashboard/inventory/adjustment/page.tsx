@@ -1,43 +1,41 @@
-import { AdjustmentForm } from '@/components/inventory/AdjustmentForm';
-import { getLocations, getProductVariants, getInventoryStats, InventoryWithRelations } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdjustmentForm } from '@/components/inventory/AdjustmentForm';
 
 export default async function AdjustmentPage() {
-    const [locationsData, productsData, inventory] = await Promise.all([
+    const [liveInventory, locations, productsData] = await Promise.all([
+        getInventoryStats(),
         getLocations(),
         getProductVariants(),
-        getInventoryStats(),
     ]);
 
-    // Exclude Decimals by selecting only plain fields and using JSON round-trip for safety
-    const locations = JSON.parse(JSON.stringify(locationsData.map(l => ({ id: l.id, name: l.name }))));
-    const products = JSON.parse(JSON.stringify(productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }))));
-    const serializedInventory = JSON.parse(JSON.stringify(inventory.map((item: InventoryWithRelations) => ({
-        locationId: item.locationId,
-        productVariantId: item.productVariantId,
-        quantity: item.quantity.toNumber(),
-    }))));
+    const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
+    const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
+    const liveInventorySimple = liveInventory.map(i => ({
+        locationId: i.locationId,
+        productVariantId: i.productVariantId,
+        quantity: i.quantity.toNumber(),
+    }));
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Page Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">Stock Adjustment</h1>
-                <p className="text-muted-foreground mt-2">Manually adjust inventory quantities for corrections</p>
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
+                <h2 className="text-3xl font-bold tracking-tight">Stock Adjustment</h2>
             </div>
-
-            <Card className="max-w-2xl">
-                <CardHeader>
-                    <CardTitle>Stock Adjustment (Opname)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <AdjustmentForm
-                        locations={locations}
-                        products={products}
-                        inventory={serializedInventory}
-                    />
-                </CardContent>
-            </Card>
+            <div className="grid gap-4 grid-cols-1">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Adjust Stock Level</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <AdjustmentForm
+                            locations={formLocations}
+                            products={formProducts}
+                            inventory={liveInventorySimple}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
