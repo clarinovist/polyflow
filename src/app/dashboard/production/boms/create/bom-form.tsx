@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createBomSchema, CreateBomValues } from '@/lib/zod-schemas';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,16 @@ import { createBom, updateBom } from '@/actions/boms';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+interface Product {
+    id: string;
+    name: string;
+    skuCode: string;
+    primaryUnit: string;
+}
+
 interface BomFormProps {
-    products: any[];
+    products: Product[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     initialData?: any; // The ID will be in initialData.id
 }
 
@@ -30,11 +38,13 @@ export function BomForm({ products, initialData }: BomFormProps) {
             productVariantId: initialData?.productVariantId || '',
             outputQuantity: initialData?.outputQuantity || 1,
             isDefault: initialData?.isDefault || false,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             items: initialData?.items?.map((item: any) => ({
                 productVariantId: item.productVariantId,
                 quantity: Number(item.quantity),
             })) || [{ productVariantId: '', quantity: 0 }]
-        } as any, // Cast to any to avoid strict type mismatch with initial string inputs
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any,
     });
 
     const { fields, append, remove } = useFieldArray({
@@ -43,7 +53,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
     });
 
     // Determine units for display
-    const watchOutputId = form.watch('productVariantId');
+    const watchOutputId = useWatch({ control: form.control, name: 'productVariantId' });
     const selectedOutput = products.find(p => p.id === watchOutputId);
 
     async function onSubmit(data: CreateBomValues) {

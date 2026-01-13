@@ -14,7 +14,7 @@ export interface ImportVariant {
     buyPrice?: number;
     sellPrice?: number;
     minStockAlert?: number;
-    attributes?: Record<string, any>;
+    attributes?: Record<string, unknown>;
 }
 
 export interface ImportProduct {
@@ -95,14 +95,14 @@ export async function importProducts(products: ImportProduct[]): Promise<ImportR
             products: productCount,
             variants: variantCount
         };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Import error:', error);
         return {
             success: false,
             imported: 0,
             products: 0,
             variants: 0,
-            errors: [error.message || 'Failed to import products']
+            errors: [error instanceof Error ? error.message : 'An unknown error occurred']
         };
     }
 }

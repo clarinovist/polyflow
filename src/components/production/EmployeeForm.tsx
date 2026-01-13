@@ -5,14 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { EmployeeStatus, Employee } from '@prisma/client';
+import { Employee, EmployeeStatus } from '@prisma/client';
 import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/employees';
 import { getJobRoles, createJobRole } from '@/actions/roles';
 import { useEffect } from 'react';
@@ -40,7 +33,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
         name: initialData?.name || '',
         code: initialData?.code || '',
         role: initialData?.role || '',
-        status: initialData?.status || 'ACTIVE',
+        status: initialData?.status || EmployeeStatus.ACTIVE,
     });
 
     useEffect(() => {
@@ -78,13 +71,13 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
 
         try {
             if (initialData) {
-                await updateEmployee(initialData.id, formData as any);
+                await updateEmployee(initialData.id, formData);
             } else {
-                await createEmployee(formData as any);
+                await createEmployee(formData);
             }
             router.push('/dashboard/production/resources/employees');
             router.refresh();
-        } catch (err) {
+        } catch (_unused) {
             setError('Something went wrong. Please try again.');
             setLoading(false);
         }
@@ -148,7 +141,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                                                     onClick={() => handleCreateRole(searchValue)}
                                                 >
                                                     <Plus className="w-3 h-3 mr-1" />
-                                                    Add "{searchValue}"
+                                                    Add &quot;{searchValue}&quot;
                                                 </Button>
                                             </>
                                         ) : (

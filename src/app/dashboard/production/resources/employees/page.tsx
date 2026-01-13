@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Users, MoreHorizontal, UserCircle, Briefcase } from 'lucide-react';
+import { Plus, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { getEmployees } from '@/actions/employees';
 import { EmployeeActions } from '@/components/production/EmployeeActions';
@@ -14,8 +13,8 @@ export default async function EmployeesPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold text-slate-900">Production Staff</h1>
-                    <p className="text-slate-600">Manage operators, helpers, and production managers</p>
+                    <h1 className="text-3xl font-bold text-foreground">Production Staff</h1>
+                    <p className="text-muted-foreground">Manage operators, helpers, and production managers</p>
                 </div>
                 <Link href="/dashboard/production/resources/employees/new">
                     <Button className="gap-2">
@@ -25,9 +24,9 @@ export default async function EmployeesPage() {
                 </Link>
             </div>
 
-            <div className="rounded-md border bg-white">
+            <div className="rounded-md border bg-card">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 font-medium">
+                    <thead className="bg-muted text-muted-foreground font-medium">
                         <tr>
                             <th className="p-4">Name</th>
                             <th className="p-4">Code</th>
@@ -36,18 +35,18 @@ export default async function EmployeesPage() {
                             <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-border">
                         {employees.map((employee) => (
-                            <tr key={employee.id} className="hover:bg-slate-50 group">
+                            <tr key={employee.id} className="hover:bg-muted/50 group">
                                 <td className="p-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                                             <UserCircle className="h-5 w-5" />
                                         </div>
-                                        <span className="font-medium text-slate-900">{employee.name}</span>
+                                        <span className="font-medium text-foreground">{employee.name}</span>
                                     </div>
                                 </td>
-                                <td className="p-4 font-mono text-slate-600">{employee.code}</td>
+                                <td className="p-4 font-mono text-muted-foreground">{employee.code}</td>
                                 <td className="p-4">
                                     <Badge variant="outline" className="capitalize">
                                         {employee.role.toLowerCase()}
@@ -63,7 +62,7 @@ export default async function EmployeesPage() {
                         ))}
                         {employees.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="p-12 text-center text-slate-500">
+                                <td colSpan={5} className="p-12 text-center text-muted-foreground">
                                     No staff members found.
                                 </td>
                             </tr>
@@ -78,7 +77,7 @@ export default async function EmployeesPage() {
 function StatusBadge({ status }: { status: EmployeeStatus }) {
     const styles: Record<EmployeeStatus, string> = {
         ACTIVE: 'bg-emerald-100 text-emerald-700',
-        INACTIVE: 'bg-slate-100 text-slate-500',
+        INACTIVE: 'bg-muted text-muted-foreground',
     };
 
     return (

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MovementType, ProductType, Unit } from '@prisma/client';
+import { ProductType, Unit } from '@prisma/client';
 
 export const transferStockSchema = z.object({
     sourceLocationId: z.string().min(1, "Source location is required"),
@@ -61,7 +61,7 @@ export const createProductSchema = z.object({
 
     // Smart logic: For SCRAP and RAW_MATERIAL, auto-set salesUnit = primaryUnit and conversionFactor = 1
     if (data.productType === ProductType.SCRAP || data.productType === ProductType.RAW_MATERIAL) {
-        data.variants.forEach((variant, index) => {
+        data.variants.forEach((variant) => {
             variant.salesUnit = variant.primaryUnit;
             variant.conversionFactor = 1;
         });

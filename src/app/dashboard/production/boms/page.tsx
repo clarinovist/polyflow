@@ -17,8 +17,8 @@ export default async function BomListPage() {
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Bill of Materials</h1>
-                    <p className="text-slate-600 mt-2">Manage production recipes and formulas</p>
+                    <h1 className="text-3xl font-bold text-foreground">Bill of Materials</h1>
+                    <p className="text-muted-foreground mt-2">Manage production recipes and formulas</p>
                 </div>
                 <div className="flex gap-2">
                     <BOMFieldGuide />
@@ -31,14 +31,14 @@ export default async function BomListPage() {
                 </div>
             </div>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border shadow-sm">
                 <CardHeader>
                     <CardTitle>Existing Recipes</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-medium">
+                            <thead className="bg-muted text-muted-foreground font-medium">
                                 <tr>
                                     <th className="p-3">Recipe Name</th>
                                     <th className="p-3">Output Product</th>
@@ -48,16 +48,16 @@ export default async function BomListPage() {
                                     <th className="p-3"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-200">
+                            <tbody className="divide-y divide-border">
                                 {boms?.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="p-8 text-center text-slate-500">
+                                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
                                             No recipes found. Create one to get started.
                                         </td>
                                     </tr>
                                 ) : (
-                                    boms?.map((bom: any) => (
-                                        <tr key={bom.id} className="hover:bg-slate-50 group">
+                                    boms?.map((bom) => (
+                                        <tr key={bom.id} className="hover:bg-muted/50 group">
                                             <td className="p-3 font-medium flex items-center gap-2">
                                                 <FlaskConical className="h-4 w-4 text-purple-600" />
                                                 {bom.name}
@@ -72,7 +72,7 @@ export default async function BomListPage() {
                                             <td className="p-3">
                                                 {Number(bom.outputQuantity)} {bom.productVariant.primaryUnit}
                                             </td>
-                                            <td className="p-3 text-slate-500">
+                                            <td className="p-3 text-muted-foreground">
                                                 {format(new Date(bom.updatedAt), 'MMM dd, yyyy')}
                                             </td>
                                             <td className="p-3 text-right">

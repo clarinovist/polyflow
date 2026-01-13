@@ -20,7 +20,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Clock, Users } from 'lucide-react';
+import { Plus, Trash2, Users } from 'lucide-react';
 import { addProductionShift, deleteProductionShift } from '@/actions/production';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -40,7 +40,7 @@ interface ShiftManagerProps {
 }
 
 export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, workShifts, machines }: ShiftManagerProps) {
-    const [isAdding, setIsAdding] = useState(false);
+    const [_isAdding, _setIsAdding] = useState(false);
 
     async function handleDelete(shiftId: string) {
         if (!confirm('Are you sure you want to delete this shift?')) return;
@@ -63,7 +63,7 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                         helpers={helpers}
                         workShifts={workShifts}
                         machines={machines}
-                        onOpenChange={setIsAdding}
+                        onOpenChange={_setIsAdding}
                     />
                 )}
             </div>
@@ -180,7 +180,7 @@ function AddShiftDialog({
         const endStr = formData.get('endTime') as string;
 
         const startTimeDate = new Date(`${dateStr}T${startStr}`);
-        let endTimeDate = new Date(`${dateStr}T${endStr}`);
+        const endTimeDate = new Date(`${dateStr}T${endStr}`);
 
         // Handle overnight shifts (end time before start time)
         if (endTimeDate < startTimeDate) {

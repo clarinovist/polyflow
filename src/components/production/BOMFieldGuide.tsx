@@ -21,7 +21,7 @@ export function BOMFieldGuide() {
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col p-0">
-                <div className="sticky top-0 z-10 bg-white border-b px-6 pt-6">
+                <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6">
                     <DialogHeader className="pb-4 pr-10">
                         <DialogTitle className="flex items-center gap-2">
                             <FlaskConical className="h-5 w-5 text-purple-600" />
@@ -188,7 +188,7 @@ export function BOMFieldGuide() {
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-blue-800">
-                                        <span className="font-semibold">Tip:</span> Mark one BOM as "Default" for
+                                        <span className="font-semibold">Tip:</span> Mark one BOM as &quot;Default&quot; for
                                         the most commonly used recipe. You can select alternative BOMs when creating
                                         production orders.
                                     </div>
@@ -205,7 +205,7 @@ export function BOMFieldGuide() {
                                     <ul className="text-sm text-red-800 space-y-1 list-disc list-inside">
                                         <li>Forgetting to add all required ingredients</li>
                                         <li>Using the wrong output product variant</li>
-                                        <li>Entering quantities that don't match the output quantity basis</li>
+                                        <li>Entering quantities that don&apos;t match the output quantity basis</li>
                                         <li>Not updating BOMs when recipes change (create new version instead)</li>
                                         <li>Setting unrealistic scrap percentages</li>
                                     </ul>
@@ -225,7 +225,7 @@ export function BOMFieldGuide() {
                                         <li>Use 100 as output quantity for easy percentage calculations</li>
                                         <li>Review and update scrap percentages based on actual production data</li>
                                         <li>Test new BOMs with small production batches first</li>
-                                        <li>Keep historical BOMs for reference (don't delete old recipes)</li>
+                                        <li>Keep historical BOMs for reference (don&apos;t delete old recipes)</li>
                                     </ul>
                                 </div>
                             </div>
@@ -283,7 +283,7 @@ interface BOMUseCaseProps {
 
 function BOMUseCase({ title, example }: BOMUseCaseProps) {
     return (
-        <div className="bg-white p-3 rounded border border-slate-200">
+        <div className="bg-card p-3 rounded border border-border">
             <div className="font-semibold text-slate-900 text-sm">{title}</div>
             <div className="text-xs text-slate-600 mt-1">Example: {example}</div>
         </div>

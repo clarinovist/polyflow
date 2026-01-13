@@ -1,8 +1,5 @@
 import { getWorkShifts } from '@/actions/work-shifts';
 import { ShiftList } from '@/components/settings/ShiftList';
-import { ShiftDialog } from '@/components/settings/ShiftDialog';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 import { ShiftPageHeader } from '@/components/settings/ShiftPageHeader';
 
 export default async function ShiftsPage() {

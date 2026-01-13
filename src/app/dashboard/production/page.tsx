@@ -23,8 +23,8 @@ export default async function ProductionDashboardPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Production</h1>
-                    <p className="text-slate-600 mt-2">Manage manufacturing active orders and operations</p>
+                    <h1 className="text-3xl font-bold text-foreground">Production</h1>
+                    <p className="text-muted-foreground mt-2">Manage manufacturing active orders and operations</p>
                 </div>
                 <div className="flex gap-2">
                     <ProductionGlossary />
@@ -63,7 +63,7 @@ export default async function ProductionDashboardPage() {
             </div>
 
             {/* Recent Orders */}
-            <Card className="border-none shadow-sm">
+            <Card className="border shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Recent Orders</CardTitle>
                     <Link href="/dashboard/production/orders" className="text-sm text-blue-600 hover:underline">
@@ -73,7 +73,7 @@ export default async function ProductionDashboardPage() {
                 <CardContent>
                     <div className="rounded-md border">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-slate-500 font-medium">
+                            <thead className="bg-muted text-muted-foreground font-medium">
                                 <tr>
                                     <th className="p-3">Order #</th>
                                     <th className="p-3">Product</th>
@@ -84,20 +84,20 @@ export default async function ProductionDashboardPage() {
                                     <th className="p-3"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-200">
+                            <tbody className="divide-y divide-border">
                                 {recentOrders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-slate-500">
+                                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
                                             No recent orders found.
                                         </td>
                                     </tr>
                                 ) : (
                                     recentOrders.map((order) => (
-                                        <tr key={order.id} className="hover:bg-slate-50 group">
+                                        <tr key={order.id} className="hover:bg-muted/50 group">
                                             <td className="p-3 font-medium">{order.orderNumber}</td>
                                             <td className="p-3">
-                                                <div className="font-medium text-slate-900">{order.bom.productVariant.name}</div>
-                                                <div className="text-xs text-slate-500">{order.bom.name}</div>
+                                                <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
+                                                <div className="text-xs text-muted-foreground">{order.bom.name}</div>
                                             </td>
                                             <td className="p-3">
                                                 <StatusBadge status={order.status} />
@@ -105,9 +105,9 @@ export default async function ProductionDashboardPage() {
                                             <td className="p-3">
                                                 {order.machine ? (
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded">{order.machine.code}</span>
+                                                        <span className="text-xs bg-muted px-2 py-1 rounded">{order.machine.code}</span>
                                                     </div>
-                                                ) : <span className="text-slate-400">-</span>}
+                                                ) : <span className="text-muted-foreground">-</span>}
                                             </td>
                                             <td className="p-3">
                                                 {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
@@ -134,19 +134,27 @@ export default async function ProductionDashboardPage() {
     );
 }
 
-function StatCard({ title, value, icon: Icon, color, description }: any) {
+interface StatCardProps {
+    title: string;
+    value: string;
+    icon: React.ElementType;
+    color: string;
+    description?: string;
+}
+
+function StatCard({ title, value, icon: Icon, color, description }: StatCardProps) {
     return (
-        <Card className="border-none shadow-sm">
+        <Card className="border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-                <div className={cn("p-2 rounded-lg bg-slate-50", color.replace('text-', 'bg-').replace('-600', '-50'))}>
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <div className={cn("p-2 rounded-lg bg-muted/50", color.replace('text-', 'bg-').replace('-600', '-50'))}>
                     <Icon className={cn("h-4 w-4", color)} />
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-slate-900">{value}</div>
+                <div className="text-2xl font-bold text-foreground">{value}</div>
                 {description && (
-                    <p className="text-xs text-slate-500 mt-1">{description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
                 )}
             </CardContent>
         </Card>

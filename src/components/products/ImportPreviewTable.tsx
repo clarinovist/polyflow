@@ -41,17 +41,17 @@ export function ImportPreviewTable({ results }: ImportPreviewTableProps) {
                                             : 'bg-green-50/50'
                                 }
                             >
-                                <TableCell className="font-mono text-sm text-slate-500">
+                                <TableCell className="font-mono text-sm text-muted-foreground">
                                     {result.row}
                                 </TableCell>
                                 <TableCell>
                                     {result.isValid ? (
-                                        <Badge variant="outline" className="gap-1 bg-white border-green-200">
+                                        <Badge variant="outline" className="gap-1 bg-card border-green-500/20">
                                             <CheckCircle2 className="h-3 w-3 text-green-600" />
                                             Valid
                                         </Badge>
                                     ) : (
-                                        <Badge variant="outline" className="gap-1 bg-white border-red-200">
+                                        <Badge variant="outline" className="gap-1 bg-card border-destructive/20">
                                             <AlertCircle className="h-3 w-3 text-red-600" />
                                             Error
                                         </Badge>

@@ -22,7 +22,7 @@ import {
     Loader2,
     FileDown
 } from 'lucide-react';
-import { parseImportFile, downloadCSVTemplate, downloadExcelTemplate, downloadErrorReport, rowsToProducts, ProductImportRow } from '@/lib/csv-parser';
+import { parseImportFile, downloadCSVTemplate, downloadExcelTemplate, downloadErrorReport, rowsToProducts } from '@/lib/csv-parser';
 import { validateImportRows, ValidationResult, getValidationSummary } from '@/lib/import-validator';
 import { importProducts, getExistingSKUs } from '@/actions/import';
 import { ImportPreviewTable } from './ImportPreviewTable';
@@ -32,10 +32,16 @@ type ImportStep = 'upload' | 'preview' | 'result';
 export function ImportDialog() {
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<ImportStep>('upload');
-    const [file, setFile] = useState<File | null>(null);
+    const [_file, setFile] = useState<File | null>(null);
     const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [importResult, setImportResult] = useState<any>(null);
+    interface ImportResult {
+        success: boolean;
+        products: number;
+        variants: number;
+        errors?: string[];
+    }
+    const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [progress, setProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState('');
 
@@ -65,8 +71,8 @@ export function ImportDialog() {
             setProgress(100);
             setStatusMessage('');
             setStep('preview');
-        } catch (error: any) {
-            alert(`Error parsing file: ${error.message}`);
+        } catch (error) {
+            alert(`Error parsing file: ${error instanceof Error ? error.message : "Unknown error"}`);
         } finally {
             setIsProcessing(false);
         }
@@ -89,8 +95,8 @@ export function ImportDialog() {
 
             // Move to result step
             setStep('result');
-        } catch (error: any) {
-            alert(`Error importing products: ${error.message}`);
+        } catch (error) {
+            alert(`Error importing products: ${error instanceof Error ? error.message : "Unknown error"}`);
         } finally {
             setIsProcessing(false);
         }

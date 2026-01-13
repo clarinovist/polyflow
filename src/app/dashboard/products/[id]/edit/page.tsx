@@ -37,7 +37,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     };
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="p-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Edit Product: {product.name}</CardTitle>

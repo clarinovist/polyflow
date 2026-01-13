@@ -1,8 +1,6 @@
 'use client';
 
 import {
-    LineChart,
-    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -23,7 +21,7 @@ interface StockHistoryChartProps {
 export function StockHistoryChart({ data, title, variantName }: StockHistoryChartProps) {
     if (!data || data.length === 0) {
         return (
-            <Card className="w-full h-[400px] flex items-center justify-center text-slate-500">
+            <Card className="w-full h-[400px] flex items-center justify-center text-muted-foreground">
                 No historical data available for this range
             </Card>
         );
@@ -35,7 +33,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                 <CardTitle className="text-lg font-semibold flex items-center justify-between">
                     <span>{title || 'Stock Level History'}</span>
                     {variantName && (
-                        <span className="text-sm font-normal text-slate-500">
+                        <span className="text-sm font-normal text-muted-foreground">
                             {variantName}
                         </span>
                     )}
@@ -54,19 +52,19 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                                     <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis
                                 dataKey="date"
                                 tickFormatter={(str) => {
                                     const date = parseISO(str);
                                     return format(date, 'MMM d');
                                 }}
-                                tick={{ fontSize: 12, fill: '#64748b' }}
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                 axisLine={false}
                                 tickLine={false}
                             />
                             <YAxis
-                                tick={{ fontSize: 12, fill: '#64748b' }}
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                 axisLine={false}
                                 tickLine={false}
                                 tickFormatter={(val) => val.toLocaleString()}
@@ -75,8 +73,8 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                                 content={({ active, payload, label }) => {
                                     if (active && payload && payload.length) {
                                         return (
-                                            <div className="bg-white p-3 border rounded-lg shadow-lg border-slate-100">
-                                                <p className="text-sm font-medium text-slate-900 border-b pb-1 mb-2">
+                                            <div className="bg-popover p-3 border rounded-lg shadow-lg border-border">
+                                                <p className="text-sm font-medium text-foreground border-b pb-1 mb-2">
                                                     {format(parseISO(label as string), 'MMMM d, yyyy')}
                                                 </p>
                                                 <div className="flex items-center gap-2">

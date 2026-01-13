@@ -1,8 +1,18 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
+interface OpnameItem {
+    id: string;
+    systemQuantity: number;
+    countedQuantity: number | null;
+    productVariant: {
+        name: string;
+        skuCode: string;
+    };
+}
+
 interface OpnameVarianceProps {
-    items: any[];
+    items: OpnameItem[];
 }
 
 export function OpnameVariance({ items }: OpnameVarianceProps) {
@@ -48,7 +58,7 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {itemsWithVariance.map((item: any) => (
+                        {itemsWithVariance.map((item) => (
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium">
                                     {item.productVariant.name}

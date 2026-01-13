@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Factory, MoreHorizontal, MapPin } from 'lucide-react';
+import { Plus, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { getMachines, deleteMachine } from '@/actions/machines';
+import { getMachines } from '@/actions/machines';
 import { MachineActions } from '@/components/production/MachineActions';
 import { Badge } from '@/components/ui/badge';
 import { MachineStatus } from '@prisma/client';
@@ -14,8 +14,8 @@ export default async function MachinesPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold text-slate-900">Machines</h1>
-                    <p className="text-slate-600">Manage production machinery and equipment</p>
+                    <h1 className="text-3xl font-bold text-foreground">Machines</h1>
+                    <p className="text-muted-foreground">Manage production machinery and equipment</p>
                 </div>
                 <Link href="/dashboard/production/resources/machines/new">
                     <Button className="gap-2">
@@ -36,14 +36,14 @@ export default async function MachinesPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                <div className="flex items-center text-sm text-slate-500">
-                                    <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-700 mr-2">
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                    <span className="font-mono bg-muted px-2 py-1 rounded text-foreground mr-2">
                                         {machine.code}
                                     </span>
                                     <span className="capitalize">{machine.type.toLowerCase()}</span>
                                 </div>
 
-                                <div className="flex items-center gap-1 text-sm text-slate-500">
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                     <MapPin className="h-3 w-3" />
                                     {machine.location.name}
                                 </div>
@@ -56,7 +56,7 @@ export default async function MachinesPage() {
                     </Card>
                 ))}
                 {machines.length === 0 && (
-                    <div className="col-span-full text-center py-12 border rounded-lg bg-slate-50 text-slate-500">
+                    <div className="col-span-full text-center py-12 border rounded-lg bg-muted text-muted-foreground">
                         No machines found. Create one to get started.
                     </div>
                 )}

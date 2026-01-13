@@ -8,13 +8,13 @@ import { ProductionGlossary } from '@/components/production/ProductionGlossary';
 export default async function CreateProductionOrderPage() {
     const rawData = await getProductionFormData();
     // Only destructure what we need
-    const { boms, locations } = serializeData(rawData);
+    const { boms, locations } = serializeData(rawData) as any;
 
     return (
         <div className="p-6 md:p-8 max-w-7xl mx-auto">
             <Link
                 href="/dashboard/production/orders"
-                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors w-fit mb-6"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm font-medium">Back to Orders</span>
@@ -22,8 +22,8 @@ export default async function CreateProductionOrderPage() {
 
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Create Production Order</h1>
-                    <p className="text-slate-600 mt-2">Plan a new manufacturing job</p>
+                    <h1 className="text-3xl font-bold text-foreground">Create Production Order</h1>
+                    <p className="text-muted-foreground mt-2">Plan a new manufacturing job</p>
                 </div>
                 <div>
                     <ProductionGlossary />

@@ -13,7 +13,7 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
 
     if (status === 'CANCELLED') {
         return (
-            <div className="w-full p-4 bg-red-50 border border-red-100 rounded-lg flex items-center gap-3 text-red-700">
+            <div className="w-full p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 text-destructive">
                 <XCircle className="w-5 h-5" />
                 <span className="font-medium">Order Cancelled</span>
             </div>
@@ -24,32 +24,32 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
         <div className="w-full py-4">
             <div className="relative flex items-center justify-between w-full">
                 {/* Connecting Lines */}
-                <div className="absolute top-[14px] left-0 w-full h-[2px] bg-slate-100 -z-10" />
+                <div className="absolute top-[14px] left-0 w-full h-[2px] bg-muted -z-10" />
 
                 {steps.map((step, index) => {
                     const isCompleted = index < currentStepIndex;
                     const isCurrent = index === currentStepIndex;
 
                     return (
-                        <div key={step.id} className="flex flex-col items-center gap-2 bg-white px-2">
+                        <div key={step.id} className="flex flex-col items-center gap-2 bg-background px-2">
                             <div className={cn(
                                 "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors",
                                 isCompleted ? "bg-emerald-500 border-emerald-500 text-white" :
-                                    isCurrent ? "bg-white border-blue-600 text-blue-600 shadow-sm" :
-                                        "bg-slate-50 border-slate-200 text-slate-300"
+                                    isCurrent ? "bg-background border-primary text-primary shadow-sm" :
+                                        "bg-muted border-muted-foreground/20 text-muted-foreground/50"
                             )}>
                                 {isCompleted ? <CheckCircle className="w-5 h-5" /> :
-                                    isCurrent ? <div className="w-2.5 h-2.5 bg-blue-600 rounded-full" /> :
-                                        <div className="w-2.5 h-2.5 bg-slate-300 rounded-full" />}
+                                    isCurrent ? <div className="w-2.5 h-2.5 bg-primary rounded-full" /> :
+                                        <div className="w-2.5 h-2.5 bg-muted-foreground/30 rounded-full" />}
                             </div>
                             <div className="text-center">
                                 <p className={cn(
                                     "text-sm font-medium",
                                     isCompleted ? "text-emerald-600" :
-                                        isCurrent ? "text-blue-700" :
-                                            "text-slate-400"
+                                        isCurrent ? "text-primary" :
+                                            "text-muted-foreground"
                                 )}>{step.label}</p>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">{step.description}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{step.description}</p>
                             </div>
                         </div>
                     );
@@ -57,7 +57,7 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
             </div>
 
             {/* Step Specific Actions Hints */}
-            <div className="mt-4 bg-slate-50 border rounded-md p-3 text-sm text-slate-600 flex items-start gap-3">
+            <div className="mt-4 bg-muted/50 border rounded-md p-3 text-sm text-muted-foreground flex items-start gap-3">
                 <div className="mt-0.5 text-blue-500">
                     <AlertTriangle className="w-4 h-4" />
                 </div>

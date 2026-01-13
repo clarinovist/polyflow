@@ -54,7 +54,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     });
 
     const activeProductionShift = matchedShift
-        ? order.shifts?.find((ps: any) => ps.shiftName === matchedShift.name)
+        ? order.shifts?.find((ps) => ps.shiftName === matchedShift.name)
         : null;
 
     const defaultShift = matchedShift?.id || formData.workShifts[0]?.id;
@@ -255,7 +255,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         </div>
                                     )}
                                     {rolls.map((weight, idx) => (
-                                        <div key={idx} className="flex items-center justify-between bg-white p-2 border rounded shadow-sm text-sm">
+                                        <div key={idx} className="flex items-center justify-between bg-card p-2 border rounded shadow-sm text-sm">
                                             <span className="font-medium">Roll {idx + 1}</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono">{weight} kg</span>

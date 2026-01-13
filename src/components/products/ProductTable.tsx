@@ -117,7 +117,7 @@ export function ProductTable({ products }: ProductTableProps) {
 
     if (products.length === 0) {
         return (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-muted-foreground">
                 <p className="text-lg">No products found</p>
                 <p className="text-sm mt-2">Create your first product to get started</p>
             </div>
@@ -137,7 +137,7 @@ export function ProductTable({ products }: ProductTableProps) {
                                 Total Stock
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Info className="h-3.5 w-3.5 text-slate-400 cursor-help" />
+                                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         <p className="max-w-xs text-xs">
@@ -158,16 +158,16 @@ export function ProductTable({ products }: ProductTableProps) {
                         return (
                             <Fragment key={product.id}>
                                 {/* Parent Row */}
-                                <TableRow className="cursor-pointer hover:bg-slate-50 transition-colors">
+                                <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
                                     <TableCell onClick={() => toggleRow(product.id)} className="pl-6">
                                         {isExpanded ? (
-                                            <ChevronDown className="h-4 w-4 text-slate-400 transition-transform" />
+                                            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
                                         ) : (
-                                            <ChevronRight className="h-4 w-4 text-slate-400 transition-transform" />
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform" />
                                         )}
                                     </TableCell>
                                     <TableCell onClick={() => toggleRow(product.id)} className="whitespace-normal">
-                                        <div className="font-medium text-slate-900">{product.name}</div>
+                                        <div className="font-medium text-foreground">{product.name}</div>
                                     </TableCell>
                                     <TableCell onClick={() => toggleRow(product.id)}>
                                         <Badge className={productTypeBadgeColors[product.productType]}>
@@ -175,11 +175,11 @@ export function ProductTable({ products }: ProductTableProps) {
                                         </Badge>
                                     </TableCell>
                                     <TableCell onClick={() => toggleRow(product.id)} className="text-right">
-                                        <span className="font-medium text-slate-900">
+                                        <span className="font-medium text-foreground">
                                             {product.totalStock?.toFixed(2) || '0.00'}
                                         </span>
                                     </TableCell>
-                                    <TableCell onClick={() => toggleRow(product.id)} className="text-right text-slate-600">
+                                    <TableCell onClick={() => toggleRow(product.id)} className="text-right text-muted-foreground">
                                         {product.variants.length}
                                     </TableCell>
                                     <TableCell className="text-right pr-6">
@@ -204,19 +204,19 @@ export function ProductTable({ products }: ProductTableProps) {
 
                                 {/* Child Rows (Variants) */}
                                 {isExpanded && product.variants.map((variant) => (
-                                    <TableRow key={variant.id} className="bg-slate-50/50 hover:bg-slate-100/50 transition-colors">
+                                    <TableRow key={variant.id} className="bg-muted/30 hover:bg-muted/50 transition-colors">
                                         <TableCell className="pl-6"></TableCell>
                                         <TableCell className="pl-8 whitespace-normal">
                                             <div className="text-sm">
-                                                <span className="font-medium text-slate-700">{variant.name}</span>
-                                                <span className="text-slate-500 ml-2">({variant.skuCode})</span>
+                                                <span className="font-medium text-foreground">{variant.name}</span>
+                                                <span className="text-muted-foreground ml-2">({variant.skuCode})</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-sm text-slate-600">
+                                            <div className="text-sm text-muted-foreground">
                                                 {variant.primaryUnit}
                                                 {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
-                                                    <span className="ml-1 text-slate-400">
+                                                    <span className="ml-1 text-muted-foreground/70">
                                                         / {variant.salesUnit} ({variant.conversionFactor.toString()})
                                                     </span>
                                                 )}
@@ -225,7 +225,7 @@ export function ProductTable({ products }: ProductTableProps) {
                                         <TableCell className="text-right">
                                             {/* Matches Total Stock column */}
                                         </TableCell>
-                                        <TableCell className="text-right text-sm text-slate-600">
+                                        <TableCell className="text-right text-sm text-muted-foreground">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <span className="cursor-help inline-flex items-center gap-1">

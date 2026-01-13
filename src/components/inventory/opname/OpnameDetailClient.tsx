@@ -6,14 +6,38 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle2, AlertTriangle, Save, Calculator } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Calculator } from 'lucide-react';
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
 import { finalizeOpname } from '@/actions/opname';
 
+interface OpnameItem {
+    id: string;
+    systemQuantity: number;
+    countedQuantity: number | null;
+    notes: string | null;
+    productVariant: {
+        name: string;
+        skuCode: string;
+        primaryUnit: string;
+        product: {
+            name: string;
+        };
+    };
+}
+
+interface OpnameSession {
+    id: string;
+    status: string;
+    remarks: string | null;
+    location: { name: string };
+    createdBy?: { name: string | null } | null;
+    items: OpnameItem[];
+}
+
 interface OpnameDetailClientProps {
-    session: any;
+    session: OpnameSession;
 }
 
 export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
@@ -35,7 +59,7 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
             } else {
                 toast.error(`Error: ${result.error}`);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to finalize session");
         } finally {
             setIsFinalizing(false);
@@ -49,20 +73,20 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+                        <h2 className="text-3xl font-bold tracking-tight text-foreground">
                             {session.location.name}
                         </h2>
                         <Badge
                             variant="outline"
                             className={isOpen
-                                ? "bg-blue-50 text-blue-700 border-blue-200"
-                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                ? "bg-blue-500/10 text-blue-700 border-blue-200"
+                                : "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                             }
                         >
                             {session.status}
                         </Badge>
                     </div>
-                    <p className="text-slate-500">
+                    <p className="text-muted-foreground">
                         {session.remarks} • Created by {session.createdBy?.name || 'System'}
                     </p>
                 </div>

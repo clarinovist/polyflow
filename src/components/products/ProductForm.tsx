@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/zod-schemas';
 import { createProduct, updateProduct } from '@/actions/product';
@@ -35,6 +35,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
     const router = useRouter();
 
     const form = useForm<CreateProductValues | UpdateProductValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(mode === 'create' ? createProductSchema : updateProductSchema) as any,
         defaultValues: initialData || {
             name: '',
@@ -57,8 +58,8 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
         name: 'variants',
     });
 
-    const productType = form.watch('productType');
-    const productName = form.watch('name');
+    const productType = useWatch({ control: form.control, name: 'productType' });
+    const productName = useWatch({ control: form.control, name: 'name' });
 
     // Auto-adjust variant units when product type changes to SCRAP or RAW_MATERIAL
     useEffect(() => {
@@ -100,7 +101,11 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-8">
+            <form
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onSubmit={form.handleSubmit(onSubmit as any)}
+                className="space-y-8"
+            >
                 {/* General Info Section */}
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold">General Information</h3>

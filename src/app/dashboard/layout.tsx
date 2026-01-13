@@ -12,11 +12,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const user = {
         name: session.user?.name,
         email: session.user?.email,
-        role: (session.user as any).role,
+        role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-secondary/30">
             <SidebarNav user={user} />
 
             {/* Main Content */}

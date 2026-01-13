@@ -28,9 +28,9 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
         code: initialData?.code || '',
-        type: initialData?.type || 'MIXER',
+        type: initialData?.type || MachineType.MIXER,
         locationId: initialData?.locationId || locations[0]?.id || '',
-        status: initialData?.status || 'ACTIVE',
+        status: initialData?.status || MachineStatus.ACTIVE,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -40,13 +40,13 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
 
         try {
             if (initialData) {
-                await updateMachine(initialData.id, formData as any);
+                await updateMachine(initialData.id, formData);
             } else {
-                await createMachine(formData as any);
+                await createMachine(formData);
             }
             router.push('/dashboard/production/resources/machines');
             router.refresh();
-        } catch (err) {
+        } catch (_unused) {
             setError('Something went wrong. Please try again.');
             setLoading(false);
         }

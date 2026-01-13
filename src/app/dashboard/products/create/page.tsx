@@ -10,7 +10,7 @@ export default async function CreateProductPage() {
     ]);
 
     return (
-        <div className="container mx-auto py-8">
+        <div className="p-6">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Create New Product</CardTitle>

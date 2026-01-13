@@ -12,7 +12,7 @@ export function RecordQCDialog({ order }: { order: ExtendedProductionOrder }) {
         const formData = new FormData(e.currentTarget);
         const data = {
             productionOrderId: order.id,
-            result: formData.get('result') as any,
+            result: formData.get('result') as 'PASS' | 'FAIL' | 'QUARANTINE',
             notes: formData.get('notes') as string
         };
         await recordQualityInspection(data);

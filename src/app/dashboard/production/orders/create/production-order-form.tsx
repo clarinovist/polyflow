@@ -1,8 +1,8 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createProductionOrderSchema, CreateProductionOrderValues } from '@/lib/zod-schemas';
+import { createProductionOrderSchema } from '@/lib/zod-schemas';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,15 @@ import { useState, useMemo, useEffect } from 'react';
 import { createProductionOrder, getBomWithInventory } from '@/actions/production';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
+
+// Helper for generating order number outside of component to satisfy React Compiler purity rules
+function generateOrderNumber(processType: string) {
+    const dateStr = format(new Date(), 'yyMMdd');
+    const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : 'PCK';
+    const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+    return `PO-${dateStr}-${typeCode}${randomDigits}`;
+}
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,8 +29,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { z } from 'zod';
 
 interface ProductionOrderFormProps {
-    locations: any[];
-    boms: (any & { items: any[] })[];
+    locations: { id: string; slug: string; name: string }[];
+    boms: {
+        id: string;
+        name: string;
+        isDefault: boolean;
+        productVariantId: string;
+        outputQuantity: number;
+        productVariant: {
+            name: string;
+            primaryUnit: string;
+            product: {
+                productType: string;
+            };
+        };
+        items: {
+            productVariantId: string;
+            quantity: number;
+        }[];
+    }[];
 }
 
 interface MaterialRequirement {
@@ -47,7 +72,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing'>('mixing');
     const [selectedProductVariantId, setSelectedProductVariantId] = useState<string>('');
     const [isCalculating, setIsCalculating] = useState(false);
-    const [hasStockIssues, setHasStockIssues] = useState(false);
 
     // For storing extra info about materials that isn't in the form state
     const [materialInfo, setMaterialInfo] = useState<Record<string, Omit<MaterialRequirement, 'requiredQty'>>>({});
@@ -84,6 +108,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     }, [boms, selectedProductVariantId]);
 
     const form = useForm<FormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
             plannedQuantity: 0,
@@ -102,8 +127,9 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     });
 
     // Flexible BOM Logic
-    const watchBomId = form.watch('bomId');
-    const watchPlannedQty = form.watch('plannedQuantity');
+    const watchBomId = useWatch({ control: form.control, name: 'bomId' });
+    const watchPlannedQty = useWatch({ control: form.control, name: 'plannedQuantity' });
+    const watchItems = useWatch({ control: form.control, name: 'items' });
 
     const [planningMode, setPlanningMode] = useState<'weight' | 'batch'>('weight');
     const [batchCount, setBatchCount] = useState<number>(1);
@@ -120,15 +146,17 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     }, [planningMode, batchCount, watchBomId, boms, form]);
 
     // Automated Source Location Selection
-    const [sourceLocationId, setSourceLocationId] = useState<string>('');
-
-    // Initialize source location (default to RM)
-    useEffect(() => {
+    const sourceLocationId = useMemo(() => {
         const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
-        if (rmLoc && !sourceLocationId) {
-            setSourceLocationId(rmLoc.id);
-        }
-    }, [locations, sourceLocationId]);
+        const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
+        const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
+        if (processType === 'mixing') return rmLoc?.id || '';
+        if (processType === 'extrusion') return mixingLoc?.id || '';
+        if (processType === 'packing') return fgLoc?.id || '';
+        return '';
+    }, [processType, locations]);
+
+
 
     // Effect to calculate requirements
     useEffect(() => {
@@ -140,7 +168,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
 
                 if (result.success && result.data) {
                     // Update form fields
-                    const newItems = result.data.map((item: any) => ({
+                    const newItems = (result.data as MaterialRequirement[]).map((item) => ({
                         productVariantId: item.productVariantId,
                         quantity: item.requiredQty
                     }));
@@ -148,22 +176,18 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                     replaceMaterials(newItems);
 
                     // Store metadata for display
-                    const infoMap: Record<string, any> = {};
-                    let stockIssues = false;
-                    result.data.forEach((item: any) => {
+                    const infoMap: Record<string, Omit<MaterialRequirement, 'requiredQty'>> = {};
+                    (result.data as MaterialRequirement[]).forEach((item) => {
                         infoMap[item.productVariantId] = {
+                            productVariantId: item.productVariantId,
                             name: item.name,
                             unit: item.unit,
                             stdQty: item.stdQty,
                             bomOutput: item.bomOutput,
                             currentStock: item.currentStock
                         };
-                        if (item.requiredQty > item.currentStock) {
-                            stockIssues = true;
-                        }
                     });
                     setMaterialInfo(infoMap);
-                    setHasStockIssues(stockIssues);
                 } else {
                     toast.error("Failed to calculate recipe", { description: result.error });
                 }
@@ -178,23 +202,18 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
     }, [watchBomId, watchPlannedQty, sourceLocationId, replaceMaterials]);
 
     // Check for stock issues on manual edits
-    useEffect(() => {
-        const subscription = form.watch((value, { name }) => {
-            if (name?.startsWith('items')) {
-                let issues = false;
-                const items = value.items || [];
-                items.forEach((item: any) => {
-                    if (!item) return;
-                    const info = materialInfo[item.productVariantId];
-                    if (info && Number(item.quantity) > info.currentStock) {
-                        issues = true;
-                    }
-                });
-                setHasStockIssues(issues);
+    const hasStockIssues = useMemo(() => {
+        let issues = false;
+        const items = watchItems || [];
+        items.forEach((item) => {
+            if (!item) return;
+            const info = materialInfo[item.productVariantId as string];
+            if (info && Number(item.quantity) > info.currentStock) {
+                issues = true;
             }
         });
-        return () => subscription.unsubscribe();
-    }, [form.watch, materialInfo]);
+        return issues;
+    }, [watchItems, materialInfo]);
 
 
     // Reset BOM when product changes
@@ -210,30 +229,19 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
         }
     }, [selectedProductVariantId, boms, form]);
 
-    // Smart Location Logic
+    // Smart Location Logic for target location (managed by Hook Form)
     useEffect(() => {
-        const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
         const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
         const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
 
         if (processType === 'mixing') {
-            // Source: RM, Output: Mixing
             if (mixingLoc) form.setValue('locationId', mixingLoc.id);
-            if (rmLoc) setSourceLocationId(rmLoc.id);
-        } else if (processType === 'extrusion') {
-            // Source: Mixing, Output: FG
+        } else if (processType === 'extrusion' || processType === 'packing') {
             if (fgLoc) form.setValue('locationId', fgLoc.id);
-            if (mixingLoc) setSourceLocationId(mixingLoc.id);
-        } else if (processType === 'packing') {
-            // Source: FG, Output: FG (Packing usually takes from FG bulk or WIP and puts back to FG)
-            if (fgLoc) form.setValue('locationId', fgLoc.id);
-            if (fgLoc) setSourceLocationId(fgLoc.id);
         }
-
     }, [processType, locations, form]);
 
     const selectedBom = boms.find(b => b.id === watchBomId);
-    const selectedProduct = availableProducts.find(p => p.id === selectedProductVariantId);
 
     async function onSubmit(data: FormValues) {
         if (hasStockIssues) {
@@ -243,14 +251,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
 
         setIsSubmitting(true);
         try {
-            // Generate Smart Order Number: PO-YYMMDD-TYPE(2Digits)
-            // Example: PO-260106-MIX01
-            const dateStr = format(new Date(), 'yyMMdd');
-            const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : 'PCK';
-
-            // Random number between 1 and 99, padded to 2 digits
-            const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-            const orderNumber = `PO-${dateStr}-${typeCode}${randomDigits}`;
+            const orderNumber = generateOrderNumber(processType);
 
             const response = await createProductionOrder({
                 ...data,
@@ -273,7 +274,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                     description: response.error || "Something went wrong",
                 });
             }
-        } catch (error) {
+        } catch {
             setIsSubmitting(false);
             toast.error("Error", {
             });
@@ -311,7 +312,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
-                                                setHasStockIssues(false);
                                             }}
                                         >
                                             Mixing
@@ -327,7 +327,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
-                                                setHasStockIssues(false);
                                             }}
                                         >
                                             Extrusion
@@ -343,7 +342,6 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
-                                                setHasStockIssues(false);
                                             }}
                                         >
                                             Packing
@@ -599,9 +597,9 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                                     </TableRow>
                                                 )}
 
-                                                {materialFields.map((field: any, index) => {
+                                                {materialFields.map((field, index) => {
                                                     const info = materialInfo[field.productVariantId];
-                                                    const currentQty = Number(form.watch(`items.${index}.quantity`)) || 0;
+                                                    const currentQty = Number(watchItems?.[index]?.quantity) || 0;
                                                     const isLowStock = info && currentQty > info.currentStock;
 
                                                     return (

@@ -24,7 +24,7 @@ export function ProductionGlossary() {
             </DialogTrigger>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden">
                 <Tabs defaultValue="overview" className="flex flex-col h-full min-h-0">
-                    <div className="flex-none bg-white border-b px-6 pt-6">
+                    <div className="flex-none bg-background border-b px-6 pt-6">
                         <DialogHeader className="pb-3 pr-10">
                             <DialogTitle className="flex items-center gap-2">
                                 <Info className="h-5 w-5 text-blue-600" />
@@ -399,7 +399,7 @@ interface GlossaryItemProps {
 
 function GlossaryItem({ term, description, example }: GlossaryItemProps) {
     return (
-        <div className="bg-white p-3 rounded-lg border border-slate-200">
+        <div className="bg-card p-3 rounded-lg border border-border">
             <div className="font-semibold text-slate-900 mb-1">{term}</div>
             <p className="text-sm text-slate-600">{description}</p>
             {example && (

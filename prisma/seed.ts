@@ -1,4 +1,4 @@
-import { PrismaClient, ProductType, ContactType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ReservationType, ReservationStatus, ProductionStatus, EmployeeStatus } from '@prisma/client'
+import { PrismaClient, ProductType, ContactType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -180,7 +180,7 @@ async function main() {
     })
 
     // --- LEVEL 3: PACKING (Output: Rafia Black Pack 1kg) ---
-    const fgPack = await prisma.product.create({
+    await prisma.product.create({
         data: {
             name: 'Rafia Black Pack 1kg',
             productType: ProductType.FINISHED_GOOD,
@@ -244,10 +244,10 @@ async function main() {
     const locRM = (await prisma.location.findUnique({ where: { slug: 'rm_warehouse' } }))!
     const locMix = (await prisma.location.findUnique({ where: { slug: 'mixing_warehouse' } }))!
     const locFG = (await prisma.location.findUnique({ where: { slug: 'fg_warehouse' } }))!
-    const locScrap = (await prisma.location.findUnique({ where: { slug: 'scrap_warehouse' } }))!
+    await prisma.location.findUnique({ where: { slug: 'scrap_warehouse' } });
 
     // Helper to seed inventory + movement
-    const seedStock = async (product: any, location: any, qty: number, variantIndex = 0) => {
+    const seedStock = async (product: { id: string }, location: { id: string }, qty: number, variantIndex = 0) => {
         const variants = await prisma.productVariant.findMany({ where: { productId: product.id } })
         const variant = variants[variantIndex]
 
@@ -399,13 +399,13 @@ async function main() {
     const op1 = await prisma.employee.create({
         data: { name: 'Budi Operator', code: 'EMP-OP-001', role: 'OPERATOR' }
     })
-    const op2 = await prisma.employee.create({
+    await prisma.employee.create({
         data: { name: 'Joko Operator', code: 'EMP-OP-002', role: 'OPERATOR' }
     })
-    const help1 = await prisma.employee.create({
+    await prisma.employee.create({
         data: { name: 'Siti Helper', code: 'EMP-HLP-001', role: 'HELPER' }
     })
-    const help2 = await prisma.employee.create({
+    await prisma.employee.create({
         data: { name: 'Asep Helper', code: 'EMP-HLP-002', role: 'HELPER' }
     })
 

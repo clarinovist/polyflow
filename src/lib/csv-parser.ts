@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { ProductType, Unit } from '@prisma/client';
 
 export interface ProductImportRow {
+    [key: string]: string | number | boolean | null | undefined;
     product_name: string;
     product_type: string;
     variant_name: string;
@@ -32,7 +33,7 @@ export interface ParsedProduct {
         buyPrice?: number;
         sellPrice?: number;
         minStockAlert?: number;
-        attributes?: Record<string, any>;
+        attributes?: Record<string, string | number | boolean | null>;
     }[];
 }
 
@@ -204,8 +205,8 @@ export function rowsToProducts(rows: ProductImportRow[]): ParsedProduct[] {
     return products;
 }
 
-function buildAttributes(row: ProductImportRow): Record<string, any> | undefined {
-    const attrs: Record<string, any> = {};
+function buildAttributes(row: ProductImportRow): Record<string, string | number | boolean | null> | undefined {
+    const attrs: Record<string, string | number | boolean | null> = {};
 
     if (row.color) attrs.color = row.color;
     if (row.material) attrs.material = row.material;
@@ -356,8 +357,8 @@ export function parseExcelFile(file: File): Promise<ProductImportRow[]> {
                 });
 
                 // Normalize headers to lowercase
-                const normalizedData = jsonData.map((row: any) => {
-                    const normalized: any = {};
+                const normalizedData = jsonData.map((row) => {
+                    const normalized: Record<string, string | number | boolean | null | undefined> = {};
                     for (const key in row) {
                         normalized[key.trim().toLowerCase()] = row[key];
                     }
@@ -365,8 +366,8 @@ export function parseExcelFile(file: File): Promise<ProductImportRow[]> {
                 });
 
                 resolve(normalizedData);
-            } catch (error: any) {
-                reject(new Error(`Excel parsing error: ${error.message}`));
+            } catch (error) {
+                reject(new Error(`Excel parsing error: ${error instanceof Error ? error.message : "Unknown error"}`));
             }
         };
 

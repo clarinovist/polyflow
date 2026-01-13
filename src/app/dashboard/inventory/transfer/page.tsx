@@ -19,11 +19,11 @@ export default async function TransferPage() {
         <div className="p-6 space-y-6">
             {/* Page Header */}
             <div>
-                <h1 className="text-3xl font-bold text-slate-900">Internal Transfer</h1>
-                <p className="text-slate-600 mt-2">Move stock between warehouse locations</p>
+                <h1 className="text-3xl font-bold text-foreground">Internal Transfer</h1>
+                <p className="text-muted-foreground mt-2">Move stock between warehouse locations</p>
             </div>
 
-            <Card className="max-w-2xl">
+            <Card className="max-w-2xl border shadow-sm">
                 <CardHeader>
                     <CardTitle>Internal Stock Transfer</CardTitle>
                 </CardHeader>

@@ -1,9 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { OpnameStatus, MovementType, Prisma } from '@prisma/client';
+import { OpnameStatus, MovementType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
 
 export async function getOpnameSessions() {
     return await prisma.stockOpname.findMany({
@@ -68,8 +67,8 @@ export async function createOpnameSession(locationId: string, remarks?: string) 
 
         revalidatePath('/dashboard/inventory/opname');
         return { success: true, id: session.id };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -92,8 +91,8 @@ export async function saveOpnameCount(
 
         revalidatePath(`/dashboard/inventory/opname/${opnameId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -158,7 +157,7 @@ export async function finalizeOpname(opnameId: string) {
 
         revalidatePath(`/dashboard/inventory/opname/${opnameId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }

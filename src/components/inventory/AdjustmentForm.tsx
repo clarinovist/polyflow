@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { adjustStockSchema, AdjustStockValues } from '@/lib/zod-schemas';
 import { adjustStock } from '@/actions/inventory';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 
 interface SerializedInventory {
     locationId: string;
@@ -28,6 +28,7 @@ interface AdjustmentFormProps {
 export function AdjustmentForm({ locations, products, inventory }: AdjustmentFormProps) {
     const router = useRouter();
     const form = useForm<AdjustStockValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(adjustStockSchema) as any,
         defaultValues: {
             locationId: '',
@@ -38,8 +39,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
         },
     });
 
-    const selectedLocationId = form.watch('locationId');
-    const selectedProductId = form.watch('productVariantId');
+    const selectedLocationId = useWatch({ control: form.control, name: 'locationId' });
+    const selectedProductId = useWatch({ control: form.control, name: 'productVariantId' });
 
     // Filter products based on selected location
     const filteredProducts = useMemo(() => {
@@ -84,7 +85,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                     control={form.control}
                     name="locationId"

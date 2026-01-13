@@ -18,8 +18,8 @@ export default async function ProductionOrdersPage() {
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Production Orders</h1>
-                    <p className="text-slate-600 mt-2">Manage and track all production jobs</p>
+                    <h1 className="text-3xl font-bold text-foreground">Production Orders</h1>
+                    <p className="text-muted-foreground mt-2">Manage and track all production jobs</p>
                 </div>
                 <Link href="/dashboard/production/orders/create">
                     <Button className="gap-2">
@@ -29,13 +29,13 @@ export default async function ProductionOrdersPage() {
                 </Link>
             </div>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border shadow-sm">
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle>All Orders</CardTitle>
                         <div className="flex items-center gap-2">
                             <div className="relative">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search orders..."
                                     className="pl-9 w-[250px]"
@@ -62,21 +62,21 @@ export default async function ProductionOrdersPage() {
                             <TableBody>
                                 {orders.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center h-24 text-slate-500">
+                                        <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                                             No orders found.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     orders.map((order) => (
-                                        <TableRow key={order.id} className="hover:bg-slate-50 group cursor-pointer">
+                                        <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
                                             <TableCell className="font-medium">
                                                 <Link href={`/dashboard/production/orders/${order.id}`} className="hover:underline text-blue-600">
                                                     {order.orderNumber}
                                                 </Link>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="font-medium text-slate-900">{order.bom.productVariant.name}</div>
-                                                <div className="text-xs text-slate-500">{order.bom.name}</div>
+                                                <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
+                                                <div className="text-xs text-muted-foreground">{order.bom.name}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <StatusBadge status={order.status} />
@@ -86,21 +86,21 @@ export default async function ProductionOrdersPage() {
                                                     <Badge variant="secondary" className="font-normal text-xs">
                                                         {order.machine.code}
                                                     </Badge>
-                                                ) : <span className="text-slate-400">-</span>}
+                                                ) : <span className="text-muted-foreground">-</span>}
                                             </TableCell>
-                                            <TableCell className="text-slate-600 font-medium text-xs">
+                                            <TableCell className="text-muted-foreground font-medium text-xs">
                                                 {order.location.name}
                                             </TableCell>
                                             <TableCell>
                                                 {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
                                             </TableCell>
-                                            <TableCell className="text-slate-600">
+                                            <TableCell className="text-muted-foreground">
                                                 {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Link href={`/dashboard/production/orders/${order.id}`}>
                                                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
+                                                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                                                     </Button>
                                                 </Link>
                                             </TableCell>
@@ -118,7 +118,7 @@ export default async function ProductionOrdersPage() {
 
 function StatusBadge({ status }: { status: string }) {
     const styles: Record<string, string> = {
-        DRAFT: "bg-slate-100 text-slate-700 hover:bg-slate-100",
+        DRAFT: "bg-muted text-muted-foreground hover:bg-muted",
         RELEASED: "bg-blue-100 text-blue-700 hover:bg-blue-100",
         IN_PROGRESS: "bg-amber-100 text-amber-700 hover:bg-amber-100",
         COMPLETED: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",

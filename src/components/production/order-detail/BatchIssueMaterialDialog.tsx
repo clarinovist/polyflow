@@ -38,10 +38,10 @@ export function BatchIssueMaterialDialog({
 
     // Initial items based on plannedMaterials (NOT BOM icons anymore)
     const initialItems = useMemo(() => {
-        const plannedItems = (order.plannedMaterials || []).map((pm: any) => {
+        const plannedItems = (order.plannedMaterials || []).map((pm) => {
             const issued = order.materialIssues
-                .filter((mi: any) => mi.productVariantId === pm.productVariantId)
-                .reduce((sum: number, mi: any) => sum + Number(mi.quantity), 0);
+                .filter((mi) => mi.productVariantId === pm.productVariantId)
+                .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
             const remaining = Math.max(0, Number(pm.quantity) - issued);
 
@@ -134,8 +134,8 @@ export function BatchIssueMaterialDialog({
             } else {
                 toast.error(result.error || "Failed to update materials");
             }
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "An unexpected error occurred");
         } finally {
             setLoading(false);
         }

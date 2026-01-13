@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 // Helper to serialize Prisma objects (especially Decimals) for Client Components
-export function serializeData(obj: any): any {
+export function serializeData(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -19,24 +19,23 @@ export function serializeData(obj: any): any {
   }
 
   // Handle Prisma Decimal
-  if (obj && typeof obj === 'object' && typeof obj.toNumber === 'function') {
-    return obj.toNumber();
+  const potentialDecimal = obj as { toNumber?: () => number; toString?: () => string; constructor?: { name?: string } };
+  if (typeof potentialDecimal.toNumber === 'function') {
+    return potentialDecimal.toNumber();
   }
-  if (obj && typeof obj === 'object' && typeof obj.toString === 'function' && obj.constructor?.name === 'Decimal') {
-    return parseFloat(obj.toString());
+  if (typeof potentialDecimal.toString === 'function' && potentialDecimal.constructor?.name === 'Decimal') {
+    return parseFloat(potentialDecimal.toString());
   }
-
-  // Handle already serialized decimals that might be coming as strings/numbers in some contexts
-  // or specialized objects.
 
   if (Array.isArray(obj)) {
     return obj.map(serializeData);
   }
 
-  const serialized: any = {};
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      serialized[key] = serializeData(obj[key]);
+  const serialized: Record<string, unknown> = {};
+  const objRecord = obj as Record<string, unknown>;
+  for (const key in objRecord) {
+    if (Object.prototype.hasOwnProperty.call(objRecord, key)) {
+      serialized[key] = serializeData(objRecord[key]);
     }
   }
   return serialized;

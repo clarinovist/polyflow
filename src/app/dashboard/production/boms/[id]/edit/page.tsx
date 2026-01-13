@@ -28,18 +28,18 @@ export default async function EditBomPage(props: EditBomPageProps) {
         <div className="p-8 max-w-4xl mx-auto">
             <Link
                 href="/dashboard/production/boms"
-                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors w-fit mb-6"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm font-medium">Back to Recipes</span>
             </Link>
 
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-900">Edit Recipe</h1>
-                <p className="text-slate-600 mt-2">Modify existing production formula</p>
+                <h1 className="text-3xl font-bold text-foreground">Edit Recipe</h1>
+                <p className="text-muted-foreground mt-2">Modify existing production formula</p>
             </div>
 
-            <Card className="border-none shadow-sm">
+            <Card className="border shadow-sm">
                 <CardHeader>
                     <CardTitle>Recipe Details</CardTitle>
                     <CardDescription>
@@ -48,8 +48,8 @@ export default async function EditBomPage(props: EditBomPageProps) {
                 </CardHeader>
                 <CardContent>
                     <BomForm
-                        products={products}
-                        initialData={bom}
+                        products={products as any}
+                        initialData={bom as any}
                     />
                 </CardContent>
             </Card>

@@ -5,8 +5,8 @@ export default function SettingsPage() {
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-                <p className="text-slate-600 mt-2">Manage your system preferences</p>
+                <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+                <p className="text-muted-foreground mt-2">Manage your system preferences</p>
             </div>
 
             <Card className="max-w-2xl">
@@ -17,17 +17,17 @@ export default function SettingsPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <p className="text-sm text-slate-500 italic">
+                    <p className="text-sm text-muted-foreground italic">
                         Settings configuration will be available in the next phase (Phase 2).
                     </p>
-                    <div className="pt-4 border-t border-slate-100">
+                    <div className="pt-4 border-t border-border">
                         <div className="grid grid-cols-2 gap-4 py-2">
-                            <span className="text-sm font-medium text-slate-700">ERP Version</span>
-                            <span className="text-sm text-slate-500 text-right">0.1.5-beta</span>
+                            <span className="text-sm font-medium text-foreground">ERP Version</span>
+                            <span className="text-sm text-muted-foreground text-right">0.1.5-beta</span>
                         </div>
                         <div className="grid grid-cols-2 gap-4 py-2">
-                            <span className="text-sm font-medium text-slate-700">Environment</span>
-                            <span className="text-sm text-slate-500 text-right">Development</span>
+                            <span className="text-sm font-medium text-foreground">Environment</span>
+                            <span className="text-sm text-muted-foreground text-right">Development</span>
                         </div>
                     </div>
                 </CardContent>

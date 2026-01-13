@@ -10,8 +10,28 @@ import { Eye, EyeOff, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { saveOpnameCount } from '@/actions/opname';
 
+interface OpnameItem {
+    id: string;
+    countedQuantity: number | null;
+    systemQuantity: number;
+    notes: string | null;
+    productVariant: {
+        name: string;
+        skuCode: string;
+        primaryUnit: string;
+        product: {
+            name: string;
+        };
+    };
+}
+
+interface OpnameSession {
+    id: string;
+    items: OpnameItem[];
+}
+
 interface OpnameCounterProps {
-    session: any;
+    session: OpnameSession;
     isReadOnly: boolean;
 }
 
@@ -27,7 +47,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         const initialCounts: Record<string, string> = {};
         const initialNotes: Record<string, string> = {};
 
-        session.items.forEach((item: any) => {
+        session.items.forEach((item) => {
             if (item.countedQuantity !== null) {
                 initialCounts[item.id] = item.countedQuantity.toString();
             }
@@ -72,7 +92,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
             } else {
                 toast.error(`Error: ${result.error}`);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to save counts");
         } finally {
             setIsSaving(false);
@@ -113,7 +133,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {session.items.map((item: any) => (
+                        {session.items.map((item) => (
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium">
                                     {item.productVariant.name}

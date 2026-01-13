@@ -88,9 +88,9 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
         revalidatePath('/dashboard/production');
         return { success: true, data: order };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Create Production Order Error:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -239,8 +239,8 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
         revalidatePath(`/dashboard/production/orders/${id}`);
         revalidatePath('/dashboard/production');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -276,8 +276,8 @@ export async function deleteProductionOrder(id: string) {
 
         revalidatePath('/dashboard/production');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -296,7 +296,7 @@ export async function addProductionShift(data: {
     try {
         await prisma.$transaction(async (tx) => {
             // 1. Create Shift
-            await (tx as any).productionShift.create({
+            await tx.productionShift.create({
                 data: {
                     productionOrderId: data.productionOrderId,
                     shiftName: data.shiftName,
@@ -319,8 +319,8 @@ export async function addProductionShift(data: {
         });
         revalidatePath(`/dashboard/production/orders/${data.productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -329,13 +329,13 @@ export async function addProductionShift(data: {
  */
 export async function deleteProductionShift(shiftId: string, orderId: string) {
     try {
-        await (prisma as any).productionShift.delete({
+        await prisma.productionShift.delete({
             where: { id: shiftId }
         });
         revalidatePath(`/dashboard/production/orders/${orderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -382,7 +382,7 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                     if (planItem) {
                         const issued = order.materialIssues
                             .filter(mi => mi.productVariantId === planItem.productVariantId)
-                            .reduce((sum: number, mi: any) => sum + Number(mi.quantity), 0);
+                            .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                         if (issued > 0.001) {
                             throw new Error(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
@@ -464,9 +464,9 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Batch Issue Error:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -533,8 +533,8 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -599,8 +599,8 @@ export async function deleteMaterialIssue(issueId: string, productionOrderId: st
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -659,8 +659,8 @@ export async function recordScrap(data: ScrapRecordValues) {
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -686,8 +686,8 @@ export async function recordQualityInspection(data: QualityInspectionValues) {
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -955,9 +955,9 @@ export async function addProductionOutput(data: ProductionOutputValues) {
 
         revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Add Production Output Error:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
 
@@ -984,10 +984,10 @@ export async function getProductionFormData() {
             where: { status: 'ACTIVE' }
         }),
         prisma.location.findMany(),
-        (prisma as any).employee.findMany({
+        prisma.employee.findMany({
             orderBy: { name: 'asc' }
         }),
-        (prisma as any).workShift.findMany({
+        prisma.workShift.findMany({
             where: { status: 'ACTIVE' },
             orderBy: { startTime: 'asc' }
         }),
@@ -1005,8 +1005,8 @@ export async function getProductionFormData() {
     ]);
 
     // Filter employees by role
-    const operators = employees.filter((e: any) => e.role === 'OPERATOR');
-    const helpers = employees.filter((e: any) => e.role === 'HELPER' || e.role === 'PACKER');
+    const operators = employees.filter((e: { role: string }) => e.role === 'OPERATOR');
+    const helpers = employees.filter((e: { role: string }) => e.role === 'HELPER' || e.role === 'PACKER');
 
     return {
         boms,

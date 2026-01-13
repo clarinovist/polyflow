@@ -1,11 +1,17 @@
-import { getInventoryStats, getLocations, getInventoryAsOf } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getInventoryAsOf, InventoryWithRelations, getDashboardStats } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Warehouse, Box, LayoutGrid, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
 import { InventoryTable } from '@/components/inventory/InventoryTable';
-
+import { WarehouseNavigator } from '@/components/inventory/WarehouseNavigator';
+import { InventoryInsightsPanel } from '@/components/inventory/InventoryInsightsPanel';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Box, PackageCheck } from 'lucide-react';
+
+interface SimplifiedInventory {
+    productVariantId: string;
+    locationId: string;
+    quantity: number;
+}
 
 export default async function InventoryDashboard({
     searchParams,
@@ -22,13 +28,24 @@ export default async function InventoryDashboard({
     const asOfDate = params.asOf ? new Date(params.asOf) : null;
     const compareDate = params.compareWith ? new Date(params.compareWith) : null;
 
-    let [liveInventory, locations] = await Promise.all([
+    // Fetch data in parallel
+    const [liveInventory, locations, dashboardStats] = await Promise.all([
         getInventoryStats(),
         getLocations(),
+        getDashboardStats(),
     ]);
 
+    // Parse active location IDs (support multi-select)
+    const activeLocationIds = params.locationId
+        ? (Array.isArray(params.locationId) ? params.locationId : [params.locationId])
+        : [];
+
+    const activeLocation = activeLocationIds.length === 1
+        ? locations.find((l) => l.id === activeLocationIds[0])
+        : null;
+
     // Initialize table inventory with live data
-    let tableInventory = liveInventory;
+    let tableInventory: (InventoryWithRelations | SimplifiedInventory)[] = liveInventory;
 
     // Phase 1: Historical Data Logic (Only affects Table)
     if (asOfDate) {
@@ -41,38 +58,82 @@ export default async function InventoryDashboard({
             );
             return {
                 ...item,
-                quantity: histItem ? new (item.quantity as any).constructor(histItem.quantity) : new (item.quantity as any).constructor(0)
+                quantity: histItem ? histItem.quantity : 0
             };
         });
     }
 
     // Phase 2: Comparison logic (Only affects Table)
-    let comparisonData: Record<string, number> = {};
+    const comparisonData: Record<string, number> = {};
     if (compareDate) {
         const compInventory = await getInventoryAsOf(compareDate);
         compInventory.forEach(item => {
-            comparisonData[`${item.productVariantId}-${item.locationId}`] = item.quantity;
+            const key = `${item.productVariantId}-${item.locationId}`;
+            comparisonData[key] = item.quantity;
         });
     }
 
-    const isLowStockFilter = params.lowStock === 'true';
+    // Phase 3: Location Filtering (Live + History + Comparison)
+    // If activeLocationIds are present, filter by checking if item's locationId is in the list
+    let processedInventory = tableInventory;
+    if (activeLocationIds.length > 0) {
+        processedInventory = tableInventory.filter(item => activeLocationIds.includes(item.locationId));
+    }
 
-    // --- LOGIC A: SUMMARY CARDS (ALWAYS LIVE) ---
-    // Calculate global totals for live data to determine low stock status for summary cards
-    const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: any) => {
+    // --- LOGIC B: TABLE (RESPECTS DATE) ---
+    // Calculate totals for table data (historical or live) - grouped by variant for the current filtered view
+    const tableVariantTotals = processedInventory.reduce((acc: Record<string, number>, item) => {
         const id = item.productVariantId;
-        acc[id] = (acc[id] || 0) + item.quantity.toNumber();
+        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+        acc[id] = (acc[id] || 0) + qty;
         return acc;
     }, {} as Record<string, number>);
 
-    const isLiveGlobalLowStock = (item: any) => {
+    // Helper for table filtering (Low Stock)
+    const isTableGlobalLowStock = (item: InventoryWithRelations | SimplifiedInventory) => {
+        const liveItem = liveInventory.find(li => li.productVariantId === item.productVariantId);
+        const threshold = liveItem?.productVariant.minStockAlert?.toNumber();
+        if (!threshold) return false;
+
+        // Check if the TOTAL stock for this variant (in the current filtered view) is below threshold
+        return tableVariantTotals[item.productVariantId] < threshold;
+    };
+
+    // Filter table inventory for display (Low Stock Filter)
+    let displayInventory = processedInventory;
+    const isLowStockFilter = params.lowStock === 'true';
+
+    if (isLowStockFilter) {
+        displayInventory = displayInventory.filter(isTableGlobalLowStock);
+    }
+
+    // Calculate location summaries for Navigator
+    // We want to know how many SKUs are in each location, and how many are low stock GLOBALLY? 
+    // Or low stock in that location?
+    // Originally: locInventory.filter(isLiveGlobalLowStock).length
+    // We should preserve the original dashboard stats logic for the sidebar usually, 
+    // but maybe simplified.
+    // Let's reuse the logic I saw in the file previously or reconstruct it.
+
+    // Reconstruct `isLiveGlobalLowStock` logic for sidebar counts if needed
+    // But actually, `dashboardStats` might have some pre-calc?
+    // The previous code calculated it manually.
+
+    // Calculate global totals for LIVE data (for accurate sidebar "low stock" counts per location)
+    const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: InventoryWithRelations) => {
+        const id = item.productVariantId;
+        acc[id] = (acc[id] || 0) + (typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber());
+        return acc;
+    }, {} as Record<string, number>);
+
+    const isLiveGlobalLowStock = (item: InventoryWithRelations) => {
         const threshold = item.productVariant.minStockAlert?.toNumber();
         if (!threshold) return false;
         return liveVariantTotals[item.productVariantId] < threshold;
     };
 
-    const locationSummaries = locations.map((loc: any) => {
-        const locInventory = liveInventory.filter((item: any) => item.locationId === loc.id);
+    const locationSummaries = locations.map((loc) => {
+        const locInventory = liveInventory.filter((item) => item.locationId === loc.id);
         const lowStockCount = locInventory.filter(isLiveGlobalLowStock).length;
 
         return {
@@ -82,36 +143,25 @@ export default async function InventoryDashboard({
         };
     });
 
-    // --- LOGIC B: TABLE (RESPECTS DATE) ---
-    // Calculate totals for table data (historical or live)
-    const tableVariantTotals = tableInventory.reduce((acc: Record<string, number>, item: any) => {
-        const id = item.productVariantId;
-        acc[id] = (acc[id] || 0) + item.quantity.toNumber();
-        return acc;
-    }, {} as Record<string, number>);
-
-    // Helper for table filtering
-    const isTableGlobalLowStock = (item: any) => {
-        const threshold = item.productVariant.minStockAlert?.toNumber();
-        if (!threshold) return false;
-        return tableVariantTotals[item.productVariantId] < threshold;
-    };
-
-    // Filter table inventory
-    let displayInventory = params.locationId
-        ? tableInventory.filter((item: any) => item.locationId === params.locationId)
-        : tableInventory;
-
-    if (isLowStockFilter) {
-        displayInventory = displayInventory.filter(isTableGlobalLowStock);
+    // Determine title
+    let pageTitle = "Global Stock Positions";
+    if (activeLocationIds.length === 1) {
+        pageTitle = `Stock in ${activeLocation?.name || 'Warehouse'}`;
+    } else if (activeLocationIds.length > 1) {
+        pageTitle = `Stock in ${activeLocationIds.length} Locations`;
     }
 
-    const activeLocation = locations.find((l: any) => l.id === params.locationId);
+    // Calculate displayed total stock based on filtered view
+    const displayedTotalStock = activeLocationIds.length > 0
+        ? displayInventory.reduce((acc, item) => {
+            const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+            return acc + qty;
+        }, 0)
+        : dashboardStats.totalStock;
 
     // Serialize Decimal fields for client component
     const serializedInventory = JSON.parse(
         JSON.stringify(displayInventory, (key, value) => {
-            // Convert Decimal to number
             if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
                 return parseFloat(value.toString());
             }
@@ -119,99 +169,85 @@ export default async function InventoryDashboard({
         })
     );
 
-
     return (
-        <div className="p-6 space-y-6">
+        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between shrink-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Inventory Overview</h1>
-                    <p className="text-slate-600 mt-2">Monitor stock levels across all warehouse locations</p>
+                    <h1 className="text-3xl font-bold text-foreground">Inventory Overview</h1>
+                    <p className="text-muted-foreground mt-1">Monitor stock levels across all warehouse locations</p>
                 </div>
             </div>
 
-            {/* Warehouse Summary Cards (Always Live) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Link href="/dashboard/inventory" className="block">
-                    <Card className={`h-full transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer ${!params.locationId ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">All Warehouses</CardTitle>
-                            <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+            {/* 2-Column Grid Layout - Takes remaining height */}
+            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
+
+                {/* Left Column: Warehouse Navigator + Inventory Actions (3 cols) */}
+                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
+
+                    {/* Warehouse Navigator (Scrollable list inside) - Comes FIRST now */}
+                    <div className="flex-1 overflow-hidden min-h-0">
+                        <WarehouseNavigator
+                            locations={locationSummaries}
+                            activeLocationIds={activeLocationIds} // Pass array
+                            totalSkus={liveInventory.length}
+                            totalLowStock={dashboardStats.lowStockCount}
+                        />
+                    </div>
+
+                    {/* Inventory Actions (Fixed at bottom of left column) */}
+                    <div className="shrink-0">
+                        <InventoryInsightsPanel
+                            activeLocationId={activeLocationIds.length === 1 ? activeLocationIds[0] : undefined}
+                        />
+                    </div>
+                </div>
+
+                {/* Center Column: Stock Table (9 cols) */}
+                <div className="col-span-12 lg:col-span-9 h-full flex flex-col overflow-hidden">
+                    <Card className="border shadow-sm bg-card h-full flex flex-col overflow-hidden">
+                        <CardHeader className="border-b bg-muted/50 py-4 shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Box className="h-4 w-4 text-muted-foreground" />
+                                        {pageTitle}
+                                    </CardTitle>
+                                    {/* Total Stock Badge */}
+                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1.5 px-2.5 py-1">
+                                        <PackageCheck className="h-3.5 w-3.5" />
+                                        <span className="font-semibold">{displayedTotalStock.toLocaleString()}</span>
+                                        <span className="text-emerald-600 font-normal">total stock</span>
+                                    </Badge>
+                                </div>
+                                {asOfDate && (
+                                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        History: {format(asOfDate, 'MMM d, yyyy')}
+                                    </Badge>
+                                )}
+                            </div>
                         </CardHeader>
-                        <CardContent suppressHydrationWarning>
-                            <div className="text-2xl font-bold">{liveInventory.length} Positions</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {liveInventory.filter(isLiveGlobalLowStock).length} Low Stock Alerts (Live)
-                            </p>
+                        <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
+                            <div className="h-full overflow-auto p-4">
+                                <InventoryTable
+                                    inventory={serializedInventory}
+                                    variantTotals={tableVariantTotals}
+                                    comparisonData={comparisonData}
+                                    showComparison={!!compareDate}
+                                    initialDate={params.asOf}
+                                    initialCompareDate={params.compareWith}
+                                />
+                            </div>
                         </CardContent>
                     </Card>
-                </Link>
-
-                {locationSummaries.map((loc) => (
-                    <Link key={loc.id} href={`/dashboard/inventory?locationId=${loc.id}`} className="block">
-                        <Card className={`h-full transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer ${params.locationId === loc.id ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">{loc.name}</CardTitle>
-                                <Warehouse className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent suppressHydrationWarning>
-                                <div className="text-2xl font-bold">{loc.totalSkus} SKUs</div>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <p className={`text-xs ${loc.lowStockCount > 0 ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                                        {loc.lowStockCount} Low Stock
-                                    </p>
-                                    <span className="text-muted-foreground text-xs">•</span>
-                                    <p className="text-xs text-muted-foreground">
-                                        Active
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                ))}
+                </div>
             </div>
-
-
-            <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="border-b bg-slate-50/50">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                            <Box className="h-5 w-5 text-slate-600" />
-                            {activeLocation ? `Stock Positions in ${activeLocation.name}` : "Global Stock Positions"}
-                            {asOfDate && (
-                                <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    Viewing History: {format(asOfDate, 'MMM d, yyyy')}
-                                </Badge>
-                            )}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            <Link
-                                href={`/dashboard/inventory${params.locationId ? `?locationId=${params.locationId}` : ''}${!isLowStockFilter ? (params.locationId ? '&' : '?') + 'lowStock=true' : ''}`}
-                            >
-                                <Badge
-                                    variant={isLowStockFilter ? "destructive" : "outline"}
-                                    className="cursor-pointer hover:bg-red-100 transition-colors py-1.5 px-3"
-                                >
-                                    <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
-                                    {isLowStockFilter ? "Low Stock Only" : "Filter Low Stock"}
-                                </Badge>
-                            </Link>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent suppressHydrationWarning className="p-6">
-                    <InventoryTable
-                        inventory={serializedInventory}
-                        variantTotals={tableVariantTotals}
-                        comparisonData={comparisonData}
-                        showComparison={!!compareDate}
-                        initialDate={params.asOf}
-                        initialCompareDate={params.compareWith}
-                    />
-                </CardContent>
-            </Card>
         </div>
     );
 }
 
+// Reuse helper
+function isLowStock(item: any) {
+    return item.quantity <= (item.productVariant.minStockAlert || 0);
+}

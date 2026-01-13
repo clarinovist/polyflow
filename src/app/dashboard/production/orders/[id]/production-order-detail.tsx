@@ -41,7 +41,7 @@ import { RecordScrapDialog } from '@/components/production/order-detail/RecordSc
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
 
 interface PageProps {
-    order: any; // Type assertion needed due to serialization
+    order: ExtendedProductionOrder;
     formData: {
         locations: Location[];
         operators: Employee[];
@@ -53,8 +53,7 @@ interface PageProps {
 }
 
 
-export function ProductionOrderDetail({ order: initialOrder, formData }: PageProps) {
-    const order = initialOrder as ExtendedProductionOrder;
+export function ProductionOrderDetail({ order, formData }: PageProps) {
 
     // Smart Default Tab Logic
     const getDefaultTab = (status: string) => {
@@ -90,12 +89,12 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
     // Helper to determine badge color
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'DRAFT': return 'bg-slate-100 text-slate-700';
+            case 'DRAFT': return 'bg-muted text-muted-foreground';
             case 'RELEASED': return 'bg-blue-100 text-blue-700';
             case 'IN_PROGRESS': return 'bg-amber-100 text-amber-700';
             case 'COMPLETED': return 'bg-emerald-100 text-emerald-700';
             case 'CANCELLED': return 'bg-red-100 text-red-700';
-            default: return 'bg-slate-100 text-slate-700';
+            default: return 'bg-muted text-muted-foreground';
         }
     };
 
@@ -107,7 +106,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                         <h1 className="text-2xl font-bold tracking-tight">Order {order.orderNumber}</h1>
                         <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><Package className="w-4 h-4" /> {order.bom.productVariant.product.name} ({order.bom.productVariant.name})</span>
                     </div>
                 </div>
@@ -129,7 +128,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -192,12 +191,12 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     {/* Progress Section */}
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-slate-500">Production Progress</CardTitle>
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Production Progress</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-2xl font-bold">{actualQty.toFixed(2)} / {plannedQty.toFixed(2)} <span className="text-sm font-normal text-slate-500">{order.bom.productVariant.primaryUnit}</span></span>
-                                <span className="text-sm font-medium text-slate-600">{progress.toFixed(1)}%</span>
+                                <span className="text-2xl font-bold">{actualQty.toFixed(2)} / {plannedQty.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">{order.bom.productVariant.primaryUnit}</span></span>
+                                <span className="text-sm font-medium text-muted-foreground">{progress.toFixed(1)}%</span>
                             </div>
                             <Progress value={progress} className="h-2" />
                         </CardContent>
@@ -218,7 +217,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                             <CardContent className="space-y-4">
                                 <DetailRow label="Machine" value={order.machine?.name || 'Unassigned'} />
                                 <div className="border-t pt-2 mt-2">
-                                    <p className="text-sm text-slate-500 mb-1">Workforce</p>
+                                    <p className="text-sm text-muted-foreground mb-1">Workforce</p>
                                     <p className="text-sm font-medium">
                                         {order.shifts?.length || 0} Shifts Assigned
                                     </p>
@@ -239,7 +238,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                             {order.executions && order.executions.length > 0 ? (
                                 <div className="rounded-md border">
                                     <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-50 text-slate-500 font-medium">
+                                        <thead className="bg-muted/50 text-muted-foreground font-medium">
                                             <tr>
                                                 <th className="p-3">Date/Time</th>
                                                 <th className="p-3">Shift</th>
@@ -254,7 +253,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                                     <td className="p-3">
                                                         <div className="flex flex-col">
                                                             <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
-                                                            <span className="text-xs text-slate-500">
+                                                            <span className="text-xs text-muted-foreground">
                                                                 {format(new Date(exec.startTime), 'HH:mm')} - {format(new Date(exec.endTime), 'HH:mm')}
                                                             </span>
                                                         </div>
@@ -264,7 +263,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                                     <td className="p-3 text-right font-medium text-emerald-600">
                                                         +{Number(exec.quantityProduced)}
                                                     </td>
-                                                    <td className="p-3 text-right text-red-500">
+                                                    <td className="p-3 text-right text-destructive">
                                                         {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity) : '-'}
                                                     </td>
                                                 </tr>
@@ -273,7 +272,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                     </table>
                                 </div>
                             ) : (
-                                <div className="text-center py-8 text-slate-500">
+                                <div className="text-center py-8 text-muted-foreground">
                                     No production output recorded yet.
                                 </div>
                             )}
@@ -310,7 +309,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     <Card>
                         <CardContent className="p-0">
                             <table className="w-full text-sm text-left">
-                                <thead className="bg-slate-50 text-slate-500">
+                                <thead className="bg-muted/50 text-muted-foreground">
                                     <tr>
                                         <th className="p-3">Material</th>
                                         <th className="p-3 text-right">Plan</th>
@@ -319,23 +318,23 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {(order.plannedMaterials || []).map((item: any) => {
+                                    {(order.plannedMaterials || []).map((item) => {
                                         const issued = (order.materialIssues || [])
-                                            .filter((mi: any) => mi.productVariantId === item.productVariantId)
-                                            .reduce((sum: number, mi: any) => sum + Number(mi.quantity), 0);
+                                            .filter((mi) => mi.productVariantId === item.productVariantId)
+                                            .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                                         const required = Number(item.quantity);
                                         const remaining = Math.max(0, required - issued);
 
                                         return (
-                                            <tr key={item.id} className="hover:bg-slate-50/50">
+                                            <tr key={item.id} className="hover:bg-muted/50">
                                                 <td className="p-3">
                                                     <div className="flex flex-col">
-                                                        <span className="font-medium text-slate-900">{item.productVariant.name}</span>
+                                                        <span className="font-medium text-foreground">{item.productVariant.name}</span>
                                                         <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Planned</span>
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-right font-medium text-slate-700">{required.toFixed(2)} {item.productVariant.primaryUnit}</td>
+                                                <td className="p-3 text-right font-medium text-muted-foreground">{required.toFixed(2)} {item.productVariant.primaryUnit}</td>
                                                 <td className="p-3 text-right">
                                                     <span className={cn(
                                                         issued < required - 0.01 ? "text-amber-600" : "text-emerald-600",
@@ -346,9 +345,9 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                                 </td>
                                                 <td className="p-3 text-right">
                                                     {remaining > 0.01 ? (
-                                                        <span className="text-slate-500 font-medium">{remaining.toFixed(2)} {item.productVariant.primaryUnit}</span>
+                                                        <span className="text-muted-foreground font-medium">{remaining.toFixed(2)} {item.productVariant.primaryUnit}</span>
                                                     ) : (
-                                                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                                                             ✓ Complete
                                                         </Badge>
                                                     )}
@@ -359,29 +358,36 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
 
                                     {/* Handle Substitute Materials */}
                                     {(order.materialIssues || [])
-                                        .filter((mi: any) => !(order.plannedMaterials || []).some((pm: any) => pm.productVariantId === mi.productVariantId))
-                                        .reduce((acc: any[], mi: any) => {
+                                        .filter((mi) => !(order.plannedMaterials || []).some((pm) => pm.productVariantId === mi.productVariantId))
+                                        .reduce((acc: { productVariantId: string; productVariant: { name: string; primaryUnit: string }; quantity: number }[], mi) => {
                                             const existing = acc.find(a => a.productVariantId === mi.productVariantId);
                                             if (existing) {
                                                 existing.quantity += Number(mi.quantity);
                                             } else {
-                                                acc.push({ ...mi, quantity: Number(mi.quantity) });
+                                                acc.push({
+                                                    productVariantId: mi.productVariantId,
+                                                    productVariant: {
+                                                        name: mi.productVariant.name,
+                                                        primaryUnit: mi.productVariant.primaryUnit
+                                                    },
+                                                    quantity: Number(mi.quantity)
+                                                });
                                             }
                                             return acc;
                                         }, [])
-                                        .map((sub: any) => (
-                                            <tr key={sub.productVariantId} className="bg-amber-50/20 hover:bg-amber-100/30">
+                                        .map((sub) => (
+                                            <tr key={sub.productVariantId} className="bg-amber-500/10 hover:bg-amber-500/20">
                                                 <td className="p-3">
                                                     <div className="flex flex-col">
-                                                        <span className="font-medium text-slate-900">{sub.productVariant.name}</span>
+                                                        <span className="font-medium text-foreground">{sub.productVariant.name}</span>
                                                         <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Unplanned Issue</span>
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-right text-slate-400">-</td>
+                                                <td className="p-3 text-right text-muted-foreground">-</td>
                                                 <td className="p-3 text-right font-semibold text-amber-600">
                                                     {Number(sub.quantity).toFixed(2)} {sub.productVariant.primaryUnit}
                                                 </td>
-                                                <td className="p-3 text-right text-slate-400">-</td>
+                                                <td className="p-3 text-right text-muted-foreground">-</td>
                                             </tr>
                                         ))}
                                 </tbody>
@@ -392,19 +398,19 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     <div className="mt-6">
                         <h3 className="text-lg font-semibold mb-3">Issue History</h3>
                         {order.materialIssues.length === 0 ? (
-                            <p className="text-slate-500 italic">No materials issued yet.</p>
+                            <p className="text-muted-foreground italic">No materials issued yet.</p>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {order.materialIssues.map((issue: any) => (
-                                    <div key={issue.id} className="flex justify-between items-center p-3 bg-white rounded-lg border shadow-sm hover:border-slate-300 transition-colors">
+                                {order.materialIssues.map((issue) => (
+                                    <div key={issue.id} className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm hover:border-border transition-colors">
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-slate-900">{issue.productVariant.name}</span>
-                                            <span className="text-[11px] text-slate-400">
+                                            <span className="font-medium text-foreground">{issue.productVariant.name}</span>
+                                            <span className="text-[11px] text-muted-foreground">
                                                 {format(new Date(issue.issuedAt), 'PP p')}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className="font-mono bg-slate-100 px-2 py-1 rounded text-xs font-semibold">
+                                            <span className="font-mono bg-muted px-2 py-1 rounded text-xs font-semibold">
                                                 {Number(issue.quantity)} {issue.productVariant.primaryUnit}
                                             </span>
                                             {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
@@ -430,9 +436,9 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                         <Card>
                             <CardHeader><CardTitle className="text-base">Scrap Records</CardTitle></CardHeader>
                             <CardContent>
-                                {order.scrapRecords.length === 0 ? <p className="text-slate-500 text-sm">No scrap recorded.</p> : (
+                                {order.scrapRecords.length === 0 ? <p className="text-muted-foreground text-sm">No scrap recorded.</p> : (
                                     <ul className="space-y-2">
-                                        {order.scrapRecords.map((scrap: any) => (
+                                        {order.scrapRecords.map((scrap) => (
                                             <li key={scrap.id} className="flex justify-between items-center text-sm border-b pb-2">
                                                 <span>{scrap.productVariant.name}</span>
                                                 <Badge variant="outline" className="text-red-600 border-red-200">
@@ -456,7 +462,7 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                     </div>
 
                     <div className="space-y-4">
-                        {order.inspections.map((insp: any) => (
+                        {order.inspections.map((insp) => (
                             <div key={insp.id} className="p-4 border rounded-lg flex items-start justify-between">
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
@@ -466,16 +472,16 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
                                         )}>
                                             {insp.result}
                                         </Badge>
-                                        <span className="text-sm text-slate-500">at {format(new Date(insp.inspectedAt), 'PP p')}</span>
+                                        <span className="text-sm text-muted-foreground">at {format(new Date(insp.inspectedAt), 'PP p')}</span>
                                     </div>
-                                    <p className="text-sm text-slate-700">{insp.notes || "No notes provided."}</p>
+                                    <p className="text-sm text-foreground">{insp.notes || "No notes provided."}</p>
                                 </div>
-                                <div className="text-xs text-slate-400">
+                                <div className="text-xs text-muted-foreground">
                                     Inspector: {insp.inspector?.name || 'Unknown'}
                                 </div>
                             </div>
                         ))}
-                        {order.inspections.length === 0 && <p className="text-slate-500">No inspections recorded.</p>}
+                        {order.inspections.length === 0 && <p className="text-muted-foreground">No inspections recorded.</p>}
                     </div>
                 </TabsContent>
             </Tabs>
@@ -488,24 +494,11 @@ export function ProductionOrderDetail({ order: initialOrder, formData }: PagePro
 function DetailRow({ label, value }: { label: string, value: string }) {
     return (
         <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0">
-            <span className="text-slate-500 text-sm">{label}</span>
+            <span className="text-muted-foreground text-sm">{label}</span>
             <span className="font-medium text-sm">{value}</span>
         </div>
     );
 }
 
-function StatusBadge({ status, size }: { status: string, size?: 'default' | 'lg' }) {
-    const styles: Record<string, string> = {
-        DRAFT: "bg-slate-100 text-slate-700",
-        RELEASED: "bg-blue-100 text-blue-700",
-        IN_PROGRESS: "bg-amber-100 text-amber-700",
-        COMPLETED: "bg-emerald-100 text-emerald-700",
-        CANCELLED: "bg-red-100 text-red-700",
-    };
-    return (
-        <Badge className={cn(styles[status], size === 'lg' ? "px-3 py-1 text-base" : "")}>
-            {status.replace('_', ' ')}
-        </Badge>
-    );
-}
+
 

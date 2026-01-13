@@ -22,7 +22,7 @@ export function ProductGlossary() {
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
-                <div className="sticky top-0 z-10 bg-white border-b px-6 pt-6">
+                <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6">
                     <DialogHeader className="pb-4 pr-10">
                         <DialogTitle className="flex items-center gap-2">
                             <Info className="h-5 w-5 text-blue-600" />
@@ -138,7 +138,7 @@ export function ProductGlossary() {
                                         <div className="text-xs text-slate-600">001-999</div>
                                     </div>
                                 </div>
-                                <div className="mt-3 p-2 bg-white rounded border-l-4 border-blue-500">
+                                <div className="mt-3 p-2 bg-muted/50 rounded border-l-4 border-blue-500">
                                     <div className="text-xs font-semibold text-slate-700">Example:</div>
                                     <div className="font-mono font-bold text-slate-900">RMPPG001</div>
                                     <div className="text-xs text-slate-600 mt-1">
@@ -244,7 +244,7 @@ export function ProductGlossary() {
                                 Store custom properties like color, thickness, material grade, etc.
                             </div>
                             <div className="bg-slate-50 p-3 rounded-lg border font-mono text-xs">
-                                <div className="text-slate-500 mb-1">Example JSON:</div>
+                                <div className="text-muted-foreground mb-1">Example JSON:</div>
                                 <pre className="text-slate-700">{`{
   "color": "Red",
   "thickness": "Standard",
@@ -292,7 +292,7 @@ interface GlossaryItemProps {
 
 function GlossaryItem({ term, description, example, badge, badgeColor }: GlossaryItemProps) {
     return (
-        <div className="bg-white p-3 rounded-lg border border-slate-200">
+        <div className="bg-card p-3 rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-slate-900">{term}</span>
                 {badge && (
@@ -303,7 +303,7 @@ function GlossaryItem({ term, description, example, badge, badgeColor }: Glossar
             </div>
             <p className="text-sm text-slate-600">{description}</p>
             {example && (
-                <p className="text-xs text-slate-500 mt-2 italic">
+                <p className="text-xs text-muted-foreground mt-2 italic">
                     Example: {example}
                 </p>
             )}

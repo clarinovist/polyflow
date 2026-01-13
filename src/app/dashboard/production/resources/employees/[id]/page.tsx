@@ -17,7 +17,7 @@ export default async function EditEmployeePage({ params }: PageProps) {
     return (
         <div className="p-8 max-w-2xl">
             <h1 className="text-2xl font-bold text-slate-900 mb-6">Edit Staff Details</h1>
-            <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <div className="bg-card p-6 rounded-lg border shadow-sm">
                 <EmployeeForm initialData={employee} />
             </div>
         </div>

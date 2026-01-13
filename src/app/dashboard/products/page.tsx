@@ -24,8 +24,8 @@ export default async function ProductsPage() {
     return (
         <div className="p-6 space-y-6">
             <div>
-                <h1 className="text-3xl font-bold text-slate-900">Products</h1>
-                <p className="text-slate-600 mt-2">Manage your product catalog</p>
+                <h1 className="text-3xl font-bold text-foreground">Products</h1>
+                <p className="text-muted-foreground mt-2">Manage your product catalog</p>
             </div>
 
             <Card>

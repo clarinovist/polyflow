@@ -114,7 +114,7 @@ export function validateRow(
             const num = Number(value);
             if (isNaN(num) || num < 0) {
                 errors.push({
-                    field,
+                    field: field as string,
                     message: `${field} must be a non-negative number`
                 });
             }

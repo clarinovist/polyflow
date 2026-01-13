@@ -1,4 +1,3 @@
-'use that';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -30,7 +29,11 @@ import { useRouter } from 'next/navigation';
 export function CreateOpnameDialog() {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [locations, setLocations] = useState<any[]>([]);
+    interface Location {
+        id: string;
+        name: string;
+    }
+    const [locations, setLocations] = useState<Location[]>([]);
     const [locationId, setLocationId] = useState('');
     const [remarks, setRemarks] = useState('');
     const router = useRouter();
@@ -57,7 +60,7 @@ export function CreateOpnameDialog() {
             } else {
                 toast.error(`Error: ${result.error}`);
             }
-        } catch (error) {
+        } catch {
             toast.error("An unexpected error occurred");
         } finally {
             setIsLoading(false);

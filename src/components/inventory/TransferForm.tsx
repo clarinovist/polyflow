@@ -22,6 +22,7 @@ interface TransferFormProps {
 export function TransferForm({ locations, products, inventory }: TransferFormProps) {
     const router = useRouter();
     const form = useForm<TransferStockValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(transferStockSchema) as any,
         defaultValues: {
             sourceLocationId: '',
@@ -86,7 +87,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                         control={form.control}

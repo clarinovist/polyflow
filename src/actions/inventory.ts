@@ -39,7 +39,7 @@ export async function getInventoryStats(searchParams?: { locationId?: string; ty
     if (searchParams?.type) {
         where.productVariant = {
             product: {
-                productType: searchParams.type as any,
+                productType: searchParams.type as ProductType,
             },
         };
     }
@@ -188,9 +188,9 @@ export async function transferStock(data: TransferStockValues) {
         revalidatePath('/dashboard/inventory');
         revalidatePath('/dashboard/inventory/history');
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Transfer Error", error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -274,8 +274,8 @@ export async function adjustStock(data: AdjustStockValues) {
         revalidatePath('/dashboard/inventory');
         revalidatePath('/dashboard/inventory/history');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -292,8 +292,8 @@ export async function updateThreshold(productVariantId: string, minStockAlert: n
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/inventory');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 

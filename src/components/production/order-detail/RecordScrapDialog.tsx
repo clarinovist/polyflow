@@ -35,7 +35,7 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                                 {/* Output Item as Bad Goods */}
                                 <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
                                 {/* Input Items as Waste */}
-                                {order.bom.items.map((item: any) => (
+                                {order.bom.items.map((item) => (
                                     <SelectItem key={item.id} value={item.productVariantId}>[Input] {item.productVariant.name}</SelectItem>
                                 ))}
                             </SelectContent>

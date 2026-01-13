@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -24,16 +24,51 @@ import {
     Download,
     X,
     Calendar as CalendarIcon,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import { ThresholdDialog } from './ThresholdDialog';
-import { format } from 'date-fns';
 import { ProductType } from '@prisma/client';
 
 type SortField = 'name' | 'sku' | 'location' | 'stock' | 'type' | 'status';
 type SortOrder = 'asc' | 'desc';
 
+// Sort icon component
+const SortIcon = ({ field, currentSortField, currentSortOrder }: { field: SortField, currentSortField: SortField, currentSortOrder: SortOrder }) => {
+    if (currentSortField !== field) {
+        return <ChevronsUpDown className="h-4 w-4 text-slate-400" />;
+    }
+    return currentSortOrder === 'asc'
+        ? <ArrowUp className="h-4 w-4 text-blue-600" />
+        : <ArrowDown className="h-4 w-4 text-blue-600" />;
+};
+
+interface InventoryItem {
+    id: string;
+    locationId: string;
+    productVariantId: string;
+    quantity: number;
+    updatedAt: string | Date;
+    productVariant: {
+        id: string;
+        name: string;
+        skuCode: string;
+        primaryUnit: string;
+        minStockAlert: number | null;
+        product: {
+            id: string;
+            name: string;
+            productType: string;
+        };
+    };
+    location: {
+        id: string;
+        name: string;
+    };
+}
+
 interface InventoryTableProps {
-    inventory: any[];
+    inventory: InventoryItem[];
     variantTotals: Record<string, number>;
     comparisonData?: Record<string, number>; // variantId-locationId -> quantity
     showComparison?: boolean;
@@ -48,13 +83,19 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     const [sortField, setSortField] = useState<SortField>('name');
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const [productTypeFilter, setProductTypeFilter] = useState<string>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 6;
+
+    // Check if we are filtering by a specific location
+    const locationIdFilter = searchParams.get('locationId');
+    const isLocationSpecific = !!locationIdFilter;
 
     // Helper function to check if variant is low stock
-    const isGlobalLowStock = (item: any) => {
+    const isGlobalLowStock = useCallback((item: InventoryItem) => {
         const threshold = item.productVariant.minStockAlert;
         if (!threshold) return false;
         return variantTotals[item.productVariantId] < threshold;
-    };
+    }, [variantTotals]);
 
     // Filter and sort inventory
     const processedInventory = useMemo(() => {
@@ -79,8 +120,8 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
         // Apply sorting
         filtered.sort((a, b) => {
-            let aValue: any;
-            let bValue: any;
+            let aValue: string | number;
+            let bValue: string | number;
 
             switch (sortField) {
                 case 'name':
@@ -117,7 +158,16 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
         });
 
         return filtered;
-    }, [inventory, searchTerm, productTypeFilter, sortField, sortOrder, variantTotals]);
+    }, [inventory, searchTerm, productTypeFilter, sortField, sortOrder, isGlobalLowStock]);
+
+    // Reset pagination when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, productTypeFilter, sortField, sortOrder]);
+
+    const totalPages = Math.ceil(processedInventory.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedInventory = processedInventory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
     // Handle column header click for sorting
     const handleSort = (field: SortField) => {
@@ -170,23 +220,13 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
         document.body.removeChild(link);
     };
 
-    // Sort icon component
-    const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field) {
-            return <ChevronsUpDown className="h-4 w-4 text-slate-400" />;
-        }
-        return sortOrder === 'asc'
-            ? <ArrowUp className="h-4 w-4 text-blue-600" />
-            : <ArrowDown className="h-4 w-4 text-blue-600" />;
-    };
-
     return (
-        <div className="space-y-4">
-            {/* Filters Bar */}
-            <div className="flex items-center gap-3 flex-wrap">
+        <div className="space-y-4 h-full flex flex-col">
+            {/* Filters Bar - Fixed at top */}
+            <div className="flex items-center gap-3 flex-wrap shrink-0">
                 {/* Date Filter */}
-                <div className="flex items-center gap-2 bg-slate-50 border rounded-md px-2 py-1">
-                    <CalendarIcon className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                     <input
                         type="date"
                         value={initialDate || ''}
@@ -200,11 +240,11 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             router.push(`?${params.toString()}`);
                         }}
                         max={new Date().toISOString().split('T')[0]}
-                        className="bg-transparent border-none text-sm focus:ring-0 p-0 text-slate-700 w-[130px]"
+                        className="bg-transparent border-none text-sm focus:ring-0 p-0 text-foreground w-[130px]"
                     />
                     {initialDate && (
                         <X
-                            className="h-4 w-4 text-slate-400 cursor-pointer hover:text-red-500"
+                            className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-red-500"
                             onClick={() => {
                                 const params = new URLSearchParams(searchParams.toString());
                                 params.delete('asOf');
@@ -216,17 +256,17 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                 </div>
 
                 {/* Search */}
-                <div className="relative flex-1 min-w-[300px]">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/50" />
                     <Input
-                        placeholder="Search by product, SKU, or location..."
+                        placeholder="Search product..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-9 pr-9"
                     />
                     {searchTerm && (
                         <X
-                            className="absolute right-3 top-2.5 h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600"
+                            className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground"
                             onClick={() => setSearchTerm('')}
                         />
                     )}
@@ -234,8 +274,8 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
                 {/* Product Type Filter */}
                 <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="All Types" />
+                    <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
@@ -249,79 +289,64 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                 </Select>
 
                 {/* Export Button */}
-                <Button variant="outline" size="sm" onClick={handleExport}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
+                <Button variant="outline" size="sm" onClick={handleExport} className="px-3">
+                    <Download className="h-4 w-4" />
                 </Button>
-
-                {/* Results Count */}
-                <Badge variant="outline" className="ml-auto">
-                    {processedInventory.length} items
-                </Badge>
             </div>
 
-            {/* Table */}
-            <div className="border rounded-lg">
+            {/* Table - Scrollable Area */}
+            <div className="flex-1 overflow-auto rounded-lg border bg-background relative">
                 <Table>
-                    <TableHeader>
-                        <TableRow className="bg-slate-50/30">
+                    <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableHead
-                                className="pl-6 cursor-pointer hover:bg-slate-100 transition-colors"
+                                className="pl-4 w-[40%] cursor-pointer hover:bg-muted transition-colors"
                                 onClick={() => handleSort('name')}
                             >
                                 <div className="flex items-center gap-2">
-                                    Product Name
-                                    <SortIcon field="name" />
+                                    Product Details
+                                    <div className="flex flex-col">
+                                        <SortIcon field="name" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                    </div>
                                 </div>
                             </TableHead>
+
+                            {!isLocationSpecific && (
+                                <TableHead
+                                    className="w-[20%] cursor-pointer hover:bg-muted transition-colors hidden md:table-cell"
+                                    onClick={() => handleSort('location')}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        Location
+                                        <SortIcon field="location" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                    </div>
+                                </TableHead>
+                            )}
+
                             <TableHead
-                                className="cursor-pointer hover:bg-slate-100 transition-colors"
-                                onClick={() => handleSort('sku')}
-                            >
-                                <div className="flex items-center gap-2">
-                                    SKU
-                                    <SortIcon field="sku" />
-                                </div>
-                            </TableHead>
-                            <TableHead
-                                className="cursor-pointer hover:bg-slate-100 transition-colors"
-                                onClick={() => handleSort('location')}
-                            >
-                                <div className="flex items-center gap-2">
-                                    Location
-                                    <SortIcon field="location" />
-                                </div>
-                            </TableHead>
-                            <TableHead
-                                className="text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                                className="text-right w-[20%] cursor-pointer hover:bg-muted transition-colors"
                                 onClick={() => handleSort('stock')}
                             >
                                 <div className="flex items-center justify-end gap-2">
-                                    {showComparison ? 'New Stock' : 'Current Stock'}
-                                    <SortIcon field="stock" />
+                                    Stock
+                                    <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
                                 </div>
                             </TableHead>
-                            {showComparison && (
-                                <>
-                                    <TableHead className="text-right text-slate-500">Prev. Stock</TableHead>
-                                    <TableHead className="text-right">Change</TableHead>
-                                </>
-                            )}
-                            <TableHead>Unit</TableHead>
+
                             <TableHead
-                                className="cursor-pointer hover:bg-slate-100 transition-colors"
+                                className="w-[20%] cursor-pointer hover:bg-muted transition-colors"
                                 onClick={() => handleSort('status')}
                             >
                                 <div className="flex items-center gap-2">
                                     Status
-                                    <SortIcon field="status" />
+                                    <SortIcon field="status" currentSortField={sortField} currentSortOrder={sortOrder} />
                                 </div>
                             </TableHead>
-                            <TableHead className="pr-6 text-right">Settings</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {processedInventory.map((item: any) => {
+                        {paginatedInventory.map((item) => {
                             const isLowStock = isGlobalLowStock(item);
                             const totalStockValue = variantTotals[item.productVariantId];
                             const thresholdValue = item.productVariant.minStockAlert || 0;
@@ -329,65 +354,76 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             // Comparison logic
                             const prevStock = comparisonData ? (comparisonData[`${item.productVariantId}-${item.locationId}`] || 0) : 0;
                             const currentStock = item.quantity;
-
                             const delta = currentStock - prevStock;
 
                             return (
                                 <React.Fragment key={item.id}>
                                     <TableRow
-                                        className={`${isLowStock ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-slate-50/50"} transition-colors`}
+                                        className={`${isLowStock ? "bg-red-500/10 hover:bg-red-500/20" : "hover:bg-muted/50"} transition-colors`}
                                     >
-                                        <TableCell className="pl-6 font-medium">
-                                            {item.productVariant.name}
-                                            <div className="text-xs text-slate-500 font-normal">
-                                                {item.productVariant.product.productType}
+                                        <TableCell className="pl-4 py-3 align-top">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-medium text-sm text-foreground leading-tight">
+                                                    {item.productVariant.name}
+                                                </span>
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <code className="bg-muted px-1 py-0.5 rounded border border-border text-foreground">
+                                                        {item.productVariant.skuCode}
+                                                    </code>
+                                                    <span>•</span>
+                                                    <span className="capitalize text-[10px]">
+                                                        {item.productVariant.product.productType.toLowerCase().replace('_', ' ')}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
-                                            <code className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
-                                                {item.productVariant.skuCode}
-                                            </code>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1.5">
-                                                <Warehouse className="h-3.5 w-3.5 text-slate-400" />
-                                                <span className="text-slate-600">{item.location.name}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right font-semibold text-slate-900">
-                                            {currentStock.toLocaleString()}
-                                        </TableCell>
-                                        {showComparison && (
-                                            <>
-                                                <TableCell className="text-right text-slate-500 italic">
-                                                    {prevStock.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className={`text-right font-bold ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                                                    {delta > 0 ? '+' : ''}{delta.toLocaleString()}
-                                                </TableCell>
-                                            </>
+
+                                        {!isLocationSpecific && (
+                                            <TableCell className="align-top hidden md:table-cell">
+                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                    <Warehouse className="h-3 w-3 text-muted-foreground/50" />
+                                                    <span className="truncate max-w-[120px] block" title={item.location.name}>
+                                                        {item.location.name}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
                                         )}
-                                        <TableCell className="text-slate-500 font-medium">
-                                            {item.productVariant.primaryUnit}
+
+                                        <TableCell className="text-right align-top">
+                                            <div className="flex flex-col items-end">
+                                                <div className="font-semibold text-sm text-foreground">
+                                                    {currentStock.toLocaleString()}
+                                                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                                        {item.productVariant.primaryUnit}
+                                                    </span>
+                                                </div>
+                                                {showComparison && delta !== 0 && (
+                                                    <div className={`text-[10px] font-medium flex items-center gap-0.5 ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                        {Math.abs(delta).toLocaleString()}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </TableCell>
-                                        <TableCell>
+
+                                        <TableCell className="align-top">
                                             {isLowStock ? (
                                                 <div className="space-y-1">
-                                                    <Badge variant="destructive" className="flex w-fit items-center gap-1 shadow-sm">
-                                                        <AlertCircle className="h-3 w-3" />
+                                                    <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
                                                         Low Stock
                                                     </Badge>
-                                                    <div className="text-[10px] text-red-600">
-                                                        Total: {totalStockValue} / {thresholdValue}
+                                                    <div className="text-[10px] text-destructive font-medium whitespace-nowrap">
+                                                        {totalStockValue}/{thresholdValue}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 font-medium">
+                                                <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-normal">
                                                     In Stock
                                                 </Badge>
                                             )}
                                         </TableCell>
-                                        <TableCell className="pr-6 text-right">
+
+                                        <TableCell className="pr-4 text-right align-top">
                                             <ThresholdDialog
                                                 productVariantId={item.productVariantId}
                                                 productName={item.productVariant.name}
@@ -400,17 +436,46 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                         })}
                         {processedInventory.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12">
-                                    <div className="flex flex-col items-center gap-2 text-slate-400">
-                                        <Search className="h-8 w-8" />
-                                        <p>No inventory records found.</p>
-                                        <p className="text-sm">Try adjusting your search or filters.</p>
+                                <TableCell colSpan={isLocationSpecific ? 4 : 5} className="text-center py-8">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
+                                        <Search className="h-6 w-6" />
+                                        <p className="text-sm">No items found.</p>
                                     </div>
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Pagination Footer */}
+            <div className="flex items-center justify-between px-2 shrink-0 py-2 border-t">
+                <div className="text-xs text-muted-foreground">
+                    Showing {processedInventory.length > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + ITEMS_PER_PAGE, processedInventory.length)} of {processedInventory.length} items
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-xs font-medium min-w-[3rem] text-center">
+                        Page {currentPage} of {Math.max(totalPages, 1)}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
             </div>
         </div>
     );

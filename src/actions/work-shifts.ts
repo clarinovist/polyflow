@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma as db } from '@/lib/prisma';
-import { WorkShift, WorkShiftStatus, Prisma } from '@prisma/client';
+import { WorkShiftStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export async function getWorkShifts() {

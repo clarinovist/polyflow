@@ -1,7 +1,7 @@
 'use client';
 
 import { Control, useWatch } from 'react-hook-form';
-import { CreateProductValues, ProductVariantFormValues } from '@/lib/zod-schemas';
+import { CreateProductValues } from '@/lib/zod-schemas';
 import { Unit, ProductType } from '@prisma/client';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ interface VariantFieldsProps {
 export function VariantFields({ control, index, onRemove, canRemove, units, productName }: VariantFieldsProps) {
     // Watch product type and variant name for auto-SKU generation
     const productType = useWatch({ control, name: 'productType' });
-    const variantName = useWatch({ control, name: `variants.${index}.name` });
+    const _variantName = useWatch({ control, name: `variants.${index}.name` });
     const primaryUnit = useWatch({ control, name: `variants.${index}.primaryUnit` });
     const salesUnit = useWatch({ control, name: `variants.${index}.salesUnit` });
     const conversionFactor = useWatch({ control, name: `variants.${index}.conversionFactor` });

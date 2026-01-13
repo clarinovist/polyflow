@@ -68,7 +68,7 @@ export async function getProducts(): Promise<ProductWithVariantsAndStock[]> {
         }, 0);
 
         // Remove inventories from variants to clean up the response
-        const cleanedVariants = product.variants.map(({ inventories, ...variant }) => variant);
+        const cleanedVariants = product.variants.map(({ inventories: _, ...variant }) => variant);
 
         return {
             ...product,
@@ -174,9 +174,9 @@ export async function createProduct(data: CreateProductValues) {
 
         revalidatePath('/dashboard/products');
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Create product error:', error);
-        return { success: false, error: error.message || 'Failed to create product' };
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to create product' };
     }
 }
 
@@ -313,9 +313,9 @@ export async function updateProduct(data: UpdateProductValues) {
         revalidatePath('/dashboard/products');
         revalidatePath(`/dashboard/products/${id}/edit`);
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Update product error:', error);
-        return { success: false, error: error.message || 'Failed to update product' };
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to update product' };
     }
 }
 
@@ -357,9 +357,9 @@ export async function deleteProduct(id: string) {
 
         revalidatePath('/dashboard/products');
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Delete product error:', error);
-        return { success: false, error: error.message || 'Failed to delete product' };
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to delete product' };
     }
 }
 
@@ -391,8 +391,8 @@ export async function deleteVariant(id: string) {
 
         revalidatePath('/dashboard/products');
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Delete variant error:', error);
-        return { success: false, error: error.message || 'Failed to delete variant' };
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to delete variant' };
     }
 }

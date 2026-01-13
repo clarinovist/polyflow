@@ -44,16 +44,16 @@ export function ShiftList({ shifts }: ShiftListProps) {
 
     return (
         <>
-            <Card className="border-none shadow-sm bg-white">
+            <Card className="border-none shadow-sm bg-card">
                 <CardContent className="p-0">
                     <Table>
-                        <TableHeader className="bg-slate-50">
+                        <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                                <TableHead className="font-semibold text-slate-700">Start Time</TableHead>
-                                <TableHead className="font-semibold text-slate-700">End Time</TableHead>
-                                <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                                <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                                <TableHead className="font-semibold text-muted-foreground">Name</TableHead>
+                                <TableHead className="font-semibold text-muted-foreground">Start Time</TableHead>
+                                <TableHead className="font-semibold text-muted-foreground">End Time</TableHead>
+                                <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
+                                <TableHead className="text-right font-semibold text-muted-foreground">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -61,24 +61,24 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
                                         <div className="flex flex-col items-center justify-center gap-2">
-                                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                                                <Edit className="h-5 w-5 text-slate-400" />
+                                            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-2">
+                                                <Edit className="h-5 w-5 text-muted-foreground" />
                                             </div>
-                                            <p className="text-base font-medium text-slate-900">No shifts found</p>
-                                            <p className="text-sm text-slate-500">Add a new shift to define working hours.</p>
+                                            <p className="text-base font-medium text-foreground">No shifts found</p>
+                                            <p className="text-sm text-muted-foreground">Add a new shift to define working hours.</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 shifts.map((shift) => (
-                                    <TableRow key={shift.id} className="hover:bg-slate-50/50">
-                                        <TableCell className="font-medium text-slate-900">{shift.name}</TableCell>
-                                        <TableCell className="text-slate-600">{shift.startTime}</TableCell>
-                                        <TableCell className="text-slate-600">{shift.endTime}</TableCell>
+                                    <TableRow key={shift.id} className="hover:bg-muted/50">
+                                        <TableCell className="font-medium text-foreground">{shift.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">{shift.startTime}</TableCell>
+                                        <TableCell className="text-muted-foreground">{shift.endTime}</TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant={shift.status === 'ACTIVE' ? 'default' : 'secondary'}
-                                                className={shift.status === 'ACTIVE' ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-slate-100 text-slate-700"}
+                                                className={shift.status === 'ACTIVE' ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : "bg-muted text-muted-foreground"}
                                             >
                                                 {shift.status}
                                             </Badge>
@@ -88,7 +88,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10"
                                                     onClick={() => handleEdit(shift)}
                                                 >
                                                     <Edit className="h-4 w-4" />
@@ -96,7 +96,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                                     onClick={() => handleDelete(shift.id)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />

@@ -31,21 +31,21 @@ export default async function ProductionDetailPage(props: PageProps) {
         <div className="p-8 max-w-7xl mx-auto">
             <Link
                 href="/dashboard/production/orders"
-                className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors w-fit mb-6"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="text-sm font-medium">Back to Orders</span>
             </Link>
 
             <ProductionOrderDetail
-                order={order}
+                order={order as any}
                 formData={{
                     locations,
                     operators,
                     helpers,
                     machines,
                     workShifts,
-                    rawMaterials: serializeData(rawMaterials)
+                    rawMaterials: serializeData(rawMaterials) as any
                 }}
             />
         </div>
