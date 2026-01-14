@@ -22,6 +22,7 @@ model User {
   scrapRecords       ScrapRecord[]
   movements          StockMovement[]
   opnames            StockOpname[]
+  auditLogs          AuditLog[]
 }
 
 model Employee {
@@ -158,6 +159,7 @@ model StockMovement {
   fromLocationId   String?
   toLocationId     String?
   quantity         Decimal        @db.Decimal(15, 4)
+  cost             Decimal?       @db.Decimal(15, 4)
   reference        String?
   createdById      String?
   createdAt        DateTime       @default(now())
@@ -484,4 +486,17 @@ model RolePermission {
   updatedAt DateTime @updatedAt
 
   @@unique([role, resource])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  details    String?
+  changes    Json?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
 }

@@ -76,7 +76,7 @@ export async function createUser(data: CreateUserInput) {
         console.error('Failed to create user:', error);
         if (error instanceof z.ZodError) {
             // Return the first error message
-            return { success: false, error: error.errors[0]?.message || 'Validation error' };
+            return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
         }
         return { success: false, error: (error as Error).message };
     }

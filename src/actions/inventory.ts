@@ -1,8 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { adjustStockSchema, AdjustStockValues, transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/zod-schemas';
-import { MovementType, Prisma, Unit, ProductType } from '@prisma/client';
+import { adjustStockSchema, AdjustStockValues, transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, createBatchSchema, CreateBatchValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/zod-schemas';
+import { MovementType, Prisma, Unit, ProductType, ReservationStatus, BatchStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export type InventoryWithRelations = {
@@ -27,6 +27,8 @@ export type InventoryWithRelations = {
         id: string;
         name: string;
     };
+    reservedQuantity?: number;
+    availableQuantity?: number;
 };
 
 export async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
@@ -82,7 +84,39 @@ export async function getInventoryStats(searchParams?: { locationId?: string; ty
         },
     });
 
-    return inventory as unknown as InventoryWithRelations[];
+    // Fetch active reservations to calculate reserved and available stock
+    const reservations = await prisma.stockReservation.groupBy({
+        by: ['productVariantId', 'locationId'],
+        where: {
+            status: ReservationStatus.ACTIVE
+        },
+        _sum: {
+            quantity: true
+        }
+    });
+
+    // Create a lookup map for reservations
+    const reservationMap = new Map<string, number>();
+    reservations.forEach(r => {
+        const key = `${r.locationId}-${r.productVariantId}`;
+        reservationMap.set(key, r._sum.quantity?.toNumber() || 0);
+    });
+
+    // Enhance inventory items with reserved and available quantities
+    const enhancedInventory = inventory.map(item => {
+        const key = `${item.locationId}-${item.productVariantId}`;
+        const reservedQuantity = reservationMap.get(key) || 0;
+        const totalQuantity = item.quantity.toNumber();
+        const availableQuantity = totalQuantity - reservedQuantity;
+
+        return {
+            ...item,
+            reservedQuantity,
+            availableQuantity
+        };
+    });
+
+    return enhancedInventory as unknown as InventoryWithRelations[];
 }
 
 export async function getLocations() {
@@ -97,7 +131,9 @@ export async function getProductVariants() {
     });
 }
 
-export async function transferStock(data: TransferStockValues) {
+import { logActivity } from '@/lib/audit';
+
+export async function transferStock(data: TransferStockValues, userId?: string) {
     console.log("Transfer Action Started", data);
     const result = transferStockSchema.safeParse(data);
     if (!result.success) {
@@ -130,6 +166,23 @@ export async function transferStock(data: TransferStockValues) {
 
             if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
                 throw new Error(`Insufficient stock at source location. Current: ${sourceStock?.quantity || 0}`);
+            }
+
+            // 1.5 Check Reservation Constraints
+            const activeReservations = await tx.stockReservation.aggregate({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: productVariantId,
+                    status: ReservationStatus.ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+
+            const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+            const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+
+            if (availableQty < quantity) {
+                throw new Error(`Cannot transfer. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
             }
 
             // 2. Decrement Source
@@ -177,8 +230,21 @@ export async function transferStock(data: TransferStockValues) {
                     quantity,
                     reference: notes,
                     createdAt: date,
+                    createdById: userId, // Add createdBy
                 },
             });
+
+            // 5. Audit Log (only if userId is provided)
+            if (userId) {
+                await logActivity({
+                    userId,
+                    action: 'TRANSFER_STOCK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                    tx
+                });
+            }
         });
 
         revalidatePath('/dashboard/inventory');
@@ -190,7 +256,7 @@ export async function transferStock(data: TransferStockValues) {
     }
 }
 
-export async function transferStockBulk(data: BulkTransferStockValues) {
+export async function transferStockBulk(data: BulkTransferStockValues, userId?: string) {
     const result = bulkTransferStockSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -223,6 +289,23 @@ export async function transferStockBulk(data: BulkTransferStockValues) {
 
                 if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
                     throw new Error(`Insufficient stock for product ${productVariantId} at source location.`);
+                }
+
+                // 1.5 Check Reservation Constraints
+                const activeReservations = await tx.stockReservation.aggregate({
+                    where: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                        status: ReservationStatus.ACTIVE
+                    },
+                    _sum: { quantity: true }
+                });
+
+                const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+                const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+
+                if (availableQty < quantity) {
+                    throw new Error(`Cannot transfer product ${productVariantId}. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
                 }
 
                 // 2. Decrement Source
@@ -270,8 +353,21 @@ export async function transferStockBulk(data: BulkTransferStockValues) {
                         quantity,
                         reference: notes,
                         createdAt: date,
+                        createdById: userId,
                     },
                 });
+
+                // 5. Audit Log
+                if (userId) {
+                    await logActivity({
+                        userId,
+                        action: 'TRANSFER_STOCK_BULK',
+                        entityType: 'ProductVariant',
+                        entityId: productVariantId,
+                        details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                        tx
+                    });
+                }
             }
         });
 
@@ -284,13 +380,14 @@ export async function transferStockBulk(data: BulkTransferStockValues) {
     }
 }
 
-export async function adjustStock(data: AdjustStockValues) {
-    const result = adjustStockSchema.safeParse(data);
+export async function adjustStock(data: AdjustStockWithBatchValues, userId?: string) {
+    // Parse using the extended schema which supports batchData
+    const result = adjustStockWithBatchSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
     }
 
-    const { locationId, productVariantId, type, quantity, reason } = result.data;
+    const { locationId, productVariantId, type, quantity, reason, batchData } = result.data;
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -312,6 +409,38 @@ export async function adjustStock(data: AdjustStockValues) {
                 });
                 if (!currentStock || currentStock.quantity.toNumber() < quantity) {
                     throw new Error(`Insufficient stock to adjust OUT. Current: ${currentStock?.quantity || 0}`);
+                }
+
+                // Check Reservations for OUT
+                const activeReservations = await tx.stockReservation.aggregate({
+                    where: {
+                        locationId,
+                        productVariantId,
+                        status: ReservationStatus.ACTIVE
+                    },
+                    _sum: { quantity: true }
+                });
+
+                const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+                const availableQty = currentStock.quantity.toNumber() - reservedQty;
+
+                if (availableQty < quantity) {
+                    throw new Error(`Cannot adjust OUT. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                }
+            } else {
+                // Logic for ADJUSTMENT_IN with Batch
+                if (batchData) {
+                    await tx.batch.create({
+                        data: {
+                            batchNumber: batchData.batchNumber,
+                            productVariantId,
+                            locationId,
+                            quantity, // Initial batch quantity
+                            manufacturingDate: batchData.manufacturingDate,
+                            expiryDate: batchData.expiryDate,
+                            status: BatchStatus.ACTIVE
+                        }
+                    });
                 }
             }
 
@@ -347,6 +476,16 @@ export async function adjustStock(data: AdjustStockValues) {
                 });
             }
 
+            // Get the newly created batch ID if we just created one, or find it if we're referencing a batch (not fully implemented in this schema yet, but preparing)
+            // For now, if batchData exists, we just created a batch. To link it to movement, we need its ID.
+            let batchId: string | null = null;
+            if (isIncrement && batchData) {
+                const newBatch = await tx.batch.findUnique({
+                    where: { batchNumber: batchData.batchNumber }
+                });
+                batchId = newBatch?.id || null;
+            }
+
             // 2. Create Movement
             await tx.stockMovement.create({
                 data: {
@@ -357,8 +496,22 @@ export async function adjustStock(data: AdjustStockValues) {
                     toLocationId: isIncrement ? locationId : null,
                     quantity,
                     reference: reason,
+                    batchId, // Link movement to batch
+                    createdById: userId,
                 },
             });
+
+            // 3. Audit Log
+            if (userId) {
+                await logActivity({
+                    userId,
+                    action: 'ADJUST_STOCK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                    tx
+                });
+            }
         });
 
         revalidatePath('/dashboard/inventory');
@@ -369,7 +522,7 @@ export async function adjustStock(data: AdjustStockValues) {
     }
 }
 
-export async function adjustStockBulk(data: BulkAdjustStockValues) {
+export async function adjustStockBulk(data: BulkAdjustStockValues, userId?: string) {
     const result = bulkAdjustStockSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -444,8 +597,21 @@ export async function adjustStockBulk(data: BulkAdjustStockValues) {
                         toLocationId: isIncrement ? locationId : null,
                         quantity,
                         reference: reason,
+                        createdById: userId,
                     },
                 });
+
+                // 3. Audit Log
+                if (userId) {
+                    await logActivity({
+                        userId,
+                        action: 'ADJUST_STOCK_BULK',
+                        entityType: 'ProductVariant',
+                        entityId: productVariantId,
+                        details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                        tx
+                    });
+                }
             }
         });
 
@@ -541,6 +707,18 @@ export async function getDashboardStats() {
         return total < threshold;
     }).length;
 
+    // Calculate Suggested Purchases Count (Reorder Point)
+    const reorderVariants = await prisma.productVariant.findMany({
+        where: { reorderPoint: { not: null } },
+        select: { id: true, reorderPoint: true }
+    });
+
+    const suggestedPurchasesCount = reorderVariants.filter(variant => {
+        const total = variantQuantities[variant.id] || 0;
+        const reorderPoint = variant.reorderPoint?.toNumber() || 0;
+        return total < reorderPoint;
+    }).length;
+
     const recentMovements = await prisma.stockMovement.count({
         where: {
             createdAt: {
@@ -553,7 +731,107 @@ export async function getDashboardStats() {
         productCount,
         totalStock,
         lowStockCount,
-        recentMovements
+        recentMovements,
+        suggestedPurchasesCount
+    };
+}
+
+export async function getSuggestedPurchases() {
+    // 1. Get all variants with reorder points
+    const variants = await prisma.productVariant.findMany({
+        where: { reorderPoint: { not: null } },
+        include: {
+            product: { select: { name: true, productType: true } },
+            preferredSupplier: { select: { name: true } },
+            inventories: { select: { quantity: true } }
+        }
+    });
+
+    // 2. Filter where Total Available < Reorder Point
+    // Note: ideally we check available (physical - reserved), but for now using physical to check reorder point is standard initial step
+    const suggestions = variants.map(v => {
+        const totalPhysical = v.inventories.reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
+        return {
+            ...v,
+            totalStock: totalPhysical,
+            shouldReorder: totalPhysical < (v.reorderPoint?.toNumber() || 0)
+        };
+    }).filter(v => v.shouldReorder);
+
+    return suggestions;
+}
+
+export async function getInventoryValuation() {
+    // Moving Average Valuation:
+    // Value = Sum(Quantity * AverageCost)
+    // For this MVP, we will calculate Average Cost based on incoming movements (PURCHASE or ADJUSTMENT_IN) history
+    // Real-world ERPs maintain a separate average_cost field on ProductVariant that updates on every receipt.
+
+    // 1. Get current stock quantities per variant
+    const stock = await getInventoryStats();
+
+    // 2. Calculate valuation per variant
+    let totalValuation = 0;
+    const valuationDetails = [];
+
+    // Group stock by variant
+    const variantStock: Record<string, number> = {};
+    stock.forEach(item => {
+        variantStock[item.productVariantId] = (variantStock[item.productVariantId] || 0) + item.quantity.toNumber();
+    });
+
+    for (const [variantId, quantity] of Object.entries(variantStock)) {
+        if (quantity <= 0) continue;
+
+        // Fetch Avg Cost from recent IN/PURCHASE movements?
+        // Simplifying: Fetch last known buyPrice from Variant itself as fallback, or calculate from movements if cost is available
+        const variant = await prisma.productVariant.findUnique({
+            where: { id: variantId },
+            select: { buyPrice: true, name: true, skuCode: true }
+        });
+
+        if (!variant) continue;
+
+        let unitCost = variant.buyPrice?.toNumber() || 0;
+
+        // Advanced: Try to find weighted average from StockMovements with 'cost' field
+        /* 
+        // Commenting out due to prisma client type mismatch
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                productVariantId: variantId,
+                type: { in: [MovementType.IN, MovementType.ADJUSTMENT] },
+                cost: { not: null }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10 // Look at last 10 receipts to estimate
+        });
+
+        if (movements.length > 0) {
+            const totalCost = movements.reduce((sum, m) => sum + (m.cost?.toNumber() || 0) * m.quantity.toNumber(), 0);
+            const totalQty = movements.reduce((sum, m) => sum + m.quantity.toNumber(), 0);
+            if (totalQty > 0) {
+                unitCost = totalCost / totalQty;
+            }
+        }
+        */
+
+        const value = quantity * unitCost;
+        totalValuation += value;
+
+        valuationDetails.push({
+            productVariantId: variantId,
+            name: variant.name,
+            sku: variant.skuCode,
+            quantity,
+            unitCost,
+            totalValue: value
+        });
+    }
+
+    return {
+        totalValuation,
+        details: valuationDetails
     };
 }
 
@@ -704,4 +982,103 @@ export async function getStockHistory(
     }
 
     return historyData;
+}
+
+// --- Stock Reservation Actions ---
+
+export async function createStockReservation(data: CreateReservationValues) {
+    const result = createReservationSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { productVariantId, locationId, quantity, reservedFor, referenceId, reservedUntil } = result.data;
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Check Available Stock (Physical - Reserved)
+            const physicalStock = await tx.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: { locationId, productVariantId }
+                },
+                select: { quantity: true }
+            });
+
+            const currentReservations = await tx.stockReservation.aggregate({
+                where: {
+                    locationId,
+                    productVariantId,
+                    status: ReservationStatus.ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+
+            const totalPhysical = physicalStock?.quantity.toNumber() || 0;
+            const totalReserved = currentReservations._sum.quantity?.toNumber() || 0;
+            const available = totalPhysical - totalReserved;
+
+            if (available < quantity) {
+                throw new Error(`Insufficient available stock. Physical: ${totalPhysical}, Reserved: ${totalReserved}, Available: ${available}`);
+            }
+
+            // 2. Create Reservation
+            await tx.stockReservation.create({
+                data: {
+                    productVariantId,
+                    locationId,
+                    quantity,
+                    reservedFor,
+                    referenceId,
+                    reservedUntil,
+                    status: ReservationStatus.ACTIVE
+                }
+            });
+        });
+
+        revalidatePath('/dashboard/inventory');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Failed to create reservation" };
+    }
+}
+
+export async function cancelStockReservation(data: CancelReservationValues) {
+    const result = cancelReservationSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    try {
+        await prisma.stockReservation.update({
+            where: { id: result.data.reservationId },
+            data: { status: ReservationStatus.CANCELLED }
+        });
+
+        revalidatePath('/dashboard/inventory');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: "Failed to cancel reservation" };
+    }
+}
+
+export async function getActiveReservations(locationId?: string, productVariantId?: string) {
+    const where: Prisma.StockReservationWhereInput = {
+        status: ReservationStatus.ACTIVE
+    };
+
+    if (locationId) where.locationId = locationId;
+    if (productVariantId) where.productVariantId = productVariantId;
+
+    return await prisma.stockReservation.findMany({
+        where,
+        include: {
+            productVariant: {
+                select: { name: true, skuCode: true }
+            },
+            location: {
+                select: { name: true }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
 }

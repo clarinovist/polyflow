@@ -1,5 +1,7 @@
 'use client';
 
+import { GlobalSearch } from '@/components/GlobalSearch';
+
 import {
     LayoutDashboard,
     Warehouse,
@@ -140,6 +142,10 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                 {/* Logo */}
                 <div className="flex h-16 items-center border-b border-sidebar-border px-6">
                     <PolyFlowLogo showText={true} size="md" />
+                </div>
+
+                <div className="px-4 pt-4">
+                    <GlobalSearch className="w-full justify-start pl-2" />
                 </div>
 
                 {/* Navigation */}

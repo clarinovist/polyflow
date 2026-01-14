@@ -10,7 +10,7 @@ import { CheckCircle2, AlertTriangle, Calculator, ArrowLeft } from 'lucide-react
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { finalizeOpname } from '@/actions/opname';
+import { completeOpname } from '@/actions/opname';
 import Link from 'next/link';
 
 interface OpnameItem {
@@ -53,7 +53,9 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
 
         setIsFinalizing(true);
         try {
-            const result = await finalizeOpname(session.id);
+            // TODO: Replace with actual user ID from auth context
+            const userId = 'system-user-id'; // Using placeholder until auth is implemented
+            const result = await completeOpname(session.id, userId);
             if (result.success) {
                 toast.success("Session finalized and inventory updated");
                 router.refresh();

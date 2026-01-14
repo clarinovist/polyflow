@@ -96,7 +96,9 @@ export async function saveOpnameCount(
     }
 }
 
-export async function finalizeOpname(opnameId: string) {
+import { logActivity } from '@/lib/audit';
+
+export async function completeOpname(opnameId: string, userId: string) {
     try {
         const opname = await prisma.stockOpname.findUnique({
             where: { id: opnameId },
@@ -110,9 +112,6 @@ export async function finalizeOpname(opnameId: string) {
             // 1. Process items with variance
             for (const item of opname.items) {
                 // If countedQuantity is null, we assume it matched system (or wasn't checked)
-                // But for a strict audit, null might mean 0 if we assume blind count.
-                // Let's assume if it is NULL, we ignore it (no variance).
-                // If user entered 0, it comes as 0.
                 if (item.countedQuantity === null) continue;
 
                 const variance = item.countedQuantity.sub(item.systemQuantity).toNumber();
@@ -152,6 +151,16 @@ export async function finalizeOpname(opnameId: string) {
                     status: OpnameStatus.COMPLETED,
                     completedAt: new Date()
                 }
+            });
+
+            // 5. Log Activity
+            await logActivity({
+                userId,
+                action: 'COMPLETE_OPNAME',
+                entityType: 'StockOpname',
+                entityId: opnameId,
+                details: `Completed opname for location ${opname.locationId}`,
+                tx,
             });
         });
 

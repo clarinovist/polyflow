@@ -4,9 +4,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -14,6 +16,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     AlertCircle,
     Warehouse,
@@ -26,9 +36,13 @@ import {
     Calendar as CalendarIcon,
     ChevronLeft,
     ChevronRight,
+    MoreHorizontal,
+    Layers
 } from 'lucide-react';
 import { ThresholdDialog } from './ThresholdDialog';
 import { ProductType } from '@prisma/client';
+import { BulkTransferDialog } from './BulkTransferDialog';
+import { BulkAdjustDialog } from './BulkAdjustDialog';
 
 type SortField = 'name' | 'sku' | 'location' | 'stock' | 'type' | 'status';
 type SortOrder = 'asc' | 'desc';
@@ -65,6 +79,8 @@ interface InventoryItem {
         id: string;
         name: string;
     };
+    reservedQuantity?: number;
+    availableQuantity?: number;
 }
 
 interface InventoryTableProps {
@@ -84,6 +100,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
     const [productTypeFilter, setProductTypeFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const ITEMS_PER_PAGE = 6;
 
     // Check if we are filtering by a specific location
@@ -169,6 +186,41 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedInventory = processedInventory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
+    // Selection Logic
+    const toggleSelectAll = () => {
+        if (selectedItems.size === processedInventory.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(processedInventory.map(i => i.id)));
+        }
+    };
+
+    const toggleSelectItem = (id: string) => {
+        const newSelected = new Set(selectedItems);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedItems(newSelected);
+    };
+
+    const isAllSelected = processedInventory.length > 0 && selectedItems.size === processedInventory.length;
+    const isSomeSelected = selectedItems.size > 0 && selectedItems.size < processedInventory.length;
+
+    const [showBulkTransfer, setShowBulkTransfer] = useState(false);
+    const [showBulkAdjust, setShowBulkAdjust] = useState(false);
+
+    const selectedInventoryList = React.useMemo(() =>
+        processedInventory.filter(i => selectedItems.has(i.id)),
+        [processedInventory, selectedItems]);
+
+    const isSameLocation = React.useMemo(() => {
+        if (selectedInventoryList.length === 0) return true;
+        const locId = selectedInventoryList[0].locationId;
+        return selectedInventoryList.every(i => i.locationId === locId);
+    }, [selectedInventoryList]);
+
     // Handle column header click for sorting
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -183,8 +235,12 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
     // Export to CSV
     const handleExport = () => {
+        const itemsToExport = selectedItems.size > 0
+            ? processedInventory.filter(i => selectedItems.has(i.id))
+            : processedInventory;
+
         const headers = ['Product Name', 'SKU', 'Product Type', 'Location', 'Current Stock', 'Unit', 'Min Stock Alert', 'Status'];
-        const rows = processedInventory.map(item => {
+        const rows = itemsToExport.map(item => {
             const isLowStock = isGlobalLowStock(item);
             const totalStock = variantTotals[item.productVariantId];
             const threshold = item.productVariant.minStockAlert || 0;
@@ -255,6 +311,40 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                     )}
                 </div>
 
+                {/* Bulk Actions Checkbox or Dropdown */}
+                {selectedItems.size > 0 && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                <Layers className="mr-2 h-4 w-4" />
+                                {selectedItems.size} Selected
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleExport}>
+                                Export Selected
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                                disabled={!isSameLocation}
+                                onClick={() => setShowBulkTransfer(true)}
+                            >
+                                Bulk Transfer
+                                {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                disabled={!isSameLocation}
+                                onClick={() => setShowBulkAdjust(true)}
+                            >
+                                Bulk Adjust
+                                {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/50" />
@@ -289,7 +379,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                 </Select>
 
                 {/* Export Button */}
-                <Button variant="outline" size="sm" onClick={handleExport} className="px-3">
+                <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export All/Selected">
                     <Download className="h-4 w-4" />
                 </Button>
             </div>
@@ -299,8 +389,18 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                 <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
+                            {/* Checkbox Header */}
+                            <TableHead className="w-[40px] pl-4">
+                                <Checkbox
+                                    checked={isAllSelected}
+                                    onCheckedChange={toggleSelectAll}
+                                    aria-label="Select all"
+                                    className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
+                                />
+                            </TableHead>
+
                             <TableHead
-                                className="pl-4 w-[40%] cursor-pointer hover:bg-muted transition-colors"
+                                className="w-[40%] cursor-pointer hover:bg-muted transition-colors"
                                 onClick={() => handleSort('name')}
                             >
                                 <div className="flex items-center gap-2">
@@ -332,11 +432,9 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                     <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
                                 </div>
                             </TableHead>
-
-                            <TableHead
-                                className="w-[20%] cursor-pointer hover:bg-muted transition-colors"
-                                onClick={() => handleSort('status')}
-                            >
+                            <TableHead>Reserved</TableHead>
+                            <TableHead>Available</TableHead>
+                            <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
                                 <div className="flex items-center gap-2">
                                     Status
                                     <SortIcon field="status" currentSortField={sortField} currentSortOrder={sortOrder} />
@@ -350,6 +448,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             const isLowStock = isGlobalLowStock(item);
                             const totalStockValue = variantTotals[item.productVariantId];
                             const thresholdValue = item.productVariant.minStockAlert || 0;
+                            const isSelected = selectedItems.has(item.id);
 
                             // Comparison logic
                             const prevStock = comparisonData ? (comparisonData[`${item.productVariantId}-${item.locationId}`] || 0) : 0;
@@ -359,9 +458,16 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             return (
                                 <React.Fragment key={item.id}>
                                     <TableRow
-                                        className={`${isLowStock ? "bg-red-500/10 hover:bg-red-500/20" : "hover:bg-muted/50"} transition-colors`}
+                                        className={`${isLowStock ? "bg-red-500/10 hover:bg-red-500/20" : "hover:bg-muted/50"} transition-colors ${isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10 dark:hover:bg-blue-900/20" : ""}`}
                                     >
                                         <TableCell className="pl-4 py-3 align-top">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleSelectItem(item.id)}
+                                            />
+                                        </TableCell>
+
+                                        <TableCell className="py-3 align-top">
                                             <div className="flex flex-col gap-0.5">
                                                 <span className="font-medium text-sm text-foreground leading-tight">
                                                     {item.productVariant.name}
@@ -405,7 +511,23 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 )}
                                             </div>
                                         </TableCell>
-
+                                        <TableCell>
+                                            {item.reservedQuantity ? (
+                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                                                    {item.reservedQuantity} {item.productVariant.primaryUnit}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-slate-400">-</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className={cn(
+                                                "font-medium",
+                                                (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"
+                                            )}>
+                                                {item.availableQuantity ?? item.quantity} {item.productVariant.primaryUnit}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="align-top">
                                             {isLowStock ? (
                                                 <div className="space-y-1">
@@ -436,7 +558,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                         })}
                         {processedInventory.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={isLocationSpecific ? 4 : 5} className="text-center py-8">
+                                <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
                                         <Search className="h-6 w-6" />
                                         <p className="text-sm">No items found.</p>
@@ -477,6 +599,19 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                     </Button>
                 </div>
             </div>
+            <BulkTransferDialog
+                open={showBulkTransfer}
+                onOpenChange={setShowBulkTransfer}
+                items={selectedInventoryList}
+            // userId={user?.id}
+            />
+
+            <BulkAdjustDialog
+                open={showBulkAdjust}
+                onOpenChange={setShowBulkAdjust}
+                items={selectedInventoryList}
+            // userId={user?.id}
+            />
         </div>
     );
 }
