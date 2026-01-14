@@ -74,7 +74,7 @@ export function QualityControlWidget({ data }: Props) {
                             <div className="h-[300px] flex items-center justify-center text-muted-foreground">No inspection data</div>
                         ) : (
                             <div className="h-[300px] w-full relative">
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                                     <PieChart>
                                         <Pie
                                             data={pieData}

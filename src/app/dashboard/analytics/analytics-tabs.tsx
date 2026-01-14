@@ -28,7 +28,7 @@ interface AnalyticsTabsProps {
         operatorLeaderboard: any;
         qualitySummary: any;
     };
-    dateRange: { from: Date; to: Date };
+    dateRange: { from: Date | string; to: Date | string };
 }
 
 export default function AnalyticsTabs({ defaultTab, data, dateRange }: AnalyticsTabsProps) {

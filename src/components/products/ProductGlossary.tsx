@@ -25,7 +25,7 @@ export function ProductGlossary() {
                 <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6">
                     <DialogHeader className="pb-4 pr-10">
                         <DialogTitle className="flex items-center gap-2">
-                            <Info className="h-5 w-5 text-blue-600" />
+                            <Info className="h-5 w-5 text-muted-foreground" />
                             Product Master - Field Guide
                         </DialogTitle>
                         <DialogDescription>
@@ -45,42 +45,42 @@ export function ProductGlossary() {
                             <GlossaryItem
                                 term="RAW_MATERIAL"
                                 badge="RM"
-                                badgeColor="bg-blue-100 text-blue-700"
+                                badgeVariant="outline"
                                 description="Incoming materials from suppliers (e.g., PP Granules, Colorant)"
                                 example="Pure PP Granules, Red Colorant Masterbatch"
                             />
                             <GlossaryItem
                                 term="INTERMEDIATE"
                                 badge="IN"
-                                badgeColor="bg-purple-100 text-purple-700"
+                                badgeVariant="outline"
                                 description="Result of mixing/blending processes, not yet final product"
                                 example="Red Mixed Granules (PP + Colorant)"
                             />
                             <GlossaryItem
                                 term="PACKAGING"
                                 badge="PK"
-                                badgeColor="bg-amber-100 text-amber-700"
+                                badgeVariant="outline"
                                 description="Packaging materials and supplies"
                                 example="Boxes, Labels, Pallets"
                             />
                             <GlossaryItem
                                 term="WIP (Work in Progress)"
                                 badge="WP"
-                                badgeColor="bg-orange-100 text-orange-700"
+                                badgeVariant="outline"
                                 description="Semi-finished goods currently in production"
                                 example="Red Raffia Jumbo Roll (before cutting)"
                             />
                             <GlossaryItem
                                 term="FINISHED_GOOD"
                                 badge="FG"
-                                badgeColor="bg-green-100 text-green-700"
+                                badgeVariant="default"
                                 description="Ready-to-sell products"
                                 example="Red Raffia Bales (5kg, 10kg)"
                             />
                             <GlossaryItem
                                 term="SCRAP"
                                 badge="SC"
-                                badgeColor="bg-red-100 text-red-700"
+                                badgeVariant="destructive"
                                 description="Production waste and recyclable materials"
                                 example="Edge Trim, Rejected Products, Regrind"
                             />
@@ -120,30 +120,30 @@ export function ProductGlossary() {
                             title="SKU Code Format"
                             description="8-character unique product identifier"
                         >
-                            <div className="bg-slate-50 p-4 rounded-lg border">
-                                <div className="font-mono text-lg font-bold text-center mb-3">
+                            <div className="bg-muted/30 p-4 rounded-lg border">
+                                <div className="font-mono text-lg font-bold text-center mb-3 tracking-wider">
                                     [TYPE][CATEGORY][SEQUENCE]
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm">
                                     <div className="text-center">
-                                        <div className="font-semibold text-blue-600">TYPE (2)</div>
-                                        <div className="text-xs text-slate-600">RM, IN, WP, FG, SC</div>
+                                        <div className="font-semibold text-foreground">TYPE (2)</div>
+                                        <div className="text-xs text-muted-foreground">RM, IN, WP, FG, SC</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-purple-600">CATEGORY (3)</div>
-                                        <div className="text-xs text-slate-600">PPG, CLR, MIX, RAF</div>
+                                        <div className="font-semibold text-foreground">CATEGORY (3)</div>
+                                        <div className="text-xs text-muted-foreground">PPG, CLR, MIX, RAF</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-green-600">SEQ (3)</div>
-                                        <div className="text-xs text-slate-600">001-999</div>
+                                        <div className="font-semibold text-foreground">SEQ (3)</div>
+                                        <div className="text-xs text-muted-foreground">001-999</div>
                                     </div>
                                 </div>
-                                <div className="mt-3 p-2 bg-muted/50 rounded border-l-4 border-blue-500">
-                                    <div className="text-xs font-semibold text-slate-700">Example:</div>
-                                    <div className="font-mono font-bold text-slate-900">RMPPG001</div>
-                                    <div className="text-xs text-slate-600 mt-1">
-                                        = Raw Material → PP Granules → #001
-                                    </div>
+                                <div className="mt-3 p-3 bg-card rounded border font-mono text-sm flex flex-col items-center">
+                                    <span className="text-xs text-muted-foreground mb-1 uppercase tracking-wide">Example</span>
+                                    <span className="font-bold">RMPPG001</span>
+                                    <span className="text-xs text-muted-foreground mt-1 text-center">
+                                        Raw Material → PP Granules → #001
+                                    </span>
                                 </div>
                             </div>
                         </GlossarySection>
@@ -169,11 +169,11 @@ export function ProductGlossary() {
                                 description="How many primary units = 1 sales unit"
                                 example="1 BAL = 5 KG → Conversion Factor = 5.0"
                             />
-                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 mt-2">
+                            <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
-                                    <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                                    <div className="text-sm text-amber-800">
-                                        <span className="font-semibold">Tip:</span> For raw materials and scrap,
+                                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                    <div className="text-sm text-muted-foreground">
+                                        <span className="font-semibold text-foreground">Tip:</span> For raw materials and scrap,
                                         both units are typically the same (e.g., KG/KG with factor 1.0)
                                     </div>
                                 </div>
@@ -201,11 +201,11 @@ export function ProductGlossary() {
                                 description="Sales price to customer (for invoicing and quotations)"
                                 example="IDR 16,000 per KG (what customer pays)"
                             />
-                            <div className="bg-green-50 p-3 rounded-lg border border-green-200 mt-2">
+                            <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
-                                    <Info className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                    <div className="text-sm text-green-800">
-                                        <span className="font-semibold">Margin Calculation:</span>
+                                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                    <div className="text-sm text-muted-foreground">
+                                        <span className="font-semibold text-foreground">Margin Calculation:</span>
                                         {' '}(Sell Price - Buy Price) / Buy Price × 100%
                                     </div>
                                 </div>
@@ -223,11 +223,11 @@ export function ProductGlossary() {
                                 description="Threshold quantity - system alerts when total stock across all locations falls below this number"
                                 example="Set to 100 KG → Alert when total stock < 100 KG"
                             />
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 mt-2">
+                            <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
-                                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                    <div className="text-sm text-blue-800">
-                                        <span className="font-semibold">Best Practice:</span> Set min stock to
+                                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                    <div className="text-sm text-muted-foreground">
+                                        <span className="font-semibold text-foreground">Best Practice:</span> Set min stock to
                                         (Average Daily Usage × Lead Time Days) + Safety Stock
                                     </div>
                                 </div>
@@ -243,9 +243,9 @@ export function ProductGlossary() {
                             <div className="text-sm text-slate-600 mb-3">
                                 Store custom properties like color, thickness, material grade, etc.
                             </div>
-                            <div className="bg-slate-50 p-3 rounded-lg border font-mono text-xs">
+                            <div className="bg-muted/30 p-3 rounded-lg border font-mono text-xs">
                                 <div className="text-muted-foreground mb-1">Example JSON:</div>
-                                <pre className="text-slate-700">{`{
+                                <pre className="text-foreground">{`{
   "color": "Red",
   "thickness": "Standard",
   "material": "PP",
@@ -271,10 +271,10 @@ function GlossarySection({ icon: Icon, title, description, children }: GlossaryS
     return (
         <div className="border-l-4 border-slate-300 pl-4 py-2">
             <div className="flex items-center gap-2 mb-2">
-                <Icon className="h-5 w-5 text-slate-600" />
-                <h3 className="font-semibold text-lg text-slate-900">{title}</h3>
+                <Icon className="h-5 w-5 text-muted-foreground" />
+                <h3 className="font-semibold text-lg text-foreground">{title}</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4">{description}</p>
+            <p className="text-sm text-muted-foreground mb-4">{description}</p>
             <div className="space-y-4">
                 {children}
             </div>
@@ -287,16 +287,16 @@ interface GlossaryItemProps {
     description: string;
     example?: string;
     badge?: string;
-    badgeColor?: string;
+    badgeVariant?: "default" | "secondary" | "destructive" | "outline";
 }
 
-function GlossaryItem({ term, description, example, badge, badgeColor }: GlossaryItemProps) {
+function GlossaryItem({ term, description, example, badge, badgeVariant }: GlossaryItemProps) {
     return (
         <div className="bg-card p-3 rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-slate-900">{term}</span>
                 {badge && (
-                    <Badge className={`${badgeColor} text-xs border-0`}>
+                    <Badge variant={badgeVariant || 'secondary'} className="text-xs">
                         {badge}
                     </Badge>
                 )}

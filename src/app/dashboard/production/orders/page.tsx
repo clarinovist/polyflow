@@ -70,7 +70,7 @@ export default async function ProductionOrdersPage() {
                                     orders.map((order) => (
                                         <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
                                             <TableCell className="font-medium">
-                                                <Link href={`/dashboard/production/orders/${order.id}`} className="hover:underline text-blue-600">
+                                                <Link href={`/dashboard/production/orders/${order.id}`} className="hover:underline text-foreground">
                                                     {order.orderNumber}
                                                 </Link>
                                             </TableCell>
@@ -117,16 +117,16 @@ export default async function ProductionOrdersPage() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-    const styles: Record<string, string> = {
-        DRAFT: "bg-muted text-muted-foreground hover:bg-muted",
-        RELEASED: "bg-blue-100 text-blue-700 hover:bg-blue-100",
-        IN_PROGRESS: "bg-amber-100 text-amber-700 hover:bg-amber-100",
-        COMPLETED: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
-        CANCELLED: "bg-red-100 text-red-700 hover:bg-red-100",
+    const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+        DRAFT: "secondary",
+        RELEASED: "outline",
+        IN_PROGRESS: "default",
+        COMPLETED: "secondary",
+        CANCELLED: "destructive",
     };
 
     return (
-        <Badge className={cn(styles[status] || styles.DRAFT, "border-0 shadow-none font-medium")}>
+        <Badge variant={STATUS_VARIANTS[status] || "secondary"} className="shadow-none font-medium">
             {status.replace('_', ' ')}
         </Badge>
     );

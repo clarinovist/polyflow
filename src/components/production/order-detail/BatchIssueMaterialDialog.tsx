@@ -154,7 +154,7 @@ export function BatchIssueMaterialDialog({
                 </DialogHeader>
 
                 <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border">
+                    <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 rounded-lg border">
                         <div className="space-y-2">
                             <Label>Source Location</Label>
                             <Select value={selectedLocation} onValueChange={setSelectedLocation}>
@@ -164,7 +164,7 @@ export function BatchIssueMaterialDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-end pb-1 text-sm text-slate-500">
+                        <div className="flex items-end pb-1 text-sm text-muted-foreground">
                             <AlertCircle className="w-4 h-4 mr-2 text-blue-500" />
                             Editing rows will update the Order Plan permanently.
                         </div>
@@ -172,7 +172,7 @@ export function BatchIssueMaterialDialog({
 
                     <div className="rounded-md border">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b">
+                            <thead className="bg-muted/40 border-b">
                                 <tr>
                                     <th className="p-3 text-left font-medium">Material</th>
                                     <th className="p-3 text-right font-medium w-32">Qty to Issue</th>
@@ -182,16 +182,16 @@ export function BatchIssueMaterialDialog({
                             <tbody className="divide-y">
                                 {items.map((item) => (
                                     <tr key={item.id} className={cn(
-                                        !item.isPlanned && "bg-amber-50/30",
-                                        item.isDeletedPlan && "bg-red-50 opacity-60"
+                                        !item.isPlanned && "bg-amber-500/5",
+                                        item.isDeletedPlan && "bg-destructive/5 opacity-60"
                                     )}>
                                         <td className="p-3">
                                             {item.isPlanned ? (
                                                 <div className="flex items-center gap-2">
-                                                    <Package className="w-4 h-4 text-slate-400" />
+                                                    <Package className="w-4 h-4 text-muted-foreground" />
                                                     <div className="flex flex-col">
                                                         <span className={cn("font-medium", item.isDeletedPlan && "line-through")}>{item.name}</span>
-                                                        <span className="text-[10px] text-blue-600 uppercase font-bold tracking-wider">Planned</span>
+                                                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Planned</span>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -206,7 +206,7 @@ export function BatchIssueMaterialDialog({
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
-                                                    <span className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">Substitute</span>
+                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Substitute</span>
                                                 </div>
                                             )}
                                         </td>
@@ -247,7 +247,7 @@ export function BatchIssueMaterialDialog({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full h-10 rounded-none border-t text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            className="w-full h-10 rounded-none border-t text-muted-foreground hover:text-foreground hover:bg-muted/50"
                             onClick={handleAddSubstitute}
                         >
                             <Plus className="w-4 h-4 mr-2" /> Add Substitute Material
@@ -257,7 +257,7 @@ export function BatchIssueMaterialDialog({
 
                 <DialogFooter className="mt-6">
                     <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={onSubmit} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
                         {loading ? "Updating..." : "Save & Update Plan"}
                     </Button>
                 </DialogFooter>

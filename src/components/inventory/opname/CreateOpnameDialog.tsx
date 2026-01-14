@@ -70,7 +70,7 @@ export function CreateOpnameDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className="shadow-sm">
                     <Plus className="mr-2 h-4 w-4" />
                     New Audit Session
                 </Button>
@@ -82,14 +82,12 @@ export function CreateOpnameDialog() {
                         Create a new physical inventory counting session. This will take a snapshot of current system stock.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="location" className="text-right">
-                            Location
-                        </Label>
+                <div className="grid gap-6 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="location">Location</Label>
                         <Select value={locationId} onValueChange={setLocationId}>
-                            <SelectTrigger className="w-[280px]">
-                                <SelectValue placeholder="Select location" />
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select warehouse..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {locations.map((loc) => (
@@ -99,17 +97,15 @@ export function CreateOpnameDialog() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <p className="text-[10px] text-muted-foreground">Select the warehouse location to audit.</p>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="remarks" className="text-right">
-                            Remarks
-                        </Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="remarks">Remarks (Optional)</Label>
                         <Input
                             id="remarks"
                             value={remarks}
                             onChange={(e) => setRemarks(e.target.value)}
-                            placeholder="e.g. End of Month Audit"
-                            className="col-span-3"
+                            placeholder="e.g. End of Month Audit ~ Jan 2026"
                         />
                     </div>
                 </div>
@@ -118,7 +114,12 @@ export function CreateOpnameDialog() {
                         Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={isLoading}>
-                        {isLoading ? "creating..." : "Start Session"}
+                        {isLoading ? (
+                            <>
+                                <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin mr-2" />
+                                Creating...
+                            </>
+                        ) : "Start Session"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

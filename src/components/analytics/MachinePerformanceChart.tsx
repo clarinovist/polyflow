@@ -23,7 +23,7 @@ export function MachinePerformanceChart({ data }: Props) {
                         <p className="text-muted-foreground py-8 text-center text-sm">No machine data available.</p>
                     ) : (
                         <div className="h-[400px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                                 <BarChart
                                     data={data}
                                     margin={{

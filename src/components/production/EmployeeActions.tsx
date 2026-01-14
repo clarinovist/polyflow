@@ -60,7 +60,7 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                     </Link>
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
-                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
@@ -79,7 +79,7 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

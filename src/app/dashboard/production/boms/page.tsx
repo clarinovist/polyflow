@@ -59,7 +59,7 @@ export default async function BomListPage() {
                                     boms?.map((bom) => (
                                         <tr key={bom.id} className="hover:bg-muted/50 group">
                                             <td className="p-3 font-medium flex items-center gap-2">
-                                                <FlaskConical className="h-4 w-4 text-purple-600" />
+                                                <FlaskConical className="h-4 w-4 text-muted-foreground" />
                                                 {bom.name}
                                                 {bom.isDefault && <Badge variant="outline" className="text-xs">Default</Badge>}
                                             </td>

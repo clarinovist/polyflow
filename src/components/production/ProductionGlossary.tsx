@@ -1,6 +1,7 @@
 'use client';
 
 import { HelpCircle, Info, Factory, FlaskConical, Package2, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
     Dialog,
     DialogContent,
@@ -189,12 +190,12 @@ export function ProductionGlossary() {
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div className="bg-muted/30 p-4 rounded-lg border border-border">
                                 <div className="flex items-start gap-2">
-                                    <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <h4 className="font-semibold text-blue-900 mb-2">Important Notes</h4>
-                                        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                                        <h4 className="font-semibold text-foreground mb-2">Important Notes</h4>
+                                        <ul className="text-sm text-foreground/80 space-y-1 list-disc list-inside">
                                             <li>Material issues can only be recorded in IN_PROGRESS status</li>
                                             <li>Always verify material availability before releasing an order</li>
                                             <li>Record actual quantity accurately when completing</li>
@@ -400,10 +401,10 @@ interface GlossaryItemProps {
 function GlossaryItem({ term, description, example }: GlossaryItemProps) {
     return (
         <div className="bg-card p-3 rounded-lg border border-border">
-            <div className="font-semibold text-slate-900 mb-1">{term}</div>
-            <p className="text-sm text-slate-600">{description}</p>
+            <div className="font-semibold text-foreground mb-1">{term}</div>
+            <p className="text-sm text-muted-foreground">{description}</p>
             {example && (
-                <p className="text-xs text-slate-500 mt-2 italic">
+                <p className="text-xs text-muted-foreground/70 mt-2 italic">
                     Example: {example}
                 </p>
             )}
@@ -419,19 +420,24 @@ interface StatusFlowItemProps {
 }
 
 function StatusFlowItem({ status, color, description, actions }: StatusFlowItemProps) {
-    const colorClasses: Record<string, string> = {
-        slate: 'bg-slate-100 text-slate-700 border-slate-200',
-        blue: 'bg-blue-100 text-blue-700 border-blue-200',
-        amber: 'bg-amber-100 text-amber-700 border-amber-200',
-        emerald: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-        red: 'bg-red-100 text-red-700 border-red-200',
+    // Map colors to semantic variants if possible, or just use neutral
+    // We'll stick to a clean, single-style card for all flow items with a small colored indicator
+    const indicatorColors: Record<string, string> = {
+        slate: 'bg-zinc-200',
+        blue: 'bg-blue-500',
+        amber: 'bg-amber-500',
+        emerald: 'bg-emerald-500',
+        red: 'bg-destructive',
     };
 
     return (
-        <div className={`p-4 rounded-lg border ${colorClasses[color]}`}>
-            <div className="font-bold text-base mb-1">{status}</div>
-            <div className="text-sm mb-2">{description}</div>
-            <div className="text-xs opacity-90">→ {actions}</div>
+        <div className="p-4 rounded-lg border bg-card relative overflow-hidden">
+            <div className={cn("absolute left-0 top-0 bottom-0 w-1", indicatorColors[color] || 'bg-zinc-200')} />
+            <div className="pl-2">
+                <div className="font-bold text-base mb-1 text-foreground">{status}</div>
+                <div className="text-sm mb-2 text-muted-foreground">{description}</div>
+                <div className="text-xs text-muted-foreground">→ {actions}</div>
+            </div>
         </div>
     );
 }
@@ -445,23 +451,23 @@ interface InspectionResultCardProps {
 }
 
 function InspectionResultCard({ result, icon: Icon, color, description, action }: InspectionResultCardProps) {
-    const colorClasses: Record<string, { bg: string; text: string; border: string }> = {
-        green: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-        red: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-        amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    const indicatorColors: Record<string, string> = {
+        green: 'text-emerald-600',
+        red: 'text-destructive',
+        amber: 'text-amber-500',
     };
 
-    const colors = colorClasses[color];
+    const textColor = indicatorColors[color] || 'text-muted-foreground';
 
     return (
-        <div className={`${colors.bg} p-4 rounded-lg border ${colors.border}`}>
+        <div className="p-4 rounded-lg border bg-card">
             <div className="flex items-start gap-3">
-                <Icon className={`h-6 w-6 ${colors.text} flex-shrink-0 mt-0.5`} />
+                <Icon className={cn("h-6 w-6 flex-shrink-0 mt-0.5", textColor)} />
                 <div className="flex-1">
-                    <div className={`font-bold text-base ${colors.text} mb-1`}>{result}</div>
-                    <div className="text-sm mb-2">{description}</div>
-                    <div className="text-xs opacity-90">
-                        <span className="font-semibold">Action:</span> {action}
+                    <div className={cn("font-bold text-base mb-1", textColor)}>{result}</div>
+                    <div className="text-sm mb-2 text-muted-foreground">{description}</div>
+                    <div className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Action:</span> {action}
                     </div>
                 </div>
             </div>

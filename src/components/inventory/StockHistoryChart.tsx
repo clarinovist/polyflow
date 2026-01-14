@@ -41,7 +41,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
             </CardHeader>
             <CardContent>
                 <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                         <AreaChart
                             data={data}
                             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}

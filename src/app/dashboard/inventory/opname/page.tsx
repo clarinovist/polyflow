@@ -1,62 +1,78 @@
 import { getOpnameSessions } from '@/actions/opname';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { CreateOpnameDialog } from '@/components/inventory/opname/CreateOpnameDialog';
+import { Separator } from '@/components/ui/separator';
 
 export default async function OpnameListPage() {
     const sessions = await getOpnameSessions();
 
     return (
-        <div className="p-6 space-y-8">
-            <div className="flex items-center justify-between">
+        <div className="flex-1 space-y-4 p-8 pt-6">
+            <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Stock Opname</h1>
-                    <p className="text-muted-foreground mt-2">Manage physical inventory audits and reconciliation</p>
+                    <h2 className="text-3xl font-bold tracking-tight">Stock Opname</h2>
+                    <p className="text-muted-foreground">Manage physical inventory audits and reconciliation</p>
                 </div>
                 <CreateOpnameDialog />
             </div>
 
+            <Separator />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sessions.map((session) => (
-                    <Link href={`/dashboard/inventory/opname/${session.id}`} key={session.id}>
-                        <Card className="hover:shadow-md transition-shadow cursor-pointer h-full border shadow-sm">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <Badge
-                                    variant="outline"
-                                    className={session.status === 'OPEN'
-                                        ? "bg-blue-500/10 text-blue-700 border-blue-200"
-                                        : "bg-emerald-500/10 text-emerald-700 border-emerald-200"
-                                    }
-                                >
-                                    {session.status}
-                                </Badge>
-                                {session.status === 'OPEN' ? (
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                )}
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold mb-1">
-                                    {session.remarks || "No Remarks"}
-                                </div>
-                                <div className="space-y-2 mt-4">
-                                    <div className="flex items-center text-sm text-muted-foreground">
-                                        <MapPin className="mr-2 h-4 w-4" />
-                                        {session.location.name}
+                {sessions.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
+                        <History className="h-10 w-10 mb-3 opacity-50" />
+                        <p className="font-medium">No stock opname sessions found</p>
+                        <p className="text-sm mt-1">Start a new audit session to track inventory.</p>
+                    </div>
+                ) : (
+                    sessions.map((session) => (
+                        <Link href={`/dashboard/inventory/opname/${session.id}`} key={session.id} className="block h-full">
+                            <Card className="h-full hover:shadow-md transition-all cursor-pointer border-border/60 hover:border-primary/50 group">
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                    <Badge
+                                        variant={session.status === 'OPEN' ? 'secondary' : 'outline'}
+                                        className={session.status === 'OPEN'
+                                            ? "bg-primary/10 text-primary hover:bg-primary/20"
+                                            : "border-emerald-500/30 text-emerald-600"
+                                        }
+                                    >
+                                        {session.status}
+                                    </Badge>
+                                    {session.status === 'OPEN' ? (
+                                        <Clock className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    ) : (
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    )}
+                                </CardHeader>
+                                <CardContent>
+                                    <CardTitle className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
+                                        {session.remarks || "No Remarks"}
+                                    </CardTitle>
+
+                                    <div className="space-y-2 mt-4 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1 rounded bg-muted">
+                                                <MapPin className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span>{session.location.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1 rounded bg-muted">
+                                                <Calendar className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span>{format(new Date(session.createdAt), 'FFF')}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center text-sm text-muted-foreground">
-                                        <Calendar className="mr-2 h-4 w-4" />
-                                        {format(new Date(session.createdAt), 'PPP')}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                ))}
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    ))
+                )}
             </div>
         </div>
     );

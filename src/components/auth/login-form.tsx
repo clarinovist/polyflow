@@ -73,7 +73,7 @@ export default function LoginForm() {
 
                 {/* Remember Me */}
                 <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" className="border-zinc-300 data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
+                    <Checkbox id="remember" className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
                     <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
                         Remember me
                     </Label>

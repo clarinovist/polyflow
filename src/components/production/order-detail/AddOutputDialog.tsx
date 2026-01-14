@@ -154,8 +154,8 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* LEFT COLUMN: Context & Resources */}
                         <div className="space-y-6">
-                            <div className="p-4 bg-slate-50 rounded-lg border space-y-4">
-                                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                            <div className="p-4 bg-muted/30 rounded-lg border space-y-4">
+                                <h3 className="font-semibold text-foreground flex items-center gap-2">
                                     <Users className="w-4 h-4" /> Context & Team
                                 </h3>
 
@@ -225,12 +225,12 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                             {/* Good Goods (Rolls) */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between border-b pb-2">
-                                    <h3 className="font-semibold text-emerald-700 flex items-center gap-2">
+                                    <h3 className="font-semibold text-foreground flex items-center gap-2">
                                         <Package className="w-4 h-4" /> Good Output
                                     </h3>
                                     <div className="text-right">
-                                        <span className="text-xs text-slate-500 block">Total Good</span>
-                                        <span className="text-xl font-bold text-emerald-600">{totalGoodQty.toFixed(2)} <span className="text-sm font-normal text-slate-400">kg</span></span>
+                                        <span className="text-xs text-muted-foreground block">Total Good</span>
+                                        <span className="text-xl font-bold text-foreground">{totalGoodQty.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">kg</span></span>
                                     </div>
                                 </div>
 
@@ -247,7 +247,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                     <Button type="button" onClick={handleAddRoll} disabled={!currentRollWeight}>Add</Button>
                                 </div>
 
-                                <div className="h-[140px] overflow-y-auto border rounded-md bg-slate-50 p-2 space-y-1">
+                                <div className="h-[140px] overflow-y-auto border rounded-md bg-muted/10 p-2 space-y-1">
                                     {rolls.length === 0 && (
                                         <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
                                             <Package className="w-8 h-8 opacity-20 mb-2" />
@@ -259,7 +259,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             <span className="font-medium">Roll {idx + 1}</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono">{weight} kg</span>
-                                                <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-red-400 hover:text-red-600" onClick={() => removeRoll(idx)}>
+                                                <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => removeRoll(idx)}>
                                                     <Trash2 className="w-3 h-3" />
                                                 </Button>
                                             </div>
@@ -268,9 +268,8 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                 </div>
                             </div>
 
-                            {/* Scrap / Waste */}
                             <div className="space-y-4 border-t pt-4">
-                                <h3 className="font-semibold text-red-700 flex items-center gap-2">
+                                <h3 className="font-semibold text-foreground flex items-center gap-2">
                                     <AlertTriangle className="w-4 h-4" /> Production Waste / Scrap
                                 </h3>
 

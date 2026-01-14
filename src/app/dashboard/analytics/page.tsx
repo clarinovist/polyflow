@@ -2,8 +2,7 @@ import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { Button } from '@/components/ui/button';
-import { Download, Calendar as CalendarIcon } from 'lucide-react';
+import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import {
     getProductionRealizationReport,
     getMaterialUsageVarianceReport,
@@ -60,18 +59,17 @@ export default async function AnalyticsPage({
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* We might need a client component for Date Picker that pushes to URL */}
-                    <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-2 text-sm">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{dateRange.from.toLocaleDateString()} - {dateRange.to.toLocaleDateString()}</span>
-                    </div>
-
-                    <Button variant="outline">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                    </Button>
-                </div>
+                <AnalyticsToolbar
+                    dateRange={{ from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }}
+                    data={{
+                        productionRealization: serializeData(productionRealization) as any[],
+                        materialVariance: serializeData(materialVariance) as any[],
+                        machinePerformance: serializeData(machinePerformance) as any[],
+                        operatorLeaderboard: serializeData(operatorLeaderboard) as any[],
+                        qualitySummary: serializeData(qualitySummary)
+                    }}
+                    activeTab={params.tab || 'production'}
+                />
             </div>
 
             <AnalyticsTabs
@@ -83,7 +81,7 @@ export default async function AnalyticsPage({
                     operatorLeaderboard: serializeData(operatorLeaderboard),
                     qualitySummary: serializeData(qualitySummary)
                 }}
-                dateRange={dateRange}
+                dateRange={{ from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }}
             />
         </div>
     );

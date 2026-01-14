@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle2, AlertTriangle, Calculator } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Calculator, ArrowLeft } from 'lucide-react';
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
 import { finalizeOpname } from '@/actions/opname';
+import Link from 'next/link';
 
 interface OpnameItem {
     id: string;
@@ -69,25 +70,36 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
     const isOpen = session.status === 'OPEN';
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-6 pt-2 pb-8">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <Link href="/dashboard/inventory/opname" className="hover:text-foreground transition-colors flex items-center gap-1">
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Opname List
+                </Link>
+                <span>/</span>
+                <span className="text-foreground font-medium">Session {session.location.name}</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
                             {session.location.name}
                         </h2>
                         <Badge
-                            variant="outline"
+                            variant={isOpen ? "secondary" : "outline"}
                             className={isOpen
-                                ? "bg-blue-500/10 text-blue-700 border-blue-200"
-                                : "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                                ? "bg-primary/10 text-primary border-transparent"
+                                : "border-emerald-500/30 text-emerald-600 bg-emerald-500/5"
                             }
                         >
                             {session.status}
                         </Badge>
                     </div>
-                    <p className="text-muted-foreground">
-                        {session.remarks} • Created by {session.createdBy?.name || 'System'}
+                    <p className="text-muted-foreground flex items-center gap-2">
+                        {session.remarks || "No Remarks"}
+                        <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                        Created by {session.createdBy?.name || 'System'}
                     </p>
                 </div>
 
@@ -95,11 +107,15 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
                     <div className="flex gap-2">
                         <Button
                             variant="default"
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-900/10"
                             onClick={handleFinalize}
                             disabled={isFinalizing}
                         >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {isFinalizing ? (
+                                <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                            ) : (
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                            )}
                             Finalize & Reconcile
                         </Button>
                     </div>
@@ -119,21 +135,21 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
                 </TabsList>
 
                 <TabsContent value="count" className="mt-6">
-                    <Card>
+                    <Card className="border-border/50 shadow-sm">
                         <CardHeader>
                             <CardTitle>Physical Count</CardTitle>
                             <CardDescription>
                                 Enter the actual quantities found in the warehouse.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-0 sm:p-6">
                             <OpnameCounter session={session} isReadOnly={!isOpen} />
                         </CardContent>
                     </Card>
                 </TabsContent>
 
                 <TabsContent value="variance" className="mt-6">
-                    <Card>
+                    <Card className="border-border/50 shadow-sm">
                         <CardHeader>
                             <CardTitle>Variance Analysis</CardTitle>
                             <CardDescription>

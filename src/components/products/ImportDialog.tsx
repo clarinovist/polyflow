@@ -126,7 +126,7 @@ export function ImportDialog() {
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                        <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
                         Import Products
                     </DialogTitle>
                     <DialogDescription>
@@ -141,7 +141,7 @@ export function ImportDialog() {
                     <div className="space-y-6">
                         <div>
                             <h3 className="font-semibold mb-2">Step 1: Download Template</h3>
-                            <p className="text-sm text-slate-600 mb-3">
+                            <p className="text-sm text-muted-foreground mb-3">
                                 First time? Download our template with example data
                             </p>
                             <div className="flex gap-2">
@@ -167,7 +167,7 @@ export function ImportDialog() {
                         <div>
                             <h3 className="font-semibold mb-2">Step 2: Upload Filled File</h3>
                             <div
-                                className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                                className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:bg-muted/10 transition-colors cursor-pointer"
                                 onClick={() => document.getElementById('file-upload')?.click()}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => {
@@ -181,14 +181,14 @@ export function ImportDialog() {
                                     }
                                 }}
                             >
-                                <Upload className="h-12 w-12 mx-auto mb-4 text-slate-400" />
-                                <p className="text-lg font-medium mb-2">
+                                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                                <p className="text-lg font-medium mb-2 text-foreground">
                                     Drag & drop your file here
                                 </p>
-                                <p className="text-sm text-slate-500 mb-4">
+                                <p className="text-sm text-muted-foreground mb-4">
                                     or click to browse
                                 </p>
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-muted-foreground/70">
                                     Supported: .csv, .xlsx, .xls | Max: 5MB
                                 </p>
                                 <input
@@ -208,7 +208,7 @@ export function ImportDialog() {
 
                         {isProcessing && (
                             <div className="space-y-3">
-                                <div className="flex items-center justify-center gap-2 text-blue-600">
+                                <div className="flex items-center justify-center gap-2 text-muted-foreground">
                                     <Loader2 className="h-5 w-5 animate-spin" />
                                     <span>{statusMessage || 'Processing file...'}</span>
                                 </div>
@@ -287,19 +287,19 @@ export function ImportDialog() {
                             )}
                         </div>
 
-                        <div className="bg-slate-50 rounded-lg p-6 space-y-2">
+                        <div className="bg-muted/30 rounded-lg p-6 space-y-2 border">
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-600">Products imported:</span>
+                                <span className="text-muted-foreground">Products imported:</span>
                                 <span className="font-semibold">{importResult.products}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-600">Variants created:</span>
+                                <span className="text-muted-foreground">Variants created:</span>
                                 <span className="font-semibold">{importResult.variants}</span>
                             </div>
                             {summary.errors > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600">Rows skipped (errors):</span>
-                                    <span className="font-semibold text-red-600">{summary.errors}</span>
+                                    <span className="text-muted-foreground">Rows skipped (errors):</span>
+                                    <span className="font-semibold text-destructive">{summary.errors}</span>
                                 </div>
                             )}
                         </div>
