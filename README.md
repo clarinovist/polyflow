@@ -254,35 +254,50 @@ polyflow/
 
 Based on conversation history, recent work includes:
 
-1. **PolyFlow Design System & Dark Mode** (Jan 13, 2026)
+### Week of Jan 13-15, 2026
+
+1. **Inventory Planning & Control (IPC) Foundations** (Jan 14, 2026)
+   - Implemented `updateStockReservation` server action.
+   - Created `calculateAvailableStock()` utility.
+   - Added Reorder Point and Inventory Valuation features.
+   - Updated `InventoryTable.tsx` with "Reserved" and "Available" columns.
+
+2. **UI Layout & Dark Mode Fixes** (Jan 14, 2026)
+   - Fixed search input overflow in sidebar.
+   - Applied proper flexbox alignment and text truncation.
+   - Ensured dark mode consistency across Inventory Table components.
+   - Fixed Recharts `ResponsiveContainer` dimension errors.
+
+3. **Master Data & Stock Opname Refactor** (Jan 14, 2026)
+   - Refactored Products, BOMs, Resources pages for design consistency.
+   - Updated Stock Opname module (List, Create, Detail, Counter).
+   - Applied Zinc-first aesthetic with semantic color tokens.
+
+4. **PolyFlow Design System & Dark Mode** (Jan 13, 2026)
    - Created comprehensive `DESIGN_SYSTEM.md` documentation.
    - Implemented centralized design tokens in `src/lib/design-tokens.ts`.
    - Refactored entire application to use semantic colors and dark mode.
    - Added `ThemeProvider` for consistent theme management.
 
-2. **Analytics & Reporting Module** (Jan 13, 2026)
+5. **Analytics & Reporting Module** (Jan 13, 2026)
    - Built backend server actions for comprehensive data analytics.
    - Implemented frontend dashboards for Sales, Inventory, Production, and Finance reports.
    - Added visual charts and summary cards for business insights.
 
-3. **Login Page Redesign** (Jan 13, 2026)
-   - Completely redesigned authentication interface with a modern split-screen layout.
+6. **Login Page Redesign** (Jan 13, 2026)
+   - Completely redesigned authentication interface with modern split-screen layout.
    - Added branded panels with glassmorphism effects.
    - Enhanced user experience with improved form layouts and transitions.
 
-4. **Dashboard Refactor** (Jan 13, 2026)
-   - Refined the main dashboard with a new 3-column grid layout.
-   - Optimized data fetching and component rendering for better performance.
-   - Integrated new widgets for production orders and inventory status.
+7. **Dashboard Refactor** (Jan 13, 2026)
+   - Refined main dashboard with new 3-column grid layout.
+   - Optimized data fetching and component rendering.
+   - Integrated widgets for production orders and inventory status.
 
-5. **Lint & Type Safety Improvements** (Jan 13, 2026)
-   - Resolved various React Compiler and TypeScript lint warnings.
-   - Improved purity of utility functions and state management hooks.
-
-6. **Sidebar Navigation Refactoring & Shift Integration** (Jan 5, 2026)
-   - Refactored sidebar to follow ERP industry standards (Overview, Inventory Control, Manufacturing, Master Data, System).
-   - Integrated "Work Shifts" into Master Data navigation.
-   - Standardized Lucide icons and cleaned up unused layout imports.
+8. **Compact Transfer Form UI** (Jan 13, 2026)
+   - Implemented compact header design for transfer cards.
+   - Added sticky footer with symmetrical alignment.
+   - Custom thin scrollbar styling for manifest item list.
 
 ---
 
@@ -309,4 +324,4 @@ Building modern ERP solutions for manufacturing operations.
 
 ---
 
-**Last Updated**: January 13, 2026
+**Last Updated**: January 15, 2026

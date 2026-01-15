@@ -187,6 +187,8 @@ Real-time inventory view with filtering:
 - Stock quantity with unit labels
 - Last updated timestamp
 - Quick threshold adjustment dialog
+- **NEW**: Reserved and Available stock columns
+- **NEW**: Calculated available stock (Total - Reserved)
 
 **Table Columns**:
 - Product name
@@ -194,8 +196,49 @@ Real-time inventory view with filtering:
 - Location
 - Product type
 - Current quantity (with unit)
+- Reserved quantity
+- Available quantity
 - Min stock alert
 - Low stock indicator
+
+---
+
+### Stock Opname (Physical Inventory Count)
+
+Periodic physical stock verification workflow:
+
+#### 1. **Stock Opname Process**
+
+**Workflow**:
+1. Create new opname session (select location, date)
+2. System generates count sheet with expected quantities
+3. Warehouse staff performs physical count
+4. Enter counted quantities via Counter interface
+5. System calculates variances automatically
+6. Manager reviews and approves/rejects
+7. Auto-generate adjustment movements for approved variances
+
+#### 2. **Opname Model**
+
+```typescript
+{
+  id: string,
+  opnameNumber: string,           // Auto-generated reference
+  locationId: string,
+  status: OpnameStatus,           // DRAFT, IN_PROGRESS, COMPLETED, CANCELLED
+  countDate: DateTime,
+  items: OpnameItem[],
+  notes?: string,
+  createdById: string
+}
+```
+
+#### 3. **UI Components**
+
+- **Opname List**: View all opname sessions with status filters
+- **Opname Create Dialog**: Start new opname with location selection
+- **Opname Detail**: View items with variances highlighted
+- **Opname Counter**: Mobile-friendly counting interface with sticky save button
 
 ---
 
@@ -289,14 +332,46 @@ Track production equipment:
 2. **Total Stock** - Sum of all inventory quantities (all locations)
 3. **Low Stock** - Count of variants below threshold (with amber alert)
 4. **Active Movements** - Stock changes in last 24 hours
+5. **Inventory Value** - Total valuation using Moving Average cost
+6. **Pending Production** - Active production orders count
 
 **Quick Actions**:
 - Create Product → `/dashboard/products/create`
 - Stock Adjustment → `/dashboard/inventory/adjustment`
 - Internal Transfer → `/dashboard/inventory/transfer`
+- Stock Opname → `/dashboard/inventory/opname`
 
 **Real-Time Stats**:
 All stats computed server-side via `getDashboardStats()` Server Action using Prisma aggregations.
+
+---
+
+### Analytics & Reporting Module (`/dashboard/analytics`)
+
+Comprehensive business intelligence and reporting:
+
+#### 1. **Sales Analytics**
+- Revenue trends and growth metrics
+- Top selling products
+- Customer analysis
+- Sales performance charts
+
+#### 2. **Inventory Analytics**
+- Stock aging report
+- Inventory turnover ratio
+- Stock valuation by location
+- Movement trends
+
+#### 3. **Production Analytics**
+- Production efficiency metrics
+- Machine utilization
+- Scrap rate analysis
+- OEE calculations
+
+#### 4. **Finance Analytics**
+- COGS calculations
+- Profitability analysis
+- Cost trends
 
 ---
 
@@ -385,6 +460,13 @@ All stats computed server-side via `getDashboardStats()` Server Action using Pri
 9. ✅ **Machine master data** - Equipment tracking by location
 10. ✅ **Dual-unit logic** - Primary + sales unit with conversion
 11. ✅ **Production Order Execution** - Output recording with discrete roll tracking and scrap entry
+12. ✅ **Stock Opname** - Physical inventory counting with variance tracking
+13. ✅ **Stock Reservation** - Reserve stock for production/sales orders
+14. ✅ **Available Stock Calculation** - Total minus reserved quantities
+15. ✅ **Analytics & Reporting** - Sales, Inventory, Production, Finance dashboards
+16. ✅ **Dark Mode** - Full theme support with design system
+17. ✅ **Inventory Valuation** - Moving Average cost calculation
+18. ✅ **Reorder Point Tracking** - Suggested purchase alerts
 
 ### 🚧 Planned Features
 
@@ -458,4 +540,4 @@ This ensures UI reflects latest data without full page reload.
 
 ---
 
-**Last Updated**: January 5, 2026
+**Last Updated**: January 15, 2026

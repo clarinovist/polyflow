@@ -50,50 +50,24 @@ Based on the current implementation of the PolyFlow ERP system, this document ou
 
 ---
 
-#### 2. **Advanced Stock Reservation System**
+#### 2. **Advanced Stock Reservation System** ✅ IMPLEMENTED
 
-**Current State**: No reservation mechanism for planned production or sales orders.
+**Current State**: ~~No reservation mechanism.~~ Stock reservation fully implemented!
 
-**Recommended Enhancement**:
-- Add `StockReservation` model:
-  ```prisma
-  model StockReservation {
-    id               String   @id @default(uuid())
-    productVariantId String
-    locationId       String
-    quantity         Decimal
-    reservedFor      ReservationType
-    referenceId      String  // Order ID, Production Order ID, etc.
-    reservedUntil    DateTime?
-    status           ReservationStatus @default(ACTIVE)
-    createdAt        DateTime @default(now())
-  }
-  
-  enum ReservationType {
-    SALES_ORDER
-    PRODUCTION_ORDER
-    TRANSFER_ORDER
-  }
-  
-  enum ReservationStatus {
-    ACTIVE
-    FULFILLED
-    CANCELLED
-    EXPIRED
-  }
-  ```
-
-**Updates to Inventory Dashboard**:
-- Display **Available Stock** = Total Stock - Reserved Stock
-- Add visual indicator for reserved quantities
-- Show reservation details on hover/click
+**Implementation**:
+- `StockReservation` model with status tracking
+- `updateStockReservation` server action
+- `calculateAvailableStock()` utility function
+- Inventory Dashboard shows **Available Stock** = Total - Reserved
+- Visual indicator for reserved quantities
+- Reservation details visible in InventoryTable
 
 **Benefits**:
 - Prevent overselling
 - Accurate production planning
 - Visibility into committed vs. available stock
 
-**Implementation Effort**: Medium (2-3 days)
+**Completed**: January 14, 2026
 
 ---
 
@@ -220,48 +194,19 @@ Based on the current implementation of the PolyFlow ERP system, this document ou
 
 ---
 
-#### 7. **Cycle Counting & Physical Inventory**
+#### 7. **Cycle Counting & Physical Inventory** ✅ IMPLEMENTED
 
-**Current State**: No periodic physical count workflow.
+**Current State**: ~~No periodic physical count workflow.~~ Stock Opname module fully implemented!
 
-**Recommended Enhancement**:
-- Add `PhysicalCount` model for tracking counts:
-  ```prisma
-  model PhysicalCount {
-    id               String   @id @default(uuid())
-    countDate        DateTime @default(now())
-    locationId       String
-    productVariantId String
-    systemQuantity   Decimal  // From database
-    countedQuantity  Decimal  // From warehouse staff
-    variance         Decimal  // Calculated diff
-    countedById      String
-    status           CountStatus @default(PENDING)
-    notes            String?
-  }
-  
-  enum CountStatus {
-    PENDING
-    APPROVED
-    REJECTED
-  }
-  ```
+**Implementation**:
+- `StockOpname` model with status workflow (DRAFT → IN_PROGRESS → COMPLETED)
+- Opname List with status filters
+- Create Dialog for new opname sessions
+- Detail page with variance highlighting
+- Counter interface with mobile-friendly design and sticky save button
+- Auto-generate adjustment movements for approved variances
 
-**UI Workflow**:
-1. Generate count sheet (PDF/print) with current system quantities
-2. Warehouse staff performs physical count
-3. Enter counted quantities via UI
-4. System calculates variances
-5. Manager reviews and approves
-6. Auto-generate adjustment movements for approved variances
-
-**Benefits**:
-- Inventory accuracy improvement
-- Identify shrinkage/theft
-- Compliance with accounting standards
-- Root cause analysis for discrepancies
-
-**Implementation Effort**: Medium-High (4-5 days including approval workflow)
+**Completed**: January 14, 2026
 
 ---
 
@@ -534,16 +479,17 @@ Inventory Aging Report
 
 ---
 
-#### 19. **Dark Mode**
+#### 19. **Dark Mode** ✅ IMPLEMENTED
 
-**Current State**: Light mode only.
+**Current State**: ~~Light mode only.~~ Full dark mode support implemented!
 
-**Recommended Enhancement**:
-- Implement using `next-themes` (already installed!)
+**Implementation**:
+- Implemented using `next-themes`
 - Theme toggle in navigation
-- Respect system preference
+- Respects system preference
+- Semantic color tokens in Design System
 
-**Implementation Effort**: Low (1 day, theme already included)
+**Completed**: January 13, 2026
 
 ---
 
@@ -780,7 +726,7 @@ Inventory Aging Report
 
 For immediate value with minimal effort:
 
-1. **Dark Mode** (1 day) - Already have `next-themes` installed
+1. ~~**Dark Mode** (1 day)~~ ✅ COMPLETED - Full dark mode with design system
 2. **CSV Export** (1 day) - Add export button to tables
 3. **Better Error Messages** (1 day) - Replace generic errors with user-friendly messages
 4. **Keyboard Shortcuts** (2 days) - Add command palette
@@ -788,6 +734,6 @@ For immediate value with minimal effort:
 
 ---
 
-**Last Updated**: January 5, 2026
+**Last Updated**: January 15, 2026
 
-**Next Review**: After Phase 1 completion
+**Next Review**: After Phase 5 completion
