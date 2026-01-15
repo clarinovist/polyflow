@@ -15,7 +15,13 @@ import {
     batchMaterialIssueSchema,
     BatchMaterialIssueValues,
     productionOutputSchema, // Added
-    ProductionOutputValues  // Added
+    ProductionOutputValues,
+    startExecutionSchema,
+    StartExecutionValues,
+    stopExecutionSchema,
+    StopExecutionValues,
+    logRunningOutputSchema,
+    LogRunningOutputValues  // Added
 } from '@/lib/zod-schemas';
 import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma, MovementType } from '@prisma/client';
@@ -128,7 +134,6 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
         }
     });
 
-    // Helper to serialize decimals
     return orders.map(order => ({
         ...order,
         plannedQuantity: order.plannedQuantity.toNumber(),
@@ -340,6 +345,129 @@ export async function deleteProductionShift(shiftId: string, orderId: string) {
 }
 
 /**
+ * Start Production Execution (Real-time tracking)
+ */
+export async function startExecution(data: StartExecutionValues) {
+    const result = startExecutionSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { productionOrderId, machineId, operatorId, shiftId } = result.data;
+
+    try {
+        const execution = await prisma.productionExecution.create({
+            data: {
+                productionOrderId,
+                machineId,
+                operatorId,
+                shiftId,
+                startTime: new Date(),
+                endTime: null as any, // Explicitly set to null for running execution
+                quantityProduced: 0,
+                scrapQuantity: 0,
+            }
+        });
+
+        // Auto-update status to IN_PROGRESS if currently RELEASED
+        const order = await prisma.productionOrder.findUnique({
+            where: { id: productionOrderId },
+            select: { status: true }
+        });
+
+        if (order?.status === ProductionStatus.RELEASED) {
+            await prisma.productionOrder.update({
+                where: { id: productionOrderId },
+                data: { status: ProductionStatus.IN_PROGRESS }
+            });
+        }
+
+        revalidatePath('/dashboard/production');
+        return { success: true, data: execution };
+    } catch (error: any) {
+        console.error('Error starting execution:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Stop Production Execution
+ */
+export async function stopExecution(data: StopExecutionValues) {
+    const result = stopExecutionSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { executionId, quantityProduced, scrapQuantity, notes } = result.data;
+
+    try {
+        const execution = await prisma.productionExecution.update({
+            where: { id: executionId },
+            data: {
+                endTime: new Date(),
+                quantityProduced,
+                scrapQuantity,
+                notes
+            }
+        });
+
+        // Update Order actual quantity (accumulate)
+        await prisma.productionOrder.update({
+            where: { id: execution.productionOrderId },
+            data: {
+                actualQuantity: { increment: quantityProduced }
+            }
+        });
+
+        revalidatePath('/dashboard/production');
+        return { success: true, data: execution };
+    } catch (error: any) {
+        console.error('Error stopping execution:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get Active Production Executions (Running)
+ */
+export async function getActiveExecutions() {
+    try {
+        const executions = await prisma.productionExecution.findMany({
+            where: {
+                endTime: { equals: null as any }
+            },
+            include: {
+                productionOrder: {
+                    select: {
+                        orderNumber: true,
+                        bom: {
+                            select: {
+                                productVariant: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                operator: true,
+                machine: true
+            },
+            orderBy: {
+                startTime: 'desc'
+            }
+        });
+
+        return serializeData(executions);
+    } catch (error) {
+        console.error("Get Active Executions Error:", error);
+        return [];
+    }
+}
+
+/**
  * Batch Record Material Issue (Consumption)
  * Includes validation for strict quota (cannot exceed remaining required qty)
  */
@@ -359,13 +487,11 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
 
     try {
         await prisma.$transaction(async (tx) => {
-            // 1. Fetch Order and Material Requirements (ProductionMaterial)
-            // 1. Fetch Order and Material Requirements (ProductionMaterial)
+            // 1. Fetch Order and Material Requirements
             const order = await tx.productionOrder.findUniqueOrThrow({
                 where: { id: productionOrderId },
                 include: {
                     materialIssues: true,
-                    // We check against productionMaterial table which stores the "Recipe" for this specific order
                     plannedMaterials: {
                         include: {
                             productVariant: true
@@ -377,7 +503,6 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
             // 1.5 Handle Plan Modifications (Substitution)
             if (removedPlannedMaterialIds && removedPlannedMaterialIds.length > 0) {
                 for (const id of removedPlannedMaterialIds) {
-                    // Check if already issued
                     const planItem = order.plannedMaterials.find(pm => pm.id === id);
                     if (planItem) {
                         const issued = order.materialIssues
@@ -405,9 +530,9 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                 }
             }
 
-            // 2. Validate Stock and Quota for each item
+            // 2. Process Items
             for (const item of items) {
-                // A. Check Stock
+                // A. Verify Stock
                 const stock = await tx.inventory.findUnique({
                     where: {
                         locationId_productVariantId: {
@@ -422,11 +547,6 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                     throw new Error(`Insufficient stock for ${variant?.name || 'item'}. Available: ${stock?.quantity || 0}`);
                 }
 
-                // B. Check Remaining Quota (Only for planned materials)
-                // Refetch planned materials if modified? Or just check current order?
-                // Actually if we just added/removed, we should check against the NEW state.
-                // For simplicity, we assume the UI sends valid items based on its state.
-
                 // 3. Deduct Inventory
                 await tx.inventory.update({
                     where: {
@@ -440,24 +560,29 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                     }
                 });
 
-                // 4. Create Stock Movement (OUT)
+                // 4. Create Material Issue linked to Batch
+                await tx.materialIssue.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity,
+                        createdById: 'SYSTEM', // TO DO: Replace with auth user
+                        batchId: item.batchId
+                    } as any
+                });
+
+                // 5. Create Audit Log / Stock Movement
                 await tx.stockMovement.create({
                     data: {
                         type: MovementType.OUT,
                         productVariantId: item.productVariantId,
                         fromLocationId: locationId,
+                        toLocationId: null, // Consumption
                         quantity: item.quantity,
-                        reference: `Production Consumption (Batch): PO-${productionOrderId.slice(0, 8)}`
-                    }
-                });
-
-                // 5. Create Material Issue Record
-                await tx.materialIssue.create({
-                    data: {
-                        productionOrderId,
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity
-                    }
+                        reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
+                        createdById: 'SYSTEM',
+                        batchId: item.batchId
+                    } as any
                 });
             }
         });
@@ -1078,4 +1203,129 @@ export async function getBomWithInventory(
         return { success: false, error: "Failed to calculate requirements" };
     }
 }
+
+/**
+ * Log Production Output (While Running)
+ * Increments totals without stopping execution
+ */
+export async function logRunningOutput(data: LogRunningOutputValues) {
+    const result = logRunningOutputSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    const { executionId, quantityProduced, scrapQuantity, notes } = result.data;
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Get current execution to find Order ID
+            const execution = await tx.productionExecution.findUniqueOrThrow({
+                where: { id: executionId }
+            });
+
+            // 2. Update Execution (Accumulate)
+            await tx.productionExecution.update({
+                where: { id: executionId },
+                data: {
+                    quantityProduced: { increment: quantityProduced },
+                    scrapQuantity: { increment: scrapQuantity },
+                    notes: notes ? (execution.notes ? `${execution.notes}\n[Log]: ${notes}` : `[Log]: ${notes}`) : undefined
+                }
+            });
+
+            const productionOrderId = execution.productionOrderId;
+
+            // 3. Update Order actual quantity (Accumulate)
+            const order = await tx.productionOrder.update({
+                where: { id: productionOrderId },
+                data: {
+                    actualQuantity: { increment: quantityProduced }
+                },
+                include: {
+                    bom: {
+                        include: { items: true }
+                    }
+                }
+            });
+
+            const locationId = order.locationId;
+            const outputVariantId = order.bom.productVariantId;
+
+            // 4. Update Finished Goods Inventory (Add)
+            await tx.inventory.upsert({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId: outputVariantId
+                    }
+                },
+                update: {
+                    quantity: { increment: quantityProduced }
+                },
+                create: {
+                    locationId,
+                    productVariantId: outputVariantId,
+                    quantity: quantityProduced
+                }
+            });
+
+            // 5. Stock Movement (Output)
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.IN,
+                    productVariantId: outputVariantId,
+                    toLocationId: locationId,
+                    quantity: quantityProduced,
+                    reference: `Production Partial Output: PO-${order.orderNumber}`,
+                    createdById: 'SYSTEM',
+                }
+            });
+
+            // 6. Backflush Raw Materials (Deduct) based on BOM Ratio
+            if (order.bom && order.bom.items.length > 0) {
+                for (const item of order.bom.items) {
+                    const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
+                    const qtyToDeduct = quantityProduced * ratio;
+
+                    if (qtyToDeduct > 0.0001) {
+                        await tx.inventory.upsert({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId,
+                                    productVariantId: item.productVariantId
+                                }
+                            },
+                            update: {
+                                quantity: { decrement: qtyToDeduct }
+                            },
+                            create: {
+                                locationId,
+                                productVariantId: item.productVariantId,
+                                quantity: -qtyToDeduct
+                            }
+                        });
+
+                        await tx.stockMovement.create({
+                            data: {
+                                type: MovementType.OUT,
+                                productVariantId: item.productVariantId,
+                                fromLocationId: locationId,
+                                quantity: qtyToDeduct,
+                                reference: `Backflush (Partial): PO-${order.orderNumber}`
+                            }
+                        });
+                    }
+                }
+            }
+        });
+
+        revalidatePath('/dashboard/production');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error logging output:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+
 

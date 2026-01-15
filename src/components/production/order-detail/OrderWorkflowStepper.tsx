@@ -31,15 +31,15 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
                     const isCurrent = index === currentStepIndex;
 
                     return (
-                        <div key={step.id} className="flex flex-col items-center gap-2 bg-background px-2">
+                        <div key={step.id} className="flex flex-col items-center gap-2 px-2">
                             <div className={cn(
                                 "w-8 h-8 rounded-full flex items-center justify-center border transition-colors",
                                 isCompleted ? "bg-primary border-primary text-primary-foreground" :
-                                    isCurrent ? "bg-background border-zinc-800 text-zinc-900 ring-2 ring-zinc-100 shadow-sm" :
+                                    isCurrent ? "bg-background border-foreground text-foreground ring-2 ring-muted shadow-sm" :
                                         "bg-muted border-muted-foreground/20 text-muted-foreground/50"
                             )}>
                                 {isCompleted ? <CheckCircle className="w-5 h-5" /> :
-                                    isCurrent ? <div className="w-2.5 h-2.5 bg-zinc-900 rounded-full" /> :
+                                    isCurrent ? <div className="w-2.5 h-2.5 bg-foreground rounded-full" /> :
                                         <div className="w-2.5 h-2.5 bg-muted-foreground/30 rounded-full" />}
                             </div>
                             <div className="text-center">

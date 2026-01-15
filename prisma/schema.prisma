@@ -23,6 +23,7 @@ model User {
   movements          StockMovement[]
   opnames            StockOpname[]
   auditLogs          AuditLog[]
+  downtimeLogs       MachineDowntime[]
 }
 
 model Employee {
@@ -195,6 +196,7 @@ model Machine {
   location        Location          @relation(fields: [locationId], references: [id])
   ProductionOrder ProductionOrder[]
   executions      ProductionExecution[]
+  downtimeLogs    MachineDowntime[]
 }
 
 model Batch {
@@ -211,6 +213,7 @@ model Batch {
   location          Location        @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   movements         StockMovement[]
+  materialIssues    MaterialIssue[]
 }
 
 model StockReservation {
@@ -284,6 +287,21 @@ model ProductionOrder {
   executions       ProductionExecution[]
 }
 
+model MachineDowntime {
+  id          String    @id @default(uuid())
+  machineId   String
+  machine     Machine   @relation(fields: [machineId], references: [id])
+  reason      String
+  startTime   DateTime
+  endTime     DateTime?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([machineId])
+}
+
 model MaterialIssue {
   id                String          @id @default(uuid())
   productionOrderId String
@@ -291,7 +309,9 @@ model MaterialIssue {
   quantity          Decimal         @db.Decimal(15, 4)
   issuedAt          DateTime        @default(now())
   createdById       String?
+  batchId           String?
   createdBy         User?           @relation(fields: [createdById], references: [id])
+  batch             Batch?          @relation(fields: [batchId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
 }
@@ -446,7 +466,7 @@ model ProductionExecution {
   quantityProduced  Decimal         @db.Decimal(15, 4)
   scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
   startTime         DateTime
-  endTime           DateTime
+  endTime           DateTime?
   notes             String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt

@@ -39,6 +39,7 @@ import { BatchIssueMaterialDialog } from '@/components/production/order-detail/B
 import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIssueButton';
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
+import { VarianceAnalysis } from '@/components/production/order-detail/VarianceAnalysis';
 
 interface PageProps {
     order: ExtendedProductionOrder;
@@ -305,6 +306,25 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                             />
                         )}
                     </div>
+
+                    <VarianceAnalysis items={(order.plannedMaterials || []).map((item) => {
+                        const issued = (order.materialIssues || [])
+                            .filter((mi) => mi.productVariantId === item.productVariantId)
+                            .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
+                        const required = Number(item.quantity);
+                        const variance = issued - required;
+                        const variancePercent = required > 0 ? (variance / required) * 100 : 0;
+
+                        return {
+                            productName: item.productVariant.name,
+                            sku: item.productVariant.skuCode,
+                            planned: required,
+                            actual: issued,
+                            unit: item.productVariant.primaryUnit,
+                            variance,
+                            variancePercent
+                        };
+                    })} />
 
                     <Card>
                         <CardContent className="p-0">

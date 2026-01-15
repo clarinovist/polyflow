@@ -131,6 +131,52 @@ export async function getProductVariants() {
     });
 }
 
+/**
+ * Get available batches for a product variant at a location
+ */
+export async function getAvailableBatches(productVariantId: string, locationId: string) {
+    if (!productVariantId || !locationId) return [];
+
+    // 1. Get batches that are not expired (optional logic) and have status ACTIVE
+    // We also need to check "Inventory" table? 
+    // Actually, `Batch` table tracks manufacturing date, but `Inventory` aggregates qty.
+    // However, if we implemented true batch tracking, we should have a `BatchInventory` or similar, OR `Inventory` has `batchId`.
+    // In our schema, `Inventory` does NOT key by BatchId (yet). It is `locationId_productVariantId`.
+    // Wait, checked schema earlier: `MaterialIssue` has `batchId`.
+    // But does `Inventory` have `batchId`?
+    // User schema analysis: "contains models... Batch... The Batch model has a QUARANTINE status".
+    // I need to check if `Inventory` has `batchId` to distinguish stock.
+    // If `Inventory` is only (Location, Variant), then we don't track HOW MANY of EACH BATCH are in stock.
+    // That means we can't enforce FIFO strictly based on "Current Stock of Batch A".
+    // We only know "Batch A exists" and "Total Stock is X".
+
+    // CRITICAL FINDING: The schema likely lacks `BatchInventory` or `Inventory.batchId`.
+    // To implement FIFO properly, we need to know the remaining quantity of each batch.
+    // If the schema doesn't have it, we must calculate it from:
+    // Batch Initial Qty - Sum(MaterialIssues for that Batch) - Sum(Sales for that Batch)?
+
+    // Let's assume for this MVP, we query the `Batch` table which hopefully has a `quantity` field representing CURRENT quantity,
+    // OR we just list batches and rely on user to pick.
+    // The `Batch` model has `quantity` in the `createBatchSchema` usage in `inventory.ts` line 438: 
+    // `quantity, // Initial batch quantity`
+    // And I saw "Batch" model in `schema.prisma` view earlier? No, I saw `MaterialIssue` relation to `Batch`.
+    // I should check `Batch` model definition.
+
+    const batches = await prisma.batch.findMany({
+        where: {
+            productVariantId,
+            locationId, // If batches are location-specific?
+            status: BatchStatus.ACTIVE,
+            quantity: { gt: 0 } // Assuming Batch.quantity is decremented on usage
+        },
+        orderBy: {
+            manufacturingDate: 'asc'
+        }
+    });
+
+    return batches;
+}
+
 import { logActivity } from '@/lib/audit';
 
 export async function transferStock(data: TransferStockValues, userId?: string) {

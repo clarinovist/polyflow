@@ -54,12 +54,17 @@ graph TB
   │   └── [id]/
   │       └── edit/
   │           └── page.tsx  # Edit form (Client)
-  └── inventory/
-      ├── page.tsx          # Inventory dashboard (Server)
-      ├── transfer/
-      │   └── page.tsx      # Transfer form (Client)
-      └── adjustment/
-          └── page.tsx      # Adjustment form (Client)
+  ├── inventory/
+  │   ├── page.tsx          # Inventory dashboard (Server)
+  │   ├── transfer/
+  │   │   └── page.tsx      # Transfer form (Client)
+  │   └── adjustment/
+  │       └── page.tsx      # Adjustment form (Client)
+  └── production/
+      ├── page.tsx          # Production dashboard
+      ├── orders/           # Order management
+      └── kiosk/            # OPERATOR INTERFACE
+          └── page.tsx      # Touch-friendly simplified UI
 ```
 
 ---

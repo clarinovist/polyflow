@@ -22,7 +22,8 @@ import {
     BarChart3,
     LucideIcon,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    MonitorPlay
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -74,6 +75,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "Manufacturing",
         items: [
             { title: "Production Orders", href: "/dashboard/production/orders", icon: Factory },
+            { title: "Operator Kiosk", href: "/dashboard/production/kiosk", icon: MonitorPlay },
         ],
     },
     {

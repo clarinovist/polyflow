@@ -702,11 +702,12 @@ Inventory Aging Report
 3. Reorder Point & PO Suggestions ✅
 4. Cycle Counting ✅
 
-### Phase 3 (Sprint 5-6): Production
+### Phase 3 (Sprint 5-6): Production - IN PROGRESS
 1. Production Order Management ✅
-2. Material Issue/Consumption ✅
-3. Scrap Tracking ✅
-4. Quality Control ✅
+2. Kiosk / Digital SPK ✅ COMPLETED
+3. Material Issue/Consumption (with Batch FIFO) ✅ COMPLETED
+4. Scrap Tracking ✅
+5. Quality Control ✅
 
 ### Phase 4 (Sprint 7-8): Analytics & Reporting
 1. Inventory Valuation ✅

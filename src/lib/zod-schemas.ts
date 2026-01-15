@@ -221,6 +221,7 @@ export const batchMaterialIssueSchema = z.object({
     items: z.array(z.object({
         productVariantId: z.string().min(1, "Material variant is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
+        batchId: z.string().optional(), // NEW: Batch selection support
     })).min(0, "Items can be empty if only updating plan"),
     removedPlannedMaterialIds: z.array(z.string()).optional(),
     addedPlannedMaterials: z.array(z.object({
@@ -264,6 +265,33 @@ export const productionOutputSchema = z.object({
     endTime: z.coerce.date(),
     notes: z.string().optional(),
 });
+
+// Production Execution Controls
+export const startExecutionSchema = z.object({
+    productionOrderId: z.string().min(1, "Production Order ID is required"),
+    machineId: z.string().optional(),
+    operatorId: z.string().optional(),
+    shiftId: z.string().optional(),
+});
+
+export const stopExecutionSchema = z.object({
+    executionId: z.string().min(1, "Execution ID is required"),
+    quantityProduced: z.coerce.number().nonnegative(),
+    scrapQuantity: z.coerce.number().nonnegative().default(0),
+    notes: z.string().optional(),
+});
+
+export type StartExecutionValues = z.infer<typeof startExecutionSchema>;
+export type StopExecutionValues = z.infer<typeof stopExecutionSchema>;
+
+export const logRunningOutputSchema = z.object({
+    executionId: z.string().min(1, "Execution ID is required"),
+    quantityProduced: z.coerce.number().positive("Quantity must be positive"),
+    scrapQuantity: z.coerce.number().nonnegative().default(0),
+    notes: z.string().optional(),
+});
+
+export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
 
 export type ProductionOutputValues = z.infer<typeof productionOutputSchema>;
 
