@@ -1,11 +1,12 @@
 import { getInventoryStats, getLocations, getInventoryAsOf, InventoryWithRelations, getDashboardStats } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { InventoryTable } from '@/components/inventory/InventoryTable';
+import { InventoryTable, InventoryItem } from '@/components/inventory/InventoryTable';
 import { WarehouseNavigator } from '@/components/inventory/WarehouseNavigator';
 import { InventoryInsightsPanel } from '@/components/inventory/InventoryInsightsPanel';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Box, PackageCheck } from 'lucide-react';
+import { serializeData } from '@/lib/utils';
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -148,14 +149,7 @@ export default async function InventoryDashboard({
         : dashboardStats.totalStock;
 
     // Serialize Decimal fields for client component
-    const serializedInventory = JSON.parse(
-        JSON.stringify(displayInventory, (key, value) => {
-            if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
-                return parseFloat(value.toString());
-            }
-            return value;
-        })
-    );
+    const serializedInventory = serializeData(displayInventory) as InventoryItem[];
 
 
     return (

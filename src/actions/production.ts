@@ -22,7 +22,7 @@ import {
     StopExecutionValues,
     logRunningOutputSchema,
     LogRunningOutputValues  // Added
-} from '@/lib/zod-schemas';
+} from '@/lib/schemas/production';
 import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma, MovementType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
