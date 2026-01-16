@@ -18,6 +18,7 @@ import { OperatorLeaderboard } from '@/components/analytics/OperatorLeaderboard'
 import { QualityControlWidget } from '@/components/analytics/QualityControlWidget';
 import { DateRange } from '@/types/analytics';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 
 interface AnalyticsTabsProps {
     defaultTab: string;
@@ -34,8 +35,10 @@ interface AnalyticsTabsProps {
 export default function AnalyticsTabs({ defaultTab, data, dateRange }: AnalyticsTabsProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState(defaultTab);
 
     const handleTabChange = (value: string) => {
+        setActiveTab(value);
         const params = new URLSearchParams(searchParams.toString());
         params.set('tab', value);
         router.push(`?${params.toString()}`, { scroll: false });
@@ -64,9 +67,11 @@ export default function AnalyticsTabs({ defaultTab, data, dateRange }: Analytics
             </TabsContent>
 
             <TabsContent value="machines" className="space-y-4">
-                <MachinePerformanceChart
-                    data={data.machinePerformance as MachinePerformanceItem[]}
-                />
+                {activeTab === 'machines' && (
+                    <MachinePerformanceChart
+                        data={data.machinePerformance as MachinePerformanceItem[]}
+                    />
+                )}
             </TabsContent>
 
             <TabsContent value="operators" className="space-y-4">
@@ -76,9 +81,11 @@ export default function AnalyticsTabs({ defaultTab, data, dateRange }: Analytics
             </TabsContent>
 
             <TabsContent value="quality" className="space-y-4">
-                <QualityControlWidget
-                    data={data.qualitySummary as QualityControlSummary}
-                />
+                {activeTab === 'quality' && (
+                    <QualityControlWidget
+                        data={data.qualitySummary as QualityControlSummary}
+                    />
+                )}
             </TabsContent>
         </Tabs>
     );

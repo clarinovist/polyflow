@@ -1,5 +1,4 @@
-'use client';
-
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MachinePerformanceItem } from '@/types/analytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -9,6 +8,12 @@ interface Props {
 }
 
 export function MachinePerformanceChart({ data }: Props) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     return (
         <div className="grid gap-6">
             <Card>
@@ -22,27 +27,31 @@ export function MachinePerformanceChart({ data }: Props) {
                     {data.length === 0 ? (
                         <p className="text-muted-foreground py-8 text-center text-sm">No machine data available.</p>
                     ) : (
-                        <div className="h-[400px] w-full">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
-                                <BarChart
-                                    data={data}
-                                    margin={{
-                                        top: 20,
-                                        right: 30,
-                                        left: 20,
-                                        bottom: 5,
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="machineName" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis yAxisId="left" orientation="left" stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" fontSize={12} tickLine={false} axisLine={false} unit="%" />
-                                    <Tooltip />
-                                    <Legend />
-                                    <Bar yAxisId="left" dataKey="unitsPerHour" name="Units / Hour" fill="#8884d8" radius={[4, 4, 0, 0]} />
-                                    <Bar yAxisId="right" dataKey="scrapRate" name="Scrap Rate %" fill="#82ca9d" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="h-[400px] w-full" style={{ height: 400, minHeight: 400 }}>
+                            {isMounted ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={data}
+                                        margin={{
+                                            top: 20,
+                                            right: 30,
+                                            left: 20,
+                                            bottom: 5,
+                                        }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="machineName" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis yAxisId="left" orientation="left" stroke="#8884d8" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" fontSize={12} tickLine={false} axisLine={false} unit="%" />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar yAxisId="left" dataKey="unitsPerHour" name="Units / Hour" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                                        <Bar yAxisId="right" dataKey="scrapRate" name="Scrap Rate %" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center bg-muted/5 animate-pulse rounded" />
+                            )}
                         </div>
                     )}
                 </CardContent>

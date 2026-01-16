@@ -238,7 +238,8 @@ export async function getMachinePerformanceReport(
         const scrap = Number(exec.scrapQuantity);
 
         // Calculate duration in hours
-        const durationMs = exec.endTime.getTime() - exec.startTime.getTime();
+        const endTimeToUse = exec.endTime || new Date();
+        const durationMs = endTimeToUse.getTime() - exec.startTime.getTime();
         const durationHours = durationMs / (1000 * 60 * 60);
 
         current.totalOutput += output;
@@ -286,10 +287,13 @@ export async function getOperatorProductivityLeaderboard(
 
     const executions = await prisma.productionExecution.findMany({
         where: {
-            endTime: {
-                gte: dateRange.from,
+            startTime: {
                 lte: dateRange.to,
             },
+            OR: [
+                { endTime: { gte: dateRange.from } },
+                { endTime: null }
+            ],
             operatorId: {
                 not: null,
             },

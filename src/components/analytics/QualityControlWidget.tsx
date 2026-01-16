@@ -1,5 +1,4 @@
-'use client';
-
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QualityControlSummary } from '@/types/analytics';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
@@ -16,6 +15,12 @@ const COLORS = {
 };
 
 export function QualityControlWidget({ data }: Props) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     const pieData = [
         { name: 'Pass', value: data.inspections.pass, color: COLORS.PASS },
         { name: 'Fail', value: data.inspections.fail, color: COLORS.FAIL },
@@ -73,26 +78,30 @@ export function QualityControlWidget({ data }: Props) {
                         {pieData.length === 0 ? (
                             <div className="h-[300px] flex items-center justify-center text-muted-foreground">No inspection data</div>
                         ) : (
-                            <div className="h-[300px] w-full relative">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={100}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                        >
-                                            {pieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <RechartsTooltip />
-                                        <Legend verticalAlign="bottom" height={36} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                            <div className="h-[300px] w-full relative" style={{ height: 300, minHeight: 300 }}>
+                                {isMounted ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={pieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={100}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {pieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip />
+                                            <Legend verticalAlign="bottom" height={36} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center bg-muted/5 animate-pulse rounded" />
+                                )}
                                 {/* Center Text */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span className="text-3xl font-bold">{data.inspections.total}</span>

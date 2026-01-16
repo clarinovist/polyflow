@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function DashboardClient({ stats, productionOrders, recentMovements }: DashboardClientProps) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     return (
         <div className="p-8 space-y-8">
             {/* Header */}
@@ -109,8 +116,8 @@ export default function DashboardClient({ stats, productionOrders, recentMovemen
                 <div className="col-span-12 lg:col-span-6 space-y-6">
                     {/* Charts Row */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InventoryOverviewChart stats={stats} />
-                        <StockMovementChart movements={recentMovements} />
+                        <InventoryOverviewChart stats={stats} isMounted={isMounted} />
+                        <StockMovementChart movements={recentMovements} isMounted={isMounted} />
                     </div>
 
                     {/* Inventory Status */}
@@ -215,7 +222,7 @@ function ProductionOrdersWidget({ orders }: { orders: ProductionOrder[] }) {
 // ============================================
 // Inventory Overview Chart (Donut)
 // ============================================
-function InventoryOverviewChart({ stats: _stats }: { stats: DashboardStats }) {
+function InventoryOverviewChart({ stats: _stats, isMounted }: { stats: DashboardStats, isMounted: boolean }) {
     // Mock data for product type distribution
     const data = [
         { name: 'Raw Materials', value: 45, color: CHART_COLORS[0] },
@@ -239,37 +246,41 @@ function InventoryOverviewChart({ stats: _stats }: { stats: DashboardStats }) {
                 </CardAction>
             </CardHeader>
             <CardContent>
-                <div className="h-[180px] w-full">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
-                        <PieChart>
-                            <Pie
-                                data={data}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={50}
-                                outerRadius={70}
-                                paddingAngle={2}
-                                dataKey="value"
-                            >
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        return (
-                                            <div className="bg-popover border rounded-lg p-2 shadow-md">
-                                                <p className="text-sm font-medium">{payload[0].name}</p>
-                                                <p className="text-xs text-muted-foreground">{payload[0].value}%</p>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+                <div className="h-[180px] w-full" style={{ height: 180, minHeight: 180 }}>
+                    {isMounted ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={data}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={50}
+                                    outerRadius={70}
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                >
+                                    {data.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            return (
+                                                <div className="bg-popover border rounded-lg p-2 shadow-md">
+                                                    <p className="text-sm font-medium">{payload[0].name}</p>
+                                                    <p className="text-xs text-muted-foreground">{payload[0].value}%</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-muted/5 animate-pulse rounded" />
+                    )}
                 </div>
                 {/* Legend */}
                 <div className="flex flex-wrap justify-center gap-4 mt-2">
@@ -291,7 +302,7 @@ function InventoryOverviewChart({ stats: _stats }: { stats: DashboardStats }) {
 // ============================================
 // Stock Movement Chart (Area)
 // ============================================
-function StockMovementChart({ movements }: { movements: StockMovement[] }) {
+function StockMovementChart({ movements, isMounted }: { movements: StockMovement[], isMounted: boolean }) {
     // Process movements into daily aggregates for the chart
     const chartData = processMovementsForChart(movements);
 
@@ -311,66 +322,70 @@ function StockMovementChart({ movements }: { movements: StockMovement[] }) {
                 </CardAction>
             </CardHeader>
             <CardContent>
-                <div className="h-[180px] w-full">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
-                                </linearGradient>
-                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                            <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                                axisLine={false}
-                                tickLine={false}
-                            />
-                            <YAxis
-                                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                                axisLine={false}
-                                tickLine={false}
-                            />
-                            <Tooltip
-                                content={({ active, payload, label }) => {
-                                    if (active && payload && payload.length) {
-                                        return (
-                                            <div className="bg-popover border rounded-lg p-2 shadow-md">
-                                                <p className="text-sm font-medium mb-1">{label}</p>
-                                                {payload.map((item, i) => (
-                                                    <p key={i} className="text-xs text-muted-foreground">
-                                                        {item.name}: {item.value}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="in"
-                                name="Stock In"
-                                stroke="var(--chart-2)"
-                                fill="url(#colorIn)"
-                                strokeWidth={2}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="out"
-                                name="Stock Out"
-                                stroke="var(--chart-1)"
-                                fill="url(#colorOut)"
-                                strokeWidth={2}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                <div className="h-[180px] w-full" style={{ height: 180, minHeight: 180 }}>
+                    {isMounted ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <Tooltip
+                                    content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                            return (
+                                                <div className="bg-popover border rounded-lg p-2 shadow-md">
+                                                    <p className="text-sm font-medium mb-1">{label}</p>
+                                                    {payload.map((item, i) => (
+                                                        <p key={i} className="text-xs text-muted-foreground">
+                                                            {item.name}: {item.value}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="in"
+                                    name="Stock In"
+                                    stroke="var(--chart-2)"
+                                    fill="url(#colorIn)"
+                                    strokeWidth={2}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="out"
+                                    name="Stock Out"
+                                    stroke="var(--chart-1)"
+                                    fill="url(#colorOut)"
+                                    strokeWidth={2}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-muted/5 animate-pulse rounded" />
+                    )}
                 </div>
                 {/* Legend */}
                 <div className="flex justify-center gap-6 mt-2">
