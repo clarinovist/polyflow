@@ -18,7 +18,7 @@ export const authConfig = {
                 return true;
             } catch (error) {
                 console.error('Authorization callback error:', error);
-                return true; // Allow access on error during auth check
+                return false; // Deny access on error during auth check
             }
         },
         jwt({ token, user }) {
