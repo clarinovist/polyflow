@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Phone, MapPin, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Customer } from '@prisma/client';
 
 export default async function CustomersPage() {
     const customers = await getCustomers();
@@ -60,7 +61,7 @@ export default async function CustomersPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                customers.map((customer: any) => (
+                                customers.map((customer: Customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell className="font-medium text-muted-foreground font-mono text-xs">
                                             {customer.code || '-'}

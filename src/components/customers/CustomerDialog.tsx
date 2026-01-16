@@ -39,6 +39,7 @@ export function CustomerDialog({ mode, initialData, trigger }: CustomerDialogPro
     const router = useRouter();
 
     const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(mode === 'create' ? createCustomerSchema : updateCustomerSchema) as any,
         defaultValues: mode === 'edit' && initialData ? {
             id: initialData.id,

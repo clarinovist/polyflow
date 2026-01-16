@@ -70,6 +70,7 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
     const [isFetchingVariants, setIsFetchingVariants] = useState(false);
 
     const form = useForm<FormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
             productVariantId: '',

@@ -68,7 +68,8 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
     const sourceLocationName = items.length > 0 ? items[0].location.name : '';
 
     const form = useForm<BulkTransferStockValues>({
-        resolver: zodResolver(bulkTransferStockSchema) as any, // Cast to any to avoid strict type mismatch with useForm
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(bulkTransferStockSchema) as any,
         defaultValues: {
             sourceLocationId: sourceLocationId,
             destinationLocationId: '',

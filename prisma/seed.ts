@@ -1,4 +1,4 @@
-import { PrismaClient, ProductType, ContactType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus } from '@prisma/client'
+import { PrismaClient, ProductType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -24,7 +24,8 @@ async function main() {
     await prisma.jobRole.deleteMany() // Clean job roles
     await prisma.productVariant.deleteMany()
     await prisma.product.deleteMany()
-    await prisma.contact.deleteMany()
+    await prisma.supplier.deleteMany()
+    await prisma.customer.deleteMany()
     await prisma.location.deleteMany()
     await prisma.user.deleteMany()
 
@@ -52,13 +53,13 @@ async function main() {
         await prisma.location.create({ data: loc })
     }
 
-    // 2. Contacts
-    await prisma.contact.create({
-        data: { name: 'Petrokem', type: ContactType.SUPPLIER, phone: '08123456789', address: 'Industrial Estate Block A' },
+    // 2. Suppliers & Customers
+    await prisma.supplier.create({
+        data: { name: 'Petrokem', phone: '08123456789', address: 'Industrial Estate Block A' },
     })
 
-    await prisma.contact.create({
-        data: { name: 'Plastic Shop Jaya', type: ContactType.CUSTOMER, phone: '08987654321', address: 'Downtown Market' },
+    await prisma.customer.create({
+        data: { name: 'Plastic Shop Jaya', phone: '08987654321', billingAddress: 'Downtown Market' },
     })
 
     // 3. Products & Stocks (Full Production Cycle) - BLACK CHAIN (Recycle)

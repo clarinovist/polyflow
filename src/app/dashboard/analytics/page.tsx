@@ -10,6 +10,13 @@ import {
 } from '@/actions/analytics';
 import { serializeData } from '@/lib/utils';
 import AnalyticsTabs from './analytics-tabs';
+import {
+    ProductionRealizationItem,
+    MaterialUsageVarianceItem,
+    MachinePerformanceItem,
+    OperatorProductivityItem,
+    QualityControlSummary,
+} from '@/types/analytics';
 
 // Helper to get date range from params or default to current month
 function getDateRange(searchParams: { from?: string; to?: string }) {
@@ -60,11 +67,11 @@ export default async function AnalyticsPage({
                 <AnalyticsToolbar
                     dateRange={{ from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }}
                     data={{
-                        productionRealization: serializeData(productionRealization) as unknown[],
-                        materialVariance: serializeData(materialVariance) as unknown[],
-                        machinePerformance: serializeData(machinePerformance) as unknown[],
-                        operatorLeaderboard: serializeData(operatorLeaderboard) as unknown[],
-                        qualitySummary: serializeData(qualitySummary)
+                        productionRealization: serializeData(productionRealization) as unknown as ProductionRealizationItem[],
+                        materialVariance: serializeData(materialVariance) as unknown as MaterialUsageVarianceItem[],
+                        machinePerformance: serializeData(machinePerformance) as unknown as MachinePerformanceItem[],
+                        operatorLeaderboard: serializeData(operatorLeaderboard) as unknown as OperatorProductivityItem[],
+                        qualitySummary: serializeData(qualitySummary) as unknown as QualityControlSummary
                     }}
                     activeTab={params.tab || 'production'}
                 />
@@ -73,11 +80,11 @@ export default async function AnalyticsPage({
             <AnalyticsTabs
                 defaultTab={params.tab || 'production'}
                 data={{
-                    productionRealization: serializeData(productionRealization),
-                    materialVariance: serializeData(materialVariance),
-                    machinePerformance: serializeData(machinePerformance),
-                    operatorLeaderboard: serializeData(operatorLeaderboard),
-                    qualitySummary: serializeData(qualitySummary)
+                    productionRealization: serializeData(productionRealization) as unknown as ProductionRealizationItem[],
+                    materialVariance: serializeData(materialVariance) as unknown as MaterialUsageVarianceItem[],
+                    machinePerformance: serializeData(machinePerformance) as unknown as MachinePerformanceItem[],
+                    operatorLeaderboard: serializeData(operatorLeaderboard) as unknown as OperatorProductivityItem[],
+                    qualitySummary: serializeData(qualitySummary) as unknown as QualityControlSummary
                 }}
                 dateRange={{ from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }}
             />
