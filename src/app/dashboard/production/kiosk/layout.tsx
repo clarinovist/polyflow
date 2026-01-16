@@ -6,7 +6,7 @@ export default async function KioskLayout({
 }: {
     children: React.ReactNode
 }) {
-    const activeExecutions = await getActiveExecutions();
+    const activeExecutions = (await getActiveExecutions()) as any[];
 
     return (
         <div className="relative min-h-screen">

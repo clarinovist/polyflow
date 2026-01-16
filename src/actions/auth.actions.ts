@@ -8,7 +8,15 @@ export async function authenticate(
     formData: FormData,
 ) {
     try {
-        await signIn('credentials', formData);
+        const email = String(formData.get('email') ?? '');
+        const password = String(formData.get('password') ?? '');
+
+        await signIn('credentials', {
+            email,
+            password,
+            redirectTo: '/dashboard',
+            callbackUrl: '/dashboard',
+        });
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {

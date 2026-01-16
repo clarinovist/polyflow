@@ -255,7 +255,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         <div className="flex flex-col">
                                                             <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
                                                             <span className="text-xs text-muted-foreground">
-                                                                {format(new Date(exec.startTime), 'HH:mm')} - {format(new Date(exec.endTime), 'HH:mm')}
+                                                                {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
                                                             </span>
                                                         </div>
                                                     </td>

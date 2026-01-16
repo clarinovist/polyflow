@@ -7,7 +7,9 @@ services:
       - "3002:3000"
     environment:
       - DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow
-      - AUTH_SECRET=changeme_in_production
+      - AUTH_SECRET=fepLqZqIvj0QTj1l5RLZuQqngB8wiC2QUke/jm3hpxc=
+      - NEXTAUTH_URL=https://erp.nugrohopramono.my.id
+      - NEXTAUTH_SECRET=fepLqZqIvj0QTj1l5RLZuQqngB8wiC2QUke/jm3hpxc=
     depends_on:
       - db
     networks:
