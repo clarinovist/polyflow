@@ -368,26 +368,42 @@ export async function deleteProduct(id: string) {
  */
 export async function deleteVariant(id: string) {
     try {
-        // Check if variant has inventory
-        const inventory = await prisma.inventory.findMany({
-            where: {
-                productVariantId: id,
-                quantity: {
-                    gt: 0,
-                },
-            },
-        });
+        // Check for references in related tables before deleting
+        const checks = await Promise.all([
+            prisma.inventory.count({ where: { productVariantId: id } }),
+            prisma.stockMovement.count({ where: { productVariantId: id } }),
+            prisma.batch.count({ where: { productVariantId: id } }),
+            prisma.bomItem.count({ where: { productVariantId: id } }),
+            prisma.materialIssue.count({ where: { productVariantId: id } }),
+            prisma.scrapRecord.count({ where: { productVariantId: id } }),
+            prisma.stockReservation.count({ where: { productVariantId: id } }),
+            prisma.stockOpnameItem.count({ where: { productVariantId: id } }),
+            prisma.productionMaterial.count({ where: { productVariantId: id } }),
+            prisma.bom.count({ where: { productVariantId: id } }),
+        ]);
 
-        if (inventory.length > 0) {
+        const [inventoryCount, movementCount, batchCount, bomItemCount, materialIssueCount, scrapCount, reservationCount, opnameItemCount, productionMaterialCount, bomCount] = checks;
+
+        const referenced: string[] = [];
+        if (inventoryCount > 0) referenced.push(`Inventory (${inventoryCount})`);
+        if (movementCount > 0) referenced.push(`StockMovement (${movementCount})`);
+        if (batchCount > 0) referenced.push(`Batch (${batchCount})`);
+        if (bomItemCount > 0) referenced.push(`BomItem (${bomItemCount})`);
+        if (bomCount > 0) referenced.push(`Bom (${bomCount})`);
+        if (materialIssueCount > 0) referenced.push(`MaterialIssue (${materialIssueCount})`);
+        if (scrapCount > 0) referenced.push(`ScrapRecord (${scrapCount})`);
+        if (reservationCount > 0) referenced.push(`StockReservation (${reservationCount})`);
+        if (opnameItemCount > 0) referenced.push(`StockOpnameItem (${opnameItemCount})`);
+        if (productionMaterialCount > 0) referenced.push(`ProductionMaterial (${productionMaterialCount})`);
+
+        if (referenced.length > 0) {
             return {
                 success: false,
-                error: 'Cannot delete variant with existing inventory',
+                error: `Cannot delete variant. It is referenced in: ${referenced.join(', ')}`,
             };
         }
 
-        await prisma.productVariant.delete({
-            where: { id },
-        });
+        await prisma.productVariant.delete({ where: { id } });
 
         revalidatePath('/dashboard/products');
         return { success: true };

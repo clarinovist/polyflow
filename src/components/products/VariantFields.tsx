@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
+import { deleteVariant } from '@/actions/product';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface VariantFieldsProps {
     control: Control<CreateProductValues>;
@@ -25,6 +28,9 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     const primaryUnit = useWatch({ control, name: `variants.${index}.primaryUnit` });
     const salesUnit = useWatch({ control, name: `variants.${index}.salesUnit` });
     const conversionFactor = useWatch({ control, name: `variants.${index}.conversionFactor` });
+    const variantId = useWatch({ control, name: `variants.${index}.id` as any }) as string | undefined;
+
+    const router = useRouter();
 
     const isSimpleUnitMode = productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL;
 
@@ -71,14 +77,44 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
             <div className="flex items-center justify-between">
                 <h4 className="font-medium text-sm text-slate-700">Variant #{index + 1}</h4>
                 {canRemove && (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={onRemove}
-                    >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {variantId && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                    if (!variantId) return;
+                                    // confirm
+                                    // eslint-disable-next-line no-restricted-globals
+                                    if (!confirm('Delete this variant permanently? This action cannot be undone.')) return;
+                                    try {
+                                        const res = await deleteVariant(variantId);
+                                        if (res.success) {
+                                            toast.success('Variant deleted');
+                                            router.push('/dashboard/products');
+                                            router.refresh();
+                                        } else {
+                                            toast.error(res.error || 'Failed to delete variant');
+                                        }
+                                    } catch (err) {
+                                        toast.error('Failed to delete variant');
+                                    }
+                                }}
+                            >
+                                Delete
+                            </Button>
+                        )}
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onRemove}
+                        >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                    </div>
                 )}
             </div>
 
