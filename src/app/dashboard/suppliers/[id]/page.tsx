@@ -21,9 +21,9 @@ import { UnlinkProductButton } from '@/components/suppliers/UnlinkProductButton'
 interface SupplierProduct {
     id: string;
     isPreferred: boolean;
-    unitPrice: any;
+    unitPrice: number | null;
     leadTimeDays: number | null;
-    minOrderQty: any;
+    minOrderQty: number | null;
     productVariant: {
         name: string;
         skuCode: string;

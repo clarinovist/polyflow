@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Phone, MapPin, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Supplier } from '@prisma/client';
 
 export default async function SuppliersPage() {
     const suppliers = await getSuppliers();
@@ -60,7 +61,7 @@ export default async function SuppliersPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                suppliers.map((supplier: any) => (
+                                suppliers.map((supplier: Supplier) => (
                                     <TableRow key={supplier.id}>
                                         <TableCell className="font-medium text-muted-foreground font-mono text-xs">
                                             {supplier.code || '-'}

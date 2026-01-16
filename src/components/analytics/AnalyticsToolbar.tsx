@@ -5,6 +5,7 @@ import { DateRangePicker } from './DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
 import Papa from 'papaparse'
+import { QualityControlSummary } from '@/types/analytics'
 
 interface AnalyticsToolbarProps {
     dateRange: { from: Date | string; to: Date | string }
@@ -13,7 +14,7 @@ interface AnalyticsToolbarProps {
         materialVariance: unknown[]
         machinePerformance: unknown[]
         operatorLeaderboard: unknown[]
-        qualitySummary: any // Keeping any for nested summary as it is checked below
+        qualitySummary: QualityControlSummary
     }
     activeTab: string
 }

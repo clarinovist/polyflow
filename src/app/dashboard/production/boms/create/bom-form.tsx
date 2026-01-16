@@ -21,7 +21,7 @@ export interface Product {
     primaryUnit: string;
 }
 
-interface BomFormProps {
+export interface BomFormProps {
     products: Product[];
     initialData?: {
         id?: string;
@@ -41,6 +41,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<CreateBomValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(createBomSchema) as any,
         defaultValues: {
             name: initialData?.name || '',

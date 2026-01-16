@@ -39,7 +39,7 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
             } else {
                 toast.error(result.error || `Failed to delete ${entityName}`);
             }
-        } catch (error) {
+        } catch {
             toast.error('An unexpected error occurred');
         } finally {
             setIsDeleting(false);

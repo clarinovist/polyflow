@@ -69,6 +69,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
     const locationName = items.length > 0 ? items[0].location.name : '';
 
     const form = useForm<BulkAdjustStockValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(bulkAdjustStockSchema) as any,
         defaultValues: {
             locationId: locationId,
@@ -163,7 +164,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                             <FormLabel>Type</FormLabel>
                             <Select
                                 value={globalType}
-                                onValueChange={(val: any) => {
+                                onValueChange={(val: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT') => {
                                     setGlobalType(val);
                                     // Optionally auto-update form:
                                     // const items = form.getValues('items');

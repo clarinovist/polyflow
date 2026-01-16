@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { z } from 'zod';
 
-interface ProductionOrderFormProps {
+export interface ProductionOrderFormProps {
     locations: { id: string; slug: string; name: string }[];
     boms: {
         id: string;

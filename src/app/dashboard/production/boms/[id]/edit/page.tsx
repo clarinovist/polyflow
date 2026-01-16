@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BomForm, Product } from '../../create/bom-form';
+import { BomForm, Product, BomFormProps } from '../../create/bom-form';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { getBom, getProductVariants } from '@/actions/boms';
@@ -49,7 +49,7 @@ export default async function EditBomPage(props: EditBomPageProps) {
                 <CardContent>
                     <BomForm
                         products={products as Product[]}
-                        initialData={bom as any}
+                        initialData={bom as unknown as BomFormProps['initialData']}
                     />
                 </CardContent>
             </Card>
