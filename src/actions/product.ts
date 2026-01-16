@@ -324,35 +324,73 @@ export async function updateProduct(data: UpdateProductValues) {
  */
 export async function deleteProduct(id: string) {
     try {
-        // Check if any variants have inventory
-        const variantsWithInventory = await prisma.inventory.findMany({
-            where: {
-                productVariant: {
-                    productId: id,
-                },
-                quantity: {
-                    gt: 0,
-                },
-            },
-            include: {
-                productVariant: {
-                    select: {
-                        name: true,
-                        skuCode: true,
-                    },
-                },
-            },
+        // Get all variants for this product
+        const variants = await prisma.productVariant.findMany({
+            where: { productId: id },
+            select: { id: true, skuCode: true },
         });
 
-        if (variantsWithInventory.length > 0) {
-            return {
-                success: false,
-                error: `Cannot delete product. The following variants have inventory: ${variantsWithInventory.map(v => v.productVariant.skuCode).join(', ')}`,
-            };
+        const variantIds = variants.map(v => v.id);
+
+        if (variantIds.length > 0) {
+            // Check for references in related tables for all variants
+            const checks = await Promise.all([
+                prisma.inventory.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.stockMovement.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.batch.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.bomItem.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.materialIssue.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.scrapRecord.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.stockReservation.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.stockOpnameItem.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.productionMaterial.count({ where: { productVariantId: { in: variantIds } } }),
+                prisma.bom.count({ where: { productVariantId: { in: variantIds } } }),
+            ]);
+
+            const [
+                inventoryCount,
+                movementCount,
+                batchCount,
+                bomItemCount,
+                materialIssueCount,
+                scrapCount,
+                reservationCount,
+                opnameItemCount,
+                productionMaterialCount,
+                bomCount
+            ] = checks;
+
+            const referenced: string[] = [];
+            if (inventoryCount > 0) referenced.push(`Inventory (${inventoryCount})`);
+            if (movementCount > 0) referenced.push(`StockMovement (${movementCount})`);
+            if (batchCount > 0) referenced.push(`Batch (${batchCount})`);
+            if (bomItemCount > 0) referenced.push(`BomItem (${bomItemCount})`);
+            if (bomCount > 0) referenced.push(`Bom (${bomCount})`);
+            if (materialIssueCount > 0) referenced.push(`MaterialIssue (${materialIssueCount})`);
+            if (scrapCount > 0) referenced.push(`ScrapRecord (${scrapCount})`);
+            if (reservationCount > 0) referenced.push(`StockReservation (${reservationCount})`);
+            if (opnameItemCount > 0) referenced.push(`StockOpnameItem (${opnameItemCount})`);
+            if (productionMaterialCount > 0) referenced.push(`ProductionMaterial (${productionMaterialCount})`);
+
+            if (referenced.length > 0) {
+                return {
+                    success: false,
+                    error: `Cannot delete product. Its variants are referenced in: ${referenced.join(', ')}`,
+                };
+            }
         }
 
-        await prisma.product.delete({
-            where: { id },
+        // Delete variants and product in a transaction
+        await prisma.$transaction(async (tx) => {
+            if (variantIds.length > 0) {
+                await tx.productVariant.deleteMany({
+                    where: { id: { in: variantIds } },
+                });
+            }
+
+            await tx.product.delete({
+                where: { id },
+            });
         });
 
         revalidatePath('/dashboard/products');
