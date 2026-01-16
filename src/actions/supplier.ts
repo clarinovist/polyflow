@@ -3,11 +3,13 @@
 import { prisma } from '@/lib/prisma';
 import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, UpdateSupplierValues } from '@/lib/zod-schemas';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
 
 /**
  * Get all suppliers
  */
 export async function getSuppliers() {
+    await requireAuth();
     return prisma.supplier.findMany({
         orderBy: {
             name: 'asc',
@@ -19,6 +21,7 @@ export async function getSuppliers() {
  * Get a single supplier by ID
  */
 export async function getSupplierById(id: string) {
+    await requireAuth();
     return prisma.supplier.findUnique({
         where: { id },
         include: {
@@ -36,6 +39,7 @@ export async function getSupplierById(id: string) {
  * Generate the next available supplier code (SUP-XXX format)
  */
 export async function getNextSupplierCode(): Promise<string> {
+    await requireAuth();
     const prefix = 'SUP-';
 
     // Find the highest existing code with this prefix
@@ -70,6 +74,7 @@ export async function getNextSupplierCode(): Promise<string> {
  * Create a new supplier
  */
 export async function createSupplier(data: CreateSupplierValues) {
+    await requireAuth();
     const result = createSupplierSchema.safeParse(data);
 
     if (!result.success) {
@@ -122,6 +127,7 @@ export async function createSupplier(data: CreateSupplierValues) {
  * Update an existing supplier
  */
 export async function updateSupplier(data: UpdateSupplierValues) {
+    await requireAuth();
     const result = updateSupplierSchema.safeParse(data);
 
     if (!result.success) {
@@ -147,6 +153,7 @@ export async function updateSupplier(data: UpdateSupplierValues) {
  * Delete a supplier
  */
 export async function deleteSupplier(id: string) {
+    await requireAuth();
     try {
         // Check for references before deleting
         const checks = await Promise.all([

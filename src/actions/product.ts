@@ -5,6 +5,7 @@ import { createProductSchema, updateProductSchema, CreateProductValues, UpdatePr
 import { ProductType, Unit, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
+import { requireAuth } from '@/lib/auth-checks';
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -32,6 +33,7 @@ export type ProductWithVariantsAndStock = {
  * Get all products with their variants and inventory totals
  */
 export async function getProducts(options?: { type?: ProductType }): Promise<ProductWithVariantsAndStock[]> {
+    await requireAuth();
     const where: Prisma.ProductWhereInput = {};
 
     if (options?.type) {
@@ -88,6 +90,7 @@ export async function getProducts(options?: { type?: ProductType }): Promise<Pro
  * Get a single product by ID with all variants
  */
 export async function getProductById(id: string) {
+    await requireAuth();
     const product = await prisma.product.findUnique({
         where: { id },
         include: {
@@ -110,6 +113,7 @@ export async function getProductById(id: string) {
  * Get all available units from the enum
  */
 export async function getUnits(): Promise<Unit[]> {
+    await requireAuth();
     return Object.values(Unit);
 }
 
@@ -117,6 +121,7 @@ export async function getUnits(): Promise<Unit[]> {
  * Get all available product types from the enum
  */
 export async function getProductTypes(): Promise<ProductType[]> {
+    await requireAuth();
     return Object.values(ProductType);
 }
 
@@ -124,6 +129,7 @@ export async function getProductTypes(): Promise<ProductType[]> {
  * Get all product variants for selection
  */
 export async function getVariants() {
+    await requireAuth();
     const variants = await prisma.productVariant.findMany({
         include: {
             product: true,
@@ -139,6 +145,7 @@ export async function getVariants() {
  * Create a new product with variants using a transaction
  */
 export async function createProduct(data: CreateProductValues) {
+    await requireAuth();
     const result = createProductSchema.safeParse(data);
 
     if (!result.success) {
@@ -203,6 +210,7 @@ export async function createProduct(data: CreateProductValues) {
  * Update an existing product and sync its variants
  */
 export async function updateProduct(data: UpdateProductValues) {
+    await requireAuth();
     const result = updateProductSchema.safeParse(data);
 
     if (!result.success) {
@@ -340,6 +348,7 @@ export async function updateProduct(data: UpdateProductValues) {
  * Delete a product (cascades to variants)
  */
 export async function deleteProduct(id: string) {
+    await requireAuth();
     try {
         // Get all variants for this product
         const variants = await prisma.productVariant.findMany({
@@ -422,6 +431,7 @@ export async function deleteProduct(id: string) {
  * Delete a single variant (with inventory check)
  */
 export async function deleteVariant(id: string) {
+    await requireAuth();
     try {
         // Check for references in related tables before deleting
         const checks = await Promise.all([
@@ -472,6 +482,7 @@ export async function deleteVariant(id: string) {
  * Auto-generate a unique SKU code based on product type and name
  */
 export async function getNextSKU(productType: ProductType, productName: string): Promise<string> {
+    await requireAuth();
     const prefixes: Record<string, string> = {
         [ProductType.RAW_MATERIAL]: 'RM',
         [ProductType.INTERMEDIATE]: 'IN',

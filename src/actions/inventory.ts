@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/zod-schemas';
 import { MovementType, Prisma, Unit, ProductType, ReservationStatus, BatchStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
 
 export type InventoryWithRelations = {
     id: string;
@@ -32,6 +33,7 @@ export type InventoryWithRelations = {
 };
 
 export async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
+    await requireAuth();
     const where: Prisma.InventoryWhereInput = {};
 
     if (searchParams?.locationId) {
@@ -120,10 +122,12 @@ export async function getInventoryStats(searchParams?: { locationId?: string; ty
 }
 
 export async function getLocations() {
+    await requireAuth();
     return await prisma.location.findMany();
 }
 
 export async function getProductVariants() {
+    await requireAuth();
     return await prisma.productVariant.findMany({
         include: {
             product: true
@@ -135,6 +139,7 @@ export async function getProductVariants() {
  * Get available batches for a product variant at a location
  */
 export async function getAvailableBatches(productVariantId: string, locationId: string) {
+    await requireAuth();
     if (!productVariantId || !locationId) return [];
 
     // 1. Get batches that are not expired (optional logic) and have status ACTIVE
@@ -179,7 +184,10 @@ export async function getAvailableBatches(productVariantId: string, locationId: 
 
 import { logActivity } from '@/lib/audit';
 
-export async function transferStock(data: TransferStockValues, userId?: string) {
+export async function transferStock(data: TransferStockValues, _userId?: string) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
     console.log("Transfer Action Started", data);
     const result = transferStockSchema.safeParse(data);
     if (!result.success) {
@@ -276,21 +284,19 @@ export async function transferStock(data: TransferStockValues, userId?: string) 
                     quantity,
                     reference: notes,
                     createdAt: date,
-                    createdById: userId, // Add createdBy
+                    createdById: currentUserId, // Add createdBy
                 },
             });
 
             // 5. Audit Log (only if userId is provided)
-            if (userId) {
-                await logActivity({
-                    userId,
-                    action: 'TRANSFER_STOCK',
-                    entityType: 'ProductVariant',
-                    entityId: productVariantId,
-                    details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
-                    tx
-                });
-            }
+            await logActivity({
+                userId: currentUserId,
+                action: 'TRANSFER_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                tx
+            });
         });
 
         revalidatePath('/dashboard/inventory');
@@ -302,7 +308,10 @@ export async function transferStock(data: TransferStockValues, userId?: string) 
     }
 }
 
-export async function transferStockBulk(data: BulkTransferStockValues, userId?: string) {
+export async function transferStockBulk(data: BulkTransferStockValues, _userId?: string) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
     const result = bulkTransferStockSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -399,21 +408,19 @@ export async function transferStockBulk(data: BulkTransferStockValues, userId?: 
                         quantity,
                         reference: notes,
                         createdAt: date,
-                        createdById: userId,
+                        createdById: currentUserId,
                     },
                 });
 
                 // 5. Audit Log
-                if (userId) {
-                    await logActivity({
-                        userId,
-                        action: 'TRANSFER_STOCK_BULK',
-                        entityType: 'ProductVariant',
-                        entityId: productVariantId,
-                        details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
-                        tx
-                    });
-                }
+                await logActivity({
+                    userId: currentUserId,
+                    action: 'TRANSFER_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                    tx
+                });
             }
         });
 
@@ -426,7 +433,10 @@ export async function transferStockBulk(data: BulkTransferStockValues, userId?: 
     }
 }
 
-export async function adjustStock(data: AdjustStockWithBatchValues, userId?: string) {
+export async function adjustStock(data: AdjustStockWithBatchValues, _userId?: string) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
     // Parse using the extended schema which supports batchData
     const result = adjustStockWithBatchSchema.safeParse(data);
     if (!result.success) {
@@ -543,21 +553,19 @@ export async function adjustStock(data: AdjustStockWithBatchValues, userId?: str
                     quantity,
                     reference: reason,
                     batchId, // Link movement to batch
-                    createdById: userId,
+                    createdById: currentUserId,
                 },
             });
 
             // 3. Audit Log
-            if (userId) {
-                await logActivity({
-                    userId,
-                    action: 'ADJUST_STOCK',
-                    entityType: 'ProductVariant',
-                    entityId: productVariantId,
-                    details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
-                    tx
-                });
-            }
+            await logActivity({
+                userId: currentUserId,
+                action: 'ADJUST_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                tx
+            });
         });
 
         revalidatePath('/dashboard/inventory');
@@ -568,7 +576,10 @@ export async function adjustStock(data: AdjustStockWithBatchValues, userId?: str
     }
 }
 
-export async function adjustStockBulk(data: BulkAdjustStockValues, userId?: string) {
+export async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: string) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
     const result = bulkAdjustStockSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -643,21 +654,19 @@ export async function adjustStockBulk(data: BulkAdjustStockValues, userId?: stri
                         toLocationId: isIncrement ? locationId : null,
                         quantity,
                         reference: reason,
-                        createdById: userId,
+                        createdById: currentUserId,
                     },
                 });
 
                 // 3. Audit Log
-                if (userId) {
-                    await logActivity({
-                        userId,
-                        action: 'ADJUST_STOCK_BULK',
-                        entityType: 'ProductVariant',
-                        entityId: productVariantId,
-                        details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
-                        tx
-                    });
-                }
+                await logActivity({
+                    userId: currentUserId,
+                    action: 'ADJUST_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                    tx
+                });
             }
         });
 
@@ -670,6 +679,7 @@ export async function adjustStockBulk(data: BulkAdjustStockValues, userId?: stri
 }
 
 export async function updateThreshold(productVariantId: string, minStockAlert: number) {
+    await requireAuth();
     try {
         await prisma.productVariant.update({
             where: {
@@ -688,6 +698,7 @@ export async function updateThreshold(productVariantId: string, minStockAlert: n
 }
 
 export async function getStockMovements(limit = 50) {
+    await requireAuth();
     return await prisma.stockMovement.findMany({
         take: limit,
         orderBy: {
@@ -707,6 +718,7 @@ export async function getStockMovements(limit = 50) {
 }
 
 export async function getDashboardStats() {
+    await requireAuth();
     const [productCount, inventory, lowStockVariants] = await Promise.all([
         prisma.product.count(),
         prisma.inventory.findMany({
@@ -783,6 +795,7 @@ export async function getDashboardStats() {
 }
 
 export async function getSuggestedPurchases() {
+    await requireAuth();
     // 1. Get all variants with reorder points
     const variants = await prisma.productVariant.findMany({
         where: { reorderPoint: { not: null } },
@@ -808,6 +821,7 @@ export async function getSuggestedPurchases() {
 }
 
 export async function getInventoryValuation() {
+    await requireAuth();
     // Moving Average Valuation:
     // Value = Sum(Quantity * AverageCost)
     // For this MVP, we will calculate Average Cost based on incoming movements (PURCHASE or ADJUSTMENT_IN) history
@@ -886,6 +900,7 @@ export async function getInventoryValuation() {
  * Reconstructs stock by summing movements up to the target date.
  */
 export async function getInventoryAsOf(targetDate: Date, locationId?: string) {
+    await requireAuth();
     const movements = await prisma.stockMovement.findMany({
         where: {
             createdAt: {
@@ -939,6 +954,7 @@ export async function getStockHistory(
     endDate: Date,
     locationId?: string
 ) {
+    await requireAuth();
     // 1. Get initial stock level before startDate
     const initialMovements = await prisma.stockMovement.findMany({
         where: {
@@ -1033,6 +1049,7 @@ export async function getStockHistory(
 // --- Stock Reservation Actions ---
 
 export async function createStockReservation(data: CreateReservationValues) {
+    await requireAuth();
     const result = createReservationSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -1089,6 +1106,7 @@ export async function createStockReservation(data: CreateReservationValues) {
 }
 
 export async function cancelStockReservation(data: CancelReservationValues) {
+    await requireAuth();
     const result = cancelReservationSchema.safeParse(data);
     if (!result.success) {
         return { success: false, error: result.error.issues[0].message };
@@ -1108,6 +1126,7 @@ export async function cancelStockReservation(data: CancelReservationValues) {
 }
 
 export async function getActiveReservations(locationId?: string, productVariantId?: string) {
+    await requireAuth();
     const where: Prisma.StockReservationWhereInput = {
         status: ReservationStatus.ACTIVE
     };

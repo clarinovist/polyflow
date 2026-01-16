@@ -3,11 +3,13 @@
 import { prisma } from '@/lib/prisma';
 import { createCustomerSchema, updateCustomerSchema, CreateCustomerValues, UpdateCustomerValues } from '@/lib/zod-schemas';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
 
 /**
  * Get all customers
  */
 export async function getCustomers() {
+    await requireAuth();
     return prisma.customer.findMany({
         orderBy: {
             name: 'asc',
@@ -19,6 +21,7 @@ export async function getCustomers() {
  * Get a single customer by ID
  */
 export async function getCustomerById(id: string) {
+    await requireAuth();
     return prisma.customer.findUnique({
         where: { id },
     });
@@ -28,6 +31,7 @@ export async function getCustomerById(id: string) {
  * Generate the next available customer code (CUS-XXX format)
  */
 export async function getNextCustomerCode(): Promise<string> {
+    await requireAuth();
     const prefix = 'CUS-';
 
     // Find the highest existing code with this prefix
@@ -62,6 +66,7 @@ export async function getNextCustomerCode(): Promise<string> {
  * Create a new customer
  */
 export async function createCustomer(data: CreateCustomerValues) {
+    await requireAuth();
     const result = createCustomerSchema.safeParse(data);
 
     if (!result.success) {
@@ -114,6 +119,7 @@ export async function createCustomer(data: CreateCustomerValues) {
  * Update an existing customer
  */
 export async function updateCustomer(data: UpdateCustomerValues) {
+    await requireAuth();
     const result = updateCustomerSchema.safeParse(data);
 
     if (!result.success) {
@@ -139,6 +145,7 @@ export async function updateCustomer(data: UpdateCustomerValues) {
  * Delete a customer
  */
 export async function deleteCustomer(id: string) {
+    await requireAuth();
     try {
         // Future: Check for references (e.g. Sales Orders)
         // const activeOrders = await prisma.salesOrder.count({ where: { customerId: id } });
