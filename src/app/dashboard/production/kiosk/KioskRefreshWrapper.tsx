@@ -29,6 +29,11 @@ interface Order {
         startTime: Date;
         endTime: Date | null;
     }>;
+    outputLogs?: Array<{
+        id: string;
+        quantity: number;
+        createdAt: string;
+    }>;
 }
 
 export default function KioskRefreshWrapper({ initialOrders }: { initialOrders: Order[] }) {

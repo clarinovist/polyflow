@@ -22,6 +22,13 @@ interface KioskStopDialogProps {
     onOpenChange: (open: boolean) => void;
     executionId: string;
     productName: string;
+    currentProduced: number;
+    targetQuantity: number;
+    logs: Array<{
+        id: string;
+        quantity: number;
+        createdAt: string;
+    }>;
     onSuccess: () => void;
 }
 
@@ -30,18 +37,21 @@ export function KioskStopDialog({
     onOpenChange,
     executionId,
     productName,
+    currentProduced,
+    targetQuantity,
+    logs,
     onSuccess
 }: KioskStopDialogProps) {
     const [loading, setLoading] = useState(false);
-    const [quantity, setQuantity] = useState('');
+    const [quantity, setQuantity] = useState('0');
     const [scrap, setScrap] = useState('0');
     const [notes, setNotes] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const qtyNum = parseFloat(quantity);
-        const scrapNum = parseFloat(scrap);
+        const qtyNum = parseFloat(quantity) || 0;
+        const scrapNum = parseFloat(scrap) || 0;
 
         if (isNaN(qtyNum) || qtyNum < 0) {
             toast.error("Please enter a valid quantity produced");
@@ -54,12 +64,12 @@ export function KioskStopDialog({
             const result = await stopExecution({
                 executionId,
                 quantityProduced: qtyNum,
-                scrapQuantity: isNaN(scrapNum) ? 0 : scrapNum,
+                scrapQuantity: scrapNum,
                 notes
             });
 
             if (result.success) {
-                toast.success("Job stopped and output recorded successfully!");
+                toast.success("Job stopped successfully!");
                 onOpenChange(false);
                 onSuccess();
             } else {
@@ -76,29 +86,61 @@ export function KioskStopDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Stop Job & Record Output</DialogTitle>
+                    <DialogTitle>Finish Job & Summary</DialogTitle>
                     <DialogDescription>
-                        Completing production for: <span className="font-semibold text-primary">{productName}</span>
+                        Reviewing production for: <span className="font-semibold text-primary">{productName}</span>.
                     </DialogDescription>
                 </DialogHeader>
 
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/40 rounded-lg border border-border/50">
+                    <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground uppercase font-bold">Total Produced</span>
+                        <span className="text-2xl font-black text-primary">{currentProduced}</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground uppercase font-bold">Target</span>
+                        <span className="text-2xl font-black">{targetQuantity}</span>
+                    </div>
+                </div>
+
+                {logs.length > 0 && (
+                    <div className="mt-4 border rounded-md overflow-hidden">
+                        <div className="bg-muted px-3 py-2 text-xs font-bold uppercase tracking-wider border-b">
+                            Partial Output Logs
+                        </div>
+                        <div className="max-h-[150px] overflow-y-auto divide-y">
+                            {logs.map((log, idx) => (
+                                <div key={log.id} className="px-3 py-2 flex justify-between items-center text-sm bg-card hover:bg-accent/5">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium text-emerald-600">+{log.quantity}</span>
+                                        <span className="text-[10px] text-muted-foreground italic">Entry #{logs.length - idx}</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground font-mono">
+                                        {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="quantity" className="text-lg">Quantity Produced</Label>
+                        <Label htmlFor="quantity" className="text-sm font-semibold">Any Final Additional Output?</Label>
                         <Input
                             id="quantity"
                             type="number"
                             step="0.01"
                             placeholder="0.00"
-                            className="h-14 text-lg font-semibold"
+                            className="h-12 text-lg font-bold border-primary/20 focus:border-primary"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            required
                         />
+                        <p className="text-xs text-muted-foreground italic">If you've already logged everything, leave this as 0.</p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="scrap">Scrap Quantity</Label>
+                        <Label htmlFor="scrap">Additional Scrap Quantity</Label>
                         <Input
                             id="scrap"
                             type="number"

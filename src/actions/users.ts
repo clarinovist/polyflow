@@ -17,6 +17,17 @@ const CreateUserSchema = z.object({
 
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 
+// Schema for updating a user
+const UpdateUserSchema = z.object({
+    id: z.string(),
+    name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+    email: z.string().email('Invalid email address').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+    role: z.nativeEnum(Role).optional(),
+});
+
+export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
+
 // Helper to check ADMIN permission
 async function checkAdmin() {
     const session = await auth();
@@ -96,6 +107,45 @@ export async function updateUserRole(userId: string, newRole: Role) {
     } catch (error) {
         console.error('Failed to update user role:', error);
         return { success: false, error: 'Failed to update role' };
+    }
+}
+
+export async function updateUser(data: UpdateUserInput) {
+    try {
+        await checkAdmin();
+        const validated = UpdateUserSchema.parse(data);
+
+        const updateData: any = {};
+        if (validated.name) updateData.name = validated.name;
+        if (validated.email) {
+            // Check if email taken by someone else
+            const existing = await prisma.user.findFirst({
+                where: {
+                    email: validated.email,
+                    NOT: { id: validated.id }
+                }
+            });
+            if (existing) return { success: false, error: 'Email already taken' };
+            updateData.email = validated.email;
+        }
+        if (validated.password) {
+            updateData.password = await bcrypt.hash(validated.password, 10);
+        }
+        if (validated.role) updateData.role = validated.role;
+
+        await prisma.user.update({
+            where: { id: validated.id },
+            data: updateData,
+        });
+
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update user:', error);
+        if (error instanceof z.ZodError) {
+            return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
+        }
+        return { success: false, error: (error as Error).message };
     }
 }
 

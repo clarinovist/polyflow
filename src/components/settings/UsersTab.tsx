@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getUsers, createUser, updateUserRole, deleteUser, CreateUserInput } from '@/actions/users';
+import { getUsers, createUser, updateUser, deleteUser, CreateUserInput, UpdateUserInput } from '@/actions/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Loader2, UserCog } from 'lucide-react';
+import { Plus, Trash2, Loader2, UserCog, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { classPresets } from '@/lib/design-tokens';
 
@@ -48,10 +48,20 @@ export function UsersTab() {
     const [users, setUsers] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     const [createOpen, setCreateOpen] = useState(false);
+    const [editOpen, setEditOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Form state
+    // Form state for creation
     const [formData, setFormData] = useState<CreateUserInput>({
+        name: '',
+        email: '',
+        password: '',
+        role: 'WAREHOUSE',
+    });
+
+    // Form state for editing
+    const [editData, setEditData] = useState<UpdateUserInput>({
+        id: '',
         name: '',
         email: '',
         password: '',
@@ -87,6 +97,19 @@ export function UsersTab() {
         setIsSubmitting(false);
     };
 
+    const handleUpdate = async () => {
+        setIsSubmitting(true);
+        const result = await updateUser(editData);
+        if (result.success) {
+            toast.success('User updated successfully');
+            setEditOpen(false);
+            fetchUsers();
+        } else {
+            toast.error(result.error || 'Failed to update user');
+        }
+        setIsSubmitting(false);
+    };
+
     const handleDelete = async (userId: string) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
 
@@ -99,15 +122,15 @@ export function UsersTab() {
         }
     };
 
-    const handleRoleChange = async (userId: string, newRole: Role) => {
-        const result = await updateUserRole(userId, newRole);
-        if (result.success) {
-            toast.success('Role updated');
-            // Optimistic update
-            setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-        } else {
-            toast.error(result.error);
-        }
+    const openEdit = (user: UserData) => {
+        setEditData({
+            id: user.id,
+            name: user.name || '',
+            email: user.email,
+            role: user.role,
+            password: '', // Always start empty
+        });
+        setEditOpen(true);
     };
 
     return (
@@ -200,34 +223,104 @@ export function UsersTab() {
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {users.map((user) => (
-                                <TableRow key={user.id}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                                                {user.name?.[0]?.toUpperCase() || 'U'}
+                    <>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {users.map((user) => (
+                                    <TableRow key={user.id}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                                                    {user.name?.[0]?.toUpperCase() || 'U'}
+                                                </div>
+                                                {user.name || 'Unknown'}
                                             </div>
-                                            {user.name || 'Unknown'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{user.email}</TableCell>
-                                    <TableCell>
+                                        </TableCell>
+                                        <TableCell>{user.email}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{user.role}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                                    onClick={() => openEdit(user)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                    onClick={() => handleDelete(user.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+
+                        {/* Edit User Dialog */}
+                        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Edit User</DialogTitle>
+                                    <DialogDescription>
+                                        Update user information. Leave password blank to keep current password.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="edit-name">Full Name</Label>
+                                        <Input
+                                            id="edit-name"
+                                            value={editData.name}
+                                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                            className={classPresets.inputDefault}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="edit-email">Email</Label>
+                                        <Input
+                                            id="edit-email"
+                                            type="email"
+                                            value={editData.email}
+                                            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                                            className={classPresets.inputDefault}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="edit-password">New Password (Optional)</Label>
+                                        <Input
+                                            id="edit-password"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={editData.password}
+                                            onChange={(e) => setEditData({ ...editData, password: e.target.value })}
+                                            className={classPresets.inputDefault}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="edit-role">Role</Label>
                                         <Select
-                                            defaultValue={user.role}
-                                            onValueChange={(val: Role) => handleRoleChange(user.id, val)}
+                                            value={editData.role}
+                                            onValueChange={(val: Role) => setEditData({ ...editData, role: val })}
                                         >
-                                            <SelectTrigger className="w-[130px] h-8">
-                                                <SelectValue />
+                                            <SelectTrigger className={classPresets.inputDefault}>
+                                                <SelectValue placeholder="Select role" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="ADMIN">Admin</SelectItem>
@@ -237,21 +330,20 @@ export function UsersTab() {
                                                 <SelectItem value="SALES">Sales</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => handleDelete(user.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
+                                        Cancel
+                                    </Button>
+                                    <Button onClick={handleUpdate} disabled={isSubmitting} className={classPresets.buttonPrimary}>
+                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Save Changes
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </>
                 )}
             </CardContent>
         </Card>

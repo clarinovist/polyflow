@@ -54,6 +54,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     locationId,
                     notes,
                     status: ProductionStatus.DRAFT,
+                    actualQuantity: 0,
                 }
             });
 
@@ -383,6 +384,7 @@ export async function startExecution(data: StartExecutionValues) {
         }
 
         revalidatePath('/dashboard/production');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: execution };
     } catch (error: any) {
         console.error('Error starting execution:', error);
@@ -406,21 +408,30 @@ export async function stopExecution(data: StopExecutionValues) {
             where: { id: executionId },
             data: {
                 endTime: new Date(),
-                quantityProduced,
-                scrapQuantity,
+                quantityProduced: { increment: quantityProduced },
+                scrapQuantity: { increment: scrapQuantity },
                 notes
             }
         });
+
+        // Fetch current to handle NULL safely if any
+        const currentOrder = await prisma.productionOrder.findUnique({
+            where: { id: execution.productionOrderId },
+            select: { actualQuantity: true }
+        });
+
+        const newTotal = (currentOrder?.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
 
         // Update Order actual quantity (accumulate)
         await prisma.productionOrder.update({
             where: { id: execution.productionOrderId },
             data: {
-                actualQuantity: { increment: quantityProduced }
+                actualQuantity: newTotal
             }
         });
 
         revalidatePath('/dashboard/production');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: execution };
     } catch (error: any) {
         console.error('Error stopping execution:', error);
@@ -566,7 +577,6 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                         productionOrderId,
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
-                        createdById: 'SYSTEM', // TO DO: Replace with auth user
                         batchId: item.batchId
                     } as any
                 });
@@ -580,7 +590,6 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                         toLocationId: null, // Consumption
                         quantity: item.quantity,
                         reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
-                        createdById: 'SYSTEM',
                         batchId: item.batchId
                     } as any
                 });
@@ -1236,10 +1245,17 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
             const productionOrderId = execution.productionOrderId;
 
             // 3. Update Order actual quantity (Accumulate)
+            // Fetch current to handle NULL safely
+            const currentOrder = await tx.productionOrder.findUniqueOrThrow({
+                where: { id: productionOrderId }
+            });
+
+            const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
+
             const order = await tx.productionOrder.update({
                 where: { id: productionOrderId },
                 data: {
-                    actualQuantity: { increment: quantityProduced }
+                    actualQuantity: newTotal
                 },
                 include: {
                     bom: {
@@ -1277,7 +1293,6 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
                     toLocationId: locationId,
                     quantity: quantityProduced,
                     reference: `Production Partial Output: PO-${order.orderNumber}`,
-                    createdById: 'SYSTEM',
                 }
             });
 
@@ -1320,6 +1335,7 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
         });
 
         revalidatePath('/dashboard/production');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true };
     } catch (error: any) {
         console.error('Error logging output:', error);

@@ -1,6 +1,5 @@
 'use client';
 
-// import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, Clock, AlertCircle, AlertTriangle, PlusCircle } from "lucide-react";
@@ -9,6 +8,7 @@ import { startExecution, stopExecution } from "@/actions/production";
 import { toast } from "sonner";
 import { useState } from "react";
 import { StartExecutionValues } from "@/lib/zod-schemas";
+import { useRouter } from "next/navigation";
 
 import { KioskStopDialog } from "./KioskStopDialog";
 import { DowntimeDialog } from "./DowntimeDialog";
@@ -35,6 +35,11 @@ interface ProductionOrder {
         startTime: Date;
         endTime: Date | null;
     }>;
+    outputLogs?: Array<{
+        id: string;
+        quantity: number;
+        createdAt: string;
+    }>;
 }
 
 interface KioskOrderCardProps {
@@ -43,6 +48,7 @@ interface KioskOrderCardProps {
 }
 
 export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
     const [logDialogOpen, setLogDialogOpen] = useState(false);
@@ -64,6 +70,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
 
                 if (result.success) {
                     toast.success("Production started!");
+                    router.refresh();
                 } else {
                     toast.error(result.error || "Failed to start");
                 }
@@ -186,8 +193,11 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         onOpenChange={setStopDialogOpen}
                         executionId={activeExecution.id}
                         productName={order.bom.productVariant.name}
+                        currentProduced={order.actualQuantity || 0}
+                        targetQuantity={order.plannedQuantity}
+                        logs={order.outputLogs || []}
                         onSuccess={() => {
-                            // Optional: Trigger refresh
+                            router.refresh();
                         }}
                     />
                     <KioskLogOutputDialog
@@ -195,6 +205,9 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         onOpenChange={setLogDialogOpen}
                         executionId={activeExecution.id}
                         productName={order.bom.productVariant.name}
+                        onSuccess={() => {
+                            router.refresh();
+                        }}
                     />
                 </>
             )}

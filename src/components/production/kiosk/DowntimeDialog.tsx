@@ -39,7 +39,7 @@ export function DowntimeDialog({ machineId, machineName, trigger }: DowntimeDial
         setLoading(true);
 
         try {
-            const result = await logMachineDowntime(machineId, reason, 'SYSTEM'); // Todo: pass User ID
+            const result = await logMachineDowntime(machineId, reason); // Todo: pass User ID
             if (result.success) {
                 toast.success("Downtime reported. Machine status set to Maintenance.");
                 setOpen(false);

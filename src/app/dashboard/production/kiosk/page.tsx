@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"; // Re-added
 import { serializeData } from "@/lib/utils";
-import { ProductionStatus } from "@prisma/client";
+import { ProductionStatus, MovementType } from "@prisma/client";
 import { KioskOrderCard } from "@/components/production/kiosk/KioskOrderCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search, X } from "lucide-react";
@@ -47,8 +47,31 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
         )
         : orders;
 
+    // Fetch movements for logs (Detail list)
+    const orderNumbers = filteredOrders.map(o => o.orderNumber);
+    const logs = await prisma.stockMovement.findMany({
+        where: {
+            reference: {
+                in: orderNumbers.map(n => `Production Partial Output: PO-${n}`)
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // Map logs to orders
+    const ordersWithLogs = filteredOrders.map(order => ({
+        ...order,
+        outputLogs: logs
+            .filter(l => l.reference === `Production Partial Output: PO-${order.orderNumber}`)
+            .map(l => ({
+                id: l.id,
+                quantity: l.quantity.toNumber(),
+                createdAt: l.createdAt
+            }))
+    }));
+
     // Serialize using generic helper to handle all Decimals deeply
-    const serializedOrders = serializeData(filteredOrders) as any[];
+    const serializedOrders = serializeData(ordersWithLogs) as any[];
 
     // Server Action for Manual Refresh
     async function refreshData() {
