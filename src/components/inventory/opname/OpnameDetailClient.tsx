@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,20 +43,24 @@ interface OpnameDetailClientProps {
 }
 
 export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
+    const { data: sessionData } = useSession();
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();
 
     const handleFinalize = async () => {
+        if (!sessionData?.user?.id) {
+            toast.error("Authentication error: User ID not found.");
+            return;
+        }
+
         if (!confirm("Are you sure you want to finalize this session? This will create stock adjustments for all variances.")) {
             return;
         }
 
         setIsFinalizing(true);
         try {
-            // TODO: Replace with actual user ID from auth context
-            const userId = 'system-user-id'; // Using placeholder until auth is implemented
-            const result = await completeOpname(session.id, userId);
+            const result = await completeOpname(session.id, sessionData.user.id);
             if (result.success) {
                 toast.success("Session finalized and inventory updated");
                 router.refresh();

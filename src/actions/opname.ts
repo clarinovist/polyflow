@@ -97,9 +97,16 @@ export async function saveOpnameCount(
 }
 
 import { logActivity } from '@/lib/audit';
+import { auth } from '@/auth';
 
-export async function completeOpname(opnameId: string, userId: string) {
+export async function completeOpname(opnameId: string) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            throw new Error("User not authenticated");
+        }
+        const userId = session.user.id;
+
         const opname = await prisma.stockOpname.findUnique({
             where: { id: opnameId },
             include: { items: true }
