@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     Package,
@@ -14,7 +14,7 @@ interface InventoryInsightsPanelProps {
     activeLocationId?: string;
 }
 
-export function InventoryInsightsPanel({ activeLocationId }: InventoryInsightsPanelProps) {
+export function InventoryInsightsPanel({ activeLocationId: _activeLocationId }: InventoryInsightsPanelProps) {
     return (
         <div className="space-y-6">
             <Card className="h-full border-none shadow-none bg-transparent">

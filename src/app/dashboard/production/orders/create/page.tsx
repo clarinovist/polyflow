@@ -5,10 +5,15 @@ import { serializeData } from '@/lib/utils';
 import { getProductionFormData } from '@/actions/production';
 import { ProductionGlossary } from '@/components/production/ProductionGlossary';
 
+interface FormData {
+    boms: any[];
+    locations: any[];
+}
+
 export default async function CreateProductionOrderPage() {
     const rawData = await getProductionFormData();
     // Only destructure what we need
-    const { boms, locations } = serializeData(rawData) as any;
+    const { boms, locations } = serializeData(rawData) as unknown as FormData;
 
     return (
         <div className="p-6 md:p-8 max-w-7xl mx-auto">

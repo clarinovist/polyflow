@@ -364,6 +364,7 @@ export async function startExecution(data: StartExecutionValues) {
                 operatorId,
                 shiftId,
                 startTime: new Date(),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 endTime: null as any, // Explicitly set to null for running execution
                 quantityProduced: 0,
                 scrapQuantity: 0,
@@ -386,9 +387,9 @@ export async function startExecution(data: StartExecutionValues) {
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: execution };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error starting execution:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -433,9 +434,9 @@ export async function stopExecution(data: StopExecutionValues) {
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: execution };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error stopping execution:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 
@@ -446,6 +447,7 @@ export async function getActiveExecutions() {
     try {
         const executions = await prisma.productionExecution.findMany({
             where: {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 endTime: { equals: null as any }
             },
             include: {
@@ -578,7 +580,7 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         batchId: item.batchId
-                    } as any
+                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
                 });
 
                 // 5. Create Audit Log / Stock Movement
@@ -591,7 +593,7 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                         quantity: item.quantity,
                         reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
                         batchId: item.batchId
-                    } as any
+                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
                 });
             }
         });
@@ -1337,9 +1339,9 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/production/kiosk');
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error logging output:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
 

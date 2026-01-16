@@ -71,6 +71,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
 
     useEffect(() => {
         form.setValue('items', []);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setNewItem({ productVariantId: '', quantity: '' });
     }, [sourceLocationId, form]);
 

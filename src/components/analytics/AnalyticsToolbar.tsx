@@ -9,11 +9,11 @@ import Papa from 'papaparse'
 interface AnalyticsToolbarProps {
     dateRange: { from: Date | string; to: Date | string }
     data: {
-        productionRealization: any[]
-        materialVariance: any[]
-        machinePerformance: any[]
-        operatorLeaderboard: any[]
-        qualitySummary: any
+        productionRealization: unknown[]
+        materialVariance: unknown[]
+        machinePerformance: unknown[]
+        operatorLeaderboard: unknown[]
+        qualitySummary: any // Keeping any for nested summary as it is checked below
     }
     activeTab: string
 }
@@ -21,7 +21,7 @@ interface AnalyticsToolbarProps {
 export function AnalyticsToolbar({ dateRange, data, activeTab }: AnalyticsToolbarProps) {
 
     const handleExport = () => {
-        let exportData: any[] = []
+        let exportData: unknown[] = []
         let filename = `analytics-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`
 
         // Select data based on active tab
@@ -42,7 +42,7 @@ export function AnalyticsToolbar({ dateRange, data, activeTab }: AnalyticsToolba
                 // Quality summary is nested. We can export inspections or scrap.
                 // Let's flatten straightforwardly or export inspections
                 if (data.qualitySummary) {
-                    const { inspections, scrapByReason } = data.qualitySummary
+                    const { scrapByReason } = data.qualitySummary
                     // Provide a combined view or just inspections?
                     // Let's export scrap reason mix as it is list-based
                     exportData = scrapByReason || []

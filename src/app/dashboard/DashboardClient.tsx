@@ -33,14 +33,14 @@ import {
 } from 'recharts';
 
 // Types
-interface DashboardStats {
+export interface DashboardStats {
     productCount: number;
     totalStock: number;
     lowStockCount: number;
     recentMovements: number;
 }
 
-interface ProductionOrder {
+export interface ProductionOrder {
     id: string;
     orderNumber: string;
     status: 'DRAFT' | 'RELEASED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
@@ -54,7 +54,7 @@ interface ProductionOrder {
     createdAt: Date;
 }
 
-interface StockMovement {
+export interface StockMovement {
     id: string;
     type: string;
     quantity: { toNumber: () => number } | number;
@@ -94,6 +94,7 @@ export default function DashboardClient({ stats, productionOrders, recentMovemen
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMounted(true);
     }, []);
 

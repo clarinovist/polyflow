@@ -33,10 +33,10 @@ export function SettingsTabs({ shifts, currentUserRole }: SettingsTabsProps) {
     const tabs: TabItem[] = [
         { value: 'general', label: 'General', icon: User, description: 'Manage your profile and preferences' },
         ...(isAdmin ? [
-            { value: 'production', label: 'Production', icon: Layers, description: 'Manage shifts and operational configurations' },
-            { value: 'users', label: 'Users', icon: Users, description: 'Manage system users and roles' },
-            { value: 'access', label: 'Access Control', icon: Lock, description: 'Configure permissions for each role' },
-        ] : [] as any),
+            { value: 'production', label: 'Production', icon: Layers, description: 'Manage shifts and operational configurations' } as TabItem,
+            { value: 'users', label: 'Users', icon: Users, description: 'Manage system users and roles' } as TabItem,
+            { value: 'access', label: 'Access Control', icon: Lock, description: 'Configure permissions for each role' } as TabItem,
+        ] : []),
         { value: 'system', label: 'System', icon: Monitor, description: 'View system health and version' },
     ];
 

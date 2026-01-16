@@ -236,7 +236,4 @@ export default async function InventoryDashboard({
     );
 }
 
-// Reuse helper
-function isLowStock(item: any) {
-    return item.quantity <= (item.productVariant.minStockAlert || 0);
-}
+

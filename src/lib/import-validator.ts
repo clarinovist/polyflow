@@ -49,9 +49,7 @@ export function validateRow(
         errors.push({ field: 'variant_name', message: 'Variant name is required' });
     }
 
-    if (!row.sku_code?.trim()) {
-        errors.push({ field: 'sku_code', message: 'SKU code is required' });
-    } else {
+    if (row.sku_code?.trim()) {
         const sku = row.sku_code.trim().toUpperCase();
 
         // Check format
@@ -107,7 +105,7 @@ export function validateRow(
     }
 
     // Validate numeric fields
-    const numericFields: (keyof ProductImportRow)[] = ['price', 'buy_price', 'sell_price', 'min_stock_alert'];
+    const numericFields: (keyof ProductImportRow)[] = ['price', 'min_stock_alert'];
     for (const field of numericFields) {
         const value = row[field];
         if (value !== undefined && value !== null && value !== '') {
@@ -122,7 +120,7 @@ export function validateRow(
     }
 
     // Warnings
-    if (!row.price && !row.buy_price && !row.sell_price) {
+    if (!row.price) {
         warnings.push({
             field: 'price',
             message: 'No pricing information provided'

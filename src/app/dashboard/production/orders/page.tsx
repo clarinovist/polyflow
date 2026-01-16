@@ -7,7 +7,6 @@ import { getProductionOrders } from '@/actions/production';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 export default async function ProductionOrdersPage() {
     const orders = await getProductionOrders();

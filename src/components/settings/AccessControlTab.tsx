@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
 import { getRolePermissions, updatePermission } from '@/actions/permissions';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,

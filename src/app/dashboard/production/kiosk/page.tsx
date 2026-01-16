@@ -1,11 +1,10 @@
 import { prisma } from "@/lib/prisma"; // Re-added
 import { serializeData } from "@/lib/utils";
-import { ProductionStatus, MovementType } from "@prisma/client";
-import { KioskOrderCard } from "@/components/production/kiosk/KioskOrderCard";
+import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, Search, X } from "lucide-react";
+import { RefreshCcw, Search } from "lucide-react";
 import { revalidatePath } from "next/cache";
-import KioskRefreshWrapper from "./KioskRefreshWrapper";
+import KioskRefreshWrapper, { Order } from "./KioskRefreshWrapper";
 
 // Server Component fetching data
 export default async function KioskPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -25,6 +24,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
             machine: true,
             executions: {
                 where: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     endTime: { equals: null as any }
                 },
                 orderBy: { startTime: 'desc' },
@@ -41,7 +41,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
 
     // Filter by query (if any)
     const filteredOrders = searchQuery
-        ? orders.filter((o: any) =>
+        ? orders.filter((o) =>
             o.orderNumber.toLowerCase().includes(searchQuery) ||
             o.bom.productVariant.name.toLowerCase().includes(searchQuery)
         )
@@ -71,7 +71,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
     }));
 
     // Serialize using generic helper to handle all Decimals deeply
-    const serializedOrders = serializeData(ordersWithLogs) as any[];
+    const serializedOrders = serializeData(ordersWithLogs) as Order[];
 
     // Server Action for Manual Refresh
     async function refreshData() {

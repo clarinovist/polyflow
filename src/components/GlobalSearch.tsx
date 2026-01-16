@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Calculator, Calendar, CreditCard, Settings, User, Search, Package, Warehouse, FileText } from 'lucide-react';
+import { Calculator, Settings, Search, Package, Warehouse, FileText } from 'lucide-react';
 
 import {
     CommandDialog,
@@ -18,7 +18,7 @@ import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 // import { DialogProps } from '@radix-ui/react-dialog'; // Removing DialogProps to avoid confusion
 
-export interface GlobalSearchProps extends ButtonProps { }
+export type GlobalSearchProps = ButtonProps;
 
 export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
     const router = useRouter();

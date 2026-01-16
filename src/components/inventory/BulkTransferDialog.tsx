@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/zod-schemas';
 import { transferStockBulk } from '@/actions/inventory';
@@ -30,9 +30,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getLocations } from '@/actions/locations';
 
 // Type definition for the items passed to the dialog
@@ -124,7 +123,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
             } else {
                 toast.error(`Error: ${result.error}`);
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to execute bulk transfer");
         } finally {
             setIsSubmitting(false);

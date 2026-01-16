@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 /**
  * useBarcodeScanner
@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
  * Ideal for USB/Bluetooth HID scanners that act as a keyboard.
  */
 export function useBarcodeScanner(onScan: (code: string) => void, minLength = 3) {
-    const [barcode, setBarcode] = useState('');
 
     useEffect(() => {
         let buffer = '';

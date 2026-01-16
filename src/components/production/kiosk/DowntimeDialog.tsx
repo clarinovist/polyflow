@@ -47,7 +47,7 @@ export function DowntimeDialog({ machineId, machineName, trigger }: DowntimeDial
             } else {
                 toast.error(result.error);
             }
-        } catch (err) {
+        } catch {
             toast.error("Failed to report downtime");
         } finally {
             setLoading(false);

@@ -12,12 +12,11 @@ export interface ProductImportRow {
     sales_unit?: string;
     conversion_factor?: number;
     price?: number;
-    buy_price?: number;
-    sell_price?: number;
     min_stock_alert?: number;
     color?: string;
     material?: string;
     notes?: string;
+    supplier_name?: string;
 }
 
 export interface ParsedProduct {
@@ -30,9 +29,8 @@ export interface ParsedProduct {
         salesUnit?: Unit;
         conversionFactor: number;
         price?: number;
-        buyPrice?: number;
-        sellPrice?: number;
         minStockAlert?: number;
+        supplierName?: string;
         attributes?: Record<string, string | number | boolean | null>;
     }[];
 }
@@ -50,12 +48,11 @@ export function generateCSVTemplate(): string {
         'sales_unit',
         'conversion_factor',
         'price',
-        'buy_price',
-        'sell_price',
         'min_stock_alert',
         'color',
         'material',
-        'notes'
+        'notes',
+        'supplier_name'
     ];
 
     const exampleRows: ProductImportRow[] = [
@@ -68,11 +65,10 @@ export function generateCSVTemplate(): string {
             sales_unit: 'KG',
             conversion_factor: 1,
             price: 15000,
-            buy_price: 14500,
-            sell_price: 16000,
             min_stock_alert: 100,
             color: 'Clear',
-            material: 'PP'
+            material: 'PP',
+            supplier_name: 'PT. Poly Supply'
         },
         {
             product_name: 'Blue Colorant',
@@ -83,8 +79,6 @@ export function generateCSVTemplate(): string {
             sales_unit: 'KG',
             conversion_factor: 1,
             price: 50000,
-            buy_price: 48000,
-            sell_price: 52000,
             min_stock_alert: 50,
             color: 'Blue',
             material: 'Masterbatch'
@@ -98,8 +92,6 @@ export function generateCSVTemplate(): string {
             sales_unit: 'BAL',
             conversion_factor: 5,
             price: 90000,
-            buy_price: 85000,
-            sell_price: 100000,
             min_stock_alert: 20,
             color: 'Blue',
             material: 'Raffia'
@@ -194,9 +186,8 @@ export function rowsToProducts(rows: ProductImportRow[]): ParsedProduct[] {
                 salesUnit: v.sales_unit as Unit | undefined,
                 conversionFactor: v.conversion_factor || 1,
                 price: v.price,
-                buyPrice: v.buy_price,
-                sellPrice: v.sell_price,
                 minStockAlert: v.min_stock_alert,
+                supplierName: v.supplier_name?.trim(),
                 attributes: buildAttributes(v)
             }))
         });
@@ -228,12 +219,11 @@ export function generateExcelTemplate(): Blob {
         'sales_unit',
         'conversion_factor',
         'price',
-        'buy_price',
-        'sell_price',
         'min_stock_alert',
         'color',
         'material',
-        'notes'
+        'notes',
+        'supplier_name'
     ];
 
     const exampleRows = [
@@ -246,12 +236,11 @@ export function generateExcelTemplate(): Blob {
             sales_unit: 'KG',
             conversion_factor: 1,
             price: 15000,
-            buy_price: 14500,
-            sell_price: 16000,
             min_stock_alert: 100,
             color: 'Clear',
             material: 'PP',
-            notes: ''
+            notes: '',
+            supplier_name: 'PT. Poly Supply'
         },
         {
             product_name: 'Blue Colorant',
@@ -262,12 +251,11 @@ export function generateExcelTemplate(): Blob {
             sales_unit: 'KG',
             conversion_factor: 1,
             price: 50000,
-            buy_price: 48000,
-            sell_price: 52000,
             min_stock_alert: 50,
             color: 'Blue',
             material: 'Masterbatch',
-            notes: ''
+            notes: '',
+            supplier_name: 'PT. Poly Supply'
         },
         {
             product_name: 'Blue Raffia',
@@ -278,12 +266,11 @@ export function generateExcelTemplate(): Blob {
             sales_unit: 'BAL',
             conversion_factor: 5,
             price: 90000,
-            buy_price: 85000,
-            sell_price: 100000,
             min_stock_alert: 20,
             color: 'Blue',
             material: 'Raffia',
-            notes: ''
+            notes: '',
+            supplier_name: 'PT. Poly Supply'
         }
     ];
 
@@ -300,12 +287,11 @@ export function generateExcelTemplate(): Blob {
         { wch: 12 }, // sales_unit
         { wch: 15 }, // conversion_factor
         { wch: 10 }, // price
-        { wch: 10 }, // buy_price
-        { wch: 10 }, // sell_price
         { wch: 15 }, // min_stock_alert
         { wch: 10 }, // color
         { wch: 15 }, // material
-        { wch: 20 }  // notes
+        { wch: 20 }, // notes
+        { wch: 25 }  // supplier_name
     ];
 
     // Create workbook

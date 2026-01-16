@@ -1,9 +1,8 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Archive, LayoutGrid, Warehouse, AlertCircle } from 'lucide-react';
+import { Warehouse, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +20,7 @@ interface WarehouseNavigatorProps {
     totalLowStock: number;
 }
 
-export function WarehouseNavigator({ locations, activeLocationIds, totalSkus, totalLowStock }: WarehouseNavigatorProps) {
+export function WarehouseNavigator({ locations, activeLocationIds, totalSkus: _totalSkus, totalLowStock: _totalLowStock }: WarehouseNavigatorProps) {
     return (
         <Card className="h-full border-none shadow-none bg-transparent flex flex-col overflow-hidden">
             <div className="flex-col h-full flex">

@@ -1,6 +1,6 @@
 "use client"
 
-import { format, startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns"
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -20,8 +20,8 @@ interface DateRangePickerProps {
 }
 
 export function DateRangePicker({
-    from,
-    to,
+    from: _from,
+    to: _to,
     className,
 }: DateRangePickerProps) {
     const router = useRouter()

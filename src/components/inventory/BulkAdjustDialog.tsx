@@ -20,7 +20,6 @@ import {
     FormField,
     FormItem,
     FormLabel,
-    FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -139,7 +138,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
             } else {
                 toast.error(`Error: ${result.error}`);
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to execute bulk adjustment");
         } finally {
             setIsSubmitting(false);

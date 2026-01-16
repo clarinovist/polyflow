@@ -14,7 +14,7 @@ import { createBom, updateBom } from '@/actions/boms';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-interface Product {
+export interface Product {
     id: string;
     name: string;
     skuCode: string;
@@ -23,28 +23,35 @@ interface Product {
 
 interface BomFormProps {
     products: Product[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    initialData?: any; // The ID will be in initialData.id
+    initialData?: {
+        id?: string;
+        name?: string;
+        productVariantId?: string;
+        outputQuantity?: number;
+        isDefault?: boolean;
+        items?: Array<{
+            productVariantId: string;
+            quantity: number | { toNumber: () => number };
+        }>;
+    };
 }
 
 export function BomForm({ products, initialData }: BomFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const form = useForm({
-        resolver: zodResolver(createBomSchema),
+    const form = useForm<CreateBomValues>({
+        resolver: zodResolver(createBomSchema) as any,
         defaultValues: {
             name: initialData?.name || '',
             productVariantId: initialData?.productVariantId || '',
-            outputQuantity: initialData?.outputQuantity || 1,
+            outputQuantity: Number(initialData?.outputQuantity) || 1,
             isDefault: initialData?.isDefault || false,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            items: initialData?.items?.map((item: any) => ({
+            items: initialData?.items?.map((item) => ({
                 productVariantId: item.productVariantId,
-                quantity: Number(item.quantity),
+                quantity: typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber(),
             })) || [{ productVariantId: '', quantity: 0 }]
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any,
+        },
     });
 
     const { fields, append, remove } = useFieldArray({

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/zod-schemas';
 import { ProductType, Unit, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { serializeData } from '@/lib/utils';
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -19,8 +20,6 @@ export type ProductWithVariantsAndStock = {
         salesUnit: Unit | null;
         conversionFactor: Prisma.Decimal;
         price: Prisma.Decimal | null;
-        buyPrice: Prisma.Decimal | null;
-        sellPrice: Prisma.Decimal | null;
         minStockAlert: Prisma.Decimal | null;
         _count: {
             inventories: number;
@@ -32,8 +31,15 @@ export type ProductWithVariantsAndStock = {
 /**
  * Get all products with their variants and inventory totals
  */
-export async function getProducts(): Promise<ProductWithVariantsAndStock[]> {
+export async function getProducts(options?: { type?: ProductType }): Promise<ProductWithVariantsAndStock[]> {
+    const where: Prisma.ProductWhereInput = {};
+
+    if (options?.type) {
+        where.productType = options.type;
+    }
+
     const products = await prisma.product.findMany({
+        where,
         include: {
             variants: {
                 include: {
@@ -97,7 +103,7 @@ export async function getProductById(id: string) {
         return null;
     }
 
-    return product;
+    return serializeData(product);
 }
 
 /**
@@ -112,6 +118,21 @@ export async function getUnits(): Promise<Unit[]> {
  */
 export async function getProductTypes(): Promise<ProductType[]> {
     return Object.values(ProductType);
+}
+
+/**
+ * Get all product variants for selection
+ */
+export async function getVariants() {
+    const variants = await prisma.productVariant.findMany({
+        include: {
+            product: true,
+        },
+        orderBy: {
+            skuCode: 'asc',
+        },
+    });
+    return serializeData(variants);
 }
 
 /**
@@ -165,8 +186,6 @@ export async function createProduct(data: CreateProductValues) {
                     salesUnit: variant.salesUnit || variant.primaryUnit,
                     conversionFactor: new Prisma.Decimal(variant.conversionFactor),
                     price: variant.price ? new Prisma.Decimal(variant.price) : null,
-                    buyPrice: variant.buyPrice ? new Prisma.Decimal(variant.buyPrice) : null,
-                    sellPrice: variant.sellPrice ? new Prisma.Decimal(variant.sellPrice) : null,
                     minStockAlert: variant.minStockAlert ? new Prisma.Decimal(variant.minStockAlert) : null,
                 })),
             });
@@ -289,8 +308,6 @@ export async function updateProduct(data: UpdateProductValues) {
                     salesUnit: variant.salesUnit || variant.primaryUnit,
                     conversionFactor: new Prisma.Decimal(variant.conversionFactor),
                     price: variant.price ? new Prisma.Decimal(variant.price) : null,
-                    buyPrice: variant.buyPrice ? new Prisma.Decimal(variant.buyPrice) : null,
-                    sellPrice: variant.sellPrice ? new Prisma.Decimal(variant.sellPrice) : null,
                     minStockAlert: variant.minStockAlert ? new Prisma.Decimal(variant.minStockAlert) : null,
                 };
 
@@ -449,4 +466,63 @@ export async function deleteVariant(id: string) {
         console.error('Delete variant error:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Failed to delete variant' };
     }
+}
+
+/**
+ * Auto-generate a unique SKU code based on product type and name
+ */
+export async function getNextSKU(productType: ProductType, productName: string): Promise<string> {
+    const prefixes: Record<string, string> = {
+        [ProductType.RAW_MATERIAL]: 'RM',
+        [ProductType.INTERMEDIATE]: 'IN',
+        [ProductType.PACKAGING]: 'PK',
+        [ProductType.WIP]: 'WP',
+        [ProductType.FINISHED_GOOD]: 'FG',
+        [ProductType.SCRAP]: 'SC',
+    };
+
+    const prefix = prefixes[productType] || 'XX';
+
+    // Get Category Part (3 chars)
+    const namePart = productName
+        .replace(/[^A-Z]/gi, '')
+        .toUpperCase();
+
+    let category = namePart.substring(0, 3);
+    while (category.length < 3) {
+        category += 'X';
+    }
+
+    const skuPrefix = `${prefix}${category}`;
+
+    // Find all existing SKUs with this prefix
+    const existingVariants = await prisma.productVariant.findMany({
+        where: {
+            skuCode: {
+                startsWith: skuPrefix,
+            },
+        },
+        select: {
+            skuCode: true,
+        },
+        orderBy: {
+            skuCode: 'desc',
+        },
+    });
+
+    let nextSeq = 1;
+
+    if (existingVariants.length > 0) {
+        // Find the highest sequence number among existing codes with our prefix
+        for (const variant of existingVariants) {
+            const seqPart = variant.skuCode.substring(5);
+            const seq = parseInt(seqPart, 10);
+            if (!isNaN(seq)) {
+                nextSeq = seq + 1;
+                break; // Because it's ordered desc, the first match should be highest
+            }
+        }
+    }
+
+    return `${skuPrefix}${nextSeq.toString().padStart(3, '0')}`;
 }

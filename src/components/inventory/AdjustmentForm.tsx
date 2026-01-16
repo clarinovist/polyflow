@@ -73,6 +73,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
     // Reset items if location changes
     useEffect(() => {
         form.setValue('items', []);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setNewItem({
             productVariantId: '',
             type: 'ADJUSTMENT_IN',
@@ -362,7 +363,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                                         <span className="font-semibold text-sm">{field.quantity}</span>
                                                         {field.reason && (
                                                             <span className="text-muted-foreground italic truncate max-w-[150px] border-l pl-2 border-border/50">
-                                                                "{field.reason}"
+                                                                &quot;{field.reason}&quot;
                                                             </span>
                                                         )}
                                                     </div>

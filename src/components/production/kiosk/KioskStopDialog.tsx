@@ -75,7 +75,7 @@ export function KioskStopDialog({
             } else {
                 toast.error(result.error || "Failed to stop job");
             }
-        } catch (error) {
+        } catch {
             toast.error("An error occurred");
         } finally {
             setLoading(false);
@@ -136,7 +136,7 @@ export function KioskStopDialog({
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground italic">If you've already logged everything, leave this as 0.</p>
+                        <p className="text-xs text-muted-foreground italic">If you&apos;ve already logged everything, leave this as 0.</p>
                     </div>
 
                     <div className="space-y-2">

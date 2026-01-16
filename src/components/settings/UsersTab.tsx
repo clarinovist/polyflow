@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Loader2, UserCog, Pencil } from 'lucide-react';
+import { Plus, Trash2, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { classPresets } from '@/lib/design-tokens';
 
@@ -69,7 +69,6 @@ export function UsersTab() {
     });
 
     const fetchUsers = async () => {
-        setLoading(true);
         const result = await getUsers();
         if (result.success && result.data) {
             setUsers(result.data);
@@ -80,6 +79,7 @@ export function UsersTab() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchUsers();
     }, []);
 

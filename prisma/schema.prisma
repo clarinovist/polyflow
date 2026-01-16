@@ -57,16 +57,46 @@ model ProductionShift {
   helpers         Employee[]      @relation("ShiftHelpers")
 }
 
-model Contact {
-  id             String           @id @default(uuid())
-  name           String
-  type           ContactType
-  phone          String?
-  address        String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  ProductVariant ProductVariant[]
+
+model Supplier {
+  id               String            @id @default(uuid())
+  name             String
+  code             String?           @unique
+  phone            String?
+  email            String?
+  address          String?
+  taxId            String?
+  paymentTermDays  Int?
+  bankName         String?
+  bankAccount      String?
+  notes            String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  supplierProducts SupplierProduct[]
+  productVariants  ProductVariant[]  @relation("PreferredSupplier")
 }
+
+model Customer {
+  id              String   @id @default(uuid())
+  name            String
+  code            String?  @unique
+  phone           String?
+  email           String?
+  billingAddress  String?
+  shippingAddress String?
+  taxId           String?
+  creditLimit     Decimal? @db.Decimal(15, 2)
+  paymentTermDays Int?
+  discountPercent Decimal? @db.Decimal(5, 2)
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Contact model removed
 
 model Location {
   id               String             @id @default(uuid())
@@ -119,12 +149,31 @@ model ProductVariant {
   inventories         Inventory[]
   productionMaterials ProductionMaterial[]
   MaterialIssue       MaterialIssue[]
-  preferredSupplier   Contact?           @relation(fields: [preferredSupplierId], references: [id])
+  preferredSupplier   Supplier?          @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
+  supplierProducts    SupplierProduct[]
   product             Product            @relation(fields: [productId], references: [id])
   ScrapRecord         ScrapRecord[]
   movements           StockMovement[]
   opnameItems         StockOpnameItem[]
   StockReservation    StockReservation[]
+}
+
+model SupplierProduct {
+  id               String         @id @default(uuid())
+  supplierId       String
+  productVariantId String
+  unitPrice        Decimal?       @db.Decimal(15, 4)
+  leadTimeDays     Int?
+  minOrderQty      Decimal?       @db.Decimal(15, 4)
+  isPreferred      Boolean        @default(false)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@unique([supplierId, productVariantId])
 }
 
 model Bom {
@@ -357,10 +406,7 @@ enum ProductType {
   SCRAP
 }
 
-enum ContactType {
-  SUPPLIER
-  CUSTOMER
-}
+// ContactType enum removed
 
 enum Unit {
   KG

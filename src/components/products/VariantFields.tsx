@@ -1,14 +1,15 @@
 'use client';
 
-import { Control, useWatch } from 'react-hook-form';
+import { useState } from 'react';
+import { Control, useWatch, useFormContext } from 'react-hook-form';
 import { CreateProductValues } from '@/lib/zod-schemas';
 import { Unit, ProductType } from '@prisma/client';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
-import { deleteVariant } from '@/actions/product';
+import { Trash2, Loader2 } from 'lucide-react';
+import { deleteVariant, getNextSKU } from '@/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -28,40 +29,32 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     const primaryUnit = useWatch({ control, name: `variants.${index}.primaryUnit` });
     const salesUnit = useWatch({ control, name: `variants.${index}.salesUnit` });
     const conversionFactor = useWatch({ control, name: `variants.${index}.conversionFactor` });
-    const variantId = useWatch({ control, name: `variants.${index}.id` as any }) as string | undefined;
+    const variantId = useWatch({ control, name: `variants.${index}.id` }) as string | undefined;
 
     const router = useRouter();
 
     const isSimpleUnitMode = productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL;
 
-    const generateSKU = () => {
-        if (!productType || !productName) return '';
+    const [isGeneratingSKU, setIsGeneratingSKU] = useState(false);
+    const { setValue } = useFormContext<CreateProductValues>();
 
-        // 1. Get Prefix (2 chars)
-        const prefixes: Record<string, string> = {
-            [ProductType.RAW_MATERIAL]: 'RM',
-            [ProductType.INTERMEDIATE]: 'IN',
-            [ProductType.PACKAGING]: 'PK',
-            [ProductType.WIP]: 'WP',
-            [ProductType.FINISHED_GOOD]: 'FG',
-            [ProductType.SCRAP]: 'SC',
-        };
-        const prefix = prefixes[productType] || 'XX';
-
-        // 2. Get Category (3 chars) - Take alphanumeric, skip spaces, take first 3
-        const namePart = productName
-            .replace(/[^A-Z]/gi, '')
-            .toUpperCase();
-
-        let category = namePart.substring(0, 3);
-        while (category.length < 3) {
-            category += 'X';
+    const handleAutoSKU = async () => {
+        if (!productType || !productName) {
+            toast.error('Please fill product name and type first');
+            return;
         }
 
-        // 3. Get Sequence (3 digits)
-        const seq = (index + 1).toString().padStart(3, '0');
-
-        return `${prefix}${category}${seq}`;
+        setIsGeneratingSKU(true);
+        try {
+            const nextSKU = await getNextSKU(productType as ProductType, productName);
+            setValue(`variants.${index}.skuCode`, nextSKU, { shouldValidate: true });
+            toast.success('SKU generated successfully');
+        } catch (error) {
+            console.error('Error generating SKU:', error);
+            toast.error('Failed to generate SKU');
+        } finally {
+            setIsGeneratingSKU(false);
+        }
     };
 
     // Get conversion preview text
@@ -73,9 +66,9 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     };
 
     return (
-        <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
+        <div className="border rounded-lg p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900">
             <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm text-slate-700">Variant #{index + 1}</h4>
+                <h4 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">Variant #{index + 1}</h4>
                 {canRemove && (
                     <div className="flex items-center gap-2">
                         {variantId && (
@@ -86,7 +79,6 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                 onClick={async () => {
                                     if (!variantId) return;
                                     // confirm
-                                    // eslint-disable-next-line no-restricted-globals
                                     if (!confirm('Delete this variant permanently? This action cannot be undone.')) return;
                                     try {
                                         const res = await deleteVariant(variantId);
@@ -97,7 +89,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                         } else {
                                             toast.error(res.error || 'Failed to delete variant');
                                         }
-                                    } catch (err) {
+                                    } catch {
                                         toast.error('Failed to delete variant');
                                     }
                                 }}
@@ -149,14 +141,14 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => {
-                                        const suggestedSKU = generateSKU();
-                                        if (suggestedSKU) {
-                                            field.onChange(suggestedSKU);
-                                        }
-                                    }}
+                                    onClick={handleAutoSKU}
+                                    disabled={isGeneratingSKU}
                                 >
-                                    Auto
+                                    {isGeneratingSKU ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        'Auto'
+                                    )}
                                 </Button>
                             </div>
                             <FormMessage />
@@ -244,6 +236,27 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                     />
                 )}
 
+                {/* Price Fields */}
+                <FormField
+                    control={control}
+                    name={`variants.${index}.price`}
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Reference Price</FormLabel>
+                            <FormControl>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    value={field.value || ''}
+                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 {/* Min Stock Alert */}
                 <FormField
                     control={control}
@@ -267,7 +280,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
             </div>
 
             {/* Conversion Preview */}
-            <div className="text-xs text-slate-500 italic">
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 italic">
                 {getConversionText()}
             </div>
         </div>

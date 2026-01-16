@@ -25,7 +25,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    AlertCircle,
     Warehouse,
     ArrowUp,
     ArrowDown,
@@ -36,7 +35,6 @@ import {
     Calendar as CalendarIcon,
     ChevronLeft,
     ChevronRight,
-    MoreHorizontal,
     Layers
 } from 'lucide-react';
 import { ThresholdDialog } from './ThresholdDialog';
@@ -92,7 +90,7 @@ interface InventoryTableProps {
     initialCompareDate?: string;
 }
 
-export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate }: InventoryTableProps) {
+export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate }: InventoryTableProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');

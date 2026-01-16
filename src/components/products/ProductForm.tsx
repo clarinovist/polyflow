@@ -6,7 +6,7 @@ import { createProductSchema, updateProductSchema, CreateProductValues, UpdatePr
 import { createProduct, updateProduct } from '@/actions/product';
 import { ProductType, Unit } from '@prisma/client';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -110,7 +110,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold">General Information</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         {/* Product Name */}
                         <FormField
                             control={form.control}
@@ -147,16 +147,18 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    {(productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL) && (
-                                        <FormDescription className="text-xs text-blue-600">
-                                            Smart mode enabled: Variants will use simple 1:1 unit conversion
-                                        </FormDescription>
-                                    )}
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                     </div>
+
+                    {/* Smart Mode Info - Outside grid to avoid layout issues */}
+                    {(productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL) && (
+                        <p className="text-xs text-blue-600 mt-2">
+                            Smart mode enabled: Variants will use simple 1:1 unit conversion
+                        </p>
+                    )}
                 </div>
 
                 {/* Variants Section */}

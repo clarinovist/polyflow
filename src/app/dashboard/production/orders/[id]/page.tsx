@@ -4,15 +4,14 @@ import { ProductionOrderDetail } from './production-order-detail';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { serializeData } from '@/lib/utils';
+import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 
 interface PageProps {
     params: Promise<{
         id: string;
     }>
 }
-
-import { serializeData } from '@/lib/utils';
-// ... imports
 
 export default async function ProductionDetailPage(props: PageProps) {
     const params = await props.params;
@@ -38,7 +37,7 @@ export default async function ProductionDetailPage(props: PageProps) {
             </Link>
 
             <ProductionOrderDetail
-                order={order as any}
+                order={order as unknown as ExtendedProductionOrder}
                 formData={{
                     locations,
                     operators,

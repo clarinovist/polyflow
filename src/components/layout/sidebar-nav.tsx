@@ -14,7 +14,7 @@ import {
     Files,
     Settings2,
     Users,
-    Clock,
+    Users2,
     Settings,
     LogOut,
     Moon,
@@ -23,7 +23,8 @@ import {
     LucideIcon,
     ChevronDown,
     ChevronRight,
-    MonitorPlay
+    MonitorPlay,
+    Truck
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -83,6 +84,8 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "Product Catalog", href: "/dashboard/products", icon: Package },
             { title: "Bill of Materials", href: "/dashboard/production/boms", icon: Files },
+            { title: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
+            { title: "Customers", href: "/dashboard/customers", icon: Users2 },
             { title: "Machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
             { title: "Employees", href: "/dashboard/production/resources/employees", icon: Users },
         ],
@@ -206,6 +209,7 @@ function CollapsibleGroup({ group, pathname }: { group: SidebarLinkGroup, pathna
 
     useEffect(() => {
         if (isChildActive) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsOpen(true);
         }
     }, [pathname, isChildActive]);

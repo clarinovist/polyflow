@@ -3,10 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { StopCircle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { stopExecution } from "@/actions/production";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 interface ActiveExecutionBannerProps {
     executions: Array<{
@@ -25,7 +22,6 @@ interface ActiveExecutionBannerProps {
 
 export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps) {
     const [elapsed, setElapsed] = useState<string>("00:00:00");
-    const router = useRouter();
 
     const active = executions[0]; // Assuming one active at a time per operator/machine context
 
@@ -50,15 +46,6 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
     }, [active]);
 
     if (!active) return null;
-
-    const handleQuickStop = async () => {
-        if (confirm("Confirm stop this job? Use order detail for full report.")) {
-            // Quick stop with 0 qty (requires update later) - OR redirect to detail
-            router.push(`/dashboard/production/orders/${active.productionOrder.orderNumber}`);
-            // Actually orderNumber might not be the ID. We need ID. 
-            // Wait, the prop doesn't have ID. Let's fix props or just reload.
-        }
-    };
 
     return (
         <div className="fixed bottom-0 left-65 right-0 bg-slate-900 text-white p-4 shadow-2xl border-t border-slate-700 z-50 flex justify-between items-center animate-in slide-in-from-bottom">

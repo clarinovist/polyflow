@@ -9,7 +9,6 @@ import {
     OperatorProductivityItem,
     QualityControlSummary,
 } from '@/types/analytics';
-import { Prisma } from '@prisma/client';
 
 /**
  * Helper to calculate percentage safely
@@ -27,7 +26,7 @@ function safePercentage(numerator: number, denominator: number): number {
 export async function getProductionRealizationReport(
     dateRange: DateRange
 ): Promise<ProductionRealizationItem[]> {
-    const orders = await prisma.productionOrder.findMany({
+    await prisma.productionOrder.findMany({
         where: {
             plannedStartDate: {
                 gte: dateRange.from,

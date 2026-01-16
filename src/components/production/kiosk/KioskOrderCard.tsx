@@ -2,12 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Clock, AlertCircle, AlertTriangle, PlusCircle } from "lucide-react";
-import { format } from "date-fns";
-import { startExecution, stopExecution } from "@/actions/production";
+import { Play, Square, AlertTriangle, PlusCircle } from "lucide-react";
+import { startExecution } from "@/actions/production";
 import { toast } from "sonner";
 import { useState } from "react";
-import { StartExecutionValues } from "@/lib/zod-schemas";
 import { useRouter } from "next/navigation";
 
 import { KioskStopDialog } from "./KioskStopDialog";
@@ -74,7 +72,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                 } else {
                     toast.error(result.error || "Failed to start");
                 }
-            } catch (error) {
+            } catch {
                 toast.error("System error");
             } finally {
                 setIsLoading(false);

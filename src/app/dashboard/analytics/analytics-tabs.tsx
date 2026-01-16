@@ -1,7 +1,6 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ProductionRealizationItem,
     MaterialUsageVarianceItem,
@@ -16,23 +15,22 @@ import { MaterialVarianceTable } from '@/components/analytics/MaterialVarianceTa
 import { MachinePerformanceChart } from '@/components/analytics/MachinePerformanceChart';
 import { OperatorLeaderboard } from '@/components/analytics/OperatorLeaderboard';
 import { QualityControlWidget } from '@/components/analytics/QualityControlWidget';
-import { DateRange } from '@/types/analytics';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 interface AnalyticsTabsProps {
     defaultTab: string;
     data: {
-        productionRealization: any; // Cast in component
-        materialVariance: any;
-        machinePerformance: any;
-        operatorLeaderboard: any;
-        qualitySummary: any;
+        productionRealization: ProductionRealizationItem[];
+        materialVariance: MaterialUsageVarianceItem[];
+        machinePerformance: MachinePerformanceItem[];
+        operatorLeaderboard: OperatorProductivityItem[];
+        qualitySummary: QualityControlSummary;
     };
     dateRange: { from: Date | string; to: Date | string };
 }
 
-export default function AnalyticsTabs({ defaultTab, data, dateRange }: AnalyticsTabsProps) {
+export default function AnalyticsTabs({ defaultTab, data, dateRange: _dateRange }: AnalyticsTabsProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState(defaultTab);

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MovementType, Prisma, Unit, ProductType, ReservationType } from '@prisma/client';
+import { Unit, ProductType, ReservationType } from '@prisma/client';
 
 // Stock Reservation Schemas
 export const createReservationSchema = z.object({
@@ -106,8 +106,6 @@ export const productVariantSchema = z.object({
     salesUnit: z.nativeEnum(Unit).optional().nullable(),
     conversionFactor: z.coerce.number().positive("Conversion factor must be positive").default(1),
     price: z.coerce.number().nonnegative("Price must be non-negative").optional().nullable(),
-    buyPrice: z.coerce.number().nonnegative("Buy price must be non-negative").optional().nullable(),
-    sellPrice: z.coerce.number().nonnegative("Sell price must be non-negative").optional().nullable(),
     minStockAlert: z.coerce.number().nonnegative("Min stock alert must be non-negative").optional().nullable(),
 });
 
@@ -294,4 +292,46 @@ export const logRunningOutputSchema = z.object({
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
 
 export type ProductionOutputValues = z.infer<typeof productionOutputSchema>;
+
+// Contact/Supplier Schemas
+
+export const createSupplierSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    code: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email().optional().or(z.literal("")),
+    address: z.string().optional(),
+    taxId: z.string().optional(),
+    paymentTermDays: z.coerce.number().int().nonnegative().optional(),
+    bankName: z.string().optional(),
+    bankAccount: z.string().optional(),
+    notes: z.string().optional(),
+});
+
+export const updateSupplierSchema = createSupplierSchema.partial().extend({
+    id: z.string(),
+});
+
+export const createCustomerSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    code: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email().optional().or(z.literal("")),
+    billingAddress: z.string().optional(),
+    shippingAddress: z.string().optional(),
+    taxId: z.string().optional(),
+    creditLimit: z.coerce.number().nonnegative().optional(),
+    paymentTermDays: z.coerce.number().int().nonnegative().optional(),
+    discountPercent: z.coerce.number().min(0).max(100).optional(),
+    notes: z.string().optional(),
+});
+
+export const updateCustomerSchema = createCustomerSchema.partial().extend({
+    id: z.string(),
+});
+
+export type CreateSupplierValues = z.infer<typeof createSupplierSchema>;
+export type UpdateSupplierValues = z.infer<typeof updateSupplierSchema>;
+export type CreateCustomerValues = z.infer<typeof createCustomerSchema>;
+export type UpdateCustomerValues = z.infer<typeof updateCustomerSchema>;
 

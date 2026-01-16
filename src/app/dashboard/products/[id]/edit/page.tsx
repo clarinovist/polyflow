@@ -17,22 +17,24 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         notFound();
     }
 
+    const productData = product as any;
+
     // Transform product data to match form values
     const formData: UpdateProductValues = {
-        id: product.id,
-        name: product.name,
-        productType: product.productType,
-        variants: product.variants.map((variant) => ({
+        id: productData.id,
+        name: productData.name,
+        productType: productData.productType,
+        variants: productData.variants.map((variant: any) => ({
             id: variant.id,
             name: variant.name,
             skuCode: variant.skuCode,
             primaryUnit: variant.primaryUnit,
             salesUnit: variant.salesUnit,
-            conversionFactor: variant.conversionFactor.toNumber(),
-            price: variant.price?.toNumber() || null,
-            buyPrice: variant.buyPrice?.toNumber() || null,
-            sellPrice: variant.sellPrice?.toNumber() || null,
-            minStockAlert: variant.minStockAlert?.toNumber() || null,
+            conversionFactor: variant.conversionFactor,
+            price: variant.price || null,
+            buyPrice: variant.buyPrice || null,
+            sellPrice: variant.sellPrice || null,
+            minStockAlert: variant.minStockAlert || null,
         })),
     };
 

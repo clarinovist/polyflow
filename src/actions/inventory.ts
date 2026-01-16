@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { adjustStockSchema, AdjustStockValues, transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, createBatchSchema, CreateBatchValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/zod-schemas';
+import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/zod-schemas';
 import { MovementType, Prisma, Unit, ProductType, ReservationStatus, BatchStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -838,7 +838,7 @@ export async function getInventoryValuation() {
 
         if (!variant) continue;
 
-        let unitCost = variant.buyPrice?.toNumber() || 0;
+        const unitCost = variant.buyPrice?.toNumber() || 0;
 
         // Advanced: Try to find weighted average from StockMovements with 'cost' field
         /* 
@@ -1102,7 +1102,7 @@ export async function cancelStockReservation(data: CancelReservationValues) {
 
         revalidatePath('/dashboard/inventory');
         return { success: true };
-    } catch (error) {
+    } catch (_error) {
         return { success: false, error: "Failed to cancel reservation" };
     }
 }

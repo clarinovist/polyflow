@@ -1,6 +1,4 @@
-import { Suspense } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import {
@@ -62,10 +60,10 @@ export default async function AnalyticsPage({
                 <AnalyticsToolbar
                     dateRange={{ from: dateRange.from.toISOString(), to: dateRange.to.toISOString() }}
                     data={{
-                        productionRealization: serializeData(productionRealization) as any[],
-                        materialVariance: serializeData(materialVariance) as any[],
-                        machinePerformance: serializeData(machinePerformance) as any[],
-                        operatorLeaderboard: serializeData(operatorLeaderboard) as any[],
+                        productionRealization: serializeData(productionRealization) as unknown[],
+                        materialVariance: serializeData(materialVariance) as unknown[],
+                        machinePerformance: serializeData(machinePerformance) as unknown[],
+                        operatorLeaderboard: serializeData(operatorLeaderboard) as unknown[],
                         qualitySummary: serializeData(qualitySummary)
                     }}
                     activeTab={params.tab || 'production'}

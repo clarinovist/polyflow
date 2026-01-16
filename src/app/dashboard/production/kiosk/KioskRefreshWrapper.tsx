@@ -5,10 +5,10 @@ import { KioskOrderCard } from "@/components/production/kiosk/KioskOrderCard";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 
-interface Order {
+export interface Order {
     id: string;
     orderNumber: string;
     plannedQuantity: number;
@@ -41,7 +41,7 @@ export default function KioskRefreshWrapper({ initialOrders }: { initialOrders: 
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [timeLeft, setTimeLeft] = useState(30);
-    const [isPending, startTransition] = useTransition();
+    const [_isPending, startTransition] = useTransition();
 
     // Barcode Listener
     useBarcodeScanner((code) => {
@@ -107,7 +107,7 @@ export default function KioskRefreshWrapper({ initialOrders }: { initialOrders: 
                     <div className="col-span-full flex flex-col items-center justify-center p-12 text-muted-foreground bg-muted/20 rounded-lg border-2 border-dashed">
                         {hasFilter ? (
                             <>
-                                <p className="text-lg">No orders match filter "{searchParams.get('q')}".</p>
+                                <p className="text-lg">No orders match filter &quot;{searchParams.get('q')}&quot;.</p>
                                 <Button variant="link" onClick={clearFilter}>Clear Filter</Button>
                             </>
                         ) : (

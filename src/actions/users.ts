@@ -2,7 +2,7 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
@@ -115,7 +115,7 @@ export async function updateUser(data: UpdateUserInput) {
         await checkAdmin();
         const validated = UpdateUserSchema.parse(data);
 
-        const updateData: any = {};
+        const updateData: Prisma.UserUpdateInput = {};
         if (validated.name) updateData.name = validated.name;
         if (validated.email) {
             // Check if email taken by someone else

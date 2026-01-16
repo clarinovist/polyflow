@@ -14,7 +14,7 @@ export function GeneralSettings() {
                 <CardHeader>
                     <CardTitle>Profile Information</CardTitle>
                     <CardDescription>
-                        Update your account's profile information and email address.
+                        Update your account&apos;s profile information and email address.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

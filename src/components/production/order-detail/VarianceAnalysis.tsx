@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 interface VarianceItem {
     productName: string;
@@ -34,8 +34,6 @@ export function VarianceAnalysis({ items }: VarianceAnalysisProps) {
             <CardContent className="space-y-6">
                 {items.map((item) => {
                     const isOver = item.variance > 0;
-                    const isUnder = item.variance < 0;
-                    const percentAbs = Math.abs(item.variancePercent);
 
                     // Thresholds for colors
                     // > 5% Over = Red

@@ -72,7 +72,13 @@ export function BatchIssueMaterialDialog({
     const [items, setItems] = useState<BatchItem[]>(initialItems);
     const [batchOptions, setBatchOptions] = useState<Record<string, BatchOption[]>>({}); // Map: productVariantId -> Batches
 
-    // Fetch batches when component opens or location changes
+    // Memoize active variant IDs to avoid unnecessary re-fetches when other item properties (like quantity) change
+    const activeVariantIds = useMemo(() =>
+        items.map(i => i.productVariantId).filter(Boolean).sort().join(','),
+        [items]
+    );
+
+    // Fetch batches when component opens or location/variants change
     useEffect(() => {
         if (!open) return;
 
@@ -96,7 +102,8 @@ export function BatchIssueMaterialDialog({
         };
 
         fetchBatches();
-    }, [open, selectedLocation, items.length]); // Optimized dependencies
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, selectedLocation, activeVariantIds]);
 
 
     const handleUpdateBatch = (id: string, batchId: string) => {

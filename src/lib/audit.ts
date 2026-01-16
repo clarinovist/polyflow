@@ -12,7 +12,7 @@ interface AuditLogParams {
     entityType: string;
     entityId: string;
     details?: string;
-    changes?: Record<string, any>;
+    changes?: Record<string, unknown>;
     tx?: PrismaTransaction;
 }
 
