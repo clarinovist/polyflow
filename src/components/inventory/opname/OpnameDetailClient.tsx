@@ -60,7 +60,7 @@ export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
 
         setIsFinalizing(true);
         try {
-            const result = await completeOpname(session.id, sessionData.user.id);
+            const result = await completeOpname(session.id);
             if (result.success) {
                 toast.success("Session finalized and inventory updated");
                 router.refresh();

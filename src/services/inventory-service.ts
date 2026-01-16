@@ -631,8 +631,6 @@ export class InventoryService {
         // - Outgoing: -quantity
         // - Incoming: +quantity
 
-        const dateStr = targetDate.toISOString();
-
         const result = await prisma.$queryRaw<Array<{ productVariantId: string, locationId: string, quantity: number }>>`
             SELECT
                 "productVariantId",
