@@ -15,9 +15,9 @@
     ```bash
     openssl rand -base64 32
     ```
-    **Critical**: Set `AUTH_URL` to your canonical public domain (especially for VPS):
+  **Critical**: Set `NEXTAUTH_URL` to your canonical public domain (especially for VPS):
     ```bash
-    AUTH_URL=https://your-domain.com # e.g. https://erp.nugrohopramono.my.id
+  NEXTAUTH_URL=https://your-domain.com # e.g. https://erp.nugrohopramono.my.id
     ```
     
     Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, ensure it points to the internal port 5434:
@@ -31,7 +31,10 @@ Run the following command to build the Docker image and start the services in de
 docker compose up -d --build
 ```
 
-The application will be accessible at `http://your-server-ip:3002`.
+The application will be accessible via your domain through the ceritakita nginx reverse proxy, e.g. `https://erp.nugrohopramono.my.id`.
+
+> [!NOTE]
+> This compose setup does not publish an app port on the host by default (safer). If you need direct access for debugging, temporarily publish `3002:3000` in `docker-compose.yml`.
 
 ## Initial Data Seeding
 
@@ -43,7 +46,7 @@ To populate the database with initial data (users, products, etc.):
 To populate the database with initial data (users, products, etc.):
 
 ```bash
-docker compose exec app node prisma/seed.js
+docker compose exec polyflow node prisma/seed.js
 ```
 
 **Note**: The seed script is now built into the Docker image, so no manual copying is required.
@@ -75,7 +78,7 @@ docker compose up -d
 
 - **View Logs**:
   ```bash
-  docker compose logs -f app
+  docker compose logs -f polyflow
   ```
 
 - **Stop Services**:
@@ -85,5 +88,12 @@ docker compose up -d
 
 - **Run Migrations Manually**:
   ```bash
-  docker compose exec app npx prisma@5.22.0 migrate deploy
+  docker compose exec polyflow npx prisma@5.22.0 migrate deploy
+  ```
+
+- **Reset Demo Catalog & Production Data (Keep Users)**:
+  Use this if you want to start fresh (clear products, BOMs, inventory, production orders, etc.) but keep the admin user and master records.
+  ```bash
+  docker exec -t polyflow-db psql -U polyflow -d polyflow -h localhost -p 5434 -v ON_ERROR_STOP=1 -c \
+    'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
   ```

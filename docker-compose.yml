@@ -3,13 +3,15 @@ services:
     build: .
     container_name: polyflow-app
     restart: always
-    ports:
-      - "3002:3000"
+    # No host port published; access via ceritakita-nginx on ceritakita-network
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow
-      - AUTH_SECRET=fepLqZqIvj0QTj1l5RLZuQqngB8wiC2QUke/jm3hpxc=
-      - NEXTAUTH_URL=https://erp.nugrohopramono.my.id
-      - NEXTAUTH_SECRET=fepLqZqIvj0QTj1l5RLZuQqngB8wiC2QUke/jm3hpxc=
+      - DATABASE_URL=${DATABASE_URL}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-0}
     depends_on:
       - db
     networks:

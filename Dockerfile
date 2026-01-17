@@ -31,6 +31,7 @@ RUN npx prisma generate
 
 # Compile seed script
 RUN npx tsc prisma/seed.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc prisma/seed-baseline.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 RUN npm run build
 
@@ -68,6 +69,7 @@ RUN chmod +x entrypoint.sh
 
 # Copy compiled seed script
 COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed.js ./prisma/seed.js
+COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed-baseline.js ./prisma/seed-baseline.js
 
 USER nextjs
 

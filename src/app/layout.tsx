@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PolyFlow ERP",
   description: "Advanced Plastic Converting ERP System",
+  icons: {
+    icon: [
+      { url: "/polyflow-icon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({
