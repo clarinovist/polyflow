@@ -1,4 +1,5 @@
-import { getInventoryStats, getLocations, getInventoryAsOf, InventoryWithRelations, getDashboardStats } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getInventoryAsOf, getDashboardStats } from '@/actions/inventory';
+import { InventoryWithRelations } from '@/services/inventory-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InventoryTable, InventoryItem } from '@/components/inventory/InventoryTable';
 import { WarehouseNavigator } from '@/components/inventory/WarehouseNavigator';
