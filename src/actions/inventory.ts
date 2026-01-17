@@ -1,11 +1,9 @@
 'use server';
 
-import { InventoryService, InventoryWithRelations } from '@/services/inventory-service';
+import { InventoryService } from '@/services/inventory-service';
 import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
-
-export type { InventoryWithRelations };
 
 export async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
     await requireAuth();
