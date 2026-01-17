@@ -195,7 +195,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 p-4 rounded-lg border">
+                            <div key={field.id} className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 dark:bg-zinc-900 p-4 rounded-lg border">
                                 <FormField
                                     control={form.control}
                                     name={`items.${index}.productVariantId`}
@@ -241,7 +241,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     onClick={() => remove(index)}
                                 >
                                     <Trash2 className="h-4 w-4" />

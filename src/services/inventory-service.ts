@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { MovementType, Prisma, ReservationStatus, BatchStatus, ProductType, Unit } from '@prisma/client';
+import { MovementType, Prisma, ReservationStatus, BatchStatus, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/audit';
 import {
     TransferStockValues,
@@ -10,31 +10,8 @@ import {
     CancelReservationValues
 } from '@/lib/schemas/inventory';
 
-export type InventoryWithRelations = {
-    id: string;
-    locationId: string;
-    productVariantId: string;
-    quantity: Prisma.Decimal;
-    updatedAt: Date;
-    productVariant: {
-        id: string;
-        name: string;
-        skuCode: string;
-        primaryUnit: Unit;
-        minStockAlert: Prisma.Decimal | null;
-        product: {
-            id: string;
-            name: string;
-            productType: ProductType;
-        };
-    };
-    location: {
-        id: string;
-        name: string;
-    };
-    reservedQuantity?: number;
-    availableQuantity?: number;
-};
+import { InventoryWithRelations } from '@/types/inventory';
+
 
 export class InventoryService {
 
