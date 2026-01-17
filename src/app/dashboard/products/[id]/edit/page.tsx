@@ -2,7 +2,7 @@ import { getProductById, getProductTypes, getUnits } from '@/actions/product';
 import { ProductForm } from '@/components/products/ProductForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
-import { UpdateProductValues } from '@/lib/zod-schemas';
+import { UpdateProductValues } from '@/lib/schemas/product';
 import { Product, ProductVariant } from '@prisma/client';
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {

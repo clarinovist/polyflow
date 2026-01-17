@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { createBomSchema, CreateBomValues } from '@/lib/zod-schemas';
+import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 
 export async function getBoms() {

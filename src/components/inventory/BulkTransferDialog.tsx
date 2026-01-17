@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/zod-schemas';
+import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/schemas/inventory';
 import { transferStockBulk } from '@/actions/inventory';
 import { Button } from '@/components/ui/button';
 import {

@@ -1,0 +1,807 @@
+import { prisma } from '@/lib/prisma';
+import { MovementType, Prisma, ReservationStatus, BatchStatus, ProductType, Unit } from '@prisma/client';
+import { logActivity } from '@/lib/audit';
+import {
+    TransferStockValues,
+    BulkTransferStockValues,
+    AdjustStockWithBatchValues,
+    BulkAdjustStockValues,
+    CreateReservationValues,
+    CancelReservationValues
+} from '@/lib/schemas/inventory';
+
+export type InventoryWithRelations = {
+    id: string;
+    locationId: string;
+    productVariantId: string;
+    quantity: Prisma.Decimal;
+    updatedAt: Date;
+    productVariant: {
+        id: string;
+        name: string;
+        skuCode: string;
+        primaryUnit: Unit;
+        minStockAlert: Prisma.Decimal | null;
+        product: {
+            id: string;
+            name: string;
+            productType: ProductType;
+        };
+    };
+    location: {
+        id: string;
+        name: string;
+    };
+    reservedQuantity?: number;
+    availableQuantity?: number;
+};
+
+export class InventoryService {
+
+    static async getStats(filters?: { locationId?: string; type?: string }): Promise<InventoryWithRelations[]> {
+        const where: Prisma.InventoryWhereInput = {};
+
+        if (filters?.locationId) {
+            where.locationId = filters.locationId;
+        }
+
+        if (filters?.type) {
+            where.productVariant = {
+                product: {
+                    productType: filters.type as ProductType,
+                },
+            };
+        }
+
+        const inventory = await prisma.inventory.findMany({
+            where,
+            select: {
+                id: true,
+                locationId: true,
+                productVariantId: true,
+                quantity: true,
+                updatedAt: true,
+                productVariant: {
+                    select: {
+                        id: true,
+                        name: true,
+                        skuCode: true,
+                        primaryUnit: true,
+                        minStockAlert: true,
+                        product: {
+                            select: {
+                                id: true,
+                                name: true,
+                                productType: true,
+                            }
+                        }
+                    }
+                },
+                location: {
+                    select: {
+                        id: true,
+                        name: true,
+                    }
+                },
+            },
+            orderBy: {
+                productVariant: {
+                    name: 'asc',
+                },
+            },
+        });
+
+        // Fetch active reservations
+        const reservations = await prisma.stockReservation.groupBy({
+            by: ['productVariantId', 'locationId'],
+            where: {
+                status: ReservationStatus.ACTIVE
+            },
+            _sum: {
+                quantity: true
+            }
+        });
+
+        const reservationMap = new Map<string, number>();
+        reservations.forEach(r => {
+            const key = `${r.locationId}-${r.productVariantId}`;
+            reservationMap.set(key, r._sum.quantity?.toNumber() || 0);
+        });
+
+        return inventory.map(item => {
+            const key = `${item.locationId}-${item.productVariantId}`;
+            const reservedQuantity = reservationMap.get(key) || 0;
+            const totalQuantity = item.quantity.toNumber();
+            const availableQuantity = totalQuantity - reservedQuantity;
+
+            return {
+                ...item,
+                reservedQuantity,
+                availableQuantity
+            } as unknown as InventoryWithRelations;
+        });
+    }
+
+    static async getLocations() {
+        return await prisma.location.findMany();
+    }
+
+    static async getProductVariants() {
+        return await prisma.productVariant.findMany({
+            include: {
+                product: true
+            }
+        });
+    }
+
+    static async getAvailableBatches(productVariantId: string, locationId: string) {
+        if (!productVariantId || !locationId) return [];
+        return await prisma.batch.findMany({
+            where: {
+                productVariantId,
+                locationId,
+                status: BatchStatus.ACTIVE,
+                quantity: { gt: 0 }
+            },
+            orderBy: {
+                manufacturingDate: 'asc'
+            }
+        });
+    }
+
+    static async transferStock(data: TransferStockValues, userId: string) {
+        const { sourceLocationId, destinationLocationId, productVariantId, quantity, notes, date } = data;
+
+        await prisma.$transaction(async (tx) => {
+            const sourceStock = await tx.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                    },
+                },
+                select: { id: true, quantity: true },
+            });
+
+            if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
+                throw new Error(`Insufficient stock at source location. Current: ${sourceStock?.quantity || 0}`);
+            }
+
+            const activeReservations = await tx.stockReservation.aggregate({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: productVariantId,
+                    status: ReservationStatus.ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+
+            const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+            const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+
+            if (availableQty < quantity) {
+                throw new Error(`Cannot transfer. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+            }
+
+            await tx.inventory.update({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                    },
+                },
+                data: { quantity: { decrement: quantity } },
+            });
+
+            await tx.inventory.upsert({
+                where: {
+                    locationId_productVariantId: {
+                        locationId: destinationLocationId,
+                        productVariantId: productVariantId,
+                    },
+                },
+                update: { quantity: { increment: quantity } },
+                create: {
+                    locationId: destinationLocationId,
+                    productVariantId: productVariantId,
+                    quantity: quantity,
+                },
+            });
+
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.TRANSFER,
+                    productVariantId,
+                    fromLocationId: sourceLocationId,
+                    toLocationId: destinationLocationId,
+                    quantity,
+                    reference: notes,
+                    createdAt: date,
+                    createdById: userId,
+                },
+            });
+
+            await logActivity({
+                userId: userId,
+                action: 'TRANSFER_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                tx
+            });
+        });
+    }
+
+    static async transferStockBulk(data: BulkTransferStockValues, userId: string) {
+        const { sourceLocationId, destinationLocationId, items, notes, date } = data;
+
+        await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                const { productVariantId, quantity } = item;
+
+                const sourceStock = await tx.inventory.findUnique({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: sourceLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    select: { id: true, quantity: true },
+                });
+
+                if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
+                    throw new Error(`Insufficient stock for product ${productVariantId} at source location.`);
+                }
+
+                const activeReservations = await tx.stockReservation.aggregate({
+                    where: {
+                        locationId: sourceLocationId,
+                        productVariantId: productVariantId,
+                        status: ReservationStatus.ACTIVE
+                    },
+                    _sum: { quantity: true }
+                });
+
+                const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+                const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+
+                if (availableQty < quantity) {
+                    throw new Error(`Cannot transfer product ${productVariantId}. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                }
+
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: sourceLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    data: { quantity: { decrement: quantity } },
+                });
+
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: destinationLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    update: { quantity: { increment: quantity } },
+                    create: {
+                        locationId: destinationLocationId,
+                        productVariantId: productVariantId,
+                        quantity: quantity,
+                    },
+                });
+
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.TRANSFER,
+                        productVariantId,
+                        fromLocationId: sourceLocationId,
+                        toLocationId: destinationLocationId,
+                        quantity,
+                        reference: notes,
+                        createdAt: date,
+                        createdById: userId,
+                    },
+                });
+
+                await logActivity({
+                    userId: userId,
+                    action: 'TRANSFER_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Transferred ${quantity} from ${sourceLocationId} to ${destinationLocationId}`,
+                    tx
+                });
+            }
+        });
+    }
+
+    static async adjustStock(data: AdjustStockWithBatchValues, userId: string) {
+        const { locationId, productVariantId, type, quantity, reason, batchData } = data;
+
+        await prisma.$transaction(async (tx) => {
+            const isIncrement = type === 'ADJUSTMENT_IN';
+
+            if (!isIncrement) {
+                const currentStock = await tx.inventory.findUnique({
+                    where: {
+                        locationId_productVariantId: { locationId, productVariantId }
+                    },
+                    select: { id: true, quantity: true },
+                });
+                if (!currentStock || currentStock.quantity.toNumber() < quantity) {
+                    throw new Error(`Insufficient stock to adjust OUT. Current: ${currentStock?.quantity || 0}`);
+                }
+
+                const activeReservations = await tx.stockReservation.aggregate({
+                    where: {
+                        locationId,
+                        productVariantId,
+                        status: ReservationStatus.ACTIVE
+                    },
+                    _sum: { quantity: true }
+                });
+
+                const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+                const availableQty = currentStock.quantity.toNumber() - reservedQty;
+
+                if (availableQty < quantity) {
+                    throw new Error(`Cannot adjust OUT. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                }
+            } else {
+                if (batchData) {
+                    await tx.batch.create({
+                        data: {
+                            batchNumber: batchData.batchNumber,
+                            productVariantId,
+                            locationId,
+                            quantity,
+                            manufacturingDate: batchData.manufacturingDate,
+                            expiryDate: batchData.expiryDate,
+                            status: BatchStatus.ACTIVE
+                        }
+                    });
+                }
+            }
+
+            if (isIncrement) {
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: { locationId, productVariantId },
+                    },
+                    update: { quantity: { increment: quantity } },
+                    create: { locationId, productVariantId, quantity }
+                });
+            } else {
+                await tx.inventory.update({
+                    where: {
+                        locationId_productVariantId: { locationId, productVariantId },
+                    },
+                    data: { quantity: { decrement: quantity } }
+                });
+            }
+
+            let batchId: string | null = null;
+            if (isIncrement && batchData) {
+                const newBatch = await tx.batch.findUnique({
+                    where: { batchNumber: batchData.batchNumber }
+                });
+                batchId = newBatch?.id || null;
+            }
+
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.ADJUSTMENT,
+                    productVariantId,
+                    fromLocationId: isIncrement ? null : locationId,
+                    toLocationId: isIncrement ? locationId : null,
+                    quantity,
+                    reference: reason,
+                    batchId,
+                    createdById: userId,
+                },
+            });
+
+            await logActivity({
+                userId: userId,
+                action: 'ADJUST_STOCK',
+                entityType: 'ProductVariant',
+                entityId: productVariantId,
+                details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                tx
+            });
+        });
+    }
+
+    static async adjustStockBulk(data: BulkAdjustStockValues, userId: string) {
+        const { locationId, items } = data;
+
+        await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                const { productVariantId, type, quantity, reason } = item;
+                const isIncrement = type === 'ADJUSTMENT_IN';
+
+                if (!isIncrement) {
+                    const currentStock = await tx.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: { locationId, productVariantId }
+                        },
+                        select: { id: true, quantity: true },
+                    });
+                    if (!currentStock || currentStock.quantity.toNumber() < quantity) {
+                        throw new Error(`Insufficient stock to adjust OUT for product ${productVariantId}`);
+                    }
+                }
+
+                if (isIncrement) {
+                    await tx.inventory.upsert({
+                        where: {
+                            locationId_productVariantId: { locationId, productVariantId },
+                        },
+                        update: { quantity: { increment: quantity } },
+                        create: { locationId, productVariantId, quantity }
+                    });
+                } else {
+                    await tx.inventory.update({
+                        where: {
+                            locationId_productVariantId: { locationId, productVariantId },
+                        },
+                        data: { quantity: { decrement: quantity } }
+                    });
+                }
+
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.ADJUSTMENT,
+                        productVariantId,
+                        fromLocationId: isIncrement ? null : locationId,
+                        toLocationId: isIncrement ? locationId : null,
+                        quantity,
+                        reference: reason,
+                        createdById: userId,
+                    },
+                });
+
+                await logActivity({
+                    userId: userId,
+                    action: 'ADJUST_STOCK_BULK',
+                    entityType: 'ProductVariant',
+                    entityId: productVariantId,
+                    details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
+                    tx
+                });
+            }
+        });
+    }
+
+    static async updateThreshold(productVariantId: string, minStockAlert: number) {
+        await prisma.productVariant.update({
+            where: { id: productVariantId },
+            data: { minStockAlert: new Prisma.Decimal(minStockAlert) },
+        });
+    }
+
+    static async getStockMovements(limit = 50) {
+        return await prisma.stockMovement.findMany({
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                productVariant: {
+                    include: { product: true }
+                },
+                fromLocation: true,
+                toLocation: true,
+                createdBy: true,
+            },
+        });
+    }
+
+    static async getDashboardStats() {
+        const [productCount, inventory, lowStockVariants] = await Promise.all([
+            prisma.product.count(),
+            prisma.inventory.findMany({
+                select: {
+                    quantity: true,
+                    productVariantId: true,
+                    productVariant: {
+                        select: { minStockAlert: true }
+                    }
+                }
+            }),
+            prisma.productVariant.findMany({
+                where: { minStockAlert: { not: null } },
+                select: {
+                    id: true,
+                    minStockAlert: true,
+                    inventories: { select: { quantity: true } }
+                }
+            })
+        ]);
+
+        const totalStock = inventory.reduce((sum, item) => sum + item.quantity.toNumber(), 0);
+
+        const variantQuantities = inventory.reduce((acc, item) => {
+            acc[item.productVariantId] = (acc[item.productVariantId] || 0) + item.quantity.toNumber();
+            return acc;
+        }, {} as Record<string, number>);
+
+        const lowStockCount = lowStockVariants.filter(variant => {
+            const total = variantQuantities[variant.id] || 0;
+            const threshold = variant.minStockAlert?.toNumber() || 0;
+            return total < threshold;
+        }).length;
+
+        const reorderVariants = await prisma.productVariant.findMany({
+            where: { reorderPoint: { not: null } },
+            select: { id: true, reorderPoint: true }
+        });
+
+        const suggestedPurchasesCount = reorderVariants.filter(variant => {
+            const total = variantQuantities[variant.id] || 0;
+            const reorderPoint = variant.reorderPoint?.toNumber() || 0;
+            return total < reorderPoint;
+        }).length;
+
+        const recentMovements = await prisma.stockMovement.count({
+            where: {
+                createdAt: {
+                    gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                }
+            }
+        });
+
+        return {
+            productCount,
+            totalStock,
+            lowStockCount,
+            recentMovements,
+            suggestedPurchasesCount
+        };
+    }
+
+    static async getSuggestedPurchases() {
+        const variants = await prisma.productVariant.findMany({
+            where: { reorderPoint: { not: null } },
+            include: {
+                product: { select: { name: true, productType: true } },
+                preferredSupplier: { select: { name: true } },
+                inventories: { select: { quantity: true } }
+            }
+        });
+
+        return variants.map(v => {
+            const totalPhysical = v.inventories.reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
+            return {
+                ...v,
+                totalStock: totalPhysical,
+                shouldReorder: totalPhysical < (v.reorderPoint?.toNumber() || 0)
+            };
+        }).filter(v => v.shouldReorder);
+    }
+
+    static async getInventoryValuation() {
+        const stock = await this.getStats();
+
+        let totalValuation = 0;
+        const valuationDetails = [];
+
+        const variantStock: Record<string, number> = {};
+        stock.forEach(item => {
+            variantStock[item.productVariantId] = (variantStock[item.productVariantId] || 0) + item.quantity.toNumber();
+        });
+
+        for (const [variantId, quantity] of Object.entries(variantStock)) {
+            if (quantity <= 0) continue;
+
+            const variant = await prisma.productVariant.findUnique({
+                where: { id: variantId },
+                select: { buyPrice: true, name: true, skuCode: true }
+            });
+
+            if (!variant) continue;
+
+            const unitCost = variant.buyPrice?.toNumber() || 0;
+            const value = quantity * unitCost;
+            totalValuation += value;
+
+            valuationDetails.push({
+                productVariantId: variantId,
+                name: variant.name,
+                sku: variant.skuCode,
+                quantity,
+                unitCost,
+                totalValue: value
+            });
+        }
+
+        return {
+            totalValuation,
+            details: valuationDetails
+        };
+    }
+
+    static async getInventoryAsOf(targetDate: Date, locationId?: string) {
+        // Optimized query using SQL UNION and GROUP BY to avoid in-memory aggregation of all movements
+        // This reduces complexity from O(N) application-side to O(N) database-side (which is much faster and indexed)
+
+        // We calculate net change per location:
+        // - Outgoing: -quantity
+        // - Incoming: +quantity
+
+        const result = await prisma.$queryRaw<Array<{ productVariantId: string, locationId: string, quantity: number }>>`
+            SELECT
+                "productVariantId",
+                "locationId",
+                SUM("quantity")::float as "quantity"
+            FROM (
+                SELECT "productVariantId", "fromLocationId" as "locationId", -1 * "quantity" as "quantity"
+                FROM "StockMovement"
+                WHERE "fromLocationId" IS NOT NULL AND "createdAt" <= ${targetDate}::timestamp
+
+                UNION ALL
+
+                SELECT "productVariantId", "toLocationId" as "locationId", "quantity"
+                FROM "StockMovement"
+                WHERE "toLocationId" IS NOT NULL AND "createdAt" <= ${targetDate}::timestamp
+            ) as movements
+            WHERE "locationId" IS NOT NULL
+            ${locationId ? Prisma.sql`AND "locationId" = ${locationId}` : Prisma.empty}
+            GROUP BY "productVariantId", "locationId"
+        `;
+
+        return result;
+    }
+
+    static async getStockHistory(productVariantId: string, startDate: Date, endDate: Date, locationId?: string) {
+        const initialMovements = await prisma.stockMovement.findMany({
+            where: {
+                productVariantId,
+                createdAt: { lt: startDate },
+                ...(locationId ? {
+                    OR: [
+                        { fromLocationId: locationId },
+                        { toLocationId: locationId }
+                    ]
+                } : {})
+            }
+        });
+
+        let currentStock = initialMovements.reduce((sum, m) => {
+            const qty = m.quantity.toNumber();
+            let delta = 0;
+            if (locationId) {
+                if (m.toLocationId === locationId) delta += qty;
+                if (m.fromLocationId === locationId) delta -= qty;
+            } else {
+                if (m.toLocationId && !m.fromLocationId) delta += qty;
+                if (m.fromLocationId && !m.toLocationId) delta -= qty;
+            }
+            return sum + delta;
+        }, 0);
+
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                productVariantId,
+                createdAt: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                ...(locationId ? {
+                    OR: [
+                        { fromLocationId: locationId },
+                        { toLocationId: locationId }
+                    ]
+                } : {})
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        const historyData = [];
+        const curr = new Date(startDate);
+
+        while (curr <= endDate) {
+            const dayStart = new Date(curr);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(curr);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const dayMovements = movements.filter(m =>
+                m.createdAt >= dayStart && m.createdAt <= dayEnd
+            );
+
+            dayMovements.forEach(m => {
+                const qty = m.quantity.toNumber();
+                if (locationId) {
+                    if (m.toLocationId === locationId) currentStock += qty;
+                    if (m.fromLocationId === locationId) currentStock -= qty;
+                } else {
+                    if (m.toLocationId && !m.fromLocationId) currentStock += qty;
+                    if (m.fromLocationId && !m.toLocationId) currentStock -= qty;
+                }
+            });
+
+            historyData.push({
+                date: dayStart.toISOString().split('T')[0],
+                stock: currentStock
+            });
+
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        return historyData;
+    }
+
+    static async createStockReservation(data: CreateReservationValues) {
+        const { productVariantId, locationId, quantity, reservedFor, referenceId, reservedUntil } = data;
+
+        await prisma.$transaction(async (tx) => {
+            const physicalStock = await tx.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: { locationId, productVariantId }
+                },
+                select: { quantity: true }
+            });
+
+            const currentReservations = await tx.stockReservation.aggregate({
+                where: {
+                    locationId,
+                    productVariantId,
+                    status: ReservationStatus.ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+
+            const totalPhysical = physicalStock?.quantity.toNumber() || 0;
+            const totalReserved = currentReservations._sum.quantity?.toNumber() || 0;
+            const available = totalPhysical - totalReserved;
+
+            if (available < quantity) {
+                throw new Error(`Insufficient available stock. Physical: ${totalPhysical}, Reserved: ${totalReserved}, Available: ${available}`);
+            }
+
+            await tx.stockReservation.create({
+                data: {
+                    productVariantId,
+                    locationId,
+                    quantity,
+                    reservedFor,
+                    referenceId,
+                    reservedUntil,
+                    status: ReservationStatus.ACTIVE
+                }
+            });
+        });
+    }
+
+    static async cancelStockReservation(data: CancelReservationValues) {
+        await prisma.stockReservation.update({
+            where: { id: data.reservationId },
+            data: { status: ReservationStatus.CANCELLED }
+        });
+    }
+
+    static async getActiveReservations(locationId?: string, productVariantId?: string) {
+        const where: Prisma.StockReservationWhereInput = {
+            status: ReservationStatus.ACTIVE
+        };
+
+        if (locationId) where.locationId = locationId;
+        if (productVariantId) where.productVariantId = productVariantId;
+
+        return await prisma.stockReservation.findMany({
+            where,
+            include: {
+                productVariant: {
+                    select: { name: true, skuCode: true }
+                },
+                location: {
+                    select: { name: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+}

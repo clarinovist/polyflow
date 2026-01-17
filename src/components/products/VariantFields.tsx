@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Control, useWatch, useFormContext } from 'react-hook-form';
-import { CreateProductValues } from '@/lib/zod-schemas';
+import { CreateProductValues } from '@/lib/schemas/product';
 import { Unit, ProductType } from '@prisma/client';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';

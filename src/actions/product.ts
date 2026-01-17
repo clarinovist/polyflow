@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/zod-schemas';
+import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/schemas/product';
 import { ProductType, Unit, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';

@@ -55,7 +55,7 @@ const SortIcon = ({ field, currentSortField, currentSortOrder }: { field: SortFi
         : <ArrowDown className="h-4 w-4 text-blue-600" />;
 };
 
-interface InventoryItem {
+export interface InventoryItem {
     id: string;
     locationId: string;
     productVariantId: string;

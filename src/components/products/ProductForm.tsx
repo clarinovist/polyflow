@@ -2,7 +2,7 @@
 
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/zod-schemas';
+import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/schemas/product';
 import { createProduct, updateProduct } from '@/actions/product';
 import { ProductType, Unit } from '@prisma/client';
 import { Button } from '@/components/ui/button';
