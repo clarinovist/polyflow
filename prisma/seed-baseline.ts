@@ -1,6 +1,26 @@
-import { PrismaClient, ProductType, Unit } from '@prisma/client'
+import { PrismaClient, ProductType, Unit, Role } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
+
+async function ensureDefaultAdmin() {
+  const email = process.env.DEFAULT_ADMIN_EMAIL ?? 'admin@polyflow.com'
+  const name = process.env.DEFAULT_ADMIN_NAME ?? 'Admin PolyFlow'
+  const passwordPlain = process.env.DEFAULT_ADMIN_PASSWORD ?? 'admin123'
+
+  const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing) return
+
+  const password = await bcrypt.hash(passwordPlain, 10)
+  await prisma.user.create({
+    data: {
+      email,
+      name,
+      password,
+      role: Role.ADMIN,
+    },
+  })
+}
 
 async function ensureLocations() {
   const locations = [
@@ -133,6 +153,7 @@ async function ensureExampleProducts() {
 async function main() {
   console.log('Seeding baseline master data (SAFE, no deletes)...')
 
+  await ensureDefaultAdmin()
   await ensureLocations()
   await ensureSupplierAndCustomer()
   await ensureExampleProducts()
