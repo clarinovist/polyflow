@@ -58,7 +58,24 @@ services:
 
 ## Build and Run
 
-Run the following command to build the Docker image and start the services in detached mode:
+### Option A: Pull from GitHub Container Registry (Recommended)
+
+Since you have a CI/CD pipeline, the recommended way is to pull the pre-built image from GHCR.
+
+1.  **Log in to GHCR** (if private):
+    ```bash
+    echo $CR_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+    ```
+
+2.  **Pull and Start**:
+    ```bash
+    docker compose -f docker-compose.prod.yml pull
+    docker compose -f docker-compose.prod.yml up -d
+    ```
+
+### Option B: Build Locally (Legacy)
+
+If you made changes directly on the server or want to build from source:
 
 ```bash
 docker compose up -d --build
@@ -99,8 +116,10 @@ docker compose exec polyflow node prisma/seed.js
 If you see migrations failing because the database is not empty (e.g., re-deploying over old volumes), and you want to **reset everything**:
 
 ```bash
-docker compose down -v
-docker compose up -d
+```bash
+docker compose -f docker-compose.prod.yml down -v
+docker compose -f docker-compose.prod.yml up -d
+```
 ```
 
 ### Port Conflicts
@@ -111,17 +130,21 @@ docker compose up -d
 
 - **View Logs**:
   ```bash
-  docker compose logs -f polyflow
+  ```bash
+  docker compose -f docker-compose.prod.yml logs -f polyflow
+  ```
   ```
 
 - **Stop Services**:
   ```bash
-  docker compose down
+  ```bash
+  docker compose -f docker-compose.prod.yml down
+  ```
   ```
 
 - **Run Migrations Manually**:
   ```bash
-  docker compose exec polyflow npx prisma@5.22.0 migrate deploy
+  docker compose -f docker-compose.prod.yml exec polyflow npx prisma@5.22.0 migrate deploy
   ```
 
 - **Reset Demo Catalog & Production Data (Keep Users)**:
