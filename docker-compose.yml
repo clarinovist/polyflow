@@ -1,5 +1,6 @@
 services:
   polyflow:
+    image: ghcr.io/clarinovist/polyflow:latest
     build: .
     container_name: polyflow-app
     restart: always

@@ -69,8 +69,8 @@ Since you have a CI/CD pipeline, the recommended way is to pull the pre-built im
 
 2.  **Pull and Start**:
     ```bash
-    docker compose -f docker-compose.prod.yml pull
-    docker compose -f docker-compose.prod.yml up -d
+    docker compose pull
+    docker compose up -d
     ```
 
 ### Option B: Build Locally (Legacy)
@@ -116,10 +116,8 @@ docker compose exec polyflow node prisma/seed.js
 If you see migrations failing because the database is not empty (e.g., re-deploying over old volumes), and you want to **reset everything**:
 
 ```bash
-```bash
-docker compose -f docker-compose.prod.yml down -v
-docker compose -f docker-compose.prod.yml up -d
-```
+docker compose down -v
+docker compose up -d
 ```
 
 ### Port Conflicts
@@ -130,21 +128,17 @@ docker compose -f docker-compose.prod.yml up -d
 
 - **View Logs**:
   ```bash
-  ```bash
-  docker compose -f docker-compose.prod.yml logs -f polyflow
-  ```
+  docker compose logs -f polyflow
   ```
 
 - **Stop Services**:
   ```bash
-  ```bash
-  docker compose -f docker-compose.prod.yml down
-  ```
+  docker compose down
   ```
 
 - **Run Migrations Manually**:
   ```bash
-  docker compose -f docker-compose.prod.yml exec polyflow npx prisma@5.22.0 migrate deploy
+  docker compose exec polyflow npx prisma@5.22.0 migrate deploy
   ```
 
 - **Reset Demo Catalog & Production Data (Keep Users)**:
