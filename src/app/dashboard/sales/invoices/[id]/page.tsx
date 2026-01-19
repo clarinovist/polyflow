@@ -28,7 +28,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         creditLimit: invoice.salesOrder.customer.creditLimit ? Number(invoice.salesOrder.customer.creditLimit) : null,
                         discountPercent: invoice.salesOrder.customer.discountPercent ? Number(invoice.salesOrder.customer.discountPercent) : null
                     } : null,
-                    items: invoice.salesOrder.items.map((item: any) => ({
+                    items: invoice.salesOrder.items.map((item) => ({
                         ...item,
                         quantity: Number(item.quantity),
                         unitPrice: Number(item.unitPrice),

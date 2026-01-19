@@ -28,7 +28,7 @@ export default async function SalesPage() {
                     <CardTitle>Recent Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <SalesOrderTable initialData={orders.map((order: any) => ({
+                    <SalesOrderTable initialData={orders.map((order) => ({
                         ...order,
                         totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
                         customer: order.customer ? {

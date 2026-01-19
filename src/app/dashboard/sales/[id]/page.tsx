@@ -32,7 +32,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                 createdAt: order.createdAt,
                 updatedAt: order.updatedAt,
                 totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
-                items: order.items.map((item: any) => ({
+                items: order.items.map((item) => ({
                     id: item.id,
                     salesOrderId: item.salesOrderId,
                     productVariantId: item.productVariantId,
@@ -47,12 +47,8 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                         productId: item.productVariant.productId,
                         name: item.productVariant.name,
                         skuCode: item.productVariant.skuCode,
-                        barcode: item.productVariant.barcode,
-                        description: item.productVariant.description,
                         primaryUnit: item.productVariant.primaryUnit,
-                        baseUnit: item.productVariant.baseUnit,
                         salesUnit: item.productVariant.salesUnit,
-                        purchaseUnit: item.productVariant.purchaseUnit,
                         attributes: item.productVariant.attributes,
                         leadTimeDays: item.productVariant.leadTimeDays,
                         price: item.productVariant.price ? Number(item.productVariant.price) : null,
@@ -63,7 +59,6 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                         reorderPoint: item.productVariant.reorderPoint ? Number(item.productVariant.reorderPoint) : null,
                         reorderQuantity: item.productVariant.reorderQuantity ? Number(item.productVariant.reorderQuantity) : null,
                         preferredSupplierId: item.productVariant.preferredSupplierId,
-                        isActive: item.productVariant.isActive,
                         createdAt: item.productVariant.createdAt,
                         updatedAt: item.productVariant.updatedAt,
                         product: item.productVariant.product
@@ -88,13 +83,13 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
                 } : null,
                 createdBy: order.createdBy ? { name: order.createdBy.name || 'Unknown' } : null,
                 sourceLocation: order.sourceLocation,
-                productionOrders: order.productionOrders?.map((po: any) => ({
+                productionOrders: order.productionOrders?.map((po) => ({
                     ...po,
                     plannedQuantity: Number(po.plannedQuantity),
                     actualQuantity: po.actualQuantity ? Number(po.actualQuantity) : null
                 })) || [],
                 invoices: order.invoices || [],
-                movements: order.movements.map((m: any) => ({
+                movements: order.movements.map((m) => ({
                     id: m.id,
                     type: m.type,
                     productVariantId: m.productVariantId,

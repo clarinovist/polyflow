@@ -60,6 +60,11 @@ type SerializedStockMovement = Omit<StockMovement, 'quantity' | 'cost'> & {
     cost: number | null;
 };
 
+type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity'> & {
+    plannedQuantity: number;
+    actualQuantity: number | null;
+};
+
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
     totalAmount: number | null;
     items: SerializedSalesOrderItem[];
@@ -69,7 +74,7 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
     }) | null;
     sourceLocation: Location | null;
     invoices: Invoice[];
-    productionOrders: ProductionOrder[];
+    productionOrders: SerializedProductionOrder[];
     movements: SerializedStockMovement[];
     createdBy: { name: string } | null;
 };
@@ -91,7 +96,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
             } else {
                 toast.error(result.error || `Failed to ${action} order`);
             }
-        } catch (_error) { // PREVIOUSLY UNUSED error
+        } catch {
             toast.error("An error occurred");
         } finally {
             setIsLoading(false);

@@ -59,3 +59,57 @@ export interface QualityControlSummary {
     percentage: number; // % of total scrap
   }[];
 }
+
+// ============================================
+// SALES ANALYTICS TYPES
+// ============================================
+
+export interface SalesRevenueItem {
+  period: string; // "Jan 2024", "Feb 2024", etc.
+  revenue: number;
+  orderCount: number;
+  aov: number; // Average Order Value
+}
+
+export interface SalesRevenueTrend {
+  revenueGrowth: number; // Percentage vs previous period
+  orderCountGrowth: number;
+  chartData: SalesRevenueItem[];
+}
+
+export interface TopCustomerItem {
+  customerId: string;
+  customerName: string;
+  totalSpent: number;
+  orderCount: number;
+  lastOrderDate: Date | null;
+}
+
+export interface TopProductItem {
+  productVariantId: string;
+  productName: string;
+  skuCode: string;
+  totalQuantity: number;
+  totalRevenue: number;
+}
+
+export interface SalesPipelineSummary {
+  status: string;
+  count: number;
+  value: number;
+  percentage: number;
+}
+
+export interface ARAgingItem {
+  range: 'Current' | '1-30 Days' | '31-60 Days' | '61-90 Days' | '> 90 Days';
+  amount: number;
+  invoiceCount: number;
+}
+
+export interface CustomerCreditItem {
+  customerName: string;
+  creditLimit: number;
+  usedCredit: number; // Total unpaid invoices
+  utilizationRate: number; // % used
+  status: 'Safe' | 'Warning' | 'Critical'; // Based on utilization > 80%?
+}

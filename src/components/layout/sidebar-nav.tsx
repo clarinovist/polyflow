@@ -59,7 +59,6 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "Overview",
         items: [
             { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-            { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
         ],
     },
     {
@@ -77,6 +76,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
             { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
+            { title: "Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
         ],
     },
     {
@@ -84,6 +84,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "Production Orders", href: "/dashboard/production/orders", icon: Factory },
             { title: "Operator Kiosk", href: "/dashboard/production/kiosk", icon: MonitorPlay },
+            { title: "Analytics", href: "/dashboard/production/analytics", icon: BarChart3 },
         ],
     },
     {

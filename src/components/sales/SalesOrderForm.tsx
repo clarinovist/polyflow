@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Customer, Location, ProductVariant, Product, SalesOrderType, Prisma } from '@prisma/client';
+import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -199,7 +199,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 <CommandList>
                                                     <CommandEmpty>No customer found.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {(customers as any[]).map((customer: any) => (
+                                                        {customers.map((customer) => (
                                                             <CommandItem
                                                                 key={customer.id}
                                                                 value={customer.name}

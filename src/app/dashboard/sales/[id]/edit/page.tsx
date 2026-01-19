@@ -35,7 +35,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         expectedDate: order.expectedDate || undefined,
         orderType: order.orderType,
         notes: order.notes || undefined,
-        items: order.items.map((item: any) => ({
+        items: order.items.map((item) => ({
             id: item.id,
             productVariantId: item.productVariantId,
             quantity: Number(item.quantity),
@@ -51,15 +51,15 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                 </CardHeader>
                 <CardContent>
                     <SalesOrderForm
-                        customers={customers.map((c: any) => ({
+                        customers={customers.map((c) => ({
                             ...c,
                             creditLimit: c.creditLimit ? Number(c.creditLimit) : null,
                             discountPercent: c.discountPercent ? Number(c.discountPercent) : null
                         }))}
                         locations={locations}
                         products={products
-                            .filter((p: any) => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP')
-                            .map((p: any) => ({
+                            .filter((p) => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP')
+                            .map((p) => ({
                                 ...p,
                                 price: p.price ? Number(p.price) : null,
                                 buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
@@ -68,7 +68,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                                 minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
                                 reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
                                 reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-                                inventories: p.inventories?.map((inv: any) => ({
+                                inventories: p.inventories?.map((inv) => ({
                                     locationId: inv.locationId,
                                     quantity: Number(inv.quantity)
                                 })) || []

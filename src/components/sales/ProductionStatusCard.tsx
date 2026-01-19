@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';
 
+// Define localized serialized type if not shared, or use partial
+type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity'> & {
+    plannedQuantity: number;
+    actualQuantity: number | null;
+};
+
 interface Shortage {
     productVariantId: string;
     required: number;
@@ -22,28 +28,35 @@ interface Shortage {
 interface ProductionStatusCardProps {
     salesOrderId: string;
     status: string;
-    productionOrders: ProductionOrder[];
-    items: any[];
+    productionOrders: SerializedProductionOrder[];
+    items: {
+        productVariantId: string;
+        productVariant: {
+            product: {
+                name: string;
+            };
+        };
+    }[];
 }
 
-export function ProductionStatusCard({ salesOrderId, status, productionOrders, items }: ProductionStatusCardProps) {
+export function ProductionStatusCard({ salesOrderId, status: _status, productionOrders, items }: ProductionStatusCardProps) {
     const [shortages, setShortages] = useState<Shortage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTriggering, setIsTriggering] = useState(false);
     const router = useRouter();
 
-    const fetchShortages = async () => {
+    const fetchShortages = useCallback(async () => {
         setIsLoading(true);
         const result = await checkSalesOrderFulfillment(salesOrderId);
         if (result.success && result.data) {
             setShortages(result.data.shortages);
         }
         setIsLoading(false);
-    };
+    }, [salesOrderId]);
 
     useEffect(() => {
         fetchShortages();
-    }, [salesOrderId]);
+    }, [fetchShortages]);
 
     const handleTriggerProduction = async (item: Shortage) => {
         setIsTriggering(true);
@@ -56,7 +69,7 @@ export function ProductionStatusCard({ salesOrderId, status, productionOrders, i
             } else {
                 toast.error(result.error || "Failed to trigger production");
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("An error occurred while linking production");
         } finally {
             setIsTriggering(false);

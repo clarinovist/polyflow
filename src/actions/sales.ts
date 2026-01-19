@@ -28,6 +28,22 @@ export async function getSalesOrders() {
 }
 
 /**
+ * Get sales orders by customer ID
+ */
+export async function getSalesOrdersByCustomerId(customerId: string) {
+    await requireAuth();
+    return await prisma.salesOrder.findMany({
+        where: { customerId },
+        include: {
+            customer: true,
+            sourceLocation: true,
+            _count: { select: { items: true } }
+        },
+        orderBy: { orderDate: 'desc' }
+    });
+}
+
+/**
  * Get sales order by ID with details
  */
 export async function getSalesOrderById(id: string) {
@@ -74,8 +90,8 @@ export async function createSalesOrder(data: CreateSalesOrderValues) {
         // Serialize Decimal fields for client consumption
         const serializedOrder = {
             ...order,
-            totalAmount: Number((order as any).totalAmount),
-            items: (order as any).items?.map((item: any) => ({
+            totalAmount: Number(order.totalAmount),
+            items: order.items?.map((item) => ({
                 ...item,
                 quantity: Number(item.quantity),
                 unitPrice: Number(item.unitPrice),
@@ -160,7 +176,7 @@ export async function shipSalesOrder(id: string) {
  * Check if a sales order can be fulfilled with current stock
  */
 export async function checkSalesOrderFulfillment(id: string) {
-    const session = await requireAuth();
+    await requireAuth();
     try {
         const order = await prisma.salesOrder.findUnique({
             where: { id },

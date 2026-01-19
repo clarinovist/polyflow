@@ -8,7 +8,14 @@ import {
     MachinePerformanceItem,
     OperatorProductivityItem,
     QualityControlSummary,
+    SalesRevenueTrend,
+    TopCustomerItem,
+    TopProductItem,
+    SalesPipelineSummary,
+    ARAgingItem,
+    CustomerCreditItem,
 } from '@/types/analytics';
+import * as XLSX from 'xlsx';
 
 /**
  * Helper to calculate percentage safely
@@ -421,4 +428,559 @@ export async function getQualityControlSummary(
         },
         scrapByReason,
     };
+}
+
+// ============================================
+// SALES ANALYTICS ACTIONS
+// ============================================
+
+/**
+ * 6. Sales Revenue Report
+ * - Monthly Revenue & Order Count
+ * - Includes previous period comparison for growth trends
+ */
+export async function getSalesRevenueReport(
+    dateRange: DateRange
+): Promise<SalesRevenueTrend> {
+    // 1. Fetch Current Period Data
+    const orders = await prisma.salesOrder.findMany({
+        where: {
+            orderDate: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            },
+            status: {
+                not: 'CANCELLED'
+            }
+        },
+        select: {
+            orderDate: true,
+            totalAmount: true,
+            id: true
+        },
+        orderBy: { orderDate: 'asc' }
+    });
+
+    // 2. Fetch Previous Period Data for Trends
+    const duration = dateRange.to.getTime() - dateRange.from.getTime();
+    const prevFrom = new Date(dateRange.from.getTime() - duration);
+    const prevTo = dateRange.from;
+
+    const prevOrders = await prisma.salesOrder.findMany({
+        where: {
+            orderDate: {
+                gte: prevFrom,
+                lt: prevTo,
+            },
+            status: {
+                not: 'CANCELLED'
+            }
+        },
+        select: { totalAmount: true }
+    });
+
+    // Calculate Totals
+    const currentRevenue = orders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const prevRevenue = prevOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+
+    const currentCount = orders.length;
+    const prevCount = prevOrders.length;
+
+    // Calculate Growth
+    const revenueGrowth = safePercentage(currentRevenue - prevRevenue, prevRevenue);
+    const orderCountGrowth = safePercentage(currentCount - prevCount, prevCount);
+
+    // Group by Month (or Day if range is small, but let's stick to Month for now based on request "Sales per Bulan")
+    // If range is within a month, maybe group by day?
+    // Let's implement a dynamic grouping helper or just simple monthly buffer if range > 32 days, else daily.
+
+    const daysDiff = Math.ceil(duration / (1000 * 60 * 60 * 24));
+    const isMonthly = daysDiff > 32;
+
+    const chartMap = new Map<string, { revenue: number, count: number }>();
+
+    orders.forEach(order => {
+        const date = new Date(order.orderDate);
+        let key = '';
+        if (isMonthly) {
+            key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        } else {
+            key = date.toLocaleString('default', { day: 'numeric', month: 'short' });
+        }
+
+        const current = chartMap.get(key) || { revenue: 0, count: 0 };
+        current.revenue += Number(order.totalAmount) || 0;
+        current.count += 1;
+        chartMap.set(key, current);
+    });
+
+    const chartData = Array.from(chartMap.entries()).map(([period, data]) => ({
+        period,
+        revenue: data.revenue,
+        orderCount: data.count,
+        aov: data.count > 0 ? data.revenue / data.count : 0
+    }));
+
+    return {
+        revenueGrowth,
+        orderCountGrowth,
+        chartData
+    };
+}
+
+/**
+ * 7. Top Customers
+ * - Ranked by total spent
+ */
+export async function getTopCustomers(
+    dateRange: DateRange,
+    limit: number = 5
+): Promise<TopCustomerItem[]> {
+    const customers = await prisma.salesOrder.groupBy({
+        by: ['customerId'],
+        where: {
+            orderDate: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            },
+            status: { not: 'CANCELLED' },
+            customerId: { not: null }
+        },
+        _sum: {
+            totalAmount: true
+        },
+        _count: {
+            id: true
+        },
+        _max: {
+            orderDate: true
+        },
+        orderBy: {
+            _sum: {
+                totalAmount: 'desc'
+            }
+        },
+        take: limit
+    });
+
+    // Need to fetch customer names
+    const customerIds = customers.map(c => c.customerId as string);
+    const customerDetails = await prisma.customer.findMany({
+        where: { id: { in: customerIds } },
+        select: { id: true, name: true }
+    });
+
+    const report: TopCustomerItem[] = customers.map(c => {
+        const detail = customerDetails.find(d => d.id === c.customerId);
+        return {
+            customerId: c.customerId as string,
+            customerName: detail?.name || 'Unknown',
+            totalSpent: Number(c._sum.totalAmount) || 0,
+            orderCount: c._count.id,
+            lastOrderDate: c._max.orderDate
+        };
+    });
+
+    return report;
+}
+
+/**
+ * 8. Top Selling Products
+ * - Ranked by Quantity/Revenue
+ */
+export async function getTopProducts(
+    dateRange: DateRange,
+    limit: number = 5
+): Promise<TopProductItem[]> {
+    const items = await prisma.salesOrderItem.groupBy({
+        by: ['productVariantId'],
+        where: {
+            salesOrder: {
+                orderDate: {
+                    gte: dateRange.from,
+                    lte: dateRange.to,
+                },
+                status: { not: 'CANCELLED' }
+            }
+        },
+        _sum: {
+            quantity: true,
+            subtotal: true
+        },
+        orderBy: {
+            _sum: {
+                quantity: 'desc'
+            }
+        },
+        take: limit
+    });
+
+    // Fetch product names
+    const variantIds = items.map(i => i.productVariantId);
+    const variants = await prisma.productVariant.findMany({
+        where: { id: { in: variantIds } },
+        select: { id: true, name: true, skuCode: true }
+    });
+
+    return items.map(item => {
+        const variant = variants.find(v => v.id === item.productVariantId);
+        return {
+            productVariantId: item.productVariantId,
+            productName: variant?.name || 'Unknown',
+            skuCode: variant?.skuCode || 'Unknown',
+            totalQuantity: Number(item._sum.quantity) || 0,
+            totalRevenue: Number(item._sum.subtotal) || 0
+        };
+    });
+}
+
+/**
+ * 9. Sales Pipeline Summary
+ * - Distribution by Order Status
+ */
+export async function getSalesPipelineSummary(
+    dateRange: DateRange
+): Promise<SalesPipelineSummary[]> {
+    const groups = await prisma.salesOrder.groupBy({
+        by: ['status'],
+        where: {
+            orderDate: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            }
+        },
+        _count: { id: true },
+        _sum: { totalAmount: true }
+    });
+
+    const totalValue = groups.reduce((sum, g) => sum + (Number(g._sum.totalAmount) || 0), 0);
+
+    return groups.map(g => ({
+        status: g.status,
+        count: g._count.id,
+        value: Number(g._sum.totalAmount) || 0,
+        percentage: safePercentage(Number(g._sum.totalAmount) || 0, totalValue)
+    })).sort((a, b) => b.value - a.value);
+}
+
+/**
+ * 10. Accounts Receivable (AR) Aging
+ * - Unpaid invoices grouped by age
+ */
+export async function getARAgingReport(): Promise<ARAgingItem[]> {
+    // Determine aging based on dueDate or invoiceDate? Usually dueDate.
+    // However, if dueDate is null, use invoiceDate?
+    // Let's rely on dueDate for aging calculations.
+
+    const unpaidInvoices = await prisma.invoice.findMany({
+        where: {
+            status: { notIn: ['PAID', 'CANCELLED'] }
+        },
+        select: {
+            id: true,
+            totalAmount: true,
+            paidAmount: true,
+            dueDate: true,
+            invoiceDate: true
+        }
+    });
+
+    const categories: Record<string, ARAgingItem> = {
+        'Current': { range: 'Current', amount: 0, invoiceCount: 0 },
+        '1-30 Days': { range: '1-30 Days', amount: 0, invoiceCount: 0 },
+        '31-60 Days': { range: '31-60 Days', amount: 0, invoiceCount: 0 },
+        '61-90 Days': { range: '61-90 Days', amount: 0, invoiceCount: 0 },
+        '> 90 Days': { range: '> 90 Days', amount: 0, invoiceCount: 0 },
+    };
+
+    const now = new Date();
+
+    for (const inv of unpaidInvoices) {
+        const due = inv.dueDate || inv.invoiceDate; // Fallback
+        const outstanding = Number(inv.totalAmount) - Number(inv.paidAmount);
+
+        // Diff in days
+        const diffTime = now.getTime() - due.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let categoryKey = 'Current';
+        if (diffDays <= 0) categoryKey = 'Current'; // Not overdue yet
+        else if (diffDays <= 30) categoryKey = '1-30 Days';
+        else if (diffDays <= 60) categoryKey = '31-60 Days';
+        else if (diffDays <= 90) categoryKey = '61-90 Days';
+        else categoryKey = '> 90 Days';
+
+        categories[categoryKey].amount += outstanding;
+        categories[categoryKey].invoiceCount += 1;
+    }
+
+    return Object.values(categories);
+}
+
+/**
+ * 11. Customer Credit Report
+ * - High utilization customers
+ */
+export async function getCustomerCreditReport(
+    limit: number = 10
+): Promise<CustomerCreditItem[]> {
+    // 1. Get customers with credit limit
+    const customers = await prisma.customer.findMany({
+        where: {
+            creditLimit: { not: null },
+            isActive: true
+        }
+    });
+
+
+    // We need to map back to customer.
+    // Let's fetch the salesOrder -> customer mapping for these invoices.
+    // Or simpler: fetch unpaid invoices with salesOrder.customerId
+    const unpaidInvoices = await prisma.invoice.findMany({
+        where: {
+            salesOrder: { customerId: { in: customers.map(c => c.id) } },
+            status: { notIn: ['PAID', 'CANCELLED'] }
+        },
+        include: {
+            salesOrder: {
+                select: { customerId: true }
+            }
+        }
+    });
+
+    const usageMap = new Map<string, number>();
+    for (const inv of unpaidInvoices) {
+        const custId = inv.salesOrder.customerId;
+        if (!custId) continue;
+        const outstanding = Number(inv.totalAmount) - Number(inv.paidAmount);
+        usageMap.set(custId, (usageMap.get(custId) || 0) + outstanding);
+    }
+
+    const report: CustomerCreditItem[] = [];
+
+    for (const cust of customers) {
+        const used = usageMap.get(cust.id) || 0;
+        const limit = Number(cust.creditLimit) || 0;
+
+        if (limit === 0 && used === 0) continue;
+
+        const rate = limit > 0 ? (used / limit) * 100 : 0;
+
+        let status: 'Safe' | 'Warning' | 'Critical' = 'Safe';
+        if (rate >= 90) status = 'Critical';
+        else if (rate >= 70) status = 'Warning';
+
+        // Only include if there's usage or limit
+        report.push({
+            customerName: cust.name,
+            creditLimit: limit,
+            usedCredit: used,
+            utilizationRate: Number(rate.toFixed(2)),
+            status
+        });
+    }
+
+    // Sort by utilization rate descending
+    return report.sort((a, b) => b.utilizationRate - a.utilizationRate).slice(0, limit);
+}
+
+/**
+ * Aggregated Sales Analytics for Dashboard
+ */
+export async function getSalesAnalytics(dateRange?: DateRange) {
+    const today = new Date();
+    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    // Default to last 6 months for trend
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    const defaultTo = endOfCurrentMonth;
+
+    const queryRange = dateRange || { from: defaultFrom, to: defaultTo };
+
+    const [revenueTrend, topProducts, pipeline, arAging] = await Promise.all([
+        getSalesRevenueReport(queryRange),
+        getTopProducts(queryRange),
+        getSalesPipelineSummary(queryRange),
+        getARAgingReport()
+    ]);
+
+    return {
+        revenueTrend: revenueTrend.chartData,
+        topProducts,
+        pipeline,
+        arAging
+    };
+}
+
+/**
+ * Export Sales Analytics Report
+ */
+export async function exportSalesAnalytics(dateRange: DateRange) {
+    try {
+        const [revenueTrend, topProducts, pipeline, arAging] = await Promise.all([
+            getSalesRevenueReport(dateRange),
+            getTopProducts(dateRange),
+            getSalesPipelineSummary(dateRange),
+            getARAgingReport()
+        ]);
+
+        const workbook = XLSX.utils.book_new();
+
+        // 1. Revenue Sheet
+        const revenueSheet = XLSX.utils.json_to_sheet(revenueTrend.chartData.map(r => ({
+            Period: r.period,
+            Revenue: r.revenue,
+            'Order Count': r.orderCount,
+            AOV: r.aov
+        })));
+        XLSX.utils.book_append_sheet(workbook, revenueSheet, 'Revenue Trend');
+
+        // 2. Top Products Sheet
+        const productsSheet = XLSX.utils.json_to_sheet(topProducts.map(p => ({
+            Product: p.productName,
+            SKU: p.skuCode,
+            Quantity: p.totalQuantity,
+            Revenue: p.totalRevenue
+        })));
+        XLSX.utils.book_append_sheet(workbook, productsSheet, 'Top Products');
+
+        // 3. Pipeline Sheet
+        const pipelineSheet = XLSX.utils.json_to_sheet(pipeline.map(p => ({
+            Status: p.status,
+            Count: p.count,
+            Value: p.value,
+            Percentage: `${p.percentage.toFixed(2)}%`
+        })));
+        XLSX.utils.book_append_sheet(workbook, pipelineSheet, 'Pipeline');
+
+        // 4. AR Aging Sheet
+        const arSheet = XLSX.utils.json_to_sheet(arAging.map(a => ({
+            Range: a.range,
+            Amount: a.amount,
+            'Invoice Count': a.invoiceCount
+        })));
+        XLSX.utils.book_append_sheet(workbook, arSheet, 'AR Aging');
+
+        const buffer = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+
+        return { data: buffer, error: null };
+    } catch (error) {
+        console.error('Export error:', error);
+        return { data: null, error: 'Failed to generate report' };
+    }
+}
+
+/**
+ * Aggregated Production Analytics
+ */
+export async function getProductionAnalytics(dateRange?: DateRange) {
+    const today = new Date();
+    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1); // Last month default
+    const defaultTo = endOfCurrentMonth;
+
+    const queryRange = dateRange || { from: defaultFrom, to: defaultTo };
+
+    const [realization, materialVariance, machinePerformance, operatorProductivity, quality] = await Promise.all([
+        getProductionRealizationReport(queryRange),
+        getMaterialUsageVarianceReport(queryRange),
+        getMachinePerformanceReport(queryRange),
+        getOperatorProductivityLeaderboard(queryRange),
+        getQualityControlSummary(queryRange)
+    ]);
+
+    return {
+        realization,
+        materialVariance,
+        machinePerformance,
+        operatorProductivity,
+        quality
+    };
+}
+
+/**
+ * Export Production Analytics Report
+ */
+export async function exportProductionAnalytics(dateRange: DateRange) {
+    try {
+        const [realization, materialVariance, machinePerformance, operatorProductivity, quality] = await Promise.all([
+            getProductionRealizationReport(dateRange),
+            getMaterialUsageVarianceReport(dateRange),
+            getMachinePerformanceReport(dateRange),
+            getOperatorProductivityLeaderboard(dateRange),
+            getQualityControlSummary(dateRange)
+        ]);
+
+        const workbook = XLSX.utils.book_new();
+
+        // 1. Realization Sheet
+        const realizationSheet = XLSX.utils.json_to_sheet(realization.map(r => ({
+            'Order #': r.orderNumber,
+            Product: r.productName,
+            'Planned Qty': r.plannedQuantity,
+            'Actual Qty': r.actualQuantity,
+            'Yield Rate (%)': r.yieldRate.toFixed(2),
+            Status: r.status,
+            'Schedule Adherence': r.scheduleAdherence
+        })));
+        XLSX.utils.book_append_sheet(workbook, realizationSheet, 'Realization');
+
+        // 2. Material Variance Sheet
+        const materialSheet = XLSX.utils.json_to_sheet(materialVariance.map(m => ({
+            'Order #': m.orderNumber,
+            Material: m.materialName,
+            'Standard Qty': m.standardQuantity,
+            'Actual Qty': m.actualQuantity,
+            Variance: m.variance,
+            'Variance (%)': m.variancePercentage.toFixed(2)
+        })));
+        XLSX.utils.book_append_sheet(workbook, materialSheet, 'Material Variance');
+
+        // 3. Machine Performance Sheet
+        const machineSheet = XLSX.utils.json_to_sheet(machinePerformance.map(m => ({
+            Machine: m.machineName,
+            Output: m.totalOutput,
+            'Operating Hours': m.totalOperatingHours,
+            'Units/Hour': m.unitsPerHour,
+            'Scrap Rate (%)': m.scrapRate.toFixed(2)
+        })));
+        XLSX.utils.book_append_sheet(workbook, machineSheet, 'Machine Perf');
+
+        // 4. Operator Sheet
+        const operatorSheet = XLSX.utils.json_to_sheet(operatorProductivity.map(o => ({
+            Operator: o.operatorName,
+            Output: o.totalQuantityProduced,
+            Scrap: o.totalScrapQuantity,
+            'Scrap Rate (%)': o.scrapRate.toFixed(2),
+            'Orders Handled': o.ordersHandled
+        })));
+        XLSX.utils.book_append_sheet(workbook, operatorSheet, 'Operator Perf');
+
+        // 5. Quality Sheet
+        const qualitySheet = XLSX.utils.json_to_sheet([
+            {
+                Title: 'Inspection Summary',
+                Total: quality.inspections.total,
+                Pass: quality.inspections.pass,
+                Fail: quality.inspections.fail,
+                Quarantine: quality.inspections.quarantine,
+                'Pass Rate (%)': quality.inspections.passRate.toFixed(2)
+            },
+            {},
+            { Title: 'Scrap Reasons' },
+            ...quality.scrapByReason.map(s => ({
+                Reason: s.reason,
+                Qty: s.quantity,
+                'Percentage (%)': s.percentage.toFixed(2)
+            }))
+        ]);
+        XLSX.utils.book_append_sheet(workbook, qualitySheet, 'Quality QC');
+
+        const buffer = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+
+        return { data: buffer, error: null };
+    } catch (error) {
+        console.error('Export error:', error);
+        return { data: null, error: 'Failed to generate report' };
+    }
 }
