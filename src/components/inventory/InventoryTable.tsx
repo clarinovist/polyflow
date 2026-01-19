@@ -430,8 +430,8 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                     <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
                                 </div>
                             </TableHead>
-                            <TableHead>Reserved</TableHead>
-                            <TableHead>Available</TableHead>
+                            <TableHead className="text-center">Reserved</TableHead>
+                            <TableHead className="text-center">Available</TableHead>
                             <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
                                 <div className="flex items-center gap-2">
                                     Status
@@ -458,14 +458,14 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                     <TableRow
                                         className={`${isLowStock ? "bg-red-500/10 hover:bg-red-500/20" : "hover:bg-muted/50"} transition-colors ${isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10 dark:hover:bg-blue-900/20" : ""}`}
                                     >
-                                        <TableCell className="pl-4 py-3 align-top">
+                                        <TableCell className="pl-4 py-3 align-middle">
                                             <Checkbox
                                                 checked={isSelected}
                                                 onCheckedChange={() => toggleSelectItem(item.id)}
                                             />
                                         </TableCell>
 
-                                        <TableCell className="py-3 align-top">
+                                        <TableCell className="py-3 align-middle">
                                             <div className="flex flex-col gap-0.5">
                                                 <span className="font-medium text-sm text-foreground leading-tight">
                                                     {item.productVariant.name}
@@ -483,7 +483,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                         </TableCell>
 
                                         {!isLocationSpecific && (
-                                            <TableCell className="align-top hidden md:table-cell">
+                                            <TableCell className="align-middle hidden md:table-cell">
                                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                                                     <Warehouse className="h-3 w-3 text-muted-foreground/50" />
                                                     <span className="truncate max-w-[120px] block" title={item.location.name}>
@@ -493,40 +493,40 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             </TableCell>
                                         )}
 
-                                        <TableCell className="text-right align-top">
+                                        <TableCell className="text-right align-middle">
                                             <div className="flex flex-col items-end">
-                                                <div className="font-semibold text-sm text-foreground">
-                                                    {currentStock.toLocaleString()}
+                                                <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
+                                                    <span>{currentStock.toLocaleString()}</span>
                                                     <span className="ml-1 text-xs font-normal text-muted-foreground">
                                                         {item.productVariant.primaryUnit}
                                                     </span>
                                                 </div>
                                                 {showComparison && delta !== 0 && (
-                                                    <div className={`text-[10px] font-medium flex items-center gap-0.5 ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                         {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
                                                         {Math.abs(delta).toLocaleString()}
                                                     </div>
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center align-middle">
                                             {item.reservedQuantity ? (
-                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                                                    {item.reservedQuantity} {item.productVariant.primaryUnit}
+                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 tabular-nums">
+                                                    {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
                                                 </Badge>
                                             ) : (
-                                                <span className="text-slate-400">-</span>
+                                                <span className="text-muted-foreground">-</span>
                                             )}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center align-middle">
                                             <div className={cn(
-                                                "font-medium",
+                                                "font-medium tabular-nums",
                                                 (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"
                                             )}>
-                                                {item.availableQuantity ?? item.quantity} {item.productVariant.primaryUnit}
+                                                {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="align-top">
+                                        <TableCell className="align-middle">
                                             {isLowStock ? (
                                                 <div className="space-y-1">
                                                     <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
@@ -543,7 +543,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             )}
                                         </TableCell>
 
-                                        <TableCell className="pr-4 text-right align-top">
+                                        <TableCell className="pr-4 text-right align-middle">
                                             <ThresholdDialog
                                                 productVariantId={item.productVariantId}
                                                 productName={item.productVariant.name}

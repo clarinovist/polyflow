@@ -1,4 +1,5 @@
 import { getOpnameSession } from '@/actions/opname';
+import { auth } from '@/auth';
 import { notFound } from 'next/navigation';
 import { OpnameDetailClient } from '@/components/inventory/opname/OpnameDetailClient';
 
@@ -33,5 +34,8 @@ export default async function OpnameDetailPage({ params }: PageProps) {
         })),
     };
 
-    return <OpnameDetailClient session={serializedSession} />;
+    const userSession = await auth();
+    const currentUserId = userSession?.user?.id || '';
+
+    return <OpnameDetailClient session={serializedSession} currentUserId={currentUserId} />;
 }

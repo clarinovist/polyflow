@@ -156,7 +156,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
                     {/* LEFT CARD: Input Section */}
                     <Card className="border-border/50 shadow-sm overflow-hidden flex flex-col">
@@ -170,7 +170,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                             </div>
                         </CardHeader>
                         <div className="h-px bg-border/50 mx-6" />
-                        <CardContent className="px-6 py-6 space-y-6 flex-1 overflow-auto">
+                        <CardContent className="px-6 py-4 space-y-4 flex-1 overflow-auto">
 
                             {/* Location Section */}
                             <div className="space-y-3">
@@ -324,7 +324,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                         <CardContent className="flex-1 flex flex-col px-0 pt-4 overflow-hidden">
                             <div className="flex-1 overflow-y-auto px-6 pr-4 space-y-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                                 {fields.length === 0 ? (
-                                    <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20 p-4">
+                                    <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg bg-muted/20 p-3">
                                         <AlertCircle className="h-8 w-8 mb-2 opacity-40" />
                                         <p className="text-sm font-medium">No items added</p>
                                         <p className="text-xs mt-1">Add adjustment details from the left</p>
@@ -375,7 +375,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                             </div>
 
                             {/* Footer */}
-                            <div className="shrink-0 pt-4 px-6 pb-6 bg-card border-t border-border/40 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
+                            <div className="shrink-0 pt-3 px-6 pb-4 bg-card border-t border-border/40 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
                                 <Button
                                     type="submit"
                                     disabled={form.formState.isSubmitting || fields.length === 0}

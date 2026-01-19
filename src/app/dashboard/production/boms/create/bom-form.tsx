@@ -6,7 +6,7 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProductCombobox } from '@/components/ui/product-combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -137,20 +137,14 @@ export function BomForm({ products, initialData }: BomFormProps) {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Output Product</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Finished Good / WIP" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {products.map((p) => (
-                                            <SelectItem key={p.id} value={p.id}>
-                                                {p.name} ({p.skuCode})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <ProductCombobox
+                                        products={products}
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        placeholder="Search finished good / WIP..."
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -202,20 +196,14 @@ export function BomForm({ products, initialData }: BomFormProps) {
                                     render={({ field }) => (
                                         <FormItem className="flex-1 w-full">
                                             <FormLabel className={index !== 0 ? "sr-only" : ""}>Material</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select Material" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {products.map((p) => (
-                                                        <SelectItem key={p.id} value={p.id}>
-                                                            {p.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <ProductCombobox
+                                                    products={products}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Search material..."
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}

@@ -65,7 +65,7 @@ export default async function OpnameListPage() {
                                             <div className="p-1 rounded bg-muted">
                                                 <Calendar className="h-3.5 w-3.5" />
                                             </div>
-                                            <span>{format(new Date(session.createdAt), 'FFF')}</span>
+                                            <span>{format(new Date(session.createdAt), 'PPP')}</span>
                                         </div>
                                     </div>
                                 </CardContent>

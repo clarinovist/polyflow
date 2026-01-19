@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+// import { useSession } from 'next-auth/react'; 
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,16 +40,17 @@ interface OpnameSession {
 
 interface OpnameDetailClientProps {
     session: OpnameSession;
+    currentUserId: string;
 }
 
-export function OpnameDetailClient({ session }: OpnameDetailClientProps) {
-    const { data: sessionData } = useSession();
+export function OpnameDetailClient({ session, currentUserId }: OpnameDetailClientProps) {
+    // const { data: sessionData } = useSession(); // Removed
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();
 
     const handleFinalize = async () => {
-        if (!sessionData?.user?.id) {
+        if (!currentUserId) {
             toast.error("Authentication error: User ID not found.");
             return;
         }
