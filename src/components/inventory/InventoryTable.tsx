@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
+import { cn, formatRupiah } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,7 @@ export interface InventoryItem {
         skuCode: string;
         primaryUnit: string;
         minStockAlert: number | null;
+        price: number | null;
         product: {
             id: string;
             name: string;
@@ -88,9 +89,10 @@ interface InventoryTableProps {
     showComparison?: boolean;
     initialDate?: string;
     initialCompareDate?: string;
+    showPrices?: boolean;
 }
 
-export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate }: InventoryTableProps) {
+export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false }: InventoryTableProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
@@ -432,6 +434,12 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             </TableHead>
                             <TableHead className="text-center">Reserved</TableHead>
                             <TableHead className="text-center">Available</TableHead>
+                            {showPrices && (
+                                <>
+                                    <TableHead className="text-right">Unit Price</TableHead>
+                                    <TableHead className="text-right">Value</TableHead>
+                                </>
+                            )}
                             <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
                                 <div className="flex items-center gap-2">
                                     Status
@@ -526,6 +534,18 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
                                             </div>
                                         </TableCell>
+
+                                        {showPrices && (
+                                            <>
+                                                <TableCell className="text-right align-middle tabular-nums text-sm">
+                                                    {formatRupiah(item.productVariant.price)}
+                                                </TableCell>
+                                                <TableCell className="text-right align-middle tabular-nums font-medium text-sm">
+                                                    {formatRupiah((item.productVariant.price || 0) * item.quantity)}
+                                                </TableCell>
+                                            </>
+                                        )}
+
                                         <TableCell className="align-middle">
                                             {isLowStock ? (
                                                 <div className="space-y-1">

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Edit, Trash2, Info } from 'lucide-react';
+import { formatRupiah } from '@/lib/utils';
 import { deleteProduct } from '@/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -52,6 +53,7 @@ type Product = {
 
 interface ProductTableProps {
     products: Product[];
+    showPrices?: boolean;
 }
 
 const productTypeBadgeColors: Record<ProductType, string> = {
@@ -72,7 +74,7 @@ const productTypeLabels: Record<ProductType, string> = {
     WIP: 'WIP',
 };
 
-export function ProductTable({ products }: ProductTableProps) {
+export function ProductTable({ products, showPrices = false }: ProductTableProps) {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -147,6 +149,7 @@ export function ProductTable({ products }: ProductTableProps) {
                                 </Tooltip>
                             </div>
                         </TableHead>
+                        {showPrices && <TableHead className="text-right">Price</TableHead>}
                         <TableHead className="text-right">Variants</TableHead>
                         <TableHead className="text-right pr-6">Actions</TableHead>
                     </TableRow>
@@ -220,8 +223,19 @@ export function ProductTable({ products }: ProductTableProps) {
                                                         / {variant.salesUnit} ({variant.conversionFactor.toString()})
                                                     </span>
                                                 )}
+                                                {variant.primaryUnit}
+                                                {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
+                                                    <span className="ml-1 text-muted-foreground/70">
+                                                        / {variant.salesUnit} ({variant.conversionFactor.toString()})
+                                                    </span>
+                                                )}
                                             </div>
                                         </TableCell>
+                                        {showPrices && (
+                                            <TableCell className="text-right font-medium tabular-nums">
+                                                {formatRupiah(variant.price ? Number(variant.price) : null)}
+                                            </TableCell>
+                                        )}
                                         <TableCell className="text-right">
                                             {/* Matches Total Stock column */}
                                         </TableCell>

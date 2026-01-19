@@ -44,6 +44,7 @@ export class InventoryService {
                         name: true,
                         skuCode: true,
                         primaryUnit: true,
+                        price: true,
                         minStockAlert: true,
                         product: {
                             select: {

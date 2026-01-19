@@ -26,6 +26,14 @@ const RESOURCES = sidebarLinks.flatMap(group =>
     }))
 );
 
+const FEATURE_PERMISSIONS = [
+    {
+        key: 'feature:view-prices',
+        label: 'View Prices',
+        description: 'Can view product prices and inventory values'
+    }
+];
+
 const ROLES: Role[] = ['WAREHOUSE', 'PPIC', 'PRODUCTION', 'SALES']; // Admin is excluded as they have full access
 
 interface PermissionState {
@@ -49,6 +57,9 @@ export function AccessControlTab() {
                 newState[role] = {};
                 RESOURCES.forEach(res => {
                     newState[role][res.key] = false;
+                });
+                FEATURE_PERMISSIONS.forEach(feat => {
+                    newState[role][feat.key] = false;
                 });
             });
 
@@ -141,6 +152,45 @@ export function AccessControlTab() {
                                                 checked={permissions[role]?.[res.key] || false}
                                                 onCheckedChange={() => handleToggle(role, res.key, permissions[role]?.[res.key])}
                                                 disabled={updating === `${role}-${res.key}`}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+
+                <div className="mt-8 mb-4">
+                    <h3 className="text-lg font-medium">Feature Permissions</h3>
+                    <p className="text-sm text-muted-foreground">Control access to specific features and data visibility.</p>
+                </div>
+
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[200px]">Feature</TableHead>
+                            {ROLES.map(role => (
+                                <TableHead key={role} className="text-center">{role}</TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {FEATURE_PERMISSIONS.map((feat) => (
+                            <TableRow key={feat.key}>
+                                <TableCell className="font-medium">
+                                    <div className="flex flex-col">
+                                        <span>{feat.label}</span>
+                                        <span className="text-xs text-muted-foreground">{feat.description}</span>
+                                    </div>
+                                </TableCell>
+                                {ROLES.map(role => (
+                                    <TableCell key={`${role}-${feat.key}`} className="text-center">
+                                        <div className="flex justify-center">
+                                            <Checkbox
+                                                checked={permissions[role]?.[feat.key] || false}
+                                                onCheckedChange={() => handleToggle(role, feat.key, permissions[role]?.[feat.key])}
+                                                disabled={updating === `${role}-${feat.key}`}
                                             />
                                         </div>
                                     </TableCell>

@@ -15,7 +15,11 @@ export async function getBoms() {
                 },
                 items: {
                     include: {
-                        productVariant: true
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
+                        }
                     }
                 }
             },
@@ -23,7 +27,7 @@ export async function getBoms() {
                 updatedAt: 'desc'
             }
         });
-        return { success: true, data: boms };
+        return { success: true, data: JSON.parse(JSON.stringify(boms)) };
     } catch (error) {
         console.error("Error fetching BOMs:", error);
         return { success: false, error: "Failed to fetch BOMs" };
@@ -40,7 +44,7 @@ export async function getProductVariants() {
                 name: 'asc'
             }
         });
-        return { success: true, data: variants };
+        return { success: true, data: JSON.parse(JSON.stringify(variants)) };
     } catch (error) {
         console.error("Error fetching variants:", error);
         return { success: false, error: "Failed to fetch variants" };
@@ -87,7 +91,11 @@ export async function getBom(id: string) {
                 },
                 items: {
                     include: {
-                        productVariant: true
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
+                        }
                     }
                 }
             }

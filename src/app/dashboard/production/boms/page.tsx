@@ -3,13 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Plus, ChevronRight, FlaskConical } from 'lucide-react';
 import Link from 'next/link';
 import { getBoms } from '@/actions/boms';
+import { canViewPrices } from '@/actions/permissions';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { formatRupiah } from '@/lib/utils';
 import { BOMFieldGuide } from '@/components/production/BOMFieldGuide';
 
 export default async function BomListPage() {
-    const result = await getBoms();
-    const boms = result.success ? result.data : [];
+    const [bomsResult, showPrices] = await Promise.all([
+        getBoms(),
+        canViewPrices()
+    ]);
+    const boms = bomsResult.success ? bomsResult.data : [];
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -44,6 +49,7 @@ export default async function BomListPage() {
                                     <th className="p-3">Output Product</th>
                                     <th className="p-3">Ingredients</th>
                                     <th className="p-3">Basis Qty</th>
+                                    {showPrices && <th className="p-3 text-right">Est. Cost / Unit</th>}
                                     <th className="p-3">Last Updated</th>
                                     <th className="p-3"></th>
                                 </tr>
@@ -72,6 +78,18 @@ export default async function BomListPage() {
                                             <td className="p-3">
                                                 {Number(bom.outputQuantity)} {bom.productVariant.primaryUnit}
                                             </td>
+                                            {showPrices && (
+                                                <td className="p-3 text-right tabular-nums font-medium">
+                                                    {(() => {
+                                                        const totalCost = bom.items.reduce((sum, item) => {
+                                                            const cost = Number(item.productVariant.buyPrice) || Number(item.productVariant.price) || 0;
+                                                            return sum + (Number(item.quantity) * cost);
+                                                        }, 0);
+                                                        const outputQty = Number(bom.outputQuantity) || 1;
+                                                        return formatRupiah(totalCost / outputQty);
+                                                    })()}
+                                                </td>
+                                            )}
                                             <td className="p-3 text-muted-foreground">
                                                 {format(new Date(bom.updatedAt), 'MMM dd, yyyy')}
                                             </td>

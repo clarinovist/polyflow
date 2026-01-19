@@ -3,11 +3,15 @@ import { BomForm, Product } from './bom-form';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { getProductVariants } from '@/actions/boms';
+import { canViewPrices } from '@/actions/permissions';
 import { serializeData } from '@/lib/utils';
 
 export default async function CreateBomPage() {
-    const result = await getProductVariants();
-    const products = result.success ? serializeData(result.data) : [];
+    const [productsResult, showPrices] = await Promise.all([
+        getProductVariants(),
+        canViewPrices()
+    ]);
+    const products = productsResult.success ? serializeData(productsResult.data) : [];
 
     return (
         <div className="p-8 max-w-4xl mx-auto">
@@ -32,7 +36,7 @@ export default async function CreateBomPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <BomForm products={products as Product[]} />
+                    <BomForm products={products as Product[]} showPrices={showPrices} />
                 </CardContent>
             </Card>
         </div>

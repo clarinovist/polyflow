@@ -11,6 +11,7 @@ export type InventoryWithRelations = {
         name: string;
         skuCode: string;
         primaryUnit: Unit;
+        price: Prisma.Decimal | null;
         minStockAlert: Prisma.Decimal | null;
         product: {
             id: string;

@@ -1,4 +1,5 @@
 import { getInventoryStats, getLocations, getInventoryAsOf, getDashboardStats } from '@/actions/inventory';
+import { canViewPrices } from '@/actions/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InventoryTable, InventoryItem } from '@/components/inventory/InventoryTable';
@@ -7,7 +8,8 @@ import { InventoryInsightsPanel } from '@/components/inventory/InventoryInsights
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Box, PackageCheck } from 'lucide-react';
-import { serializeData } from '@/lib/utils';
+import { serializeData, formatRupiah } from '@/lib/utils';
+import { DollarSign } from 'lucide-react';
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -36,6 +38,8 @@ export default async function InventoryDashboard({
         getLocations(),
         getDashboardStats(),
     ]);
+
+    const showPrices = await canViewPrices();
 
     // Parse active location IDs (support multi-select)
     const activeLocationIds = params.locationId
@@ -149,6 +153,37 @@ export default async function InventoryDashboard({
         }, 0)
         : dashboardStats.totalStock;
 
+    // Calculate displayed total value based on filtered view
+    const displayedTotalValue = activeLocationIds.length > 0
+        ? displayInventory.reduce((acc, item) => {
+            // Check if item is SimplifiedInventory or InventoryWithRelations
+            // SimplifiedInventory doesn't have productVariant.price, so we might need to handle that if used for historical
+            // But displayInventory usually comes from liveInventory which has relations.
+            // However, historical logic maps to SimplifiedInventory structure effectively if we aren't careful,
+            // but the map above actually returns the original item structure with updated quantity.
+            // Let's safe guard.
+
+            if ('productVariant' in item) {
+                const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+                const price = item.productVariant.price ? item.productVariant.price.toNumber() : 0;
+                return acc + (qty * price);
+            }
+            return acc;
+        }, 0)
+        : 0; // Usage of dashboardStats for value would require updating dashboardStats to return value too.
+    // For now, if no location filter, we might want to calculate from liveInventory if dashboardStats doesn't have it.
+    // But wait, dashboardStats doesn't have value.
+    // So if activeLocationIds is empty (Global), we should calculate from liveInventory (which is ALL inventory).
+
+    const finalTotalValue = activeLocationIds.length > 0
+        ? displayedTotalValue
+        : liveInventory.reduce((acc, item) => {
+            const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+            const price = item.productVariant.price ? item.productVariant.price.toNumber() : 0;
+            return acc + (qty * price);
+        }, 0);
+
+
     // Serialize Decimal fields for client component
     const serializedInventory = serializeData(displayInventory) as InventoryItem[];
 
@@ -203,6 +238,15 @@ export default async function InventoryDashboard({
                                         <span className="font-semibold">{displayedTotalStock.toLocaleString()}</span>
                                         <span className="text-emerald-600 font-normal">total stock</span>
                                     </Badge>
+
+                                    {/* Total Value Badge (Conditionally Rendered) */}
+                                    {showPrices && (
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1.5 px-2.5 py-1">
+                                            <DollarSign className="h-3.5 w-3.5" />
+                                            <span className="font-semibold">{formatRupiah(finalTotalValue)}</span>
+                                            <span className="text-blue-600 font-normal">total value</span>
+                                        </Badge>
+                                    )}
                                 </div>
                                 {asOfDate && (
                                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
@@ -221,6 +265,7 @@ export default async function InventoryDashboard({
                                     showComparison={!!compareDate}
                                     initialDate={params.asOf}
                                     initialCompareDate={params.compareWith}
+                                    showPrices={showPrices}
                                 />
                             </div>
                         </CardContent>

@@ -3,6 +3,7 @@ import { BomForm, Product, BomFormProps } from '../../create/bom-form';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { getBom, getProductVariants } from '@/actions/boms';
+import { canViewPrices } from '@/actions/permissions';
 import { serializeData } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 
@@ -12,9 +13,10 @@ interface EditBomPageProps {
 
 export default async function EditBomPage(props: EditBomPageProps) {
     const params = await props.params;
-    const [bomResult, productsResult] = await Promise.all([
+    const [bomResult, productsResult, showPrices] = await Promise.all([
         getBom(params.id),
-        getProductVariants()
+        getProductVariants(),
+        canViewPrices()
     ]);
 
     if (!bomResult.success || !bomResult.data) {
@@ -50,6 +52,7 @@ export default async function EditBomPage(props: EditBomPageProps) {
                     <BomForm
                         products={products as Product[]}
                         initialData={bom as unknown as BomFormProps['initialData']}
+                        showPrices={showPrices}
                     />
                 </CardContent>
             </Card>

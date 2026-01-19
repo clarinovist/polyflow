@@ -13,12 +13,15 @@ import { useState } from 'react';
 import { createBom, updateBom } from '@/actions/boms';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { formatRupiah } from '@/lib/utils';
 
 export interface Product {
     id: string;
     name: string;
     skuCode: string;
     primaryUnit: string;
+    price: number | null;
+    buyPrice: number | null;
 }
 
 export interface BomFormProps {
@@ -34,9 +37,10 @@ export interface BomFormProps {
             quantity: number | { toNumber: () => number };
         }>;
     };
+    showPrices?: boolean;
 }
 
-export function BomForm({ products, initialData }: BomFormProps) {
+export function BomForm({ products, initialData, showPrices = false }: BomFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +54,11 @@ export function BomForm({ products, initialData }: BomFormProps) {
             isDefault: initialData?.isDefault || false,
             items: initialData?.items?.map((item) => ({
                 productVariantId: item.productVariantId,
-                quantity: typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber(),
+                quantity: typeof item.quantity === 'number'
+                    ? item.quantity
+                    : typeof item.quantity === 'string'
+                        ? Number(item.quantity)
+                        : item.quantity.toNumber(),
             })) || [{ productVariantId: '', quantity: 0 }]
         },
     });
@@ -63,6 +71,16 @@ export function BomForm({ products, initialData }: BomFormProps) {
     // Determine units for display
     const watchOutputId = useWatch({ control: form.control, name: 'productVariantId' });
     const selectedOutput = products.find(p => p.id === watchOutputId);
+
+    // Calculate estimated cost
+    const watchItems = useWatch({ control: form.control, name: 'items' });
+    const totalEstimatedCost = showPrices ? watchItems?.reduce((sum, item) => {
+        const variant = products.find(p => p.id === item.productVariantId);
+        const qty = typeof item.quantity === 'number' ? item.quantity : Number(item.quantity) || 0;
+        // Use buyPrice (Cost) if available, otherwise fallback to price, then 0.
+        const cost = Number(variant?.buyPrice) || Number(variant?.price) || 0;
+        return sum + (qty * cost);
+    }, 0) : 0;
 
     async function onSubmit(data: CreateBomValues) {
         setIsSubmitting(true);
@@ -167,6 +185,20 @@ export function BomForm({ products, initialData }: BomFormProps) {
                                 <FormDescription>
                                     The base amount this recipe produces (e.g. 100 KG).
                                 </FormDescription>
+                                {showPrices && (
+                                    <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 rounded border text-sm">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-muted-foreground font-medium">Est. Cost / Unit:</span>
+                                            <span className="font-bold text-lg text-emerald-600">
+                                                {formatRupiah(totalEstimatedCost / (Number(field.value) || 1))}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t">
+                                            <span>Total Batch Cost:</span>
+                                            <span>{formatRupiah(totalEstimatedCost)}</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -189,51 +221,63 @@ export function BomForm({ products, initialData }: BomFormProps) {
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 dark:bg-zinc-900 p-4 rounded-lg border">
-                                <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productVariantId`}
-                                    render={({ field }) => (
-                                        <FormItem className="flex-1 w-full">
-                                            <FormLabel className={index !== 0 ? "sr-only" : ""}>Material</FormLabel>
-                                            <FormControl>
-                                                <ProductCombobox
-                                                    products={products}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Search material..."
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                            <div key={field.id} className="mb-4">
+                                <div className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 dark:bg-zinc-900 p-4 rounded-lg border relative z-10">
+                                    <FormField
+                                        control={form.control}
+                                        name={`items.${index}.productVariantId`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex-1 w-full">
+                                                <FormLabel className={index !== 0 ? "sr-only" : ""}>Material</FormLabel>
+                                                <FormControl>
+                                                    <ProductCombobox
+                                                        products={products}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Search material..."
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                                <FormField
-                                    control={form.control}
-                                    name={`items.${index}.quantity`}
-                                    render={({ field }) => (
-                                        <FormItem className="w-full md:w-32">
-                                            <FormLabel className={index !== 0 ? "sr-only" : ""}>Qty</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" step="0.001" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name={`items.${index}.quantity`}
+                                        render={({ field }) => (
+                                            <FormItem className="w-full md:w-32">
+                                                <FormLabel className={index !== 0 ? "sr-only" : ""}>Qty</FormLabel>
+                                                <FormControl>
+                                                    <Input type="number" step="0.001" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        onClick={() => remove(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
 
-
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                    onClick={() => remove(index)}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {showPrices && (
+                                    <div className="px-4 pb-4 pt-4 text-right text-sm text-muted-foreground tabular-nums bg-slate-50/50 dark:bg-zinc-900/50 border-x border-b rounded-b-lg -mt-1 mx-1">
+                                        Estimated: {(() => {
+                                            const variantId = form.getValues(`items.${index}.productVariantId`);
+                                            const qty = form.getValues(`items.${index}.quantity`);
+                                            const variant = products.find(p => p.id === variantId);
+                                            const cost = Number(variant?.buyPrice) || Number(variant?.price) || 0;
+                                            return formatRupiah(cost * Number(qty));
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -246,7 +290,7 @@ export function BomForm({ products, initialData }: BomFormProps) {
                         {initialData?.id ? "Update Recipe" : "Save Recipe"}
                     </Button>
                 </div>
-            </form>
-        </Form>
+            </form >
+        </Form >
     );
 }

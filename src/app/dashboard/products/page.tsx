@@ -1,4 +1,5 @@
 import { getProducts } from '@/actions/product';
+import { canViewPrices } from '@/actions/permissions';
 import { ProductTable } from '@/components/products/ProductTable';
 import { ProductGlossary } from '@/components/products/ProductGlossary';
 import { ImportDialog } from '@/components/products/ImportDialog';
@@ -24,6 +25,8 @@ export default async function ProductsPage({
     const products = await getProducts({
         type: isValidType ? (typeParam as ProductType) : undefined
     });
+
+    const showPrices = await canViewPrices();
 
     // Serialize Decimal fields for client component
     const serializedProducts = JSON.parse(
@@ -59,7 +62,7 @@ export default async function ProductsPage({
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <ProductTable products={serializedProducts} />
+                    <ProductTable products={serializedProducts} showPrices={showPrices} />
                 </CardContent>
             </Card>
         </div>

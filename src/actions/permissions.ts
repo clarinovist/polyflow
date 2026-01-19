@@ -162,3 +162,23 @@ export async function getMyPermissions() {
 
     return permissions.map((p: { resource: string }) => p.resource);
 }
+
+// Check if current user can view prices
+export async function canViewPrices() {
+    const session = await auth();
+    if (!session?.user) return false;
+
+    if (session.user.role === 'ADMIN') return true;
+
+    // Check for specific feature permission
+    const permission = await prisma.rolePermission.findUnique({
+        where: {
+            role_resource: {
+                role: session.user.role,
+                resource: 'feature:view-prices',
+            },
+        },
+    });
+
+    return !!permission?.canAccess;
+}

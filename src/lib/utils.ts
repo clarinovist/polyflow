@@ -4,6 +4,16 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export function formatRupiah(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '-';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 // Helper to serialize Prisma objects (especially Decimals) for Client Components
 export function serializeData(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
