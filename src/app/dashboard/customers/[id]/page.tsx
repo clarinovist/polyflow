@@ -36,7 +36,11 @@ export default async function CustomerDetailPage(props: { params: Promise<{ id: 
                         </div>
                     </div>
                 </div>
-                <CustomerDialog mode="edit" initialData={customer} />
+                <CustomerDialog mode="edit" initialData={{
+                    ...customer,
+                    creditLimit: customer.creditLimit ? Number(customer.creditLimit) : null,
+                    discountPercent: customer.discountPercent ? Number(customer.discountPercent) : null
+                }} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

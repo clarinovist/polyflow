@@ -5,10 +5,15 @@ import { serializeData } from '@/lib/utils';
 import { getProductionFormData } from '@/actions/production';
 import { ProductionGlossary } from '@/components/production/ProductionGlossary';
 
-export default async function CreateProductionOrderPage() {
+export default async function CreateProductionOrderPage({
+    searchParams
+}: {
+    searchParams: { salesOrderId?: string }
+}) {
     const rawData = await getProductionFormData();
     // Only destructure what we need
     const { boms, locations } = serializeData(rawData) as unknown as ProductionOrderFormProps;
+    const salesOrderId = searchParams.salesOrderId;
 
     return (
         <div className="p-6 md:p-8 max-w-7xl mx-auto">
@@ -33,6 +38,7 @@ export default async function CreateProductionOrderPage() {
             <ProductionOrderForm
                 boms={boms}
                 locations={locations}
+                salesOrderId={salesOrderId}
             />
         </div>
     );

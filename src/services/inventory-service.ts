@@ -107,7 +107,13 @@ export class InventoryService {
     static async getProductVariants() {
         return await prisma.productVariant.findMany({
             include: {
-                product: true
+                product: true,
+                inventories: {
+                    select: {
+                        locationId: true,
+                        quantity: true
+                    }
+                }
             }
         });
     }

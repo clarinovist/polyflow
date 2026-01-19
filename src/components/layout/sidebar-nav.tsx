@@ -8,7 +8,6 @@ import {
     ArrowRightLeft,
     ClipboardList,
     ClipboardCheck,
-    History,
     Factory,
     Package,
     Files,
@@ -24,7 +23,9 @@ import {
     ChevronDown,
     ChevronRight,
     MonitorPlay,
-    Truck
+    Truck,
+    ShoppingCart,
+    Receipt
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -69,7 +70,13 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Adjustments", href: "/dashboard/inventory/adjustment", icon: ClipboardList },
 
             { title: "Stock Opname", href: "/dashboard/inventory/opname", icon: ClipboardCheck },
-            { title: "History Logs", href: "/dashboard/inventory/history", icon: History },
+        ],
+    },
+    {
+        heading: "Sales & Distribution",
+        items: [
+            { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
+            { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
         ],
     },
     {

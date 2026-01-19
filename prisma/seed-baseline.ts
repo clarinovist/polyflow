@@ -142,7 +142,7 @@ async function ensureExampleProducts() {
             primaryUnit: ex.variant.primaryUnit,
             salesUnit: ex.variant.salesUnit,
             conversionFactor: ex.variant.conversionFactor,
-            attributes: ex.variant.attributes as any,
+            attributes: ex.variant.attributes as any, // eslint-disable-line @typescript-eslint/no-explicit-any
           },
         },
       },

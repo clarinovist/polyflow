@@ -70,14 +70,16 @@ export function parseStockCSVFile(file: File): Promise<StockImportRow[]> {
                     reject(new Error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`));
                 } else {
                     // Filter out completely empty rows (sometimes happen with edited CSVs)
-                    const validRows = (results.data as any[]).filter(row => 
-                        row.sku_code || row.location || row.quantity !== undefined
-                    );
-                    
-                    // Simple type coercion
-                    const data = validRows.map(row => ({
-                        sku_code: row.sku_code?.trim(),
-                        location: row.location?.trim(),
+                    const validRows = (results.data as unknown[]).filter((row: unknown) => {
+                        // Treat row as a Record for checking properties
+                        const recordRow = row as Record<string, unknown>;
+                        return recordRow.sku_code || recordRow.location || recordRow.quantity !== undefined;
+                    });
+
+                    // Cast to Record<string, unknown> to allow property access in map with type safety
+                    const data = (validRows as Record<string, unknown>[]).map(row => ({
+                        sku_code: String(row.sku_code || '').trim(),
+                        location: String(row.location || '').trim(),
                         quantity: Number(row.quantity)
                     })) as StockImportRow[];
 

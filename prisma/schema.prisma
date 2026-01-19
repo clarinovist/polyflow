@@ -24,6 +24,7 @@ model User {
   opnames            StockOpname[]
   auditLogs          AuditLog[]
   downtimeLogs       MachineDowntime[]
+  salesOrders        SalesOrder[]        @relation("SalesCreator")
 }
 
 model Employee {
@@ -94,6 +95,7 @@ model Customer {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  salesOrders     SalesOrder[]
 }
 
 // Contact model removed
@@ -113,6 +115,7 @@ model Location {
   movementsTo      StockMovement[]    @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
+  salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
 }
 
 model Product {
@@ -156,6 +159,7 @@ model ProductVariant {
   movements           StockMovement[]
   opnameItems         StockOpnameItem[]
   StockReservation    StockReservation[]
+  salesOrderItems     SalesOrderItem[]
 }
 
 model SupplierProduct {
@@ -219,6 +223,8 @@ model StockMovement {
   fromLocation     Location?      @relation("FromLocation", fields: [fromLocationId], references: [id])
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
+  salesOrderId     String?
+  salesOrder       SalesOrder?    @relation("SalesMovement", fields: [salesOrderId], references: [id])
 }
 
 model Inventory {
@@ -334,6 +340,8 @@ model ProductionOrder {
   shifts           ProductionShift[]
   plannedMaterials ProductionMaterial[]
   executions       ProductionExecution[]
+  salesOrderId     String?
+  salesOrder       SalesOrder?         @relation("SalesProduction", fields: [salesOrderId], references: [id])
 }
 
 model MachineDowntime {
@@ -565,4 +573,89 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   user       User     @relation(fields: [userId], references: [id])
+}
+
+// ============================================
+// SALES ORDER & INVOICE MODELS
+// ============================================
+
+model SalesOrder {
+  id               String            @id @default(uuid())
+  orderNumber      String            @unique
+  customerId       String?
+  orderDate        DateTime          @default(now())
+  expectedDate     DateTime?
+  orderType        SalesOrderType    @default(MAKE_TO_STOCK)
+  status           SalesOrderStatus  @default(DRAFT)
+  sourceLocationId String?
+  totalAmount      Decimal?          @db.Decimal(15, 2)
+  notes            String?
+  createdById      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
+  createdBy        User?             @relation("SalesCreator", fields: [createdById], references: [id])
+  items            SalesOrderItem[]
+  invoices         Invoice[]
+  movements        StockMovement[]   @relation("SalesMovement")
+  productionOrders ProductionOrder[] @relation("SalesProduction")
+}
+
+model SalesOrderItem {
+  id               String         @id @default(uuid())
+  salesOrderId     String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  subtotal         Decimal        @db.Decimal(15, 2)
+  deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@index([salesOrderId])
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  salesOrderId  String
+  invoiceDate   DateTime      @default(now())
+  dueDate       DateTime?
+  status        InvoiceStatus @default(UNPAID)
+  totalAmount   Decimal       @db.Decimal(15, 2)
+  paidAmount    Decimal       @default(0) @db.Decimal(15, 2)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  salesOrder    SalesOrder    @relation(fields: [salesOrderId], references: [id])
+
+  @@index([salesOrderId])
+}
+
+enum SalesOrderType {
+  MAKE_TO_STOCK
+  MAKE_TO_ORDER
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PRODUCTION
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  CANCELLED
 }

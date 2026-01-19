@@ -8,13 +8,28 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils';
 import { BOMFieldGuide } from '@/components/production/BOMFieldGuide';
+import { Bom } from '@prisma/client'; // Using Bom model from schema
 
 export default async function BomListPage() {
     const [bomsResult, showPrices] = await Promise.all([
         getBoms(),
         canViewPrices()
     ]);
-    const boms = bomsResult.success ? (bomsResult.data as any[]) : [];
+
+    type BomWithRelations = Bom & {
+        productVariant: { name: string, primaryUnit: string, buyPrice?: number | null, price?: number | null };
+        items: {
+            id: string;
+            quantity: number; // Decimal in Prisma is mapped to number or string, treating as number for now or we might need Decimal type
+            productVariant: {
+                name: string;
+                buyPrice?: number | null;
+                price?: number | null;
+            };
+        }[];
+    };
+
+    const boms: BomWithRelations[] = bomsResult.success ? (bomsResult.data as BomWithRelations[]) : [];
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -73,15 +88,14 @@ export default async function BomListPage() {
                                                 {bom.productVariant.name}
                                             </td>
                                             <td className="p-3">
-                                                {bom.items.length} items
-                                            </td>
+                                                {bom.items.map((item) => item.productVariant.name).join(', ')}                                           </td>
                                             <td className="p-3">
                                                 {Number(bom.outputQuantity)} {bom.productVariant.primaryUnit}
                                             </td>
                                             {showPrices && (
                                                 <td className="p-3 text-right tabular-nums font-medium">
                                                     {(() => {
-                                                        const totalCost = bom.items.reduce((sum: number, item: any) => {
+                                                        const totalCost = bom.items.reduce((sum: number, item: BomWithRelations['items'][number]) => {
                                                             const cost = Number(item.productVariant.buyPrice) || Number(item.productVariant.price) || 0;
                                                             return sum + (Number(item.quantity) * cost);
                                                         }, 0);

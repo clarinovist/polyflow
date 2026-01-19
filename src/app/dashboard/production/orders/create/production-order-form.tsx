@@ -47,7 +47,9 @@ export interface ProductionOrderFormProps {
             productVariantId: string;
             quantity: number;
         }[];
+        salesOrderId?: string;
     }[];
+    salesOrderId?: string;
 }
 
 interface MaterialRequirement {
@@ -66,7 +68,7 @@ const formSchema = createProductionOrderSchema;
 type FormValues = z.infer<typeof formSchema>;
 
 
-export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProps) {
+export function ProductionOrderForm({ boms, locations, salesOrderId }: ProductionOrderFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing'>('mixing');
@@ -116,6 +118,7 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
             items: [],
             locationId: '',
             bomId: '',
+            salesOrderId: salesOrderId || '',
             notes: '',
         },
     });
@@ -524,6 +527,19 @@ export function ProductionOrderForm({ boms, locations }: ProductionOrderFormProp
                                 />
                             </CardContent>
                         </Card>
+
+                        {/* Hidden Sales Order ID field */}
+                        <FormField
+                            control={form.control}
+                            name="salesOrderId"
+                            render={({ field }) => (
+                                <FormItem className="hidden">
+                                    <FormControl>
+                                        <Input {...field} />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
 
                         <div className="flex justify-end gap-4">
                             <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>

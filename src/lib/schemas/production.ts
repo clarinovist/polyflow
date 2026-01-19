@@ -9,6 +9,7 @@ export const createProductionOrderSchema = z.object({
     plannedEndDate: z.date().optional(),
     locationId: z.string().min(1, "Output location is required"),
     notes: z.string().optional(),
+    salesOrderId: z.string().optional(),
 
     // Flexible BOM Items
     items: z.array(z.object({

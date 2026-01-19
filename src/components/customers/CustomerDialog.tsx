@@ -28,9 +28,14 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
+    creditLimit: number | null;
+    discountPercent: number | null;
+};
+
 interface CustomerDialogProps {
     mode: 'create' | 'edit';
-    initialData?: Customer;
+    initialData?: SerializedCustomer;
     trigger?: React.ReactNode;
 }
 

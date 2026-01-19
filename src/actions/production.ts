@@ -38,7 +38,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
     const {
         bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-        locationId, orderNumber, notes
+        locationId, orderNumber, notes, salesOrderId
     } = result.data;
 
     try {
@@ -55,6 +55,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     notes,
                     status: ProductionStatus.DRAFT,
                     actualQuantity: 0,
+                    salesOrderId
                 }
             });
 
@@ -1347,3 +1348,50 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
 
 
 
+
+/**
+ * Convenience action to create a Production Order directly from a Sales Order shortage
+ */
+export async function createProductionFromSalesOrder(salesOrderId: string, productVariantId: string, quantity: number) {
+    if (!salesOrderId || !productVariantId || quantity <= 0) {
+        return { success: false, error: "Invalid parameters" };
+    }
+
+    try {
+        // 1. Find default BOM for the product variant
+        const bom = await prisma.bom.findFirst({
+            where: {
+                productVariantId,
+                isDefault: true
+            }
+        });
+
+        if (!bom) {
+            return { success: false, error: "No default BOM found for this product. Please create one first." };
+        }
+
+        // 2. Fetch Sales Order to get location and date info
+        const so = await prisma.salesOrder.findUnique({
+            where: { id: salesOrderId },
+            select: { sourceLocationId: true, expectedDate: true }
+        });
+
+        if (!so) return { success: false, error: "Sales Order not found" };
+
+        // 3. Create PO
+        const result = await createProductionOrder({
+            bomId: bom.id,
+            plannedQuantity: quantity,
+            plannedStartDate: new Date(),
+            plannedEndDate: so.expectedDate || undefined,
+            locationId: so.sourceLocationId || '', // Use SO location as target
+            salesOrderId,
+            notes: `Auto-generated from Sales Order shortage.`
+        });
+
+        return result;
+    } catch (error) {
+        console.error("Create PO from SO Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to trigger production" };
+    }
+}

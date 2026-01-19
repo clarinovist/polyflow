@@ -99,7 +99,11 @@ export default async function CustomersPage() {
                                                         <Eye className="h-4 w-4" />
                                                     </Button>
                                                 </Link>
-                                                <CustomerDialog mode="edit" initialData={customer} />
+                                                <CustomerDialog mode="edit" initialData={{
+                                                    ...customer,
+                                                    creditLimit: customer.creditLimit ? Number(customer.creditLimit) : null,
+                                                    discountPercent: customer.discountPercent ? Number(customer.discountPercent) : null
+                                                }} />
                                                 <DeleteButton
                                                     id={customer.id}
                                                     onDelete={deleteCustomer}
