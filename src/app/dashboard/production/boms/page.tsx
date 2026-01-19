@@ -14,7 +14,7 @@ export default async function BomListPage() {
         getBoms(),
         canViewPrices()
     ]);
-    const boms = bomsResult.success ? bomsResult.data : [];
+    const boms = bomsResult.success ? (bomsResult.data as any[]) : [];
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -81,7 +81,7 @@ export default async function BomListPage() {
                                             {showPrices && (
                                                 <td className="p-3 text-right tabular-nums font-medium">
                                                     {(() => {
-                                                        const totalCost = bom.items.reduce((sum, item) => {
+                                                        const totalCost = bom.items.reduce((sum: number, item: any) => {
                                                             const cost = Number(item.productVariant.buyPrice) || Number(item.productVariant.price) || 0;
                                                             return sum + (Number(item.quantity) * cost);
                                                         }, 0);

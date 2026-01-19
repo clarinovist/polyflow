@@ -148,7 +148,7 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     <FormField
                         control={form.control}
                         name="productVariantId"
@@ -185,25 +185,36 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
                                 <FormDescription>
                                     The base amount this recipe produces (e.g. 100 KG).
                                 </FormDescription>
-                                {showPrices && (
-                                    <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 rounded border text-sm">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-muted-foreground font-medium">Est. Cost / Unit:</span>
-                                            <span className="font-bold text-lg text-emerald-600">
-                                                {formatRupiah(totalEstimatedCost / (Number(field.value) || 1))}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t">
-                                            <span>Total Batch Cost:</span>
-                                            <span>{formatRupiah(totalEstimatedCost)}</span>
-                                        </div>
-                                    </div>
-                                )}
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
                 </div>
+
+                {/* Cost Summary Card - Full Width */}
+                {showPrices && (
+                    <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-zinc-900 dark:to-zinc-800 rounded-lg border">
+                        {totalEstimatedCost > 0 ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                                <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Estimated Cost / Unit</p>
+                                    <p className="text-2xl font-bold text-emerald-600">
+                                        {formatRupiah(totalEstimatedCost / (Number(form.getValues('outputQuantity')) || 1))}
+                                    </p>
+                                </div>
+                                <div className="hidden sm:block w-px h-12 bg-border" />
+                                <div className="sm:text-right border-t sm:border-t-0 pt-4 sm:pt-0">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total Batch Cost</p>
+                                    <p className="text-lg font-semibold text-foreground">{formatRupiah(totalEstimatedCost)}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-2">
+                                <p className="text-muted-foreground text-sm">💡 Tambahkan bahan baku di bawah untuk melihat estimasi biaya</p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Ingredients Table */}
                 <div className="space-y-4">
@@ -221,63 +232,64 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                            <div key={field.id} className="mb-4">
-                                <div className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 dark:bg-zinc-900 p-4 rounded-lg border relative z-10">
-                                    <FormField
-                                        control={form.control}
-                                        name={`items.${index}.productVariantId`}
-                                        render={({ field }) => (
-                                            <FormItem className="flex-1 w-full">
-                                                <FormLabel className={index !== 0 ? "sr-only" : ""}>Material</FormLabel>
-                                                <FormControl>
-                                                    <ProductCombobox
-                                                        products={products}
-                                                        value={field.value}
-                                                        onValueChange={field.onChange}
-                                                        placeholder="Search material..."
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                            <div key={field.id} className="flex flex-col md:flex-row gap-4 items-end bg-slate-50 dark:bg-zinc-900 p-4 rounded-lg border">
+                                <FormField
+                                    control={form.control}
+                                    name={`items.${index}.productVariantId`}
+                                    render={({ field }) => (
+                                        <FormItem className="flex-1 w-full">
+                                            <FormLabel className={index !== 0 ? "sr-only" : ""}>Material</FormLabel>
+                                            <FormControl>
+                                                <ProductCombobox
+                                                    products={products}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Search material..."
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                                    <FormField
-                                        control={form.control}
-                                        name={`items.${index}.quantity`}
-                                        render={({ field }) => (
-                                            <FormItem className="w-full md:w-32">
-                                                <FormLabel className={index !== 0 ? "sr-only" : ""}>Qty</FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" step="0.001" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        onClick={() => remove(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name={`items.${index}.quantity`}
+                                    render={({ field }) => (
+                                        <FormItem className="w-full md:w-32">
+                                            <FormLabel className={index !== 0 ? "sr-only" : ""}>Qty</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.001" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
                                 {showPrices && (
-                                    <div className="px-4 pb-4 pt-4 text-right text-sm text-muted-foreground tabular-nums bg-slate-50/50 dark:bg-zinc-900/50 border-x border-b rounded-b-lg -mt-1 mx-1">
-                                        Estimated: {(() => {
-                                            const variantId = form.getValues(`items.${index}.productVariantId`);
-                                            const qty = form.getValues(`items.${index}.quantity`);
-                                            const variant = products.find(p => p.id === variantId);
-                                            const cost = Number(variant?.buyPrice) || Number(variant?.price) || 0;
-                                            return formatRupiah(cost * Number(qty));
-                                        })()}
+                                    <div className="w-full md:w-36 text-right text-sm text-muted-foreground tabular-nums">
+                                        <span className={index !== 0 ? "sr-only" : "block text-xs font-medium mb-1"}>Est. Cost</span>
+                                        <span className="font-medium text-foreground">
+                                            {(() => {
+                                                const variantId = form.getValues(`items.${index}.productVariantId`);
+                                                const qty = form.getValues(`items.${index}.quantity`);
+                                                const variant = products.find(p => p.id === variantId);
+                                                const cost = Number(variant?.buyPrice) || Number(variant?.price) || 0;
+                                                return formatRupiah(cost * Number(qty));
+                                            })()}
+                                        </span>
                                     </div>
                                 )}
+
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                             </div>
                         ))}
                     </div>
