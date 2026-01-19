@@ -182,6 +182,21 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                             {product.totalStock?.toFixed(2) || '0.00'}
                                         </span>
                                     </TableCell>
+                                    {showPrices && (
+                                        <TableCell onClick={() => toggleRow(product.id)} className="text-right font-medium tabular-nums">
+                                            {(() => {
+                                                const prices = product.variants
+                                                    .map((v) => (v.price ? Number(v.price) : 0))
+                                                    .filter((p) => p > 0);
+                                                if (prices.length === 0) return <span className="text-muted-foreground">-</span>;
+                                                const min = Math.min(...prices);
+                                                const max = Math.max(...prices);
+                                                return min === max
+                                                    ? formatRupiah(min)
+                                                    : `${formatRupiah(min)} - ${formatRupiah(max)}`;
+                                            })()}
+                                        </TableCell>
+                                    )}
                                     <TableCell onClick={() => toggleRow(product.id)} className="text-right text-muted-foreground">
                                         {product.variants.length}
                                     </TableCell>
@@ -231,14 +246,14 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                                 )}
                                             </div>
                                         </TableCell>
+                                        <TableCell className="text-right">
+                                            {/* Matches Total Stock column */}
+                                        </TableCell>
                                         {showPrices && (
                                             <TableCell className="text-right font-medium tabular-nums">
                                                 {formatRupiah(variant.price ? Number(variant.price) : null)}
                                             </TableCell>
                                         )}
-                                        <TableCell className="text-right">
-                                            {/* Matches Total Stock column */}
-                                        </TableCell>
                                         <TableCell className="text-right text-sm text-muted-foreground">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>

@@ -8,7 +8,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { ProductCombobox } from '@/components/ui/product-combobox';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Info } from 'lucide-react';
 import { useState } from 'react';
 import { createBom, updateBom } from '@/actions/boms';
 import { useRouter } from 'next/navigation';
@@ -81,6 +81,23 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
         const cost = Number(variant?.buyPrice) || Number(variant?.price) || 0;
         return sum + (qty * cost);
     }, 0) : 0;
+
+    // Calculate total input quantity
+    const totalInputQuantity = watchItems?.reduce((sum, item) => {
+        return sum + (typeof item.quantity === 'number' ? item.quantity : Number(item.quantity) || 0);
+    }, 0) || 0;
+
+    const outputQuantity = Number(useWatch({ control: form.control, name: 'outputQuantity' })) || 0;
+
+    // Unit Consistency Check
+    const outputUnit = selectedOutput?.primaryUnit;
+    const isUnitsConsistent = watchItems?.every(item => {
+        const p = products.find(p => p.id === item.productVariantId);
+        return p?.primaryUnit === outputUnit;
+    });
+
+    const isInputExceedsOutput = totalInputQuantity > outputQuantity;
+    const isInputLessThanOutput = totalInputQuantity < outputQuantity;
 
     async function onSubmit(data: CreateBomValues) {
         setIsSubmitting(true);
@@ -219,7 +236,14 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
                 {/* Ingredients Table */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center border-b pb-2">
-                        <h3 className="text-lg font-semibold">Ingredients (Input Materials)</h3>
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-semibold">Ingredients (Input Materials)</h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>Total Input: <span className={isInputExceedsOutput ? "text-amber-500 font-bold" : ""}>{totalInputQuantity.toFixed(2)}</span></span>
+                                <span>/</span>
+                                <span>Basis Output: {outputQuantity.toFixed(2)}</span>
+                            </div>
+                        </div>
                         <Button
                             type="button"
                             variant="outline"
@@ -229,6 +253,42 @@ export function BomForm({ products, initialData, showPrices = false }: BomFormPr
                             <Plus className="h-4 w-4 mr-2" /> Add Material
                         </Button>
                     </div>
+
+                    {isInputExceedsOutput && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-3">
+                            <Info className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                            <div className="text-sm text-amber-900 dark:text-amber-200">
+                                <p className="font-semibold">Input exceeds Output (Yield Loss?)</p>
+                                <p>Total ingredients ({totalInputQuantity}) is greater than the basis quantity ({outputQuantity}).
+                                    {isUnitsConsistent
+                                        ? " Since units are the same, this implies Yield Loss (Scrap)."
+                                        : " Confirm if unit conversion (e.g. Pcs -> Kg) accounts for this difference."}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {isInputLessThanOutput && (
+                        <div className={`rounded-md p-3 flex items-start gap-3 border ${isUnitsConsistent
+                                ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                                : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                            }`}>
+                            <Info className={`h-5 w-5 shrink-0 mt-0.5 ${isUnitsConsistent ? "text-red-600 dark:text-red-500" : "text-blue-600 dark:text-blue-500"
+                                }`} />
+                            <div className={`text-sm ${isUnitsConsistent ? "text-red-900 dark:text-red-200" : "text-blue-900 dark:text-blue-200"
+                                }`}>
+                                <p className="font-semibold">
+                                    {isUnitsConsistent ? "Input is less than Output (Missing Ingredients?)" : "Input < Output (Unit Conversion?)"}
+                                </p>
+                                <p>
+                                    Total ingredients ({totalInputQuantity}) is less than the basis quantity ({outputQuantity}).
+                                    {isUnitsConsistent
+                                        ? " Since units are the same, you might be missing ingredients or creating 'magic' mass."
+                                        : " This is normal if converting larger units to smaller ones (e.g. 1 Drum -> 200 Liters)."}
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-4">
                         {fields.map((field, index) => (
