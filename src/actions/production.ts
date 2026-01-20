@@ -1187,22 +1187,52 @@ export async function getBomWithInventory(
 
         if (!bom) return { success: false, error: "Recipe not found" };
 
+        const variantIds = bom.items.map(i => i.productVariantId);
+
+        // Fetch inventory rows in bulk (avoid N+1)
+        const sourceInventoryRows = sourceLocationId
+            ? await prisma.inventory.findMany({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: { in: variantIds }
+                },
+                select: { productVariantId: true, quantity: true }
+            })
+            : [];
+
+        const sourceStockMap = new Map<string, number>();
+        sourceInventoryRows.forEach(r => sourceStockMap.set(r.productVariantId, r.quantity.toNumber()));
+
+        // Heuristic: if everything is zero/missing in requested source, but RM warehouse has stock,
+        // suggest switching source location (prevents confusing "0" stock in Material Requirements).
+        const requestedSourceHasAny = variantIds.some(id => (sourceStockMap.get(id) || 0) > 0);
+
+        let suggestedSourceLocation: { id: string; name: string } | null = null;
+        if (sourceLocationId && !requestedSourceHasAny) {
+            const rmLocation = await prisma.location.findUnique({
+                where: { slug: 'rm_warehouse' },
+                select: { id: true, name: true }
+            });
+
+            if (rmLocation && rmLocation.id !== sourceLocationId) {
+                const rmHasAny = await prisma.inventory.findFirst({
+                    where: {
+                        locationId: rmLocation.id,
+                        productVariantId: { in: variantIds },
+                        quantity: { gt: 0 }
+                    },
+                    select: { id: true }
+                });
+
+                if (rmHasAny) suggestedSourceLocation = rmLocation;
+            }
+        }
+
         const materialRequirements = await Promise.all(bom.items.map(async (item) => {
             const requiredQty = (Number(item.quantity) / Number(bom.outputQuantity)) * plannedQuantity;
 
             // Get Stock at Source Location
-            let currentStock = 0;
-            if (sourceLocationId) {
-                const inventory = await prisma.inventory.findUnique({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId: sourceLocationId,
-                            productVariantId: item.productVariantId
-                        }
-                    }
-                });
-                currentStock = inventory?.quantity.toNumber() || 0;
-            }
+            const currentStock = sourceLocationId ? (sourceStockMap.get(item.productVariantId) || 0) : 0;
 
             return {
                 productVariantId: item.productVariantId,
@@ -1215,7 +1245,15 @@ export async function getBomWithInventory(
             };
         }));
 
-        return { success: true, data: materialRequirements };
+        return {
+            success: true,
+            data: materialRequirements,
+            meta: {
+                requestedSourceLocationId: sourceLocationId,
+                suggestedSourceLocationId: suggestedSourceLocation?.id || null,
+                suggestedSourceLocationName: suggestedSourceLocation?.name || null,
+            }
+        };
 
     } catch (error) {
         console.error("Error calculating BOM requirements:", error);

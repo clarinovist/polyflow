@@ -141,6 +141,11 @@ docker compose up -d
   docker compose exec polyflow npx prisma@5.22.0 migrate deploy
   ```
 
+  If you prefer using npm scripts:
+  ```bash
+  docker compose exec polyflow npm run db:migrate:deploy
+  ```
+
 - **Reset Demo Catalog & Production Data (Keep Users)**:
   Use this if you want to start fresh (clear products, BOMs, inventory, production orders, etc.) but keep the admin user and master records.
   ```bash

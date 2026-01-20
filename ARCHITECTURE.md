@@ -417,8 +417,8 @@ NEXTAUTH_URL=https://polyflow.app
 
 2. **Set up database**:
    ```bash
-   npx prisma migrate dev
-   npx prisma db seed
+  npx prisma@5.22.0 migrate dev
+  npx prisma@5.22.0 db seed
    ```
 
 3. **Run dev server**:
@@ -428,12 +428,12 @@ NEXTAUTH_URL=https://polyflow.app
 
 4. **Generate Prisma Client** (after schema changes):
    ```bash
-   npx prisma generate
+  npx prisma@5.22.0 generate
    ```
 
 5. **Create migration** (after schema changes):
    ```bash
-   npx prisma migrate dev --name add_batch_tracking
+  npx prisma@5.22.0 migrate dev --name add_batch_tracking
    ```
 
 ### Code Quality Tools
@@ -505,12 +505,12 @@ polyflow/
 1. **Modify schema**: Edit `prisma/schema.prisma`
 2. **Create migration**:
    ```bash
-   npx prisma migrate dev --name add_batch_model
+  npx prisma@5.22.0 migrate dev --name add_batch_model
    ```
 3. **Review SQL**: Check `prisma/migrations/<timestamp>_add_batch_model/migration.sql`
 4. **Apply to production**:
    ```bash
-   npx prisma migrate deploy
+  npx prisma@5.22.0 migrate deploy
    ```
 
 **Important**:

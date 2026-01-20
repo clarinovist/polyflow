@@ -135,8 +135,8 @@ polyflow/
 
 4. **Initialize database**
    ```bash
-   npx prisma migrate dev
-   npx prisma db seed
+   npx prisma@5.22.0 migrate dev
+   npx prisma@5.22.0 db seed
    ```
 
 5. **Run development server**

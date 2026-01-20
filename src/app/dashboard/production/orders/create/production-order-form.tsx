@@ -62,6 +62,10 @@ interface MaterialRequirement {
     currentStock: number;
 }
 
+type BomWithInventoryResult =
+    | { success: true; data: MaterialRequirement[]; meta?: { suggestedSourceLocationId?: string | null; suggestedSourceLocationName?: string | null } }
+    | { success: false; error?: string };
+
 // Use schema directly from zod-schemas
 const formSchema = createProductionOrderSchema;
 
@@ -149,7 +153,7 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
     }, [planningMode, batchCount, watchBomId, boms, form]);
 
     // Automated Source Location Selection
-    const sourceLocationId = useMemo(() => {
+    const defaultSourceLocationId = useMemo(() => {
         const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
         const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
         const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
@@ -159,14 +163,17 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
         return '';
     }, [processType, locations]);
 
+    const [materialSourceLocationId, setMaterialSourceLocationId] = useState<string>(defaultSourceLocationId);
+    const [suggestedSource, setSuggestedSource] = useState<{ id: string; name: string } | null>(null);
+
 
 
     // Effect to calculate requirements
     useEffect(() => {
         const calculate = async () => {
-            if (watchBomId && Number(watchPlannedQty) > 0 && sourceLocationId) {
+            if (watchBomId && Number(watchPlannedQty) > 0 && materialSourceLocationId) {
                 setIsCalculating(true);
-                const result = await getBomWithInventory(watchBomId, sourceLocationId, Number(watchPlannedQty));
+                const result = await getBomWithInventory(watchBomId, materialSourceLocationId, Number(watchPlannedQty)) as BomWithInventoryResult;
                 setIsCalculating(false);
 
                 if (result.success && result.data) {
@@ -191,6 +198,14 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                         };
                     });
                     setMaterialInfo(infoMap);
+
+                    const suggestedId = result.meta?.suggestedSourceLocationId || null;
+                    const suggestedName = result.meta?.suggestedSourceLocationName || null;
+                    if (suggestedId && suggestedName && suggestedId !== materialSourceLocationId) {
+                        setSuggestedSource({ id: suggestedId, name: suggestedName });
+                    } else {
+                        setSuggestedSource(null);
+                    }
                 } else {
                     toast.error("Failed to calculate recipe", { description: result.error });
                 }
@@ -202,7 +217,7 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
         }, 500); // 500ms debounce
 
         return () => clearTimeout(timer);
-    }, [watchBomId, watchPlannedQty, sourceLocationId, replaceMaterials]);
+    }, [watchBomId, watchPlannedQty, materialSourceLocationId, replaceMaterials]);
 
     // Check for stock issues on manual edits
     const hasStockIssues = useMemo(() => {
@@ -310,11 +325,13 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                             className="rounded-r-none h-9 flex-1 text-xs"
                                             onClick={() => {
                                                 setProcessType('mixing');
+                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'rm_warehouse')?.id || '');
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
+                                                setSuggestedSource(null);
                                             }}
                                         >
                                             Mixing
@@ -325,11 +342,13 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                             className="rounded-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
                                                 setProcessType('extrusion');
+                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'mixing_warehouse')?.id || '');
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
+                                                setSuggestedSource(null);
                                             }}
                                         >
                                             Extrusion
@@ -340,11 +359,13 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                             className="rounded-l-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
                                                 setProcessType('packing');
+                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'fg_warehouse')?.id || '');
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
                                                 setMaterialInfo({});
+                                                setSuggestedSource(null);
                                             }}
                                         >
                                             Packing
@@ -357,7 +378,10 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                         <FormLabel>Product</FormLabel>
                                         <Select
                                             value={selectedProductVariantId}
-                                            onValueChange={setSelectedProductVariantId}
+                                            onValueChange={(value) => {
+                                                setSelectedProductVariantId(value);
+                                                setSuggestedSource(null);
+                                            }}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
@@ -574,8 +598,31 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                 <CardContent className="space-y-4">
 
                                     <div className="text-xs text-slate-500">
-                                        Source: {locations.find(l => l.id === sourceLocationId)?.name || 'Unknown'}
+                                        Source: {locations.find(l => l.id === materialSourceLocationId)?.name || 'Unknown'}
                                     </div>
+
+                                    {suggestedSource && (
+                                        <Alert className="py-2">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertTitle className="text-sm">Stock found in another warehouse</AlertTitle>
+                                            <AlertDescription className="text-xs flex items-center justify-between gap-3">
+                                                <span>
+                                                    Detected stock in <span className="font-medium">{suggestedSource.name}</span>.
+                                                </span>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-7 px-2 text-xs"
+                                                    onClick={() => {
+                                                        setMaterialSourceLocationId(suggestedSource.id);
+                                                        setSuggestedSource(null);
+                                                    }}
+                                                >
+                                                    Use it
+                                                </Button>
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
 
                                     {hasStockIssues && (
                                         <Alert variant="destructive" className="py-2">

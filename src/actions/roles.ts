@@ -3,11 +3,22 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+const DEFAULT_JOB_ROLES = ['OPERATOR', 'HELPER', 'PACKER', 'MANAGER'];
+
 export async function getJobRoles() {
     try {
-        const roles = await prisma.jobRole.findMany({
+        let roles = await prisma.jobRole.findMany({
             orderBy: { name: 'asc' },
         });
+
+        if (roles.length === 0) {
+            await prisma.jobRole.createMany({
+                data: DEFAULT_JOB_ROLES.map((name) => ({ name })),
+                skipDuplicates: true,
+            });
+            roles = await prisma.jobRole.findMany({ orderBy: { name: 'asc' } });
+        }
+
         return { success: true, data: roles };
     } catch (error) {
         console.error('Error fetching job roles:', error);

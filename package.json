@@ -8,6 +8,10 @@
     "dev:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up",
     "dev:up:build": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
     "dev:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "db:generate": "npx prisma@5.22.0 generate",
+    "db:migrate:deploy": "npx prisma@5.22.0 migrate deploy",
+    "db:migrate:status": "npx prisma@5.22.0 migrate status",
+    "db:seed": "npx prisma@5.22.0 db seed",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
