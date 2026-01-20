@@ -1,6 +1,5 @@
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { differenceInDays } from 'date-fns';
 
 export interface AgingBucket {
