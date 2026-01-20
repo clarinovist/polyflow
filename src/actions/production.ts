@@ -95,7 +95,9 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
         });
 
         revalidatePath('/dashboard/production');
-        return { success: true, data: order };
+        revalidatePath('/dashboard/sales');
+        // Serialize to prevent Decimal objects from reaching Client Components
+        return { success: true, data: JSON.parse(JSON.stringify(order)) };
     } catch (error) {
         console.error("Create Production Order Error:", error);
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -270,7 +272,12 @@ export async function deleteProductionOrder(id: string) {
         }
 
         await prisma.$transaction(async (tx) => {
-            // Delete associated materials first
+            // Delete associated shifts first (they have FK to order)
+            await tx.productionShift.deleteMany({
+                where: { productionOrderId: id }
+            });
+
+            // Delete associated materials
             await tx.productionMaterial.deleteMany({
                 where: { productionOrderId: id }
             });

@@ -14,6 +14,22 @@ export function formatRupiah(value: number | null | undefined): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+/**
+ * Safely serializes data to be passed to Client Components.
+ * Converts Date objects to strings and BigInt/Decimal to numbers/strings.
+ * Uses JSON.parse(JSON.stringify()) as a reliable fallback for cleaning objects.
+ */
+export function safeSerialize<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, (key, value) => {
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+    // Decimals often come as strings in JSON.stringify if not handled, 
+    // but here we just want to ensure it's a plain object structure.
+    return value;
+  }));
+}
 // Helper to serialize Prisma objects (especially Decimals) for Client Components
 export function serializeData(obj: unknown): unknown {
   if (obj === null || obj === undefined) {

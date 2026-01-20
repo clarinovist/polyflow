@@ -51,6 +51,7 @@ export const adjustStockSchema = z.object({
 
 // Extended Adjust Stock (with batch)
 export const adjustStockWithBatchSchema = adjustStockSchema.extend({
+    unitCost: z.coerce.number().positive().optional(),
     batchData: z.object({
         batchNumber: z.string().min(1, "Batch number is required"),
         manufacturingDate: z.date(),

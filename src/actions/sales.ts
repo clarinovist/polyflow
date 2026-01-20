@@ -43,12 +43,13 @@ export async function getSalesOrdersByCustomerId(customerId: string) {
     });
 }
 
+
 /**
  * Get sales order by ID with details
  */
 export async function getSalesOrderById(id: string) {
     await requireAuth();
-    return await prisma.salesOrder.findUnique({
+    const order = await prisma.salesOrder.findUnique({
         where: { id },
         include: {
             customer: true,
@@ -70,6 +71,12 @@ export async function getSalesOrderById(id: string) {
             }
         }
     });
+
+    if (!order) return null;
+
+    // Use JSON.parse(JSON.stringify()) for guaranteed serialization of Prisma Decimals/Dates
+    // This is the most reliable way to convert Prisma objects to plain JSON-safe objects
+    return JSON.parse(JSON.stringify(order));
 }
 
 /**

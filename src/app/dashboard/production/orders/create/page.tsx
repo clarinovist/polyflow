@@ -8,12 +8,13 @@ import { ProductionGlossary } from '@/components/production/ProductionGlossary';
 export default async function CreateProductionOrderPage({
     searchParams
 }: {
-    searchParams: { salesOrderId?: string }
+    searchParams: Promise<{ salesOrderId?: string }>
 }) {
+    const resolvedSearchParams = await searchParams;
     const rawData = await getProductionFormData();
     // Only destructure what we need
     const { boms, locations } = serializeData(rawData) as unknown as ProductionOrderFormProps;
-    const salesOrderId = searchParams.salesOrderId;
+    const salesOrderId = resolvedSearchParams.salesOrderId;
 
     return (
         <div className="p-6 md:p-8 max-w-7xl mx-auto">

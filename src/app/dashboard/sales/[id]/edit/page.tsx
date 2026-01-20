@@ -27,6 +27,8 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
     }
 
     // Transform order items to match form values (convert Decimals to numbers)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items = (order as any).items || [];
     const initialData = {
         id: order.id,
         customerId: order.customerId || undefined,
@@ -35,7 +37,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         expectedDate: order.expectedDate || undefined,
         orderType: order.orderType,
         notes: order.notes || undefined,
-        items: order.items.map((item) => ({
+        items: items.map((item: any) => ({
             id: item.id,
             productVariantId: item.productVariantId,
             quantity: Number(item.quantity),

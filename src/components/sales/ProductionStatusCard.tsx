@@ -13,9 +13,15 @@ import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';
 
 // Define localized serialized type if not shared, or use partial
-type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity'> & {
+type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity' | 'plannedStartDate' | 'plannedEndDate' | 'actualStartDate' | 'actualEndDate' | 'createdAt' | 'updatedAt'> & {
     plannedQuantity: number;
     actualQuantity: number | null;
+    plannedStartDate: Date | string;
+    plannedEndDate: Date | string | null;
+    actualStartDate: Date | string | null;
+    actualEndDate: Date | string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 };
 
 interface Shortage {

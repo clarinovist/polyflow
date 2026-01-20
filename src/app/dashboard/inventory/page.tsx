@@ -1,4 +1,5 @@
 import { getInventoryStats, getLocations, getInventoryAsOf, getDashboardStats } from '@/actions/inventory';
+import { ABCAnalysisService } from '@/services/abc-analysis-service';
 import { canViewPrices } from '@/actions/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,6 +85,18 @@ export default async function InventoryDashboard({
     let processedInventory = tableInventory;
     if (activeLocationIds.length > 0) {
         processedInventory = tableInventory.filter(item => activeLocationIds.includes(item.locationId));
+    }
+
+    // Phase 2: ABC Analysis (Global)
+    let abcMap: Record<string, string> | undefined;
+    try {
+        const abcResults = await ABCAnalysisService.calculateABCClassification();
+        abcMap = abcResults.reduce((acc: Record<string, string>, item) => {
+            acc[item.productVariantId] = item.class;
+            return acc;
+        }, {} as Record<string, string>);
+    } catch (e) {
+        console.error('Failed to calculate ABC:', e);
     }
 
     // --- LOGIC B: TABLE (RESPECTS DATE) ---
@@ -266,6 +279,7 @@ export default async function InventoryDashboard({
                                     initialDate={params.asOf}
                                     initialCompareDate={params.compareWith}
                                     showPrices={showPrices}
+                                    abcMap={abcMap}
                                 />
                             </div>
                         </CardContent>

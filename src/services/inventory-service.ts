@@ -133,6 +133,28 @@ export class InventoryService {
         });
     }
 
+
+
+    static async calculateWAC(
+        productVariantId: string,
+        locationId: string,
+        incomingQty: number,
+        incomingCost: number
+    ): Promise<number> {
+        const inventory = await prisma.inventory.findUnique({
+            where: { locationId_productVariantId: { locationId, productVariantId } }
+        });
+
+        const currentQty = inventory?.quantity.toNumber() || 0;
+        const currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+
+        // WAC Formula: ((Existing Qty * Existing Cost) + (New Qty * New Cost)) / Total Qty
+        const totalQty = currentQty + incomingQty;
+        if (totalQty === 0) return 0;
+
+        return ((currentQty * currentAvgCost) + (incomingQty * incomingCost)) / totalQty;
+    }
+
     static async transferStock(data: TransferStockValues, userId: string) {
         const { sourceLocationId, destinationLocationId, productVariantId, quantity, notes, date } = data;
 
@@ -304,7 +326,7 @@ export class InventoryService {
     }
 
     static async adjustStock(data: AdjustStockWithBatchValues, userId: string) {
-        const { locationId, productVariantId, type, quantity, reason, batchData } = data;
+        const { locationId, productVariantId, type, quantity, reason, batchData, unitCost } = data;
 
         await prisma.$transaction(async (tx) => {
             const isIncrement = type === 'ADJUSTMENT_IN';
@@ -352,12 +374,39 @@ export class InventoryService {
             }
 
             if (isIncrement) {
+                // Get default cost if not provided
+                let cost = unitCost;
+                if (!cost) {
+                    // Try to get standard cost or buy price
+                    const variant = await tx.productVariant.findUnique({
+                        where: { id: productVariantId },
+                        select: { buyPrice: true }
+                    });
+                    cost = variant?.buyPrice?.toNumber() || 0;
+                }
+
+                // Calculate new Weighted Average Cost
+                const newAvgCost = await InventoryService.calculateWAC(
+                    productVariantId,
+                    locationId,
+                    quantity,
+                    cost
+                );
+
                 await tx.inventory.upsert({
                     where: {
                         locationId_productVariantId: { locationId, productVariantId },
                     },
-                    update: { quantity: { increment: quantity } },
-                    create: { locationId, productVariantId, quantity }
+                    update: {
+                        quantity: { increment: quantity },
+                        averageCost: newAvgCost
+                    },
+                    create: {
+                        locationId,
+                        productVariantId,
+                        quantity,
+                        averageCost: cost
+                    }
                 });
             } else {
                 await tx.inventory.update({
@@ -383,6 +432,7 @@ export class InventoryService {
                     fromLocationId: isIncrement ? null : locationId,
                     toLocationId: isIncrement ? locationId : null,
                     quantity,
+                    cost: unitCost ? new Prisma.Decimal(unitCost) : undefined,
                     reference: reason,
                     batchId,
                     createdById: userId,
@@ -567,34 +617,30 @@ export class InventoryService {
     }
 
     static async getInventoryValuation() {
-        const stock = await this.getStats();
+        const stock = await prisma.inventory.findMany({
+            where: { quantity: { gt: 0 } },
+            include: {
+                productVariant: {
+                    select: { name: true, skuCode: true, buyPrice: true }
+                }
+            }
+        });
 
         let totalValuation = 0;
         const valuationDetails = [];
 
-        const variantStock: Record<string, number> = {};
-        stock.forEach(item => {
-            variantStock[item.productVariantId] = (variantStock[item.productVariantId] || 0) + item.quantity.toNumber();
-        });
-
-        for (const [variantId, quantity] of Object.entries(variantStock)) {
-            if (quantity <= 0) continue;
-
-            const variant = await prisma.productVariant.findUnique({
-                where: { id: variantId },
-                select: { buyPrice: true, name: true, skuCode: true }
-            });
-
-            if (!variant) continue;
-
-            const unitCost = variant.buyPrice?.toNumber() || 0;
+        for (const item of stock) {
+            const quantity = item.quantity.toNumber();
+            const unitCost = item.averageCost?.toNumber() || item.productVariant.buyPrice?.toNumber() || 0;
             const value = quantity * unitCost;
+
             totalValuation += value;
 
             valuationDetails.push({
-                productVariantId: variantId,
-                name: variant.name,
-                sku: variant.skuCode,
+                productVariantId: item.productVariantId,
+                name: item.productVariant.name,
+                sku: item.productVariant.skuCode,
+                locationId: item.locationId,
                 quantity,
                 unitCost,
                 totalValue: value

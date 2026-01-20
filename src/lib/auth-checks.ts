@@ -1,15 +1,33 @@
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { redirect } from 'next/navigation';
 import { Role } from '@prisma/client';
 
 /**
  * Ensures a user is authenticated.
- * Throws an error if not.
+ * Redirects to login if not.
  */
 export async function requireAuth() {
     const session = await auth();
     if (!session?.user || !session.user.id) {
-        throw new Error('Unauthorized: Please log in');
+        redirect('/login');
     }
+
+    // Verify user exists in DB to prevent Foreign Key errors (stale sessions)
+    // and ensure role is up to date if needed
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { id: true, role: true }
+    });
+
+    if (!user) {
+        // Stale session, force logout via client-side page
+        redirect('/logout');
+    }
+
+    // Optional: Sync role from DB to session object if we want strict role checks
+    // session.user.role = user.role;
+
     return session;
 }
 
@@ -23,7 +41,7 @@ export async function requireRole(requiredRole: Role | Role[]) {
     const userRole = session.user.role;
 
     if (!userRole) {
-         throw new Error('Unauthorized: User has no role');
+        throw new Error('Unauthorized: User has no role');
     }
 
     // Admin usually has access to everything

@@ -44,36 +44,60 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// Helper types for client-side usage where Decimals are converted to numbers
-type SerializedSalesOrderItem = Omit<SalesOrderItem, 'quantity' | 'unitPrice' | 'subtotal' | 'deliveredQty'> & {
+// Helper types for client-side usage where Decimals are converted to numbers and Dates to strings
+type SerializedSalesOrderItem = Omit<SalesOrderItem, 'quantity' | 'unitPrice' | 'subtotal' | 'deliveredQty' | 'createdAt' | 'updatedAt'> & {
     quantity: number;
     unitPrice: number;
     subtotal: number;
     deliveredQty: number;
-    productVariant: Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity'> & {
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    productVariant: Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity' | 'costingMethod' | 'standardCost' | 'createdAt' | 'updatedAt'> & {
+        createdAt: Date | string;
+        updatedAt: Date | string;
         product: Product;
     };
 };
 
-type SerializedStockMovement = Omit<StockMovement, 'quantity' | 'cost'> & {
+type SerializedStockMovement = Omit<StockMovement, 'quantity' | 'cost' | 'createdAt'> & {
     quantity: number;
     cost: number | null;
+    createdAt: Date | string;
 };
 
-type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity'> & {
+type SerializedProductionOrder = Omit<ProductionOrder, 'plannedQuantity' | 'actualQuantity' | 'plannedStartDate' | 'plannedEndDate' | 'actualStartDate' | 'actualEndDate' | 'createdAt' | 'updatedAt'> & {
     plannedQuantity: number;
     actualQuantity: number | null;
+    plannedStartDate: Date | string;
+    plannedEndDate: Date | string | null;
+    actualStartDate: Date | string | null;
+    actualEndDate: Date | string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 };
 
-type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
+type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount' | 'orderDate' | 'expectedDate' | 'createdAt' | 'updatedAt'> & {
     totalAmount: number | null;
+    orderDate: Date | string;
+    expectedDate: Date | string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
     items: SerializedSalesOrderItem[];
-    customer: (Omit<Customer, 'creditLimit' | 'discountPercent'> & {
+    customer: (Omit<Customer, 'creditLimit' | 'discountPercent' | 'createdAt' | 'updatedAt'> & {
         creditLimit: number | null;
         discountPercent: number | null;
+        createdAt: Date | string;
+        updatedAt: Date | string;
     }) | null;
     sourceLocation: Location | null;
-    invoices: Invoice[];
+    invoices: (Omit<Invoice, 'totalAmount' | 'paidAmount' | 'invoiceDate' | 'dueDate' | 'createdAt' | 'updatedAt'> & {
+        totalAmount: number;
+        paidAmount: number;
+        invoiceDate: Date | string;
+        dueDate: Date | string | null;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+    })[];
     productionOrders: SerializedProductionOrder[];
     movements: SerializedStockMovement[];
     createdBy: { name: string } | null;
@@ -371,7 +395,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                         <CardContent>
                             {order.invoices && order.invoices.length > 0 ? (
                                 <ul className="space-y-4">
-                                    {order.invoices.map((inv: Invoice) => (
+                                    {order.invoices.map((inv) => (
                                         <li key={inv.id} className="border p-3 rounded-md">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="font-medium">{inv.invoiceNumber}</span>
@@ -411,11 +435,11 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                                 <p className="text-sm text-muted-foreground">No shipments yet.</p>
                             ) : (
                                 <ul className="space-y-4">
-                                    {order.movements.map((mov: SerializedStockMovement) => (
-                                        <li key={mov.id} className="text-sm border-l-2 border-purple-200 pl-4 py-1">
-                                            <div className="font-medium">Shipped {Number(mov.quantity)} units</div>
+                                    {order.movements.map((m) => (
+                                        <li key={m.id} className="text-sm border-l-2 border-purple-200 pl-4 py-1">
+                                            <div className="font-medium">Shipped {Number(m.quantity)} units</div>
                                             <div className="text-xs text-muted-foreground">
-                                                {format(new Date(mov.createdAt), 'PP p')}
+                                                {format(new Date(m.createdAt), 'PP p')}
                                             </div>
                                         </li>
                                     ))}

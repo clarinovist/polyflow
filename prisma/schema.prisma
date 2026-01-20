@@ -141,6 +141,8 @@ model ProductVariant {
   attributes          Json?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
+  costingMethod       CostingMethod      @default(WEIGHTED_AVERAGE)
+  standardCost        Decimal?           @db.Decimal(15, 4)
   minStockAlert       Decimal?           @db.Decimal(15, 4)
   leadTimeDays        Int?
   preferredSupplierId String?
@@ -232,6 +234,7 @@ model Inventory {
   locationId       String
   productVariantId String
   quantity         Decimal        @default(0) @db.Decimal(15, 4)
+  averageCost      Decimal?       @db.Decimal(15, 4)
   updatedAt        DateTime       @updatedAt
   location         Location       @relation(fields: [locationId], references: [id])
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
@@ -486,6 +489,12 @@ enum InspectionResult {
 }
 
 
+
+
+enum CostingMethod {
+  WEIGHTED_AVERAGE
+  STANDARD_COST
+}
 
 enum EmployeeStatus {
   ACTIVE

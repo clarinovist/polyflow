@@ -90,9 +90,11 @@ interface InventoryTableProps {
     initialDate?: string;
     initialCompareDate?: string;
     showPrices?: boolean;
+    abcMap?: Record<string, string>;
 }
 
-export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false }: InventoryTableProps) {
+export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false, abcMap }: InventoryTableProps) {
+
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
@@ -475,9 +477,21 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
                                         <TableCell className="py-3 align-middle">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="font-medium text-sm text-foreground leading-tight">
-                                                    {item.productVariant.name}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm text-foreground leading-tight">
+                                                        {item.productVariant.name}
+                                                    </span>
+                                                    {abcMap && abcMap[item.productVariantId] && (
+                                                        <Badge variant="outline" className={cn(
+                                                            "h-4 px-1 text-[10px] font-bold",
+                                                            abcMap[item.productVariantId] === 'A' ? "bg-green-100 text-green-700 border-green-200" :
+                                                                abcMap[item.productVariantId] === 'B' ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                                                    "bg-slate-100 text-slate-700 border-slate-200"
+                                                        )}>
+                                                            {abcMap[item.productVariantId]}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <code className="bg-muted px-1 py-0.5 rounded border border-border text-foreground">
                                                         {item.productVariant.skuCode}

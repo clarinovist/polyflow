@@ -13,6 +13,8 @@ export const authConfig = {
                     if (isLoggedIn) return true;
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {
+                    // Allow access to logout page to break redirect loops
+                    if (nextUrl.pathname === '/logout') return true;
                     return Response.redirect(new URL('/dashboard', nextUrl));
                 }
                 return true;
