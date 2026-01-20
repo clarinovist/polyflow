@@ -4,9 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
+import { serializeForClient } from '@/lib/serialize';
 
 export default async function SalesPage() {
     const orders = await getSalesOrders();
+
+    // Serialize all Prisma objects for Client Components
+    const serializedOrders = serializeForClient(orders);
 
     return (
         <div className="flex flex-col space-y-6 p-6">
@@ -28,15 +32,8 @@ export default async function SalesPage() {
                     <CardTitle>Recent Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <SalesOrderTable initialData={orders.map((order) => ({
-                        ...order,
-                        totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
-                        customer: order.customer ? {
-                            ...order.customer,
-                            creditLimit: order.customer.creditLimit ? Number(order.customer.creditLimit) : null,
-                            discountPercent: order.customer.discountPercent ? Number(order.customer.discountPercent) : null
-                        } : null
-                    }))} />
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <SalesOrderTable initialData={serializedOrders as any} />
                 </CardContent>
             </Card>
         </div>

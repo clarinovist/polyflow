@@ -11,13 +11,14 @@ import { SalesService } from '@/services/sales-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 import { SalesOrderStatus } from '@prisma/client';
+import { serializeForClient } from '@/lib/serialize';
 
 /**
  * Get all sales orders
  */
 export async function getSalesOrders() {
     await requireAuth();
-    return await prisma.salesOrder.findMany({
+    const orders = await prisma.salesOrder.findMany({
         include: {
             customer: true,
             sourceLocation: true,
@@ -25,6 +26,7 @@ export async function getSalesOrders() {
         },
         orderBy: { orderDate: 'desc' }
     });
+    return serializeForClient(orders);
 }
 
 /**
@@ -32,7 +34,7 @@ export async function getSalesOrders() {
  */
 export async function getSalesOrdersByCustomerId(customerId: string) {
     await requireAuth();
-    return await prisma.salesOrder.findMany({
+    const orders = await prisma.salesOrder.findMany({
         where: { customerId },
         include: {
             customer: true,
@@ -41,6 +43,7 @@ export async function getSalesOrdersByCustomerId(customerId: string) {
         },
         orderBy: { orderDate: 'desc' }
     });
+    return serializeForClient(orders);
 }
 
 
@@ -74,9 +77,7 @@ export async function getSalesOrderById(id: string) {
 
     if (!order) return null;
 
-    // Use JSON.parse(JSON.stringify()) for guaranteed serialization of Prisma Decimals/Dates
-    // This is the most reliable way to convert Prisma objects to plain JSON-safe objects
-    return JSON.parse(JSON.stringify(order));
+    return serializeForClient(order);
 }
 
 /**
@@ -94,20 +95,7 @@ export async function createSalesOrder(data: CreateSalesOrderValues) {
         const order = await SalesService.createOrder(result.data, session.user.id);
         revalidatePath('/dashboard/sales');
 
-        // Serialize Decimal fields for client consumption
-        const serializedOrder = {
-            ...order,
-            totalAmount: Number(order.totalAmount),
-            items: order.items?.map((item) => ({
-                ...item,
-                quantity: Number(item.quantity),
-                unitPrice: Number(item.unitPrice),
-                subtotal: Number(item.subtotal),
-                deliveredQty: item.deliveredQty ? Number(item.deliveredQty) : 0
-            }))
-        };
-
-        return { success: true, data: serializedOrder };
+        return { success: true, data: serializeForClient(order) };
     } catch (error) {
         console.error("Create SO Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to create order" };

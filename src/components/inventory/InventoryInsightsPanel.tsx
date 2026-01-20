@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftRight, ClipboardCheck, History, PackagePlus } from "lucide-react";
+import { ArrowLeftRight, ClipboardCheck, History, PackagePlus, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +35,13 @@ export function InventoryInsightsPanel({ activeLocationId: _activeLocationId, cl
             colorClass: "bg-purple-500/10 text-purple-600 group-hover:bg-purple-500/20"
         },
 
+        {
+            label: "Stock Aging",
+            href: "/dashboard/inventory/aging",
+            icon: Clock,
+            variant: "outline" as const,
+            colorClass: "bg-orange-500/10 text-orange-600 group-hover:bg-orange-500/20"
+        },
         {
             label: "History Logs",
             href: "/dashboard/inventory/history",

@@ -49,10 +49,10 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                         <TableRow>
                             <TableHead className="w-[250px]">Product</TableHead>
                             <TableHead className="text-right">Total Stock</TableHead>
-                            <TableHead className="text-right bg-slate-50">0-30 Days</TableHead>
-                            <TableHead className="text-right bg-slate-50">31-60 Days</TableHead>
-                            <TableHead className="text-right bg-slate-50">61-90 Days</TableHead>
-                            <TableHead className="text-right bg-red-50 font-bold text-red-700">&gt; 90 Days</TableHead>
+                            <TableHead className="text-right border-l border-border">0-30 Days</TableHead>
+                            <TableHead className="text-right border-l border-border">31-60 Days</TableHead>
+                            <TableHead className="text-right border-l border-border">61-90 Days</TableHead>
+                            <TableHead className="text-right border-l-2 border-red-500/50 font-bold text-red-600 dark:text-red-400">&gt; 90 Days</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -72,22 +72,22 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                     <TableCell className="text-right font-medium">
                                         {item.totalStock}
                                     </TableCell>
-                                    <TableCell className="text-right bg-slate-50/50">
+                                    <TableCell className="text-right border-l border-border">
                                         <div className="text-sm">{item.buckets['0-30'].quantity}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['0-30'].value)}</div>
                                     </TableCell>
-                                    <TableCell className="text-right bg-slate-50/50">
+                                    <TableCell className="text-right border-l border-border">
                                         <div className="text-sm">{item.buckets['31-60'].quantity}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['31-60'].value)}</div>
                                     </TableCell>
-                                    <TableCell className="text-right bg-slate-50/50">
+                                    <TableCell className="text-right border-l border-border">
                                         <div className="text-sm">{item.buckets['61-90'].quantity}</div>
                                         <div className="text-xs text-muted-foreground">{formatRupiah(item.buckets['61-90'].value)}</div>
                                     </TableCell>
-                                    <TableCell className="text-right bg-red-50/50">
-                                        <div className="text-sm font-bold text-red-700">{item.buckets['90+'].quantity}</div>
+                                    <TableCell className="text-right border-l-2 border-red-500/50">
+                                        <div className="text-sm font-bold text-red-600 dark:text-red-400">{item.buckets['90+'].quantity}</div>
                                         {item.buckets['90+'].value > 0 && (
-                                            <div className="text-xs font-semibold text-red-600">{formatRupiah(item.buckets['90+'].value)}</div>
+                                            <div className="text-xs font-semibold text-red-500 dark:text-red-400/80">{formatRupiah(item.buckets['90+'].value)}</div>
                                         )}
                                     </TableCell>
                                 </TableRow>

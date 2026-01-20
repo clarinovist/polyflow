@@ -113,3 +113,40 @@ export interface CustomerCreditItem {
   utilizationRate: number; // % used
   status: 'Safe' | 'Warning' | 'Critical'; // Based on utilization > 80%?
 }
+
+// ============================================
+// PURCHASING ANALYTICS TYPES
+// ============================================
+
+export interface PurchaseSpendItem {
+  period: string; // "Jan 2024"
+  spend: number;
+  orderCount: number;
+}
+
+export interface PurchaseSpendTrend {
+  spendGrowth: number;
+  orderCountGrowth: number;
+  chartData: PurchaseSpendItem[];
+}
+
+export interface TopSupplierItem {
+  supplierId: string;
+  supplierName: string;
+  totalSpend: number;
+  orderCount: number;
+  lastOrderDate: Date | null;
+}
+
+export interface PurchaseByStatusItem {
+  status: string;
+  count: number;
+  value: number; // Total amount in that status
+  percentage: number;
+}
+
+export interface APAgingItem {
+  range: 'Current' | '1-30 Days' | '31-60 Days' | '61-90 Days' | '> 90 Days';
+  amount: number;
+  invoiceCount: number;
+}

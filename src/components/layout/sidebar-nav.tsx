@@ -23,9 +23,12 @@ import {
     ChevronDown,
     ChevronRight,
     MonitorPlay,
+    Clock,
     Truck,
     ShoppingCart,
-    Receipt
+    Receipt,
+    Download,
+    FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -69,6 +72,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Adjustments", href: "/dashboard/inventory/adjustment", icon: ClipboardList },
 
             { title: "Stock Opname", href: "/dashboard/inventory/opname", icon: ClipboardCheck },
+            { title: "Stock Aging", href: "/dashboard/inventory/aging", icon: Clock },
             { title: "Analytics", href: "/dashboard/inventory/analytics", icon: BarChart3 },
         ],
     },
@@ -78,6 +82,15 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
             { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
             { title: "Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
+        ],
+    },
+    {
+        heading: "Procurement",
+        items: [
+            { title: "Purchase Orders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
+            { title: "Goods Receipts", href: "/dashboard/purchasing/receipts", icon: Download },
+            { title: "Purchase Invoices", href: "/dashboard/purchasing/invoices", icon: FileText },
+            { title: "Analytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
         ],
     },
     {

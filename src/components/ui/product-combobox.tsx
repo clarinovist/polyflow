@@ -58,21 +58,21 @@ export function ProductCombobox({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        "w-full justify-between font-normal",
+                        "w-full justify-between font-normal min-w-0",
                         !value && "text-muted-foreground",
                         className
                     )}
                 >
                     {selectedProduct ? (
-                        <span className="flex items-center gap-2 truncate">
+                        <span className="flex items-center gap-2 truncate min-w-0">
                             <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{selectedProduct.name}</span>
-                            <span className="text-muted-foreground text-xs shrink-0">
-                                ({selectedProduct.skuCode})
+                            <span className="truncate flex-1 text-left">{selectedProduct.name}</span>
+                            <span className="text-muted-foreground text-[10px] shrink-0 font-mono">
+                                [{selectedProduct.skuCode}]
                             </span>
                         </span>
                     ) : (
-                        <span>{placeholder}</span>
+                        <span className="truncate">{placeholder}</span>
                     )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>

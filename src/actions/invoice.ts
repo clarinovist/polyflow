@@ -6,13 +6,14 @@ import { requireAuth } from '@/lib/auth-checks';
 import { InvoiceService } from '@/services/invoice-service';
 import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
 import { revalidatePath } from 'next/cache';
+import { serializeForClient } from '@/lib/serialize';
 
 /**
  * Get all invoices
  */
 export async function getInvoices() {
     await requireAuth();
-    return await prisma.invoice.findMany({
+    const invoices = await prisma.invoice.findMany({
         include: {
             salesOrder: {
                 select: {
@@ -23,6 +24,7 @@ export async function getInvoices() {
         },
         orderBy: { createdAt: 'desc' }
     });
+    return serializeForClient(invoices);
 }
 
 /**
@@ -30,7 +32,7 @@ export async function getInvoices() {
  */
 export async function getInvoiceById(id: string) {
     await requireAuth();
-    return await prisma.invoice.findUnique({
+    const invoice = await prisma.invoice.findUnique({
         where: { id },
         include: {
             salesOrder: {
@@ -47,6 +49,7 @@ export async function getInvoiceById(id: string) {
             }
         }
     });
+    return serializeForClient(invoice);
 }
 
 /**
@@ -64,7 +67,7 @@ export async function createInvoice(data: CreateInvoiceValues) {
         const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
         revalidatePath('/dashboard/sales'); // Refresh sales to update invoice status if any
         revalidatePath(`/dashboard/sales/${data.salesOrderId}`);
-        return { success: true, data: invoice };
+        return { success: true, data: serializeForClient(invoice) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create invoice" };
     }
