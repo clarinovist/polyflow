@@ -455,7 +455,7 @@ export class InventoryService {
 
         await prisma.$transaction(async (tx) => {
             for (const item of items) {
-                const { productVariantId, type, quantity, reason } = item;
+                const { productVariantId, type, quantity, reason, unitCost } = item;
                 const isIncrement = type === 'ADJUSTMENT_IN';
 
                 if (!isIncrement) {
@@ -471,12 +471,39 @@ export class InventoryService {
                 }
 
                 if (isIncrement) {
+                    // Get default cost if not provided
+                    let cost = unitCost;
+                    if (!cost) {
+                        // Try to get standard cost or buy price
+                        const variant = await tx.productVariant.findUnique({
+                            where: { id: productVariantId },
+                            select: { buyPrice: true }
+                        });
+                        cost = variant?.buyPrice?.toNumber() || 0;
+                    }
+
+                    // Calculate new Weighted Average Cost
+                    const newAvgCost = await InventoryService.calculateWAC(
+                        productVariantId,
+                        locationId,
+                        quantity,
+                        cost
+                    );
+
                     await tx.inventory.upsert({
                         where: {
                             locationId_productVariantId: { locationId, productVariantId },
                         },
-                        update: { quantity: { increment: quantity } },
-                        create: { locationId, productVariantId, quantity }
+                        update: {
+                            quantity: { increment: quantity },
+                            averageCost: newAvgCost
+                        },
+                        create: {
+                            locationId,
+                            productVariantId,
+                            quantity,
+                            averageCost: cost
+                        }
                     });
                 } else {
                     await tx.inventory.update({
@@ -494,6 +521,7 @@ export class InventoryService {
                         fromLocationId: isIncrement ? null : locationId,
                         toLocationId: isIncrement ? locationId : null,
                         quantity,
+                        cost: unitCost ? new Prisma.Decimal(unitCost) : undefined,
                         reference: reason,
                         createdById: userId,
                     },

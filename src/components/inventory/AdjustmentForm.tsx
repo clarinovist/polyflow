@@ -36,11 +36,13 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
         type: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT';
         quantity: string;
         reason: string;
+        unitCost: string;
     }>({
         productVariantId: '',
         type: 'ADJUSTMENT_IN',
         quantity: '',
-        reason: ''
+        reason: '',
+        unitCost: ''
     });
 
     const form = useForm<BulkAdjustStockValues>({
@@ -60,6 +62,12 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
     const selectedLocationId = useWatch({ control: form.control, name: 'locationId' });
 
+    const isRawMaterialLocation = useMemo(() => {
+        if (!selectedLocationId) return false;
+        const location = locations.find(l => l.id === selectedLocationId);
+        return location?.name.toLowerCase().includes('raw material') ?? false;
+    }, [selectedLocationId, locations]);
+
     // Filter products based on selected location
     const availableProducts = useMemo(() => {
         return products.map(prod => {
@@ -78,7 +86,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
             productVariantId: '',
             type: 'ADJUSTMENT_IN',
             quantity: '',
-            reason: ''
+            reason: '',
+            unitCost: ''
         });
     }, [selectedLocationId, form]);
 
@@ -111,7 +120,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
             productVariantId: newItem.productVariantId,
             type: newItem.type,
             quantity: qty,
-            reason: newItem.reason || 'Stock Adjustment' // Default reason
+            reason: newItem.reason || 'Stock Adjustment', // Default reason
+            unitCost: newItem.unitCost ? parseFloat(newItem.unitCost) : undefined
         });
 
         // Reset inputs but keep type? Or reset all?
@@ -119,7 +129,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
             ...prev,
             productVariantId: '',
             quantity: '',
-            reason: ''
+            reason: '',
+            unitCost: ''
         }));
     };
 
@@ -135,7 +146,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                 productVariantId: '',
                 type: 'ADJUSTMENT_IN',
                 quantity: '',
-                reason: ''
+                reason: '',
+                unitCost: ''
             });
             router.refresh();
         } else {
@@ -277,27 +289,43 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                         />
                                     </FormItem>
                                 </div>
-
-                                <FormItem>
-                                    <FormLabel className="text-xs text-muted-foreground">Reason</FormLabel>
-                                    <Textarea
-                                        value={newItem.reason}
-                                        onChange={(e) => setNewItem(prev => ({ ...prev, reason: e.target.value }))}
-                                        placeholder="e.g. Broken packaging, Found in stock opname..."
-                                        className="resize-none h-20 bg-background text-sm"
-                                    />
-                                </FormItem>
-
-                                <Button
-                                    type="button"
-                                    onClick={handleAddItem}
-                                    disabled={!selectedLocationId || !newItem.productVariantId || !newItem.quantity}
-                                    className="w-full h-11 text-xs font-bold shadow-sm shadow-primary/10"
-                                >
-                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                    Add to Manifest
-                                </Button>
                             </div>
+
+                            {/* Cost Input - Only for IN and Raw Material Location */}
+                            {newItem.type === 'ADJUSTMENT_IN' && isRawMaterialLocation && (
+                                <FormItem>
+                                    <FormLabel className="text-xs text-muted-foreground">Unit Cost (Rp)</FormLabel>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="Optional"
+                                        value={newItem.unitCost}
+                                        onChange={(e) => setNewItem(prev => ({ ...prev, unitCost: e.target.value }))}
+                                        className="h-11 bg-background"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Leave blank to use default buy price</p>
+                                </FormItem>
+                            )}
+
+                            <FormItem>
+                                <FormLabel className="text-xs text-muted-foreground">Reason</FormLabel>
+                                <Textarea
+                                    value={newItem.reason}
+                                    onChange={(e) => setNewItem(prev => ({ ...prev, reason: e.target.value }))}
+                                    placeholder="e.g. Broken packaging, Found in stock opname..."
+                                    className="resize-none h-20 bg-background text-sm"
+                                />
+                            </FormItem>
+
+                            <Button
+                                type="button"
+                                onClick={handleAddItem}
+                                disabled={!selectedLocationId || !newItem.productVariantId || !newItem.quantity}
+                                className="w-full h-11 text-xs font-bold shadow-sm shadow-primary/10"
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-2" />
+                                Add to Manifest
+                            </Button>
                         </CardContent>
                     </Card>
 
@@ -396,6 +424,6 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                     </Card>
                 </div>
             </form>
-        </Form>
+        </Form >
     );
 }

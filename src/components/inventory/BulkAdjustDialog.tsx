@@ -67,6 +67,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
 
     const locationId = items.length > 0 ? items[0].locationId : '';
     const locationName = items.length > 0 ? items[0].location.name : '';
+    const isRawMaterialLocation = locationName.toLowerCase().includes('raw material');
 
     const form = useForm<BulkAdjustStockValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,7 +78,8 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                 productVariantId: item.productVariantId,
                 type: 'ADJUSTMENT_OUT',
                 reason: '',
-                quantity: 0
+                quantity: 0,
+                unitCost: 0
             }))
         }
     });
@@ -91,7 +93,8 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                     productVariantId: item.productVariantId,
                     type: globalType,
                     reason: globalReason,
-                    quantity: 0
+                    quantity: 0,
+                    unitCost: 0
                 }))
             });
         }
@@ -202,8 +205,9 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                                 <div className="col-span-4">Product</div>
                                 <div className="col-span-2 text-right">Current</div>
                                 <div className="col-span-2">Type</div>
-                                <div className="col-span-2">Qty</div>
-                                <div className="col-span-2">Reason</div>
+                                <div className="col-span-1">Qty</div>
+                                {isRawMaterialLocation && <div className="col-span-2">Unit Cost</div>}
+                                <div className={isRawMaterialLocation ? "col-span-1" : "col-span-3"}>Reason</div>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto">
                                 {items.map((item, index) => (
@@ -234,7 +238,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                                                 )}
                                             />
                                         </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-1">
                                             <FormField
                                                 control={form.control}
                                                 name={`items.${index}.quantity`}
@@ -253,7 +257,34 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                                                 )}
                                             />
                                         </div>
-                                        <div className="col-span-2">
+                                        {isRawMaterialLocation && (
+                                            <div className="col-span-2">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`items.${index}.unitCost`}
+                                                    render={({ field }) => {
+                                                        const type = form.watch(`items.${index}.type`);
+                                                        const isOut = type === 'ADJUSTMENT_OUT';
+                                                        return (
+                                                            <FormItem className="mb-0 space-y-0">
+                                                                <FormControl>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        className="h-8 text-right"
+                                                                        placeholder={isOut ? "-" : "Auto"}
+                                                                        disabled={isOut}
+                                                                        {...field}
+                                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                                    />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        );
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        <div className={isRawMaterialLocation ? "col-span-1" : "col-span-3"}>
                                             <FormField
                                                 control={form.control}
                                                 name={`items.${index}.reason`}

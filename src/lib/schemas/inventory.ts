@@ -85,6 +85,7 @@ export const bulkAdjustStockSchema = z.object({
         type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] as const),
         quantity: z.coerce.number().positive("Quantity must be positive"),
         reason: z.string().min(3, "Reason is required"),
+        unitCost: z.coerce.number().positive().optional(),
     })).min(1, "At least one item is required"),
 });
 
