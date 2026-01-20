@@ -188,3 +188,22 @@ export async function getActiveReservations(locationId?: string, productVariantI
     await requireAuth();
     return await InventoryService.getActiveReservations(locationId, productVariantId);
 }
+
+// ============================================
+// ANALYTICS & INSIGHTS (Phase 4)
+// ============================================
+
+export async function getInventoryTurnover(periodDays = 30) {
+    await requireAuth();
+    return await InventoryService.getInventoryTurnover(periodDays);
+}
+
+export async function getDaysOfInventoryOnHand(periodDays = 30) {
+    await requireAuth();
+    return await InventoryService.getDaysOfInventoryOnHand(periodDays);
+}
+
+export async function getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
+    await requireAuth();
+    return await InventoryService.getStockMovementTrends(period);
+}

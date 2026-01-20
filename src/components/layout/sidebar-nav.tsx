@@ -69,6 +69,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Adjustments", href: "/dashboard/inventory/adjustment", icon: ClipboardList },
 
             { title: "Stock Opname", href: "/dashboard/inventory/opname", icon: ClipboardCheck },
+            { title: "Analytics", href: "/dashboard/inventory/analytics", icon: BarChart3 },
         ],
     },
     {

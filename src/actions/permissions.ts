@@ -101,6 +101,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     WAREHOUSE: [
         '/dashboard',
         '/dashboard/inventory',
+        '/dashboard/inventory/analytics',
         '/dashboard/inventory/transfer',
         '/dashboard/inventory/adjustment',
         '/dashboard/inventory/opname',
@@ -110,6 +111,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     PRODUCTION: [
         '/dashboard',
         '/dashboard/production/orders',
+        '/dashboard/production/analytics',
         '/dashboard/production/boms',
         '/dashboard/production/resources/machines',
         '/dashboard/production/resources/employees',
@@ -120,6 +122,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/production/orders',
         '/dashboard/production/boms',
         '/dashboard/inventory',
+        '/dashboard/inventory/analytics',
         '/dashboard/products',
     ],
     SALES: [

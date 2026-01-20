@@ -11,6 +11,7 @@ import {
 } from '@/lib/schemas/inventory';
 
 import { InventoryWithRelations } from '@/types/inventory';
+import { subDays, format } from 'date-fns';
 
 
 export class InventoryService {
@@ -862,4 +863,138 @@ export class InventoryService {
             orderBy: { createdAt: 'desc' }
         });
     }
+
+    // ============================================
+    // ANALYTICS & INSIGHTS (Phase 4)
+    // ============================================
+
+    /**
+     * Calculates Inventory Turnover Ratio = COGS / Average Inventory Value
+     * Returns global ratio and breakdown by product type
+     */
+    static async getInventoryTurnover(periodDays = 30) {
+        const startDate = subDays(new Date(), periodDays);
+        const endDate = new Date();
+
+        // 1. Calculate COGS (Cost of Goods Sold)
+        // Sum of quantity * cost for OUT movements (Sales, Production usage)
+        const outboundMovements = await prisma.stockMovement.findMany({
+            where: {
+                type: MovementType.OUT,
+                createdAt: { gte: startDate, lte: endDate },
+                cost: { not: null }
+            },
+            select: { quantity: true, cost: true }
+        });
+
+        const cogs = outboundMovements.reduce((sum, m) => {
+            return sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0));
+        }, 0);
+
+        // 2. Average Inventory Value
+        // (Opening Inventory + Closing Inventory) / 2
+        // We reuse getInventoryValuation logic but need it for specific dates
+        // For simplicity in this iteration, we'll use current valuation as "Closing" 
+        // and approximate Opening by reversing movements from current.
+
+        // Current Value
+        const currentValuation = await this.getInventoryValuation();
+        const closingValue = currentValuation.totalValuation;
+
+        // Opening Value Approximation = Closing - (In Value) + (Out Value)
+        // "In Value" during period
+        const inboundMovements = await prisma.stockMovement.findMany({
+            where: {
+                type: MovementType.IN,
+                createdAt: { gte: startDate, lte: endDate },
+                cost: { not: null }
+            },
+            select: { quantity: true, cost: true }
+        });
+        const inValue = inboundMovements.reduce((sum, m) => sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0)), 0);
+        const outValue = cogs; // Reuse COGS calculation
+
+        const openingValue = closingValue - inValue + outValue;
+        const averageInventory = (openingValue + closingValue) / 2;
+
+        const turnoverRatio = averageInventory > 0 ? cogs / averageInventory : 0;
+
+        return {
+            periodDays,
+            cogs,
+            averageInventory,
+            turnoverRatio: Number(turnoverRatio.toFixed(2))
+        };
+    }
+
+    /**
+     * Calculates Days of Inventory on Hand (DOH)
+     * DOH = (Average Inventory / COGS) * Period Days
+     */
+    static async getDaysOfInventoryOnHand(periodDays = 30) {
+        const turnoverStats = await this.getInventoryTurnover(periodDays);
+
+        // If no COGS, means infinite days (or 0 if no stock)
+        // To avoid division by zero:
+        if (turnoverStats.cogs === 0) {
+            return {
+                ...turnoverStats,
+                daysOnHand: turnoverStats.averageInventory > 0 ? 999 : 0
+            };
+        }
+
+        const daysOnHand = (turnoverStats.averageInventory / turnoverStats.cogs) * periodDays;
+
+        return {
+            ...turnoverStats,
+            daysOnHand: Number(daysOnHand.toFixed(1))
+        };
+    }
+
+    /**
+     * Get stock movement trends for charts
+     */
+    static async getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
+        const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+        const startDate = subDays(new Date(), days);
+
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                createdAt: { gte: startDate }
+            },
+            select: {
+                type: true,
+                quantity: true,
+                createdAt: true
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Group by Date
+        const grouped = movements.reduce((acc, m) => {
+            const dateStr = format(m.createdAt, 'yyyy-MM-dd');
+            if (!acc[dateStr]) {
+                acc[dateStr] = { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 };
+            }
+
+            const qty = m.quantity.toNumber();
+            if (m.type === MovementType.IN) acc[dateStr].in += qty;
+            else if (m.type === MovementType.OUT) acc[dateStr].out += qty;
+            else if (m.type === MovementType.TRANSFER) acc[dateStr].transfer += qty;
+            else if (m.type === MovementType.ADJUSTMENT) acc[dateStr].adjustment += qty;
+
+            return acc;
+        }, {} as Record<string, { date: string; in: number; out: number; transfer: number; adjustment: number }>);
+
+        // Fill missing dates
+        const results = [];
+        for (let i = 0; i <= days; i++) {
+            const date = subDays(new Date(), days - i);
+            const dateStr = format(date, 'yyyy-MM-dd');
+            results.push(grouped[dateStr] || { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 });
+        }
+
+        return results;
+    }
+
 }

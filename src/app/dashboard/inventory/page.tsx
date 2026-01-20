@@ -1,4 +1,9 @@
-import { getInventoryStats, getLocations, getInventoryAsOf, getDashboardStats } from '@/actions/inventory';
+import {
+    getInventoryStats,
+    getLocations,
+    getInventoryAsOf,
+    getDashboardStats,
+} from '@/actions/inventory';
 import { ABCAnalysisService } from '@/services/abc-analysis-service';
 import { canViewPrices } from '@/actions/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
@@ -8,9 +13,8 @@ import { WarehouseNavigator } from '@/components/inventory/WarehouseNavigator';
 import { InventoryInsightsPanel } from '@/components/inventory/InventoryInsightsPanel';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Box, PackageCheck } from 'lucide-react';
+import { AlertCircle, Box, PackageCheck, DollarSign } from 'lucide-react';
 import { serializeData, formatRupiah } from '@/lib/utils';
-import { DollarSign } from 'lucide-react';
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -34,7 +38,11 @@ export default async function InventoryDashboard({
     const compareDate = params.compareWith ? new Date(params.compareWith) : null;
 
     // Fetch data in parallel
-    const [liveInventory, locations, dashboardStats] = await Promise.all([
+    const [
+        liveInventory,
+        locations,
+        dashboardStats,
+    ] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getDashboardStats(),
@@ -169,13 +177,6 @@ export default async function InventoryDashboard({
     // Calculate displayed total value based on filtered view
     const displayedTotalValue = activeLocationIds.length > 0
         ? displayInventory.reduce((acc, item) => {
-            // Check if item is SimplifiedInventory or InventoryWithRelations
-            // SimplifiedInventory doesn't have productVariant.price, so we might need to handle that if used for historical
-            // But displayInventory usually comes from liveInventory which has relations.
-            // However, historical logic maps to SimplifiedInventory structure effectively if we aren't careful,
-            // but the map above actually returns the original item structure with updated quantity.
-            // Let's safe guard.
-
             if ('productVariant' in item) {
                 const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
                 const price = item.productVariant.price ? item.productVariant.price.toNumber() : 0;
@@ -183,10 +184,7 @@ export default async function InventoryDashboard({
             }
             return acc;
         }, 0)
-        : 0; // Usage of dashboardStats for value would require updating dashboardStats to return value too.
-    // For now, if no location filter, we might want to calculate from liveInventory if dashboardStats doesn't have it.
-    // But wait, dashboardStats doesn't have value.
-    // So if activeLocationIds is empty (Global), we should calculate from liveInventory (which is ALL inventory).
+        : 0;
 
     const finalTotalValue = activeLocationIds.length > 0
         ? displayedTotalValue
@@ -289,5 +287,6 @@ export default async function InventoryDashboard({
         </div>
     );
 }
+
 
 
