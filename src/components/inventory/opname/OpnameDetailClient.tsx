@@ -79,7 +79,7 @@ export function OpnameDetailClient({ session, currentUserId }: OpnameDetailClien
 
     return (
         <div className="space-y-6 pt-2 pb-8">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
                 <Link href="/dashboard/inventory/opname" className="hover:text-foreground transition-colors flex items-center gap-1">
                     <ArrowLeft className="h-4 w-4" />
                     Back to Opname List
@@ -90,7 +90,7 @@ export function OpnameDetailClient({ session, currentUserId }: OpnameDetailClien
 
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-4 mb-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
                             {session.location.name}
                         </h2>
