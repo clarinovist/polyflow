@@ -207,7 +207,7 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                         setSuggestedSource(null);
                     }
                 } else {
-                    toast.error("Failed to calculate recipe", { description: result.error });
+                    toast.error("Failed to calculate recipe", { description: (result as { error?: string }).error || 'Unknown error' });
                 }
             }
         };
