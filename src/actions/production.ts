@@ -394,7 +394,7 @@ export async function startExecution(data: StartExecutionValues) {
 
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/production/kiosk');
-        return { success: true, data: execution };
+        return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error starting execution:', error);
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -435,13 +435,14 @@ export async function stopExecution(data: StopExecutionValues) {
         await prisma.productionOrder.update({
             where: { id: execution.productionOrderId },
             data: {
-                actualQuantity: newTotal
+                actualQuantity: newTotal,
+                status: result.data.completed ? ProductionStatus.COMPLETED : undefined
             }
         });
 
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/production/kiosk');
-        return { success: true, data: execution };
+        return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error stopping execution:', error);
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };

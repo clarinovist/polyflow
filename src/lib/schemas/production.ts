@@ -112,6 +112,7 @@ export const stopExecutionSchema = z.object({
     quantityProduced: z.coerce.number().nonnegative(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional(),
+    completed: z.boolean().optional(),
 });
 
 export type StartExecutionValues = z.infer<typeof startExecutionSchema>;

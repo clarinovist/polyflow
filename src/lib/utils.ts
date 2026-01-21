@@ -28,8 +28,8 @@ export function serializeData<T>(obj: T): T {
     return obj;
   }
 
-  if (obj instanceof Date) {
-    return obj.toISOString() as unknown as T;
+  if (obj instanceof Date || (typeof obj === 'object' && typeof (obj as any).toISOString === 'function')) {
+    return (obj as any).toISOString() as unknown as T;
   }
 
   // Handle Prisma Decimal
@@ -37,7 +37,7 @@ export function serializeData<T>(obj: T): T {
   if (typeof potentialDecimal.toNumber === 'function') {
     return potentialDecimal.toNumber() as unknown as T;
   }
-  if (typeof potentialDecimal.toString === 'function' && potentialDecimal.constructor?.name === 'Decimal') {
+  if (typeof potentialDecimal.toString === 'function' && (potentialDecimal.constructor?.name === 'Decimal' || (obj as any)._hex !== undefined)) {
     return parseFloat(potentialDecimal.toString()) as unknown as T;
   }
 

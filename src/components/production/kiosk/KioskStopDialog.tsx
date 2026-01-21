@@ -46,6 +46,7 @@ export function KioskStopDialog({
     const [quantity, setQuantity] = useState('0');
     const [scrap, setScrap] = useState('0');
     const [notes, setNotes] = useState('');
+    const [completed, setCompleted] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -65,7 +66,10 @@ export function KioskStopDialog({
                 executionId,
                 quantityProduced: qtyNum,
                 scrapQuantity: scrapNum,
-                notes
+                quantityProduced: qtyNum,
+                scrapQuantity: scrapNum,
+                notes,
+                completed
             });
 
             if (result.success) {
@@ -158,6 +162,18 @@ export function KioskStopDialog({
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
+                    </div>
+
+                    <div className="flex items-center space-x-2 py-2">
+                        <input
+                            type="checkbox"
+                            id="completed"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            onChange={(e) => setCompleted(e.target.checked)}
+                        />
+                        <Label htmlFor="completed" className="font-normal cursor-pointer">
+                            Mark Order as Complete (Remove from Kiosk)
+                        </Label>
                     </div>
 
                     <DialogFooter>
