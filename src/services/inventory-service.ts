@@ -160,18 +160,16 @@ export class InventoryService {
         const { sourceLocationId, destinationLocationId, productVariantId, quantity, notes, date } = data;
 
         await prisma.$transaction(async (tx) => {
-            const sourceStock = await tx.inventory.findUnique({
-                where: {
-                    locationId_productVariantId: {
-                        locationId: sourceLocationId,
-                        productVariantId: productVariantId,
-                    },
-                },
-                select: { id: true, quantity: true },
-            });
+            const sourceStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                SELECT "quantity"::text as quantity
+                FROM "Inventory"
+                WHERE "locationId" = ${sourceLocationId} AND "productVariantId" = ${productVariantId}
+                FOR UPDATE
+            `;
+            const sourceStockQty = sourceStockRow[0] ? Number(sourceStockRow[0].quantity) : null;
 
-            if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
-                throw new Error(`Stok di lokasi sumber tidak mencukupi. Saat ini: ${sourceStock?.quantity || 0}`);
+            if (sourceStockQty === null || sourceStockQty < quantity) {
+                throw new Error(`Stok di lokasi sumber tidak mencukupi. Saat ini: ${sourceStockQty || 0}`);
             }
 
             const activeReservations = await tx.stockReservation.aggregate({
@@ -246,17 +244,15 @@ export class InventoryService {
             for (const item of items) {
                 const { productVariantId, quantity } = item;
 
-                const sourceStock = await tx.inventory.findUnique({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId: sourceLocationId,
-                            productVariantId: productVariantId,
-                        },
-                    },
-                    select: { id: true, quantity: true },
-                });
+                const sourceStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                    SELECT "quantity"::text as quantity
+                    FROM "Inventory"
+                    WHERE "locationId" = ${sourceLocationId} AND "productVariantId" = ${productVariantId}
+                    FOR UPDATE
+                `;
+                const sourceStockQty = sourceStockRow[0] ? Number(sourceStockRow[0].quantity) : null;
 
-                if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
+                if (sourceStockQty === null || sourceStockQty < quantity) {
                     throw new Error(`Stok tidak mencukupi untuk produk ${productVariantId} di lokasi sumber.`);
                 }
 
@@ -333,14 +329,15 @@ export class InventoryService {
             const isIncrement = type === 'ADJUSTMENT_IN';
 
             if (!isIncrement) {
-                const currentStock = await tx.inventory.findUnique({
-                    where: {
-                        locationId_productVariantId: { locationId, productVariantId }
-                    },
-                    select: { id: true, quantity: true },
-                });
-                if (!currentStock || currentStock.quantity.toNumber() < quantity) {
-                    throw new Error(`Stok tidak cukup untuk pengurangan (ADJUST OUT). Saat ini: ${currentStock?.quantity || 0}`);
+                const currentStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                    SELECT "quantity"::text as quantity
+                    FROM "Inventory"
+                    WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+                    FOR UPDATE
+                `;
+                const currentStockQty = currentStockRow[0] ? Number(currentStockRow[0].quantity) : null;
+                if (currentStockQty === null || currentStockQty < quantity) {
+                    throw new Error(`Stok tidak cukup untuk pengurangan (ADJUST OUT). Saat ini: ${currentStockQty || 0}`);
                 }
 
                 const activeReservations = await tx.stockReservation.aggregate({
@@ -460,13 +457,14 @@ export class InventoryService {
                 const isIncrement = type === 'ADJUSTMENT_IN';
 
                 if (!isIncrement) {
-                    const currentStock = await tx.inventory.findUnique({
-                        where: {
-                            locationId_productVariantId: { locationId, productVariantId }
-                        },
-                        select: { id: true, quantity: true },
-                    });
-                    if (!currentStock || currentStock.quantity.toNumber() < quantity) {
+                    const currentStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                        SELECT "quantity"::text as quantity
+                        FROM "Inventory"
+                        WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+                        FOR UPDATE
+                    `;
+                    const currentStockQty = currentStockRow[0] ? Number(currentStockRow[0].quantity) : null;
+                    if (currentStockQty === null || currentStockQty < quantity) {
                         throw new Error(`Insufficient stock to adjust OUT for product ${productVariantId}`);
                     }
                 }

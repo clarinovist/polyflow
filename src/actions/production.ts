@@ -554,18 +554,17 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
             // 2. Process Items
             for (const item of items) {
                 // A. Verify Stock
-                const stock = await tx.inventory.findUnique({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId,
-                            productVariantId: item.productVariantId
-                        }
-                    }
-                });
+                const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                    SELECT "quantity"::text as quantity
+                    FROM "Inventory"
+                    WHERE "locationId" = ${locationId} AND "productVariantId" = ${item.productVariantId}
+                    FOR UPDATE
+                `;
+                const stockQty = stockRow[0] ? Number(stockRow[0].quantity) : null;
 
-                if (!stock || stock.quantity.toNumber() < item.quantity) {
+                if (stockQty === null || stockQty < item.quantity) {
                     const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId } });
-                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${stock?.quantity || 0}`);
+                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${stockQty || 0}`);
                 }
 
                 // 3. Deduct Inventory
@@ -628,17 +627,16 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
     try {
         await prisma.$transaction(async (tx) => {
             // 1. Verify Stock
-            const stock = await tx.inventory.findUnique({
-                where: {
-                    locationId_productVariantId: {
-                        locationId,
-                        productVariantId
-                    }
-                }
-            });
+            const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                SELECT "quantity"::text as quantity
+                FROM "Inventory"
+                WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+                FOR UPDATE
+            `;
+            const stockQty = stockRow[0] ? Number(stockRow[0].quantity) : null;
 
-            if (!stock || stock.quantity.toNumber() < quantity) {
-                throw new Error(`Stok di lokasi terpilih tidak mencukupi. Tersedia: ${stock?.quantity || 0}`);
+            if (stockQty === null || stockQty < quantity) {
+                throw new Error(`Stok di lokasi terpilih tidak mencukupi. Tersedia: ${stockQty || 0}`);
             }
 
             // 2. Deduct Inventory
@@ -1034,17 +1032,14 @@ export async function addProductionOutput(data: ProductionOutputValues) {
                         const sourceLocationId = currentOrder.locationId;
 
                         // Check physical stock and active reservations to avoid negative inventory
-                        const invRow = await tx.inventory.findUnique({
-                            where: {
-                                locationId_productVariantId: {
-                                    locationId: sourceLocationId,
-                                    productVariantId: item.productVariantId
-                                }
-                            },
-                            select: { quantity: true }
-                        });
+                        const invRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                            SELECT "quantity"::text as quantity
+                            FROM "Inventory"
+                            WHERE "locationId" = ${sourceLocationId} AND "productVariantId" = ${item.productVariantId}
+                            FOR UPDATE
+                        `;
 
-                        const physicalQty = invRow?.quantity.toNumber() || 0;
+                            const physicalQty = invRow[0] ? Number(invRow[0].quantity) : 0;
                         const resAgg = await tx.stockReservation.aggregate({
                             where: {
                                 locationId: sourceLocationId,
