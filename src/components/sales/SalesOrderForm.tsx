@@ -37,6 +37,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
+import { useAction } from '@/hooks/use-action';
+import { ErrorAlert } from '@/components/ui/error-alert';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -69,7 +71,6 @@ interface SalesOrderFormProps {
 
 export function SalesOrderForm({ customers, locations, products, mode, initialData }: SalesOrderFormProps) {
     const router = useRouter();
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [openCustomer, setOpenCustomer] = useState(false);
 
     // Filter locations for MTS constraint (Finished Good & Scrap only)
@@ -157,29 +158,31 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         return acc;
     }, { gross: 0, discount: 0, tax: 0, net: 0 }) || { gross: 0, discount: 0, tax: 0, net: 0 };
 
-    async function onSubmit(data: SalesOrderFormValues) {
-        setIsSubmitting(true);
-        try {
-            const result = mode === 'create'
-                ? await createSalesOrder(data as CreateSalesOrderValues)
-                : await updateSalesOrder({ ...data, id: initialData!.id } as UpdateSalesOrderValues);
+    const { execute: submitAction, isPending: isSubmitting, error: actionError } = useAction(
+        async (data: SalesOrderFormValues) => {
+            const values = mode === 'create'
+                ? data as CreateSalesOrderValues
+                : { ...data, id: initialData!.id } as UpdateSalesOrderValues;
 
-            if (result.success) {
-                toast.success(`Sales Order ${mode === 'create' ? 'Created' : 'Updated'}`);
-                router.push('/dashboard/sales');
-            } else {
-                toast.error(result.error || "Failed to save order");
-            }
-        } catch (_error) {
-            toast.error("An unexpected error occurred");
-        } finally {
-            setIsSubmitting(false);
+            return mode === 'create'
+                ? await createSalesOrder(values as CreateSalesOrderValues)
+                : await updateSalesOrder(values as UpdateSalesOrderValues);
+        },
+        {
+            form,
+            successMessage: `Sales Order ${mode === 'create' ? 'Created' : 'Updated'}`,
+            onSuccess: () => router.push('/dashboard/sales'),
         }
+    );
+
+    async function onSubmit(data: SalesOrderFormValues) {
+        await submitAction(data);
     }
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <ErrorAlert error={actionError} />
 
                 {/* Header Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

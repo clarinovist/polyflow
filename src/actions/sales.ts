@@ -10,6 +10,7 @@ import {
 import { SalesService } from '@/services/sales-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
+import { ActionResponse, catchError } from '@/lib/error-handler';
 import { SalesOrderStatus } from '@prisma/client';
 import { serializeForClient } from '@/lib/serialize';
 
@@ -85,21 +86,12 @@ export async function getSalesOrderById(id: string) {
  */
 export async function createSalesOrder(data: CreateSalesOrderValues) {
     const session = await requireAuth();
-    const result = createSalesOrderSchema.safeParse(data);
-
-    if (!result.success) {
-        return { success: false, error: result.error.issues[0].message };
-    }
-
-    try {
-        const order = await SalesService.createOrder(result.data, session.user.id);
+    return catchError(async () => {
+        const result = createSalesOrderSchema.parse(data);
+        const order = await SalesService.createOrder(result, session.user.id);
         revalidatePath('/dashboard/sales');
-
-        return { success: true, data: serializeForClient(order) };
-    } catch (error) {
-        console.error("Create SO Error:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Failed to create order" };
-    }
+        return order;
+    });
 }
 
 /**
@@ -107,21 +99,13 @@ export async function createSalesOrder(data: CreateSalesOrderValues) {
  */
 export async function updateSalesOrder(data: UpdateSalesOrderValues) {
     const session = await requireAuth();
-    const result = updateSalesOrderSchema.safeParse(data);
-
-    if (!result.success) {
-        return { success: false, error: result.error.issues[0].message };
-    }
-
-    try {
-        await SalesService.updateOrder(result.data, session.user.id);
+    return catchError(async () => {
+        const result = updateSalesOrderSchema.parse(data);
+        await SalesService.updateOrder(result, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${data.id}`);
-        return { success: true };
-    } catch (error) {
-        console.error("Update SO Error:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Failed to update order" };
-    }
+        return { id: data.id };
+    });
 }
 
 /**
@@ -129,26 +113,22 @@ export async function updateSalesOrder(data: UpdateSalesOrderValues) {
  */
 export async function confirmSalesOrder(id: string) {
     const session = await requireAuth();
-    try {
+    return catchError(async () => {
         await SalesService.confirmOrder(id, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${id}`);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to confirm order" };
-    }
+        return true;
+    });
 }
 
 export async function markReadyToShip(id: string) {
     const session = await requireAuth();
-    try {
+    return catchError(async () => {
         await SalesService.markReadyToShip(id, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${id}`);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to update status" };
-    }
+        return true;
+    });
 }
 
 /**
@@ -156,15 +136,13 @@ export async function markReadyToShip(id: string) {
  */
 export async function shipSalesOrder(id: string) {
     const session = await requireAuth();
-    try {
+    return catchError(async () => {
         await SalesService.shipOrder(id, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${id}`);
         revalidatePath('/dashboard/inventory'); // Stock changed
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to ship order" };
-    }
+        return true;
+    });
 }
 
 /**
@@ -229,14 +207,12 @@ export async function checkSalesOrderFulfillment(id: string) {
  */
 export async function deliverSalesOrder(id: string) {
     const session = await requireAuth();
-    try {
+    return catchError(async () => {
         await SalesService.deliverOrder(id, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${id}`);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to mark as delivered" };
-    }
+        return true;
+    });
 }
 
 /**
@@ -244,14 +220,12 @@ export async function deliverSalesOrder(id: string) {
  */
 export async function cancelSalesOrder(id: string) {
     const session = await requireAuth();
-    try {
+    return catchError(async () => {
         await SalesService.cancelOrder(id, session.user.id);
         revalidatePath('/dashboard/sales');
         revalidatePath(`/dashboard/sales/${id}`);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to cancel order" };
-    }
+        return true;
+    });
 }
 
 /**
@@ -259,7 +233,7 @@ export async function cancelSalesOrder(id: string) {
  */
 export async function deleteSalesOrder(id: string) {
     await requireAuth();
-    try {
+    return catchError(async () => {
         const order = await prisma.salesOrder.findUnique({ where: { id } });
         if (!order) throw new Error("Order not found");
         if (order.status !== SalesOrderStatus.DRAFT) throw new Error("Only draft orders can be deleted");
@@ -267,8 +241,6 @@ export async function deleteSalesOrder(id: string) {
         await prisma.salesOrder.delete({ where: { id } });
 
         revalidatePath('/dashboard/sales');
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to delete order" };
-    }
+        return true;
+    });
 }
