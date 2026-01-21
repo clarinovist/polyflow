@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { SalesQuotationTable } from '@/components/sales/quotations/SalesQuotationTable';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export default async function SalesQuotationsPage() {
     const quotations = await getQuotations();
 
     // Serialize all Prisma objects for Client Components
-    const serializedQuotations = serializeForClient(quotations);
+    const serializedQuotations = serializeData(quotations);
 
     return (
         <div className="flex flex-col space-y-6 p-6 max-w-7xl mx-auto">

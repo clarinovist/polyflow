@@ -2,13 +2,13 @@
 import { getInvoices } from "@/actions/invoice";
 import { InvoiceTable } from "@/components/sales/InvoiceTable";
 import { Receipt } from "lucide-react";
-import { serializeForClient } from "@/lib/serialize";
+import { serializeData } from "@/lib/utils";
 
 export default async function InvoicesPage() {
     const invoices = await getInvoices();
 
     // Serialize all Prisma objects for Client Components
-    const serializedInvoices = serializeForClient(invoices);
+    const serializedInvoices = serializeData(invoices);
 
     return (
         <div className="p-6 space-y-6">

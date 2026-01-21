@@ -395,7 +395,7 @@ export class SalesService {
         });
     }
 
-    static async deliverOrder(orderId: string, userId: string) {
+    static async deliverOrder(orderId: string, _userId: string) {
         await prisma.salesOrder.update({
             where: { id: orderId },
             data: { status: SalesOrderStatus.DELIVERED }

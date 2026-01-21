@@ -34,7 +34,7 @@ import { CalendarIcon, Plus, Trash2, Loader2, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
+
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
 import { useAction } from '@/hooks/use-action';
@@ -563,10 +563,11 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                         </td>
                                         <td className="p-4 text-right tabular-nums">
                                             {(() => {
-                                                const qty = form.watch(`items.${index}.quantity`) || 0;
-                                                const price = form.watch(`items.${index}.unitPrice`) || 0;
-                                                const disc = form.watch(`items.${index}.discountPercent`) || 0;
-                                                const tax = form.watch(`items.${index}.taxPercent`) || 0;
+                                                const item = watchItems?.[index];
+                                                const qty = item?.quantity || 0;
+                                                const price = item?.unitPrice || 0;
+                                                const disc = item?.discountPercent || 0;
+                                                const tax = item?.taxPercent || 0;
 
                                                 const sub = qty * price;
                                                 const afterDisc = sub - (sub * (disc / 100));

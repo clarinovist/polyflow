@@ -16,22 +16,10 @@ export function formatRupiah(value: number | null | undefined): string {
 }
 
 /**
- * Safely serializes data to be passed to Client Components.
- * Converts Date objects to strings and BigInt/Decimal to numbers/strings.
- * Uses JSON.parse(JSON.stringify()) as a reliable fallback for cleaning objects.
+ * Helper to serialize Prisma objects (especially Decimals) for Client Components
+ * converting them to plain numbers/strings to match Next.js serialization requirements.
  */
-export function safeSerialize<T>(data: T): T {
-  return JSON.parse(JSON.stringify(data, (key, value) => {
-    if (typeof value === 'bigint') {
-      return value.toString();
-    }
-    // Decimals often come as strings in JSON.stringify if not handled, 
-    // but here we just want to ensure it's a plain object structure.
-    return value;
-  }));
-}
-// Helper to serialize Prisma objects (especially Decimals) for Client Components
-export function serializeData(obj: unknown): unknown {
+export function serializeData<T>(obj: T): T {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -41,20 +29,20 @@ export function serializeData(obj: unknown): unknown {
   }
 
   if (obj instanceof Date) {
-    return obj.toISOString();
+    return obj.toISOString() as unknown as T;
   }
 
   // Handle Prisma Decimal
   const potentialDecimal = obj as { toNumber?: () => number; toString?: () => string; constructor?: { name?: string } };
   if (typeof potentialDecimal.toNumber === 'function') {
-    return potentialDecimal.toNumber();
+    return potentialDecimal.toNumber() as unknown as T;
   }
   if (typeof potentialDecimal.toString === 'function' && potentialDecimal.constructor?.name === 'Decimal') {
-    return parseFloat(potentialDecimal.toString());
+    return parseFloat(potentialDecimal.toString()) as unknown as T;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(serializeData);
+    return obj.map(serializeData) as unknown as T;
   }
 
   const serialized: Record<string, unknown> = {};
@@ -64,5 +52,5 @@ export function serializeData(obj: unknown): unknown {
       serialized[key] = serializeData(objRecord[key]);
     }
   }
-  return serialized;
+  return serialized as T;
 }

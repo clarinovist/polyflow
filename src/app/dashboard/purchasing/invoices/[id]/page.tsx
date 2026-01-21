@@ -2,7 +2,7 @@ import { PurchaseService } from '@/services/purchase-service';
 import { notFound } from 'next/navigation';
 import { PurchaseInvoiceDetailClient } from '@/components/purchasing/PurchaseInvoiceDetailClient';
 import { Metadata } from 'next';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 interface PageProps {
     params: Promise<{
@@ -28,7 +28,7 @@ export default async function PurchaseInvoiceDetailPage({ params }: PageProps) {
 
     // Serialize and convert Decimal values to numbers
     const serializedInvoice = {
-        ...serializeForClient(invoice),
+        ...serializeData(invoice),
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         purchaseOrder: {

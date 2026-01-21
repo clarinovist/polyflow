@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
+import { serializeData } from '@/lib/utils';
 
 export async function getBoms() {
     try {
@@ -27,7 +28,7 @@ export async function getBoms() {
                 updatedAt: 'desc'
             }
         });
-        return { success: true, data: JSON.parse(JSON.stringify(boms)) };
+        return { success: true, data: serializeData(boms) };
     } catch (error) {
         console.error("Error fetching BOMs:", error);
         return { success: false, error: "Failed to fetch BOMs" };
@@ -44,7 +45,7 @@ export async function getProductVariants() {
                 name: 'asc'
             }
         });
-        return { success: true, data: JSON.parse(JSON.stringify(variants)) };
+        return { success: true, data: serializeData(variants) };
     } catch (error) {
         console.error("Error fetching variants:", error);
         return { success: false, error: "Failed to fetch variants" };
@@ -105,7 +106,7 @@ export async function getBom(id: string) {
             return { success: false, error: "Recipe not found" };
         }
 
-        return { success: true, data: bom };
+        return { success: true, data: serializeData(bom) };
     } catch (error) {
         console.error("Error fetching BOM:", error);
         return { success: false, error: "Failed to fetch BOM" };

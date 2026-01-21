@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export default async function SalesPage() {
     const orders = await getSalesOrders();
 
     // Serialize all Prisma objects for Client Components
-    const serializedOrders = serializeForClient(orders);
+    const serializedOrders = serializeData(orders);
 
     return (
         <div className="flex flex-col space-y-6 p-6">

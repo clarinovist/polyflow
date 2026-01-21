@@ -3,7 +3,7 @@ import { PurchaseService } from '@/services/purchase-service';
 import { GoodsReceiptTable } from '@/components/purchasing/GoodsReceiptTable';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export const metadata: Metadata = {
     title: 'Goods Receipts | PolyFlow',
@@ -13,7 +13,7 @@ export default async function GoodsReceiptsPage() {
     const receipts = await PurchaseService.getGoodsReceipts();
 
     // Serialize all Prisma objects for Client Components
-    const serializedReceipts = serializeForClient(receipts);
+    const serializedReceipts = serializeData(receipts);
 
     return (
         <div className="flex flex-col gap-6 p-6">

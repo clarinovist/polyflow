@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { GoodsReceiptForm } from '@/components/purchasing/GoodsReceiptForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export const metadata: Metadata = {
     title: 'Post Goods Receipt | PolyFlow',
@@ -34,8 +34,8 @@ export default async function CreateReceiptPage({ searchParams }: PageProps) {
     }
 
     // Serialize all Prisma objects for Client Components
-    const serializedOrder = serializeForClient(order);
-    const serializedLocations = serializeForClient(locations);
+    const serializedOrder = serializeData(order);
+    const serializedLocations = serializeData(locations);
 
     // Map order items for form - explicitly convert to numbers to avoid string comparison issues
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -38,8 +38,8 @@ export async function exportSalesAnalytics(dateRange: DateRange) {
 
         const buf = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
         return { success: true, data: buf };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -82,8 +82,8 @@ export async function exportProductionAnalytics(dateRange: DateRange) {
 
         const buf = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
         return { success: true, data: buf };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 

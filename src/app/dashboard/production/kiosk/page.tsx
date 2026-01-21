@@ -71,7 +71,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
     }));
 
     // Serialize using generic helper to handle all Decimals deeply
-    const serializedOrders = serializeData(ordersWithLogs) as Order[];
+    const serializedOrders = serializeData(ordersWithLogs) as unknown as Order[];
 
     // Server Action for Manual Refresh
     async function refreshData() {

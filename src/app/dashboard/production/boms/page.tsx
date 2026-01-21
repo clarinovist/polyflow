@@ -29,7 +29,7 @@ export default async function BomListPage() {
         }[];
     };
 
-    const boms: BomWithRelations[] = bomsResult.success ? (bomsResult.data as BomWithRelations[]) : [];
+    const boms: BomWithRelations[] = bomsResult.success ? (bomsResult.data as unknown as BomWithRelations[]) : [];
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">

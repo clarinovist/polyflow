@@ -10,9 +10,9 @@ import {
 import { SalesService } from '@/services/sales-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
-import { ActionResponse, catchError } from '@/lib/error-handler';
+import { catchError } from '@/lib/error-handler';
 import { SalesOrderStatus } from '@prisma/client';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 /**
  * Get all sales orders
@@ -27,7 +27,7 @@ export async function getSalesOrders() {
         },
         orderBy: { orderDate: 'desc' }
     });
-    return serializeForClient(orders);
+    return serializeData(orders);
 }
 
 /**
@@ -44,7 +44,7 @@ export async function getSalesOrdersByCustomerId(customerId: string) {
         },
         orderBy: { orderDate: 'desc' }
     });
-    return serializeForClient(orders);
+    return serializeData(orders);
 }
 
 
@@ -78,7 +78,7 @@ export async function getSalesOrderById(id: string) {
 
     if (!order) return null;
 
-    return serializeForClient(order);
+    return serializeData(order);
 }
 
 /**

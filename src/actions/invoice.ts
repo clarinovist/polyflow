@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/auth-checks';
 import { InvoiceService } from '@/services/invoice-service';
 import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
 import { revalidatePath } from 'next/cache';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 /**
  * Get all invoices
@@ -24,7 +24,7 @@ export async function getInvoices() {
         },
         orderBy: { createdAt: 'desc' }
     });
-    return serializeForClient(invoices);
+    return serializeData(invoices);
 }
 
 /**
@@ -49,7 +49,7 @@ export async function getInvoiceById(id: string) {
             }
         }
     });
-    return serializeForClient(invoice);
+    return serializeData(invoice);
 }
 
 /**
@@ -67,7 +67,7 @@ export async function createInvoice(data: CreateInvoiceValues) {
         const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
         revalidatePath('/dashboard/sales'); // Refresh sales to update invoice status if any
         revalidatePath(`/dashboard/sales/${data.salesOrderId}`);
-        return { success: true, data: serializeForClient(invoice) };
+        return { success: true, data: serializeData(invoice) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create invoice" };
     }

@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { PurchaseService } from '@/services/purchase-service';
 import { PurchaseOrderTable } from '@/components/purchasing/PurchaseOrderTable';
 import { ShoppingCart } from 'lucide-react';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export const metadata: Metadata = {
     title: 'Purchase Orders | PolyFlow ERP',
@@ -14,7 +14,7 @@ export default async function PurchaseOrdersPage() {
     const orders = await PurchaseService.getPurchaseOrders();
 
     // Serialize all Prisma objects for Client Components
-    const serializedOrders = serializeForClient(orders);
+    const serializedOrders = serializeData(orders);
 
     return (
         <div className="flex flex-col gap-6 p-6">

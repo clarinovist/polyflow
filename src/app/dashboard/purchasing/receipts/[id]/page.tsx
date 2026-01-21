@@ -2,7 +2,7 @@ import { PurchaseService } from '@/services/purchase-service';
 import { notFound } from 'next/navigation';
 import { GoodsReceiptDetailClient } from '@/components/purchasing/GoodsReceiptDetailClient';
 import { Metadata } from 'next';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 interface PageProps {
     params: Promise<{
@@ -27,7 +27,7 @@ export default async function GoodsReceiptDetailPage({ params }: PageProps) {
     }
 
     // Serialize all Prisma objects for Client Components
-    const serializedReceipt = serializeForClient(receipt);
+    const serializedReceipt = serializeData(receipt);
 
     return (
         <div className="p-6 max-w-6xl mx-auto">

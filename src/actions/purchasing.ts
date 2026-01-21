@@ -16,7 +16,7 @@ import {
     CreatePurchaseInvoiceValues
 } from '@/lib/schemas/purchasing';
 import { PurchaseOrderStatus } from '@prisma/client';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const session = await requireAuth();
@@ -26,7 +26,7 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
 
     revalidatePath('/dashboard/purchasing');
     revalidatePath('/dashboard/purchasing/orders');
-    return serializeForClient(order);
+    return serializeData(order);
 }
 
 export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
@@ -37,7 +37,7 @@ export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
 
     revalidatePath('/dashboard/purchasing/orders');
     revalidatePath(`/dashboard/purchasing/orders/${validated.id}`);
-    return serializeForClient(order);
+    return serializeData(order);
 }
 
 export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
@@ -51,7 +51,7 @@ export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
     revalidatePath('/dashboard/purchasing/receipts');
     revalidatePath(`/dashboard/purchasing/receipts/create`);
     revalidatePath('/dashboard/inventory');
-    return serializeForClient(receipt);
+    return serializeData(receipt);
 }
 
 export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
@@ -62,7 +62,7 @@ export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValue
 
     revalidatePath('/dashboard/purchasing/invoices');
     revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
-    return serializeForClient(invoice);
+    return serializeData(invoice);
 }
 
 export async function recordPurchasePayment(id: string, amount: number) {
@@ -71,7 +71,7 @@ export async function recordPurchasePayment(id: string, amount: number) {
 
     revalidatePath('/dashboard/purchasing/invoices');
     revalidatePath(`/dashboard/purchasing/invoices/${id}`);
-    return serializeForClient(updated);
+    return serializeData(updated);
 }
 
 export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus) {
@@ -80,7 +80,7 @@ export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrde
 
     revalidatePath('/dashboard/purchasing/orders');
     revalidatePath(`/dashboard/purchasing/orders/${id}`);
-    return serializeForClient(order);
+    return serializeData(order);
 }
 
 export async function deletePurchaseOrder(id: string) {

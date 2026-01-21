@@ -12,9 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { SalesOrder, SalesOrderStatus, Customer, Location } from '@prisma/client';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ArrowRight, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 // Helper types that match the structure of what's passed from server page

@@ -4,11 +4,11 @@ import { SalesQuotation, SalesQuotationItem, ProductVariant, Product, Customer, 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, XCircle, ArrowRight, Printer } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, ArrowRight, Printer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
-import { convertToOrder, updateQuotation } from '@/actions/quotations'; // We need updateQuotation to change status?
+import { convertToOrder } from '@/actions/quotations'; // We need updateQuotation to change status?
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {
@@ -30,7 +30,7 @@ import {
 import { Label } from '@/components/ui/label';
 
 // Type definition for serialized props (handling Dates/Decimals as needed or assuming standard object)
-// Since we use prisma objects directly in server component, and if serializeForClient is used, Decimals might be numbers/strings.
+// Since we use prisma objects directly in server component, and if serializeData is used, Decimals might be numbers/strings.
 // But let's assume standard structure + relations.
 
 type ExtendedQuotation = SalesQuotation & {
@@ -76,7 +76,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
             } else {
                 toast.error(result.error);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to convert quotation");
         } finally {
             setIsConverting(false);

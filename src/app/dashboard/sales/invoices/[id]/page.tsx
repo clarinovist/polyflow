@@ -2,7 +2,7 @@
 import { getInvoiceById } from "@/actions/invoice";
 import { InvoiceDetailClient } from "@/components/sales/InvoiceDetailClient";
 import { notFound } from "next/navigation";
-import { serializeForClient } from "@/lib/serialize";
+import { serializeData } from "@/lib/utils";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -14,7 +14,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     }
 
     // Serialize all Prisma objects for Client Components
-    const serializedInvoice = serializeForClient(invoice);
+    const serializedInvoice = serializeData(invoice);
 
     return (
         <div className="p-6">

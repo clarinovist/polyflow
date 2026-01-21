@@ -1,7 +1,7 @@
 import { getSalesOrderById } from '@/actions/sales';
 import { notFound } from 'next/navigation';
 import { SalesOrderDetailClient } from '@/components/sales/SalesOrderDetailClient';
-import { serializeForClient } from '@/lib/serialize';
+import { serializeData } from '@/lib/utils';
 
 interface PageProps {
     params: Promise<{
@@ -18,7 +18,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
     }
 
     // Serialize all Prisma objects for Client Components
-    const serializedOrder = serializeForClient(order);
+    const serializedOrder = serializeData(order);
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
