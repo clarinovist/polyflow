@@ -24,7 +24,7 @@ import {
     LogRunningOutputValues  // Added
 } from '@/lib/schemas/production';
 import { serializeData } from '@/lib/utils';
-import { ProductionStatus, Prisma, MovementType } from '@prisma/client';
+import { ProductionStatus, Prisma, MovementType, ReservationStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -565,7 +565,7 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
 
                 if (!stock || stock.quantity.toNumber() < item.quantity) {
                     const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId } });
-                    throw new Error(`Insufficient stock for ${variant?.name || 'item'}. Available: ${stock?.quantity || 0}`);
+                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${stock?.quantity || 0}`);
                 }
 
                 // 3. Deduct Inventory
@@ -638,7 +638,7 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
             });
 
             if (!stock || stock.quantity.toNumber() < quantity) {
-                throw new Error(`Insufficient stock in selected location. Available: ${stock?.quantity || 0}`);
+                throw new Error(`Stok di lokasi terpilih tidak mencukupi. Tersedia: ${stock?.quantity || 0}`);
             }
 
             // 2. Deduct Inventory
@@ -1033,22 +1033,44 @@ export async function addProductionOutput(data: ProductionOutputValues) {
                     if (qtyToBackflush > 0.0001) { // Tolerance for float math
                         const sourceLocationId = currentOrder.locationId;
 
-                        // Decrement Inventory
-                        await tx.inventory.upsert({
+                        // Check physical stock and active reservations to avoid negative inventory
+                        const invRow = await tx.inventory.findUnique({
                             where: {
                                 locationId_productVariantId: {
                                     locationId: sourceLocationId,
                                     productVariantId: item.productVariantId
                                 }
                             },
-                            update: {
-                                quantity: { decrement: qtyToBackflush }
-                            },
-                            create: {
+                            select: { quantity: true }
+                        });
+
+                        const physicalQty = invRow?.quantity.toNumber() || 0;
+                        const resAgg = await tx.stockReservation.aggregate({
+                            where: {
                                 locationId: sourceLocationId,
                                 productVariantId: item.productVariantId,
-                                quantity: -qtyToBackflush
-                            }
+                                status: ReservationStatus.ACTIVE
+                            },
+                            _sum: { quantity: true }
+                        });
+
+                        const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
+                        const availableQty = physicalQty - reservedQty;
+
+                        if (availableQty < qtyToBackflush) {
+                            const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId }, select: { name: true } });
+                            throw new Error(`Insufficient available stock for ${variant?.name || item.productVariantId} at source. Available: ${availableQty}, Required: ${qtyToBackflush}`);
+                        }
+
+                        // Safe decrement (record must exist because availableQty >= needed)
+                        await tx.inventory.update({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId: sourceLocationId,
+                                    productVariantId: item.productVariantId
+                                }
+                            },
+                            data: { quantity: { decrement: qtyToBackflush } }
                         });
 
                         // Record Movement
@@ -1351,21 +1373,44 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
                     const qtyToDeduct = quantityProduced * ratio;
 
                     if (qtyToDeduct > 0.0001) {
-                        await tx.inventory.upsert({
+                        // Check inventory and reservations before decrementing to avoid negatives
+                        const invRow = await tx.inventory.findUnique({
                             where: {
                                 locationId_productVariantId: {
                                     locationId,
                                     productVariantId: item.productVariantId
                                 }
                             },
-                            update: {
-                                quantity: { decrement: qtyToDeduct }
-                            },
-                            create: {
+                            select: { quantity: true }
+                        });
+
+                        const physicalQty = invRow?.quantity.toNumber() || 0;
+                        const resAgg = await tx.stockReservation.aggregate({
+                            where: {
                                 locationId,
                                 productVariantId: item.productVariantId,
-                                quantity: -qtyToDeduct
-                            }
+                                status: ReservationStatus.ACTIVE
+                            },
+                            _sum: { quantity: true }
+                        });
+
+                        const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
+                        const availableQty = physicalQty - reservedQty;
+
+                        if (availableQty < qtyToDeduct) {
+                            const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId }, select: { name: true } });
+                            throw new Error(`Insufficient available stock for ${variant?.name || item.productVariantId} at location. Available: ${availableQty}, Required: ${qtyToDeduct}`);
+                        }
+
+                        // Safe decrement
+                        await tx.inventory.update({
+                            where: {
+                                locationId_productVariantId: {
+                                    locationId,
+                                    productVariantId: item.productVariantId
+                                }
+                            },
+                            data: { quantity: { decrement: qtyToDeduct } }
                         });
 
                         await tx.stockMovement.create({

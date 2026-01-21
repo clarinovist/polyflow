@@ -171,7 +171,7 @@ export class InventoryService {
             });
 
             if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
-                throw new Error(`Insufficient stock at source location. Current: ${sourceStock?.quantity || 0}`);
+                throw new Error(`Stok di lokasi sumber tidak mencukupi. Saat ini: ${sourceStock?.quantity || 0}`);
             }
 
             const activeReservations = await tx.stockReservation.aggregate({
@@ -187,7 +187,7 @@ export class InventoryService {
             const availableQty = sourceStock.quantity.toNumber() - reservedQty;
 
             if (availableQty < quantity) {
-                throw new Error(`Cannot transfer. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                throw new Error(`Tidak dapat melakukan transfer. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
             }
 
             await tx.inventory.update({
@@ -257,7 +257,7 @@ export class InventoryService {
                 });
 
                 if (!sourceStock || sourceStock.quantity.toNumber() < quantity) {
-                    throw new Error(`Insufficient stock for product ${productVariantId} at source location.`);
+                    throw new Error(`Stok tidak mencukupi untuk produk ${productVariantId} di lokasi sumber.`);
                 }
 
                 const activeReservations = await tx.stockReservation.aggregate({
@@ -273,7 +273,7 @@ export class InventoryService {
                 const availableQty = sourceStock.quantity.toNumber() - reservedQty;
 
                 if (availableQty < quantity) {
-                    throw new Error(`Cannot transfer product ${productVariantId}. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                    throw new Error(`Tidak dapat mentransfer produk ${productVariantId}. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
                 }
 
                 await tx.inventory.update({
@@ -340,7 +340,7 @@ export class InventoryService {
                     select: { id: true, quantity: true },
                 });
                 if (!currentStock || currentStock.quantity.toNumber() < quantity) {
-                    throw new Error(`Insufficient stock to adjust OUT. Current: ${currentStock?.quantity || 0}`);
+                    throw new Error(`Stok tidak cukup untuk pengurangan (ADJUST OUT). Saat ini: ${currentStock?.quantity || 0}`);
                 }
 
                 const activeReservations = await tx.stockReservation.aggregate({
@@ -356,7 +356,7 @@ export class InventoryService {
                 const availableQty = currentStock.quantity.toNumber() - reservedQty;
 
                 if (availableQty < quantity) {
-                    throw new Error(`Cannot adjust OUT. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`);
+                    throw new Error(`Tidak dapat melakukan penyesuaian OUT. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
                 }
             } else {
                 if (batchData) {
