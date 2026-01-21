@@ -567,6 +567,7 @@ export class InventoryService {
                 select: {
                     quantity: true,
                     productVariantId: true,
+                    location: { select: { id: true, slug: true } },
                     productVariant: {
                         select: { minStockAlert: true }
                     }
@@ -584,15 +585,26 @@ export class InventoryService {
 
         const totalStock = inventory.reduce((sum, item) => sum + item.quantity.toNumber(), 0);
 
-        const variantQuantities = inventory.reduce((acc, item) => {
+        // Build total quantities per variant for ALL locations
+        const variantQuantitiesAll = inventory.reduce((acc, item) => {
             acc[item.productVariantId] = (acc[item.productVariantId] || 0) + item.quantity.toNumber();
             return acc;
         }, {} as Record<string, number>);
 
+        // For low stock alert we only consider Raw Material and Finished Goods warehouses
+        const allowedLocationSlugs = new Set(['rm_warehouse', 'fg_warehouse']);
+        const variantQuantitiesForAlerts = inventory.reduce((acc, item) => {
+            const slug = item.location?.slug;
+            if (slug && allowedLocationSlugs.has(slug)) {
+                acc[item.productVariantId] = (acc[item.productVariantId] || 0) + item.quantity.toNumber();
+            }
+            return acc;
+        }, {} as Record<string, number>);
+
         const lowStockCount = lowStockVariants.filter(variant => {
-            const total = variantQuantities[variant.id] || 0;
+            const totalForAlert = variantQuantitiesForAlerts[variant.id] || 0;
             const threshold = variant.minStockAlert?.toNumber() || 0;
-            return total < threshold;
+            return totalForAlert < threshold;
         }).length;
 
         const reorderVariants = await prisma.productVariant.findMany({
