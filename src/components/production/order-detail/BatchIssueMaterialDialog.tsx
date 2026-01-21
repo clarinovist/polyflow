@@ -24,6 +24,7 @@ interface BatchItem {
     unit: string;
     isDeletedPlan?: boolean; // If true, we will send this to backend for deletion
     batchId?: string; // Selected Batch ID
+    originalQuantity: number; // For restoring on undo-delete
 }
 
 interface BatchOption {
@@ -55,15 +56,17 @@ export function BatchIssueMaterialDialog({
                 .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
             const remaining = Math.max(0, Number(pm.quantity) - issued);
+            const quantityNum = remaining > 0 ? Number(remaining.toFixed(2)) : 0;
 
             return {
                 id: pm.id,
                 productVariantId: pm.productVariantId,
-                quantity: remaining > 0 ? Number(remaining.toFixed(2)) : 0,
+                quantity: quantityNum,
                 isPlanned: true,
                 name: pm.productVariant.name,
                 unit: pm.productVariant.primaryUnit,
-                isDeletedPlan: false
+                isDeletedPlan: false,
+                originalQuantity: quantityNum
             };
         });
         return plannedItems;
@@ -117,7 +120,8 @@ export function BatchIssueMaterialDialog({
             quantity: 0,
             isPlanned: false,
             name: '',
-            unit: ''
+            unit: '',
+            originalQuantity: 0
         };
         setItems([...items, newItem]);
     };
@@ -125,7 +129,12 @@ export function BatchIssueMaterialDialog({
     const handleToggleDeletePlan = (id: string) => {
         setItems(items.map(item => {
             if (item.id === id && item.isPlanned) {
-                return { ...item, isDeletedPlan: !item.isDeletedPlan, quantity: 0 };
+                const newIsDeleted = !item.isDeletedPlan;
+                return {
+                    ...item,
+                    isDeletedPlan: newIsDeleted,
+                    quantity: newIsDeleted ? 0 : item.originalQuantity
+                };
             }
             return item;
         }));
@@ -286,7 +295,12 @@ export function BatchIssueMaterialDialog({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className={cn("h-8 w-8", item.isDeletedPlan ? "text-slate-400" : "text-red-500")}
+                                                    className={cn(
+                                                        "h-8 w-8 transition-colors",
+                                                        item.isDeletedPlan
+                                                            ? "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                            : "text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                                    )}
                                                     onClick={() => handleToggleDeletePlan(item.id)}
                                                     title={item.isDeletedPlan ? "Undo Delete" : "Remove Requirement"}
                                                 >
