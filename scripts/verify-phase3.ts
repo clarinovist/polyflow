@@ -1,5 +1,5 @@
 import { PrismaClient, SalesOrderStatus, SalesOrderType } from '@prisma/client';
-import { SalesService } from '../src/services/sales-service.ts'; // Adding .ts extension for ESM? Or just standard resolution?
+import { SalesService } from '../src/services/sales-service'; // Removing .ts extension for build compatibility
 // Ts-node with ESM usually requires extension or proper resolution.
 // Trying simpler relative path without extension if allowed, or with.
 // Previous error: "Cannot find module ... sales-service"

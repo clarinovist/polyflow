@@ -1,5 +1,5 @@
 import { PrismaClient, SalesOrderStatus } from '@prisma/client';
-import { AnalyticsService } from '../src/services/analytics-service.ts'; // Ensure .ts extension for tsx/ts-node
+import { AnalyticsService } from '../src/services/analytics-service'; // Removing .ts extension for build compatibility
 
 const prisma = new PrismaClient();
 
