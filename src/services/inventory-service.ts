@@ -182,7 +182,7 @@ export class InventoryService {
             });
 
             const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-            const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+            const availableQty = (sourceStockQty || 0) - reservedQty;
 
             if (availableQty < quantity) {
                 throw new Error(`Tidak dapat melakukan transfer. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
@@ -266,7 +266,7 @@ export class InventoryService {
                 });
 
                 const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-                const availableQty = sourceStock.quantity.toNumber() - reservedQty;
+                const availableQty = sourceStockQty - reservedQty;
 
                 if (availableQty < quantity) {
                     throw new Error(`Tidak dapat mentransfer produk ${productVariantId}. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
@@ -350,7 +350,7 @@ export class InventoryService {
                 });
 
                 const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
-                const availableQty = currentStock.quantity.toNumber() - reservedQty;
+                const availableQty = currentStockQty - reservedQty;
 
                 if (availableQty < quantity) {
                     throw new Error(`Tidak dapat melakukan penyesuaian OUT. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
@@ -613,7 +613,7 @@ export class InventoryService {
         });
 
         const suggestedPurchasesCount = reorderVariants.filter(variant => {
-            const total = variantQuantities[variant.id] || 0;
+            const total = variantQuantitiesAll[variant.id] || 0;
             const reorderPoint = variant.reorderPoint?.toNumber() || 0;
             return total < reorderPoint;
         }).length;
