@@ -25,6 +25,7 @@ model User {
   auditLogs          AuditLog[]
   downtimeLogs       MachineDowntime[]
   salesOrders        SalesOrder[]        @relation("SalesCreator")
+  quotations         SalesQuotation[]    @relation("QuotationCreator")
   purchaseOrders     PurchaseOrder[]     @relation("PurchaseCreator")
   goodsReceipts      GoodsReceipt[]      @relation("GoodsReceiptCreator")
   purchasePayments   PurchasePayment[]   @relation("PaymentCreator")
@@ -100,6 +101,7 @@ model Customer {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   salesOrders     SalesOrder[]
+  quotations      SalesQuotation[]
 }
 
 // Contact model removed
@@ -167,6 +169,7 @@ model ProductVariant {
   opnameItems         StockOpnameItem[]
   StockReservation    StockReservation[]
   salesOrderItems     SalesOrderItem[]
+  quotationItems      SalesQuotationItem[]
   purchaseOrderItems  PurchaseOrderItem[]
   goodsReceiptItems   GoodsReceiptItem[]
 }
@@ -608,6 +611,8 @@ model SalesOrder {
   status           SalesOrderStatus  @default(DRAFT)
   sourceLocationId String?
   totalAmount      Decimal?          @db.Decimal(15, 2)
+  discountAmount   Decimal?          @db.Decimal(15, 2)
+  taxAmount        Decimal?          @db.Decimal(15, 2)
   notes            String?
   createdById      String?
   createdAt        DateTime          @default(now())
@@ -620,7 +625,58 @@ model SalesOrder {
   invoices         Invoice[]
   movements        StockMovement[]   @relation("SalesMovement")
   productionOrders ProductionOrder[] @relation("SalesProduction")
+  
+  quotationId      String?
+  quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
 }
+
+model SalesQuotation {
+  id              String                @id @default(uuid())
+  quotationNumber String                @unique
+  customerId      String?
+  quotationDate   DateTime              @default(now())
+  validUntil      DateTime?
+  status          SalesQuotationStatus  @default(DRAFT)
+  totalAmount     Decimal?              @db.Decimal(15, 2)
+  discountAmount  Decimal?              @db.Decimal(15, 2)
+  taxAmount       Decimal?              @db.Decimal(15, 2)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  customer        Customer?             @relation(fields: [customerId], references: [id])
+  createdBy       User?                 @relation("QuotationCreator", fields: [createdById], references: [id])
+  items           SalesQuotationItem[]
+  salesOrders     SalesOrder[]
+}
+
+model SalesQuotationItem {
+  id               String         @id @default(uuid())
+  salesQuotationId String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  discountPercent  Decimal?       @db.Decimal(5, 2)
+  taxPercent       Decimal?       @db.Decimal(5, 2)
+  taxAmount        Decimal?       @db.Decimal(15, 2)
+  subtotal         Decimal        @db.Decimal(15, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+enum SalesQuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
 
 model SalesOrderItem {
   id               String         @id @default(uuid())
@@ -628,6 +684,9 @@ model SalesOrderItem {
   productVariantId String
   quantity         Decimal        @db.Decimal(15, 4)
   unitPrice        Decimal        @db.Decimal(15, 2)
+  discountPercent  Decimal?       @db.Decimal(5, 2)
+  taxPercent       Decimal?       @db.Decimal(5, 2)
+  taxAmount        Decimal?       @db.Decimal(15, 2)
   subtotal         Decimal        @db.Decimal(15, 2)
   deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
   createdAt        DateTime       @default(now())

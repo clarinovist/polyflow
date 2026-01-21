@@ -452,9 +452,24 @@ export class PurchaseService {
     static async getGoodsReceipts() {
         return await prisma.goodsReceipt.findMany({
             include: {
-                purchaseOrder: { select: { orderNumber: true } },
+                purchaseOrder: {
+                    select: {
+                        orderNumber: true,
+                        status: true,
+                        supplier: { select: { name: true } }
+                    }
+                },
                 location: { select: { name: true } },
                 createdBy: { select: { name: true } },
+                items: {
+                    select: {
+                        id: true,
+                        receivedQty: true,
+                        productVariant: {
+                            select: { name: true, skuCode: true, primaryUnit: true }
+                        }
+                    }
+                },
                 _count: { select: { items: true } }
             },
             orderBy: { createdAt: 'desc' }

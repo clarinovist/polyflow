@@ -2,8 +2,8 @@
 
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createSalesOrderSchema, CreateSalesOrderValues, UpdateSalesOrderValues, updateSalesOrderSchema } from '@/lib/schemas/sales';
-import { createSalesOrder, updateSalesOrder } from '@/actions/sales';
+import { createSalesQuotationSchema, CreateSalesQuotationValues, UpdateSalesQuotationValues, updateSalesQuotationSchema } from '@/lib/schemas/quotation';
+import { createQuotation, updateQuotation } from '@/actions/quotations';
 import { Input } from '@/components/ui/input';
 
 
@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
+import { Customer, ProductVariant, Product } from '@prisma/client';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -59,33 +59,24 @@ type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sel
     }[];
 };
 
-interface SalesOrderFormProps {
+interface SalesQuotationFormProps {
     customers: SerializedCustomer[];
-    locations: Location[];
     products: SerializedProductVariant[];
     mode: 'create' | 'edit';
-    initialData?: UpdateSalesOrderValues & { id: string }; // Changed to UpdateSalesOrderValues
+    initialData?: UpdateSalesQuotationValues & { id: string };
 }
 
-export function SalesOrderForm({ customers, locations, products, mode, initialData }: SalesOrderFormProps) {
+export function SalesQuotationForm({ customers, products, mode, initialData }: SalesQuotationFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openCustomer, setOpenCustomer] = useState(false);
 
-    // Filter locations for MTS constraint (Finished Good & Scrap only)
-    const validLocations = locations.filter(l =>
-        l.slug?.includes('finished') || l.slug?.includes('scrap') ||
-        l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap')
-    );
-
     // Unified type to satisfy react-hook-form's need for a consistent generic standard
-    type SalesOrderFormValues = {
+    type SalesQuotationFormValues = {
         id?: string;
         customerId?: string;
-        sourceLocationId: string;
-        orderDate: Date;
-        expectedDate?: Date | null;
-        orderType?: SalesOrderType; // Optional in form state logic, handled by schema defaults
+        quotationDate: Date;
+        validUntil?: Date | null; // Allow null for UI but schema might expect optional/date
         notes?: string;
         items: {
             id?: string;
@@ -97,42 +88,20 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         }[];
     };
 
-    const form = useForm<SalesOrderFormValues>({
+    const form = useForm<SalesQuotationFormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(mode === 'create' ? createSalesOrderSchema : updateSalesOrderSchema) as any,
+        resolver: zodResolver(mode === 'create' ? createSalesQuotationSchema : updateSalesQuotationSchema) as any,
         defaultValues: initialData ? {
             ...initialData,
-            orderType: (initialData as Record<string, unknown>).orderType as SalesOrderType || 'MAKE_TO_STOCK', // Ensure orderType exists for form state
+            validUntil: initialData.validUntil ? new Date(initialData.validUntil) : undefined, // Ensure date object
+            quotationDate: new Date(initialData.quotationDate),
         } : {
             customerId: '',
-            sourceLocationId: '',
-            orderDate: new Date(),
+            quotationDate: new Date(),
             notes: '',
             items: [{ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 }],
-            orderType: 'MAKE_TO_STOCK' as SalesOrderType
         }
     });
-
-    // Filter products based on selected source location
-    const selectedLocationId = useWatch({ control: form.control, name: 'sourceLocationId' });
-    const selectedOrderType = useWatch({ control: form.control, name: 'orderType' });
-
-    const filteredProducts = products.filter(p => {
-        if (!selectedLocationId) return true; // Show all if no location selected (or maybe show none?)
-        // Check if product has inventory in the selected location
-        // We show all items "registered" in this location, even if quantity is 0
-        const inventory = p.inventories?.find(i => i.locationId === selectedLocationId);
-        return !!inventory;
-    });
-
-    // Clear customerId if Order Type is MTS
-    /* useEffect(() => {
-         if (selectedOrderType === 'MAKE_TO_STOCK') {
-             form.setValue('customerId', '');
-         }
-     }, [selectedOrderType, form]); */
-    // Better to just hide and not force clear immediately to avoid accidental data loss if switching back and forth?
-    // But validation might fail if we leave it? Schema says optional. So it's fine.
 
     // Calculate totals
     const { fields, append, remove } = useFieldArray({
@@ -157,18 +126,24 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         return acc;
     }, { gross: 0, discount: 0, tax: 0, net: 0 }) || { gross: 0, discount: 0, tax: 0, net: 0 };
 
-    async function onSubmit(data: SalesOrderFormValues) {
+    async function onSubmit(data: SalesQuotationFormValues) {
         setIsSubmitting(true);
         try {
+            // Handle validUntil undefined/null
+            const payload = {
+                ...data,
+                validUntil: data.validUntil || undefined,
+            };
+
             const result = mode === 'create'
-                ? await createSalesOrder(data as CreateSalesOrderValues)
-                : await updateSalesOrder({ ...data, id: initialData!.id } as UpdateSalesOrderValues);
+                ? await createQuotation(payload as CreateSalesQuotationValues)
+                : await updateQuotation({ ...payload, id: initialData!.id } as UpdateSalesQuotationValues);
 
             if (result.success) {
-                toast.success(`Sales Order ${mode === 'create' ? 'Created' : 'Updated'}`);
-                router.push('/dashboard/sales');
+                toast.success(`Quotation ${mode === 'create' ? 'Created' : 'Updated'}`);
+                router.push('/dashboard/sales/quotations');
             } else {
-                toast.error(result.error || "Failed to save order");
+                toast.error(result.error || "Failed to save quotation");
             }
         } catch (_error) {
             toast.error("An unexpected error occurred");
@@ -183,142 +158,74 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
                 {/* Header Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Customer - Only show for MTO */}
-                    {selectedOrderType !== 'MAKE_TO_STOCK' && (
-                        <FormField
-                            control={form.control}
-                            name="customerId"
-                            render={({ field }) => {
-                                const selectedCustomer = customers.find(c => c.id === field.value);
-                                const isOverLimit = selectedCustomer?.creditLimit && (selectedCustomer.creditLimit < totals.net);
-
-                                return (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Customer</FormLabel>
-                                        <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        role="combobox"
-                                                        className={cn(
-                                                            "w-full justify-between",
-                                                            !field.value && "text-muted-foreground",
-                                                            isOverLimit && "border-red-500 bg-red-50 text-red-900"
-                                                        )}
-                                                    >
-                                                        {field.value
-                                                            ? customers.find((customer) => customer.id === field.value)?.name
-                                                            : "Select customer"}
-                                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                <Command>
-                                                    <CommandInput placeholder="Search customer..." />
-                                                    <CommandList>
-                                                        <CommandEmpty>No customer found.</CommandEmpty>
-                                                        <CommandGroup>
-                                                            {customers.map((customer) => (
-                                                                <CommandItem
-                                                                    key={customer.id}
-                                                                    value={customer.name}
-                                                                    onSelect={() => {
-                                                                        form.setValue("customerId", customer.id);
-                                                                        setOpenCustomer(false);
-                                                                    }}
-                                                                >
-                                                                    <Check
-                                                                        className={cn(
-                                                                            "mr-2 h-4 w-4",
-                                                                            customer.id === field.value
-                                                                                ? "opacity-100"
-                                                                                : "opacity-0"
-                                                                        )}
-                                                                    />
-                                                                    {customer.name}
-                                                                    {customer.creditLimit && (
-                                                                        <span className="ml-auto text-xs text-muted-foreground">
-                                                                            Limit: {formatRupiah(customer.creditLimit)}
-                                                                        </span>
-                                                                    )}
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                        {selectedCustomer?.creditLimit && (
-                                            <div className={cn("text-xs flex justify-between", isOverLimit ? "text-red-500 font-medium" : "text-muted-foreground")}>
-                                                <span>Limit: {formatRupiah(selectedCustomer.creditLimit)}</span>
-                                                {isOverLimit && <span>Exceeds Limit!</span>}
-                                            </div>
-                                        )}
-                                        <FormMessage />
-                                    </FormItem>
-                                )
-                            }}
-                        />
-                    )}
-
-                    {/* Source Location */}
+                    {/* Customer */}
                     <FormField
                         control={form.control}
-                        name="sourceLocationId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Source Location (Warehouse)</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select warehouse" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {validLocations.map((loc) => (
-                                            <SelectItem key={loc.id} value={loc.id}>
-                                                {loc.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Order Type */}
-                    <FormField
-                        control={form.control}
-                        name="orderType"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Order Type</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || 'MAKE_TO_STOCK'}>
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select order type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="MAKE_TO_STOCK">Make to Stock (MTS)</SelectItem>
-                                        <SelectItem value="MAKE_TO_ORDER">Make to Order (MTO)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    {/* Order Date */}
-                    <FormField
-                        control={form.control}
-                        name="orderDate"
+                        name="customerId"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Order Date</FormLabel>
+                                <FormLabel>Customer (Optional)</FormLabel>
+                                <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                className={cn(
+                                                    "w-full justify-between",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                            >
+                                                {field.value
+                                                    ? customers.find((customer) => customer.id === field.value)?.name
+                                                    : "Select customer OR leave empty for prospect"}
+                                                <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search customer..." />
+                                            <CommandList>
+                                                <CommandEmpty>No customer found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {customers.map((customer) => (
+                                                        <CommandItem
+                                                            key={customer.id}
+                                                            value={customer.name}
+                                                            onSelect={() => {
+                                                                form.setValue("customerId", customer.id);
+                                                                setOpenCustomer(false);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    customer.id === field.value
+                                                                        ? "opacity-100"
+                                                                        : "opacity-0"
+                                                                )}
+                                                            />
+                                                            {customer.name}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Quotation Date */}
+                    <FormField
+                        control={form.control}
+                        name="quotationDate"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Quotation Date</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -346,7 +253,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                             disabled={(date) => {
                                                 const today = new Date();
                                                 today.setHours(23, 59, 59, 999);
-                                                return date > today || date < new Date("1900-01-01");
+                                                return date > today || date < new Date("1900-01-01"); // Allow past dates? Sure.
                                             }}
                                             initialFocus
                                         />
@@ -357,50 +264,48 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         )}
                     />
 
-                    {/* Expected Date */}
-                    {selectedOrderType !== 'MAKE_TO_STOCK' && (
-                        <FormField
-                            control={form.control}
-                            name="expectedDate"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Estimated Delivery Date</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                        "w-full pl-3 text-left font-normal",
-                                                        !field.value && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    {field.value ? (
-                                                        format(field.value, "PPP")
-                                                    ) : (
-                                                        <span>Pick a date</span>
-                                                    )}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value as Date} // Type assertion since expectedDate can be null
-                                                onSelect={field.onChange}
-                                                disabled={(date) =>
-                                                    date < new Date("1900-01-01")
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    )}
+                    {/* Valid Until */}
+                    <FormField
+                        control={form.control}
+                        name="validUntil"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Valid Until</FormLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full pl-3 text-left font-normal",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                            >
+                                                {field.value ? (
+                                                    format(field.value, "PPP")
+                                                ) : (
+                                                    <span>Pick a date</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value as Date}
+                                            onSelect={field.onChange}
+                                            disabled={(date) =>
+                                                date < new Date("1900-01-01")
+                                            }
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
 
                     {/* Notes */}
                     <FormField
@@ -462,7 +367,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                 </div>
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                {filteredProducts.map((p) => (
+                                                                {products.map((p) => (
                                                                     <SelectItem key={p.id} value={p.id}>
                                                                         {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`} ({p.skuCode})
                                                                     </SelectItem>
@@ -618,7 +523,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {mode === 'create' ? 'Create Order' : 'Update Order'}
+                        {mode === 'create' ? 'Create Quotation' : 'Update Quotation'}
                     </Button>
                 </div>
             </form>

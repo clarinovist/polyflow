@@ -55,7 +55,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     notes,
                     status: ProductionStatus.DRAFT,
                     actualQuantity: 0,
-                    salesOrderId
+                    salesOrderId: salesOrderId || null
                 }
             });
 

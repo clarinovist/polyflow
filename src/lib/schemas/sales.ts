@@ -6,6 +6,8 @@ export const salesOrderItemSchema = z.object({
     productVariantId: z.string().min(1, "Product is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
     unitPrice: z.coerce.number().nonnegative("Unit price must be non-negative"),
+    discountPercent: z.coerce.number().min(0).max(100).optional().default(0),
+    taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
 });
 
 export const createSalesOrderSchema = z.object({

@@ -11,9 +11,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, MapPin, User, Calendar } from 'lucide-react';
+import { Search, MapPin, User, Calendar, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 
 type ReceiptWithRelations = {
     id: string;
@@ -22,7 +24,18 @@ type ReceiptWithRelations = {
     notes: string | null;
     purchaseOrder: {
         orderNumber: string;
+        status: string;
+        supplier: { name: string };
     };
+    items: {
+        id: string;
+        receivedQty: number;
+        productVariant: {
+            name: string;
+            skuCode: string;
+            primaryUnit: string;
+        };
+    }[];
     location: {
         name: string;
     };
@@ -44,7 +57,8 @@ export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
     const filteredReceipts = useMemo(() => {
         return receipts.filter(r =>
             r.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.purchaseOrder.orderNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            r.purchaseOrder.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r.purchaseOrder.supplier.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [receipts, searchTerm]);
 
@@ -66,6 +80,8 @@ export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
                         <TableRow>
                             <TableHead className="w-[150px]">Receipt No</TableHead>
                             <TableHead>PO Reference</TableHead>
+                            <TableHead>PO Status</TableHead>
+                            <TableHead>Supplier</TableHead>
                             <TableHead>Received Date</TableHead>
                             <TableHead>Location</TableHead>
                             <TableHead>Items</TableHead>
@@ -89,6 +105,20 @@ export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
                                             {gr.purchaseOrder.orderNumber}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell>
+                                        <Badge
+                                            variant={gr.purchaseOrder.status === 'COMPLETED' ? 'default' : gr.purchaseOrder.status === 'PARTIAL_RECEIVED' ? 'secondary' : 'outline'}
+                                            className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                                        >
+                                            {gr.purchaseOrder.status.replace(/_/g, ' ')}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Building2 className="h-3 w-3 text-muted-foreground" />
+                                            {gr.purchaseOrder.supplier.name}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-sm">
                                         <div className="flex items-center gap-2">
                                             <Calendar className="h-3 w-3 text-muted-foreground" />
@@ -102,9 +132,38 @@ export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="secondary" className="font-normal">
-                                            {gr._count.items} items
-                                        </Badge>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
+                                                    <Badge variant="secondary" className="font-normal cursor-pointer hover:bg-muted-foreground/20">
+                                                        {gr._count.items} items
+                                                    </Badge>
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-0" align="start">
+                                                <div className="p-4 space-y-3">
+                                                    <div className="space-y-1">
+                                                        <h4 className="font-medium leading-none">Received Items</h4>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Items in receipt {gr.receiptNumber}
+                                                        </p>
+                                                    </div>
+                                                    <div className="grid gap-3">
+                                                        {gr.items.map((item) => (
+                                                            <div key={item.id} className="flex justify-between items-start text-sm border-b pb-2 last:border-0 last:pb-0">
+                                                                <div>
+                                                                    <span className="block font-medium">{item.productVariant.name}</span>
+                                                                    <span className="block text-xs text-muted-foreground">{item.productVariant.skuCode}</span>
+                                                                </div>
+                                                                <div className="text-right whitespace-nowrap font-medium">
+                                                                    {item.receivedQty} {item.productVariant.primaryUnit}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
                                     </TableCell>
                                     <TableCell className="text-sm">
                                         <div className="flex items-center gap-2">

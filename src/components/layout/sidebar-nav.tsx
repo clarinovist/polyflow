@@ -79,6 +79,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
     {
         heading: "Sales & Distribution",
         items: [
+            { title: "Quotations", href: "/dashboard/sales/quotations", icon: FileText },
             { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
             { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
             { title: "Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
