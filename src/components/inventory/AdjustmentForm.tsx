@@ -15,6 +15,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Plus, Trash2, Package, ClipboardList, AlertCircle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ProductCombobox } from '@/components/ui/product-combobox';
 
 interface SerializedInventory {
     locationId: string;
@@ -224,24 +225,14 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
                                 <FormItem>
                                     <FormLabel className="text-xs text-muted-foreground">Product</FormLabel>
-                                    <Select
+                                    <ProductCombobox
+                                        products={availableProducts}
                                         value={newItem.productVariantId}
                                         onValueChange={(val) => setNewItem(prev => ({ ...prev, productVariantId: val }))}
                                         disabled={!selectedLocationId}
-                                    >
-                                        <SelectTrigger className="h-11 bg-background">
-                                            <SelectValue placeholder="Choose a product..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableProducts.map((prod) => (
-                                                <SelectItem key={prod.id} value={prod.id}>
-                                                    <span className="font-medium">{prod.skuCode}</span>
-                                                    <span className="text-muted-foreground ml-2">- {prod.name}</span>
-                                                    <Badge variant="secondary" className="ml-2 text-xs">Qty: {prod.quantity}</Badge>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder="Search product by name or SKU..."
+                                        emptyMessage="No products found in this location."
+                                    />
                                 </FormItem>
 
                                 <div className="grid grid-cols-2 gap-4">

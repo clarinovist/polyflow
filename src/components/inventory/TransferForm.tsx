@@ -15,6 +15,7 @@ import { useMemo, useEffect, useState } from 'react';
 import { Plus, Trash2, ArrowRight, Package, ClipboardList } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ProductCombobox } from '@/components/ui/product-combobox';
 
 interface TransferFormProps {
     locations: { id: string; name: string }[];
@@ -218,24 +219,14 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
 
                                 <FormItem>
                                     <FormLabel className="text-xs text-muted-foreground">Product</FormLabel>
-                                    <Select
+                                    <ProductCombobox
+                                        products={availableProducts}
                                         value={newItem.productVariantId}
                                         onValueChange={(val) => setNewItem(prev => ({ ...prev, productVariantId: val }))}
                                         disabled={!sourceLocationId}
-                                    >
-                                        <SelectTrigger className="h-11 bg-background">
-                                            <SelectValue placeholder="Choose a product..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableProducts.map((prod) => (
-                                                <SelectItem key={prod.id} value={prod.id}>
-                                                    <span className="font-medium">{prod.skuCode}</span>
-                                                    <span className="text-muted-foreground ml-2">- {prod.name}</span>
-                                                    <Badge variant="secondary" className="ml-2 text-xs">{prod.quantity}</Badge>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder="Search product by name or SKU..."
+                                        emptyMessage="No products found in source location."
+                                    />
                                 </FormItem>
 
                                 <FormItem>

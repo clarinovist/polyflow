@@ -66,8 +66,6 @@ export function KioskStopDialog({
                 executionId,
                 quantityProduced: qtyNum,
                 scrapQuantity: scrapNum,
-                quantityProduced: qtyNum,
-                scrapQuantity: scrapNum,
                 notes,
                 completed
             });
