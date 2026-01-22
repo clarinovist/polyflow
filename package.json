@@ -60,8 +60,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
