@@ -27,7 +27,7 @@ services:
       - POSTGRES_USER=polyflow
       - POSTGRES_PASSWORD=polyflow
       - POSTGRES_DB=polyflow
-    command: -p 5434
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
