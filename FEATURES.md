@@ -323,6 +323,38 @@ Track production equipment:
 
 ---
 
+### 🏭 Manufacturing Execution Systems (MES)
+
+#### 1. **Dedicated Operator Kiosk (`/kiosk`)**
+
+A floor-optimized, high-visibility interface for production operators:
+
+- **Independent Portal**: Separated from the dashboard for maximum focus and screen space.
+- **Operator Session Gate**: Staff identification screen before access, persisting via `localStorage`.
+- **Machine-Specific Filtering**: View only jobs assigned to a specific production line/machine.
+- **Real-Time Execution**: Start, Log Output, and Stop jobs with touch-friendly controls.
+- **Status Dashboard**: Visual progress bars and time tracking for active jobs.
+
+#### 2. **Warehouse Portal (`/warehouse`)**
+
+Streamlined material fulfillment dashboard for warehouse staff:
+
+- **Fulfillment Queue**: Real-time list of released and in-progress production orders requiring materials.
+- **Material Picklists**: Visual breakdown of required vs. issued quantities per order.
+- **Quick Issue workflow**: One-click material issuance directly from the dashboard.
+- **Role-Based Access**: Restricted to `WAREHOUSE`, `PRODUCTION`, `PPIC`, and `ADMIN`.
+
+#### 3. **Automatic FIFO Material Issuance**
+
+Intelligent material consumption logic to ensure stock freshness:
+
+- **Zero-Touch Batch Selection**: Manual batch picking is eliminated for speed and accuracy.
+- **FIFO Allocation**: System automatically identifies and consumes from the oldest available batches (based on manufacturing date).
+- **Multi-Batch Support**: A single issuance request can automatically drain multiple small batches to fulfill the total quantity.
+- **Audit Traceability**: Every issuance record remains linked to specific batch IDs for quality tracking.
+
+---
+
 ## 📊 Dashboard & Analytics
 
 ### Main Dashboard (`/dashboard`)
@@ -467,6 +499,9 @@ Comprehensive business intelligence and reporting:
 16. ✅ **Dark Mode** - Full theme support with design system
 17. ✅ **Inventory Valuation** - Moving Average cost calculation
 18. ✅ **Reorder Point Tracking** - Suggested purchase alerts
+19. ✅ **Dedicated Operator Kiosk** - Top-level portal for floor staff
+20. ✅ **Warehouse Portal** - Dedicated material fulfillment interface
+21. ✅ **Automatic FIFO Logic** - Intelligent batch allocation during issuance
 
 ### 🚧 Planned Features
 
@@ -540,4 +575,4 @@ This ensures UI reflects latest data without full page reload.
 
 ---
 
-**Last Updated**: January 15, 2026
+**Last Updated**: January 22, 2026

@@ -60,11 +60,12 @@ graph TB
   │   │   └── page.tsx      # Transfer form (Client)
   │   └── adjustment/
   │       └── page.tsx      # Adjustment form (Client)
-  └── production/
-      ├── page.tsx          # Production dashboard
-      ├── orders/           # Order management
-      └── kiosk/            # OPERATOR INTERFACE
-          └── page.tsx      # Touch-friendly simplified UI
+  ├── production/
+  │   └── page.tsx          # Production dashboard
+  ├── kiosk/                # OPERATOR INTERFACE (Top-level)
+  │   └── page.tsx          # Touch-friendly simplified UI
+  └── warehouse/            # WAREHOUSE PORTAL (Top-level)
+      └── page.tsx          # Material fulfillment interface
 ```
 
 ---
@@ -590,4 +591,4 @@ polyflow/
 
 ---
 
-**Last Updated**: January 5, 2026
+**Last Updated**: January 22, 2026

@@ -8,7 +8,13 @@ PolyFlow is a comprehensive Enterprise Resource Planning (ERP) system specifical
 
 ## 🎯 Project Overview
 
-**PolyFlow** streamlines the complete plastic manufacturing workflow—from raw materials through mixing, extrusion, and finishing—to final goods distribution. The system handles:
+**PolyFlow** streamlines the complete plastic manufacturing workflow—from raw materials through mixing, extrusion, and finishing—to final goods distribution. The system features a modern, multi-portal architecture:
+
+- **Admin Dashboard**: Comprehensive management of products, inventory, and analytics.
+- **Operator Kiosk Portal**: Simplified, touch-friendly interface for production floor execution.
+- **Warehouse Portal**: Focused material fulfillment queue for warehouse staff.
+
+The system handles:
 
 - **Multi-location inventory tracking** across warehouse and production floors
 - **Complex product variants** with dual-unit management (KG, ROLL, BAL, PCS, ZAK)
@@ -54,6 +60,9 @@ PolyFlow is a comprehensive Enterprise Resource Planning (ERP) system specifical
 - Scrap percentage tracking
 - Machine master data (MIXER, EXTRUDER, REWINDER, PACKER, GRANULATOR)
 - Machine status tracking (ACTIVE, MAINTENANCE, BROKEN)
+- **NEW**: Independent Operator Kiosk Portal for floor staff
+- **NEW**: Warehouse Portal for streamlined material fulfillment
+- **NEW**: Automatic FIFO (First-In-First-Out) material issuance logic
 
 ✅ **Dashboard & Analytics**
 - Real-time KPI cards (Products, Total Stock, Low Stock, Recent Movements)
@@ -254,6 +263,22 @@ polyflow/
 
 Based on conversation history, recent work includes:
 
+### Week of Jan 19-22, 2026
+
+1. **Warehouse Portal & FIFO Implementation** (Jan 22, 2026)
+   - Created a dedicated `/warehouse` portal for material fulfillment.
+   - Implemented automatic **First-In-First-Out (FIFO)** material issuance logic.
+   - Secured the new portal with Role-Based Access Control (RBAC).
+
+2. **Operator Kiosk Evolution** (Jan 21, 2026)
+   - Moved Kiosk out of the dashboard to a top-level `/kiosk` route.
+   - Implemented an **Operator Selection Gate** with session persistence.
+   - Added machine-level job filtering and mobile-responsive floor UI.
+
+3. **Order Release Validation** (Jan 21, 2026)
+   - Enforced mandatory Machine and BOM fields before an order can be "Released".
+   - Automated redirection and UI simplification for production detail views.
+
 ### Week of Jan 13-15, 2026
 
 1. **Inventory Planning & Control (IPC) Foundations** (Jan 14, 2026)
@@ -324,4 +349,4 @@ Building modern ERP solutions for manufacturing operations.
 
 ---
 
-**Last Updated**: January 15, 2026
+**Last Updated**: January 22, 2026
