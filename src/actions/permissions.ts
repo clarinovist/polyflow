@@ -111,6 +111,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/purchasing/orders',
         '/dashboard/purchasing/receipts',
         '/dashboard/purchasing/invoices',
+        '/warehouse',
     ],
     PRODUCTION: [
         '/dashboard',
@@ -120,6 +121,8 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/production/resources/machines',
         '/dashboard/production/resources/employees',
         '/dashboard/products',
+        '/kiosk',
+        '/warehouse',
     ],
     PPIC: [
         '/dashboard',
@@ -132,6 +135,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/purchasing/orders',
         '/dashboard/purchasing/receipts',
         '/dashboard/purchasing/invoices',
+        '/warehouse',
     ],
     SALES: [
         '/dashboard',

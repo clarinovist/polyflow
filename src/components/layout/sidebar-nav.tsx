@@ -98,7 +98,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "Manufacturing",
         items: [
             { title: "Production Orders", href: "/dashboard/production/orders", icon: Factory },
-            { title: "Operator Kiosk", href: "/dashboard/production/kiosk", icon: MonitorPlay },
+            { title: "Operator Kiosk", href: "/kiosk", icon: MonitorPlay },
             { title: "Analytics", href: "/dashboard/production/analytics", icon: BarChart3 },
         ],
     },

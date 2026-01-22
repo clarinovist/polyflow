@@ -32,7 +32,7 @@ export async function logMachineDowntime(
             });
         });
 
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/kiosk');
         revalidatePath('/dashboard/production');
         return { success: true };
     } catch (error) {

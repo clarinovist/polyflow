@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
-    Play, CheckCircle, Package, History, Trash2
+    Play, CheckCircle, Package, History, Trash2, AlertCircle
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { startProductionOrder } from '@/actions/production';
@@ -137,7 +137,22 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                            <Button onClick={() => updateProductionOrder({ id: order.id, status: 'RELEASED' })}>
+                            <Button
+                                onClick={async () => {
+                                    const res = await updateProductionOrder({ id: order.id, status: 'RELEASED' });
+                                    if (res.success) {
+                                        toast.success("Order Released successfully");
+                                        router.refresh();
+                                    } else {
+                                        toast.error(res.error || "Failed to release order");
+                                        if (res.error?.includes('Machine')) {
+                                            setActiveTab('overview'); // Point to the overview where machine is shown/assigned
+                                        }
+                                    }
+                                }}
+                                className={cn(!order.machineId && "bg-amber-600 hover:bg-amber-700")}
+                            >
+                                {!order.machineId && <AlertCircle className="w-4 h-4 mr-2" />}
                                 Release Order
                             </Button>
                         </>
@@ -224,27 +239,17 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
             <OrderWorkflowStepper status={order.status} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+                <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-
-                    <TabsTrigger value="shifts" className="relative">
-                        Shifts
-                        {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
-                    </TabsTrigger>
 
                     <TabsTrigger value="materials" className="relative">
                         Materials
                         {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
                     </TabsTrigger>
 
-                    <TabsTrigger value="operations" className="relative">
-                        Operations
-                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
-                    </TabsTrigger>
-
-                    <TabsTrigger value="qc" className="relative">
-                        QC
-                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />}
+                    <TabsTrigger value="execution" className="relative">
+                        Execution
+                        {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
                     </TabsTrigger>
                 </TabsList>
 
@@ -269,79 +274,26 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                             <CardContent className="space-y-4">
                                 <DetailRow label="BOM Recipe" value={order.bom.name} />
                                 <DetailRow label="Planned Start" value={format(new Date(order.plannedStartDate), 'PPP')} />
-                                <DetailRow label="Planned End" value={order.plannedEndDate ? format(new Date(order.plannedEndDate), 'PPP') : '-'} />
                                 <DetailRow label="Output Location" value={order.location.name} />
                             </CardContent>
                         </Card>
                         <Card>
-                            <CardHeader><CardTitle className="text-base">Resource Assignment</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <DetailRow label="Machine" value={order.machine?.name || 'Unassigned'} />
-                                <div className="border-t pt-2 mt-2">
-                                    <p className="text-sm text-muted-foreground mb-1">Workforce</p>
-                                    <p className="text-sm font-medium">
-                                        {order.shifts?.length || 0} Shifts Assigned
-                                    </p>
-
-                                </div>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Machine Assignment</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <DetailRow
+                                    label="Active Machine"
+                                    value={order.machine?.name || 'Unassigned'}
+                                    isWarning={!order.machineId}
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-2">
+                                    Machine can be updated via the Work Center selection in the Create form or during Shift Assignment.
+                                </p>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* Production History Table */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <History className="w-4 h-4" /> Production History
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {order.executions && order.executions.length > 0 ? (
-                                <div className="rounded-md border">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-muted/50 text-muted-foreground font-medium">
-                                            <tr>
-                                                <th className="p-3">Date/Time</th>
-                                                <th className="p-3">Shift</th>
-                                                <th className="p-3">Operator</th>
-                                                <th className="p-3 text-right">Output</th>
-                                                <th className="p-3 text-right">Scrap</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {order.executions.map((exec) => (
-                                                <tr key={exec.id}>
-                                                    <td className="p-3">
-                                                        <div className="flex flex-col">
-                                                            <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3">{exec.shift?.name || '-'}</td>
-                                                    <td className="p-3">{exec.operator?.name || '-'}</td>
-                                                    <td className="p-3 text-right font-medium text-emerald-600">
-                                                        +{Number(exec.quantityProduced)}
-                                                    </td>
-                                                    <td className="p-3 text-right text-destructive">
-                                                        {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity) : '-'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    No production output recorded yet.
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="shifts" className="mt-6">
                     <ShiftManager
                         orderId={order.id}
                         shifts={order.shifts || []}
@@ -351,7 +303,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         workShifts={formData.workShifts}
                         machines={formData.machines}
                     />
+
                 </TabsContent>
+
 
                 {/* ... (Materials, Operations, QC tabs remain same) */}
 
@@ -504,64 +458,139 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="operations" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Production Logs</h3>
-                        {order.status === 'IN_PROGRESS' && (
-                            <RecordScrapDialog order={order} locations={formData.locations} />
-                        )}
+                <TabsContent value="execution" className="space-y-6 mt-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h3 className="text-lg font-semibold">Execution & Quality Logs</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {order.status === 'IN_PROGRESS' && (
+                                <>
+                                    <AddOutputDialog order={order} formData={formData} />
+                                    <RecordScrapDialog order={order} locations={formData.locations} />
+                                    <RecordQCDialog order={order} />
+                                </>
+                            )}
+                            {order.status === 'COMPLETED' && (
+                                <RecordQCDialog order={order} />
+                            )}
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Scrap Records</CardTitle></CardHeader>
-                            <CardContent>
-                                {order.scrapRecords.length === 0 ? <p className="text-muted-foreground text-sm">No scrap recorded.</p> : (
-                                    <ul className="space-y-2">
-                                        {order.scrapRecords.map((scrap) => (
-                                            <li key={scrap.id} className="flex justify-between items-center text-sm border-b pb-2">
-                                                <span>{scrap.productVariant.name}</span>
-                                                <Badge variant="outline" className="text-red-600 border-red-200">
-                                                    {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
-                                                </Badge>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Production History - Taking 2/3 width on large screens */}
+                        <div className="lg:col-span-2 space-y-4">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <History className="w-4 h-4" /> Output History
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {order.executions && order.executions.length > 0 ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                                                    <tr>
+                                                        <th className="p-3">Time</th>
+                                                        <th className="p-3">Shift</th>
+                                                        <th className="p-3">Operator</th>
+                                                        <th className="p-3 text-right">Output</th>
+                                                        <th className="p-3 text-right text-red-600">Scrap</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y">
+                                                    {order.executions.map((exec) => (
+                                                        <tr key={exec.id} className="hover:bg-muted/50 transition-colors">
+                                                            <td className="p-3 whitespace-nowrap">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-medium">{format(new Date(exec.startTime), 'MMM d')}</span>
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-3">{exec.shift?.name || '-'}</td>
+                                                            <td className="p-3">{exec.operator?.name || '-'}</td>
+                                                            <td className="p-3 text-right font-medium text-emerald-600">
+                                                                {Number(exec.quantityProduced).toFixed(2)}
+                                                            </td>
+                                                            <td className="p-3 text-right text-destructive font-medium">
+                                                                {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity).toFixed(2) : '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 text-muted-foreground italic">
+                                            No output recorded yet.
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                <TabsContent value="qc" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Quality Inspection</h3>
-                        {(order.status === 'IN_PROGRESS' || order.status === 'COMPLETED') && (
-                            <RecordQCDialog order={order} />
-                        )}
-                    </div>
+                        {/* Side Section: Scrap Summary & QC Logs */}
+                        <div className="space-y-6">
+                            {/* Scrap Details */}
+                            <Card>
+                                <CardHeader><CardTitle className="text-base">Scrap Details</CardTitle></CardHeader>
+                                <CardContent className="p-0">
+                                    {order.scrapRecords.length === 0 ? (
+                                        <div className="p-6 text-center text-sm text-muted-foreground">No specific scrap logs.</div>
+                                    ) : (
+                                        <ul className="divide-y">
+                                            {order.scrapRecords.map((scrap) => (
+                                                <li key={scrap.id} className="flex justify-between items-center p-3 text-sm">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{scrap.productVariant.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground">{format(new Date(scrap.recordedAt), 'PPp')}</span>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                                        {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
+                                                    </Badge>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </CardContent>
+                            </Card>
 
-                    <div className="space-y-4">
-                        {order.inspections.map((insp) => (
-                            <div key={insp.id} className="p-4 border rounded-lg flex items-start justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Badge className={cn(
-                                            insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700" :
-                                                insp.result === 'FAIL' ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                                        )}>
-                                            {insp.result}
-                                        </Badge>
-                                        <span className="text-sm text-muted-foreground">at {format(new Date(insp.inspectedAt), 'PP p')}</span>
+                            {/* QC Logs */}
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-base text-blue-700">Quality Inspection</CardTitle>
                                     </div>
-                                    <p className="text-sm text-foreground">{insp.notes || "No notes provided."}</p>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Inspector: {insp.inspector?.name || 'Unknown'}
-                                </div>
-                            </div>
-                        ))}
-                        {order.inspections.length === 0 && <p className="text-muted-foreground">No inspections recorded.</p>}
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {order.inspections.length === 0 ? (
+                                        <div className="p-6 text-center text-sm text-muted-foreground italic">No inspections recorded.</div>
+                                    ) : (
+                                        <div className="max-h-[400px] overflow-y-auto divide-y">
+                                            {order.inspections.map((insp) => (
+                                                <div key={insp.id} className="p-4 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <Badge className={cn(
+                                                            "text-[10px] font-bold px-2 py-0.5",
+                                                            insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" :
+                                                                insp.result === 'FAIL' ? "bg-red-100 text-red-700 hover:bg-red-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                                                        )}>
+                                                            {insp.result}
+                                                        </Badge>
+                                                        <span className="text-[10px] text-muted-foreground">{format(new Date(insp.inspectedAt), 'MMM d, HH:mm')}</span>
+                                                    </div>
+                                                    <p className="text-xs text-foreground line-clamp-2" title={insp.notes || ''}>{insp.notes || "No notes."}</p>
+                                                    <div className="text-[10px] text-muted-foreground font-medium">
+                                                        Inspector: {insp.inspector?.name || 'Unknown'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </TabsContent>
             </Tabs>
@@ -571,11 +600,17 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
 // --- Sub Components ---
 
-function DetailRow({ label, value }: { label: string, value: string }) {
+function DetailRow({ label, value, isWarning }: { label: string, value: string, isWarning?: boolean }) {
     return (
         <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0">
             <span className="text-muted-foreground text-sm">{label}</span>
-            <span className="font-medium text-sm">{value}</span>
+            <span className={cn(
+                "font-medium text-sm",
+                isWarning ? "text-amber-600 flex items-center gap-1" : "text-foreground"
+            )}>
+                {isWarning && <AlertCircle className="w-3 h-3" />}
+                {value}
+            </span>
         </div>
     );
 }

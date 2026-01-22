@@ -13,7 +13,7 @@ export default async function CreateProductionOrderPage({
     const resolvedSearchParams = await searchParams;
     const rawData = await getProductionFormData();
     // Only destructure what we need
-    const { boms, locations } = serializeData(rawData) as unknown as ProductionOrderFormProps;
+    const { boms, locations, machines } = serializeData(rawData) as unknown as ProductionOrderFormProps;
     const salesOrderId = resolvedSearchParams.salesOrderId;
 
     return (
@@ -39,6 +39,7 @@ export default async function CreateProductionOrderPage({
             <ProductionOrderForm
                 boms={boms}
                 locations={locations}
+                machines={machines}
                 salesOrderId={salesOrderId}
             />
         </div>

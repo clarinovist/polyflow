@@ -95,9 +95,9 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
     return (
         <>
             <div className={`flex flex-col rounded-xl border-2 shadow-sm ${isRunning ? 'border-emerald-500 bg-emerald-50/10 shadow-lg' : 'border-border bg-card text-card-foreground'} h-full overflow-hidden`}>
-                <div className="p-4 pb-2 border-b-0 space-y-2">
+                <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
                     <div className="flex justify-between items-start">
-                        <Badge variant={isRunning ? "default" : "secondary"} className={isRunning ? "bg-emerald-600 animate-pulse" : ""}>
+                        <Badge variant={isRunning ? "default" : "secondary"} className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px] md:text-sm`}>
                             {isRunning ? "RUNNING" : order.status}
                         </Badge>
                         <div className="flex items-center gap-2">
@@ -116,69 +116,69 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         </div>
                     </div>
                     <div>
-                        <h3 className="text-xl font-semibold leading-none tracking-tight line-clamp-2">
+                        <h3 className="text-lg md:text-xl font-semibold leading-tight tracking-tight line-clamp-2">
                             {order.bom.productVariant.name}
                         </h3>
-                        <div className="text-sm font-medium text-muted-foreground mt-1">
+                        <div className="text-xs md:text-sm font-medium text-muted-foreground mt-1 uppercase tracking-wider">
                             TARGET: {order.plannedQuantity}
                         </div>
                     </div>
                 </div>
 
-                <div className="p-4 pt-2 flex-1">
-                    <div className="grid grid-cols-1 gap-2 text-sm mt-2">
-                        <div className="bg-muted/30 p-3 rounded-md flex flex-col gap-2">
+                <div className="p-3 md:p-4 pt-2 flex-1">
+                    <div className="grid grid-cols-1 gap-2 text-sm mt-1 md:mt-2">
+                        <div className="bg-muted/30 p-2.5 md:p-3 rounded-md flex flex-col gap-1 md:gap-2">
                             <div className="flex justify-between items-start">
                                 <div className="flex flex-col">
-                                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Machine</span>
-                                    <span className="font-bold text-base">{order.machine?.name || "Unassigned"}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Machine</span>
+                                    <span className="font-bold text-sm md:text-base">{order.machine?.name || "Unassigned"}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-muted/30 p-3 rounded-md">
-                                <span className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Produced</span>
-                                <span className="font-bold text-xl">{order.actualQuantity || 0}</span>
+                            <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
+                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Produced</span>
+                                <span className="font-bold text-lg md:text-xl">{order.actualQuantity || 0}</span>
                             </div>
-                            <div className="bg-muted/30 p-3 rounded-md">
-                                <span className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Target</span>
-                                <span className="font-bold text-xl text-muted-foreground">{order.plannedQuantity}</span>
+                            <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
+                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Target</span>
+                                <span className="font-bold text-lg md:text-xl text-muted-foreground">{order.plannedQuantity}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-4 pt-0 flex flex-row items-center gap-2">
+                <div className="p-3 md:p-4 pt-0 flex flex-row items-center gap-2">
                     {isRunning ? (
                         <>
                             <Button
                                 variant="outline"
-                                className="flex-1 h-12 text-sm font-bold border-emerald-600 text-emerald-700 hover:bg-emerald-50 shadow-sm"
+                                className="flex-1 h-12 md:h-14 text-sm md:text-base font-bold border-emerald-600 text-emerald-700 hover:bg-emerald-50 shadow-sm transition-all active:scale-95"
                                 onClick={handleLogOutput}
                                 disabled={isLoading}
                             >
-                                <PlusCircle className="mr-2 h-5 w-5" /> LOG OUTPUT
+                                <PlusCircle className="mr-2 h-5 w-5 md:h-6 md:w-6" /> <span className="text-xs md:text-base">LOG OUTPUT</span>
                             </Button>
                             <Button
                                 variant="destructive"
                                 size="icon"
-                                className="h-12 w-12 shrink-0 shadow-sm"
+                                className="h-12 w-12 md:h-14 md:w-14 shrink-0 shadow-sm active:scale-95"
                                 onClick={handleStop}
                                 disabled={isLoading}
                                 title="Stop Job"
                             >
-                                <Square className="h-5 w-5 fill-current" />
+                                <Square className="h-5 w-5 md:h-6 md:w-6 fill-current" />
                             </Button>
                         </>
                     ) : (
                         <Button
                             variant="default"
-                            className="w-full h-12 text-base font-bold bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+                            className="w-full h-12 md:h-14 text-sm md:text-lg font-bold bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-95"
                             onClick={handleStart}
                             disabled={isLoading || order.status === 'COMPLETED'}
                         >
-                            <Play className="mr-2 h-5 w-5 fill-current" /> START JOB
+                            <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" /> START JOB
                         </Button>
                     )}
                 </div>

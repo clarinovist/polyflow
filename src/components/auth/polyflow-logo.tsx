@@ -4,12 +4,14 @@ interface PolyFlowLogoProps {
     variant?: 'light' | 'dark';
     size?: 'sm' | 'md' | 'lg';
     showText?: boolean;
+    className?: string;
 }
 
 export default function PolyFlowLogo({
     variant = 'dark',
     size = 'md',
-    showText = true
+    showText = true,
+    className = ""
 }: PolyFlowLogoProps) {
     const sizeClasses = {
         sm: { icon: 'w-8 h-8', text: 'text-lg' },
@@ -36,7 +38,7 @@ export default function PolyFlowLogo({
     const sizes = sizeClasses[size];
 
     return (
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${className}`}>
             {/* PolyFlow "P" Logo Mark */}
             <div className={`${sizes.icon} relative`}>
                 <svg

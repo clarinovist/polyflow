@@ -9,7 +9,10 @@ export const authConfig = {
             try {
                 const isLoggedIn = !!auth?.user;
                 const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
-                if (isOnDashboard) {
+                const isOnKiosk = nextUrl.pathname.startsWith('/kiosk');
+                const isOnWarehouse = nextUrl.pathname.startsWith('/warehouse');
+
+                if (isOnDashboard || isOnKiosk || isOnWarehouse) {
                     if (isLoggedIn) return true;
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {

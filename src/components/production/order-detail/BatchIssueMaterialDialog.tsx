@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -9,11 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ExtendedProductionOrder } from './types';
 import { Location, ProductVariant } from '@prisma/client';
 import { batchIssueMaterials } from '@/actions/production';
-import { getAvailableBatches } from '@/actions/inventory'; // Added
 import { toast } from 'sonner';
 import { Plus, Trash2, Package, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BatchSelector } from '@/components/inventory/BatchSelector'; // Added
 
 interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
@@ -23,16 +19,7 @@ interface BatchItem {
     name: string;
     unit: string;
     isDeletedPlan?: boolean; // If true, we will send this to backend for deletion
-    batchId?: string; // Selected Batch ID
     originalQuantity: number; // For restoring on undo-delete
-}
-
-interface BatchOption {
-    id: string;
-    batchNumber: string;
-    quantity: number;
-    manufacturingDate: Date;
-    expiryDate?: Date | null;
 }
 
 export function BatchIssueMaterialDialog({
@@ -73,45 +60,6 @@ export function BatchIssueMaterialDialog({
     }, [order]);
 
     const [items, setItems] = useState<BatchItem[]>(initialItems);
-    const [batchOptions, setBatchOptions] = useState<Record<string, BatchOption[]>>({}); // Map: productVariantId -> Batches
-
-    // Memoize active variant IDs to avoid unnecessary re-fetches when other item properties (like quantity) change
-    const activeVariantIds = useMemo(() =>
-        items.map(i => i.productVariantId).filter(Boolean).sort().join(','),
-        [items]
-    );
-
-    // Fetch batches when component opens or location/variants change
-    useEffect(() => {
-        if (!open) return;
-
-        const fetchBatches = async () => {
-            const variantIds = Array.from(new Set(items.map(i => i.productVariantId).filter(Boolean)));
-            const newOptions: Record<string, BatchOption[]> = {};
-
-            await Promise.all(variantIds.map(async (vid) => {
-                const batches = await getAvailableBatches(vid, selectedLocation); // Call server action
-                // Map to UI interface
-                newOptions[vid] = batches.map(b => ({
-                    ...b,
-                    quantity: Number(b.quantity),
-                    // Ensure dates are dates
-                    manufacturingDate: new Date(b.manufacturingDate),
-                    expiryDate: b.expiryDate ? new Date(b.expiryDate) : null
-                }));
-            }));
-
-            setBatchOptions(newOptions);
-        };
-
-        fetchBatches();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, selectedLocation, activeVariantIds]);
-
-
-    const handleUpdateBatch = (id: string, batchId: string) => {
-        setItems(items.map(item => item.id === id ? { ...item, batchId } : item));
-    };
 
     const handleAddSubstitute = () => {
         const newItem: BatchItem = {
@@ -279,15 +227,10 @@ export function BatchIssueMaterialDialog({
                                                     value={item.quantity || ''}
                                                     onChange={(e) => handleUpdateQty(item.id, Number(e.target.value))}
                                                 />
-                                                <span className="text-slate-500 w-10">{item.unit || '-'}</span>
+                                                <span className="text-slate-500 w-10 text-xs font-bold">{item.unit || '-'}</span>
                                             </div>
-                                            {/* Batch Selector */}
-                                            <div className="mt-2 w-full">
-                                                <BatchSelector
-                                                    batches={batchOptions[item.productVariantId] || []}
-                                                    selectedBatchId={item.batchId}
-                                                    onSelect={(val) => handleUpdateBatch(item.id, val)}
-                                                />
+                                            <div className="mt-1">
+                                                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Auto-FIFO Active</span>
                                             </div>
                                         </td>
                                         <td className="p-3 text-center">

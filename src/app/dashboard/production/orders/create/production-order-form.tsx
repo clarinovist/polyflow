@@ -30,6 +30,7 @@ import { z } from 'zod';
 
 export interface ProductionOrderFormProps {
     locations: { id: string; slug: string; name: string }[];
+    machines: { id: string; name: string; type: string }[];
     boms: {
         id: string;
         name: string;
@@ -72,7 +73,7 @@ const formSchema = createProductionOrderSchema;
 type FormValues = z.infer<typeof formSchema>;
 
 
-export function ProductionOrderForm({ boms, locations, salesOrderId }: ProductionOrderFormProps) {
+export function ProductionOrderForm({ boms, machines, locations, salesOrderId }: ProductionOrderFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing'>('mixing');
@@ -122,6 +123,7 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
             items: [],
             locationId: '',
             bomId: '',
+            machineId: '',
             salesOrderId: salesOrderId || '',
             notes: '',
         },
@@ -259,6 +261,16 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
         }
     }, [processType, locations, form]);
 
+    // Available Machines based on Process Type
+    const availableMachines = useMemo(() => {
+        return machines.filter(m => {
+            if (processType === 'mixing') return m.type === 'MIXER';
+            if (processType === 'extrusion') return m.type === 'EXTRUDER' || m.type === 'REWINDER';
+            if (processType === 'packing') return m.type === 'PACKER' || m.type === 'GRANULATOR';
+            return true;
+        });
+    }, [machines, processType]);
+
     const selectedBom = boms.find(b => b.id === watchBomId);
 
     async function onSubmit(data: FormValues) {
@@ -282,11 +294,11 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
 
             setIsSubmitting(false);
 
-            if (response.success) {
+            if (response.success && response.data) {
                 toast.success("Production Order Created", {
-                    description: `Order ${response.data?.orderNumber} has been created successfully.`,
+                    description: `Order ${response.data.orderNumber} has been created successfully.`,
                 });
-                router.push('/dashboard/production/orders');
+                router.push(`/dashboard/production/orders/${response.data.id}`);
             } else {
                 toast.error("Error", {
                     description: response.error || "Something went wrong",
@@ -435,7 +447,54 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Quantity Section */}
+                                    {/* Machine Selection */}
+                                    <FormField
+                                        control={form.control}
+                                        name="machineId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Work Center / Machine</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select Machine" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {availableMachines.map((m) => (
+                                                            <SelectItem key={m.id} value={m.id}>
+                                                                {m.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {/* Start Date */}
+                                    <FormField
+                                        control={form.control}
+                                        name="plannedStartDate"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Start Date</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
+                                                        value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                                                        onChange={(e) => field.onChange(new Date(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Planning Method */}
                                     <div className="space-y-3">
                                         <FormLabel>Planning Method</FormLabel>
                                         <div className="flex rounded-md shadow-sm">
@@ -456,7 +515,10 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                                 By Batch
                                             </Button>
                                         </div>
+                                    </div>
 
+                                    {/* Target Weight / Batch Input */}
+                                    <div className="flex flex-col justify-end">
                                         {planningMode === 'batch' ? (
                                             <FormItem>
                                                 <FormLabel>Total Batches</FormLabel>
@@ -467,7 +529,7 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                                         onChange={(e) => {
                                                             const val = e.target.value;
                                                             if (val === '') {
-                                                                setBatchCount(0); // or handle as needed
+                                                                setBatchCount(0);
                                                             } else {
                                                                 setBatchCount(Number(val));
                                                             }
@@ -494,41 +556,22 @@ export function ProductionOrderForm({ boms, locations, salesOrderId }: Productio
                                                 )}
                                             />
                                         )}
-                                    </div>
 
-                                    {/* Hidden Planned Qty Display for Batch Mode to Ensure Form Submission Works */}
-                                    {planningMode === 'batch' && (
-                                        <FormField
-                                            control={form.control}
-                                            name="plannedQuantity"
-                                            render={({ field }) => (
-                                                <FormItem className="hidden">
-                                                    <FormControl>
-                                                        <Input {...field} />
-                                                    </FormControl>
-                                                </FormItem>
-                                            )}
-                                        />
-                                    )}
-
-                                    {/* Start Date */}
-                                    <FormField
-                                        control={form.control}
-                                        name="plannedStartDate"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-col">
-                                                <FormLabel>Start Date</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="date"
-                                                        value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
-                                                        onChange={(e) => field.onChange(new Date(e.target.value))}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
+                                        {/* Hidden Planned Qty Display for Batch Mode */}
+                                        {planningMode === 'batch' && (
+                                            <FormField
+                                                control={form.control}
+                                                name="plannedQuantity"
+                                                render={({ field }) => (
+                                                    <FormItem className="hidden">
+                                                        <FormControl>
+                                                            <Input {...field} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
                                         )}
-                                    />
+                                    </div>
                                 </div>
 
                                 {/* Notes Field */}

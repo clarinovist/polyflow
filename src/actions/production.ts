@@ -40,7 +40,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
     const {
         bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-        locationId, orderNumber, notes, salesOrderId
+        locationId, orderNumber, notes, salesOrderId, machineId
     } = result.data;
 
     try {
@@ -54,6 +54,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     plannedStartDate,
                     plannedEndDate,
                     locationId,
+                    machineId: machineId || null,
                     notes,
                     status: ProductionStatus.DRAFT,
                     actualQuantity: 0,
@@ -249,6 +250,35 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
     const { id, status, actualQuantity, actualStartDate, actualEndDate, machineId } = result.data;
 
     try {
+        if (status === ProductionStatus.RELEASED) {
+            const currentOrder = await prisma.productionOrder.findUnique({
+                where: { id },
+                select: {
+                    machineId: true,
+                    locationId: true,
+                    bomId: true,
+                    plannedQuantity: true,
+                    plannedStartDate: true
+                }
+            });
+
+            if (!currentOrder) return { success: false, error: 'Order not found' };
+
+            const missingFields = [];
+            if (!machineId && !currentOrder.machineId) missingFields.push('Machine');
+            if (!currentOrder.locationId) missingFields.push('Output Location');
+            if (!currentOrder.bomId) missingFields.push('Recipe (BOM)');
+            if (!currentOrder.plannedQuantity) missingFields.push('Planned Quantity');
+            if (!currentOrder.plannedStartDate) missingFields.push('Planned Start Date');
+
+            if (missingFields.length > 0) {
+                return {
+                    success: false,
+                    error: `Cannot release order. Missing mandatory fields: ${missingFields.join(', ')}`
+                };
+            }
+        }
+
         await prisma.productionOrder.update({
             where: { id },
             data: {
@@ -471,7 +501,7 @@ export async function startExecution(data: StartExecutionValues) {
         }
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error starting execution:', error);
@@ -519,7 +549,7 @@ export async function stopExecution(data: StopExecutionValues) {
         });
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error stopping execution:', error);
@@ -630,56 +660,75 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                 }
             }
 
-            // 2. Process Items
+            // 2. Process Items (FIFO Consumption)
             for (const item of items) {
-                // A. Verify Stock
-                const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
-                    SELECT "quantity"::text as quantity
-                    FROM "Inventory"
-                    WHERE "locationId" = ${locationId} AND "productVariantId" = ${item.productVariantId}
-                    FOR UPDATE
-                `;
-                const stockQty = stockRow[0] ? Number(stockRow[0].quantity) : null;
+                // A. Fetch available batches for this variant and location, ordered by mfg date (FIFO)
+                const availableBatches = await tx.batch.findMany({
+                    where: {
+                        productVariantId: item.productVariantId,
+                        locationId: locationId,
+                        quantity: { gt: 0 },
+                        status: 'ACTIVE'
+                    },
+                    orderBy: { manufacturingDate: 'asc' } // First-In, First-Out
+                });
 
-                if (stockQty === null || stockQty < item.quantity) {
+                const totalAvailable = availableBatches.reduce((sum, b) => sum + Number(b.quantity), 0);
+
+                if (totalAvailable < item.quantity) {
                     const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId } });
-                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${stockQty || 0}`);
+                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${totalAvailable} (Dibutuhkan: ${item.quantity})`);
                 }
 
-                // 3. Deduct Inventory
-                await tx.inventory.update({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId,
-                            productVariantId: item.productVariantId
+                let remainingToIssue = item.quantity;
+
+                for (const batch of availableBatches) {
+                    if (remainingToIssue <= 0) break;
+
+                    const batchQty = Number(batch.quantity);
+                    const issueQty = Math.min(batchQty, remainingToIssue);
+
+                    // 1. Update Batch Quantity
+                    await tx.batch.update({
+                        where: { id: batch.id },
+                        data: { quantity: { decrement: issueQty } }
+                    });
+
+                    // 2. Create Material Issue record linked to this batch
+                    await tx.materialIssue.create({
+                        data: {
+                            productionOrderId,
+                            productVariantId: item.productVariantId,
+                            quantity: issueQty,
                         }
+                    });
+
+                    // 3. Create Stock Movement record
+                    await tx.stockMovement.create({
+                        data: {
+                            type: MovementType.OUT,
+                            productVariantId: item.productVariantId,
+                            fromLocationId: locationId,
+                            toLocationId: null, // Consumption
+                            quantity: issueQty,
+                            reference: `PROD-ISSUE-FIFO-${productionOrderId.slice(0, 8)}`,
+                            batchId: batch.id
+                        }
+                    });
+
+                    remainingToIssue -= issueQty;
+                }
+
+                // 4. Update Global Inventory (Totals)
+                // We do this to maintain the 'Inventory' table which is used for quick lookups
+                await tx.inventory.updateMany({
+                    where: {
+                        locationId,
+                        productVariantId: item.productVariantId
                     },
                     data: {
                         quantity: { decrement: item.quantity }
                     }
-                });
-
-                // 4. Create Material Issue linked to Batch
-                await tx.materialIssue.create({
-                    data: {
-                        productionOrderId,
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity,
-                        batchId: item.batchId
-                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
-                });
-
-                // 5. Create Audit Log / Stock Movement
-                await tx.stockMovement.create({
-                    data: {
-                        type: MovementType.OUT,
-                        productVariantId: item.productVariantId,
-                        fromLocationId: locationId,
-                        toLocationId: null, // Consumption
-                        quantity: item.quantity,
-                        reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
-                        batchId: item.batchId
-                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
                 });
             }
         });
@@ -1502,7 +1551,7 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
         });
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/kiosk');
         return { success: true };
     } catch (error) {
         console.error('Error logging output:', error);
