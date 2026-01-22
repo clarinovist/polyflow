@@ -26,6 +26,8 @@ import {
 import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma, MovementType, ReservationStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
+import { logActivity } from '@/lib/audit';
 
 /**
  * Create a new Production Order
@@ -131,6 +133,12 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
                 include: {
                     operator: true
                 }
+            },
+            plannedMaterials: {
+                select: { quantity: true }
+            },
+            materialIssues: {
+                select: { quantity: true }
             }
         },
         orderBy: {
@@ -138,11 +146,18 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
         }
     });
 
-    return orders.map(order => ({
-        ...order,
-        plannedQuantity: order.plannedQuantity.toNumber(),
-        actualQuantity: order.actualQuantity?.toNumber() ?? null,
-    }));
+    return orders.map(order => {
+        const plannedMaterialsTotal = (order.plannedMaterials || []).reduce((s, m) => s + Number(m.quantity), 0);
+        const issuedTotal = (order.materialIssues || []).reduce((s, mi) => s + Number(mi.quantity), 0);
+
+        return {
+            ...order,
+            plannedQuantity: order.plannedQuantity.toNumber(),
+            actualQuantity: order.actualQuantity?.toNumber() ?? null,
+            plannedMaterialsTotal,
+            issuedTotal,
+        };
+    });
 }
 
 /**
@@ -248,6 +263,69 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
         revalidatePath(`/dashboard/production/orders/${id}`);
         revalidatePath('/dashboard/production');
         return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+    }
+}
+
+/**
+ * Start Production Order with optional override when no materials issued
+ */
+export async function startProductionOrder(productionOrderId: string, override = false) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
+    if (!productionOrderId) return { success: false, error: 'Production ID is required' };
+
+    const order = await prisma.productionOrder.findUnique({
+        where: { id: productionOrderId },
+        include: {
+            plannedMaterials: true,
+            materialIssues: true,
+        }
+    });
+
+    if (!order) return { success: false, error: 'Order not found' };
+
+    const required = (order.plannedMaterials || []).reduce((s: number, m: { quantity: Prisma.Decimal | number | string }) => s + Number(m.quantity), 0);
+    const issued = (order.materialIssues || []).reduce((s: number, mi: { quantity: Prisma.Decimal | number | string }) => s + Number(mi.quantity), 0);
+    const issuedPct = required > 0 ? (issued / required) * 100 : 0;
+
+    if (issued === 0 && !override) {
+        return { success: false, error: 'NO_MATERIAL_ISSUED', issuedPct };
+    }
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            await tx.productionOrder.update({
+                where: { id: productionOrderId },
+                data: { status: ProductionStatus.IN_PROGRESS, actualStartDate: new Date() }
+            });
+
+            if (issued === 0 && override) {
+                await logActivity({
+                    userId: currentUserId,
+                    action: 'START_WITHOUT_MATERIAL',
+                    entityType: 'ProductionOrder',
+                    entityId: productionOrderId,
+                    details: `Started without materials (issued=0).`,
+                    tx
+                });
+            } else {
+                await logActivity({
+                    userId: currentUserId,
+                    action: 'START_PRODUCTION',
+                    entityType: 'ProductionOrder',
+                    entityId: productionOrderId,
+                    details: `Started production. issuedPct=${issuedPct}`,
+                    tx
+                });
+            }
+        });
+
+        revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
+        revalidatePath('/dashboard/production');
+        return { success: true, issuedPct };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }

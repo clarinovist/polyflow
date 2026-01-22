@@ -15,6 +15,8 @@ import { useRouter } from 'next/navigation';
 import {
     Play, CheckCircle, Package, History, Trash2
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { startProductionOrder } from '@/actions/production';
 import { cn } from '@/lib/utils';
 import {
     AlertDialog,
@@ -67,6 +69,8 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
     const [activeTab, setActiveTab] = useState(getDefaultTab(order.status));
     const router = useRouter();
+    const [showStartWarning, setShowStartWarning] = useState(false);
+    const [isStarting, setIsStarting] = useState(false);
 
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
@@ -139,9 +143,65 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </>
                     )}
                     {order.status === 'RELEASED' && (
-                        <Button onClick={() => updateProductionOrder({ id: order.id, status: 'IN_PROGRESS' })}>
-                            <Play className="w-4 h-4 mr-2" /> Start Production
-                        </Button>
+                        <>
+                            <Button onClick={() => {
+                                // compute issued% client-side to decide whether to show warning
+                                let required = 0;
+                                for (const m of (order.plannedMaterials || [])) {
+                                    required += Number((m as unknown as { quantity: number | string }).quantity || 0);
+                                }
+                                let issued = 0;
+                                for (const mi of (order.materialIssues || [])) {
+                                    issued += Number((mi as unknown as { quantity: number | string }).quantity || 0);
+                                }
+                                const issuedPct = required > 0 ? (issued / required) * 100 : 0;
+                                if (issuedPct === 0) {
+                                    setShowStartWarning(true);
+                                } else {
+                                    // directly start
+                                    setIsStarting(true);
+                                    startProductionOrder(order.id, false).then((res) => {
+                                        setIsStarting(false);
+                                        if (res.success) {
+                                            toast.success('Production started');
+                                            router.refresh();
+                                        } else {
+                                            toast.error(res.error || 'Failed to start');
+                                        }
+                                    });
+                                }
+                            }}>
+                                <Play className="w-4 h-4 mr-2" /> Start Production
+                            </Button>
+
+                            <Dialog open={showStartWarning} onOpenChange={setShowStartWarning}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>⚠️ Peringatan: Belum ada material yang diambil</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="my-4 text-sm">
+                                        Belum ada material yang diambil. Lanjutkan mulai produksi?
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setShowStartWarning(false)}>Batal</Button>
+                                        <Button onClick={async () => {
+                                            setIsStarting(true);
+                                            const res = await startProductionOrder(order.id, true);
+                                            setIsStarting(false);
+                                            setShowStartWarning(false);
+                                            if (res.success) {
+                                                toast.success('Production started (override)');
+                                                router.refresh();
+                                            } else {
+                                                toast.error(res.error || 'Failed to start');
+                                            }
+                                        }}>
+                                            {isStarting ? 'Processing...' : 'Ya, lanjutkan'}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </>
                     )}
                     {order.status === 'IN_PROGRESS' && (
                         <>
