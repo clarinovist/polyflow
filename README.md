@@ -65,11 +65,18 @@ The system handles:
 - **NEW**: Automatic FIFO (First-In-First-Out) material issuance logic
 
 ✅ **Dashboard & Analytics**
-- Real-time KPI cards (Products, Total Stock, Low Stock, Recent Movements)
+- Real-time KPI cards (Sales, Purchasing, Production, Inventory, Cashflow)
 - Quick action shortcuts
 - Movement history tracking
 - Location-based filtering
-- **NEW**: Comprehensive Analytics & Reporting Module (Sales, Inventory, Production, Finance)
+- **NEW**: Comprehensive Analytics & Reporting Module
+- **NEW**: Executive Dashboard with Plastic Manufacturing KPIs (Yield Rate, Scrap, Downtime)
+
+✅ **Finance & Costing**
+- Automatic Production Costing (COGM)
+- WIP (Work-in-Progress) Valuation
+- Accounts Receivable (AR) & Accounts Payable (AP) Overdue Tracking
+- Detailed Order Cost Breakdown (Material vs. Conversion)
 
 ✅ **PolyFlow Design System**
 - Centralized design tokens and semantic color system
@@ -87,27 +94,33 @@ polyflow/
 │   ├── schema.prisma          # Database schema with 10+ models
 │   └── seed.ts                # Production cycle seed data
 ├── src/
-│   ├── actions/               # Server Actions
+│   ├── actions/               # Server Actions (Auth -> Validation -> Service)
 │   │   ├── inventory.ts       # Inventory operations
-│   │   └── product.ts         # Product CRUD
+│   │   ├── production.ts      # Production workflow
+│   │   ├── finance.ts         # Finance & Costing
+│   │   └── dashboard.ts       # Aggregated KPIs
+│   ├── services/              # Core Business Logic (Layered Architecture)
+│   │   ├── inventory-service.ts
+│   │   ├── production-service.ts
+│   │   ├── purchase-service.ts
+│   │   └── finance/           # Finance sub-services
 │   ├── app/
 │   │   ├── dashboard/
-│   │   │   ├── page.tsx       # Main dashboard
+│   │   │   ├── page.tsx       # Executive Summary
 │   │   │   ├── products/      # Product management pages
-│   │   │   ├── inventory/     # Inventory management
-│   │   │   │   ├── page.tsx   # Inventory dashboard
-│   │   │   │   ├── transfer/  # Stock transfer form
-│   │   │   │   ├── adjustment/# Stock adjustment form
-│   │   │   │   └── history/   # Movement history
-│   │   │   └── settings/      # Settings (placeholder)
-│   │   └── layout.tsx         # Root layout with navigation
+│   │   │   ├── inventory/     # Inventory Analysis
+│   │   │   ├── production/    # Production Management
+│   │   │   └── finance/       # Financial Reports
+│   │   ├── kiosk/             # Operator Floor Portal
+│   │   └── warehouse/         # Warehouse Operations Portal
 │   ├── components/
-│   │   ├── inventory/         # Inventory-specific components
-│   │   ├── products/          # Product forms and tables
-│   │   └── ui/                # Reusable UI components (shadcn/ui)
+│   │   ├── layout/            # Layout & Navigation
+│   │   ├── production/        # Kiosk & Dashboard components
+│   │   └── ui/                # Zinc Design System components
 │   └── lib/
 │       ├── prisma.ts          # Prisma client singleton
-│       └── zod-schemas.ts     # Validation schemas
+│       └── schemas/           # Domain-specific Zod schemas
+│       └── design-tokens.ts   # UI Design Tokens
 ├── package.json
 └── README.md
 ```
@@ -261,11 +274,25 @@ polyflow/
 
 ## 📈 Recent Development History
 
-Based on conversation history, recent work includes:
+### Week of Jan 19-24, 2026
 
-### Week of Jan 19-22, 2026
+1. **Finance & Costing Module - PHASE 4 COMPLETED** (Jan 24, 2026)
+   - Implemented `CostReportingService` for automated COGM and WIP valuation.
+   - Added `getExecutiveStats` with real-time manufacturing KPIs (Yield, Scrap, Downtime).
+   - Implemented automated status updates for Overdue Invoices (Sales & Purchase).
+   - Verified project readiness for full Accounting module integration.
 
-1. **Warehouse Portal & FIFO Implementation** (Jan 22, 2026)
+2. **Mobile Responsiveness Audit & Fixes** (Jan 23, 2026)
+   - Optimized `SidebarNav` with mobile-first toggle and overlay.
+   - Ensured all data tables support horizontal overflow on small screens.
+   - Refined Dashboard grid systems for vertical stacking on mobile.
+
+3. **Modular Monolith Refactoring** (Jan 23, 2026)
+   - Extracted logic into `ProductionService` and `InventoryService`.
+   - Split global `zod-schemas.ts` into domain-specific files in `src/lib/schemas/`.
+   - Enforced strict inventory boundaries (no direct table access from other modules).
+
+4. **Warehouse Portal & FIFO Implementation** (Jan 22, 2026)
    - Created a dedicated `/warehouse` portal for material fulfillment.
    - Implemented automatic **First-In-First-Out (FIFO)** material issuance logic.
    - Secured the new portal with Role-Based Access Control (RBAC).
@@ -349,4 +376,4 @@ Building modern ERP solutions for manufacturing operations.
 
 ---
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 24, 2026
