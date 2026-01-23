@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { CreateInvoiceValues, UpdateInvoiceStatusValues } from "@/lib/schemas/invoice";
 import { InvoiceStatus } from "@prisma/client";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { logActivity } from "@/lib/audit";
 
 export class InvoiceService {
@@ -35,7 +35,9 @@ export class InvoiceService {
      * Create a new invoice from a Sales Order
      */
     static async createInvoice(data: CreateInvoiceValues, userId: string) {
-        const { salesOrderId, invoiceDate, dueDate, notes } = data;
+        const { salesOrderId, invoiceDate, dueDate, termOfPaymentDays, notes } = data;
+
+        const finalDueDate = dueDate || addDays(invoiceDate, termOfPaymentDays || 0);
 
         const salesOrder = await prisma.salesOrder.findUnique({
             where: { id: salesOrderId },
@@ -57,7 +59,8 @@ export class InvoiceService {
                 invoiceNumber,
                 salesOrderId,
                 invoiceDate,
-                dueDate,
+                dueDate: finalDueDate,
+                termOfPaymentDays: termOfPaymentDays || 0,
                 totalAmount: salesOrder.totalAmount,
                 paidAmount: 0,
                 status: InvoiceStatus.UNPAID,

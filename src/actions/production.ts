@@ -29,6 +29,7 @@ import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production-service';
+import { MrpService } from '@/services/mrp-service';
 
 // Alias for backward compatibility
 export const getProductionFormData = getInitData;
@@ -488,16 +489,37 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
 /**
  * Create Production Order from Sales Order (Shortage)
  */
-export async function createProductionFromSalesOrder(salesOrderId: string, productVariantId: string, quantity: number) {
+export async function createProductionFromSalesOrder(salesOrderId: string, productVariantId?: string, quantity?: number) {
     try {
-        const result = await ProductionService.createOrderFromSales(salesOrderId, productVariantId, quantity);
+        if (productVariantId && quantity) {
+            // Create for specific item
+            const result = await ProductionService.createOrderFromSales(salesOrderId, productVariantId, quantity);
+            revalidatePath('/dashboard/production');
+            revalidatePath('/dashboard/sales');
+            return { success: true, data: serializeData(result) };
+        }
+
+        // Default: Run MRP for whole order (if implemented)
+        const result = await MrpService.convertSoToPo(salesOrderId);
 
         revalidatePath('/dashboard/production');
         revalidatePath('/dashboard/sales');
-        return { success: true, data: serializeData(result) };
+        return serializeData(result);
     } catch (error) {
         console.error("Create PO from SO Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to trigger production" };
+    }
+}
+
+/**
+ * Simulate MRP for a Sales Order
+ */
+export async function simulateMrp(salesOrderId: string) {
+    try {
+        const result = await MrpService.simulateMaterialRequirements(salesOrderId);
+        return { success: true, data: serializeData(result) };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Failed to simulate MRP" };
     }
 }
 

@@ -84,8 +84,9 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
     const getStatusColor = (status: InvoiceStatus) => {
         switch (status) {
             case 'PAID': return 'bg-green-100 text-green-800 hover:bg-green-200';
-            case 'PARTIAL': return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
-            case 'UNPAID': return 'bg-red-100 text-red-800 hover:bg-red-200';
+            case 'PARTIAL': return 'bg-amber-100 text-amber-800 hover:bg-amber-200';
+            case 'UNPAID': return 'bg-slate-100 text-slate-800 hover:bg-slate-200';
+            case 'OVERDUE' as InvoiceStatus: return 'bg-red-100 text-red-800 hover:bg-red-200';
             case 'CANCELLED': return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
             default: return 'bg-gray-100 text-gray-800';
         }
@@ -103,8 +104,14 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
 
             if (newPaid >= total) {
                 newStatus = 'PAID';
-            } else if (newPaid > 0) {
-                newStatus = 'PARTIAL';
+            } else {
+                // Check if overdue
+                const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < new Date();
+                if (isOverdue) {
+                    newStatus = 'OVERDUE' as InvoiceStatus;
+                } else if (newPaid > 0) {
+                    newStatus = 'PARTIAL';
+                }
             }
 
             const result = await updateInvoiceStatus({

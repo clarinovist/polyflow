@@ -5,6 +5,7 @@ export const createInvoiceSchema = z.object({
     salesOrderId: z.string().uuid("Invalid sales order ID"),
     invoiceDate: z.date(),
     dueDate: z.date().optional(),
+    termOfPaymentDays: z.coerce.number().min(0).default(0),
     notes: z.string().optional(),
 });
 

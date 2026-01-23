@@ -148,6 +148,7 @@ export function PurchaseOrderDetailClient({
                                         invoiceNumber: `INV-${order.orderNumber}`,
                                         invoiceDate: new Date(),
                                         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+                                        termOfPaymentDays: 30,
                                     });
                                     if (result) {
                                         toast.success("Invoice generated");

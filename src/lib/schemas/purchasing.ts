@@ -43,6 +43,7 @@ export const createPurchaseInvoiceSchema = z.object({
     invoiceNumber: z.string().min(1, "Invoice number is required"),
     invoiceDate: z.coerce.date(),
     dueDate: z.coerce.date().optional().nullable(),
+    termOfPaymentDays: z.coerce.number().min(0).default(0),
     notes: z.string().optional(),
 });
 

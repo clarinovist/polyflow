@@ -15,7 +15,10 @@ import {
     ArrowUpRight,
     ArrowRight,
     Wallet,
-    LucideIcon
+    LucideIcon,
+    AlertTriangle,
+    Clock,
+    CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 

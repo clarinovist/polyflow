@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus } from '@prisma/client';
+import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 export interface ExecutiveStats {
@@ -30,6 +30,11 @@ export interface ExecutiveStats {
         lowStockCount: number;
         totalItems: number;
     };
+    cashflow: {
+        overdueReceivables: number;
+        overduePayables: number;
+        invoicesDueThisWeek: number;
+    };
 }
 
 export async function getExecutiveStats(): Promise<ExecutiveStats> {
@@ -56,7 +61,11 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         executionOutput,        // ProductionExecution good output (for yield)
         materialIssues,         // Material Consumption (for yield)
         // Inventory
-        inventoryStats
+        inventoryStats,
+        // Cashflow
+        overdueReceivablesAgg,
+        overduePayablesAgg,
+        invoicesDueThisWeekCount
     ] = await prisma.$transaction([
         // 1. Sales Revenue MTD (Confirmed Orders)
         prisma.salesOrder.findMany({
@@ -158,6 +167,34 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         prisma.productVariant.aggregate({
             _sum: { price: true }, // Approximation of value using price, ideally uses cost * stock
             _count: { id: true }
+        }),
+
+        // 15. Overdue Receivables (Sales Invoices)
+        prisma.invoice.aggregate({
+            where: {
+                status: 'OVERDUE' as InvoiceStatus
+            },
+            _sum: { totalAmount: true, paidAmount: true } // Need to subtract paidAmount
+        }),
+
+        // 16. Overdue Payables (Purchase Invoices)
+        prisma.purchaseInvoice.aggregate({
+            where: {
+                status: 'OVERDUE' as PurchaseInvoiceStatus // Using string literal or PurchaseInvoiceStatus enum if imported
+            },
+            _sum: { totalAmount: true, paidAmount: true }
+        }),
+
+        // 17. Invoices Due This Week (Sales & Purchasing combined or just Sales?)
+        // Let's do Sales Invoices due in next 7 days
+        prisma.invoice.count({
+            where: {
+                dueDate: {
+                    gte: now,
+                    lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+                },
+                status: { not: InvoiceStatus.PAID }
+            }
         })
     ]);
 
@@ -224,6 +261,10 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
     });
 
 
+    // --- Calculate Cashflow Metrics ---
+    const overdueReceivables = (overdueReceivablesAgg._sum?.totalAmount?.toNumber() || 0) - (overdueReceivablesAgg._sum?.paidAmount?.toNumber() || 0);
+    const overduePayables = (overduePayablesAgg._sum?.totalAmount?.toNumber() || 0) - (overduePayablesAgg._sum?.paidAmount?.toNumber() || 0);
+
     return {
         sales: {
             mtdRevenue,
@@ -248,6 +289,11 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
             totalValue: totalInventoryValue,
             lowStockCount,
             totalItems: inventoryStats._count.id || 0
+        },
+        cashflow: {
+            overdueReceivables,
+            overduePayables,
+            invoicesDueThisWeek: invoicesDueThisWeekCount
         }
     };
 }

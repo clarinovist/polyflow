@@ -340,8 +340,9 @@ model ProductionOrder {
   actualEndDate    DateTime?
   status           ProductionStatus    @default(DRAFT)
   machineId        String?
-  locationId       String
-  createdById      String?
+  locationId               String
+  estimatedConversionCost  Decimal?            @db.Decimal(15, 2)
+  createdById              String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   notes            String?
@@ -489,6 +490,7 @@ enum ReservationStatus {
 
 enum ProductionStatus {
   DRAFT
+  WAITING_MATERIAL
   RELEASED
   IN_PROGRESS
   COMPLETED
@@ -711,6 +713,7 @@ model Invoice {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  termOfPaymentDays Int           @default(0)
   salesOrder    SalesOrder    @relation(fields: [salesOrderId], references: [id])
 
   @@index([salesOrderId])
@@ -735,6 +738,7 @@ enum InvoiceStatus {
   UNPAID
   PARTIAL
   PAID
+  OVERDUE
   CANCELLED
 }
 
@@ -752,6 +756,7 @@ enum PurchaseInvoiceStatus {
   UNPAID
   PARTIAL
   PAID
+  OVERDUE
   CANCELLED
 }
 
@@ -825,6 +830,7 @@ model PurchaseInvoice {
   status           PurchaseInvoiceStatus @default(UNPAID)
   totalAmount      Decimal               @db.Decimal(15, 2)
   paidAmount       Decimal               @default(0) @db.Decimal(15, 2)
+  termOfPaymentDays Int                  @default(0)
   notes            String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt

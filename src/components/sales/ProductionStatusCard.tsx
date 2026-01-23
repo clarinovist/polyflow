@@ -72,8 +72,8 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                 toast.success("Production Order created successfully");
                 fetchShortages();
                 router.refresh();
-            } else {
-                toast.error(result.error || "Failed to trigger production");
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                toast.error((result as any).error || "Failed to trigger production");
             }
         } catch (_error) {
             toast.error("An error occurred while linking production");

@@ -6,6 +6,7 @@ import {
     MovementType,
     Prisma
 } from '@prisma/client';
+import { addDays } from 'date-fns';
 import {
     CreatePurchaseOrderValues,
     UpdatePurchaseOrderValues,
@@ -308,6 +309,8 @@ export class PurchaseService {
     }
 
     static async createInvoice(data: CreatePurchaseInvoiceValues) {
+        const finalDueDate = data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
+
         const po = await prisma.purchaseOrder.findUnique({
             where: { id: data.purchaseOrderId },
             select: { totalAmount: true }
@@ -320,7 +323,8 @@ export class PurchaseService {
                 invoiceNumber: data.invoiceNumber,
                 purchaseOrderId: data.purchaseOrderId,
                 invoiceDate: data.invoiceDate,
-                dueDate: data.dueDate,
+                dueDate: finalDueDate,
+                termOfPaymentDays: data.termOfPaymentDays || 0,
                 totalAmount: po.totalAmount || 0,
                 status: PurchaseInvoiceStatus.UNPAID,
             }

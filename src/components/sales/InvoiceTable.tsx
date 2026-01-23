@@ -21,7 +21,9 @@ interface InvoiceTableProps {
         id: string;
         invoiceNumber: string;
         invoiceDate: Date | string;
+        dueDate?: Date | string | null;
         totalAmount: number;
+        paidAmount: number;
         status: InvoiceStatus;
         salesOrderId: string;
         salesOrder: {
@@ -38,7 +40,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
             UNPAID: 'bg-slate-100 text-slate-800',
             PAID: 'bg-emerald-100 text-emerald-800',
             PARTIALLY_PAID: 'bg-amber-100 text-amber-800',
-            OVERDUE: 'bg-red-100 text-red-800',
+            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
             CANCELLED: 'bg-red-50 text-red-500',
         };
         return (
@@ -55,6 +57,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                     <TableRow>
                         <TableHead>Invoice #</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Due Date</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Sales Order</TableHead>
                         <TableHead>Status</TableHead>
@@ -74,6 +77,11 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                             <TableRow key={invoice.id}>
                                 <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                                 <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
+                                <TableCell>
+                                    <span className={invoice.status === ('OVERDUE' as InvoiceStatus) ? 'text-red-600 font-bold' : ''}>
+                                        {invoice.dueDate ? format(new Date(invoice.dueDate), 'PP') : '-'}
+                                    </span>
+                                </TableCell>
                                 <TableCell>{invoice.salesOrder.customer?.name || 'Internal / MTS'}</TableCell>
                                 <TableCell>
                                     <Link href={`/dashboard/sales/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
