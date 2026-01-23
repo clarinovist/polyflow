@@ -730,6 +730,17 @@ Inventory Aging Report
 5. Mobile App (PWA) ✅
 6. Advanced Analytics Dashboard ✅
 
+### Phase 6 (Sprint 10): Mobile Responsiveness Fixes
+
+> 📄 **Detailed Plan**: See [docs/MOBILE_RESPONSIVENESS_PLAN.md](./docs/MOBILE_RESPONSIVENESS_PLAN.md) for complete audit and remediation checklist.
+
+> ⚠️ **Priority**: HIGH - User-reported issue
+
+1. Add horizontal scroll wrappers to all data tables 🟦 PLANNED
+2. Fix filter bar layouts for mobile stacking 🟦 PLANNED
+3. Optimize touch targets (44x44px minimum) 🟦 PLANNED
+4. Test across devices (iPhone SE, iPad, Android) 🟦 PLANNED
+
 ### Phase 7 (Sprint 11+): Localization - Bahasa Indonesia
 
 > 📄 **Detailed Plan**: See [docs/LOCALIZATION_PLAN.md](./docs/LOCALIZATION_PLAN.md) for complete terminology dictionary and implementation guide.
