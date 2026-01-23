@@ -72,7 +72,9 @@ The CoA follows a **5-digit hierarchical numbering system** suitable for Indones
 | 7xxxx | Other Income | Income Statement |
 | 8xxxx | Other Expenses | Income Statement |
 
-### Default Account Structure
+### Default Account Structure (Plastic Manufacturing - HDPE Blown Film)
+
+> **Industry-Specific Design**: This CoA is tailored for **plastic converting/blown film manufacturing** with accounts for resin types, masterbatch, multi-stage WIP, and extrusion-specific overhead.
 
 ```
 1. ASSETS (ASET)
@@ -84,74 +86,141 @@ The CoA follows a **5-digit hierarchical numbering system** suitable for Indones
 │   ├── 11200 Accounts Receivable (Piutang Usaha)
 │   │   ├── 11210 Piutang Dagang - Customer
 │   │   └── 11290 Allowance for Doubtful Accounts
-│   ├── 11300 Inventory (Persediaan)
-│   │   ├── 11310 Raw Materials (Bahan Baku)
-│   │   ├── 11320 Work-in-Progress (Barang Dalam Proses)
-│   │   ├── 11330 Finished Goods (Barang Jadi)
-│   │   ├── 11340 Packaging Materials (Bahan Kemasan)
-│   │   └── 11350 Scrap & Waste (Barang Sisa)
-│   └── 11400 Prepaid Expenses (Biaya Dibayar Dimuka)
-│       └── 11410 Prepaid Insurance
+│   │
+│   ├── 11300 Inventory - Raw Materials (Bahan Baku)
+│   │   ├── 11311 Resin HDPE (High-Density Polyethylene)
+│   │   ├── 11312 Resin LDPE (Low-Density Polyethylene)
+│   │   ├── 11313 Resin LLDPE (Linear Low-Density)
+│   │   ├── 11314 Resin PP (Polypropylene)
+│   │   ├── 11320 Masterbatch - Color Additives
+│   │   ├── 11321 Masterbatch - UV Stabilizer
+│   │   ├── 11322 Additive - Slip Agent
+│   │   ├── 11323 Additive - Anti-Block
+│   │   └── 11330 Regrind / Recycled Granules
+│   │
+│   ├── 11400 Inventory - Work-in-Progress (Barang Dalam Proses)
+│   │   ├── 11410 WIP - Mixing Stage (Compounding)
+│   │   ├── 11420 WIP - Extrusion Stage (Blown Film)
+│   │   └── 11430 WIP - Finishing Stage (Rewinding/Slitting)
+│   │
+│   ├── 11500 Inventory - Finished Goods (Barang Jadi)
+│   │   ├── 11510 Finished Rolls - Standard Grade
+│   │   ├── 11520 Finished Rolls - Premium Grade
+│   │   └── 11530 Finished Bags / Converted Products
+│   │
+│   ├── 11600 Inventory - Packaging & Supplies
+│   │   ├── 11610 Core / Tube (Kardus Gulungan)
+│   │   ├── 11620 Stretch Film / Wrapping
+│   │   └── 11630 Labels & Stickers
+│   │
+│   ├── 11700 Inventory - Scrap & Waste
+│   │   ├── 11710 Start-up Scrap (Recyclable)
+│   │   ├── 11720 Edge Trim (Recyclable)
+│   │   ├── 11730 Reject Rolls
+│   │   └── 11740 Contaminated Scrap (Non-Recyclable)
+│   │
+│   └── 11800 Prepaid Expenses (Biaya Dibayar Dimuka)
+│       └── 11810 Prepaid Insurance
+│
 ├── 12000 Fixed Assets (Aset Tetap)
-│   ├── 12100 Machinery & Equipment
-│   │   ├── 12110 Extrusion Machines
-│   │   ├── 12120 Mixing Equipment
+│   ├── 12100 Production Machinery
+│   │   ├── 12111 Extrusion Lines (Blown Film)
+│   │   ├── 12112 Mixer / Compounding Equipment
+│   │   ├── 12113 Rewinder / Slitter Machines
+│   │   ├── 12114 Printing Machines (Flexo)
+│   │   ├── 12115 Granulator / Recycling Equipment
+│   │   ├── 12116 Chiller / Cooling Systems
 │   │   └── 12190 Accumulated Depreciation - Machinery
-│   ├── 12200 Buildings
+│   ├── 12200 Buildings & Factory
 │   │   └── 12290 Accumulated Depreciation - Buildings
-│   └── 12300 Vehicles
-│       └── 12390 Accumulated Depreciation - Vehicles
+│   ├── 12300 Vehicles
+│   │   └── 12390 Accumulated Depreciation - Vehicles
+│   └── 12400 Dies & Molds
+│       ├── 12410 Extrusion Dies
+│       └── 12490 Accumulated Depreciation - Dies
 
 2. LIABILITIES (KEWAJIBAN)
 ├── 21000 Current Liabilities (Kewajiban Lancar)
 │   ├── 21100 Accounts Payable (Utang Usaha)
-│   │   └── 21110 Utang Dagang - Supplier
-│   ├── 21200 Accrued Expenses (Biaya yang Masih Harus Dibayar)
+│   │   ├── 21111 Utang Supplier - Resin
+│   │   ├── 21112 Utang Supplier - Masterbatch
+│   │   └── 21119 Utang Supplier - Lainnya
+│   ├── 21200 Accrued Expenses
+│   │   ├── 21210 Accrued Electricity (PLN)
+│   │   └── 21220 Accrued Machine Maintenance
 │   ├── 21300 Taxes Payable (Utang Pajak)
 │   │   ├── 21310 PPN Keluaran (VAT Output)
 │   │   ├── 21320 PPN Masukan (VAT Input)
 │   │   └── 21330 PPh 21 Payable
 │   └── 21400 Wages Payable (Utang Gaji)
-└── 22000 Long-term Liabilities (Kewajiban Jangka Panjang)
-    └── 22100 Bank Loans
+│       ├── 21410 Production Operator Wages
+│       └── 21420 Office Staff Wages
+└── 22000 Long-term Liabilities
+    └── 22100 Bank Loans - Equipment Financing
 
 3. EQUITY (MODAL)
 ├── 31000 Owner's Capital (Modal Pemilik)
 ├── 32000 Retained Earnings (Laba Ditahan)
-└── 33000 Current Year Profit/Loss (Laba/Rugi Tahun Berjalan)
+└── 33000 Current Year Profit/Loss
 
 4. REVENUE (PENDAPATAN)
-├── 41000 Sales Revenue (Penjualan)
-│   ├── 41100 Product Sales - Finished Goods
-│   ├── 41200 Sales - Scrap / Waste
+├── 41000 Sales Revenue
+│   ├── 41100 Sales - Plastic Film (Rolls)
+│   ├── 41200 Sales - Plastic Bags
+│   ├── 41300 Sales - Converted Products
+│   ├── 41400 Sales - Scrap / Afval (Recyclable)
 │   └── 41900 Sales Returns & Allowances
 
 5. COST OF GOODS SOLD (HARGA POKOK PENJUALAN)
 ├── 51000 Direct Materials (Bahan Langsung)
-│   ├── 51100 Raw Material Consumption
-│   └── 51200 Packaging Material Consumption
+│   ├── 51110 Consumption - Resin HDPE
+│   ├── 51120 Consumption - Resin LDPE/LLDPE
+│   ├── 51130 Consumption - Resin PP
+│   ├── 51200 Consumption - Masterbatch
+│   ├── 51300 Consumption - Additives
+│   └── 51400 Consumption - Packaging (Core, Wrap)
+│
 ├── 52000 Direct Labor (Tenaga Kerja Langsung)
-│   ├── 52100 Operator Wages
-│   └── 52200 Helper Wages
-├── 53000 Manufacturing Overhead (Biaya Overhead Pabrik)
-│   ├── 53100 Machine Depreciation
-│   ├── 53200 Electricity - Production
-│   ├── 53300 Factory Maintenance
-│   └── 53400 Indirect Materials
+│   ├── 52100 Operator Wages - Extrusion
+│   ├── 52200 Operator Wages - Mixing
+│   ├── 52300 Operator Wages - Finishing
+│   └── 52400 Helper Wages
+│
+├── 53000 Manufacturing Overhead - Fixed (BOP Tetap)
+│   ├── 53100 Machine Depreciation - Extrusion
+│   ├── 53200 Machine Depreciation - Supporting
+│   ├── 53300 Factory Building Depreciation
+│   └── 53400 Die Depreciation
+│
+├── 54000 Manufacturing Overhead - Variable (BOP Variabel)
+│   ├── 54100 Electricity - Production (PLN)
+│   ├── 54200 Chiller / Cooling Costs
+│   ├── 54300 Screen Pack Replacement
+│   ├── 54400 Die Cleaning & Maintenance
+│   ├── 54500 Machine Repairs & Parts
+│   └── 54600 Lubricants & Consumables
+│
+└── 55000 Scrap & Waste Costs
+    ├── 55100 Start-up Waste (Net of Recovery)
+    ├── 55200 Edge Trim Loss (Net of Recovery)
+    └── 55300 Rejected Production
 
 6. OPERATING EXPENSES (BIAYA OPERASIONAL)
-├── 61000 Selling Expenses (Biaya Penjualan)
+├── 61000 Selling Expenses
 │   ├── 61100 Shipping & Delivery
-│   └── 61200 Sales Commission
-├── 62000 General & Admin Expenses (Biaya Umum & Administrasi)
+│   ├── 61200 Sales Commission
+│   └── 61300 Sample Costs
+├── 62000 General & Admin Expenses
 │   ├── 62100 Office Salaries
 │   ├── 62200 Office Supplies
 │   ├── 62300 Telecommunications
-│   └── 62400 Professional Fees
+│   ├── 62400 Professional Fees
+│   └── 62500 Quality Testing / Lab Fees
 
 7. OTHER INCOME (PENDAPATAN LAIN-LAIN)
 ├── 71000 Interest Income
-└── 72000 Foreign Exchange Gain
+├── 72000 Scrap Sales Income (Regrind Value)
+└── 73000 Foreign Exchange Gain
 
 8. OTHER EXPENSES (BIAYA LAIN-LAIN)
 ├── 81000 Interest Expense
