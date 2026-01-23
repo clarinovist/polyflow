@@ -99,19 +99,8 @@ export async function seedDefaultPermissions(targetRole: Role, defaultResources:
 const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     ADMIN: [], // Admin has * everything * by checkAdmin logic, but we can seed if we want explicit.
     WAREHOUSE: [
-        '/dashboard',
-        '/dashboard/inventory',
-        '/dashboard/inventory/analytics',
-        '/dashboard/inventory/aging',
-        '/dashboard/inventory/transfer',
-        '/dashboard/inventory/adjustment',
-        '/dashboard/inventory/opname',
-        '/dashboard/inventory/history',
-        '/dashboard/products',
-        '/dashboard/purchasing/orders',
-        '/dashboard/purchasing/receipts',
-        '/dashboard/purchasing/invoices',
         '/warehouse',
+        '/kiosk', // Optional: if they need to check kiosk
     ],
     PRODUCTION: [
         '/dashboard',

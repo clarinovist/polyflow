@@ -4,8 +4,6 @@ import PolyFlowLogo from "@/components/auth/polyflow-logo";
 import { Button } from "@/components/ui/button";
 import { Home, Clock } from "lucide-react";
 import Link from "next/link";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 
 import { ClockDisplay } from "./ClockDisplay";
 
@@ -27,10 +25,10 @@ export default async function KioskLayout({
 }: {
     children: React.ReactNode
 }) {
-    const session = await auth();
-    if (!session) {
-        redirect('/login');
-    }
+    // We allow public access to the kiosk, so we don't redirect to login here.
+    // The middleware already handles path protection for other routes.
+    // const session = await auth();
+
 
     const activeExecutions = (await getActiveExecutions()) as unknown as KioskActiveExecution[];
 

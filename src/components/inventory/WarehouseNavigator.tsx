@@ -18,9 +18,16 @@ interface WarehouseNavigatorProps {
     activeLocationIds: string[];
     totalSkus: number;
     totalLowStock: number;
+    basePath?: string;
 }
 
-export function WarehouseNavigator({ locations, activeLocationIds, totalSkus: _totalSkus, totalLowStock: _totalLowStock }: WarehouseNavigatorProps) {
+export function WarehouseNavigator({
+    locations,
+    activeLocationIds,
+    totalSkus: _totalSkus,
+    totalLowStock: _totalLowStock,
+    basePath = '/dashboard/inventory'
+}: WarehouseNavigatorProps) {
     return (
         <Card className="h-full border-none shadow-none bg-transparent flex flex-col overflow-hidden">
             <div className="flex-col h-full flex">
@@ -43,8 +50,8 @@ export function WarehouseNavigator({ locations, activeLocationIds, totalSkus: _t
                         }
 
                         const href = newIds.length === 0
-                            ? '/dashboard/inventory'
-                            : `/dashboard/inventory?${newIds.map(id => `locationId=${id}`).join('&')}`;
+                            ? basePath
+                            : `${basePath}?${newIds.map(id => `locationId=${id}`).join('&')}`;
 
                         return (
                             <Link key={location.id} href={href} className="block">

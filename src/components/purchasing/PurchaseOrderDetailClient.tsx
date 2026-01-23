@@ -53,9 +53,15 @@ type SerializedPO = Omit<PurchaseOrder, 'totalAmount' | 'orderDate' | 'expectedD
 
 interface PurchaseOrderDetailClientProps {
     order: SerializedPO;
+    basePath?: string;
+    warehouseMode?: boolean;
 }
 
-export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientProps) {
+export function PurchaseOrderDetailClient({
+    order,
+    basePath = '/dashboard/purchasing/orders',
+    warehouseMode = false
+}: PurchaseOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -97,7 +103,7 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/dashboard/purchasing/orders">
+                        <Link href={basePath}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
                     </Button>
@@ -113,7 +119,7 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
                 </div>
 
                 <div className="flex gap-2">
-                    {order.status === 'DRAFT' && (
+                    {!warehouseMode && order.status === 'DRAFT' && (
                         <Button
                             onClick={handleConfirm}
                             disabled={isLoading}
@@ -124,14 +130,14 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
                     )}
 
                     {(order.status === 'SENT' || order.status === 'PARTIAL_RECEIVED') && (
-                        <Link href={`/dashboard/purchasing/receipts/create?poId=${order.id}`}>
+                        <Link href={`${basePath}/create-receipt?poId=${order.id}`}>
                             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
                                 <Download className="mr-2 h-4 w-4" /> Receive Goods
                             </Button>
                         </Link>
                     )}
 
-                    {order.invoices.length === 0 && order.status !== 'CANCELLED' && order.status !== 'DRAFT' && (
+                    {!warehouseMode && order.invoices.length === 0 && order.status !== 'CANCELLED' && order.status !== 'DRAFT' && (
                         <Button
                             variant="outline"
                             onClick={async () => {
@@ -159,7 +165,7 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
                         </Button>
                     )}
 
-                    {(order.status === 'DRAFT' || order.status === 'CANCELLED') && (
+                    {!warehouseMode && (order.status === 'DRAFT' || order.status === 'CANCELLED') && (
                         <Button
                             variant="outline"
                             className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
@@ -172,7 +178,7 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
                                     const result = await deletePurchaseOrder(order.id);
                                     if (result.success) {
                                         toast.success(`${order.orderNumber} deleted`);
-                                        router.push('/dashboard/purchasing/orders');
+                                        router.push(basePath);
                                     } else {
                                         toast.error(result.error || 'Failed to delete order');
                                     }
@@ -293,7 +299,7 @@ export function PurchaseOrderDetailClient({ order }: PurchaseOrderDetailClientPr
                                         <li key={gr.id} className="border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-r-md">
                                             <div className="flex justify-between items-center mb-1">
                                                 <Link
-                                                    href={`/dashboard/purchasing/receipts/${gr.id}`}
+                                                    href={`${basePath}/receipts/${gr.id}`}
                                                     className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
                                                 >
                                                     {gr.receiptNumber}

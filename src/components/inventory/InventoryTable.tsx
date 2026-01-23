@@ -91,9 +91,10 @@ interface InventoryTableProps {
     initialCompareDate?: string;
     showPrices?: boolean;
     abcMap?: Record<string, string>;
+    topBadges?: React.ReactNode;
 }
 
-export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false, abcMap }: InventoryTableProps) {
+export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false, abcMap, topBadges }: InventoryTableProps) {
 
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -279,9 +280,15 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     };
 
     return (
-        <div className="space-y-4 h-full flex flex-col">
+        <div className="h-full flex flex-col pt-4">
             {/* Filters Bar - Fixed at top */}
-            <div className="flex items-center gap-3 flex-wrap shrink-0">
+            <div className="flex items-center gap-3 flex-wrap shrink-0 px-4 pb-3 border-b border-zinc-100">
+                {topBadges && (
+                    <>
+                        {topBadges}
+                        <div className="w-px h-6 bg-zinc-200" />
+                    </>
+                )}
                 {/* Date Filter */}
                 <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
                     <CalendarIcon className="h-4 w-4 text-muted-foreground" />
@@ -347,26 +354,26 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                     </DropdownMenu>
                 )}
 
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/50" />
+                {/* Search (Slim) */}
+                <div className="relative flex-1 min-w-[150px]">
+                    <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground/40" />
                     <Input
                         placeholder="Search product..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 pr-9"
+                        className="pl-8 pr-8 h-8 text-[13px] bg-background border-zinc-200"
                     />
                     {searchTerm && (
                         <X
-                            className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground"
+                            className="absolute right-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground"
                             onClick={() => setSearchTerm('')}
                         />
                     )}
                 </div>
 
-                {/* Product Type Filter */}
+                {/* Product Type Filter (Slim) */}
                 <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[130px] h-8 text-[13px] border-zinc-200 bg-background">
                         <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -387,7 +394,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
             </div>
 
             {/* Table - Scrollable Area */}
-            <div className="flex-1 overflow-auto rounded-lg border bg-background relative">
+            <div className="flex-1 overflow-auto relative">
                 <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -466,16 +473,20 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             return (
                                 <React.Fragment key={item.id}>
                                     <TableRow
-                                        className={`${isLowStock ? "bg-red-500/10 hover:bg-red-500/20" : "hover:bg-muted/50"} transition-colors ${isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10 dark:hover:bg-blue-900/20" : ""}`}
+                                        className={cn(
+                                            "transition-colors",
+                                            isLowStock ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/30",
+                                            isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10" : ""
+                                        )}
                                     >
-                                        <TableCell className="pl-4 py-3 align-middle">
+                                        <TableCell className="pl-4 py-1.5 align-middle">
                                             <Checkbox
                                                 checked={isSelected}
                                                 onCheckedChange={() => toggleSelectItem(item.id)}
                                             />
                                         </TableCell>
 
-                                        <TableCell className="py-3 align-middle">
+                                        <TableCell className="py-1.5 align-middle">
                                             <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-medium text-sm text-foreground leading-tight">
@@ -515,7 +526,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             </TableCell>
                                         )}
 
-                                        <TableCell className="text-right align-middle">
+                                        <TableCell className="text-right py-1.5 align-middle">
                                             <div className="flex flex-col items-end">
                                                 <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
                                                     <span>{currentStock.toLocaleString()}</span>
@@ -531,7 +542,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center py-1.5 align-middle">
                                             {item.reservedQuantity ? (
                                                 <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 tabular-nums">
                                                     {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
@@ -540,7 +551,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 <span className="text-muted-foreground">-</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-center align-middle">
+                                        <TableCell className="text-center py-1.5 align-middle">
                                             <div className={cn(
                                                 "font-medium tabular-nums",
                                                 (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"

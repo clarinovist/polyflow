@@ -1,20 +1,20 @@
 import {
     getInventoryStats,
-    getLocations,
     getInventoryAsOf,
     getDashboardStats,
+    getInventoryTurnover,
+    getDaysOfInventoryOnHand,
 } from '@/actions/inventory';
 import { ABCAnalysisService } from '@/services/abc-analysis-service';
 import { canViewPrices } from '@/actions/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { InventoryTable, InventoryItem } from '@/components/inventory/InventoryTable';
-import { WarehouseNavigator } from '@/components/inventory/WarehouseNavigator';
-import { InventoryInsightsPanel } from '@/components/inventory/InventoryInsightsPanel';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Box, PackageCheck, DollarSign } from 'lucide-react';
-import { serializeData, formatRupiah } from '@/lib/utils';
+import { AlertCircle, Box, Activity, CalendarClock } from 'lucide-react';
+import { serializeData, formatRupiah, cn } from '@/lib/utils';
+
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -40,12 +40,14 @@ export default async function InventoryDashboard({
     // Fetch data in parallel
     const [
         liveInventory,
-        locations,
         dashboardStats,
+        turnoverStats,
+        dohStats,
     ] = await Promise.all([
         getInventoryStats(),
-        getLocations(),
         getDashboardStats(),
+        getInventoryTurnover(),
+        getDaysOfInventoryOnHand(),
     ]);
 
     const showPrices = await canViewPrices();
@@ -55,9 +57,7 @@ export default async function InventoryDashboard({
         ? (Array.isArray(params.locationId) ? params.locationId : [params.locationId])
         : [];
 
-    const activeLocation = activeLocationIds.length === 1
-        ? locations.find((l) => l.id === activeLocationIds[0])
-        : null;
+
 
     // Initialize table inventory with live data
     let tableInventory: (InventoryWithRelations | SimplifiedInventory)[] = liveInventory;
@@ -134,37 +134,10 @@ export default async function InventoryDashboard({
         displayInventory = displayInventory.filter(isTableGlobalLowStock);
     }
 
-    // Calculate location summaries for Navigator
-    const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: InventoryWithRelations) => {
-        const id = item.productVariantId;
-        acc[id] = (acc[id] || 0) + (typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber());
-        return acc;
-    }, {} as Record<string, number>);
 
-    const isLiveGlobalLowStock = (item: InventoryWithRelations) => {
-        const threshold = item.productVariant.minStockAlert?.toNumber();
-        if (!threshold) return false;
-        return liveVariantTotals[item.productVariantId] < threshold;
-    };
 
-    const locationSummaries = locations.map((loc) => {
-        const locInventory = liveInventory.filter((item) => item.locationId === loc.id);
-        const lowStockCount = locInventory.filter(isLiveGlobalLowStock).length;
 
-        return {
-            ...loc,
-            totalSkus: locInventory.length,
-            lowStockCount,
-        };
-    });
 
-    // Determine title
-    let pageTitle = "Global Stock Positions";
-    if (activeLocationIds.length === 1) {
-        pageTitle = `Stock in ${activeLocation?.name || 'Warehouse'}`;
-    } else if (activeLocationIds.length > 1) {
-        pageTitle = `Stock in ${activeLocationIds.length} Locations`;
-    }
 
     // Calculate displayed total stock based on filtered view
     const displayedTotalStock = activeLocationIds.length > 0
@@ -200,90 +173,93 @@ export default async function InventoryDashboard({
 
 
     return (
-        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden">
-            {/* Page Header */}
-            <div className="flex items-center justify-between shrink-0">
+        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden bg-[#fafafa]">
+            {/* Professional Strategic Header */}
+            <div className="flex items-end justify-between shrink-0 mb-2">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Inventory Overview</h1>
-                    <p className="text-muted-foreground mt-1">Monitor stock levels and warehouse status</p>
+                    <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Inventory Analysis</h1>
+                    <p className="text-sm text-zinc-500 mt-1 font-geist">Strategic oversight of performance & stock health</p>
+                </div>
+
+                <div className="flex items-center gap-10">
+                    <StatBlock
+                        label="Turnover Ratio"
+                        value={turnoverStats.turnoverRatio}
+                        icon={<Activity className="h-4 w-4" />}
+                        color="text-zinc-900"
+                    />
+                    <StatBlock
+                        label="Days on Hand"
+                        value={dohStats.daysOnHand.toFixed(1)}
+                        icon={<CalendarClock className="h-4 w-4" />}
+                        color="text-zinc-900"
+                    />
+                    <StatBlock
+                        label="Low Stock Alert"
+                        value={dashboardStats.lowStockCount}
+                        icon={<AlertCircle className="h-4 w-4 text-amber-600" />}
+                        color="text-amber-600"
+                    />
+                    <StatBlock
+                        label="Active SKUs"
+                        value={liveInventory.length}
+                        icon={<Box className="h-4 w-4" />}
+                        color="text-zinc-900"
+                    />
                 </div>
             </div>
 
-            {/* 2-Column Grid Layout - Takes remaining height */}
-            <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden min-h-0">
-
-                {/* Left Column: Warehouse Navigator + Inventory Actions (3 cols) */}
-                <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full overflow-hidden">
-
-                    {/* Warehouse Navigator (Scrollable list inside) - Comes FIRST now */}
-                    <div className="flex-1 overflow-hidden min-h-0">
-                        <WarehouseNavigator
-                            locations={locationSummaries}
-                            activeLocationIds={activeLocationIds} // Pass array
-                            totalSkus={liveInventory.length}
-                            totalLowStock={dashboardStats.lowStockCount}
-                        />
-                    </div>
-
-                    {/* Inventory Actions (Fixed at bottom of left column) */}
-                    <div className="shrink-0">
-                        <InventoryInsightsPanel
-                            activeLocationId={activeLocationIds.length === 1 ? activeLocationIds[0] : undefined}
-                        />
-                    </div>
-                </div>
-
-                {/* Center Column: Stock Table (9 cols) */}
-                <div className="col-span-12 lg:col-span-9 h-full flex flex-col overflow-hidden">
-                    <Card className="border shadow-sm bg-card h-full flex flex-col overflow-hidden">
-                        <CardHeader className="border-b bg-muted/50 py-4 shrink-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                        <Box className="h-4 w-4 text-muted-foreground" />
-                                        {pageTitle}
-                                    </CardTitle>
-                                    {/* Total Stock Badge */}
-                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1.5 px-2.5 py-1">
-                                        <PackageCheck className="h-3.5 w-3.5" />
-                                        <span className="font-semibold">{displayedTotalStock.toLocaleString()}</span>
-                                        <span className="text-emerald-600 font-normal">total stock</span>
-                                    </Badge>
-
-                                    {/* Total Value Badge (Conditionally Rendered) */}
-                                    {showPrices && (
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1.5 px-2.5 py-1">
-                                            <DollarSign className="h-3.5 w-3.5" />
-                                            <span className="font-semibold">{formatRupiah(finalTotalValue)}</span>
-                                            <span className="text-blue-600 font-normal">total value</span>
+            {/* Main Content Area - Card-less for Modern ERP Feel */}
+            <div className="flex-1 overflow-hidden min-h-0">
+                <div className="h-full flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                    <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
+                        <div className="h-full overflow-auto">
+                            <InventoryTable
+                                inventory={serializedInventory}
+                                variantTotals={tableVariantTotals}
+                                comparisonData={comparisonData}
+                                showComparison={!!compareDate}
+                                initialDate={params.asOf}
+                                initialCompareDate={params.compareWith}
+                                showPrices={showPrices}
+                                abcMap={abcMap}
+                                // Passing badges as props to let InventoryTable render them in its filter row
+                                topBadges={
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                            <span className="font-bold">{displayedTotalStock.toLocaleString()}</span>
+                                            <span className="opacity-70">units</span>
                                         </Badge>
-                                    )}
-                                </div>
-                                {asOfDate && (
-                                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
-                                        <AlertCircle className="h-3 w-3 mr-1" />
-                                        History: {format(asOfDate, 'MMM d, yyyy')}
-                                    </Badge>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
-                            <div className="h-full overflow-auto p-4">
-                                <InventoryTable
-                                    inventory={serializedInventory}
-                                    variantTotals={tableVariantTotals}
-                                    comparisonData={comparisonData}
-                                    showComparison={!!compareDate}
-                                    initialDate={params.asOf}
-                                    initialCompareDate={params.compareWith}
-                                    showPrices={showPrices}
-                                    abcMap={abcMap}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        {showPrices && (
+                                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                                <span className="font-bold">{formatRupiah(finalTotalValue)}</span>
+                                                <span className="opacity-70">value</span>
+                                            </Badge>
+                                        )}
+                                        {asOfDate && (
+                                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 text-[10px] h-6 px-2">
+                                                Snapshot: {format(asOfDate, 'MMM d')}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                }
+                            />
+                        </div>
+                    </CardContent>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function StatBlock({ label, value, icon, color }: { label: string, value: string | number, icon: React.ReactNode, color: string }) {
+    return (
+        <div className="flex flex-col items-start gap-1">
+            <div className="flex items-center gap-2">
+                <div className={cn("opacity-40", color)}>{icon}</div>
+                <p className="text-2xl font-bold tracking-tight text-zinc-900 leading-none">{value}</p>
+            </div>
+            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest leading-none pl-6">{label}</p>
         </div>
     );
 }

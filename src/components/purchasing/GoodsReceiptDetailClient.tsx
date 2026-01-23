@@ -35,9 +35,10 @@ interface GoodsReceiptDetailProps {
         createdBy: { name: string };
         items: GoodsReceiptItem[];
     };
+    basePath?: string;
 }
 
-export function GoodsReceiptDetailClient({ receipt }: GoodsReceiptDetailProps) {
+export function GoodsReceiptDetailClient({ receipt, basePath = '/dashboard/purchasing' }: GoodsReceiptDetailProps) {
     const totalValue = receipt.items.reduce(
         (sum, item) => sum + item.receivedQty * item.unitCost,
         0
@@ -48,7 +49,7 @@ export function GoodsReceiptDetailClient({ receipt }: GoodsReceiptDetailProps) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/dashboard/purchasing/receipts">
+                        <Link href={`${basePath}/receipts`}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
                     </Button>
@@ -64,7 +65,7 @@ export function GoodsReceiptDetailClient({ receipt }: GoodsReceiptDetailProps) {
                 </div>
 
                 <Button variant="outline" asChild>
-                    <Link href={`/dashboard/purchasing/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
+                    <Link href={`${basePath}/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
                         <FileText className="mr-2 h-4 w-4" />
                         View PO {receipt.purchaseOrder.orderNumber}
                     </Link>
@@ -137,7 +138,7 @@ export function GoodsReceiptDetailClient({ receipt }: GoodsReceiptDetailProps) {
                                 <div>
                                     <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
                                     <Link
-                                        href={`/dashboard/purchasing/orders`}
+                                        href={`${basePath}/orders`}
                                         className="font-mono text-blue-600 hover:underline"
                                     >
                                         {receipt.purchaseOrder.orderNumber}

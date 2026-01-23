@@ -6,11 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, Loader2, Mail, Lock } from 'lucide-react';
+import { AlertCircle, Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import PolyFlowLogo from './polyflow-logo';
+import { RoleType } from './role-selection';
 
-export default function LoginForm() {
+interface LoginFormProps {
+    selectedRole: RoleType;
+    onBack: () => void;
+}
+
+export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
         undefined,
@@ -24,9 +30,23 @@ export default function LoginForm() {
 
     return (
         <div className="w-full max-w-md mx-auto px-8 py-12">
+            {/* Back Button */}
+            <button
+                onClick={onBack}
+                className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-8"
+            >
+                <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                Back to roles
+            </button>
+
             {/* Logo */}
-            <div className="mb-10">
+            <div className="mb-8">
                 <PolyFlowLogo variant="dark" size="md" />
+            </div>
+
+            {/* Role Badge */}
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-4">
+                {selectedRole} Workspace
             </div>
 
             {/* Sign in Header */}
@@ -35,6 +55,9 @@ export default function LoginForm() {
             </h1>
 
             <form action={formAction} className="space-y-5">
+                {/* Hidden Role field */}
+                <input type="hidden" name="role" value={selectedRole} />
+
                 {/* Email Field */}
                 <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-foreground">
@@ -60,13 +83,13 @@ export default function LoginForm() {
                     </Label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
+                        <input
                             id="password"
                             name="password"
                             type="password"
                             placeholder="••••••••"
                             required
-                            className="pl-10 h-12 bg-background border-input rounded-lg focus:ring-2 focus:ring-ring/10 focus:border-ring transition-all"
+                            className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/10 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 pl-10 transition-all"
                         />
                     </div>
                 </div>
@@ -153,3 +176,4 @@ export default function LoginForm() {
         </div>
     );
 }
+

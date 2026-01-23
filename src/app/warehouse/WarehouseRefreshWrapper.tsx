@@ -1,20 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Employee } from '@prisma/client';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Users, LogIn, ChevronRight } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import WarehouseOrderCard from '@/components/warehouse/WarehouseOrderCard';
 
 import { Location, Employee as PrismaEmployee, ProductVariant, Machine, WorkShift } from '@prisma/client';
 
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
-    employees: Employee[];
     refreshData: () => Promise<void>;
     formData: {
         locations: Location[];
@@ -24,56 +20,29 @@ interface WarehouseRefreshWrapperProps {
         machines: Machine[];
         rawMaterials: ProductVariant[];
     };
+    sessionUser?: {
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+        role?: string;
+    };
 }
 
 export default function WarehouseRefreshWrapper({
     initialOrders,
-    employees,
     refreshData,
-    formData
+    formData,
+    sessionUser
 }: WarehouseRefreshWrapperProps) {
-    const [warehouseOperator, setWarehouseOperator] = useState<Employee | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-
-    // Filter employees to show only relevant ones (e.g. WAREHOUSE or PRODUCTION roles if available)
-    // For now, show all but could be filtered by department
-    const filteredEmployees = employees.filter(e =>
-        e.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Persistence logic
-    useEffect(() => {
-        const saved = localStorage.getItem('warehouse_operator');
-        if (saved) {
-            try {
-                const operator = JSON.parse(saved);
-                setTimeout(() => setWarehouseOperator(operator), 0);
-            } catch (e) {
-                console.error("Failed to parse warehouse operator", e);
-            }
-        }
-    }, []);
-
-    const handleSelectOperator = (emp: Employee) => {
-        setWarehouseOperator(emp);
-        localStorage.setItem('warehouse_operator', JSON.stringify(emp));
-        setSearchQuery('');
-    };
-
-    const handleLogout = () => {
-        setWarehouseOperator(null);
-        localStorage.removeItem('warehouse_operator');
-    };
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
         const interval = setInterval(() => {
-            if (warehouseOperator) {
-                refreshData();
-            }
+            refreshData();
         }, 30000);
         return () => clearInterval(interval);
-    }, [warehouseOperator, refreshData]);
+    }, [refreshData]);
 
     const filteredOrders = initialOrders.filter(order => {
         const matchesSearch =
@@ -85,52 +54,7 @@ export default function WarehouseRefreshWrapper({
         return matchesSearch;
     });
 
-    // --- Login Gate UI ---
-    if (!warehouseOperator) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-50">
-                <div className="w-full max-w-md space-y-8">
-                    <div className="text-center">
-                        <PolyFlowLogo className="mx-auto w-16 h-16 mb-4" />
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 font-outfit uppercase">Warehouse Access</h2>
-                        <p className="text-slate-500 mt-2">Select staff to manage material issuance</p>
-                    </div>
-
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <Input
-                            placeholder="Find staff name..."
-                            className="pl-10 h-12 text-lg shadow-sm border-slate-200"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {filteredEmployees.map((emp) => (
-                            <Button
-                                key={emp.id}
-                                variant="outline"
-                                className="h-16 justify-between px-6 hover:border-blue-500 hover:bg-blue-50/50 group transition-all"
-                                onClick={() => handleSelectOperator(emp)}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-600">
-                                        <Users className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="font-bold text-slate-900 group-hover:text-blue-700">{emp.name}</p>
-                                        <p className="text-xs text-slate-500">{emp.code}</p>
-                                    </div>
-                                </div>
-                                <LogIn className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // Removed manual login gate - now using session
 
     // --- Main Content UI ---
     return (
@@ -150,18 +74,9 @@ export default function WarehouseRefreshWrapper({
                 <div className="flex items-center gap-3 self-end sm:self-auto">
                     <div className="flex items-center gap-3 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
                         <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-                            {warehouseOperator.name.charAt(0)}
+                            {sessionUser?.name?.charAt(0) || 'U'}
                         </div>
-                        <span className="text-xs font-bold text-blue-800">{warehouseOperator.name}</span>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 rounded-full hover:bg-red-50 hover:text-red-500 text-blue-400"
-                            onClick={handleLogout}
-                            title="Switch Staff"
-                        >
-                            <ChevronRight className="w-4 h-4 rotate-180" />
-                        </Button>
+                        <span className="text-xs font-bold text-blue-800">{sessionUser?.name || 'User'}</span>
                     </div>
                 </div>
             </div>

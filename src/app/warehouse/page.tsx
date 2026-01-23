@@ -5,10 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WarehousePage() {
+    const session = await auth();
+
     // 1. Fetch orders that are RELEASED or IN_PROGRESS 
     const orders = await prisma.productionOrder.findMany({
         where: {
@@ -46,11 +49,6 @@ export default async function WarehousePage() {
         }
     });
 
-    const employees = await prisma.employee.findMany({
-        where: { status: 'ACTIVE' },
-        orderBy: { name: 'asc' }
-    });
-
     const formData = await getProductionFormData();
 
     // Server action to refresh data
@@ -62,9 +60,9 @@ export default async function WarehousePage() {
     return (
         <WarehouseRefreshWrapper
             initialOrders={serializeData(orders) as unknown as ExtendedProductionOrder[]}
-            employees={serializeData(employees)}
             refreshData={refreshData}
             formData={serializeData(formData)}
+            sessionUser={session?.user}
         />
     );
 }

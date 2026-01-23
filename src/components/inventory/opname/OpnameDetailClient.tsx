@@ -41,9 +41,10 @@ interface OpnameSession {
 interface OpnameDetailClientProps {
     session: OpnameSession;
     currentUserId: string;
+    basePath?: string;
 }
 
-export function OpnameDetailClient({ session, currentUserId }: OpnameDetailClientProps) {
+export function OpnameDetailClient({ session, currentUserId, basePath = '/dashboard/inventory/opname' }: OpnameDetailClientProps) {
     // const { data: sessionData } = useSession(); // Removed
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
@@ -80,7 +81,7 @@ export function OpnameDetailClient({ session, currentUserId }: OpnameDetailClien
     return (
         <div className="space-y-6 pt-2 pb-8">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                <Link href="/dashboard/inventory/opname" className="hover:text-foreground transition-colors flex items-center gap-1">
+                <Link href={basePath} className="hover:text-foreground transition-colors flex items-center gap-1">
                     <ArrowLeft className="h-4 w-4" />
                     Back to Opname List
                 </Link>

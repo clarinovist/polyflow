@@ -26,7 +26,7 @@ import { createOpnameSession } from '@/actions/opname';
 import { getLocations } from '@/actions/inventory';
 import { useRouter } from 'next/navigation';
 
-export function CreateOpnameDialog() {
+export function CreateOpnameDialog({ basePath = '/dashboard/inventory/opname' }: { basePath?: string }) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     interface Location {
@@ -56,7 +56,7 @@ export function CreateOpnameDialog() {
             if (result.success) {
                 toast.success("Stock Opname session created");
                 setOpen(false);
-                router.push(`/dashboard/inventory/opname/${result.id}`);
+                router.push(`${basePath}/${result.id}`);
             } else {
                 toast.error(`Error: ${result.error}`);
             }

@@ -7,16 +7,14 @@ import { Button } from '@/components/ui/button';
 
 import {
     Package,
-    Warehouse,
     TrendingUp,
     AlertTriangle,
     ArrowUpRight,
     Plus,
-    ArrowRightLeft,
-    ClipboardList,
     Factory,
     Boxes,
-    PackageCheck
+    PackageCheck,
+    ShoppingCart
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -540,27 +538,27 @@ function LowStockAlertsWidget({ lowStockCount }: { lowStockCount: number }) {
 function QuickActionsWidget() {
     const actions = [
         {
-            label: 'New Order',
-            href: '/dashboard/production/orders/create',
-            icon: ClipboardList,
+            label: 'Product Catalog',
+            href: '/dashboard/products',
+            icon: Package,
             color: 'bg-blue-500/10 text-blue-600',
         },
         {
-            label: 'Adjustment',
-            href: '/dashboard/inventory/adjustment',
-            icon: Package,
-            color: 'bg-emerald-500/10 text-emerald-600',
-        },
-        {
-            label: 'Transfer',
-            href: '/dashboard/inventory/transfer',
-            icon: ArrowRightLeft,
+            label: 'Production Analysis',
+            href: '/dashboard/production/analytics',
+            icon: Factory,
             color: 'bg-purple-500/10 text-purple-600',
         },
         {
-            label: 'Products',
-            href: '/dashboard/products',
-            icon: Warehouse,
+            label: 'Sales Insights',
+            href: '/dashboard/sales/analytics',
+            icon: TrendingUp,
+            color: 'bg-emerald-500/10 text-emerald-600',
+        },
+        {
+            label: 'Purchasing Insights',
+            href: '/dashboard/purchasing/analytics',
+            icon: ShoppingCart,
             color: 'bg-amber-500/10 text-amber-600',
         },
     ];
@@ -574,11 +572,11 @@ function QuickActionsWidget() {
                 <div className="grid grid-cols-2 gap-3">
                     {actions.map((action, index) => (
                         <Link key={index} href={action.href}>
-                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                            <div className="flex flex-col items-center gap-2 p-4 rounded-xl border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer h-full">
                                 <div className={`p-2.5 rounded-lg ${action.color}`}>
                                     <action.icon className="h-5 w-5" />
                                 </div>
-                                <span className="text-xs font-medium text-foreground">{action.label}</span>
+                                <span className="text-xs font-medium text-foreground text-center">{action.label}</span>
                             </div>
                         </Link>
                     ))}

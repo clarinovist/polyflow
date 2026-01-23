@@ -49,9 +49,10 @@ type ReceiptWithRelations = {
 
 interface GoodsReceiptTableProps {
     receipts: ReceiptWithRelations[];
+    basePath?: string;
 }
 
-export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
+export function GoodsReceiptTable({ receipts, basePath = '/dashboard/purchasing/receipts' }: GoodsReceiptTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredReceipts = useMemo(() => {
@@ -94,7 +95,7 @@ export function GoodsReceiptTable({ receipts }: GoodsReceiptTableProps) {
                                 <TableRow key={gr.id} className="hover:bg-muted/30 transition-colors">
                                     <TableCell className="font-mono font-medium">
                                         <Link
-                                            href={`/dashboard/purchasing/receipts/${gr.id}`}
+                                            href={`${basePath}/${gr.id}`}
                                             className="text-emerald-600 hover:underline"
                                         >
                                             {gr.receiptNumber}

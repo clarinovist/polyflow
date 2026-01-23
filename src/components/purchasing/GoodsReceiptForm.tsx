@@ -29,9 +29,17 @@ interface GoodsReceiptFormProps {
     }[];
     locations: { id: string; name: string }[];
     defaultLocationId?: string;
+    basePath?: string;
 }
 
-export function GoodsReceiptForm({ purchaseOrderId, orderNumber, items, locations, defaultLocationId }: GoodsReceiptFormProps) {
+export function GoodsReceiptForm({
+    purchaseOrderId,
+    orderNumber,
+    items,
+    locations,
+    defaultLocationId,
+    basePath = '/dashboard/purchasing/orders'
+}: GoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -65,7 +73,7 @@ export function GoodsReceiptForm({ purchaseOrderId, orderNumber, items, location
             const result = await createGoodsReceipt(data);
             if (result) {
                 toast.success('Goods received successfully');
-                router.push(`/dashboard/purchasing/orders/${purchaseOrderId}`);
+                router.push(`${basePath}/${purchaseOrderId}`);
                 router.refresh();
             }
         } catch (_error) {

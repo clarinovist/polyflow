@@ -105,8 +105,14 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount' | 'orderDate' | 'expe
 
 interface SalesOrderDetailClientProps {
     order: SerializedSalesOrder;
+    basePath?: string;
+    warehouseMode?: boolean;
 }
-export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
+export function SalesOrderDetailClient({
+    order,
+    basePath = '/dashboard/sales',
+    warehouseMode = false
+}: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -160,7 +166,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
             const result = await deleteSalesOrder(order.id);
             if (result.success) {
                 toast.success("Order deleted");
-                router.push('/dashboard/sales');
+                router.push(basePath);
             } else {
                 toast.error(result.error);
             }
@@ -194,7 +200,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/dashboard/sales">
+                        <Link href={basePath}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
                     </Button>
@@ -210,10 +216,10 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                 </div>
 
                 <div className="flex gap-2">
-                    {order.status === 'DRAFT' && (
+                    {!warehouseMode && order.status === 'DRAFT' && (
                         <>
                             <Button variant="outline" asChild>
-                                <Link href={`/dashboard/sales/${order.id}/edit`}>
+                                <Link href={`${basePath}/${order.id}/edit`}>
                                     <Edit className="mr-2 h-4 w-4" /> Edit
                                 </Link>
                             </Button>
@@ -280,7 +286,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                                 </Button>
                             )}
 
-                            {order.invoices.length === 0 && (
+                            {!warehouseMode && order.invoices.length === 0 && (
                                 <Button
                                     onClick={handleGenerateInvoice}
                                     disabled={isLoading}
@@ -292,7 +298,7 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                         </>
                     )}
 
-                    {['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(order.status) && (
+                    {!warehouseMode && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(order.status) && (
                         <Button
                             variant="ghost"
                             className="text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -347,8 +353,8 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                                         <th className="h-10 px-4 text-left font-medium">Product</th>
                                         <th className="h-10 px-4 text-right font-medium">Quantity</th>
                                         <th className="h-10 px-4 text-right font-medium">Delivered</th>
-                                        <th className="h-10 px-4 text-right font-medium">Unit Price</th>
-                                        <th className="h-10 px-4 text-right font-medium">Subtotal</th>
+                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">Unit Price</th>}
+                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">Subtotal</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -366,19 +372,21 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                                                     {Number(item.deliveredQty)}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-right">{formatRupiah(Number(item.unitPrice))}</td>
-                                            <td className="p-4 text-right font-medium">{formatRupiah(Number(item.subtotal))}</td>
+                                            {!warehouseMode && <td className="p-4 text-right">{formatRupiah(Number(item.unitPrice))}</td>}
+                                            {!warehouseMode && <td className="p-4 text-right font-medium">{formatRupiah(Number(item.subtotal))}</td>}
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot className="bg-muted/50 border-t">
-                                    <tr>
-                                        <td colSpan={4} className="p-4 text-right font-bold">Total Amount</td>
-                                        <td className="p-4 text-right font-bold text-lg">
-                                            {formatRupiah(Number(order.totalAmount))}
-                                        </td>
-                                    </tr>
-                                </tfoot>
+                                {!warehouseMode && (
+                                    <tfoot className="bg-muted/50 border-t">
+                                        <tr>
+                                            <td colSpan={4} className="p-4 text-right font-bold">Total Amount</td>
+                                            <td className="p-4 text-right font-bold text-lg">
+                                                {formatRupiah(Number(order.totalAmount))}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
                     </CardContent>
@@ -387,36 +395,38 @@ export function SalesOrderDetailClient({ order }: SalesOrderDetailClientProps) {
                 {/* Sidebar Info (Invoices / Movements / Production) */}
                 <div className="space-y-6">
                     {/* INVOICES CARD */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Invoices</CardTitle>
-                            <CardDescription>Generated invoices for this order</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {order.invoices && order.invoices.length > 0 ? (
-                                <ul className="space-y-4">
-                                    {order.invoices.map((inv) => (
-                                        <li key={inv.id} className="border p-3 rounded-md">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="font-medium">{inv.invoiceNumber}</span>
-                                                <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
-                                                    {inv.status}
-                                                </Badge>
-                                            </div>
-                                            <div className="text-sm text-muted-foreground mb-1">
-                                                {format(new Date(inv.invoiceDate), 'PP')}
-                                            </div>
-                                            <div className="font-semibold">
-                                                {formatRupiah(Number(inv.totalAmount))}
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No invoices generated.</p>
-                            )}
-                        </CardContent>
-                    </Card>
+                    {!warehouseMode && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Invoices</CardTitle>
+                                <CardDescription>Generated invoices for this order</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {order.invoices && order.invoices.length > 0 ? (
+                                    <ul className="space-y-4">
+                                        {order.invoices.map((inv) => (
+                                            <li key={inv.id} className="border p-3 rounded-md">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="font-medium">{inv.invoiceNumber}</span>
+                                                    <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
+                                                        {inv.status}
+                                                    </Badge>
+                                                </div>
+                                                <div className="text-sm text-muted-foreground mb-1">
+                                                    {format(new Date(inv.invoiceDate), 'PP')}
+                                                </div>
+                                                <div className="font-semibold">
+                                                    {formatRupiah(Number(inv.totalAmount))}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No invoices generated.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <ProductionStatusCard
                         salesOrderId={order.id}

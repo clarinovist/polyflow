@@ -28,9 +28,10 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
 
 interface SalesOrderTableProps {
     initialData: SerializedSalesOrder[];
+    basePath?: string;
 }
 
-export function SalesOrderTable({ initialData }: SalesOrderTableProps) {
+export function SalesOrderTable({ initialData, basePath = '/dashboard/sales' }: SalesOrderTableProps) {
     const router = useRouter();
 
     const getStatusColor = (status: SalesOrderStatus) => {
@@ -72,7 +73,7 @@ export function SalesOrderTable({ initialData }: SalesOrderTableProps) {
                             <TableRow
                                 key={order.id}
                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => router.push(`/dashboard/sales/${order.id}`)}
+                                onClick={() => router.push(`${basePath}/${order.id}`)}
                             >
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">

@@ -23,22 +23,38 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         Credentials({
             async authorize(credentials) {
                 const parsedCredentials = z
-                    .object({ email: z.string().email(), password: z.string().min(6) })
+                    .object({
+                        email: z.string().email(),
+                        password: z.string().min(6),
+                        role: z.string().optional()
+                    })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
-                    const { email, password } = parsedCredentials.data;
+                    const { email, password, role } = parsedCredentials.data;
                     const user = await getUser(email);
-                    if (!user) return null;
+                    if (!user) {
+                        console.log(`User not found: ${email}`);
+                        throw new Error('UserNotFound');
+                    }
 
                     const passwordsMatch = await bcrypt.compare(password, user.password);
 
-                    if (passwordsMatch) return {
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                    };
+                    if (passwordsMatch) {
+                        // Check if role matches if provided
+                        // ADMIN can bypass this and access all workspaces
+                        if (role && user.role !== role && user.role !== 'ADMIN') {
+                            console.log(`Role mismatch: expected ${role}, user has ${user.role}`);
+                            throw new Error('RoleMismatch');
+                        }
+
+                        return {
+                            id: user.id,
+                            name: user.name,
+                            email: user.email,
+                            role: user.role,
+                        };
+                    }
                 }
 
                 console.log('Invalid credentials');

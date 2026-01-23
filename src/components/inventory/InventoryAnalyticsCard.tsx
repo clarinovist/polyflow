@@ -45,19 +45,19 @@ export function InventoryAnalyticsCard({
     }
 
     return (
-        <Card className={cn("overflow-hidden", className)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className={cn("overflow-hidden hover:bg-muted/5 transition-colors", className)}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 pt-3 px-4">
+                <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     {title}
                 </CardTitle>
-                <div className="p-2 bg-primary/10 rounded-full">
+                <div className="p-1.5 bg-primary/10 rounded-lg shrink-0">
                     {icon}
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
+            <CardContent className="pb-3 px-4">
+                <div className="text-xl font-bold tracking-tight">{value}</div>
                 {(description || trend) && (
-                    <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                    <div className="text-[10.5px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                         {trend && (
                             <span className={cn(
                                 "font-medium",

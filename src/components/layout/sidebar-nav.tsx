@@ -4,10 +4,6 @@ import { GlobalSearch } from '@/components/GlobalSearch';
 
 import {
     LayoutDashboard,
-    Warehouse,
-    ArrowRightLeft,
-    ClipboardList,
-    ClipboardCheck,
     Factory,
     Package,
     Files,
@@ -23,11 +19,9 @@ import {
     ChevronDown,
     ChevronRight,
     MonitorPlay,
-    Clock,
     Truck,
     ShoppingCart,
     Receipt,
-    Download,
     FileText
 } from 'lucide-react';
 import Link from 'next/link';
@@ -67,13 +61,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
     {
         heading: "Inventory Control",
         items: [
-            { title: "Stock Status", href: "/dashboard/inventory", icon: Warehouse },
-            { title: "Transfers", href: "/dashboard/inventory/transfer", icon: ArrowRightLeft },
-            { title: "Adjustments", href: "/dashboard/inventory/adjustment", icon: ClipboardList },
-
-            { title: "Stock Opname", href: "/dashboard/inventory/opname", icon: ClipboardCheck },
-            { title: "Stock Aging", href: "/dashboard/inventory/aging", icon: Clock },
-            { title: "Analytics", href: "/dashboard/inventory/analytics", icon: BarChart3 },
+            { title: "Inventory Analysis", href: "/dashboard/inventory", icon: BarChart3 },
         ],
     },
     {
@@ -89,7 +77,6 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "Procurement",
         items: [
             { title: "Purchase Orders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
-            { title: "Goods Receipts", href: "/dashboard/purchasing/receipts", icon: Download },
             { title: "Purchase Invoices", href: "/dashboard/purchasing/invoices", icon: FileText },
             { title: "Analytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
         ],
