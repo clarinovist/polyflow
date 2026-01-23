@@ -130,3 +130,12 @@ export const logRunningOutputSchema = z.object({
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
 
 export type ProductionOutputValues = z.infer<typeof productionOutputSchema>;
+
+export const logMachineDowntimeSchema = z.object({
+    machineId: z.string().min(1, "Machine is required"),
+    reason: z.string().min(1, "Reason is required"),
+    startTime: z.coerce.date(),
+    endTime: z.coerce.date().optional(),
+});
+
+export type LogMachineDowntimeValues = z.infer<typeof logMachineDowntimeSchema>;

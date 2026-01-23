@@ -18,6 +18,12 @@ export interface ExecutiveStats {
         activeJobs: number;
         delayedJobs: number; // Placeholder logic for now, or could be jobs past due date
         completionRate: number; // Completed / Total this month
+        // New Metrics
+        yieldRate: number;      // % Good Output / Total Input
+        totalScrapKg: number;   // ScrapRecord + Execution Scrap
+        downtimeHours: number;  // MachineDowntime duration
+        runningMachines: number; // Count of machines with IN_PROGRESS orders
+        totalMachines: number;   // Count of ACTIVE machines
     };
     inventory: {
         totalValue: number;
@@ -41,6 +47,14 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         // Production
         activeProductionOrders,
         completedProductionOrdersMonth,
+        // New Production Metrics
+        activeMachinesCount,    // Total active machines
+        runningMachinesCount,   // Machines with IN_PROGRESS orders
+        downtimeRecords,        // Downtime in current month
+        scrapRecords,           // Ad-hoc scrap
+        executionScrap,         // ProductionExecution scrap
+        executionOutput,        // ProductionExecution good output (for yield)
+        materialIssues,         // Material Consumption (for yield)
         // Inventory
         inventoryStats
     ] = await prisma.$transaction([
@@ -82,7 +96,65 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
             select: { status: true }
         }),
 
-        // 7. Inventory Stats
+        // 7. Total Active Machines
+        prisma.machine.count({
+            where: { status: 'ACTIVE' }
+        }),
+        // 8. Running Machines (Orders IN_PROGRESS)
+        // Approximation: Count machines typically assigned to IN_PROGRESS orders
+        // A better way is counting distinct machineIds on IN_PROGRESS orders, but count() distinct is limited.
+        // We'll use groupBy or distinct count workaround if needed, but for now lets check active orders with machineId
+        prisma.productionOrder.findMany({
+            where: {
+                status: ProductionStatus.IN_PROGRESS,
+                machineId: { not: null }
+            },
+            select: { machineId: true },
+            distinct: ['machineId']
+        }),
+
+        // 9. Downtime Duration (Current Month)
+        prisma.machineDowntime.findMany({
+            where: {
+                startTime: { gte: startOfCurrentMonth },
+                // If checking overlap, logic is complex. Simplified: Starts in this month.
+            },
+            select: { startTime: true, endTime: true }
+        }),
+
+        // 10. Scrap Records (Ad-hoc)
+        prisma.scrapRecord.aggregate({
+            where: {
+                recordedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+            },
+            _sum: { quantity: true }
+        }),
+
+        // 11. Execution Scrap (Inline)
+        prisma.productionExecution.aggregate({
+            where: {
+                endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+            },
+            _sum: { scrapQuantity: true }
+        }),
+
+        // 12. Execution Output (For Yield)
+        prisma.productionExecution.aggregate({
+            where: {
+                endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+            },
+            _sum: { quantityProduced: true }
+        }),
+
+        // 13. Material Issues (For Yield Input)
+        prisma.materialIssue.aggregate({
+            where: {
+                issuedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+            },
+            _sum: { quantity: true }
+        }),
+
+        // 14. Inventory Stats
         prisma.productVariant.aggregate({
             _sum: { price: true }, // Approximation of value using price, ideally uses cost * stock
             _count: { id: true }
@@ -102,6 +174,30 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
     const totalJobsMonth = completedProductionOrdersMonth.length;
     const completedJobsMonth = completedProductionOrdersMonth.filter((o: { status: ProductionStatus }) => o.status === ProductionStatus.COMPLETED).length;
     const completionRate = totalJobsMonth > 0 ? (completedJobsMonth / totalJobsMonth) * 100 : 0;
+
+    // Running Machines
+    const runningMachines = runningMachinesCount.length; // distinct machineIds
+
+    // Downtime Hours
+    const totalDowntimeMs = downtimeRecords.reduce((sum, record) => {
+        const start = record.startTime.getTime();
+        const end = record.endTime ? record.endTime.getTime() : now.getTime();
+        return sum + (end - start);
+    }, 0);
+    const downtimeHours = totalDowntimeMs / (1000 * 60 * 60);
+
+    // Scrap (kg)
+    const adhocScrap = scrapRecords._sum.quantity?.toNumber() || 0;
+    const inlineScrap = executionScrap._sum.scrapQuantity?.toNumber() || 0;
+    const totalScrapKg = adhocScrap + inlineScrap;
+
+    // Yield Rate
+    const totalOutput = executionOutput._sum.quantityProduced?.toNumber() || 0;
+    const totalInput = materialIssues._sum.quantity?.toNumber() || 0;
+    // Yield = Output / Input. Note: This is an approximation as Input might be for WIP not yet Output.
+    // For specific plastic batch yield, we usually compare Output vs Input per Order.
+    // Aggregate Level: Good enough for high level trend.
+    const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
 
     // --- Calculate Inventory Metrics ---
     // Accurate Inventory Value requires iterating all stock items * cost.
@@ -141,7 +237,12 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         production: {
             activeJobs: activeProductionOrders,
             delayedJobs: 0, // Placeholder
-            completionRate
+            completionRate,
+            yieldRate,
+            totalScrapKg,
+            downtimeHours,
+            runningMachines,
+            totalMachines: activeMachinesCount
         },
         inventory: {
             totalValue: totalInventoryValue,

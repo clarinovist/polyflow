@@ -61,9 +61,9 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     variant="neutral"
                 />
                 <KPICard
-                    title="Production Load"
-                    value={`${stats.production.activeJobs} Jobs`}
-                    subtitle={`${stats.production.completionRate.toFixed(0)}% completion rate`}
+                    title="Machine Utilization"
+                    value={`${stats.production.runningMachines} / ${stats.production.totalMachines} Running`}
+                    subtitle={`Yield Rate: ${stats.production.yieldRate.toFixed(1)}%`}
                     icon={Factory}
                     trend="neutral"
                     trendValue="Stable capacity"
@@ -71,7 +71,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <KPICard
                     title="Inventory Value"
                     value={formatRupiah(stats.inventory.totalValue)}
-                    subtitle={`${stats.inventory.lowStockCount} items low stock`}
+                    subtitle={`${stats.inventory.lowStockCount} Low Resin/Material Alerts`}
                     icon={Package}
                     trend="neutral"
                     trendValue="Healthy levels"
@@ -128,8 +128,13 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     bgColor="bg-amber-50"
                 >
                     <div className="space-y-4">
-                        <MetricRow label="Active Jobs" value={stats.production.activeJobs.toString()} />
-                        <MetricRow label="Completion Rate" value={`${stats.production.completionRate.toFixed(0)}%`} />
+                        <MetricRow label="Net Yield Rate" value={`${stats.production.yieldRate.toFixed(1)}%`} />
+                        <MetricRow
+                            label="Total Scrap"
+                            value={`${stats.production.totalScrapKg.toFixed(1)} kg`}
+                            valueClass={stats.production.totalScrapKg > 0 ? "text-red-500 font-bold" : ""}
+                        />
+                        <MetricRow label="Downtime" value={`${stats.production.downtimeHours.toFixed(1)} hrs`} />
                         <div className="pt-2">
                             <Link href="/dashboard/production/analytics" className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1">
                                 View Production Efficiency <ArrowRight className="h-3 w-3" />
@@ -165,8 +170,8 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
             {/* Quick Actions Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                <QuickAction href="/dashboard/sales/quotations/create" label="New Quote" icon={TrendingUp} />
-                <QuickAction href="/dashboard/purchasing/orders/create" label="New PO" icon={ShoppingCart} />
+                <QuickAction href="/dashboard/production/downtime/create" label="Log Machine Downtime" icon={TrendingDown} />
+                <QuickAction href="/kiosk" label="Record Scrap/Output" icon={Factory} />
                 <QuickAction href="/dashboard/production/orders/create" label="New Production Order" icon={Factory} />
                 <QuickAction href="/dashboard/products/create" label="Add Product" icon={Package} />
             </div>

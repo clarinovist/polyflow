@@ -21,7 +21,9 @@ import {
     productionOutputSchema,
     ProductionOutputValues,
     qualityInspectionSchema,
-    QualityInspectionValues
+    QualityInspectionValues,
+    logMachineDowntimeSchema,
+    LogMachineDowntimeValues
 } from '@/lib/schemas/production';
 import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma } from '@prisma/client';
@@ -496,5 +498,23 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
     } catch (error) {
         console.error("Create PO from SO Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to trigger production" };
+    }
+}
+
+/**
+ * Log Machine Downtime
+ */
+export async function logMachineDowntime(data: LogMachineDowntimeValues) {
+    const result = logMachineDowntimeSchema.safeParse(data);
+    if (!result.success) {
+        return { success: false, error: result.error.issues[0].message };
+    }
+
+    try {
+        await ProductionService.recordDowntime(result.data);
+        revalidatePath('/dashboard/production');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }

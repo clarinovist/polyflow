@@ -10,7 +10,8 @@ import {
     StopExecutionValues,
     LogRunningOutputValues,
     ProductionOutputValues,
-    QualityInspectionValues
+    QualityInspectionValues,
+    LogMachineDowntimeValues
 } from '@/lib/schemas/production';
 import { ProductionStatus, MovementType, ReservationStatus } from '@prisma/client';
 import { InventoryService } from './inventory-service';
@@ -23,7 +24,11 @@ export class ProductionService {
         // Run in parallel
         const [boms, machines, locations, employees, workShifts, rawMaterials] = await Promise.all([
             prisma.bom.findMany({
-                include: { productVariant: true }
+                include: {
+                    productVariant: {
+                        include: { product: true }
+                    }
+                }
             }),
             prisma.machine.findMany({
                 where: { status: 'ACTIVE' }
@@ -868,6 +873,23 @@ export class ProductionService {
             await tx.scrapRecord.create({
                 data: { productionOrderId, productVariantId, quantity, reason }
             });
+        });
+    }
+
+    /**
+     * Record Machine Downtime
+     */
+    static async recordDowntime(data: LogMachineDowntimeValues & { createdById?: string }) {
+        const { machineId, reason, startTime, endTime, createdById } = data;
+
+        await prisma.machineDowntime.create({
+            data: {
+                machineId,
+                reason,
+                startTime,
+                endTime,
+                createdById
+            }
         });
     }
 }
