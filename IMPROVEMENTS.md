@@ -730,6 +730,15 @@ Inventory Aging Report
 5. Mobile App (PWA) ✅
 6. Advanced Analytics Dashboard ✅
 
+### Phase 7 (Sprint 11+): Localization - Bahasa Indonesia
+
+> 📄 **Detailed Plan**: See [docs/LOCALIZATION_PLAN.md](./docs/LOCALIZATION_PLAN.md) for complete terminology dictionary and implementation guide.
+
+1. Setup `next-intl` i18n framework 🟦 PLANNED
+2. Core UI Translation (Sidebar, Dashboard, Common) 🟦 PLANNED
+3. Module-by-Module Translation 🟦 PLANNED
+4. Validation & Polish 🟦 PLANNED
+
 ---
 
 ## 💡 Quick Wins (< 2 Days Each)
