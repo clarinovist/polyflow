@@ -30,9 +30,9 @@ async function ensureLocations() {
       description: 'Storage for incoming raw materials',
     },
     {
-      name: 'Mixing Warehouse',
-      slug: 'mixing_warehouse',
-      description: 'Storage for the output of the Mixing process',
+      name: 'Mixing Area',
+      slug: 'mixing_area',
+      description: 'Production floor for mixing and compounding',
     },
     {
       name: 'Finished Goods Warehouse',

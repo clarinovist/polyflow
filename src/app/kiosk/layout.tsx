@@ -1,9 +1,7 @@
 import { getActiveExecutions } from "@/actions/production";
 import { ActiveExecutionBanner } from "@/components/production/kiosk/ActiveExecutionBanner";
 import PolyFlowLogo from "@/components/auth/polyflow-logo";
-import { Button } from "@/components/ui/button";
-import { Home, Clock } from "lucide-react";
-import Link from "next/link";
+import { Clock } from "lucide-react";
 
 import { ClockDisplay } from "./ClockDisplay";
 
@@ -20,14 +18,19 @@ interface KioskActiveExecution {
     }
 }
 
+import { auth } from "@/auth"; // Make sure to import auth
+import { AdminBackButton } from "@/components/layout/admin-back-button";
+
+// ... (existing imports)
+
 export default async function KioskLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // We allow public access to the kiosk, so we don't redirect to login here.
-    // The middleware already handles path protection for other routes.
-    // const session = await auth();
+    // We allow public access to the kiosk, but we check session for Admin functionality
+    const session = await auth();
+    const role = (session?.user as { role?: string })?.role;
 
 
     const activeExecutions = (await getActiveExecutions()) as unknown as KioskActiveExecution[];
@@ -56,12 +59,8 @@ export default async function KioskLayout({
 
                     <div className="h-8 w-px bg-border mx-1 md:mx-2" />
 
-                    <Button variant="outline" size="lg" asChild className="h-10 md:h-12 border-2 hover:bg-accent font-bold px-3 md:px-6">
-                        <Link href="/dashboard">
-                            <Home className="md:mr-2 h-5 w-5 font-bold" />
-                            <span className="hidden md:inline text-xs md:text-base">BACK TO OFFICE</span>
-                        </Link>
-                    </Button>
+                    {/* Admin Back Button - Only visible to Admins */}
+                    <AdminBackButton role={role} />
                 </div>
             </header>
 

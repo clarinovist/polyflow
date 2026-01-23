@@ -11,11 +11,12 @@ export const authConfig = {
                 const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
                 const isOnKiosk = nextUrl.pathname.startsWith('/kiosk');
                 const isOnWarehouse = nextUrl.pathname.startsWith('/warehouse');
+                const isOnProduction = nextUrl.pathname.startsWith('/production');
 
                 // Kiosk is public
                 if (isOnKiosk) return true;
 
-                if (isOnDashboard || isOnWarehouse) {
+                if (isOnDashboard || isOnWarehouse || isOnProduction) {
                     if (isLoggedIn) {
                         // Allow access to logout page to break redirect loops
                         if (nextUrl.pathname === '/logout') return true;
@@ -27,9 +28,15 @@ export const authConfig = {
 
                         // Strict Workspace Isolation
                         if (userRole === 'WAREHOUSE') {
-                            // Warehouse user trying to access Dashboard -> Redirect to Warehouse
-                            if (isOnDashboard) {
+                            // Warehouse user trying to access Dashboard or Production -> Redirect to Warehouse
+                            if (isOnDashboard || isOnProduction) {
                                 return Response.redirect(new URL('/warehouse', nextUrl));
+                            }
+                        } else if (userRole === 'PRODUCTION') {
+                            // Production user trying to access Warehouse -> Redirect to Production (or Dashboard if they have specific dashboard needs)
+                            // For now, let's allow Production to access Dashboard but prioritize /production for their main tasks.
+                            if (isOnWarehouse) {
+                                return Response.redirect(new URL('/production', nextUrl));
                             }
                         } else {
                             // Non-Warehouse/Non-Admin user (e.g. SALES, PPIC) trying to access Warehouse -> Redirect to Dashboard
@@ -45,7 +52,10 @@ export const authConfig = {
                     // Default redirect for root "/"
                     if (nextUrl.pathname === '/') {
                         const userRole = (auth?.user as { role?: string })?.role;
-                        const targetUrl = userRole === 'WAREHOUSE' ? '/warehouse' : '/dashboard';
+                        let targetUrl = '/dashboard';
+                        if (userRole === 'WAREHOUSE') targetUrl = '/warehouse';
+                        if (userRole === 'PRODUCTION') targetUrl = '/production';
+
                         return Response.redirect(new URL(targetUrl, nextUrl));
                     }
                 }

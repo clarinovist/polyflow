@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: ./scripts/check-negative-inventory.sh [location_slug]
-# Example: ./scripts/check-negative-inventory.sh mixing_warehouse
+# Example: ./scripts/check-negative-inventory.sh mixing_area
 
-LOCATION_SLUG=${1:-mixing_warehouse}
+LOCATION_SLUG=${1:-mixing_area}
 CONTAINER=${POLYFLOW_DB_CONTAINER:-polyflow-db}
 
 echo "Checking negative inventory for location slug = $LOCATION_SLUG"

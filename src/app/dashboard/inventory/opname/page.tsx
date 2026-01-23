@@ -1,4 +1,7 @@
 import { getOpnameSessions } from '@/actions/opname';
+import { requireRole } from '@/lib/auth-checks';
+import { Role } from '@prisma/client';
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
@@ -8,6 +11,13 @@ import { CreateOpnameDialog } from '@/components/inventory/opname/CreateOpnameDi
 import { Separator } from '@/components/ui/separator';
 
 export default async function OpnameListPage() {
+    try {
+        await requireRole([Role.WAREHOUSE, Role.PRODUCTION, Role.PPIC]);
+    } catch (_) {
+        // If user is not authorized, redirect to dashboard for safety
+        redirect('/dashboard');
+    }
+
     const sessions = await getOpnameSessions();
 
     return (

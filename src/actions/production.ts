@@ -26,8 +26,6 @@ import {
 import { serializeData } from '@/lib/utils';
 import { ProductionStatus, Prisma, MovementType, ReservationStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/auth-checks';
-import { logActivity } from '@/lib/audit';
 
 /**
  * Create a new Production Order
@@ -40,7 +38,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
     const {
         bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-        locationId, orderNumber, notes, salesOrderId, machineId
+        locationId, orderNumber, notes, salesOrderId
     } = result.data;
 
     try {
@@ -54,7 +52,6 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
                     plannedStartDate,
                     plannedEndDate,
                     locationId,
-                    machineId: machineId || null,
                     notes,
                     status: ProductionStatus.DRAFT,
                     actualQuantity: 0,
@@ -134,12 +131,6 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
                 include: {
                     operator: true
                 }
-            },
-            plannedMaterials: {
-                select: { quantity: true }
-            },
-            materialIssues: {
-                select: { quantity: true }
             }
         },
         orderBy: {
@@ -147,18 +138,11 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
         }
     });
 
-    return orders.map(order => {
-        const plannedMaterialsTotal = (order.plannedMaterials || []).reduce((s, m) => s + Number(m.quantity), 0);
-        const issuedTotal = (order.materialIssues || []).reduce((s, mi) => s + Number(mi.quantity), 0);
-
-        return {
-            ...order,
-            plannedQuantity: order.plannedQuantity.toNumber(),
-            actualQuantity: order.actualQuantity?.toNumber() ?? null,
-            plannedMaterialsTotal,
-            issuedTotal,
-        };
-    });
+    return orders.map(order => ({
+        ...order,
+        plannedQuantity: order.plannedQuantity.toNumber(),
+        actualQuantity: order.actualQuantity?.toNumber() ?? null,
+    }));
 }
 
 /**
@@ -250,35 +234,6 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
     const { id, status, actualQuantity, actualStartDate, actualEndDate, machineId } = result.data;
 
     try {
-        if (status === ProductionStatus.RELEASED) {
-            const currentOrder = await prisma.productionOrder.findUnique({
-                where: { id },
-                select: {
-                    machineId: true,
-                    locationId: true,
-                    bomId: true,
-                    plannedQuantity: true,
-                    plannedStartDate: true
-                }
-            });
-
-            if (!currentOrder) return { success: false, error: 'Order not found' };
-
-            const missingFields = [];
-            if (!machineId && !currentOrder.machineId) missingFields.push('Machine');
-            if (!currentOrder.locationId) missingFields.push('Output Location');
-            if (!currentOrder.bomId) missingFields.push('Recipe (BOM)');
-            if (!currentOrder.plannedQuantity) missingFields.push('Planned Quantity');
-            if (!currentOrder.plannedStartDate) missingFields.push('Planned Start Date');
-
-            if (missingFields.length > 0) {
-                return {
-                    success: false,
-                    error: `Cannot release order. Missing mandatory fields: ${missingFields.join(', ')}`
-                };
-            }
-        }
-
         await prisma.productionOrder.update({
             where: { id },
             data: {
@@ -293,69 +248,6 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
         revalidatePath(`/dashboard/production/orders/${id}`);
         revalidatePath('/dashboard/production');
         return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
-    }
-}
-
-/**
- * Start Production Order with optional override when no materials issued
- */
-export async function startProductionOrder(productionOrderId: string, override = false) {
-    const session = await requireAuth();
-    const currentUserId = session.user.id;
-
-    if (!productionOrderId) return { success: false, error: 'Production ID is required' };
-
-    const order = await prisma.productionOrder.findUnique({
-        where: { id: productionOrderId },
-        include: {
-            plannedMaterials: true,
-            materialIssues: true,
-        }
-    });
-
-    if (!order) return { success: false, error: 'Order not found' };
-
-    const required = (order.plannedMaterials || []).reduce((s: number, m: { quantity: Prisma.Decimal | number | string }) => s + Number(m.quantity), 0);
-    const issued = (order.materialIssues || []).reduce((s: number, mi: { quantity: Prisma.Decimal | number | string }) => s + Number(mi.quantity), 0);
-    const issuedPct = required > 0 ? (issued / required) * 100 : 0;
-
-    if (issued === 0 && !override) {
-        return { success: false, error: 'NO_MATERIAL_ISSUED', issuedPct };
-    }
-
-    try {
-        await prisma.$transaction(async (tx) => {
-            await tx.productionOrder.update({
-                where: { id: productionOrderId },
-                data: { status: ProductionStatus.IN_PROGRESS, actualStartDate: new Date() }
-            });
-
-            if (issued === 0 && override) {
-                await logActivity({
-                    userId: currentUserId,
-                    action: 'START_WITHOUT_MATERIAL',
-                    entityType: 'ProductionOrder',
-                    entityId: productionOrderId,
-                    details: `Started without materials (issued=0).`,
-                    tx
-                });
-            } else {
-                await logActivity({
-                    userId: currentUserId,
-                    action: 'START_PRODUCTION',
-                    entityType: 'ProductionOrder',
-                    entityId: productionOrderId,
-                    details: `Started production. issuedPct=${issuedPct}`,
-                    tx
-                });
-            }
-        });
-
-        revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
-        revalidatePath('/dashboard/production');
-        return { success: true, issuedPct };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
@@ -501,7 +393,7 @@ export async function startExecution(data: StartExecutionValues) {
         }
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/kiosk');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error starting execution:', error);
@@ -549,7 +441,7 @@ export async function stopExecution(data: StopExecutionValues) {
         });
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/kiosk');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error stopping execution:', error);
@@ -660,75 +552,56 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
                 }
             }
 
-            // 2. Process Items (FIFO Consumption)
+            // 2. Process Items
             for (const item of items) {
-                // A. Fetch available batches for this variant and location, ordered by mfg date (FIFO)
-                const availableBatches = await tx.batch.findMany({
-                    where: {
-                        productVariantId: item.productVariantId,
-                        locationId: locationId,
-                        quantity: { gt: 0 },
-                        status: 'ACTIVE'
-                    },
-                    orderBy: { manufacturingDate: 'asc' } // First-In, First-Out
-                });
+                // A. Verify Stock
+                const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+                    SELECT "quantity"::text as quantity
+                    FROM "Inventory"
+                    WHERE "locationId" = ${locationId} AND "productVariantId" = ${item.productVariantId}
+                    FOR UPDATE
+                `;
+                const stockQty = stockRow[0] ? Number(stockRow[0].quantity) : null;
 
-                const totalAvailable = availableBatches.reduce((sum, b) => sum + Number(b.quantity), 0);
-
-                if (totalAvailable < item.quantity) {
+                if (stockQty === null || stockQty < item.quantity) {
                     const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId } });
-                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${totalAvailable} (Dibutuhkan: ${item.quantity})`);
+                    throw new Error(`Stok tidak mencukupi untuk ${variant?.name || 'item'}. Tersedia: ${stockQty || 0}`);
                 }
 
-                let remainingToIssue = item.quantity;
-
-                for (const batch of availableBatches) {
-                    if (remainingToIssue <= 0) break;
-
-                    const batchQty = Number(batch.quantity);
-                    const issueQty = Math.min(batchQty, remainingToIssue);
-
-                    // 1. Update Batch Quantity
-                    await tx.batch.update({
-                        where: { id: batch.id },
-                        data: { quantity: { decrement: issueQty } }
-                    });
-
-                    // 2. Create Material Issue record linked to this batch
-                    await tx.materialIssue.create({
-                        data: {
-                            productionOrderId,
-                            productVariantId: item.productVariantId,
-                            quantity: issueQty,
-                        }
-                    });
-
-                    // 3. Create Stock Movement record
-                    await tx.stockMovement.create({
-                        data: {
-                            type: MovementType.OUT,
-                            productVariantId: item.productVariantId,
-                            fromLocationId: locationId,
-                            toLocationId: null, // Consumption
-                            quantity: issueQty,
-                            reference: `PROD-ISSUE-FIFO-${productionOrderId.slice(0, 8)}`,
-                            batchId: batch.id
-                        }
-                    });
-
-                    remainingToIssue -= issueQty;
-                }
-
-                // 4. Update Global Inventory (Totals)
-                // We do this to maintain the 'Inventory' table which is used for quick lookups
-                await tx.inventory.updateMany({
+                // 3. Deduct Inventory
+                await tx.inventory.update({
                     where: {
-                        locationId,
-                        productVariantId: item.productVariantId
+                        locationId_productVariantId: {
+                            locationId,
+                            productVariantId: item.productVariantId
+                        }
                     },
                     data: {
                         quantity: { decrement: item.quantity }
                     }
+                });
+
+                // 4. Create Material Issue linked to Batch
+                await tx.materialIssue.create({
+                    data: {
+                        productionOrderId,
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity,
+                        batchId: item.batchId
+                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
+                });
+
+                // 5. Create Audit Log / Stock Movement
+                await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.OUT,
+                        productVariantId: item.productVariantId,
+                        fromLocationId: locationId,
+                        toLocationId: null, // Consumption
+                        quantity: item.quantity,
+                        reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
+                        batchId: item.batchId
+                    } as any // eslint-disable-line @typescript-eslint/no-explicit-any
                 });
             }
         });
@@ -1551,7 +1424,7 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
         });
 
         revalidatePath('/dashboard/production');
-        revalidatePath('/kiosk');
+        revalidatePath('/dashboard/production/kiosk');
         return { success: true };
     } catch (error) {
         console.error('Error logging output:', error);

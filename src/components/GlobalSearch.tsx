@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Calculator, Settings, Search, Package, Warehouse, FileText } from 'lucide-react';
+import { Calculator, Settings, Search, Package, Warehouse, FileText, Factory, MonitorPlay } from 'lucide-react';
 
 import {
     CommandDialog,
@@ -53,17 +53,29 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                 {...props}
             >
                 <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                <span className="hidden lg:inline-flex truncate">Search anything...</span>
+                <span className="hidden lg:inline-flex truncate">Search...</span>
                 <span className="inline-flex lg:hidden truncate">Search...</span>
-                <kbd className="pointer-events-none ml-auto hidden h-6 select-none items-center gap-1 rounded bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-                    <span className="text-xs">⌘</span>K
-                </kbd>
             </Button>
             <CommandDialog open={open} onOpenChange={setOpen}>
-                <CommandInput placeholder="Type a command or search..." />
+                <CommandInput placeholder="Search..." />
                 <CommandList>
                     <CommandEmpty>No results found.</CommandEmpty>
-                    <CommandGroup heading="Suggestions">
+                    <CommandGroup heading="Switch Application">
+                        <CommandItem onSelect={() => runCommand(() => router.push('/kiosk'))}>
+                            <MonitorPlay className="mr-2 h-4 w-4" />
+                            <span>Operator Kiosk</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse'))}>
+                            <Warehouse className="mr-2 h-4 w-4" />
+                            <span>Warehouse Portal</span>
+                        </CommandItem>
+                        <CommandItem onSelect={() => runCommand(() => router.push('/production'))}>
+                            <Factory className="mr-2 h-4 w-4" />
+                            <span>Production Floor</span>
+                        </CommandItem>
+                    </CommandGroup>
+                    <CommandSeparator />
+                    <CommandGroup heading="Quick Navigation">
                         <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/inventory'))}>
                             <Warehouse className="mr-2 h-4 w-4" />
                             <span>Inventory</span>

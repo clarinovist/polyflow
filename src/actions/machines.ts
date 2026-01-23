@@ -90,3 +90,17 @@ export async function deleteMachine(id: string) {
         return { success: false, error: 'Failed to delete machine' };
     }
 }
+
+export async function setMachineStatus(id: string, status: MachineStatus) {
+    try {
+        const machine = await prisma.machine.update({
+            where: { id },
+            data: { status }
+        });
+        revalidatePath('/dashboard/production/resources/machines');
+        return { success: true, data: machine };
+    } catch (error) {
+        console.error('Failed to update machine status:', error);
+        return { success: false, error: 'Failed to update machine status' };
+    }
+}

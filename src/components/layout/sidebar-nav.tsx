@@ -18,7 +18,6 @@ import {
     LucideIcon,
     ChevronDown,
     ChevronRight,
-    MonitorPlay,
     Truck,
     ShoppingCart,
     Receipt,
@@ -59,18 +58,12 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         ],
     },
     {
-        heading: "Inventory Control",
-        items: [
-            { title: "Inventory Analysis", href: "/dashboard/inventory", icon: BarChart3 },
-        ],
-    },
-    {
         heading: "Sales & Distribution",
         items: [
             { title: "Quotations", href: "/dashboard/sales/quotations", icon: FileText },
             { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
             { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
-            { title: "Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
+            { title: "Sales Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
         ],
     },
     {
@@ -78,15 +71,22 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "Purchase Orders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
             { title: "Purchase Invoices", href: "/dashboard/purchasing/invoices", icon: FileText },
-            { title: "Analytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
+            { title: "Procurement Analytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
         ],
     },
     {
-        heading: "Manufacturing",
+        heading: "PPIC & Manufacturing",
         items: [
             { title: "Production Orders", href: "/dashboard/production/orders", icon: Factory },
-            { title: "Operator Kiosk", href: "/kiosk", icon: MonitorPlay },
-            { title: "Analytics", href: "/dashboard/production/analytics", icon: BarChart3 },
+            { title: "Production Schedule", href: "/dashboard/ppic/schedule", icon: BarChart3 },
+            { title: "Material Planning", href: "/dashboard/ppic/mrp", icon: FileText },
+            { title: "Production Analytics", href: "/dashboard/production/analytics", icon: BarChart3 },
+        ],
+    },
+    {
+        heading: "Inventory",
+        items: [
+            { title: "Inventory Analysis", href: "/dashboard/inventory", icon: BarChart3 },
         ],
     },
     {

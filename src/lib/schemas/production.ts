@@ -26,6 +26,7 @@ export const updateProductionOrderSchema = z.object({
     actualStartDate: z.date().optional(),
     actualEndDate: z.date().optional(),
     machineId: z.string().optional(),
+    plannedStartDate: z.date().optional(),
 });
 
 export const materialIssueSchema = z.object({

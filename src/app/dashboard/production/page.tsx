@@ -100,12 +100,7 @@ export default async function ProductionDashboardPage() {
                                                 <div className="text-xs text-muted-foreground">{order.bom.name}</div>
                                             </td>
                                             <td className="p-3">
-                                                <div className="flex items-center gap-2">
-                                                    <StatusBadge status={order.status} />
-                                                    {order.status === 'RELEASED' && (order.plannedMaterialsTotal || 0) > 0 && (order.issuedTotal || 0) === 0 && (
-                                                        <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-100 text-[11px]">Belum material</Badge>
-                                                    )}
-                                                </div>
+                                                <StatusBadge status={order.status} />
                                             </td>
                                             <td className="p-3">
                                                 {order.machine ? (

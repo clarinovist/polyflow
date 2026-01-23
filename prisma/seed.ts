@@ -43,7 +43,7 @@ async function main() {
     // 1. Locations (Factory Stages)
     const locations = [
         { name: 'Raw Material Warehouse', slug: 'rm_warehouse', description: 'Storage for incoming raw materials' },
-        { name: 'Mixing Warehouse', slug: 'mixing_warehouse', description: 'Storage for the output of the Mixing process (Mixed/Compounded Material)' },
+        { name: 'Mixing Area', slug: 'mixing_area', description: 'Production floor for mixing and compounding' },
         // Extrusion output now goes to FG, so no separate Extrusion Warehouse.
         { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
         { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for waste/afval' },
@@ -243,7 +243,7 @@ async function main() {
 
     // 4. Initial Stock & Movements
     const locRM = (await prisma.location.findUnique({ where: { slug: 'rm_warehouse' } }))!
-    const locMix = (await prisma.location.findUnique({ where: { slug: 'mixing_warehouse' } }))!
+    const locMix = (await prisma.location.findUnique({ where: { slug: 'mixing_area' } }))!
     const locFG = (await prisma.location.findUnique({ where: { slug: 'fg_warehouse' } }))!
     await prisma.location.findUnique({ where: { slug: 'scrap_warehouse' } });
 

@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { WarehouseSidebar } from '@/components/warehouse/warehouse-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 export default async function WarehouseLayout({
     children,
@@ -45,6 +46,7 @@ export default async function WarehouseLayout({
 
                     <div className="flex items-center gap-4">
                         <ClockDisplay />
+                        <AdminBackButton role={user.role} />
                     </div>
                 </header>
 

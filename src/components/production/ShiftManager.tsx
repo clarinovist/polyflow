@@ -118,8 +118,8 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                     </Card>
                 ))}
                 {shifts.length === 0 && (
-                    <div className="text-center py-8 border rounded-lg bg-slate-50 text-slate-500">
-                        No shifts assigned. Add a shift to schedule resources.
+                    <div className="text-center py-6 border rounded-lg bg-slate-50 dark:bg-slate-900 text-muted-foreground text-sm">
+                        Belum ada shift. Klik <span className="font-semibold text-slate-900 dark:text-slate-100">Add Shift</span> untuk jadwalkan tim produksi.
                     </div>
                 )}
             </div>

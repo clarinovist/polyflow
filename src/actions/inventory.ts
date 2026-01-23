@@ -207,3 +207,37 @@ export async function getStockMovementTrends(period: 'week' | 'month' | 'quarter
     await requireAuth();
     return await InventoryService.getStockMovementTrends(period);
 }
+
+export async function acknowledgeHandover(movementId: string) {
+    const session = await requireAuth();
+    const currentUserId = session.user.id;
+
+    try {
+        const movement = await (await import('@/lib/prisma')).prisma.stockMovement.findUnique({ where: { id: movementId } });
+        if (!movement) return { success: false, error: 'Movement not found' };
+
+        // Append an acknowledgement note to the reference for auditability
+        const newReference = `${movement.reference || ''}`.trim() + ` | ACK:${currentUserId}:${new Date().toISOString()}`;
+
+        await (await import('@/lib/prisma')).prisma.stockMovement.update({
+            where: { id: movementId },
+            data: { reference: newReference }
+        });
+
+        // Create audit log for traceability
+        const { logActivity } = await import('@/lib/audit');
+        await logActivity({
+            userId: currentUserId,
+            action: 'ACKNOWLEDGE_HANDOVER',
+            entityType: 'StockMovement',
+            entityId: movementId,
+            details: `Acknowledged transfer to ${movement.toLocationId}`
+        });
+
+        revalidatePath('/production/inventory');
+        return { success: true };
+    } catch (error) {
+        console.error('Acknowledge handover error:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+    }
+}

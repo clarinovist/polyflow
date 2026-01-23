@@ -12,7 +12,9 @@ export async function authenticate(
         const password = String(formData.get('password') ?? '');
         const role = String(formData.get('role') ?? '');
 
-        const targetUrl = role === 'WAREHOUSE' ? '/warehouse' : '/dashboard';
+        let targetUrl = '/dashboard';
+        if (role === 'WAREHOUSE') targetUrl = '/warehouse';
+        if (role === 'PRODUCTION') targetUrl = '/production';
 
         await signIn('credentials', {
             email,

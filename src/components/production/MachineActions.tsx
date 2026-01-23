@@ -8,9 +8,9 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteMachine } from '@/actions/machines';
+import { deleteMachine, setMachineStatus } from '@/actions/machines';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {
@@ -42,6 +42,24 @@ export function MachineActions({ id, name }: MachineActionsProps) {
         }
     }
 
+    async function handleSetMaintenance() {
+        const res = await setMachineStatus(id, 'MAINTENANCE');
+        if (res.success) {
+            toast.success('Machine set to MAINTENANCE');
+        } else {
+            toast.error('Failed to update status', { description: res.error });
+        }
+    }
+
+    async function handleStart() {
+        const res = await setMachineStatus(id, 'ACTIVE');
+        if (res.success) {
+            toast.success('Machine set to ACTIVE');
+        } else {
+            toast.error('Failed to update status', { description: res.error });
+        }
+    }
+
     return (
         <>
             <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -58,6 +76,14 @@ export function MachineActions({ id, name }: MachineActionsProps) {
                             Edit Details
                         </DropdownMenuItem>
                     </Link>
+                    <DropdownMenuItem onClick={handleStart}>
+                        <Loader2 className="mr-2 h-4 w-4" />
+                        Set Active
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSetMaintenance}>
+                        <AlertCircle className="mr-2 h-4 w-4" />
+                        Set Maintenance
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"

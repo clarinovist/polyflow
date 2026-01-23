@@ -157,7 +157,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
     // Automated Source Location Selection
     const defaultSourceLocationId = useMemo(() => {
         const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
-        const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
+        const mixingLoc = locations.find(l => l.slug === 'mixing_area');
         const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
         if (processType === 'mixing') return rmLoc?.id || '';
         if (processType === 'extrusion') return mixingLoc?.id || '';
@@ -251,7 +251,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
     // Smart Location Logic for target location (managed by Hook Form)
     useEffect(() => {
-        const mixingLoc = locations.find(l => l.slug === 'mixing_warehouse');
+        const mixingLoc = locations.find(l => l.slug === 'mixing_area');
         const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
 
         if (processType === 'mixing') {
@@ -354,7 +354,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                             className="rounded-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
                                                 setProcessType('extrusion');
-                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'mixing_warehouse')?.id || '');
+                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'mixing_area')?.id || '');
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
