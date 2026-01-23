@@ -97,7 +97,7 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
                         <p className="text-xs text-muted-foreground">{costData.length} Completed Orders</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="rounded-xl border border-zinc-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current WIP Value</CardTitle>
                         <Package className="h-4 w-4 text-muted-foreground" />
@@ -105,7 +105,7 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
                     <CardContent>
                         {wipData ? (
                             <>
-                                <div className="text-2xl font-bold text-blue-600">{formatRupiah(wipData.totalWipValue)}</div>
+                                <div className="text-2xl font-bold text-[#3b82f6]">{formatRupiah(wipData.totalWipValue)}</div>
                                 <p className="text-xs text-muted-foreground">{wipData.orderCount} Active Orders</p>
                             </>
                         ) : (
@@ -133,58 +133,61 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
 
                 <TabsContent value="cogm" className="space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card>
+                        <Card className="rounded-xl border border-zinc-200 shadow-sm">
                             <CardHeader>
                                 <CardTitle>Cost Composition (Last 10 Orders)</CardTitle>
                             </CardHeader>
                             <CardContent className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" fontSize={10} />
-                                        <YAxis fontSize={10} tickFormatter={(value) => `${value / 1000}k`} />
-                                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                        <Tooltip formatter={(value: any) => formatRupiah(Number(value || 0))} />
-                                        <Legend />
-                                        <Bar dataKey="Material" stackId="a" fill="#3b82f6" />
-                                        <Bar dataKey="Conversion" stackId="a" fill="#f59e0b" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                                        <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                                        <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(value) => `${value / 1000}k`} />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                                            contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                            formatter={(value: any) => [formatRupiah(Number(value || 0)), '']}
+                                        />
+                                        <Legend iconType="circle" />
+                                        <Bar dataKey="Material" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                                        <Bar dataKey="Conversion" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
-                        <Card>
+                        <Card className="rounded-xl border border-zinc-200 shadow-sm">
                             <CardHeader>
                                 <CardTitle>Cost Detail Breakdown</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="rounded-md border">
+                                <div className="rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-muted/50">
+                                        <thead className="bg-zinc-50 border-b border-zinc-200">
                                             <tr>
-                                                <th className="p-2 text-left">PO #</th>
-                                                <th className="p-2 text-left">Product</th>
-                                                <th className="p-2 text-right">Qty</th>
-                                                <th className="p-2 text-right">Unit Cost</th>
-                                                <th className="p-2 text-right">Total Cost</th>
+                                                <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>
+                                                <th className="p-3 text-left font-semibold text-zinc-900">Product</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900">Qty</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900">Unit Cost</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900">Total Cost</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y">
+                                        <tbody className="divide-y divide-zinc-100">
                                             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                             {costData.map((item: any) => (
-                                                <tr key={item.id}>
-                                                    <td className="p-2 font-medium">{item.orderNumber}</td>
-                                                    <td className="p-2">
-                                                        <div>{item.productName}</div>
-                                                        <div className="text-[10px] text-muted-foreground">{item.skuCode}</div>
+                                                <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors">
+                                                    <td className="p-3 font-medium text-zinc-900">{item.orderNumber}</td>
+                                                    <td className="p-3">
+                                                        <div className="font-medium">{item.productName}</div>
+                                                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{item.skuCode}</div>
                                                     </td>
-                                                    <td className="p-2 text-right">{item.quantity}</td>
-                                                    <td className="p-2 text-right text-emerald-600 font-medium">{formatRupiah(item.unitCost)}</td>
-                                                    <td className="p-2 text-right">{formatRupiah(item.totalCost)}</td>
+                                                    <td className="p-3 text-right">{item.quantity}</td>
+                                                    <td className="p-3 text-right text-[#22c55e] font-bold">{formatRupiah(item.unitCost)}</td>
+                                                    <td className="p-3 text-right font-medium">{formatRupiah(item.totalCost)}</td>
                                                 </tr>
                                             ))}
                                             {costData.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={5} className="p-4 text-center text-muted-foreground">No data found within range</td>
+                                                    <td colSpan={5} className="p-8 text-center text-zinc-500 italic">No data found within selected range</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -196,35 +199,35 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
                 </TabsContent>
 
                 <TabsContent value="wip">
-                    <Card>
+                    <Card className="rounded-xl border border-zinc-200 shadow-sm">
                         <CardHeader>
                             <CardTitle>Active Work In Progress</CardTitle>
                             <CardDescription>Value of raw materials consumed in currently active orders</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-md border">
+                            <div className="rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-muted/50">
+                                    <thead className="bg-zinc-50 border-b border-zinc-200">
                                         <tr>
-                                            <th className="p-2 text-left">PO #</th>
-                                            <th className="p-2 text-left">Product</th>
-                                            <th className="p-2 text-left">Start Date</th>
-                                            <th className="p-2 text-right">Running Material Cost</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900">Product</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900">Start Date</th>
+                                            <th className="p-3 text-right font-semibold text-zinc-900">Running Material Cost</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
+                                    <tbody className="divide-y divide-zinc-100">
                                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                         {wipData?.orders.map((item: any) => (
-                                            <tr key={item.id}>
-                                                <td className="p-2 font-medium">{item.orderNumber}</td>
-                                                <td className="p-2">{item.productName}</td>
-                                                <td className="p-2">{item.startDate ? format(new Date(item.startDate), 'PP') : '-'}</td>
-                                                <td className="p-2 text-right font-medium text-blue-600">{formatRupiah(item.currentMaterialCost)}</td>
+                                            <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors">
+                                                <td className="p-3 font-medium text-zinc-900">{item.orderNumber}</td>
+                                                <td className="p-3">{item.productName}</td>
+                                                <td className="p-3">{item.startDate ? format(new Date(item.startDate), 'PP') : '-'}</td>
+                                                <td className="p-3 text-right font-bold text-[#3b82f6]">{formatRupiah(item.currentMaterialCost)}</td>
                                             </tr>
                                         ))}
                                         {(!wipData?.orders || wipData.orders.length === 0) && (
                                             <tr>
-                                                <td colSpan={4} className="p-4 text-center text-muted-foreground">No active WIP found</td>
+                                                <td colSpan={4} className="p-8 text-center text-zinc-500 italic">No active WIP found</td>
                                             </tr>
                                         )}
                                     </tbody>

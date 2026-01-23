@@ -21,7 +21,8 @@ import {
     Truck,
     ShoppingCart,
     Receipt,
-    FileText
+    FileText,
+    Calculator
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -98,6 +99,12 @@ export const sidebarLinks: SidebarLinkGroup[] = [
             { title: "Customers", href: "/dashboard/customers", icon: Users2 },
             { title: "Machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
             { title: "Employees", href: "/dashboard/production/resources/employees", icon: Users },
+        ],
+    },
+    {
+        heading: "Finance & Accounting",
+        items: [
+            { title: "Cost Accounting", href: "/dashboard/finance/costing", icon: Calculator },
         ],
     },
 ];
