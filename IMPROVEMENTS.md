@@ -720,6 +720,9 @@ Inventory Aging Report
 7. Executive Manufacturing KPIs ✅
 
 ### Phase 5 (Sprint 9+): Future Enhancements
+
+> 📄 **Detailed Plan**: See [docs/ACCOUNTING_MODULE_PLAN.md](./docs/ACCOUNTING_MODULE_PLAN.md) for complete implementation checklist.
+
 1. Full General Ledger (Accounting Module) 🟦 NEXT
 2. Chart of Accounts (CoA) Design 🟦 NEXT
 3. Multi-Currency Full Support ✅
