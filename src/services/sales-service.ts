@@ -1,10 +1,63 @@
 import { prisma } from '@/lib/prisma';
-import { SalesOrderStatus, MovementType, SalesOrderType, ReservationType, ReservationStatus } from '@prisma/client';
+import { SalesOrderStatus, MovementType, SalesOrderType, ReservationType, ReservationStatus, Prisma } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/audit';
 import { formatRupiah } from '@/lib/utils';
+import { InventoryService } from './inventory-service';
 
 export class SalesService {
+
+    /**
+     * Get All Sales Orders (Optimized)
+     */
+    static async getOrders(filters?: { customerId?: string }) {
+        const where: Prisma.SalesOrderWhereInput = {};
+        if (filters?.customerId) where.customerId = filters.customerId;
+
+        const orders = await prisma.salesOrder.findMany({
+            where,
+            include: {
+                customer: true,
+                sourceLocation: true,
+                _count: { select: { items: true } }
+            },
+            orderBy: { orderDate: 'desc' }
+        });
+
+        return orders;
+    }
+
+    /**
+     * Get Sales Order by ID (Optimized)
+     */
+    static async getOrderById(id: string) {
+        const order = await prisma.salesOrder.findUnique({
+            where: { id },
+            include: {
+                customer: true,
+                sourceLocation: true,
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
+                        }
+                    }
+                },
+                movements: {
+                    orderBy: { createdAt: 'desc' }
+                },
+                productionOrders: true,
+                invoices: true,
+                createdBy: {
+                    select: { name: true }
+                }
+            }
+        });
+
+        return order;
+    }
 
     static async createOrder(data: CreateSalesOrderValues, userId: string) {
         // Generate Order Number: SO-YYYY-XXXX
@@ -162,52 +215,17 @@ export class SalesService {
             : SalesOrderStatus.CONFIRMED;
 
         await prisma.$transaction(async (tx) => {
-
             // Create Stock Reservations (for Make to Stock)
             if (order.sourceLocationId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
-                // Check if sufficient stock first? InventoryService.createStockReservation does check.
-                // We should use InventoryService but we are inside a transaction.
-                // Re-implement simplified reservation logic here or assume InventoryService can be used if we passed tx?
-                // InventoryService methods use `prisma.$transaction` internally usually, so we can't nest if they don't accept tx.
-                // Looking at InventoryService.createStockReservation, it uses $transaction.
-                // We will manually Create Reservation to avoid nesting transaction issues or refactor InventoryService later.
-                // For now, let's just create raw Reservation records.
-
                 for (const item of order.items) {
-                    // Check physical availability first
-                    const inventory = await tx.inventory.findUnique({
-                        where: { locationId_productVariantId: { locationId: order.sourceLocationId!, productVariantId: item.productVariantId } }
-                    });
-
-                    const currentQty = inventory?.quantity.toNumber() || 0;
-
-                    // Check existing reservations
-                    const reservedAgg = await tx.stockReservation.aggregate({
-                        where: {
-                            productVariantId: item.productVariantId,
-                            locationId: order.sourceLocationId!,
-                            status: ReservationStatus.ACTIVE
-                        },
-                        _sum: { quantity: true }
-                    });
-                    const alreadyReserved = reservedAgg._sum.quantity?.toNumber() || 0;
-                    const available = currentQty - alreadyReserved;
-
-                    if (available < item.quantity.toNumber()) {
-                        throw new Error(`Insufficient stock for item ${item.productVariantId}. Available: ${available}, Requested: ${item.quantity}`);
-                    }
-
-                    await tx.stockReservation.create({
-                        data: {
-                            productVariantId: item.productVariantId,
-                            locationId: order.sourceLocationId!,
-                            quantity: item.quantity,
-                            reservedFor: ReservationType.SALES_ORDER,
-                            referenceId: order.id,
-                            status: ReservationStatus.ACTIVE,
-                            reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
-                        }
-                    });
+                    await InventoryService.createStockReservation({
+                        productVariantId: item.productVariantId,
+                        locationId: order.sourceLocationId,
+                        quantity: item.quantity.toNumber(),
+                        reservedFor: ReservationType.SALES_ORDER,
+                        referenceId: order.id,
+                        reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
+                    }, tx);
                 }
             }
 
@@ -308,28 +326,18 @@ export class SalesService {
         await prisma.$transaction(async (tx) => {
             // Deduct Stock & Handle Reservations
             for (const item of order.items) {
-                // 1. Check if we have a reservation to fulfill
-                // If reserved, we don't need to check "Available = Total - Reserved" again for *this* qty, 
-                // because this qty IS the reserved one. 
-                // We just need to check if Total Stock >= Qty.
+                const qty = item.quantity.toNumber();
+                const locationId = order.sourceLocationId!;
 
-                const stock = await tx.inventory.findUnique({
-                    where: { locationId_productVariantId: { locationId: order.sourceLocationId!, productVariantId: item.productVariantId } }
-                });
+                // 1. Check & Deduct (Using Service)
+                // Note: If we reserved stock, "validateAndLockStock" might fail if it treats reservations as "unavailable".
+                // We need to clarify if "validateAndLockStock" takes "my reservation" into account.
+                // Currently InventoryService.validateAndLockStock subtracts ALL reservations from Physical.
+                // So if I reserved 10, Physical 10, ValidAndLock sees 0 available.
+                // This is correct for NEW allocations. But for FULFILLING a reservation, we need to bypass the reservation check OR cancel the reservation first.
+                // STRATEGY: Find and mark reservation as Fulfilled/Consumed first (making it inactive), THEN deduct stock.
 
-                if (!stock || stock.quantity.toNumber() < item.quantity.toNumber()) {
-                    throw new Error(`Insufficient physical stock for ${item.productVariantId}`);
-                }
-
-                // 2. Decrement Stock
-                await tx.inventory.update({
-                    where: { id: stock.id },
-                    data: { quantity: { decrement: item.quantity } }
-                });
-
-                // 3. Fulfill Reservation (if exists)
-                // Find ONE active reservation for this line item? 
-                // Or just update any active reservation for this Order+Product?
+                // Find active reservations for this item/order
                 const reservations = await tx.stockReservation.findMany({
                     where: {
                         referenceId: order.id,
@@ -338,39 +346,41 @@ export class SalesService {
                     }
                 });
 
-                let remainingToFulfill = item.quantity.toNumber();
-
+                let needed = qty;
                 for (const res of reservations) {
-                    if (remainingToFulfill <= 0) break;
+                    if (needed <= 0) break;
                     const resQty = res.quantity.toNumber();
-                    const fulfillQty = Math.min(resQty, remainingToFulfill);
+                    // We consume this reservation
+                    const consume = Math.min(resQty, needed);
 
-                    if (fulfillQty === resQty) {
+                    // Reduce reservation qty or mark fulfilled
+                    // If fully consumed
+                    if (consume >= resQty) {
                         await tx.stockReservation.update({ where: { id: res.id }, data: { status: ReservationStatus.FULFILLED } });
                     } else {
-                        // Partial fulfillment of reservation? 
-                        // For simplicity, let's just mark fulfilled or decrement if we supported partials.
-                        // Current schema doesn't seem to have "fulfilledQty", just status. 
-                        // So we'll update quantity to remainder and create a fulfilled entry? Or just split?
-                        // Let's just decrement the reservation quantity.
-                        await tx.stockReservation.update({
-                            where: { id: res.id },
-                            data: { quantity: { decrement: fulfillQty } }
-                        });
-                        // But wait, if we decrement, we lose track that it WAS reserved.
-                        // Ideally we change status. If exact match, FULFILLED.
-                        // Data fix: If we only ship partial, we keep reservation open.
+                        await tx.stockReservation.update({ where: { id: res.id }, data: { quantity: { decrement: consume } } });
                     }
-                    remainingToFulfill -= fulfillQty;
+
+                    needed -= consume;
                 }
 
-                // 4. Create Movement
+                // Now that reservation is cleared (inactive), "Available" will go up by that amount.
+                // So we can safely use deductStock or validateAndLock.
+                // Use explicit steps:
+
+                // 1. Lock
+                await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qty);
+
+                // 2. Deduct
+                await InventoryService.deductStock(tx, locationId, item.productVariantId, qty);
+
+                // 3. Create Movement
                 await tx.stockMovement.create({
                     data: {
                         type: MovementType.OUT,
                         productVariantId: item.productVariantId,
-                        fromLocationId: order.sourceLocationId,
-                        quantity: item.quantity,
+                        fromLocationId: locationId,
+                        quantity: qty,
                         salesOrderId: order.id,
                         createdById: userId,
                         reference: `Shipment for ${order.orderNumber}`,
@@ -436,6 +446,13 @@ export class SalesService {
                 tx
             });
         });
+    }
+    static async deleteOrder(id: string) {
+        const order = await prisma.salesOrder.findUnique({ where: { id } });
+        if (!order) throw new Error("Order not found");
+        if (order.status !== SalesOrderStatus.DRAFT) throw new Error("Only draft orders can be deleted");
+
+        await prisma.salesOrder.delete({ where: { id } });
     }
 }
 

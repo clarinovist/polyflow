@@ -16,6 +16,90 @@ import { subDays, format } from 'date-fns';
 
 export class InventoryService {
 
+    /**
+     * Validate and Lock Stock (Atomic Check)
+     * Must be called within a transaction.
+     */
+    static async validateAndLockStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number
+    ) {
+        // 1. Lock Row
+        const stockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
+            SELECT "quantity"::text as quantity
+            FROM "Inventory"
+            WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+            FOR UPDATE
+        `;
+        const currentQty = stockRow[0] ? Number(stockRow[0].quantity) : 0;
+
+        // 2. Check Physical Stock
+        if (currentQty < quantity) {
+            // Fetch name for better error
+            const variant = await tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
+            throw new Error(`Insufficient physical stock for ${variant?.name || 'item'}. Available: ${currentQty}, Required: ${quantity}`);
+        }
+
+        // 3. Check Reservations
+        const resAgg = await tx.stockReservation.aggregate({
+            where: {
+                locationId,
+                productVariantId,
+                status: ReservationStatus.ACTIVE
+            },
+            _sum: { quantity: true }
+        });
+
+        const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
+        const availableQty = currentQty - reservedQty;
+
+        if (availableQty < quantity) {
+            const variant = await tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
+            throw new Error(`Stock is reserved for ${variant?.name || 'item'}. Physical: ${currentQty}, Reserved: ${reservedQty}, Available: ${availableQty}`);
+        }
+
+        return currentQty;
+    }
+
+    /**
+     * Deduct Stock (Atomic)
+     * Does NOT check stock (assumes validateAndLockStock was called or check was done)
+     * However, Prisma update will fail if record missing.
+     */
+    static async deductStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number
+    ) {
+        await tx.inventory.update({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId }
+            },
+            data: { quantity: { decrement: quantity } }
+        });
+    }
+
+    /**
+     * Increment Stock (Atomic Upsert)
+     */
+    static async incrementStock(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number
+    ) {
+        await tx.inventory.upsert({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId }
+            },
+            update: { quantity: { increment: quantity } },
+            create: { locationId, productVariantId, quantity }
+        });
+    }
+
     static async getStats(filters?: { locationId?: string; type?: string }): Promise<InventoryWithRelations[]> {
         const where: Prisma.InventoryWhereInput = {};
 
@@ -803,18 +887,18 @@ export class InventoryService {
         return historyData;
     }
 
-    static async createStockReservation(data: CreateReservationValues) {
+    static async createStockReservation(data: CreateReservationValues, tx?: Prisma.TransactionClient) {
         const { productVariantId, locationId, quantity, reservedFor, referenceId, reservedUntil } = data;
 
-        await prisma.$transaction(async (tx) => {
-            const physicalStock = await tx.inventory.findUnique({
+        const execute = async (transaction: Prisma.TransactionClient) => {
+            const physicalStock = await transaction.inventory.findUnique({
                 where: {
                     locationId_productVariantId: { locationId, productVariantId }
                 },
                 select: { quantity: true }
             });
 
-            const currentReservations = await tx.stockReservation.aggregate({
+            const currentReservations = await transaction.stockReservation.aggregate({
                 where: {
                     locationId,
                     productVariantId,
@@ -828,10 +912,12 @@ export class InventoryService {
             const available = totalPhysical - totalReserved;
 
             if (available < quantity) {
-                throw new Error(`Insufficient available stock. Physical: ${totalPhysical}, Reserved: ${totalReserved}, Available: ${available}`);
+                // Fetch name for error
+                const variant = await transaction.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
+                throw new Error(`Stok tidak cukup untuk reservasi ${variant?.name || productVariantId}. Fisik: ${totalPhysical}, Reserved: ${totalReserved}, Tersedia: ${available}, Diminta: ${quantity}`);
             }
 
-            await tx.stockReservation.create({
+            await transaction.stockReservation.create({
                 data: {
                     productVariantId,
                     locationId,
@@ -842,7 +928,13 @@ export class InventoryService {
                     status: ReservationStatus.ACTIVE
                 }
             });
-        });
+        };
+
+        if (tx) {
+            await execute(tx);
+        } else {
+            await prisma.$transaction(execute);
+        }
     }
 
     static async cancelStockReservation(data: CancelReservationValues) {

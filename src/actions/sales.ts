@@ -11,7 +11,6 @@ import { SalesService } from '@/services/sales-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 import { catchError } from '@/lib/error-handler';
-import { SalesOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
 
 /**
@@ -19,14 +18,7 @@ import { serializeData } from '@/lib/utils';
  */
 export async function getSalesOrders() {
     await requireAuth();
-    const orders = await prisma.salesOrder.findMany({
-        include: {
-            customer: true,
-            sourceLocation: true,
-            _count: { select: { items: true } }
-        },
-        orderBy: { orderDate: 'desc' }
-    });
+    const orders = await SalesService.getOrders();
     return serializeData(orders);
 }
 
@@ -35,15 +27,7 @@ export async function getSalesOrders() {
  */
 export async function getSalesOrdersByCustomerId(customerId: string) {
     await requireAuth();
-    const orders = await prisma.salesOrder.findMany({
-        where: { customerId },
-        include: {
-            customer: true,
-            sourceLocation: true,
-            _count: { select: { items: true } }
-        },
-        orderBy: { orderDate: 'desc' }
-    });
+    const orders = await SalesService.getOrders({ customerId });
     return serializeData(orders);
 }
 
@@ -53,31 +37,8 @@ export async function getSalesOrdersByCustomerId(customerId: string) {
  */
 export async function getSalesOrderById(id: string) {
     await requireAuth();
-    const order = await prisma.salesOrder.findUnique({
-        where: { id },
-        include: {
-            customer: true,
-            sourceLocation: true,
-            items: {
-                include: {
-                    productVariant: {
-                        include: { product: true }
-                    }
-                }
-            },
-            movements: true,
-            productionOrders: true,
-            invoices: true,
-            createdBy: {
-                select: {
-                    name: true
-                }
-            }
-        }
-    });
-
+    const order = await SalesService.getOrderById(id);
     if (!order) return null;
-
     return serializeData(order);
 }
 
@@ -234,12 +195,7 @@ export async function cancelSalesOrder(id: string) {
 export async function deleteSalesOrder(id: string) {
     await requireAuth();
     return catchError(async () => {
-        const order = await prisma.salesOrder.findUnique({ where: { id } });
-        if (!order) throw new Error("Order not found");
-        if (order.status !== SalesOrderStatus.DRAFT) throw new Error("Only draft orders can be deleted");
-
-        await prisma.salesOrder.delete({ where: { id } });
-
+        await SalesService.deleteOrder(id);
         revalidatePath('/dashboard/sales');
         return true;
     });

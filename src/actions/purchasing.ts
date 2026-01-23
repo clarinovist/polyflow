@@ -97,3 +97,39 @@ export async function deletePurchaseOrder(id: string) {
         };
     }
 }
+
+export async function getPurchaseOrders(filters?: { supplierId?: string, status?: PurchaseOrderStatus }) {
+    await requireAuth();
+    const orders = await PurchaseService.getPurchaseOrders(filters);
+    return serializeData(orders);
+}
+
+export async function getPurchaseOrderById(id: string) {
+    await requireAuth();
+    const order = await PurchaseService.getPurchaseOrderById(id);
+    return serializeData(order);
+}
+
+export async function getGoodsReceiptById(id: string) {
+    await requireAuth();
+    const receipt = await PurchaseService.getGoodsReceiptById(id);
+    return serializeData(receipt);
+}
+
+export async function getGoodsReceipts() {
+    await requireAuth();
+    const receipts = await PurchaseService.getGoodsReceipts();
+    return serializeData(receipts);
+}
+
+export async function getPurchaseInvoiceById(id: string) {
+    await requireAuth();
+    const invoice = await PurchaseService.getPurchaseInvoiceById(id);
+    return serializeData(invoice);
+}
+
+export async function getPurchaseInvoices() {
+    await requireAuth();
+    const invoices = await PurchaseService.getPurchaseInvoices();
+    return serializeData(invoices);
+}

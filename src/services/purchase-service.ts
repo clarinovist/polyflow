@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { InventoryService } from './inventory-service';
 import {
     PurchaseOrderStatus,
     PurchaseInvoiceStatus,
@@ -196,52 +197,45 @@ export class PurchaseService {
 
             // 3. Process each item (Update Inventory & WAC)
             for (const item of data.items) {
-                // a. Find or create inventory
-                await tx.inventory.upsert({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId: data.locationId,
-                            productVariantId: item.productVariantId
-                        }
-                    },
-                    update: {
-                        quantity: { increment: item.receivedQty }
-                    },
-                    create: {
-                        locationId: data.locationId,
-                        productVariantId: item.productVariantId,
-                        quantity: item.receivedQty
-                    }
+                // a. Calculate New Global WAC (Before Incrementing Quantity)
+                // Get total existing quantity across all locations
+                const totalInventory = await tx.inventory.aggregate({
+                    where: { productVariantId: item.productVariantId },
+                    _sum: { quantity: true }
                 });
 
-                // b. Update WAC (Weighted Average Cost) on ProductVariant
                 const variant = await tx.productVariant.findUnique({
                     where: { id: item.productVariantId },
                     select: { standardCost: true, id: true, name: true }
                 });
 
                 if (variant) {
-                    // Get total existing quantity across all locations
-                    const totalInventory = await tx.inventory.aggregate({
-                        where: { productVariantId: item.productVariantId },
-                        _sum: { quantity: true }
-                    });
-
                     // New Weighted Average: ((Old Qty * Old WAC) + (New Qty * New Price)) / (Old Qty + New Qty)
-                    // Note: totalInventory._sum.quantity already includes the new incremented qty from step 3a
                     const currentTotalQty = totalInventory._sum.quantity?.toNumber() || 0;
-                    const oldQty = currentTotalQty - item.receivedQty;
                     const oldWAC = variant.standardCost?.toNumber() || 0;
                     const newQty = item.receivedQty;
                     const newPrice = item.unitCost;
+                    const newTotalQty = currentTotalQty + newQty; // Total after this receipt
 
-                    const newWAC = ((oldQty * oldWAC) + (newQty * newPrice)) / currentTotalQty;
+                    const newWAC = newTotalQty > 0
+                        ? ((currentTotalQty * oldWAC) + (newQty * newPrice)) / newTotalQty
+                        : oldWAC;
 
                     await tx.productVariant.update({
                         where: { id: variant.id },
                         data: { standardCost: newWAC }
                     });
                 }
+
+                // b. Increment Stock (Using InventoryService)
+                // Note: InventoryService.incrementStock takes tx as first arg if we updated it, 
+                // but checking definition: static async incrementStock(tx, locationId, variantId, qty)
+                await InventoryService.incrementStock(
+                    tx,
+                    data.locationId,
+                    item.productVariantId,
+                    item.receivedQty
+                );
 
                 // c. Record Stock Movement
                 await tx.stockMovement.create({
@@ -384,7 +378,7 @@ export class PurchaseService {
         return await prisma.purchaseOrder.findMany({
             where,
             include: {
-                supplier: { select: { name: true, code: true } },
+                supplier: true,
                 _count: { select: { items: true } }
             },
             orderBy: { createdAt: 'desc' }
@@ -426,21 +420,17 @@ export class PurchaseService {
             where: { id },
             include: {
                 purchaseOrder: {
-                    select: {
-                        orderNumber: true,
-                        supplier: { select: { name: true, code: true } }
+                    include: {
+                        supplier: true
                     }
                 },
-                location: { select: { name: true } },
+                location: true,
                 createdBy: { select: { name: true } },
                 items: {
                     include: {
                         productVariant: {
-                            select: {
-                                id: true,
-                                name: true,
-                                skuCode: true,
-                                primaryUnit: true
+                            include: {
+                                product: true
                             }
                         }
                     }
@@ -453,21 +443,15 @@ export class PurchaseService {
         return await prisma.goodsReceipt.findMany({
             include: {
                 purchaseOrder: {
-                    select: {
-                        orderNumber: true,
-                        status: true,
-                        supplier: { select: { name: true } }
+                    include: {
+                        supplier: true
                     }
                 },
-                location: { select: { name: true } },
+                location: true,
                 createdBy: { select: { name: true } },
                 items: {
-                    select: {
-                        id: true,
-                        receivedQty: true,
-                        productVariant: {
-                            select: { name: true, skuCode: true, primaryUnit: true }
-                        }
+                    include: {
+                        productVariant: true
                     }
                 },
                 _count: { select: { items: true } }
