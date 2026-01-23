@@ -32,7 +32,7 @@ export default async function ProductionDashboard() {
 
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Floor Overview</h2>
                     <p className="text-muted-foreground">Tactical control for shift supervisors.</p>
@@ -137,7 +137,7 @@ export default async function ProductionDashboard() {
                 </Card>
 
                 {/* Quick Shortcuts Grid */}
-                <div className="lg:col-span-4 grid grid-cols-2 gap-4">
+                <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <ShortcutCard
                         title="Machine Control"
                         description="Start/Stop & Log Efficiency"

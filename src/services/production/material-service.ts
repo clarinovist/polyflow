@@ -5,7 +5,7 @@ import {
     ScrapRecordValues,
     QualityInspectionValues
 } from '@/lib/schemas/production';
-import { MovementType, ReservationStatus } from '@prisma/client';
+import { MovementType } from '@prisma/client';
 import { InventoryService } from '../inventory-service'; // Relative import adjusted
 
 export class ProductionMaterialService {
@@ -93,7 +93,7 @@ export class ProductionMaterialService {
                         fromLocationId: locationId,
                         toLocationId: null,
                         quantity: item.quantity,
-                        reference: `PROD-ISSUE-${productionOrderId.slice(0, 8)}`,
+                        reference: `PROD-ISSUE-PO-${order.orderNumber}`,
                         batchId: item.batchId
                     } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any);
@@ -125,6 +125,12 @@ export class ProductionMaterialService {
             });
             const wacCost = inv?.averageCost?.toNumber() || 0;
 
+            // Fetch orderNumber for tracking
+            const order = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { orderNumber: true }
+            });
+
             await tx.stockMovement.create({
                 data: {
                     type: MovementType.OUT,
@@ -132,7 +138,7 @@ export class ProductionMaterialService {
                     fromLocationId: locationId,
                     quantity,
                     cost: wacCost,
-                    reference: `Production Consumption: PO-${productionOrderId.slice(0, 8)}`
+                    reference: `Production Consumption: PO-${order?.orderNumber || 'UNKNOWN'}`
                 }
             });
 
@@ -161,13 +167,19 @@ export class ProductionMaterialService {
                 issue.quantity.toNumber()
             );
 
+            // Fetch orderNumber for tracking
+            const order = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { orderNumber: true }
+            });
+
             await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId: issue.productVariantId,
                     toLocationId: refundLocation.id,
                     quantity: issue.quantity,
-                    reference: `VOID Issue: PO-${productionOrderId.slice(0, 8)}`
+                    reference: `VOID Issue: PO-${order?.orderNumber || 'UNKNOWN'}`
                 }
             });
 
@@ -188,13 +200,19 @@ export class ProductionMaterialService {
                 quantity
             );
 
+            // Fetch orderNumber for tracking
+            const order = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { orderNumber: true }
+            });
+
             await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId,
                     toLocationId: locationId,
                     quantity,
-                    reference: `Production Scrap: PO-${productionOrderId.slice(0, 8)}`
+                    reference: `Production Scrap: PO-${order?.orderNumber || 'UNKNOWN'}`
                 }
             });
 

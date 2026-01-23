@@ -8,6 +8,7 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -49,63 +50,67 @@ export function SalesOrderTable({ initialData, basePath = '/dashboard/sales' }: 
 
     return (
         <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Order #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Items</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {initialData.length === 0 ? (
+            <ResponsiveTable minWidth={800}>
+                <Table>
+                    <TableHeader>
                         <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                                No sales orders found.
-                            </TableCell>
+                            <TableHead>Order #</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead className="hidden md:table-cell">Location</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right hidden sm:table-cell">Items</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
                         </TableRow>
-                    ) : (
-                        initialData.map((order) => (
-                            <TableRow
-                                key={order.id}
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => router.push(`${basePath}/${order.id}`)}
-                            >
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4 text-muted-foreground" />
-                                        {order.orderNumber}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {format(new Date(order.orderDate), 'MMM d, yyyy')}
-                                </TableCell>
-                                <TableCell>{order.customer?.name || 'Internal / MTS'}</TableCell>
-                                <TableCell>
-                                    <Badge variant="outline" className="font-normal">
-                                        {order.sourceLocation?.name || '-'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="secondary" className={getStatusColor(order.status)}>
-                                        {order.status.replace(/_/g, ' ')}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                    {order._count.items}
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {order.totalAmount ? formatRupiah(Number(order.totalAmount)) : '-'}
+                    </TableHeader>
+                    <TableBody>
+                        {initialData.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-24 text-center">
+                                    No sales orders found.
                                 </TableCell>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+                        ) : (
+                            initialData.map((order) => (
+                                <TableRow
+                                    key={order.id}
+                                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                    onClick={() => router.push(`${basePath}/${order.id}`)}
+                                >
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-muted-foreground" />
+                                            {order.orderNumber}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {format(new Date(order.orderDate), 'MMM d, yyyy')}
+                                    </TableCell>
+                                    <TableCell>
+                                        {order.customer?.name || 'Internal / MTS'}
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                        <Badge variant="outline" className="font-normal">
+                                            {order.sourceLocation?.name || '-'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="secondary" className={getStatusColor(order.status)}>
+                                            {order.status.replace(/_/g, ' ')}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
+                                        {order._count.items}
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium">
+                                        {order.totalAmount ? formatRupiah(Number(order.totalAmount)) : '-'}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </ResponsiveTable>
+        </div >
     );
 }

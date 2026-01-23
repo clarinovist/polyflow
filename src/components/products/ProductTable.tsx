@@ -128,159 +128,161 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
 
     return (
         <TooltipProvider>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-12 pl-6"></TableHead>
-                        <TableHead className="min-w-[200px]">Product Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                                Total Stock
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="max-w-xs text-xs">
-                                            Sum of all stock across all locations for this product
-                                        </p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        </TableHead>
-                        {showPrices && <TableHead className="text-right">Price</TableHead>}
-                        <TableHead className="text-right">Variants</TableHead>
-                        <TableHead className="text-right pr-6">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {products.map((product) => {
-                        const isExpanded = expandedRows.has(product.id);
+            <div className="rounded-md border overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-12 pl-6"></TableHead>
+                            <TableHead className="min-w-[200px]">Product Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                    Total Stock
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-xs text-xs">
+                                                Sum of all stock across all locations for this product
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </TableHead>
+                            {showPrices && <TableHead className="text-right">Price</TableHead>}
+                            <TableHead className="text-right">Variants</TableHead>
+                            <TableHead className="text-right pr-6">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {products.map((product) => {
+                            const isExpanded = expandedRows.has(product.id);
 
-                        return (
-                            <Fragment key={product.id}>
-                                {/* Parent Row */}
-                                <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
-                                    <TableCell onClick={() => toggleRow(product.id)} className="pl-6">
-                                        {isExpanded ? (
-                                            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
-                                        ) : (
-                                            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform" />
-                                        )}
-                                    </TableCell>
-                                    <TableCell onClick={() => toggleRow(product.id)} className="whitespace-normal">
-                                        <div className="font-medium text-foreground">{product.name}</div>
-                                    </TableCell>
-                                    <TableCell onClick={() => toggleRow(product.id)}>
-                                        <Badge className={productTypeBadgeColors[product.productType]}>
-                                            {productTypeLabels[product.productType]}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell onClick={() => toggleRow(product.id)} className="text-right">
-                                        <span className="font-medium text-foreground">
-                                            {product.totalStock?.toFixed(2) || '0.00'}
-                                        </span>
-                                    </TableCell>
-                                    {showPrices && (
-                                        <TableCell onClick={() => toggleRow(product.id)} className="text-right font-medium tabular-nums">
-                                            {(() => {
-                                                const prices = product.variants
-                                                    .map((v) => (v.price ? Number(v.price) : 0))
-                                                    .filter((p) => p > 0);
-                                                if (prices.length === 0) return <span className="text-muted-foreground">-</span>;
-                                                const min = Math.min(...prices);
-                                                const max = Math.max(...prices);
-                                                return min === max
-                                                    ? formatRupiah(min)
-                                                    : `${formatRupiah(min)} - ${formatRupiah(max)}`;
-                                            })()}
+                            return (
+                                <Fragment key={product.id}>
+                                    {/* Parent Row */}
+                                    <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
+                                        <TableCell onClick={() => toggleRow(product.id)} className="pl-6">
+                                            {isExpanded ? (
+                                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
+                                            ) : (
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform" />
+                                            )}
                                         </TableCell>
-                                    )}
-                                    <TableCell onClick={() => toggleRow(product.id)} className="text-right text-muted-foreground">
-                                        {product.variants.length}
-                                    </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <div className="flex justify-end gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleEditClick(product.id)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDeleteClick(product)}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-
-                                {/* Child Rows (Variants) */}
-                                {isExpanded && product.variants.map((variant) => (
-                                    <TableRow key={variant.id} className="bg-muted/30 hover:bg-muted/50 transition-colors">
-                                        <TableCell className="pl-6"></TableCell>
-                                        <TableCell className="pl-8 whitespace-normal">
-                                            <div className="text-sm">
-                                                <span className="font-medium text-foreground">{variant.name}</span>
-                                                <span className="text-muted-foreground ml-2">({variant.skuCode})</span>
-                                            </div>
+                                        <TableCell onClick={() => toggleRow(product.id)} className="whitespace-normal">
+                                            <div className="font-medium text-foreground">{product.name}</div>
                                         </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm text-muted-foreground">
-                                                {variant.primaryUnit}
-                                                {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
-                                                    <span className="ml-1 text-muted-foreground/70">
-                                                        / {variant.salesUnit} ({variant.conversionFactor.toString()})
-                                                    </span>
-                                                )}
-                                                {variant.primaryUnit}
-                                                {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
-                                                    <span className="ml-1 text-muted-foreground/70">
-                                                        / {variant.salesUnit} ({variant.conversionFactor.toString()})
-                                                    </span>
-                                                )}
-                                            </div>
+                                        <TableCell onClick={() => toggleRow(product.id)}>
+                                            <Badge className={productTypeBadgeColors[product.productType]}>
+                                                {productTypeLabels[product.productType]}
+                                            </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            {/* Matches Total Stock column */}
+                                        <TableCell onClick={() => toggleRow(product.id)} className="text-right">
+                                            <span className="font-medium text-foreground">
+                                                {product.totalStock?.toFixed(2) || '0.00'}
+                                            </span>
                                         </TableCell>
                                         {showPrices && (
-                                            <TableCell className="text-right font-medium tabular-nums">
-                                                {formatRupiah(variant.price ? Number(variant.price) : null)}
+                                            <TableCell onClick={() => toggleRow(product.id)} className="text-right font-medium tabular-nums">
+                                                {(() => {
+                                                    const prices = product.variants
+                                                        .map((v) => (v.price ? Number(v.price) : 0))
+                                                        .filter((p) => p > 0);
+                                                    if (prices.length === 0) return <span className="text-muted-foreground">-</span>;
+                                                    const min = Math.min(...prices);
+                                                    const max = Math.max(...prices);
+                                                    return min === max
+                                                        ? formatRupiah(min)
+                                                        : `${formatRupiah(min)} - ${formatRupiah(max)}`;
+                                                })()}
                                             </TableCell>
                                         )}
-                                        <TableCell className="text-right text-sm text-muted-foreground">
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <span className="cursor-help inline-flex items-center gap-1">
-                                                        {variant._count.inventories} location(s)
-                                                    </span>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p className="max-w-xs text-xs">
-                                                        {variant._count.inventories === 0
-                                                            ? "This variant has no inventory yet. Use Stock Adjustment to add initial stock."
-                                                            : `This variant has stock in ${variant._count.inventories} warehouse location(s).`
-                                                        }
-                                                    </p>
-                                                </TooltipContent>
-                                            </Tooltip>
+                                        <TableCell onClick={() => toggleRow(product.id)} className="text-right text-muted-foreground">
+                                            {product.variants.length}
                                         </TableCell>
                                         <TableCell className="text-right pr-6">
-                                            {/* Matches Actions column */}
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleEditClick(product.id)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(product)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
-                            </Fragment>
-                        );
-                    })}
-                </TableBody>
-            </Table>
+
+                                    {/* Child Rows (Variants) */}
+                                    {isExpanded && product.variants.map((variant) => (
+                                        <TableRow key={variant.id} className="bg-muted/30 hover:bg-muted/50 transition-colors">
+                                            <TableCell className="pl-6"></TableCell>
+                                            <TableCell className="pl-8 whitespace-normal">
+                                                <div className="text-sm">
+                                                    <span className="font-medium text-foreground">{variant.name}</span>
+                                                    <span className="text-muted-foreground ml-2">({variant.skuCode})</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {variant.primaryUnit}
+                                                    {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
+                                                        <span className="ml-1 text-muted-foreground/70">
+                                                            / {variant.salesUnit} ({variant.conversionFactor.toString()})
+                                                        </span>
+                                                    )}
+                                                    {variant.primaryUnit}
+                                                    {variant.salesUnit && variant.salesUnit !== variant.primaryUnit && (
+                                                        <span className="ml-1 text-muted-foreground/70">
+                                                            / {variant.salesUnit} ({variant.conversionFactor.toString()})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {/* Matches Total Stock column */}
+                                            </TableCell>
+                                            {showPrices && (
+                                                <TableCell className="text-right font-medium tabular-nums">
+                                                    {formatRupiah(variant.price ? Number(variant.price) : null)}
+                                                </TableCell>
+                                            )}
+                                            <TableCell className="text-right text-sm text-muted-foreground">
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="cursor-help inline-flex items-center gap-1">
+                                                            {variant._count.inventories} location(s)
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs text-xs">
+                                                            {variant._count.inventories === 0
+                                                                ? "This variant has no inventory yet. Use Stock Adjustment to add initial stock."
+                                                                : `This variant has stock in ${variant._count.inventories} warehouse location(s).`
+                                                            }
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6">
+                                                {/* Matches Actions column */}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </Fragment>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

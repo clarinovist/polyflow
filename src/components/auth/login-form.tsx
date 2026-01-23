@@ -29,11 +29,11 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto px-8 py-12">
+        <div className="w-full max-w-md mx-auto px-6 sm:px-8 py-8 sm:py-12">
             {/* Back Button */}
             <button
                 onClick={onBack}
-                className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-8"
+                className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
             >
                 <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                 Back to roles
@@ -50,7 +50,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
             </div>
 
             {/* Sign in Header */}
-            <h1 className="text-3xl font-bold text-foreground mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8">
                 Sign in
             </h1>
 

@@ -1,11 +1,11 @@
 'use client';
 
-import { 
-    ShieldCheck, 
-    Warehouse, 
-    Factory, 
-    ClipboardList, 
-    TrendingUp, 
+import {
+    ShieldCheck,
+    Warehouse,
+    Factory,
+    ClipboardList,
+    TrendingUp,
     Monitor,
     ArrowRight
 } from 'lucide-react';
@@ -65,12 +65,12 @@ interface RoleSelectionProps {
 
 export default function RoleSelection({ onSelectRole }: RoleSelectionProps) {
     return (
-        <div className="w-full max-w-2xl mx-auto px-6 py-8">
-            <div className="mb-10 text-center">
-                <h1 className="text-3xl font-bold text-foreground mb-3">
+        <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div className="mb-6 sm:mb-10 text-center">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 sm:mb-3">
                     Who are you?
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                     Select your workspace to continue to your dashboard.
                 </p>
             </div>

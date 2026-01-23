@@ -31,6 +31,7 @@ export class CostReportingService {
      * Get Costing Report for Finished Goods (Completed Orders)
      */
     static async getFinishedGoodsCosting(startDate?: Date, endDate?: Date): Promise<PoCostResult[]> {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {
             status: ProductionStatus.COMPLETED
         };
@@ -163,6 +164,58 @@ export class CostReportingService {
             totalWipValue,
             orderCount: activeOrders.length,
             orders: activeOrders
+        };
+    }
+
+    /**
+     * Get Detailed Costing for a Specific Order
+     */
+    static async getOrderCosting(orderId: string): Promise<PoCostResult | null> {
+        const order = await prisma.productionOrder.findUnique({
+            where: { id: orderId },
+            include: {
+                bom: {
+                    include: {
+                        productVariant: {
+                            include: { product: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!order) return null;
+
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                reference: { contains: `PO-${order.orderNumber}` },
+                type: MovementType.OUT
+            }
+        });
+
+        let materialCost = 0;
+        movements.forEach(m => {
+            const cost = Number(m.cost || 0);
+            const qty = Number(m.quantity);
+            materialCost += cost * qty;
+        });
+
+        const conversionCost = Number(order.estimatedConversionCost || 0);
+        const totalCost = materialCost + conversionCost;
+        const quantity = Number(order.actualQuantity || 0);
+        const unitCost = quantity > 0 ? totalCost / quantity : 0;
+
+        return {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            productName: order.bom.productVariant.product.name,
+            skuCode: order.bom.productVariant.skuCode,
+            completedAt: order.actualEndDate,
+            quantity,
+            materialCost,
+            conversionCost,
+            totalCost,
+            unitCost
         };
     }
 }

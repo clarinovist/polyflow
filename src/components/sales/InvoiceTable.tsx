@@ -8,6 +8,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils';
@@ -52,58 +53,60 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
 
     return (
         <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Due Date</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Sales Order</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {invoices.length === 0 ? (
+            <ResponsiveTable minWidth={800}>
+                <Table>
+                    <TableHeader>
                         <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                                No invoices found.
-                            </TableCell>
+                            <TableHead>Invoice #</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Sales Order</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
-                    ) : (
-                        invoices.map((invoice) => (
-                            <TableRow key={invoice.id}>
-                                <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                                <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
-                                <TableCell>
-                                    <span className={invoice.status === ('OVERDUE' as InvoiceStatus) ? 'text-red-600 font-bold' : ''}>
-                                        {invoice.dueDate ? format(new Date(invoice.dueDate), 'PP') : '-'}
-                                    </span>
-                                </TableCell>
-                                <TableCell>{invoice.salesOrder.customer?.name || 'Internal / MTS'}</TableCell>
-                                <TableCell>
-                                    <Link href={`/dashboard/sales/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
-                                        {invoice.salesOrder.orderNumber}
-                                    </Link>
-                                </TableCell>
-                                <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {formatRupiah(Number(invoice.totalAmount))}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="sm" asChild>
-                                        <Link href={`/dashboard/sales/${invoice.salesOrderId}`}>
-                                            View <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Link>
-                                    </Button>
+                    </TableHeader>
+                    <TableBody>
+                        {invoices.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-24 text-center">
+                                    No invoices found.
                                 </TableCell>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
+                        ) : (
+                            invoices.map((invoice) => (
+                                <TableRow key={invoice.id}>
+                                    <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                                    <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
+                                    <TableCell>
+                                        <span className={invoice.status === ('OVERDUE' as InvoiceStatus) ? 'text-red-600 font-bold' : ''}>
+                                            {invoice.dueDate ? format(new Date(invoice.dueDate), 'PP') : '-'}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>{invoice.salesOrder.customer?.name || 'Internal / MTS'}</TableCell>
+                                    <TableCell>
+                                        <Link href={`/dashboard/sales/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
+                                            {invoice.salesOrder.orderNumber}
+                                        </Link>
+                                    </TableCell>
+                                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                                    <TableCell className="text-right font-medium">
+                                        {formatRupiah(Number(invoice.totalAmount))}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="sm" asChild>
+                                            <Link href={`/dashboard/sales/${invoice.salesOrderId}`}>
+                                                View <ArrowRight className="ml-2 h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </ResponsiveTable>
         </div>
     );
 }

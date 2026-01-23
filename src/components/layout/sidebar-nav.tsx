@@ -22,7 +22,9 @@ import {
     ShoppingCart,
     Receipt,
     FileText,
-    Calculator
+    Calculator,
+    Menu,
+    X
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,7 +39,8 @@ interface SidebarNavProps {
         name?: string | null;
         email?: string | null;
         role?: string | null;
-    }
+    },
+    permissions: string[] | 'ALL';
 }
 
 interface NavItemType {
@@ -109,22 +112,16 @@ export const sidebarLinks: SidebarLinkGroup[] = [
     },
 ];
 
-// ... (imports remain)
-
-interface SidebarNavProps {
-    user: {
-        name?: string | null;
-        email?: string | null;
-        role?: string | null;
-    },
-    permissions: string[] | 'ALL';
-}
-
-// ... (types and sidebarLinks remain)
-
 export function SidebarNav({ user, permissions }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    // Close mobile sidebar on navigation
+    useEffect(() => {
+        // eslint-disable-next-line 
+        setIsMobileOpen(false);
+    }, [pathname]);
 
     const cycleTheme = () => {
         if (theme === 'light') setTheme('dark');
@@ -140,78 +137,102 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     const ThemeIcon = theme === 'system' ? (resolvedTheme === 'dark' ? Moon : Sun) : (theme === 'dark' ? Moon : Sun);
 
     const filteredGroups = sidebarLinks.map(group => {
-        // If ALL/Admin, return everything
         if (permissions === 'ALL') return group;
-
-        // Filter items based on exact match or if permission logic handles prefixes
-        // For simplicity, we match the exact href as the resource key
-        const filteredItems = group.items.filter(item => permissions.includes(item.href)); // Check if href exists in permissions list
-
-        // If 'Overview' or specific logic needs items to be always visible (e.g. Dashboard), handle here.
-        // For now, assume Dashboard is always allowed or handled in permissions seeding.
-        // Actually, let's ensure Dashboard is always visible?
-        // Or force include '/dashboard' if we want.
-
+        const filteredItems = group.items.filter(item => permissions.includes(item.href));
         return {
             ...group,
             items: filteredItems
         };
-    }).filter(group => group.items.length > 0); // Remove empty groups
+    }).filter(group => group.items.length > 0);
 
     return (
-        <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar">
-            <div className="flex h-full flex-col">
-                {/* Logo */}
-                <div className="flex h-16 items-center border-b border-sidebar-border px-6">
-                    <PolyFlowLogo showText={true} size="md" />
-                </div>
+        <>
+            {/* Mobile Header */}
+            <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-sidebar-border bg-sidebar px-4 flex items-center justify-between">
+                <PolyFlowLogo showText={true} size="sm" />
+                <button
+                    onClick={() => setIsMobileOpen(true)}
+                    className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                >
+                    <Menu className="h-6 w-6" />
+                </button>
+            </header>
 
-                <div className="px-4 pt-4">
-                    <GlobalSearch className="w-full justify-start pl-2" />
-                </div>
+            {/* Mobile Overlay */}
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
 
-                {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-                    {filteredGroups.map((group) => (
-                        <CollapsibleGroup key={group.heading} group={group} pathname={pathname} />
-                    ))}
-                </nav>
-
-                {/* User Section */}
-                <div className="border-t border-sidebar-border p-4">
-                    <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3 border border-sidebar-border">
-                        <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 font-medium text-sm">
-                            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                        </div>
-                        <div className="flex-1 overflow-hidden min-w-0">
-                            <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
-                        </div>
-                        <Link
-                            href="/dashboard/settings"
-                            className="text-muted-foreground hover:text-primary transition-colors p-1"
-                            title="Settings"
-                        >
-                            <Settings className="h-4 w-4" />
-                        </Link>
+            {/* Sidebar Aside */}
+            <aside className={cn(
+                "fixed left-0 top-0 z-50 h-screen w-64 border-r border-sidebar-border bg-sidebar transition-transform duration-300 lg:translate-x-0",
+                isMobileOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                <div className="flex h-full flex-col">
+                    {/* Logo & Close Button (Mobile) */}
+                    <div className="flex h-16 items-center border-b border-sidebar-border px-6 justify-between">
+                        <PolyFlowLogo showText={true} size="md" />
                         <button
-                            onClick={cycleTheme}
-                            className="text-muted-foreground hover:text-primary transition-colors p-1"
-                            title={`Theme: ${getThemeLabel()}`}
+                            onClick={() => setIsMobileOpen(false)}
+                            className="lg:hidden p-1 text-muted-foreground hover:text-primary transition-colors"
                         >
-                            <ThemeIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                            onClick={() => signOut({ callbackUrl: '/login' })}
-                            className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                            title="Logout"
-                        >
-                            <LogOut className="h-4 w-4" />
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
+
+                    <div className="px-4 pt-4">
+                        <GlobalSearch className="w-full justify-start pl-2" />
+                    </div>
+
+                    {/* Navigation */}
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                        {filteredGroups.map((group) => (
+                            <CollapsibleGroup key={group.heading} group={group} pathname={pathname} />
+                        ))}
+                    </nav>
+
+                    {/* User Section */}
+                    <div className="border-t border-sidebar-border p-4">
+                        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3 border border-sidebar-border">
+                            <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 font-medium text-sm text-white">
+                                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div className="flex-1 overflow-hidden min-w-0">
+                                <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
+                            </div>
+                            <Link
+                                href="/dashboard/settings"
+                                className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                title="Settings"
+                            >
+                                <Settings className="h-4 w-4" />
+                            </Link>
+                            <button
+                                onClick={cycleTheme}
+                                className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                title={`Theme: ${getThemeLabel()}`}
+                            >
+                                <ThemeIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                                onClick={() => signOut({ callbackUrl: '/login' })}
+                                className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                                title="Logout"
+                            >
+                                <LogOut className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+
+            {/* Spacer for Mobile Header */}
+            <div className="h-16 lg:hidden" />
+        </>
     );
 }
 

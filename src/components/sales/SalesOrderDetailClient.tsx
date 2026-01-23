@@ -164,6 +164,7 @@ export function SalesOrderDetailClient({
         try {
             const result = await simulateMrp(order.id);
             if (result.success && result.data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setSimulationResult(result.data as any); // Cast because of serialization boundary if needed
                 setIsSimulationOpen(true);
             } else {

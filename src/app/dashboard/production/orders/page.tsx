@@ -12,16 +12,16 @@ export default async function ProductionOrdersPage() {
     const orders = await getProductionOrders();
 
     return (
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
 
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Production Orders</h1>
-                    <p className="text-muted-foreground mt-2">Manage and track all production jobs</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-foreground">Production Orders</h1>
+                    <p className="text-muted-foreground mt-1">Manage and track all production jobs</p>
                 </div>
-                <Link href="/dashboard/production/orders/create">
-                    <Button className="gap-2">
+                <Link href="/dashboard/production/orders/create" className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto gap-2">
                         <Plus className="h-4 w-4" />
                         Create Order
                     </Button>
@@ -30,22 +30,22 @@ export default async function ProductionOrdersPage() {
 
             <Card className="border shadow-sm">
                 <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <CardTitle>All Orders</CardTitle>
-                        <div className="flex items-center gap-2">
-                            <div className="relative">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative w-full sm:w-auto">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search orders..."
-                                    className="pl-9 w-[250px]"
+                                    className="pl-9 w-full sm:w-[250px]"
                                 />
                             </div>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
+                    <div className="rounded-md border overflow-x-auto custom-scrollbar">
+                        <Table className="min-w-[800px]">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Order #</TableHead>

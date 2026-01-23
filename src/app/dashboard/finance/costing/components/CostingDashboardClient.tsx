@@ -3,16 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { Badge } from '@/components/ui/badge';
 import { getProductionCostReport, getWipValuation } from '@/actions/finance';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Loader2, TrendingUp, DollarSign, Package } from 'lucide-react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { DateRange } from 'react-day-picker';
 
@@ -20,7 +17,7 @@ interface CostingDashboardClientProps {
     initialDateRange?: { from: Date; to: Date };
 }
 
-export function CostingDashboardClient({ initialDateRange }: CostingDashboardClientProps) {
+export function CostingDashboardClient({ initialDateRange: _initialDateRange }: CostingDashboardClientProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         to: new Date()
@@ -30,6 +27,7 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
     const [costData, setCostData] = useState<any[]>([]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [wipData, setWipData] = useState<any>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -58,7 +56,7 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
     // KPI Calculations
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalProductionCost = costData.reduce((sum: number, item: any) => sum + item.totalCost, 0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     const avgUnitCost = costData.length > 0 ? totalProductionCost / costData.reduce((sum: number, item: any) => sum + item.quantity, 0) : 0;
     const materialRatio = costData.length > 0
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,10 +124,12 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
             </div>
 
             <Tabs defaultValue="cogm" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="cogm">Finished Goods Costing</TabsTrigger>
-                    <TabsTrigger value="wip">WIP Analysis</TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto pb-1 custom-scrollbar">
+                    <TabsList className="flex w-max min-w-full md:grid md:grid-cols-2 md:w-[400px]">
+                        <TabsTrigger value="cogm" className="px-6 md:px-2">Finished Goods Costing</TabsTrigger>
+                        <TabsTrigger value="wip" className="px-6 md:px-2">WIP Analysis</TabsTrigger>
+                    </TabsList>
+                </div>
 
                 <TabsContent value="cogm" className="space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -146,6 +146,7 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
                                         <Tooltip
                                             cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                             contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             formatter={(value: any) => [formatRupiah(Number(value || 0)), '']}
                                         />
                                         <Legend iconType="circle" />
@@ -160,8 +161,8 @@ export function CostingDashboardClient({ initialDateRange }: CostingDashboardCli
                                 <CardTitle>Cost Detail Breakdown</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
-                                    <table className="w-full text-sm">
+                                <div className="rounded-xl border border-zinc-200 overflow-x-auto shadow-sm custom-scrollbar">
+                                    <table className="w-full text-sm min-w-[600px]">
                                         <thead className="bg-zinc-50 border-b border-zinc-200">
                                             <tr>
                                                 <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>

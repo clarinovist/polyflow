@@ -13,11 +13,10 @@ export class ProductionCostService {
 
         // 1. Total Material Cost
         // Query StockMovements 'OUT' associated with this PO
-        // We use reference matching as established: "PO-{prefix}"
-        const prefix = productionOrderId.slice(0, 8);
+        // We use reference matching as established: "PO-{orderNumber}"
         const movements = await client.stockMovement.findMany({
             where: {
-                reference: { contains: `PO-${prefix}` },
+                reference: { contains: `PO-${order.orderNumber}` },
                 type: MovementType.OUT
             }
         });

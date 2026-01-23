@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { cn, formatRupiah } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -282,335 +283,340 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     return (
         <div className="h-full flex flex-col pt-4">
             {/* Filters Bar - Fixed at top */}
-            <div className="flex items-center gap-3 flex-wrap shrink-0 px-4 pb-3 border-b border-zinc-100">
-                {topBadges && (
-                    <>
-                        {topBadges}
-                        <div className="w-px h-6 bg-zinc-200" />
-                    </>
-                )}
-                {/* Date Filter */}
-                <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <input
-                        type="date"
-                        value={initialDate || ''}
-                        onChange={(e) => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            if (e.target.value) {
-                                params.set('asOf', e.target.value);
-                            } else {
-                                params.delete('asOf');
-                            }
-                            router.push(`?${params.toString()}`);
-                        }}
-                        max={new Date().toISOString().split('T')[0]}
-                        className="bg-transparent border-none text-sm focus:ring-0 p-0 text-foreground w-[130px]"
-                    />
-                    {initialDate && (
-                        <X
-                            className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-red-500"
-                            onClick={() => {
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-3 border-b border-zinc-100 bg-background pt-2">
+                {/* Top Row: Date, Badges on mobile maybe keep simple or stack */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {topBadges && (
+                        <>
+                            {topBadges}
+                            <div className="w-px h-6 bg-zinc-200" />
+                        </>
+                    )}
+                    {/* Date Filter */}
+                    <div className="flex items-center gap-2 bg-muted/50 border rounded-md px-2 py-1">
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                        <input
+                            type="date"
+                            value={initialDate || ''}
+                            onChange={(e) => {
                                 const params = new URLSearchParams(searchParams.toString());
-                                params.delete('asOf');
-                                params.delete('compareWith');
+                                if (e.target.value) {
+                                    params.set('asOf', e.target.value);
+                                } else {
+                                    params.delete('asOf');
+                                }
                                 router.push(`?${params.toString()}`);
                             }}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="bg-transparent border-none text-sm focus:ring-0 p-0 text-foreground w-[130px]"
                         />
+                        {initialDate && (
+                            <X
+                                className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-red-500"
+                                onClick={() => {
+                                    const params = new URLSearchParams(searchParams.toString());
+                                    params.delete('asOf');
+                                    params.delete('compareWith');
+                                    router.push(`?${params.toString()}`);
+                                }}
+                            />
+                        )}
+                    </div>
+
+                    {/* Bulk Actions Checkbox or Dropdown */}
+                    {selectedItems.size > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                    <Layers className="mr-2 h-4 w-4" />
+                                    {selectedItems.size} Selected
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleExport}>
+                                    Export Selected
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                    disabled={!isSameLocation}
+                                    onClick={() => setShowBulkTransfer(true)}
+                                >
+                                    Bulk Transfer
+                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    disabled={!isSameLocation}
+                                    onClick={() => setShowBulkAdjust(true)}
+                                >
+                                    Bulk Adjust
+                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
-                </div>
 
-                {/* Bulk Actions Checkbox or Dropdown */}
-                {selectedItems.size > 0 && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-                                <Layers className="mr-2 h-4 w-4" />
-                                {selectedItems.size} Selected
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleExport}>
-                                Export Selected
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                                disabled={!isSameLocation}
-                                onClick={() => setShowBulkTransfer(true)}
-                            >
-                                Bulk Transfer
-                                {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                disabled={!isSameLocation}
-                                onClick={() => setShowBulkAdjust(true)}
-                            >
-                                Bulk Adjust
-                                {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-
-                {/* Search (Slim) */}
-                <div className="relative flex-1 min-w-[150px]">
-                    <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground/40" />
-                    <Input
-                        placeholder="Search product..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8 pr-8 h-8 text-[13px] bg-background border-zinc-200"
-                    />
-                    {searchTerm && (
-                        <X
-                            className="absolute right-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground"
-                            onClick={() => setSearchTerm('')}
+                    {/* Search (Slim) */}
+                    <div className="relative flex-1 min-w-[150px]">
+                        <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground/40" />
+                        <Input
+                            placeholder="Search product..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8 pr-8 h-8 text-[13px] bg-background border-zinc-200"
                         />
-                    )}
+                        {searchTerm && (
+                            <X
+                                className="absolute right-2.5 top-1.5 h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-foreground"
+                                onClick={() => setSearchTerm('')}
+                            />
+                        )}
+                    </div>
+
+                    {/* Product Type Filter (Slim) */}
+                    <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                        <SelectTrigger className="w-full sm:w-[130px] h-8 text-[13px] border-zinc-200 bg-background">
+                            <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value={ProductType.RAW_MATERIAL}>RAW_MATERIAL</SelectItem>
+                            <SelectItem value={ProductType.INTERMEDIATE}>INTERMEDIATE</SelectItem>
+                            <SelectItem value={ProductType.PACKAGING}>PACKAGING</SelectItem>
+                            <SelectItem value={ProductType.WIP}>WIP</SelectItem>
+                            <SelectItem value={ProductType.FINISHED_GOOD}>FINISHED_GOOD</SelectItem>
+                            <SelectItem value={ProductType.SCRAP}>SCRAP</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Export Button */}
+                    <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export All/Selected">
+                        <Download className="h-4 w-4" />
+                    </Button>
                 </div>
-
-                {/* Product Type Filter (Slim) */}
-                <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                    <SelectTrigger className="w-[130px] h-8 text-[13px] border-zinc-200 bg-background">
-                        <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value={ProductType.RAW_MATERIAL}>RAW_MATERIAL</SelectItem>
-                        <SelectItem value={ProductType.INTERMEDIATE}>INTERMEDIATE</SelectItem>
-                        <SelectItem value={ProductType.PACKAGING}>PACKAGING</SelectItem>
-                        <SelectItem value={ProductType.WIP}>WIP</SelectItem>
-                        <SelectItem value={ProductType.FINISHED_GOOD}>FINISHED_GOOD</SelectItem>
-                        <SelectItem value={ProductType.SCRAP}>SCRAP</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                {/* Export Button */}
-                <Button variant="outline" size="sm" onClick={handleExport} className="px-3" title="Export All/Selected">
-                    <Download className="h-4 w-4" />
-                </Button>
             </div>
 
             {/* Table - Scrollable Area */}
-            <div className="flex-1 overflow-auto relative">
-                <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            {/* Checkbox Header */}
-                            <TableHead className="w-[40px] pl-4">
-                                <Checkbox
-                                    checked={isAllSelected}
-                                    onCheckedChange={toggleSelectAll}
-                                    aria-label="Select all"
-                                    className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
-                                />
-                            </TableHead>
+            <div className="flex-1 overflow-hidden relative">
+                <ResponsiveTable minWidth={900} className="h-full">
+                    <Table>
+                        <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                {/* Checkbox Header */}
+                                <TableHead className="w-[40px] pl-4">
+                                    <Checkbox
+                                        checked={isAllSelected}
+                                        onCheckedChange={toggleSelectAll}
+                                        aria-label="Select all"
+                                        className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
+                                    />
+                                </TableHead>
 
-                            <TableHead
-                                className="w-[40%] cursor-pointer hover:bg-muted transition-colors"
-                                onClick={() => handleSort('name')}
-                            >
-                                <div className="flex items-center gap-2">
-                                    Product Details
-                                    <div className="flex flex-col">
-                                        <SortIcon field="name" currentSortField={sortField} currentSortOrder={sortOrder} />
-                                    </div>
-                                </div>
-                            </TableHead>
-
-                            {!isLocationSpecific && (
                                 <TableHead
-                                    className="w-[20%] cursor-pointer hover:bg-muted transition-colors hidden md:table-cell"
-                                    onClick={() => handleSort('location')}
+                                    className="w-[40%] cursor-pointer hover:bg-muted transition-colors"
+                                    onClick={() => handleSort('name')}
                                 >
                                     <div className="flex items-center gap-2">
-                                        Location
-                                        <SortIcon field="location" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                        Product Details
+                                        <div className="flex flex-col">
+                                            <SortIcon field="name" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                        </div>
                                     </div>
                                 </TableHead>
-                            )}
 
-                            <TableHead
-                                className="text-right w-[20%] cursor-pointer hover:bg-muted transition-colors"
-                                onClick={() => handleSort('stock')}
-                            >
-                                <div className="flex items-center justify-end gap-2">
-                                    Stock
-                                    <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
-                                </div>
-                            </TableHead>
-                            <TableHead className="text-center">Reserved</TableHead>
-                            <TableHead className="text-center">Available</TableHead>
-                            {showPrices && (
-                                <>
-                                    <TableHead className="text-right">Unit Price</TableHead>
-                                    <TableHead className="text-right">Value</TableHead>
-                                </>
-                            )}
-                            <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
-                                <div className="flex items-center gap-2">
-                                    Status
-                                    <SortIcon field="status" currentSortField={sortField} currentSortOrder={sortOrder} />
-                                </div>
-                            </TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {paginatedInventory.map((item) => {
-                            const isLowStock = isGlobalLowStock(item);
-                            const totalStockValue = variantTotals[item.productVariantId];
-                            const thresholdValue = item.productVariant.minStockAlert || 0;
-                            const isSelected = selectedItems.has(item.id);
-
-                            // Comparison logic
-                            const prevStock = comparisonData ? (comparisonData[`${item.productVariantId}-${item.locationId}`] || 0) : 0;
-                            const currentStock = item.quantity;
-                            const delta = currentStock - prevStock;
-
-                            return (
-                                <React.Fragment key={item.id}>
-                                    <TableRow
-                                        className={cn(
-                                            "transition-colors",
-                                            isLowStock ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/30",
-                                            isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10" : ""
-                                        )}
+                                {!isLocationSpecific && (
+                                    <TableHead
+                                        className="w-[20%] cursor-pointer hover:bg-muted transition-colors hidden md:table-cell"
+                                        onClick={() => handleSort('location')}
                                     >
-                                        <TableCell className="pl-4 py-1.5 align-middle">
-                                            <Checkbox
-                                                checked={isSelected}
-                                                onCheckedChange={() => toggleSelectItem(item.id)}
-                                            />
-                                        </TableCell>
+                                        <div className="flex items-center gap-2">
+                                            Location
+                                            <SortIcon field="location" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                        </div>
+                                    </TableHead>
+                                )}
 
-                                        <TableCell className="py-1.5 align-middle">
-                                            <div className="flex flex-col gap-0.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-sm text-foreground leading-tight">
-                                                        {item.productVariant.name}
-                                                    </span>
-                                                    {abcMap && abcMap[item.productVariantId] && (
-                                                        <Badge variant="outline" className={cn(
-                                                            "h-4 px-1 text-[10px] font-bold",
-                                                            abcMap[item.productVariantId] === 'A' ? "bg-green-100 text-green-700 border-green-200" :
-                                                                abcMap[item.productVariantId] === 'B' ? "bg-blue-100 text-blue-700 border-blue-200" :
-                                                                    "bg-slate-100 text-slate-700 border-slate-200"
-                                                        )}>
-                                                            {abcMap[item.productVariantId]}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <code className="bg-muted px-1 py-0.5 rounded border border-border text-foreground">
-                                                        {item.productVariant.skuCode}
-                                                    </code>
-                                                    <span>•</span>
-                                                    <span className="capitalize text-[10px]">
-                                                        {item.productVariant.product.productType.toLowerCase().replace('_', ' ')}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </TableCell>
+                                <TableHead
+                                    className="text-right w-[20%] cursor-pointer hover:bg-muted transition-colors"
+                                    onClick={() => handleSort('stock')}
+                                >
+                                    <div className="flex items-center justify-end gap-2">
+                                        Stock
+                                        <SortIcon field="stock" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                    </div>
+                                </TableHead>
+                                <TableHead className="text-center hidden sm:table-cell">Reserved</TableHead>
+                                <TableHead className="text-center hidden sm:table-cell">Available</TableHead>
+                                {showPrices && (
+                                    <>
+                                        <TableHead className="text-right">Unit Price</TableHead>
+                                        <TableHead className="text-right">Value</TableHead>
+                                    </>
+                                )}
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
+                                    <div className="flex items-center gap-2">
+                                        Status
+                                        <SortIcon field="status" currentSortField={sortField} currentSortOrder={sortOrder} />
+                                    </div>
+                                </TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedInventory.map((item) => {
+                                const isLowStock = isGlobalLowStock(item);
+                                const totalStockValue = variantTotals[item.productVariantId];
+                                const thresholdValue = item.productVariant.minStockAlert || 0;
+                                const isSelected = selectedItems.has(item.id);
 
-                                        {!isLocationSpecific && (
-                                            <TableCell className="align-middle hidden md:table-cell">
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                                    <Warehouse className="h-3 w-3 text-muted-foreground/50" />
-                                                    <span className="truncate max-w-[120px] block" title={item.location.name}>
-                                                        {item.location.name}
-                                                    </span>
+                                // Comparison logic
+                                const prevStock = comparisonData ? (comparisonData[`${item.productVariantId}-${item.locationId}`] || 0) : 0;
+                                const currentStock = item.quantity;
+                                const delta = currentStock - prevStock;
+
+                                return (
+                                    <React.Fragment key={item.id}>
+                                        <TableRow
+                                            className={cn(
+                                                "transition-colors",
+                                                isLowStock ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/30",
+                                                isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10" : ""
+                                            )}
+                                        >
+                                            <TableCell className="pl-4 py-1.5 align-middle">
+                                                <Checkbox
+                                                    checked={isSelected}
+                                                    onCheckedChange={() => toggleSelectItem(item.id)}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell className="py-1.5 align-middle">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-sm text-foreground leading-tight">
+                                                            {item.productVariant.name}
+                                                        </span>
+                                                        {abcMap && abcMap[item.productVariantId] && (
+                                                            <Badge variant="outline" className={cn(
+                                                                "h-4 px-1 text-[10px] font-bold",
+                                                                abcMap[item.productVariantId] === 'A' ? "bg-green-100 text-green-700 border-green-200" :
+                                                                    abcMap[item.productVariantId] === 'B' ? "bg-blue-100 text-blue-700 border-blue-200" :
+                                                                        "bg-slate-100 text-slate-700 border-slate-200"
+                                                            )}>
+                                                                {abcMap[item.productVariantId]}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <code className="bg-muted px-1 py-0.5 rounded border border-border text-foreground">
+                                                            {item.productVariant.skuCode}
+                                                        </code>
+                                                        <span>•</span>
+                                                        <span className="capitalize text-[10px]">
+                                                            {item.productVariant.product.productType.toLowerCase().replace('_', ' ')}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </TableCell>
-                                        )}
 
-                                        <TableCell className="text-right py-1.5 align-middle">
-                                            <div className="flex flex-col items-end">
-                                                <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
-                                                    <span>{currentStock.toLocaleString()}</span>
-                                                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                                        {item.productVariant.primaryUnit}
-                                                    </span>
-                                                </div>
-                                                {showComparison && delta !== 0 && (
-                                                    <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
-                                                        {Math.abs(delta).toLocaleString()}
+                                            {!isLocationSpecific && (
+                                                <TableCell className="align-middle hidden md:table-cell">
+                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                        <Warehouse className="h-3 w-3 text-muted-foreground/50" />
+                                                        <span className="truncate max-w-[120px] block" title={item.location.name}>
+                                                            {item.location.name}
+                                                        </span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center py-1.5 align-middle">
-                                            {item.reservedQuantity ? (
-                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 tabular-nums">
-                                                    {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">-</span>
+                                                </TableCell>
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-center py-1.5 align-middle">
-                                            <div className={cn(
-                                                "font-medium tabular-nums",
-                                                (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"
-                                            )}>
-                                                {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
-                                            </div>
-                                        </TableCell>
 
-                                        {showPrices && (
-                                            <>
-                                                <TableCell className="text-right align-middle tabular-nums text-sm">
-                                                    {formatRupiah(item.productVariant.price)}
-                                                </TableCell>
-                                                <TableCell className="text-right align-middle tabular-nums font-medium text-sm">
-                                                    {formatRupiah((item.productVariant.price || 0) * item.quantity)}
-                                                </TableCell>
-                                            </>
-                                        )}
-
-                                        <TableCell className="align-middle">
-                                            {isLowStock ? (
-                                                <div className="space-y-1">
-                                                    <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
-                                                        Low Stock
+                                            <TableCell className="text-right py-1.5 align-middle">
+                                                <div className="flex flex-col items-end">
+                                                    <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
+                                                        <span>{currentStock.toLocaleString()}</span>
+                                                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                                            {item.productVariant.primaryUnit}
+                                                        </span>
+                                                    </div>
+                                                    {showComparison && delta !== 0 && (
+                                                        <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                                            {Math.abs(delta).toLocaleString()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
+                                                {item.reservedQuantity ? (
+                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 tabular-nums">
+                                                        {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
                                                     </Badge>
-                                                    <div className="text-[10px] text-destructive font-medium whitespace-nowrap">
-                                                        {totalStockValue}/{thresholdValue}
-                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
+                                                <div className={cn(
+                                                    "font-medium tabular-nums",
+                                                    (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"
+                                                )}>
+                                                    {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
                                                 </div>
-                                            ) : (
-                                                <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-normal">
-                                                    In Stock
-                                                </Badge>
-                                            )}
-                                        </TableCell>
+                                            </TableCell>
 
-                                        <TableCell className="pr-4 text-right align-middle">
-                                            <ThresholdDialog
-                                                productVariantId={item.productVariantId}
-                                                productName={item.productVariant.name}
-                                                initialThreshold={thresholdValue}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                </React.Fragment>
-                            );
-                        })}
-                        {processedInventory.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
-                                    <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
-                                        <Search className="h-6 w-6" />
-                                        <p className="text-sm">No items found.</p>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                                            {showPrices && (
+                                                <>
+                                                    <TableCell className="text-right align-middle tabular-nums text-sm">
+                                                        {formatRupiah(item.productVariant.price)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right align-middle tabular-nums font-medium text-sm">
+                                                        {formatRupiah((item.productVariant.price || 0) * item.quantity)}
+                                                    </TableCell>
+                                                </>
+                                            )}
+
+                                            <TableCell className="align-middle">
+                                                {isLowStock ? (
+                                                    <div className="space-y-1">
+                                                        <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
+                                                            Low Stock
+                                                        </Badge>
+                                                        <div className="text-[10px] text-destructive font-medium whitespace-nowrap">
+                                                            {totalStockValue}/{thresholdValue}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-normal">
+                                                        In Stock
+                                                    </Badge>
+                                                )}
+                                            </TableCell>
+
+                                            <TableCell className="pr-4 text-right align-middle">
+                                                <ThresholdDialog
+                                                    productVariantId={item.productVariantId}
+                                                    productName={item.productVariant.name}
+                                                    initialThreshold={thresholdValue}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    </React.Fragment>
+                                );
+                            })}
+                            {processedInventory.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
+                                        <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
+                                            <Search className="h-6 w-6" />
+                                            <p className="text-sm">No items found.</p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </ResponsiveTable>
             </div>
 
             {/* Pagination Footer */}

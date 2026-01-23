@@ -15,10 +15,7 @@ import {
     ArrowUpRight,
     ArrowRight,
     Wallet,
-    LucideIcon,
-    AlertTriangle,
-    Clock,
-    CreditCard
+    LucideIcon
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -30,12 +27,12 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
     const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     return (
-        <div className="p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Executive Summary</h1>
-                    <p className="text-muted-foreground mt-1">High-level overview of business performance and operational health.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Executive Summary</h1>
+                    <p className="text-sm md:base text-muted-foreground mt-1">High-level overview of business performance and operational health.</p>
                 </div>
                 <div className="flex gap-2">
                     <Badge variant="outline" className="px-3 py-1 text-sm bg-background" suppressHydrationWarning>

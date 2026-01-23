@@ -12,10 +12,10 @@ import { format } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import {
-    Play, CheckCircle, Package, History, Trash2
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { cn, formatRupiah } from '@/lib/utils';
+import { getOrderCosting } from '@/actions/finance';
+import { useEffect } from 'react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -60,13 +60,27 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
     const getDefaultTab = (status: string) => {
         switch (status) {
             case 'RELEASED': return 'materials';
-            case 'IN_PROGRESS': return 'operations';
+            case 'IN_PROGRESS': return 'execution';
             default: return 'overview';
         }
     };
 
     const [activeTab, setActiveTab] = useState(getDefaultTab(order.status));
     const router = useRouter();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [costingData, setCostingData] = useState<any>(null);
+    const [loadingCosting, setLoadingCosting] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'costing' && !costingData) {
+            // eslint-disable-next-line
+            setLoadingCosting(true);
+            getOrderCosting(order.id)
+                .then(setCostingData)
+                .finally(() => setLoadingCosting(false));
+        }
+    }, [activeTab, order.id, costingData]);
 
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
@@ -164,29 +178,25 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
             <OrderWorkflowStepper status={order.status} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                <div className="overflow-x-auto pb-2 custom-scrollbar">
+                    <TabsList className="flex w-max min-w-full lg:grid lg:w-[450px] lg:grid-cols-4">
+                        <TabsTrigger value="overview" className="px-6 lg:px-2">Overview</TabsTrigger>
 
-                    <TabsTrigger value="shifts" className="relative">
-                        Shifts
-                        {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
-                    </TabsTrigger>
+                        <TabsTrigger value="materials" className="relative px-6 lg:px-2">
+                            Materials
+                            {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+                        </TabsTrigger>
 
-                    <TabsTrigger value="materials" className="relative">
-                        Materials
-                        {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
-                    </TabsTrigger>
+                        <TabsTrigger value="execution" className="relative px-6 lg:px-2">
+                            Execution
+                            {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
+                        </TabsTrigger>
 
-                    <TabsTrigger value="operations" className="relative">
-                        Operations
-                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
-                    </TabsTrigger>
-
-                    <TabsTrigger value="qc" className="relative">
-                        QC
-                        {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" />}
-                    </TabsTrigger>
-                </TabsList>
+                        <TabsTrigger value="costing" className="px-6 lg:px-2">
+                            Costing
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
 
                 <TabsContent value="overview" className="space-y-6 mt-6">
                     {/* Progress Section */}
@@ -237,8 +247,8 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardHeader>
                         <CardContent>
                             {order.executions && order.executions.length > 0 ? (
-                                <div className="rounded-md border">
-                                    <table className="w-full text-sm text-left">
+                                <div className="rounded-md border overflow-x-auto custom-scrollbar">
+                                    <table className="w-full text-sm text-left min-w-[500px]">
                                         <thead className="bg-muted/50 text-muted-foreground font-medium">
                                             <tr>
                                                 <th className="p-3">Date/Time</th>
@@ -280,20 +290,6 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardContent>
                     </Card>
                 </TabsContent>
-
-                <TabsContent value="shifts" className="mt-6">
-                    <ShiftManager
-                        orderId={order.id}
-                        shifts={order.shifts || []}
-                        operators={formData.operators}
-                        helpers={formData.helpers}
-                        readOnly={order.status === 'COMPLETED' || order.status === 'CANCELLED'}
-                        workShifts={formData.workShifts}
-                        machines={formData.machines}
-                    />
-                </TabsContent>
-
-                {/* ... (Materials, Operations, QC tabs remain same) */}
 
                 <TabsContent value="materials" className="space-y-6 mt-6">
                     <div className="flex justify-between items-center">
@@ -444,65 +440,174 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="operations" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Production Logs</h3>
-                        {order.status === 'IN_PROGRESS' && (
-                            <RecordScrapDialog order={order} locations={formData.locations} />
-                        )}
+                <TabsContent value="execution" className="space-y-6 mt-6">
+                    {/* Shift Management Section */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Play className="w-4 h-4 text-blue-500" /> Operational Resources
+                            </h3>
+                        </div>
+                        <ShiftManager
+                            orderId={order.id}
+                            shifts={order.shifts || []}
+                            operators={formData.operators}
+                            helpers={formData.helpers}
+                            readOnly={order.status === 'COMPLETED' || order.status === 'CANCELLED'}
+                            workShifts={formData.workShifts}
+                            machines={formData.machines}
+                        />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Scrap Records</CardTitle></CardHeader>
-                            <CardContent>
-                                {order.scrapRecords.length === 0 ? <p className="text-muted-foreground text-sm">No scrap recorded.</p> : (
-                                    <ul className="space-y-2">
-                                        {order.scrapRecords.map((scrap) => (
-                                            <li key={scrap.id} className="flex justify-between items-center text-sm border-b pb-2">
-                                                <span>{scrap.productVariant.name}</span>
-                                                <Badge variant="outline" className="text-red-600 border-red-200">
-                                                    {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
-                                                </Badge>
-                                            </li>
-                                        ))}
-                                    </ul>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Logs and Quality Section */}
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold flex items-center gap-2">
+                                    <TrendingUpIcon className="w-4 h-4 text-amber-500" /> Production & Scrap
+                                </h3>
+                                {order.status === 'IN_PROGRESS' && (
+                                    <RecordScrapDialog order={order} locations={formData.locations} />
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+
+                            <Card>
+                                <CardHeader><CardTitle className="text-sm font-medium">Scrap Records</CardTitle></CardHeader>
+                                <CardContent>
+                                    {order.scrapRecords.length === 0 ? <p className="text-muted-foreground text-sm italic py-4">No scrap recorded for this order.</p> : (
+                                        <ul className="space-y-2">
+                                            {order.scrapRecords.map((scrap) => (
+                                                <li key={scrap.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0">
+                                                    <div>
+                                                        <p className="font-medium">{scrap.productVariant.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{scrap.reason || 'No reason provided'}</p>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                                        {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
+                                                    </Badge>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-emerald-500" /> Quality Control
+                                </h3>
+                                {(order.status === 'IN_PROGRESS' || order.status === 'COMPLETED') && (
+                                    <RecordQCDialog order={order} />
+                                )}
+                            </div>
+
+                            <Card>
+                                <CardHeader><CardTitle className="text-sm font-medium">Inspection History</CardTitle></CardHeader>
+                                <CardContent className="space-y-3">
+                                    {order.inspections.map((insp) => (
+                                        <div key={insp.id} className="p-3 border rounded-lg flex items-start justify-between bg-zinc-50/50">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Badge className={cn(
+                                                        insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700" :
+                                                            insp.result === 'FAIL' ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                                                    )}>
+                                                        {insp.result}
+                                                    </Badge>
+                                                    <span className="text-[10px] text-muted-foreground">{format(new Date(insp.inspectedAt), 'MMM d, HH:mm')}</span>
+                                                </div>
+                                                <p className="text-xs text-foreground line-clamp-2">{insp.notes || "No notes."}</p>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                                {insp.inspector?.name?.split(' ')[0] || 'System'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {order.inspections.length === 0 && <p className="text-muted-foreground text-sm italic py-4">No inspections recorded.</p>}
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </TabsContent>
-
-                <TabsContent value="qc" className="space-y-6 mt-6">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Quality Inspection</h3>
-                        {(order.status === 'IN_PROGRESS' || order.status === 'COMPLETED') && (
-                            <RecordQCDialog order={order} />
-                        )}
-                    </div>
-
-                    <div className="space-y-4">
-                        {order.inspections.map((insp) => (
-                            <div key={insp.id} className="p-4 border rounded-lg flex items-start justify-between">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Badge className={cn(
-                                            insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700" :
-                                                insp.result === 'FAIL' ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                                        )}>
-                                            {insp.result}
-                                        </Badge>
-                                        <span className="text-sm text-muted-foreground">at {format(new Date(insp.inspectedAt), 'PP p')}</span>
+                <TabsContent value="costing" className="space-y-6 mt-6">
+                    {loadingCosting ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                            <Calculator className="w-8 h-8 animate-pulse mb-2" />
+                            <p>Calculating batch costs...</p>
+                        </div>
+                    ) : costingData ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="md:col-span-2">
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Calculator className="w-4 h-4" /> Cost Breakdown
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Material Cost</p>
+                                            <p className="text-xl font-bold">{formatRupiah(costingData.materialCost)}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Conversion Cost</p>
+                                            <p className="text-xl font-bold">{formatRupiah(costingData.conversionCost)}</p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-foreground">{insp.notes || "No notes provided."}</p>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Inspector: {insp.inspector?.name || 'Unknown'}
-                                </div>
-                            </div>
-                        ))}
-                        {order.inspections.length === 0 && <p className="text-muted-foreground">No inspections recorded.</p>}
-                    </div>
+                                    <div className="pt-4 border-t">
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total COGM</p>
+                                                <p className="text-2xl font-black text-blue-600">{formatRupiah(costingData.totalCost)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Unit Cost</p>
+                                                <p className="text-xl font-bold text-emerald-600">{formatRupiah(costingData.unitCost)} <span className="text-xs font-normal text-muted-foreground">/ {order.bom.productVariant.primaryUnit}</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Info className="w-4 h-4" /> Insights
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Material %</span>
+                                            <span className="font-medium">{((costingData.materialCost / costingData.totalCost) * 100).toFixed(1)}%</span>
+                                        </div>
+                                        <Progress value={(costingData.materialCost / costingData.totalCost) * 100} className="h-1.5" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Conversion %</span>
+                                            <span className="font-medium">{((costingData.conversionCost / costingData.totalCost) * 100).toFixed(1)}%</span>
+                                        </div>
+                                        <Progress value={(costingData.conversionCost / costingData.totalCost) * 100} className="h-1.5 bg-amber-100" />
+                                    </div>
+                                    <div className="mt-4 p-3 bg-zinc-50 rounded-lg border text-xs text-muted-foreground">
+                                        <p className="flex items-center gap-1 font-medium text-zinc-900 mb-1">
+                                            <TrendingUpIcon className="w-3 h-3 text-blue-500" /> WAC-based Valuation
+                                        </p>
+                                        Material costs are calculated using the Weighted Average Cost at the time of issuance.
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                            <Calculator className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p>No costing data available for this order yet.</p>
+                            <p className="text-xs mt-1">Costs are aggregated once materials are issued or output is recorded.</p>
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
         </div >

@@ -9,6 +9,7 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -107,72 +108,74 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                 </div>
             </div>
 
-            <div className="rounded-md border bg-background overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-[150px]">PO Number</TableHead>
-                            <TableHead>Supplier</TableHead>
-                            <TableHead>Order Date</TableHead>
-                            <TableHead>Expected</TableHead>
-                            <TableHead className="text-right">Total Amount</TableHead>
-                            <TableHead className="text-center">Items</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="w-[100px] text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredOrders.length > 0 ? (
-                            filteredOrders.map((order) => (
-                                <TableRow key={order.id} className="hover:bg-muted/30 transition-colors">
-                                    <TableCell className="font-mono font-medium text-blue-600">
-                                        <Link href={`/dashboard/purchasing/orders/${order.id}`} className="hover:underline">
-                                            {order.orderNumber}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{order.supplier.name}</span>
-                                            {order.supplier.code && (
-                                                <span className="text-[10px] text-muted-foreground uppercase">{order.supplier.code}</span>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {format(new Date(order.orderDate), 'dd MMM yyyy')}
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {order.expectedDate ? format(new Date(order.expectedDate), 'dd MMM yyyy') : '-'}
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium tabular-nums">
-                                        {formatRupiah(order.totalAmount || 0)}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant="secondary" className="font-normal">
-                                            {order._count.items} items
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {getStatusBadge(order.status)}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Link href={`/dashboard/purchasing/orders/${order.id}`}>
-                                            <Button variant="ghost" size="sm">
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                        </Link>
+            <div className="rounded-md border bg-background overflow-x-auto">
+                <ResponsiveTable minWidth={800}>
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow>
+                                <TableHead className="w-[150px]">PO Number</TableHead>
+                                <TableHead>Supplier</TableHead>
+                                <TableHead>Order Date</TableHead>
+                                <TableHead>Expected</TableHead>
+                                <TableHead className="text-right">Total Amount</TableHead>
+                                <TableHead className="text-center">Items</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredOrders.length > 0 ? (
+                                filteredOrders.map((order) => (
+                                    <TableRow key={order.id} className="hover:bg-muted/30 transition-colors">
+                                        <TableCell className="font-mono font-medium text-blue-600">
+                                            <Link href={`/dashboard/purchasing/orders/${order.id}`} className="hover:underline">
+                                                {order.orderNumber}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{order.supplier.name}</span>
+                                                {order.supplier.code && (
+                                                    <span className="text-[10px] text-muted-foreground uppercase">{order.supplier.code}</span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            {format(new Date(order.orderDate), 'dd MMM yyyy')}
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            {order.expectedDate ? format(new Date(order.expectedDate), 'dd MMM yyyy') : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium tabular-nums">
+                                            {formatRupiah(order.totalAmount || 0)}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="secondary" className="font-normal">
+                                                {order._count.items} items
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {getStatusBadge(order.status)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Link href={`/dashboard/purchasing/orders/${order.id}`}>
+                                                <Button variant="ghost" size="sm">
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                            </Link>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                        No purchase orders found.
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                                    No purchase orders found.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
+                </ResponsiveTable>
             </div>
         </div>
     );

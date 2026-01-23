@@ -85,3 +85,12 @@ export async function getWipValuation() {
     const data = await CostReportingService.getWipValuation();
     return serializeData(data);
 }
+
+/**
+ * Get Costing for a Specific Order
+ */
+export async function getOrderCosting(orderId: string) {
+    await requireAuth();
+    const data = await CostReportingService.getOrderCosting(orderId);
+    return serializeData(data);
+}

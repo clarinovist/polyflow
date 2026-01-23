@@ -9,6 +9,7 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Search, Calendar } from 'lucide-react';
@@ -74,69 +75,71 @@ export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
                 />
             </div>
 
-            <div className="rounded-md border bg-background overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-[150px]">Invoice No</TableHead>
-                            <TableHead>Supplier</TableHead>
-                            <TableHead>PO Ref</TableHead>
-                            <TableHead>Invoice Date</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead className="text-right">Total Amount</TableHead>
-                            <TableHead className="text-right">Paid Amount</TableHead>
-                            <TableHead>Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredInvoices.length > 0 ? (
-                            filteredInvoices.map((inv) => (
-                                <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
-                                    <TableCell className="font-mono font-medium">
-                                        <Link
-                                            href={`/dashboard/purchasing/invoices/${inv.id}`}
-                                            className="text-slate-900 hover:text-blue-600 hover:underline"
-                                        >
-                                            {inv.invoiceNumber}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                        {inv.purchaseOrder.supplier.name}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary" className="font-mono text-[10px]">
-                                            {inv.purchaseOrder.orderNumber}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {format(new Date(inv.invoiceDate), 'dd MMM yyyy')}
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        <div className={`flex items-center gap-2 ${new Date(inv.dueDate) < new Date() && inv.status !== 'PAID' ? 'text-red-600 font-bold' : ''}`}>
-                                            <Calendar className="h-3 w-3" />
-                                            {format(new Date(inv.dueDate), 'dd MMM yyyy')}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium">
-                                        {formatRupiah(inv.totalAmount)}
-                                    </TableCell>
-                                    <TableCell className="text-right text-emerald-600 font-medium">
-                                        {formatRupiah(inv.paidAmount)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {getStatusBadge(inv.status)}
+            <div className="rounded-md border">
+                <ResponsiveTable minWidth={800}>
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow>
+                                <TableHead className="w-[150px]">Invoice No</TableHead>
+                                <TableHead>Supplier</TableHead>
+                                <TableHead>PO Ref</TableHead>
+                                <TableHead>Invoice Date</TableHead>
+                                <TableHead>Due Date</TableHead>
+                                <TableHead className="text-right">Total Amount</TableHead>
+                                <TableHead className="text-right">Paid Amount</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredInvoices.length > 0 ? (
+                                filteredInvoices.map((inv) => (
+                                    <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
+                                        <TableCell className="font-mono font-medium">
+                                            <Link
+                                                href={`/dashboard/purchasing/invoices/${inv.id}`}
+                                                className="text-slate-900 hover:text-blue-600 hover:underline"
+                                            >
+                                                {inv.invoiceNumber}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            {inv.purchaseOrder.supplier.name}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="font-mono text-[10px]">
+                                                {inv.purchaseOrder.orderNumber}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            {format(new Date(inv.invoiceDate), 'dd MMM yyyy')}
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            <div className={`flex items-center gap-2 ${new Date(inv.dueDate) < new Date() && inv.status !== 'PAID' ? 'text-red-600 font-bold' : ''}`}>
+                                                <Calendar className="h-3 w-3" />
+                                                {format(new Date(inv.dueDate), 'dd MMM yyyy')}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                            {formatRupiah(inv.totalAmount)}
+                                        </TableCell>
+                                        <TableCell className="text-right text-emerald-600 font-medium">
+                                            {formatRupiah(inv.paidAmount)}
+                                        </TableCell>
+                                        <TableCell>
+                                            {getStatusBadge(inv.status)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                        No purchase invoices found.
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                                    No purchase invoices found.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
+                </ResponsiveTable>
             </div>
         </div>
     );
