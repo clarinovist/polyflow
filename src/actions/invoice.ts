@@ -7,6 +7,7 @@ import { InvoiceService } from '@/services/invoice-service';
 import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
+import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
 /**
  * Get all invoices
@@ -65,6 +66,12 @@ export async function createInvoice(data: CreateInvoiceValues) {
 
     try {
         const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
+
+        // Auto-Journaling Trigger
+        await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
+            console.error("Auto-Journal failed:", err);
+        });
+
         revalidatePath('/dashboard/sales'); // Refresh sales to update invoice status if any
         revalidatePath(`/dashboard/sales/${data.salesOrderId}`);
         return { success: true, data: serializeData(invoice) };
@@ -91,6 +98,12 @@ export async function updateInvoiceStatus(data: { id: string, status: InvoiceSta
         if (invoice) {
             revalidatePath(`/dashboard/sales/${invoice.salesOrderId}`);
         }
+
+        // Auto-Journal: Sales Payment
+        if (data.paidAmount && data.paidAmount > 0) {
+            await AutoJournalService.handleSalesPayment(data.id, data.paidAmount).catch(console.error);
+        }
+
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to update invoice" };

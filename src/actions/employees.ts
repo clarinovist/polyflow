@@ -33,6 +33,7 @@ export async function createEmployee(data: {
     code: string;
     role: string;
     status?: EmployeeStatus;
+    hourlyRate?: number;
 }) {
     try {
         const employee = await prisma.employee.create({
@@ -41,6 +42,7 @@ export async function createEmployee(data: {
                 code: data.code,
                 role: data.role,
                 status: data.status || 'ACTIVE',
+                hourlyRate: data.hourlyRate || 0,
             },
         });
         revalidatePath('/dashboard/production/resources/employees');
@@ -58,6 +60,7 @@ export async function updateEmployee(
         code?: string;
         role?: string;
         status?: EmployeeStatus;
+        hourlyRate?: number;
     }
 ) {
     try {

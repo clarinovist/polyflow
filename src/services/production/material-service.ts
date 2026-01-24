@@ -6,7 +6,8 @@ import {
     QualityInspectionValues
 } from '@/lib/schemas/production';
 import { MovementType } from '@prisma/client';
-import { InventoryService } from '../inventory-service'; // Relative import adjusted
+import { InventoryService } from '../inventory-service';
+import { AutoJournalService } from '../finance/auto-journal-service';
 
 export class ProductionMaterialService {
 
@@ -20,6 +21,8 @@ export class ProductionMaterialService {
             removedPlannedMaterialIds,
             addedPlannedMaterials
         } = data;
+
+        const issueIds: string[] = [];
 
         await prisma.$transaction(async (tx) => {
             const order = await tx.productionOrder.findUniqueOrThrow({
@@ -77,14 +80,15 @@ export class ProductionMaterialService {
                     item.quantity
                 );
 
-                await tx.materialIssue.create({
+                const newIssue = await tx.materialIssue.create({
                     data: {
                         productionOrderId,
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         batchId: item.batchId
-                    } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any);
+                    }
+                });
+                issueIds.push(newIssue.id);
 
                 await tx.stockMovement.create({
                     data: {
@@ -99,10 +103,15 @@ export class ProductionMaterialService {
                 } as any);
             }
         });
+
+        for (const id of issueIds) {
+            await AutoJournalService.handleMaterialIssue(id);
+        }
     }
 
     static async recordMaterialIssue(data: MaterialIssueValues) {
         const { productionOrderId, productVariantId, locationId, quantity } = data;
+        let issueId = '';
 
         await prisma.$transaction(async (tx) => {
             await InventoryService.validateAndLockStock(
@@ -142,10 +151,15 @@ export class ProductionMaterialService {
                 }
             });
 
-            await tx.materialIssue.create({
+            const issue = await tx.materialIssue.create({
                 data: { productionOrderId, productVariantId, quantity }
             });
+            issueId = issue.id;
         });
+
+        if (issueId) {
+            await AutoJournalService.handleMaterialIssue(issueId);
+        }
     }
 
     static async deleteMaterialIssue(issueId: string, productionOrderId: string) {
@@ -191,6 +205,7 @@ export class ProductionMaterialService {
 
     static async recordScrap(data: ScrapRecordValues) {
         const { productionOrderId, productVariantId, locationId, quantity, reason } = data;
+        let scrapId = '';
 
         await prisma.$transaction(async (tx) => {
             await InventoryService.incrementStock(
@@ -216,10 +231,15 @@ export class ProductionMaterialService {
                 }
             });
 
-            await tx.scrapRecord.create({
+            const scrap = await tx.scrapRecord.create({
                 data: { productionOrderId, productVariantId, quantity, reason }
             });
+            scrapId = scrap.id;
         });
+
+        if (scrapId) {
+            await AutoJournalService.handleScrapOutput(scrapId);
+        }
     }
 
     // --- Quality ---

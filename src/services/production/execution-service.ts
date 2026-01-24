@@ -1,3 +1,4 @@
+
 import { prisma } from '@/lib/prisma';
 import {
     StartExecutionValues,
@@ -6,9 +7,10 @@ import {
     ProductionOutputValues,
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MovementType, ReservationStatus } from '@prisma/client';
+import { ProductionStatus, MovementType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { ProductionCostService } from './cost-service';
+import { AutoJournalService } from '../finance/auto-journal-service';
 
 export class ProductionExecutionService {
 
@@ -78,6 +80,10 @@ export class ProductionExecutionService {
             }
         });
 
+        if (quantityProduced > 0) {
+            await AutoJournalService.handleProductionOutput(executionId);
+        }
+
         return execution;
     }
 
@@ -88,12 +94,10 @@ export class ProductionExecutionService {
         const { executionId, quantityProduced, scrapQuantity, notes } = data;
 
         await prisma.$transaction(async (tx) => {
-            // 1. Get current execution
             const execution = await tx.productionExecution.findUniqueOrThrow({
                 where: { id: executionId }
             });
 
-            // 2. Update Execution
             await tx.productionExecution.update({
                 where: { id: executionId },
                 data: {
@@ -104,8 +108,6 @@ export class ProductionExecutionService {
             });
 
             const productionOrderId = execution.productionOrderId;
-
-            // 3. Update Order
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({
                 where: { id: productionOrderId }
             });
@@ -121,7 +123,6 @@ export class ProductionExecutionService {
             const locationId = order.locationId;
             const outputVariantId = order.bom.productVariantId;
 
-            // 4. Update Finished Goods Inventory
             await tx.inventory.upsert({
                 where: {
                     locationId_productVariantId: { locationId, productVariantId: outputVariantId }
@@ -130,7 +131,6 @@ export class ProductionExecutionService {
                 create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
             });
 
-            // Calculate COGM (Running)
             let unitCost = 0;
             try {
                 unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
@@ -138,7 +138,6 @@ export class ProductionExecutionService {
                 console.warn("COGM Calc failed", e);
             }
 
-            // 5. Stock Movement (Output)
             await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
@@ -158,7 +157,6 @@ export class ProductionExecutionService {
                 const currentQty = fgInv.quantity.toNumber();
                 const oldQty = currentQty - quantityProduced;
                 const oldCost = fgInv.averageCost?.toNumber() || 0;
-
                 const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
                 const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
 
@@ -168,29 +166,15 @@ export class ProductionExecutionService {
                 });
             }
 
-            // 6. Backflush Raw Materials
+            // Backflush
             if (order.bom && order.bom.items.length > 0) {
                 for (const item of order.bom.items) {
                     const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
                     const qtyToDeduct = quantityProduced * ratio;
 
                     if (qtyToDeduct > 0.0001) {
-                        // Use InventoryService to check and lock
-                        await InventoryService.validateAndLockStock(
-                            tx,
-                            locationId,
-                            item.productVariantId,
-                            qtyToDeduct
-                        );
-
-                        // Deduct
-                        await InventoryService.deductStock(
-                            tx,
-                            locationId,
-                            item.productVariantId,
-                            qtyToDeduct
-                        );
-
+                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
                         await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
@@ -204,6 +188,10 @@ export class ProductionExecutionService {
                 }
             }
         });
+
+        if (quantityProduced > 0) {
+            await AutoJournalService.handleProductionOutput(executionId);
+        }
     }
 
     /**
@@ -216,33 +204,32 @@ export class ProductionExecutionService {
             startTime, endTime, notes
         } = data;
 
+        let executionId = '';
+
         await prisma.$transaction(async (tx) => {
-            // 1. Create Execution Record
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const executionData: any = {
-                productionOrderId,
-                machineId,
-                operatorId,
-                shiftId,
-                startTime,
-                endTime,
-                quantityProduced,
-                scrapQuantity,
-                notes
+            const executionData: {
+                productionOrderId: string;
+                machineId?: string | null;
+                operatorId?: string | null;
+                shiftId?: string | null;
+                startTime: Date;
+                endTime?: Date | null;
+                quantityProduced: number;
+                scrapQuantity: number;
+                notes?: string | null;
+                scrapProngkolQty?: number;
+                scrapDaunQty?: number;
+            } = {
+                productionOrderId, machineId, operatorId, shiftId,
+                startTime, endTime, quantityProduced: Number(quantityProduced), scrapQuantity: Number(scrapQuantity), notes
             };
+            if (scrapProngkolQty !== undefined) executionData.scrapProngkolQty = Number(scrapProngkolQty);
+            if (scrapDaunQty !== undefined) executionData.scrapDaunQty = Number(scrapDaunQty);
 
-            if (scrapProngkolQty !== undefined) executionData['scrapProngkolQty'] = scrapProngkolQty;
-            if (scrapDaunQty !== undefined) executionData['scrapDaunQty'] = scrapDaunQty;
+            const execution = await tx.productionExecution.create({ data: executionData });
+            executionId = execution.id;
 
-            await tx.productionExecution.create({
-                data: executionData
-            });
-
-            // 2. Update Order
-            const currentOrder = await tx.productionOrder.findUniqueOrThrow({
-                where: { id: productionOrderId }
-            });
-
+            const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
             const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
 
             const order = await tx.productionOrder.update({
@@ -254,17 +241,12 @@ export class ProductionExecutionService {
             const locationId = order.locationId;
             const outputVariantId = order.bom.productVariantId;
 
-            // 3. Update Finished Goods Inventory
             await tx.inventory.upsert({
-                where: {
-                    locationId_productVariantId: { locationId, productVariantId: outputVariantId }
-                },
+                where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } },
                 update: { quantity: { increment: quantityProduced } },
                 create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
             });
 
-            // 4. Stock Movement (Output)
-            // Calculate COGM
             let unitCost = 0;
             try {
                 unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
@@ -283,7 +265,7 @@ export class ProductionExecutionService {
                 }
             });
 
-            // Update WAC
+            // WAC Update
             const fgInv = await tx.inventory.findUnique({
                 where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
             });
@@ -291,63 +273,19 @@ export class ProductionExecutionService {
                 const currentQty = fgInv.quantity.toNumber();
                 const oldQty = currentQty - quantityProduced;
                 const oldCost = fgInv.averageCost?.toNumber() || 0;
-
                 const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
                 const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
-
-                await tx.inventory.update({
-                    where: { id: fgInv.id },
-                    data: { averageCost: newAvg }
-                });
+                await tx.inventory.update({ where: { id: fgInv.id }, data: { averageCost: newAvg } });
             }
 
-            // 5. Backflush Raw Materials
+            // Backflush
             if (order.bom && order.bom.items.length > 0) {
                 for (const item of order.bom.items) {
                     const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
                     const qtyToDeduct = quantityProduced * ratio;
-
                     if (qtyToDeduct > 0.0001) {
-                        // Check inventory
-                        const invRow = await tx.inventory.findUnique({
-                            where: {
-                                locationId_productVariantId: {
-                                    locationId,
-                                    productVariantId: item.productVariantId
-                                }
-                            },
-                            select: { quantity: true }
-                        });
-
-                        const physicalQty = invRow?.quantity.toNumber() || 0;
-
-                        const resAgg = await tx.stockReservation.aggregate({
-                            where: {
-                                locationId,
-                                productVariantId: item.productVariantId,
-                                status: ReservationStatus.ACTIVE
-                            },
-                            _sum: { quantity: true }
-                        });
-
-                        const reservedQty = resAgg._sum.quantity?.toNumber() || 0;
-                        const availableQty = physicalQty - reservedQty;
-
-                        if (availableQty < qtyToDeduct) {
-                            const variant = await tx.productVariant.findUnique({ where: { id: item.productVariantId }, select: { name: true } });
-                            throw new Error(`Insufficient available stock for ${variant?.name || item.productVariantId} at location. Available: ${availableQty}, Required: ${qtyToDeduct}`);
-                        }
-
-                        await tx.inventory.update({
-                            where: {
-                                locationId_productVariantId: {
-                                    locationId,
-                                    productVariantId: item.productVariantId
-                                }
-                            },
-                            data: { quantity: { decrement: qtyToDeduct } }
-                        });
-
+                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
                         await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
@@ -361,6 +299,10 @@ export class ProductionExecutionService {
                 }
             }
         });
+
+        if (executionId && quantityProduced > 0) {
+            await AutoJournalService.handleProductionOutput(executionId);
+        }
     }
 
     /**
@@ -397,14 +339,9 @@ export class ProductionExecutionService {
      */
     static async recordDowntime(data: LogMachineDowntimeValues & { createdById?: string }) {
         const { machineId, reason, startTime, endTime, createdById } = data;
-
         await prisma.machineDowntime.create({
             data: {
-                machineId,
-                reason,
-                startTime,
-                endTime,
-                createdById
+                machineId, reason, startTime, endTime, createdById
             }
         });
     }

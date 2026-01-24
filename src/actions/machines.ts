@@ -36,6 +36,7 @@ export async function createMachine(data: {
     type: MachineType;
     locationId: string;
     status?: MachineStatus;
+    costPerHour?: number;
 }) {
     try {
         const machine = await prisma.machine.create({
@@ -45,6 +46,7 @@ export async function createMachine(data: {
                 type: data.type,
                 locationId: data.locationId,
                 status: data.status || 'ACTIVE',
+                costPerHour: data.costPerHour || 0,
             },
         });
         revalidatePath('/dashboard/production/resources/machines');
@@ -63,6 +65,7 @@ export async function updateMachine(
         type?: MachineType;
         locationId?: string;
         status?: MachineStatus;
+        costPerHour?: number;
     }
 ) {
     try {

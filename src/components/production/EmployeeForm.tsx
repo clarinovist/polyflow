@@ -34,6 +34,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
         code: initialData?.code || '',
         role: initialData?.role || '',
         status: initialData?.status || EmployeeStatus.ACTIVE,
+        hourlyRate: initialData?.hourlyRate ? Number(initialData.hourlyRate) : 0,
     });
 
     useEffect(() => {
@@ -173,6 +174,19 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                         </Command>
                     </PopoverContent>
                 </Popover>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="hourlyRate">Hourly Rate (IDR)</Label>
+                <Input
+                    id="hourlyRate"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={formData.hourlyRate}
+                    onChange={(e) => setFormData({ ...formData, hourlyRate: Number(e.target.value) })}
+                    placeholder="e.g. 25000"
+                />
             </div>
 
             <div className="flex items-center space-x-2">

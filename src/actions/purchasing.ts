@@ -17,6 +17,7 @@ import {
 } from '@/lib/schemas/purchasing';
 import { PurchaseOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
+import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
 export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const session = await requireAuth();
@@ -62,6 +63,11 @@ export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValue
 
     revalidatePath('/dashboard/purchasing/invoices');
     revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
+    revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
+
+    // Auto-Journal: Purchase Invoice
+    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(console.error);
+
     return serializeData(invoice);
 }
 
@@ -71,6 +77,11 @@ export async function recordPurchasePayment(id: string, amount: number) {
 
     revalidatePath('/dashboard/purchasing/invoices');
     revalidatePath(`/dashboard/purchasing/invoices/${id}`);
+    revalidatePath(`/dashboard/purchasing/invoices/${id}`);
+
+    // Auto-Journal: Purchase Payment
+    await AutoJournalService.handlePurchasePayment(id, amount).catch(console.error);
+
     return serializeData(updated);
 }
 

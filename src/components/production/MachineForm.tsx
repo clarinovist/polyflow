@@ -31,6 +31,7 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         type: initialData?.type || MachineType.MIXER,
         locationId: initialData?.locationId || locations[0]?.id || '',
         status: initialData?.status || MachineStatus.ACTIVE,
+        costPerHour: initialData?.costPerHour ? Number(initialData.costPerHour) : 0,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -115,6 +116,20 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             </div>
 
             <div className="space-y-2">
+                <Label htmlFor="costPerHour">Cost Per Hour (IDR)</Label>
+                <Input
+                    id="costPerHour"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={formData.costPerHour}
+                    onChange={(e) => setFormData({ ...formData, costPerHour: Number(e.target.value) })}
+                    placeholder="e.g. 50000"
+                />
+                <p className="text-xs text-muted-foreground">Standard operating cost per hour including electricity/depreciation.</p>
+            </div>
+
+            <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
                     value={formData.status}
@@ -143,6 +158,6 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                     {loading ? 'Saving...' : initialData ? 'Update Machine' : 'Create Machine'}
                 </Button>
             </div>
-        </form>
+        </form >
     );
 }

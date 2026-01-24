@@ -12,6 +12,7 @@ import {
 
 import { InventoryWithRelations } from '@/types/inventory';
 import { subDays, format } from 'date-fns';
+import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
 
 export class InventoryService {
@@ -409,7 +410,7 @@ export class InventoryService {
     static async adjustStock(data: AdjustStockWithBatchValues, userId: string) {
         const { locationId, productVariantId, type, quantity, reason, batchData, unitCost } = data;
 
-        await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             const isIncrement = type === 'ADJUSTMENT_IN';
 
             if (!isIncrement) {
@@ -507,7 +508,7 @@ export class InventoryService {
                 batchId = newBatch?.id || null;
             }
 
-            await tx.stockMovement.create({
+            const movement = await tx.stockMovement.create({
                 data: {
                     type: MovementType.ADJUSTMENT,
                     productVariantId,
@@ -529,13 +530,20 @@ export class InventoryService {
                 details: `${type} ${quantity} at ${locationId}. Reason: ${reason}`,
                 tx
             });
+
+            return movement;
         });
+
+        if (result) {
+            await AutoJournalService.handleStockMovement(result.id).catch(console.error);
+        }
     }
 
     static async adjustStockBulk(data: BulkAdjustStockValues, userId: string) {
         const { locationId, items } = data;
 
-        await prisma.$transaction(async (tx) => {
+        const results = await prisma.$transaction(async (tx) => {
+            const movements = [];
             for (const item of items) {
                 const { productVariantId, type, quantity, reason, unitCost } = item;
                 const isIncrement = type === 'ADJUSTMENT_IN';
@@ -597,7 +605,7 @@ export class InventoryService {
                     });
                 }
 
-                await tx.stockMovement.create({
+                const movement = await tx.stockMovement.create({
                     data: {
                         type: MovementType.ADJUSTMENT,
                         productVariantId,
@@ -618,8 +626,16 @@ export class InventoryService {
                     details: `Bulk Adjusted ${type} ${quantity} at ${locationId}. Reason: ${reason}`,
                     tx
                 });
+                movements.push(movement);
             }
+            return movements;
         });
+
+        if (results && results.length > 0) {
+            for (const movement of results) {
+                await AutoJournalService.handleStockMovement(movement.id).catch(console.error);
+            }
+        }
     }
 
     static async updateThreshold(productVariantId: string, minStockAlert: number) {

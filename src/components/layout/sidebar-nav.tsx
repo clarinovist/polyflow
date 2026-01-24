@@ -1,7 +1,6 @@
 'use client';
 
 import { GlobalSearch } from '@/components/GlobalSearch';
-
 import {
     LayoutDashboard,
     Factory,
@@ -24,7 +23,10 @@ import {
     FileText,
     Calculator,
     Menu,
-    X
+    X,
+    BookOpen,
+    Calendar,
+    Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -32,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/theme-provider';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface SidebarNavProps {
     user: {
@@ -107,7 +109,14 @@ export const sidebarLinks: SidebarLinkGroup[] = [
     {
         heading: "Finance & Accounting",
         items: [
+            { title: "Financial Overview", href: "/dashboard/accounting", icon: LayoutDashboard },
             { title: "Cost Accounting", href: "/dashboard/finance/costing", icon: Calculator },
+            { title: "Financial Reports", href: "/dashboard/accounting/reports", icon: FileText },
+            { title: "Journal Entries", href: "/dashboard/accounting/journals", icon: BookOpen },
+            { title: "Manage COA", href: "/dashboard/accounting/coa", icon: Settings2 },
+            { title: "Fiscal Periods", href: "/dashboard/accounting/periods", icon: Calendar },
+            { title: "Fixed Assets", href: "/dashboard/accounting/assets", icon: Building2 },
+            { title: "Budgeting", href: "/dashboard/accounting/budget", icon: BarChart3 },
         ],
     },
 ];
@@ -118,10 +127,13 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     // Close mobile sidebar on navigation
-    useEffect(() => {
-        // eslint-disable-next-line 
-        setIsMobileOpen(false);
-    }, [pathname]);
+    const [prevPathname, setPrevPathname] = useState(pathname);
+    if (pathname !== prevPathname) {
+        setPrevPathname(pathname);
+        if (isMobileOpen) {
+            setIsMobileOpen(false);
+        }
+    }
 
     const cycleTheme = () => {
         if (theme === 'light') setTheme('dark');
@@ -245,12 +257,15 @@ function CollapsibleGroup({ group, pathname }: { group: SidebarLinkGroup, pathna
     // Auto-expand if child is active, otherwise default to expanded for 'Overview' or collapsed for others
     const [isOpen, setIsOpen] = useState(isChildActive || group.heading === 'Overview');
 
-    useEffect(() => {
-        if (isChildActive) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setIsOpen(true);
-        }
-    }, [pathname, isChildActive]);
+    const [prevIsChildActive, setPrevIsChildActive] = useState(isChildActive);
+
+    // If a child becomes active, manually ensure the group is open
+    if (isChildActive && !prevIsChildActive) {
+        setPrevIsChildActive(true);
+        setIsOpen(true);
+    } else if (!isChildActive && prevIsChildActive) {
+        setPrevIsChildActive(false);
+    }
 
     if (group.items.length === 0) return null;
 
