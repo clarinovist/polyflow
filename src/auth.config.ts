@@ -40,14 +40,16 @@ export const authConfig = {
                                 return Response.redirect(new URL('/warehouse', nextUrl));
                             }
                         } else if (userRole === 'PRODUCTION') {
-                            // Production user trying to access Warehouse -> Redirect to Production (or Dashboard if they have specific dashboard needs)
-                            // For now, let's allow Production to access Dashboard but prioritize /production for their main tasks.
+                            // Production user trying to access Warehouse -> Redirect to Production
                             if (isOnWarehouse) {
                                 return Response.redirect(new URL('/production', nextUrl));
                             }
-                        } else {
-                            // Non-Warehouse/Non-Admin user (e.g. SALES, PPIC) trying to access Warehouse -> Redirect to Dashboard
+                        } else if (userRole === 'FINANCE' || userRole === 'SALES' || userRole === 'PPIC') {
+                            // These roles stay in /dashboard, but should be blocked from /warehouse and /production
                             if (isOnWarehouse) {
+                                return Response.redirect(new URL('/dashboard', nextUrl));
+                            }
+                            if (isOnProduction) {
                                 return Response.redirect(new URL('/dashboard', nextUrl));
                             }
                         }
@@ -56,14 +58,22 @@ export const authConfig = {
                     }
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {
-                    // Default redirect for root "/"
-                    if (nextUrl.pathname === '/') {
-                        const userRole = (auth?.user as { role?: string })?.role;
-                        let targetUrl = '/dashboard';
-                        if (userRole === 'WAREHOUSE') targetUrl = '/warehouse';
-                        if (userRole === 'PRODUCTION') targetUrl = '/production';
+                    const isLoginPage = normalizedPath === '/login';
+                    const isRootPage = normalizedPath === '/';
 
-                        return Response.redirect(new URL(targetUrl, nextUrl));
+                    if (isLoginPage || isRootPage) {
+                        const userRole = (auth?.user as { role?: string })?.role;
+                        let targetPath = '/dashboard';
+                        if (userRole === 'WAREHOUSE') targetPath = '/warehouse';
+                        if (userRole === 'PRODUCTION') targetPath = '/production';
+                        if (userRole === 'FINANCE') targetPath = '/dashboard';
+
+                        // Construct locale-aware URL
+                        const locale = nextUrl.pathname.split('/')[1];
+                        const hasLocale = ['id', 'en'].includes(locale);
+                        const targetUrlPath = hasLocale ? `/${locale}${targetPath}` : targetPath;
+
+                        return Response.redirect(new URL(targetUrlPath, nextUrl));
                     }
                 }
                 return true;
@@ -74,9 +84,25 @@ export const authConfig = {
         },
         jwt({ token, user }) {
             if (user) {
-                token.role = (user as { role?: string }).role;
-                token.id = user.id;
+                const u = user as { id?: string; role?: string; rememberMe?: boolean };
+                token.role = u.role;
+                token.id = u.id;
+                token.rememberMe = u.rememberMe;
+                token.lastActive = Math.floor(Date.now() / 1000);
             }
+
+            const now = Math.floor(Date.now() / 1000);
+            const TWO_HOURS = 2 * 60 * 60;
+
+            // Check for idle timeout if not "Remember Me"
+            if (!token.rememberMe) {
+                if (token.lastActive && (now - (token.lastActive as number) > TWO_HOURS)) {
+                    // This will effectively sign out the user on the next server-side check
+                    return null;
+                }
+            }
+
+            token.lastActive = now; // Update activity timestamp
             return token;
         },
         session({ session, token }) {

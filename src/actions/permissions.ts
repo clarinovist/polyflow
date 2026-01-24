@@ -59,35 +59,37 @@ export async function updatePermission(targetRole: Role, resource: string, canAc
     }
 }
 
-// Function to seed default permissions if they don't exist
-// Useful for ensuring a role starts with some access
+// Helper to seed without admin check (internal use only)
+async function seedDefaultPermissionsInternal(targetRole: Role, defaultResources: string[]) {
+    for (const resource of defaultResources) {
+        const exists = await prisma.rolePermission.findUnique({
+            where: {
+                role_resource: {
+                    role: targetRole,
+                    resource: resource,
+                },
+            },
+        });
+
+        if (!exists) {
+            await prisma.rolePermission.create({
+                data: {
+                    role: targetRole,
+                    resource,
+                    canAccess: true, // Default to accessible if we are seeding
+                },
+            });
+        }
+    }
+}
+
+// Public action to seed default permissions (only for ADMIN)
 export async function seedDefaultPermissions(targetRole: Role, defaultResources: string[]) {
     try {
-        // We only check auth if called from client, but this might be called internally too.
-        // For safety, let's assume this is an admin action if called from UI.
         const session = await auth();
         if (session?.user?.role !== 'ADMIN') return { success: false, error: 'Unauthorized' };
 
-        for (const resource of defaultResources) {
-            const exists = await prisma.rolePermission.findUnique({
-                where: {
-                    role_resource: {
-                        role: targetRole,
-                        resource: resource,
-                    },
-                },
-            });
-
-            if (!exists) {
-                await prisma.rolePermission.create({
-                    data: {
-                        role: targetRole,
-                        resource,
-                        canAccess: true, // Default to accessible if we are seeding
-                    },
-                });
-            }
-        }
+        await seedDefaultPermissionsInternal(targetRole, defaultResources);
         return { success: true };
     } catch (error) {
         console.error('Failed to seed permissions:', error);
@@ -129,10 +131,10 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/inventory/aging',
         '/dashboard/products',
         // PPIC typically views procurement status but doesn't manage invoices/payments
-        '/dashboard/purchasing/orders', 
+        '/dashboard/purchasing/orders',
         '/dashboard/ppic/mrp',
         '/dashboard/ppic/schedule',
-        '/production', 
+        '/production',
     ],
     SALES: [
         '/dashboard',
@@ -187,7 +189,7 @@ export async function getMyPermissions() {
     if (count === 0) {
         const defaults = DEFAULT_PERMISSIONS[session.user.role];
         if (defaults && defaults.length > 0) {
-            await seedDefaultPermissions(session.user.role, defaults);
+            await seedDefaultPermissionsInternal(session.user.role, defaults);
         }
     }
 

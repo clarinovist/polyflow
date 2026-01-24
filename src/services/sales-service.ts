@@ -4,6 +4,7 @@ import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sa
 import { logActivity } from '@/lib/audit';
 import { formatRupiah } from '@/lib/utils';
 import { InventoryService } from './inventory-service';
+import { InvoiceService } from './invoice-service';
 
 export class SalesService {
 
@@ -393,6 +394,9 @@ export class SalesService {
                 where: { id },
                 data: { status: SalesOrderStatus.SHIPPED }
             });
+
+            // Trigger automated draft invoice
+            await InvoiceService.createDraftInvoiceFromOrder(id, userId);
 
             await logActivity({
                 userId,

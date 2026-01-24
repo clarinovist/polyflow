@@ -34,7 +34,7 @@ import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/theme-provider';
 import { useState } from 'react';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
 
 interface SidebarNavProps {
     user: {
@@ -219,7 +219,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                                 <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
                             </div>
-                            <LanguageSwitcher />
+
                             <Link
                                 href="/dashboard/settings"
                                 className="text-muted-foreground hover:text-primary transition-colors p-1"

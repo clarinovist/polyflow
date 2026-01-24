@@ -6,10 +6,25 @@ async function main() {
     console.log('Seeding database...')
 
     // 0. Cleanup
+    console.log('Cleaning up existing data...')
+    await prisma.auditLog.deleteMany()
+    await prisma.invoice.deleteMany()
+    await prisma.purchaseInvoice.deleteMany()
+    await prisma.purchasePayment.deleteMany()
+    await prisma.salesOrderItem.deleteMany()
+    await prisma.salesOrder.deleteMany()
+    await prisma.salesQuotationItem.deleteMany()
+    await prisma.salesQuotation.deleteMany()
+    await prisma.goodsReceiptItem.deleteMany()
+    await prisma.goodsReceipt.deleteMany()
+    await prisma.purchaseOrderItem.deleteMany()
+    await prisma.purchaseOrder.deleteMany()
     await prisma.qualityInspection.deleteMany()
     await prisma.scrapRecord.deleteMany()
     await prisma.materialIssue.deleteMany()
-    await prisma.productionShift.deleteMany() // Clean shifts before orders
+    await prisma.productionMaterial.deleteMany()
+    await prisma.productionExecution.deleteMany()
+    await prisma.productionShift.deleteMany()
     await prisma.productionOrder.deleteMany()
     await prisma.stockReservation.deleteMany()
     await prisma.stockOpnameItem.deleteMany()
@@ -20,8 +35,8 @@ async function main() {
     await prisma.stockMovement.deleteMany()
     await prisma.inventory.deleteMany()
     await prisma.machine.deleteMany()
-    await prisma.employee.deleteMany() // Clean employees
-    await prisma.jobRole.deleteMany() // Clean job roles
+    await prisma.employee.deleteMany()
+    await prisma.jobRole.deleteMany()
     await prisma.productVariant.deleteMany()
     await prisma.product.deleteMany()
     await prisma.supplier.deleteMany()
@@ -37,6 +52,15 @@ async function main() {
             name: 'Admin PolyFlow',
             password: '$2b$10$1TAWXOzHiTqlZQp6RdqQAONldCEoq0UcPuv8wk1N63juj0cmvPGoq', // admin123
             role: Role.ADMIN,
+        }
+    })
+
+    await prisma.user.create({
+        data: {
+            email: 'finance@polyflow.com',
+            name: 'Finance Team',
+            password: '$2b$10$1TAWXOzHiTqlZQp6RdqQAONldCEoq0UcPuv8wk1N63juj0cmvPGoq', // admin123
+            role: Role.FINANCE,
         }
     })
 

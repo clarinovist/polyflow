@@ -107,4 +107,52 @@ export class InvoiceService {
             details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`
         });
     }
+
+    /**
+     * Automatically create a DRAFT invoice from a Sales Order when shipped
+     */
+    static async createDraftInvoiceFromOrder(salesOrderId: string, userId: string) {
+        const salesOrder = await prisma.salesOrder.findUnique({
+            where: { id: salesOrderId },
+            select: { id: true, totalAmount: true, orderNumber: true }
+        });
+
+        if (!salesOrder || !salesOrder.totalAmount) return;
+
+        // Check if invoice already exists to avoid duplicates
+        const existingInvoice = await prisma.invoice.findFirst({
+            where: { salesOrderId }
+        });
+        if (existingInvoice) return;
+
+        const invoiceNumber = await this.generateInvoiceNumber();
+
+        // Standard 30 days due date for draft
+        const invoiceDate = new Date();
+        const dueDate = addDays(invoiceDate, 30);
+
+        const invoice = await prisma.invoice.create({
+            data: {
+                invoiceNumber,
+                salesOrderId,
+                invoiceDate,
+                dueDate,
+                termOfPaymentDays: 30,
+                totalAmount: salesOrder.totalAmount,
+                paidAmount: 0,
+                status: InvoiceStatus.DRAFT,
+                notes: `System generated draft invoice for Order ${salesOrder.orderNumber}`
+            }
+        });
+
+        await logActivity({
+            userId,
+            action: 'AUTO_GENERATE_INVOICE',
+            entityType: 'Invoice',
+            entityId: invoice.id,
+            details: `Automated draft invoice ${invoiceNumber} generated for shipped Order ${salesOrder.orderNumber}`
+        });
+
+        return invoice;
+    }
 }

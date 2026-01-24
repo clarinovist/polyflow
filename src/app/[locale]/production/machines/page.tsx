@@ -5,11 +5,14 @@ import { Factory, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { MachineActions } from '@/components/production/MachineActions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionMachinesPage() {
+    const t = await getTranslations('production.machines');
+    const commonT = await getTranslations('common');
     const machines = await prisma.machine.findMany({
         include: {
             executions: {
@@ -33,8 +36,8 @@ export default async function ProductionMachinesPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">Machine Board</h2>
-                <p className="text-muted-foreground">Live status of all production assets on the floor.</p>
+                <h2 className="text-3xl font-bold tracking-tight">{t('title')}</h2>
+                <p className="text-muted-foreground">{t('subtitle')}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -68,7 +71,7 @@ export default async function ProductionMachinesPage() {
                                     <div className="p-3 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">Running Job</span>
+                                            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">{t('runningJob')}</span>
                                         </div>
                                         <p className="text-sm font-bold truncate">
                                             {activeExecution.productionOrder.orderNumber}
@@ -77,14 +80,14 @@ export default async function ProductionMachinesPage() {
                                             {activeExecution.productionOrder.bom.productVariant.name}
                                         </p>
                                         <div className="mt-3 flex items-center justify-between">
-                                            <span className="text-[10px] text-muted-foreground">Operator:</span>
-                                            <span className="text-xs font-medium">{activeExecution.operator?.name || 'Unknown'}</span>
+                                            <span className="text-[10px] text-muted-foreground">{t('operatorLabel')}</span>
+                                            <span className="text-xs font-medium">{activeExecution.operator?.name || commonT('noData')}</span>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-md bg-slate-50 dark:bg-slate-900/50">
                                         <Loader2 className="h-5 w-5 text-muted-foreground/30 mb-2" />
-                                        <span className="text-xs text-muted-foreground italic">Idle / Waiting for SPK</span>
+                                        <span className="text-xs text-muted-foreground italic">{t('idle')}</span>
                                     </div>
                                 )}
 
@@ -92,7 +95,7 @@ export default async function ProductionMachinesPage() {
                                     <MachineActions id={machine.id} name={machine.name} />
                                     <Link href={`/dashboard/production/resources/machines/${machine.id}`}>
                                         <Button variant="ghost" size="sm" className="h-8 text-xs">
-                                            View
+                                            {commonT('view')}
                                         </Button>
                                     </Link>
                                 </div>

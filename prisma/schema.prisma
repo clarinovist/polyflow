@@ -9,43 +9,42 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(uuid())
-  email              String              @unique
-  name               String?
-  password           String
-  role               Role                @default(WAREHOUSE)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  materialIssues     MaterialIssue[]
-  productionCreator  ProductionOrder[]   @relation("ProductionCreator")
-  inspections        QualityInspection[]
-  scrapRecords       ScrapRecord[]
-  movements          StockMovement[]
-  opnames            StockOpname[]
-  auditLogs          AuditLog[]
-  downtimeLogs       MachineDowntime[]
-  salesOrders        SalesOrder[]        @relation("SalesCreator")
-  quotations         SalesQuotation[]    @relation("QuotationCreator")
-  purchaseOrders     PurchaseOrder[]     @relation("PurchaseCreator")
-  goodsReceipts      GoodsReceipt[]      @relation("GoodsReceiptCreator")
-  purchasePayments   PurchasePayment[]   @relation("PaymentCreator")
-  createdJournals    JournalEntry[]      @relation("JournalCreator")
-  approvedJournals   JournalEntry[]      @relation("JournalApprover")
+  id                String              @id @default(uuid())
+  email             String              @unique
+  name              String?
+  password          String
+  role              Role                @default(WAREHOUSE)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  auditLogs         AuditLog[]
+  goodsReceipts     GoodsReceipt[]      @relation("GoodsReceiptCreator")
+  approvedJournals  JournalEntry[]      @relation("JournalApprover")
+  createdJournals   JournalEntry[]      @relation("JournalCreator")
+  downtimeLogs      MachineDowntime[]
+  materialIssues    MaterialIssue[]
+  productionCreator ProductionOrder[]   @relation("ProductionCreator")
+  purchaseOrders    PurchaseOrder[]     @relation("PurchaseCreator")
+  purchasePayments  PurchasePayment[]   @relation("PaymentCreator")
+  inspections       QualityInspection[]
+  salesOrders       SalesOrder[]        @relation("SalesCreator")
+  quotations        SalesQuotation[]    @relation("QuotationCreator")
+  scrapRecords      ScrapRecord[]
+  movements         StockMovement[]
+  opnames           StockOpname[]
 }
 
 model Employee {
-  id        String         @id @default(uuid())
-  name      String
-  code      String         @unique
-  role      String
-  status    EmployeeStatus @default(ACTIVE)
-  hourlyRate Decimal       @default(0) @db.Decimal(10, 2)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  shiftsAsOperator ProductionShift[]     @relation("ShiftOperator")
-  shiftsAsHelper   ProductionShift[]     @relation("ShiftHelpers")
+  id                   String                @id @default(uuid())
+  name                 String
+  code                 String                @unique
+  role                 String
+  status               EmployeeStatus        @default(ACTIVE)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  hourlyRate           Decimal               @default(0) @db.Decimal(10, 2)
   executionsAsOperator ProductionExecution[] @relation("ExecutionOperator")
+  shiftsAsOperator     ProductionShift[]     @relation("ShiftOperator")
+  shiftsAsHelper       ProductionShift[]     @relation("ShiftHelpers")
 }
 
 model ProductionShift {
@@ -59,12 +58,10 @@ model ProductionShift {
   notes             String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
-
-  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
-  operator        Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
-  helpers         Employee[]      @relation("ShiftHelpers")
+  operator          Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  helpers           Employee[]      @relation("ShiftHelpers")
 }
-
 
 model Supplier {
   id               String            @id @default(uuid())
@@ -81,33 +78,30 @@ model Supplier {
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-
-  supplierProducts SupplierProduct[]
   productVariants  ProductVariant[]  @relation("PreferredSupplier")
   purchaseOrders   PurchaseOrder[]
+  supplierProducts SupplierProduct[]
 }
 
 model Customer {
-  id              String   @id @default(uuid())
+  id              String           @id @default(uuid())
   name            String
-  code            String?  @unique
+  code            String?          @unique
   phone           String?
   email           String?
   billingAddress  String?
   shippingAddress String?
   taxId           String?
-  creditLimit     Decimal? @db.Decimal(15, 2)
+  creditLimit     Decimal?         @db.Decimal(15, 2)
   paymentTermDays Int?
-  discountPercent Decimal? @db.Decimal(5, 2)
+  discountPercent Decimal?         @db.Decimal(5, 2)
   notes           String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   salesOrders     SalesOrder[]
   quotations      SalesQuotation[]
 }
-
-// Contact model removed
 
 model Location {
   id               String             @id @default(uuid())
@@ -117,16 +111,16 @@ model Location {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   Batch            Batch[]
+  fixedAssets      FixedAsset[]
+  goodsReceipts    GoodsReceipt[]
   inventories      Inventory[]
   machines         Machine[]
   ProductionOrder  ProductionOrder[]
+  salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
   movementsFrom    StockMovement[]    @relation("FromLocation")
   movementsTo      StockMovement[]    @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
-  salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
-  goodsReceipts    GoodsReceipt[]
-  fixedAssets      FixedAsset[]
 }
 
 model Product {
@@ -135,58 +129,55 @@ model Product {
   productType        ProductType
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
-  variants           ProductVariant[]
-  
-  // Accounting Mappings
-  wipAccountId       String?
-  inventoryAccountId String?
   cogsAccountId      String?
+  inventoryAccountId String?
   revenueAccountId   String?
+  wipAccountId       String?
+  variants           ProductVariant[]
 }
 
 model ProductVariant {
-  id                  String             @id @default(uuid())
+  id                  String               @id @default(uuid())
   productId           String
   name                String
-  skuCode             String             @unique
-  price               Decimal?           @db.Decimal(10, 2)
-  buyPrice            Decimal?           @db.Decimal(10, 2)
-  sellPrice           Decimal?           @db.Decimal(10, 2)
+  skuCode             String               @unique
+  price               Decimal?             @db.Decimal(10, 2)
+  buyPrice            Decimal?             @db.Decimal(10, 2)
+  sellPrice           Decimal?             @db.Decimal(10, 2)
   primaryUnit         Unit
   salesUnit           Unit?
-  conversionFactor    Decimal            @default(1.0) @db.Decimal(10, 4)
+  conversionFactor    Decimal              @default(1.0) @db.Decimal(10, 4)
   attributes          Json?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  costingMethod       CostingMethod      @default(WEIGHTED_AVERAGE)
-  standardCost        Decimal?           @db.Decimal(15, 4)
-  minStockAlert       Decimal?           @db.Decimal(15, 4)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  minStockAlert       Decimal?             @db.Decimal(15, 4)
   leadTimeDays        Int?
   preferredSupplierId String?
-  reorderPoint        Decimal?           @db.Decimal(15, 4)
-  reorderQuantity     Decimal?           @db.Decimal(15, 4)
+  reorderPoint        Decimal?             @db.Decimal(15, 4)
+  reorderQuantity     Decimal?             @db.Decimal(15, 4)
+  costingMethod       CostingMethod        @default(WEIGHTED_AVERAGE)
+  standardCost        Decimal?             @db.Decimal(15, 4)
   Batch               Batch[]
-  productionBoms      Bom[]              @relation("ProductBom")
-  ingredientInBoms    BomItem[]          @relation("Ingredient")
+  productionBoms      Bom[]                @relation("ProductBom")
+  ingredientInBoms    BomItem[]            @relation("Ingredient")
+  goodsReceiptItems   GoodsReceiptItem[]
   inventories         Inventory[]
-  productionMaterials ProductionMaterial[]
   MaterialIssue       MaterialIssue[]
-  preferredSupplier   Supplier?          @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
-  supplierProducts    SupplierProduct[]
-  product             Product            @relation(fields: [productId], references: [id])
+  preferredSupplier   Supplier?            @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
+  product             Product              @relation(fields: [productId], references: [id])
+  productionMaterials ProductionMaterial[]
+  purchaseOrderItems  PurchaseOrderItem[]
+  salesOrderItems     SalesOrderItem[]
+  quotationItems      SalesQuotationItem[]
   ScrapRecord         ScrapRecord[]
   movements           StockMovement[]
   opnameItems         StockOpnameItem[]
   StockReservation    StockReservation[]
-  salesOrderItems     SalesOrderItem[]
-  quotationItems      SalesQuotationItem[]
-  purchaseOrderItems  PurchaseOrderItem[]
-  goodsReceiptItems   GoodsReceiptItem[]
+  supplierProducts    SupplierProduct[]
 }
 
 model SupplierProduct {
   id               String         @id @default(uuid())
-  supplierId       String
   productVariantId String
   unitPrice        Decimal?       @db.Decimal(15, 4)
   leadTimeDays     Int?
@@ -195,9 +186,9 @@ model SupplierProduct {
   notes            String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
-
-  supplier       Supplier       @relation(fields: [supplierId], references: [id])
-  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+  supplierId       String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  supplier         Supplier       @relation(fields: [supplierId], references: [id])
 
   @@unique([supplierId, productVariantId])
 }
@@ -235,20 +226,20 @@ model StockMovement {
   fromLocationId   String?
   toLocationId     String?
   quantity         Decimal        @db.Decimal(15, 4)
-  cost             Decimal?       @db.Decimal(15, 4)
   reference        String?
   createdById      String?
   createdAt        DateTime       @default(now())
   batchId          String?
+  cost             Decimal?       @db.Decimal(15, 4)
+  salesOrderId     String?
+  goodsReceiptId   String?
   batch            Batch?         @relation(fields: [batchId], references: [id])
   createdBy        User?          @relation(fields: [createdById], references: [id])
   fromLocation     Location?      @relation("FromLocation", fields: [fromLocationId], references: [id])
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-  toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
-  salesOrderId     String?
-  salesOrder       SalesOrder?    @relation("SalesMovement", fields: [salesOrderId], references: [id])
-  goodsReceiptId   String?
   goodsReceipt     GoodsReceipt?  @relation("GoodsReceiptMovement", fields: [goodsReceiptId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesOrder       SalesOrder?    @relation("SalesMovement", fields: [salesOrderId], references: [id])
+  toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
 }
 
 model Inventory {
@@ -256,8 +247,8 @@ model Inventory {
   locationId       String
   productVariantId String
   quantity         Decimal        @default(0) @db.Decimal(15, 4)
-  averageCost      Decimal?       @db.Decimal(15, 4)
   updatedAt        DateTime       @updatedAt
+  averageCost      Decimal?       @db.Decimal(15, 4)
   location         Location       @relation(fields: [locationId], references: [id])
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 
@@ -265,19 +256,19 @@ model Inventory {
 }
 
 model Machine {
-  id              String            @id @default(uuid())
+  id              String                @id @default(uuid())
   name            String
-  code            String            @unique
+  code            String                @unique
   type            MachineType
   locationId      String
-  status          MachineStatus     @default(ACTIVE)
-  costPerHour     Decimal           @default(0) @db.Decimal(10, 2)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  location        Location          @relation(fields: [locationId], references: [id])
-  ProductionOrder ProductionOrder[]
-  executions      ProductionExecution[]
+  status          MachineStatus         @default(ACTIVE)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  costPerHour     Decimal               @default(0) @db.Decimal(10, 2)
+  location        Location              @relation(fields: [locationId], references: [id])
   downtimeLogs    MachineDowntime[]
+  executions      ProductionExecution[]
+  ProductionOrder ProductionOrder[]
 }
 
 model Batch {
@@ -293,8 +284,8 @@ model Batch {
   updatedAt         DateTime        @updatedAt
   location          Location        @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
-  movements         StockMovement[]
   materialIssues    MaterialIssue[]
+  movements         StockMovement[]
 }
 
 model StockReservation {
@@ -340,48 +331,48 @@ model StockOpnameItem {
 }
 
 model ProductionOrder {
-  id               String              @id @default(uuid())
-  orderNumber      String              @unique
-  bomId            String
-  plannedQuantity  Decimal             @db.Decimal(15, 4)
-  plannedStartDate DateTime
-  plannedEndDate   DateTime?
-  actualQuantity   Decimal?            @db.Decimal(15, 4)
-  actualStartDate  DateTime?
-  actualEndDate    DateTime?
-  status           ProductionStatus    @default(DRAFT)
-  machineId        String?
-  locationId               String
-  estimatedConversionCost  Decimal?            @db.Decimal(15, 2)
-  createdById              String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  notes            String?
-  materialIssues   MaterialIssue[]
-  bom              Bom                 @relation(fields: [bomId], references: [id])
-  createdBy        User?               @relation("ProductionCreator", fields: [createdById], references: [id])
-  location         Location            @relation(fields: [locationId], references: [id])
-  machine          Machine?            @relation(fields: [machineId], references: [id])
-  inspections      QualityInspection[]
-  scrapRecords     ScrapRecord[]
-  shifts           ProductionShift[]
-  plannedMaterials ProductionMaterial[]
-  executions       ProductionExecution[]
-  salesOrderId     String?
-  salesOrder       SalesOrder?         @relation("SalesProduction", fields: [salesOrderId], references: [id])
+  id                      String                @id @default(uuid())
+  orderNumber             String                @unique
+  bomId                   String
+  plannedQuantity         Decimal               @db.Decimal(15, 4)
+  plannedStartDate        DateTime
+  plannedEndDate          DateTime?
+  actualQuantity          Decimal?              @db.Decimal(15, 4)
+  actualStartDate         DateTime?
+  actualEndDate           DateTime?
+  status                  ProductionStatus      @default(DRAFT)
+  machineId               String?
+  locationId              String
+  createdById             String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  notes                   String?
+  salesOrderId            String?
+  estimatedConversionCost Decimal?              @db.Decimal(15, 2)
+  materialIssues          MaterialIssue[]
+  executions              ProductionExecution[]
+  plannedMaterials        ProductionMaterial[]
+  bom                     Bom                   @relation(fields: [bomId], references: [id])
+  createdBy               User?                 @relation("ProductionCreator", fields: [createdById], references: [id])
+  location                Location              @relation(fields: [locationId], references: [id])
+  machine                 Machine?              @relation(fields: [machineId], references: [id])
+  salesOrder              SalesOrder?           @relation("SalesProduction", fields: [salesOrderId], references: [id])
+  shifts                  ProductionShift[]
+  inspections             QualityInspection[]
+  scrapRecords            ScrapRecord[]
 }
 
 model MachineDowntime {
   id          String    @id @default(uuid())
   machineId   String
-  machine     Machine   @relation(fields: [machineId], references: [id])
   reason      String
   startTime   DateTime
   endTime     DateTime?
   createdById String?
-  createdBy   User?     @relation(fields: [createdById], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  createdBy   User?     @relation(fields: [createdById], references: [id])
+  machine     Machine   @relation(fields: [machineId], references: [id])
 
   @@index([machineId])
 }
@@ -394,8 +385,8 @@ model MaterialIssue {
   issuedAt          DateTime        @default(now())
   createdById       String?
   batchId           String?
-  createdBy         User?           @relation(fields: [createdById], references: [id])
   batch             Batch?          @relation(fields: [batchId], references: [id])
+  createdBy         User?           @relation(fields: [createdById], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
 }
@@ -424,12 +415,394 @@ model QualityInspection {
   productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id])
 }
 
+model ProductionMaterial {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  productVariantId  String
+  quantity          Decimal         @db.Decimal(15, 4)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+
+  @@index([productionOrderId])
+  @@index([productVariantId])
+}
+
+model ProductionExecution {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  machineId         String?
+  operatorId        String?
+  shiftId           String?
+  quantityProduced  Decimal         @db.Decimal(15, 4)
+  scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
+  startTime         DateTime
+  endTime           DateTime?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  machine           Machine?        @relation(fields: [machineId], references: [id])
+  operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  shift             WorkShift?      @relation(fields: [shiftId], references: [id])
+
+  @@index([productionOrderId])
+}
+
+model WorkShift {
+  id                   String                @id @default(uuid())
+  name                 String
+  startTime            String
+  endTime              String
+  status               WorkShiftStatus       @default(ACTIVE)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  productionExecutions ProductionExecution[]
+}
+
+model JobRole {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RolePermission {
+  id        String   @id @default(uuid())
+  role      Role
+  resource  String
+  canAccess Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, resource])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  details    String?
+  changes    Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model SalesOrder {
+  id               String            @id @default(uuid())
+  orderNumber      String            @unique
+  customerId       String?
+  orderDate        DateTime          @default(now())
+  expectedDate     DateTime?
+  orderType        SalesOrderType    @default(MAKE_TO_STOCK)
+  status           SalesOrderStatus  @default(DRAFT)
+  sourceLocationId String?
+  totalAmount      Decimal?          @db.Decimal(15, 2)
+  notes            String?
+  createdById      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  discountAmount   Decimal?          @db.Decimal(15, 2)
+  taxAmount        Decimal?          @db.Decimal(15, 2)
+  quotationId      String?
+  invoices         Invoice[]
+  productionOrders ProductionOrder[] @relation("SalesProduction")
+  createdBy        User?             @relation("SalesCreator", fields: [createdById], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
+  sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
+  items            SalesOrderItem[]
+  movements        StockMovement[]   @relation("SalesMovement")
+}
+
+model SalesQuotation {
+  id              String               @id @default(uuid())
+  quotationNumber String               @unique
+  customerId      String?
+  quotationDate   DateTime             @default(now())
+  validUntil      DateTime?
+  status          SalesQuotationStatus @default(DRAFT)
+  totalAmount     Decimal?             @db.Decimal(15, 2)
+  discountAmount  Decimal?             @db.Decimal(15, 2)
+  taxAmount       Decimal?             @db.Decimal(15, 2)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  salesOrders     SalesOrder[]
+  createdBy       User?                @relation("QuotationCreator", fields: [createdById], references: [id])
+  customer        Customer?            @relation(fields: [customerId], references: [id])
+  items           SalesQuotationItem[]
+}
+
+model SalesQuotationItem {
+  id               String         @id @default(uuid())
+  salesQuotationId String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  discountPercent  Decimal?       @db.Decimal(5, 2)
+  taxPercent       Decimal?       @db.Decimal(5, 2)
+  taxAmount        Decimal?       @db.Decimal(15, 2)
+  subtotal         Decimal        @db.Decimal(15, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id], onDelete: Cascade)
+}
+
+model SalesOrderItem {
+  id               String         @id @default(uuid())
+  salesOrderId     String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  subtotal         Decimal        @db.Decimal(15, 2)
+  deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  discountPercent  Decimal?       @db.Decimal(5, 2)
+  taxAmount        Decimal?       @db.Decimal(15, 2)
+  taxPercent       Decimal?       @db.Decimal(5, 2)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  @@index([salesOrderId])
+}
+
+model Invoice {
+  id                String        @id @default(uuid())
+  invoiceNumber     String        @unique
+  salesOrderId      String
+  invoiceDate       DateTime      @default(now())
+  dueDate           DateTime?
+  status            InvoiceStatus @default(UNPAID)
+  totalAmount       Decimal       @db.Decimal(15, 2)
+  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  termOfPaymentDays Int           @default(0)
+  salesOrder        SalesOrder    @relation(fields: [salesOrderId], references: [id])
+
+  @@index([salesOrderId])
+}
+
+model PurchaseOrder {
+  id            String              @id @default(uuid())
+  orderNumber   String              @unique
+  supplierId    String
+  orderDate     DateTime            @default(now())
+  expectedDate  DateTime?
+  status        PurchaseOrderStatus @default(DRAFT)
+  totalAmount   Decimal?            @db.Decimal(15, 2)
+  notes         String?
+  createdById   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  goodsReceipts GoodsReceipt[]
+  invoices      PurchaseInvoice[]
+  createdBy     User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  items         PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id               String         @id @default(uuid())
+  purchaseOrderId  String
+  productVariantId String
+  quantity         Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 4)
+  subtotal         Decimal        @db.Decimal(15, 2)
+  receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+}
+
+model GoodsReceipt {
+  id              String             @id @default(uuid())
+  receiptNumber   String             @unique
+  purchaseOrderId String
+  receivedDate    DateTime           @default(now())
+  locationId      String
+  notes           String?
+  createdById     String?
+  createdAt       DateTime           @default(now())
+  createdBy       User?              @relation("GoodsReceiptCreator", fields: [createdById], references: [id])
+  location        Location           @relation(fields: [locationId], references: [id])
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  items           GoodsReceiptItem[]
+  movements       StockMovement[]    @relation("GoodsReceiptMovement")
+}
+
+model GoodsReceiptItem {
+  id               String         @id @default(uuid())
+  goodsReceiptId   String
+  productVariantId String
+  receivedQty      Decimal        @db.Decimal(15, 4)
+  unitCost         Decimal        @db.Decimal(15, 4)
+  goodsReceipt     GoodsReceipt   @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model PurchaseInvoice {
+  id                String                @id @default(uuid())
+  invoiceNumber     String                @unique
+  purchaseOrderId   String
+  invoiceDate       DateTime              @default(now())
+  dueDate           DateTime?
+  status            PurchaseInvoiceStatus @default(UNPAID)
+  totalAmount       Decimal               @db.Decimal(15, 2)
+  paidAmount        Decimal               @default(0) @db.Decimal(15, 2)
+  notes             String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  termOfPaymentDays Int                   @default(0)
+  purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
+  payments          PurchasePayment[]
+}
+
+model PurchasePayment {
+  id                String          @id @default(uuid())
+  purchaseInvoiceId String
+  amount            Decimal         @db.Decimal(15, 2)
+  paymentDate       DateTime        @default(now())
+  paymentMethod     String?
+  reference         String?
+  notes             String?
+  createdById       String?
+  createdAt         DateTime        @default(now())
+  createdBy         User?           @relation("PaymentCreator", fields: [createdById], references: [id])
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseInvoiceId])
+}
+
+model Account {
+  id                  String          @id @default(uuid())
+  code                String          @unique
+  name                String
+  description         String?
+  type                AccountType
+  category            AccountCategory
+  parentId            String?
+  isActive            Boolean         @default(true)
+  isCashAccount       Boolean         @default(false)
+  currency            String          @default("IDR")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  parent              Account?        @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children            Account[]       @relation("AccountHierarchy")
+  budgets             Budget[]
+  accumDepreciation   FixedAsset[]    @relation("AccumDeprAccount")
+  fixedAssets         FixedAsset[]    @relation("AssetAccount")
+  depreciationExpense FixedAsset[]    @relation("DeprExpenseAccount")
+  journalLines        JournalLine[]
+
+  @@index([code])
+  @@index([parentId])
+}
+
+model JournalEntry {
+  id              String         @id @default(uuid())
+  entryNumber     String         @unique
+  entryDate       DateTime
+  description     String
+  reference       String?
+  referenceType   ReferenceType?
+  referenceId     String?
+  status          JournalStatus  @default(DRAFT)
+  isAutoGenerated Boolean        @default(false)
+  createdById     String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  approvedBy      User?          @relation("JournalApprover", fields: [approvedById], references: [id])
+  createdBy       User?          @relation("JournalCreator", fields: [createdById], references: [id])
+  lines           JournalLine[]
+
+  @@index([entryDate])
+  @@index([referenceType, referenceId])
+}
+
+model JournalLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  accountId      String
+  description    String?
+  debit          Decimal      @default(0) @db.Decimal(15, 2)
+  credit         Decimal      @default(0) @db.Decimal(15, 2)
+  currency       String       @default("IDR")
+  exchangeRate   Decimal      @default(1) @db.Decimal(15, 6)
+  createdAt      DateTime     @default(now())
+  account        Account      @relation(fields: [accountId], references: [id])
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+model FiscalPeriod {
+  id         String       @id @default(uuid())
+  name       String
+  startDate  DateTime
+  endDate    DateTime
+  year       Int
+  month      Int
+  status     PeriodStatus @default(OPEN)
+  closedById String?
+  closedAt   DateTime?
+
+  @@unique([year, month])
+}
+
+model FixedAsset {
+  id                               String      @id @default(uuid())
+  assetCode                        String      @unique
+  name                             String
+  category                         String
+  purchaseDate                     DateTime
+  purchaseValue                    Decimal     @db.Decimal(15, 2)
+  scrapValue                       Decimal     @default(0) @db.Decimal(15, 2)
+  usefulLifeMonths                 Int
+  depreciationMethod               String      @default("STRAIGHT_LINE")
+  assetAccountId                   String
+  depreciationAccountId            String
+  accumulatedDepreciationAccountId String
+  status                           AssetStatus @default(ACTIVE)
+  locationId                       String?
+  createdAt                        DateTime    @default(now())
+  updatedAt                        DateTime    @updatedAt
+  lastDepreciationDate             DateTime?
+  accumDepreciationAccount         Account     @relation("AccumDeprAccount", fields: [accumulatedDepreciationAccountId], references: [id])
+  assetAccount                     Account     @relation("AssetAccount", fields: [assetAccountId], references: [id])
+  depreciationExpenseAccount       Account     @relation("DeprExpenseAccount", fields: [depreciationAccountId], references: [id])
+  location                         Location?   @relation(fields: [locationId], references: [id])
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  accountId String
+  year      Int
+  month     Int
+  amount    Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account   Account  @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, year, month])
+}
+
 enum Role {
   ADMIN
   WAREHOUSE
   PRODUCTION
-  PPIC
   SALES
+  PPIC
   FINANCE
   PROCUREMENT
 }
@@ -442,8 +815,6 @@ enum ProductType {
   FINISHED_GOOD
   SCRAP
 }
-
-// ContactType enum removed
 
 enum Unit {
   KG
@@ -503,11 +874,11 @@ enum ReservationStatus {
 
 enum ProductionStatus {
   DRAFT
-  WAITING_MATERIAL
   RELEASED
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  WAITING_MATERIAL
 }
 
 enum InspectionResult {
@@ -515,9 +886,6 @@ enum InspectionResult {
   FAIL
   QUARANTINE
 }
-
-
-
 
 enum CostingMethod {
   WEIGHTED_AVERAGE
@@ -529,158 +897,9 @@ enum EmployeeStatus {
   INACTIVE
 }
 
-model ProductionMaterial {
-  id                String          @id @default(uuid())
-  productionOrderId String
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  productVariantId  String
-  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
-  quantity          Decimal         @db.Decimal(15, 4)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-
-  @@index([productionOrderId])
-  @@index([productVariantId])
-}
-
-
-model ProductionExecution {
-  id                String          @id @default(uuid())
-  productionOrderId String
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  machineId         String?
-  machine           Machine?        @relation(fields: [machineId], references: [id])
-  operatorId        String?
-  operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
-  shiftId           String?
-  shift             WorkShift?      @relation(fields: [shiftId], references: [id])
-  quantityProduced  Decimal         @db.Decimal(15, 4)
-  scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
-  startTime         DateTime
-  endTime           DateTime?
-  notes             String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-
-  @@index([productionOrderId])
-}
-
-model WorkShift {
-  id                   String                @id @default(uuid())
-  name                 String
-  startTime            String                // Format: "HH:mm"
-  endTime              String                // Format: "HH:mm"
-  status               WorkShiftStatus       @default(ACTIVE)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  productionExecutions ProductionExecution[]
-}
-
 enum WorkShiftStatus {
   ACTIVE
   INACTIVE
-}
-
-model JobRole {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model RolePermission {
-  id        String   @id @default(uuid())
-  role      Role
-  resource  String
-  canAccess Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([role, resource])
-}
-
-model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String
-  action     String
-  entityType String
-  entityId   String
-  details    String?
-  changes    Json?
-  createdAt  DateTime @default(now())
-
-  user       User     @relation(fields: [userId], references: [id])
-}
-
-// ============================================
-// SALES ORDER & INVOICE MODELS
-// ============================================
-
-model SalesOrder {
-  id               String            @id @default(uuid())
-  orderNumber      String            @unique
-  customerId       String?
-  orderDate        DateTime          @default(now())
-  expectedDate     DateTime?
-  orderType        SalesOrderType    @default(MAKE_TO_STOCK)
-  status           SalesOrderStatus  @default(DRAFT)
-  sourceLocationId String?
-  totalAmount      Decimal?          @db.Decimal(15, 2)
-  discountAmount   Decimal?          @db.Decimal(15, 2)
-  taxAmount        Decimal?          @db.Decimal(15, 2)
-  notes            String?
-  createdById      String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-
-  customer         Customer?         @relation(fields: [customerId], references: [id])
-  sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
-  createdBy        User?             @relation("SalesCreator", fields: [createdById], references: [id])
-  items            SalesOrderItem[]
-  invoices         Invoice[]
-  movements        StockMovement[]   @relation("SalesMovement")
-  productionOrders ProductionOrder[] @relation("SalesProduction")
-  
-  quotationId      String?
-  quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
-}
-
-model SalesQuotation {
-  id              String                @id @default(uuid())
-  quotationNumber String                @unique
-  customerId      String?
-  quotationDate   DateTime              @default(now())
-  validUntil      DateTime?
-  status          SalesQuotationStatus  @default(DRAFT)
-  totalAmount     Decimal?              @db.Decimal(15, 2)
-  discountAmount  Decimal?              @db.Decimal(15, 2)
-  taxAmount       Decimal?              @db.Decimal(15, 2)
-  notes           String?
-  createdById     String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-
-  customer        Customer?             @relation(fields: [customerId], references: [id])
-  createdBy       User?                 @relation("QuotationCreator", fields: [createdById], references: [id])
-  items           SalesQuotationItem[]
-  salesOrders     SalesOrder[]
-}
-
-model SalesQuotationItem {
-  id               String         @id @default(uuid())
-  salesQuotationId String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(5, 2)
-  taxPercent       Decimal?       @db.Decimal(5, 2)
-  taxAmount        Decimal?       @db.Decimal(15, 2)
-  subtotal         Decimal        @db.Decimal(15, 2)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 enum SalesQuotationStatus {
@@ -690,46 +909,6 @@ enum SalesQuotationStatus {
   REJECTED
   EXPIRED
   CONVERTED
-}
-
-
-model SalesOrderItem {
-  id               String         @id @default(uuid())
-  salesOrderId     String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(5, 2)
-  taxPercent       Decimal?       @db.Decimal(5, 2)
-  taxAmount        Decimal?       @db.Decimal(15, 2)
-  subtotal         Decimal        @db.Decimal(15, 2)
-  deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-
-  @@index([salesOrderId])
-}
-
-model Invoice {
-  id            String        @id @default(uuid())
-  invoiceNumber String        @unique
-  salesOrderId  String
-  invoiceDate   DateTime      @default(now())
-  dueDate       DateTime?
-  status        InvoiceStatus @default(UNPAID)
-  totalAmount   Decimal       @db.Decimal(15, 2)
-  paidAmount    Decimal       @default(0) @db.Decimal(15, 2)
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  termOfPaymentDays Int           @default(0)
-  salesOrder    SalesOrder    @relation(fields: [salesOrderId], references: [id])
-
-  @@index([salesOrderId])
 }
 
 enum SalesOrderType {
@@ -748,14 +927,13 @@ enum SalesOrderStatus {
 }
 
 enum InvoiceStatus {
+  DRAFT
   UNPAID
   PARTIAL
   PAID
-  OVERDUE
   CANCELLED
+  OVERDUE
 }
-
-// --- Purchasing Module ---
 
 enum PurchaseOrderStatus {
   DRAFT
@@ -766,196 +944,13 @@ enum PurchaseOrderStatus {
 }
 
 enum PurchaseInvoiceStatus {
+  DRAFT
   UNPAID
   PARTIAL
   PAID
-  OVERDUE
   CANCELLED
+  OVERDUE
 }
-
-model PurchaseOrder {
-  id               String              @id @default(uuid())
-  orderNumber      String              @unique
-  supplierId       String
-  orderDate        DateTime            @default(now())
-  expectedDate     DateTime?
-  status           PurchaseOrderStatus @default(DRAFT)
-  totalAmount      Decimal?            @db.Decimal(15, 2)
-  notes            String?
-  createdById      String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-
-  supplier         Supplier            @relation(fields: [supplierId], references: [id])
-  createdBy        User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
-  items            PurchaseOrderItem[]
-  goodsReceipts    GoodsReceipt[]
-  invoices         PurchaseInvoice[]
-}
-
-model PurchaseOrderItem {
-  id                String         @id @default(uuid())
-  purchaseOrderId   String
-  productVariantId  String
-  quantity          Decimal        @db.Decimal(15, 4)
-  unitPrice         Decimal        @db.Decimal(15, 4)
-  subtotal          Decimal        @db.Decimal(15, 2)
-  receivedQty       Decimal        @default(0) @db.Decimal(15, 4)
-  
-  purchaseOrder     PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
-}
-
-model GoodsReceipt {
-  id                String             @id @default(uuid())
-  receiptNumber     String             @unique
-  purchaseOrderId   String
-  receivedDate      DateTime           @default(now())
-  locationId        String
-  notes             String?
-  createdById       String?
-  createdAt         DateTime           @default(now())
-
-  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
-  location          Location           @relation(fields: [locationId], references: [id])
-  createdBy         User?              @relation("GoodsReceiptCreator", fields: [createdById], references: [id])
-  items             GoodsReceiptItem[]
-  movements         StockMovement[]   @relation("GoodsReceiptMovement")
-}
-
-model GoodsReceiptItem {
-  id                String         @id @default(uuid())
-  goodsReceiptId    String
-  productVariantId  String
-  receivedQty       Decimal        @db.Decimal(15, 4)
-  unitCost          Decimal        @db.Decimal(15, 4)
-
-  goodsReceipt      GoodsReceipt   @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
-}
-
-model PurchaseInvoice {
-  id               String                @id @default(uuid())
-  invoiceNumber    String                @unique
-  purchaseOrderId  String
-  invoiceDate      DateTime              @default(now())
-  dueDate          DateTime?
-  status           PurchaseInvoiceStatus @default(UNPAID)
-  totalAmount      Decimal               @db.Decimal(15, 2)
-  paidAmount       Decimal               @default(0) @db.Decimal(15, 2)
-  termOfPaymentDays Int                  @default(0)
-  notes            String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-
-  purchaseOrder    PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
-  payments         PurchasePayment[]
-}
-
-model PurchasePayment {
-  id                String          @id @default(uuid())
-  purchaseInvoiceId String
-  amount            Decimal         @db.Decimal(15, 2)
-  paymentDate       DateTime        @default(now())
-  paymentMethod     String?
-  reference         String?
-  notes             String?
-  createdById       String?
-  createdAt         DateTime        @default(now())
-
-  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
-  createdBy         User?           @relation("PaymentCreator", fields: [createdById], references: [id])
-
-  @@index([purchaseInvoiceId])
-}
-
-// ============================================
-// ACCOUNTING MODELS
-// ============================================
-
-model Account {
-  id              String       @id @default(uuid())
-  code            String       @unique   // e.g., "11310"
-  name            String                 // e.g., "Raw Materials"
-  description     String?
-  type            AccountType            // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-  category        AccountCategory        // CURRENT_ASSET, FIXED_ASSET, COGS, etc.
-  parentId        String?
-  isActive        Boolean      @default(true)
-  isCashAccount   Boolean      @default(false) // For cash-flow tracking
-  currency        String       @default("IDR")
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  parent          Account?     @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children        Account[]    @relation("AccountHierarchy")
-  journalLines    JournalLine[]
-  fixedAssets     FixedAsset[]    @relation("AssetAccount")
-  depreciationExpense FixedAsset[] @relation("DeprExpenseAccount")
-  accumDepreciation FixedAsset[] @relation("AccumDeprAccount")
-  budgets         Budget[]
-  
-  @@index([code])
-  @@index([parentId])
-}
-
-model JournalEntry {
-  id              String       @id @default(uuid())
-  entryNumber     String       @unique   // JE-2026-0001
-  entryDate       DateTime
-  description     String
-  reference       String?                // e.g., "INV-2026-0001", "GR-2026-0001"
-  referenceType   ReferenceType?         // SALES_INVOICE, PURCHASE_INVOICE, GOODS_RECEIPT, etc.
-  referenceId     String?                // UUID of source document
-  status          JournalStatus @default(DRAFT)
-  isAutoGenerated Boolean      @default(false)
-  createdById     String?
-  approvedById    String?
-  approvedAt      DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  createdBy       User?        @relation("JournalCreator", fields: [createdById], references: [id])
-  approvedBy      User?        @relation("JournalApprover", fields: [approvedById], references: [id])
-  lines           JournalLine[]
-
-  @@index([entryDate])
-  @@index([referenceType, referenceId])
-}
-
-model JournalLine {
-  id              String       @id @default(uuid())
-  journalEntryId  String
-  accountId       String
-  description     String?
-  debit           Decimal      @default(0) @db.Decimal(15, 2)
-  credit          Decimal      @default(0) @db.Decimal(15, 2)
-  currency        String       @default("IDR")
-  exchangeRate    Decimal      @default(1) @db.Decimal(15, 6)
-  createdAt       DateTime     @default(now())
-
-  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account         Account      @relation(fields: [accountId], references: [id])
-
-  @@index([journalEntryId])
-  @@index([accountId])
-}
-
-model FiscalPeriod {
-  id              String       @id @default(uuid())
-  name            String                 // e.g., "January 2026"
-  startDate       DateTime
-  endDate         DateTime
-  year            Int
-  month           Int
-  status          PeriodStatus @default(OPEN)
-  closedById      String?
-  closedAt        DateTime?
-
-  @@unique([year, month])
-}
-
-// Enums
 
 enum AccountType {
   ASSET
@@ -966,20 +961,15 @@ enum AccountType {
 }
 
 enum AccountCategory {
-  // Assets
   CURRENT_ASSET
   FIXED_ASSET
   OTHER_ASSET
-  // Liabilities
   CURRENT_LIABILITY
   LONG_TERM_LIABILITY
-  // Equity
   CAPITAL
   RETAINED_EARNINGS
-  // Revenue
   OPERATING_REVENUE
   OTHER_REVENUE
-  // Expenses
   COGS
   OPERATING_EXPENSE
   OTHER_EXPENSE
@@ -1008,53 +998,10 @@ enum PeriodStatus {
   CLOSED
   LOCKED
 }
+
 enum AssetStatus {
   ACTIVE
   FULLY_DEPRECIATED
   DISPOSED
   MAINTENANCE
 }
-
-model FixedAsset {
-  id                               String      @id @default(uuid())
-  assetCode                        String      @unique
-  name                             String
-  category                         String
-  purchaseDate                     DateTime
-  purchaseValue                    Decimal     @db.Decimal(15, 2)
-  scrapValue                       Decimal     @default(0) @db.Decimal(15, 2)
-  usefulLifeMonths                 Int
-  depreciationMethod               String      @default("STRAIGHT_LINE")
-  
-  // GL Accounts
-  assetAccountId                   String
-  assetAccount                     Account     @relation("AssetAccount", fields: [assetAccountId], references: [id])
-  depreciationAccountId            String
-  depreciationExpenseAccount      Account     @relation("DeprExpenseAccount", fields: [depreciationAccountId], references: [id])
-  accumulatedDepreciationAccountId String
-  accumDepreciationAccount         Account     @relation("AccumDeprAccount", fields: [accumulatedDepreciationAccountId], references: [id])
-
-  status                           AssetStatus @default(ACTIVE)
-  locationId                       String?
-  location                         Location?   @relation(fields: [locationId], references: [id])
-  
-  lastDepreciationDate             DateTime?
-  
-  createdAt                        DateTime    @default(now())
-  updatedAt                        DateTime    @updatedAt
-}
-
-model Budget {
-  id        String   @id @default(uuid())
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id])
-  year      Int
-  month     Int
-  amount    Decimal  @db.Decimal(15, 2)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([accountId, year, month])
-}
-

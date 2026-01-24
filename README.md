@@ -11,6 +11,7 @@ PolyFlow is a comprehensive Enterprise Resource Planning (ERP) system specifical
 **PolyFlow** streamlines the complete plastic manufacturing workflow—from raw materials through mixing, extrusion, and finishing—to final goods distribution. The system features a modern, multi-portal architecture:
 
 - **Admin Dashboard**: Comprehensive management of products, inventory, and analytics.
+- **Finance Dashboard**: Specialized workspace for accounting, invoicing, and cost reporting.
 - **Operator Kiosk Portal**: Simplified, touch-friendly interface for production floor execution.
 - **Warehouse Portal**: Focused material fulfillment queue for warehouse staff.
 
@@ -83,6 +84,7 @@ The system handles:
 - Full dark mode support
 - Modern aesthetics with glassmorphism and subtle animations
 - Standardized UI components (Buttons, Inputs, Cards)
+- **NEW**: Enhanced Login Experience with Role Selection and Password Visibility Toggle
 
 ---
 
@@ -194,7 +196,7 @@ polyflow/
 - **Unit**: `KG`, `ROLL`, `BAL`, `PCS`, `ZAK`
 - **MovementType**: `IN`, `OUT`, `TRANSFER`, `ADJUSTMENT`
 - **MachineType**: `MIXER`, `EXTRUDER`, `REWINDER`, `PACKER`, `GRANULATOR`
-- **Role**: `ADMIN`, `WAREHOUSE`, `PRODUCTION`, `SALES`
+- **Role**: `ADMIN`, `WAREHOUSE`, `PRODUCTION`, `SALES`, `FINANCE`, `PPIC`, `PROCUREMENT`
 
 ---
 

@@ -16,10 +16,13 @@ export async function authenticate(
         if (role === 'WAREHOUSE') targetUrl = '/warehouse';
         if (role === 'PRODUCTION') targetUrl = '/production';
 
+        const remember = formData.get('remember') === 'on';
+
         await signIn('credentials', {
             email,
             password,
             role,
+            remember,
             redirectTo: targetUrl,
             callbackUrl: targetUrl,
         });

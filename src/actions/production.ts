@@ -1,5 +1,6 @@
 'use server';
 
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import {
     createProductionOrderSchema,
@@ -60,6 +61,11 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
     }
 
     try {
+        const session = await auth();
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
+            return { success: false, error: 'Unauthorized: Only PPIC can create production orders' };
+        }
+
         const order = await ProductionService.createOrder(result.data);
 
         revalidatePath('/dashboard/production');
@@ -223,6 +229,11 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
     }
 
     try {
+        const session = await auth();
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
+            return { success: false, error: 'Unauthorized: Only PPIC can update production orders' };
+        }
+
         await ProductionService.updateOrder(result.data);
 
         revalidatePath(`/dashboard/production/orders/${result.data.id}`);
@@ -240,6 +251,11 @@ export async function deleteProductionOrder(id: string) {
     if (!id) return { success: false, error: "Order ID is required" };
 
     try {
+        const session = await auth();
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
+            return { success: false, error: 'Unauthorized: Only PPIC can delete production orders' };
+        }
+
         await ProductionService.deleteOrder(id);
 
         revalidatePath('/dashboard/production');
@@ -491,6 +507,11 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
  */
 export async function createProductionFromSalesOrder(salesOrderId: string, productVariantId?: string, quantity?: number) {
     try {
+        const session = await auth();
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
+            return { success: false, error: 'Unauthorized: Only PPIC can trigger production orders' };
+        }
+
         if (productVariantId && quantity) {
             // Create for specific item
             const result = await ProductionService.createOrderFromSales(salesOrderId, productVariantId, quantity);

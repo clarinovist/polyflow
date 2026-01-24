@@ -1,12 +1,12 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { authenticate } from '@/actions/auth.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import PolyFlowLogo from './polyflow-logo';
 import { RoleType } from './role-selection';
@@ -21,6 +21,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
         authenticate,
         undefined,
     );
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleGoogleLogin = () => {
         toast.info('Coming soon!', {
@@ -86,17 +87,29 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                         <input
                             id="password"
                             name="password"
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             placeholder="••••••••"
                             required
-                            className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/10 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 pl-10 transition-all"
+                            className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/10 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 pl-10 pr-10 transition-all"
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                            {showPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                            ) : (
+                                <Eye className="h-5 w-5" />
+                            )}
+                        </button>
                     </div>
                 </div>
 
                 {/* Remember Me */}
                 <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
+                    <Checkbox id="remember" name="remember" className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
                     <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
                         Remember me
                     </Label>

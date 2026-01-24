@@ -304,6 +304,9 @@ export class PurchaseService {
                 tx
             });
 
+            // Trigger automated draft bill
+            await this.createDraftBillFromPo(data.purchaseOrderId, userId);
+
             return receipt;
         });
     }
@@ -498,5 +501,68 @@ export class PurchaseService {
             },
             orderBy: { createdAt: 'desc' }
         });
+    }
+
+    static async generateBillNumber(): Promise<string> {
+        const dateStr = new Date().getFullYear().toString();
+        const prefix = `BILL-${dateStr}-`;
+
+        const lastBill = await prisma.purchaseInvoice.findFirst({
+            where: { invoiceNumber: { startsWith: prefix } },
+            orderBy: { invoiceNumber: 'desc' },
+        });
+
+        let nextSequence = 1;
+        if (lastBill) {
+            const parts = lastBill.invoiceNumber.split('-');
+            const lastSeq = parseInt(parts[2]);
+            if (!isNaN(lastSeq)) {
+                nextSequence = lastSeq + 1;
+            }
+        }
+
+        return `${prefix}${nextSequence.toString().padStart(4, '0')}`;
+    }
+
+    static async createDraftBillFromPo(purchaseOrderId: string, userId: string) {
+        const po = await prisma.purchaseOrder.findUnique({
+            where: { id: purchaseOrderId },
+            select: { totalAmount: true, orderNumber: true }
+        });
+
+        if (!po || !po.totalAmount) return;
+
+        // Check for duplicates
+        const existing = await prisma.purchaseInvoice.findFirst({
+            where: { purchaseOrderId }
+        });
+        if (existing) return;
+
+        const invoiceNumber = await this.generateBillNumber();
+        const invoiceDate = new Date();
+        const dueDate = addDays(invoiceDate, 30);
+
+        const invoice = await prisma.purchaseInvoice.create({
+            data: {
+                invoiceNumber,
+                purchaseOrderId,
+                invoiceDate,
+                dueDate,
+                termOfPaymentDays: 30,
+                totalAmount: po.totalAmount,
+                status: PurchaseInvoiceStatus.DRAFT,
+                notes: `System generated draft bill for PO ${po.orderNumber}`
+            }
+        });
+
+        await logActivity({
+            userId,
+            action: 'AUTO_GENERATE_BILL',
+            entityType: 'PurchaseInvoice',
+            entityId: invoice.id,
+            details: `Automated draft bill ${invoiceNumber} generated for PO ${po.orderNumber}`,
+        });
+
+        return invoice;
     }
 }

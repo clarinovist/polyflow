@@ -6,6 +6,7 @@ import LoginForm from '@/components/auth/login-form';
 import BrandPanel from '@/components/auth/brand-panel';
 import RoleSelection, { RoleType } from '@/components/auth/role-selection';
 import { AnimatePresence, motion } from 'framer-motion';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function LoginPage() {
     const [selectedRole, setSelectedRole] = useState<RoleType | null>(null);
@@ -29,6 +30,10 @@ export default function LoginPage() {
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center bg-background relative overflow-y-auto">
                 {/* Subtle background pattern */}
                 <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] opacity-15 pointer-events-none" />
+
+                <div className="absolute top-4 right-4 z-20">
+                    <LanguageSwitcher />
+                </div>
 
                 <div className="relative z-10 w-full">
                     <AnimatePresence mode="wait">

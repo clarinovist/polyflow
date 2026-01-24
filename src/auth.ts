@@ -7,9 +7,7 @@ import * as bcrypt from 'bcryptjs';
 
 async function getUser(email: string) {
     try {
-        console.log('Fetching user for email:', email);
         const user = await prisma.user.findUnique({ where: { email } });
-        console.log('User found:', !!user);
         return user;
     } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -19,6 +17,10 @@ async function getUser(email: string) {
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
     ...authConfig,
+    session: {
+        strategy: 'jwt',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+    },
     providers: [
         Credentials({
             async authorize(credentials) {
@@ -26,15 +28,16 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     .object({
                         email: z.string().email(),
                         password: z.string().min(6),
-                        role: z.string().optional()
+                        role: z.string().optional(),
+                        remember: z.coerce.boolean().optional(),
                     })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
-                    const { email, password, role } = parsedCredentials.data;
+                    const { email, password, role, remember } = parsedCredentials.data;
                     const user = await getUser(email);
+
                     if (!user) {
-                        console.log(`User not found: ${email}`);
                         throw new Error('UserNotFound');
                     }
 
@@ -44,7 +47,6 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         // Check if role matches if provided
                         // ADMIN can bypass this and access all workspaces
                         if (role && user.role !== role && user.role !== 'ADMIN') {
-                            console.log(`Role mismatch: expected ${role}, user has ${user.role}`);
                             throw new Error('RoleMismatch');
                         }
 
@@ -53,11 +55,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             name: user.name,
                             email: user.email,
                             role: user.role,
+                            rememberMe: remember,
                         };
                     }
                 }
 
-                console.log('Invalid credentials');
                 return null;
             },
         }),

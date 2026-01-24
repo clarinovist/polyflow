@@ -436,7 +436,10 @@ Comprehensive business intelligence and reporting:
 - `ADMIN` - Full system access
 - `WAREHOUSE` - Inventory operations
 - `PRODUCTION` - Production floor operations
+- `FINANCE` - Accounting and cost reporting
 - `SALES` - Sales and customer-facing operations
+- `PPIC` - Production planning and inventory control
+- `PROCUREMENT` - Purchasing and supplier management
 
 ### User Model
 
@@ -502,6 +505,8 @@ Comprehensive business intelligence and reporting:
 19. ✅ **Dedicated Operator Kiosk** - Top-level portal for floor staff
 20. ✅ **Warehouse Portal** - Dedicated material fulfillment interface
 21. ✅ **Automatic FIFO Logic** - Intelligent batch allocation during issuance
+22. ✅ **Authentication & RBAC** - Secure login with role-based dashboard access
+23. ✅ **Finance Dashboard** - Specialized accounting and costing views
 
 ### 🚧 Planned Features
 

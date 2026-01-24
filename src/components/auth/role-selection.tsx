@@ -7,11 +7,12 @@ import {
     ClipboardList,
     TrendingUp,
     Monitor,
+    Receipt,
     ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PPIC' | 'SALES' | 'KIOSK';
+export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PPIC' | 'SALES' | 'FINANCE' | 'KIOSK';
 
 interface RoleOption {
     id: RoleType;
@@ -56,6 +57,13 @@ const roles: RoleOption[] = [
         description: 'Sales orders, quotations, and customers.',
         icon: TrendingUp,
         color: 'text-rose-500 bg-rose-500/10'
+    },
+    {
+        id: 'FINANCE',
+        title: 'Finance',
+        description: 'Invoices, bills, and financial accounting.',
+        icon: Receipt,
+        color: 'text-cyan-500 bg-cyan-500/10'
     }
 ];
 

@@ -5,6 +5,7 @@ import { ExtendedProductionOrder } from '@/components/production/order-detail/ty
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useTranslations } from 'next-intl';
 import WarehouseOrderCard from '@/components/warehouse/WarehouseOrderCard';
 
 import { Location, Employee as PrismaEmployee, ProductVariant, Machine, WorkShift } from '@prisma/client';
@@ -34,6 +35,7 @@ export default function WarehouseRefreshWrapper({
     formData,
     sessionUser
 }: WarehouseRefreshWrapperProps) {
+    const t = useTranslations('warehouse');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Auto-refresh logic (every 30 seconds)
@@ -64,7 +66,7 @@ export default function WarehouseRefreshWrapper({
                 <div className="relative w-full sm:max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
-                        placeholder="Search SPK or Product..."
+                        placeholder={t('searchPlaceholder')}
                         className="pl-10 h-10 shadow-inner bg-slate-50/50"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -87,9 +89,9 @@ export default function WarehouseRefreshWrapper({
                     <div className="mb-4 flex items-center justify-between">
                         <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-4 bg-orange-500 rounded-full" />
-                            Released Orders Queue
+                            {t('releasedOrdersQueue')}
                         </h2>
-                        <span className="text-xs font-medium text-slate-400">{filteredOrders.length} orders found</span>
+                        <span className="text-xs font-medium text-slate-400">{t('ordersFound', { count: filteredOrders.length })}</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
@@ -105,7 +107,7 @@ export default function WarehouseRefreshWrapper({
                         {filteredOrders.length === 0 && (
                             <Card className="border-dashed bg-transparent">
                                 <CardContent className="py-20 text-center">
-                                    <p className="text-slate-400 italic">No orders matching search or requiring immediate fulfillment.</p>
+                                    <p className="text-slate-400 italic">{t('noOrders')}</p>
                                 </CardContent>
                             </Card>
                         )}

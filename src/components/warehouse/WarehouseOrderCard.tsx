@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Package, Clock, MapPin, CheckCircle2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { Location, ProductVariant } from '@prisma/client';
 import { format } from 'date-fns';
@@ -22,6 +23,7 @@ export default function WarehouseOrderCard({
     locations,
     rawMaterials
 }: WarehouseOrderCardProps) {
+    const t = useTranslations('warehouse');
     const plannedMaterials = order.plannedMaterials || [];
     const materialIssues = order.materialIssues || [];
 
@@ -71,7 +73,7 @@ export default function WarehouseOrderCard({
                         </div>
                         <div className="text-right">
                             <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Planned Start</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{t('plannedStart')}</span>
                                 <span className="text-xs font-bold text-slate-700">{format(new Date(order.plannedStartDate), 'MMM d, p')}</span>
                             </div>
                         </div>
@@ -80,7 +82,7 @@ export default function WarehouseOrderCard({
                     {/* Material Progress Bar */}
                     <div className="space-y-2 mb-4">
                         <div className="flex justify-between items-end">
-                            <span className="text-xs font-bold text-slate-500">Material Fulfillment</span>
+                            <span className="text-xs font-bold text-slate-500">{t('materialFulfillment')}</span>
                             <span className={cn(
                                 "text-xs font-black",
                                 isFullyIssued ? "text-emerald-600" : "text-orange-600"
@@ -98,15 +100,15 @@ export default function WarehouseOrderCard({
                     <div className="grid grid-cols-2 gap-4 mb-5 p-3 bg-slate-50 rounded-lg border border-slate-100">
                         <div className="space-y-1">
                             <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                                <MapPin className="w-3 h-3" /> Machine
+                                <MapPin className="w-3 h-3" /> {t('machine')}
                             </span>
                             <p className="text-xs font-black text-slate-800 truncate">{order.machine?.name || 'Generic'}</p>
                         </div>
                         <div className="space-y-1 text-right">
                             <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 justify-end">
-                                <Clock className="w-3 h-3" /> Priority
+                                <Clock className="w-3 h-3" /> {t('priority')}
                             </span>
-                            <p className="text-xs font-black text-slate-800">Normal</p>
+                            <p className="text-xs font-black text-slate-800">{t('priorityNormal')}</p>
                         </div>
                     </div>
 
@@ -116,7 +118,7 @@ export default function WarehouseOrderCard({
                             <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 shadow-sm">
                                 <div className="flex flex-col">
                                     <span className="text-xs font-bold text-slate-900">{item.name}</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">Req: {item.required} {item.unit}</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">{t('requiredAbbr')} {item.required} {item.unit}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={cn(
@@ -143,7 +145,7 @@ export default function WarehouseOrderCard({
                             rawMaterials={rawMaterials}
                         />
                         <Button variant="ghost" size="sm" className="flex-1 text-slate-400 font-bold text-xs" disabled>
-                            Print Pick List
+                            {t('printPickList')}
                         </Button>
                     </div>
                 </div>
