@@ -128,18 +128,43 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard/inventory/analytics',
         '/dashboard/inventory/aging',
         '/dashboard/products',
-        '/dashboard/purchasing/orders',
-        '/dashboard/purchasing/receipts',
-        '/dashboard/purchasing/invoices',
-        '/warehouse',
+        // PPIC typically views procurement status but doesn't manage invoices/payments
+        '/dashboard/purchasing/orders', 
         '/dashboard/ppic/mrp',
         '/dashboard/ppic/schedule',
-        '/production', // PPIC might need to view the floor status
+        '/production', 
     ],
     SALES: [
         '/dashboard',
+        '/dashboard/sales',
+        '/dashboard/sales/quotations',
+        '/dashboard/sales/invoices', // Sales might generate invoices, but Finance approves/pays
+        '/dashboard/sales/analytics',
         '/dashboard/products',
-        '/dashboard/inventory',
+        '/dashboard/customers',
+        '/dashboard/inventory', // View only usually
+    ],
+    FINANCE: [
+        '/dashboard',
+        '/dashboard/accounting',
+        '/dashboard/finance/costing',
+        '/dashboard/accounting/reports',
+        '/dashboard/accounting/journals',
+        '/dashboard/accounting/coa',
+        '/dashboard/accounting/periods',
+        '/dashboard/accounting/assets',
+        '/dashboard/accounting/budget',
+        '/dashboard/sales/invoices',
+        '/dashboard/purchasing/invoices',
+    ],
+    PROCUREMENT: [
+        '/dashboard',
+        '/dashboard/purchasing/orders',
+        '/dashboard/purchasing/invoices',
+        '/dashboard/purchasing/analytics',
+        '/dashboard/suppliers',
+        '/dashboard/products',
+        '/dashboard/inventory', // Need to see stock levels to buy
     ]
 };
 

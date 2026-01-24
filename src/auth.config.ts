@@ -8,10 +8,17 @@ export const authConfig = {
         authorized({ auth, request: { nextUrl } }) {
             try {
                 const isLoggedIn = !!auth?.user;
-                const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
-                const isOnKiosk = nextUrl.pathname.startsWith('/kiosk');
-                const isOnWarehouse = nextUrl.pathname.startsWith('/warehouse');
-                const isOnProduction = nextUrl.pathname.startsWith('/production');
+
+                // Strip locale from pathname to normalize checks
+                // Matches /id, /en, /id/..., /en/...
+                const pathWithoutLocale = nextUrl.pathname.replace(/^\/(?:id|en)(?:\/|$)/, '/');
+                // Ensure it starts with / if it became empty string (unlikely with replace logic but safe to be sure)
+                const normalizedPath = pathWithoutLocale === '' ? '/' : pathWithoutLocale;
+
+                const isOnDashboard = normalizedPath.startsWith('/dashboard');
+                const isOnKiosk = normalizedPath.startsWith('/kiosk');
+                const isOnWarehouse = normalizedPath.startsWith('/warehouse');
+                const isOnProduction = normalizedPath.startsWith('/production');
 
                 // Kiosk is public
                 if (isOnKiosk) return true;

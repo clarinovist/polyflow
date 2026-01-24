@@ -430,6 +430,8 @@ enum Role {
   PRODUCTION
   PPIC
   SALES
+  FINANCE
+  PROCUREMENT
 }
 
 enum ProductType {

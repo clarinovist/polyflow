@@ -17,13 +17,15 @@ import {
     Wallet,
     LucideIcon
 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
+import { useTranslations } from 'next-intl';
 
 interface DashboardClientProps {
     stats: ExecutiveStats;
 }
 
 export default function DashboardClient({ stats }: DashboardClientProps) {
+    const t = useTranslations('dashboard.overview');
     const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     return (
@@ -31,8 +33,8 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Executive Summary</h1>
-                    <p className="text-sm md:base text-muted-foreground mt-1">High-level overview of business performance and operational health.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+                    <p className="text-sm md:base text-muted-foreground mt-1">{t('subtitle')}</p>
                 </div>
                 <div className="flex gap-2">
                     <Badge variant="outline" className="px-3 py-1 text-sm bg-background" suppressHydrationWarning>
@@ -44,34 +46,34 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
             {/* KPI Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
-                    title="Revenue (MTD)"
+                    title={t('revenue')}
                     value={formatRupiah(stats.sales.mtdRevenue)}
-                    subtitle={`${stats.sales.activeOrders} active orders`}
+                    subtitle={`${stats.sales.activeOrders} ${t('activeOrders')}`}
                     icon={Wallet}
                     trend="up"
                     trendValue="+12% vs last month"
                 />
                 <KPICard
-                    title="Spending (MTD)"
+                    title={t('spending')}
                     value={formatRupiah(stats.purchasing.mtdSpending)}
-                    subtitle={`${stats.purchasing.pendingPOs} pending POs`}
+                    subtitle={`${stats.purchasing.pendingPOs} ${t('pendingPOs')}`}
                     icon={ShoppingCart}
                     trend="down"
                     trendValue="-5% vs last month"
                     variant="neutral"
                 />
                 <KPICard
-                    title="Machine Utilization"
-                    value={`${stats.production.runningMachines} / ${stats.production.totalMachines} Running`}
-                    subtitle={`Yield Rate: ${stats.production.yieldRate.toFixed(1)}%`}
+                    title={t('machineUtil')}
+                    value={`${stats.production.runningMachines} / ${stats.production.totalMachines} ${t('runningMachines')}`}
+                    subtitle={`${t('yieldRate')}: ${stats.production.yieldRate.toFixed(1)}%`}
                     icon={Factory}
                     trend="neutral"
                     trendValue="Stable capacity"
                 />
                 <KPICard
-                    title="Inventory Value"
+                    title={t('inventoryValue')}
                     value={formatRupiah(stats.inventory.totalValue)}
-                    subtitle={`${stats.inventory.lowStockCount} Low Resin/Material Alerts`}
+                    subtitle={`${stats.inventory.lowStockCount} ${t('lowStock')}`}
                     icon={Package}
                     trend="neutral"
                     trendValue="Healthy levels"
@@ -83,18 +85,18 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
                 {/* Sales Summary */}
                 <SummaryCard
-                    title="Sales Performance"
+                    title={t('salesPerf')}
                     icon={TrendingUp}
                     href="/dashboard/sales"
                     accentColor="text-emerald-600"
                     bgColor="bg-emerald-50"
                 >
                     <div className="space-y-4">
-                        <MetricRow label="Active Quotations" value={stats.sales.activeOrders.toString()} />
-                        <MetricRow label="Pending Invoices" value={stats.sales.pendingInvoices.toString()} />
+                        <MetricRow label={t('activeQuotes')} value={stats.sales.activeOrders.toString()} />
+                        <MetricRow label={t('pendingInv')} value={stats.sales.pendingInvoices.toString()} />
                         <div className="pt-2">
                             <Link href="/dashboard/sales/analytics" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                                View Sales Analytics <ArrowRight className="h-3 w-3" />
+                                {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
                     </div>
@@ -102,18 +104,18 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
                 {/* Procurement Summary */}
                 <SummaryCard
-                    title="Procurement"
+                    title={t('procurement')}
                     icon={ShoppingCart}
                     href="/dashboard/purchasing"
                     accentColor="text-blue-600"
                     bgColor="bg-blue-50"
                 >
                     <div className="space-y-4">
-                        <MetricRow label="Pending POs" value={stats.purchasing.pendingPOs.toString()} />
-                        <MetricRow label="MTD Spending" value={formatRupiah(stats.purchasing.mtdSpending)} />
+                        <MetricRow label={t('pendingPOs')} value={stats.purchasing.pendingPOs.toString()} />
+                        <MetricRow label={t('spending')} value={formatRupiah(stats.purchasing.mtdSpending)} />
                         <div className="pt-2">
                             <Link href="/dashboard/purchasing/analytics" className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                                View Spending Analysis <ArrowRight className="h-3 w-3" />
+                                {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
                     </div>
@@ -121,23 +123,23 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
                 {/* Production Summary */}
                 <SummaryCard
-                    title="Manufacturing"
+                    title={t('manufacturing')}
                     icon={Factory}
                     href="/dashboard/production/orders"
                     accentColor="text-amber-600"
                     bgColor="bg-amber-50"
                 >
                     <div className="space-y-4">
-                        <MetricRow label="Net Yield Rate" value={`${stats.production.yieldRate.toFixed(1)}%`} />
+                        <MetricRow label={t('yieldRate')} value={`${stats.production.yieldRate.toFixed(1)}%`} />
                         <MetricRow
-                            label="Total Scrap"
+                            label={t('totalScrap')}
                             value={`${stats.production.totalScrapKg.toFixed(1)} kg`}
                             valueClass={stats.production.totalScrapKg > 0 ? "text-red-500 font-bold" : ""}
                         />
-                        <MetricRow label="Downtime" value={`${stats.production.downtimeHours.toFixed(1)} hrs`} />
+                        <MetricRow label={t('downtime')} value={`${stats.production.downtimeHours.toFixed(1)} hrs`} />
                         <div className="pt-2">
                             <Link href="/dashboard/production/analytics" className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1">
-                                View Production Efficiency <ArrowRight className="h-3 w-3" />
+                                {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
                     </div>
@@ -145,22 +147,22 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
                 {/* Inventory Summary */}
                 <SummaryCard
-                    title="Inventory Health"
+                    title={t('invHealth')}
                     icon={Package}
                     href="/dashboard/inventory"
                     accentColor="text-purple-600"
                     bgColor="bg-purple-50"
                 >
                     <div className="space-y-4">
-                        <MetricRow label="Total Items" value={stats.inventory.totalItems.toLocaleString()} />
+                        <MetricRow label={t('totalItems')} value={stats.inventory.totalItems.toLocaleString()} />
                         <MetricRow
-                            label="Low Stock Alerts"
+                            label={t('lowStockAlerts')}
                             value={stats.inventory.lowStockCount.toString()}
                             valueClass={stats.inventory.lowStockCount > 0 ? "text-red-500 font-bold" : "text-zinc-700"}
                         />
                         <div className="pt-2">
                             <Link href="/dashboard/inventory" className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1">
-                                Analyze Stock Levels <ArrowRight className="h-3 w-3" />
+                                {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
                     </div>
@@ -170,10 +172,10 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
             {/* Quick Actions Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                <QuickAction href="/dashboard/production/downtime/create" label="Log Machine Downtime" icon={TrendingDown} />
-                <QuickAction href="/kiosk" label="Record Scrap/Output" icon={Factory} />
-                <QuickAction href="/dashboard/production/orders/create" label="New Production Order" icon={Factory} />
-                <QuickAction href="/dashboard/products/create" label="Add Product" icon={Package} />
+                <QuickAction href="/dashboard/production/downtime/create" label={t('logDowntime')} icon={TrendingDown} />
+                <QuickAction href="/kiosk" label={t('recordScrap')} icon={Factory} />
+                <QuickAction href="/dashboard/production/orders/create" label={t('newOrder')} icon={Factory} />
+                <QuickAction href="/dashboard/products/create" label={t('addProduct')} icon={Package} />
             </div>
         </div>
     );

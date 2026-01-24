@@ -34,7 +34,7 @@ const FEATURE_PERMISSIONS = [
     }
 ];
 
-const ROLES: Role[] = ['WAREHOUSE', 'PPIC', 'PRODUCTION', 'SALES']; // Admin is excluded as they have full access
+const ROLES: Role[] = ['WAREHOUSE', 'PPIC', 'PRODUCTION', 'SALES', 'FINANCE', 'PROCUREMENT']; // Admin is excluded as they have full access
 
 interface PermissionState {
     [role: string]: {

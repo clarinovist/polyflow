@@ -28,13 +28,13 @@ import {
     Calendar,
     Building2
 } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/theme-provider';
 import { useState } from 'react';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 interface SidebarNavProps {
     user: {
@@ -58,70 +58,73 @@ interface SidebarLinkGroup {
 
 export const sidebarLinks: SidebarLinkGroup[] = [
     {
-        heading: "Overview",
+        heading: "sidebar.overview",
         items: [
-            { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+            { title: "sidebar.dashboard", href: "/dashboard", icon: LayoutDashboard },
         ],
     },
     {
-        heading: "Sales & Distribution",
+        heading: "sidebar.salesDist",
         items: [
-            { title: "Quotations", href: "/dashboard/sales/quotations", icon: FileText },
-            { title: "Sales Orders", href: "/dashboard/sales", icon: ShoppingCart },
-            { title: "Invoices", href: "/dashboard/sales/invoices", icon: Receipt },
-            { title: "Sales Analytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
+            { title: "sidebar.quotations", href: "/dashboard/sales/quotations", icon: FileText },
+            { title: "sidebar.salesOrders", href: "/dashboard/sales", icon: ShoppingCart },
+            { title: "sidebar.invoices", href: "/dashboard/sales/invoices", icon: Receipt },
+            { title: "sidebar.salesAnalytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
         ],
     },
     {
-        heading: "Procurement",
+        heading: "sidebar.procurement",
         items: [
-            { title: "Purchase Orders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
-            { title: "Purchase Invoices", href: "/dashboard/purchasing/invoices", icon: FileText },
-            { title: "Procurement Analytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
+            { title: "sidebar.purchaseOrders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
+            { title: "sidebar.purchaseInvoices", href: "/dashboard/purchasing/invoices", icon: FileText },
+            { title: "sidebar.procAnalytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
         ],
     },
     {
-        heading: "PPIC & Manufacturing",
+        heading: "sidebar.ppic",
         items: [
-            { title: "Production Orders", href: "/dashboard/production/orders", icon: Factory },
-            { title: "Production Schedule", href: "/dashboard/ppic/schedule", icon: BarChart3 },
-            { title: "Material Planning", href: "/dashboard/ppic/mrp", icon: FileText },
-            { title: "Production Analytics", href: "/dashboard/production/analytics", icon: BarChart3 },
+            { title: "sidebar.prodOrders", href: "/dashboard/production/orders", icon: Factory },
+            { title: "sidebar.prodSchedule", href: "/dashboard/ppic/schedule", icon: BarChart3 },
+            { title: "sidebar.materialPlanning", href: "/dashboard/ppic/mrp", icon: FileText },
+            { title: "sidebar.prodAnalytics", href: "/dashboard/production/analytics", icon: BarChart3 },
         ],
     },
     {
-        heading: "Inventory",
+        heading: "sidebar.inventory",
         items: [
-            { title: "Inventory Analysis", href: "/dashboard/inventory", icon: BarChart3 },
+            { title: "sidebar.invAnalysis", href: "/dashboard/inventory", icon: BarChart3 },
         ],
     },
     {
-        heading: "Master Data",
+        heading: "sidebar.masterData",
         items: [
-            { title: "Product Catalog", href: "/dashboard/products", icon: Package },
-            { title: "Bill of Materials", href: "/dashboard/production/boms", icon: Files },
-            { title: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
-            { title: "Customers", href: "/dashboard/customers", icon: Users2 },
-            { title: "Machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
-            { title: "Employees", href: "/dashboard/production/resources/employees", icon: Users },
+            { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
+            { title: "sidebar.boms", href: "/dashboard/production/boms", icon: Files },
+            { title: "sidebar.suppliers", href: "/dashboard/suppliers", icon: Truck },
+            { title: "sidebar.customers", href: "/dashboard/customers", icon: Users2 },
+            { title: "sidebar.machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
+            { title: "sidebar.employees", href: "/dashboard/production/resources/employees", icon: Users },
         ],
     },
     {
-        heading: "Finance & Accounting",
+        heading: "sidebar.finance",
         items: [
-            { title: "Financial Overview", href: "/dashboard/accounting", icon: LayoutDashboard },
-            { title: "Cost Accounting", href: "/dashboard/finance/costing", icon: Calculator },
-            { title: "Financial Reports", href: "/dashboard/accounting/reports", icon: FileText },
-            { title: "Journal Entries", href: "/dashboard/accounting/journals", icon: BookOpen },
-            { title: "Manage COA", href: "/dashboard/accounting/coa", icon: Settings2 },
-            { title: "Fiscal Periods", href: "/dashboard/accounting/periods", icon: Calendar },
-            { title: "Fixed Assets", href: "/dashboard/accounting/assets", icon: Building2 },
-            { title: "Budgeting", href: "/dashboard/accounting/budget", icon: BarChart3 },
+            { title: "sidebar.finOverview", href: "/dashboard/accounting", icon: LayoutDashboard },
+            { title: "sidebar.costing", href: "/dashboard/finance/costing", icon: Calculator },
+            { title: "sidebar.finReports", href: "/dashboard/accounting/reports", icon: FileText },
+            { title: "sidebar.journals", href: "/dashboard/accounting/journals", icon: BookOpen },
+            { title: "sidebar.manageCoa", href: "/dashboard/accounting/coa", icon: Settings2 },
+            { title: "sidebar.fiscalPeriods", href: "/dashboard/accounting/periods", icon: Calendar },
+            { title: "sidebar.fixedAssets", href: "/dashboard/accounting/assets", icon: Building2 },
+            { title: "sidebar.budgeting", href: "/dashboard/accounting/budget", icon: BarChart3 },
         ],
     },
 ];
 
+import { useTranslations } from 'next-intl';
+
 export function SidebarNav({ user, permissions }: SidebarNavProps) {
+    const t = useTranslations();
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -202,7 +205,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                     {/* Navigation */}
                     <nav className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
                         {filteredGroups.map((group) => (
-                            <CollapsibleGroup key={group.heading} group={group} pathname={pathname} />
+                            <CollapsibleGroup key={group.heading} group={group} pathname={pathname} t={t} />
                         ))}
                     </nav>
 
@@ -216,6 +219,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                                 <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
                             </div>
+                            <LanguageSwitcher />
                             <Link
                                 href="/dashboard/settings"
                                 className="text-muted-foreground hover:text-primary transition-colors p-1"
@@ -248,14 +252,14 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     );
 }
 
-function CollapsibleGroup({ group, pathname }: { group: SidebarLinkGroup, pathname: string }) {
+function CollapsibleGroup({ group, pathname, t }: { group: SidebarLinkGroup, pathname: string, t: (key: string) => string }) {
     // Check if any child is active
     const isChildActive = group.items.some(item =>
         pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
     );
 
     // Auto-expand if child is active, otherwise default to expanded for 'Overview' or collapsed for others
-    const [isOpen, setIsOpen] = useState(isChildActive || group.heading === 'Overview');
+    const [isOpen, setIsOpen] = useState(isChildActive || group.heading === 'sidebar.overview');
 
     const [prevIsChildActive, setPrevIsChildActive] = useState(isChildActive);
 
@@ -275,7 +279,7 @@ function CollapsibleGroup({ group, pathname }: { group: SidebarLinkGroup, pathna
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
             >
-                {group.heading}
+                {t(group.heading)}
                 {isOpen ? (
                     <ChevronDown className="h-3 w-3" />
                 ) : (
@@ -288,7 +292,7 @@ function CollapsibleGroup({ group, pathname }: { group: SidebarLinkGroup, pathna
                         key={item.href}
                         href={item.href}
                         icon={item.icon}
-                        label={item.title}
+                        label={t(item.title)}
                         pathname={pathname}
                     />
                 ))}
