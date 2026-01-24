@@ -94,3 +94,68 @@ export async function getOrderCosting(orderId: string) {
     const data = await CostReportingService.getOrderCosting(orderId);
     return serializeData(data);
 }
+/**
+ * Get Received Payments (Sales)
+ * This is a mock/proxy to get payments linked to Sales Invoices
+ */
+export async function getReceivedPayments() {
+    await requireAuth();
+    // In a real scenario, we would query a Payment table.
+    // Here we query "Paid" invoices as a proxy for history.
+    const payments = await prisma.invoice.findMany({
+        where: {
+            status: { in: [InvoiceStatus.PAID, InvoiceStatus.PARTIAL] },
+            paidAmount: { gt: 0 }
+        },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+            salesOrder: {
+                include: {
+                    customer: true
+                }
+            }
+        },
+        take: 50
+    });
+
+    return serializeData(payments.map(p => ({
+        id: p.id,
+        referenceNumber: p.invoiceNumber,
+        date: p.updatedAt, // Using update time as payment time proxy
+        entityName: p.salesOrder?.customer?.name || 'Unknown Details',
+        amount: Number(p.paidAmount),
+        method: 'Bank Transfer', // Mock
+        status: 'COMPLETED'
+    })));
+}
+
+/**
+ * Get Sent Payments (Purchasing)
+ * This is a mock/proxy to get payments linked to Purchase Invoices
+ */
+export async function getSentPayments() {
+    await requireAuth();
+    const payments = await prisma.purchaseInvoice.findMany({
+        where: {
+            status: { in: [PurchaseInvoiceStatus.PAID, PurchaseInvoiceStatus.PARTIAL] },
+            paidAmount: { gt: 0 }
+        },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+            purchaseOrder: {
+                include: { supplier: true }
+            }
+        },
+        take: 50
+    });
+
+    return serializeData(payments.map(p => ({
+        id: p.id,
+        referenceNumber: p.invoiceNumber,
+        date: p.updatedAt,
+        entityName: p.purchaseOrder.supplier.name,
+        amount: Number(p.paidAmount),
+        method: 'Bank Transfer', // Mock
+        status: 'COMPLETED'
+    })));
+}

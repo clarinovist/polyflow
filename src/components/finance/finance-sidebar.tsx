@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 interface FinanceSidebarProps {
     user: {
@@ -66,6 +67,9 @@ const financeLinks = [
 export function FinanceSidebar({ user }: FinanceSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Finance" accentColor="purple">
+            <div className="px-3 mb-2">
+                <AdminBackButton role={user.role || undefined} />
+            </div>
             {financeLinks.map((group) => (
                 <PortalNavGroup
                     key={group.heading}

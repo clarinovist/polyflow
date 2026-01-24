@@ -20,9 +20,9 @@ export default async function PurchaseInvoicesPage() {
             <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                     <ShoppingCart className="h-3 w-3" />
-                    <span>Procurement / Invoices</span>
+                    <span>Payables / Invoices</span>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight">Purchase Invoices</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Purchase Invoices</h1>
                 <p className="text-muted-foreground">
                     Manage supplier bills and payments.
                 </p>
