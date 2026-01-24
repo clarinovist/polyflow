@@ -266,6 +266,47 @@ export async function deleteProductionOrder(id: string) {
 }
 
 /**
+ * Get Production Order Statistics
+ */
+export async function getProductionOrderStats() {
+    await auth();
+
+    const stats = await prisma.productionOrder.groupBy({
+        by: ['status'],
+        _count: {
+            status: true
+        }
+    });
+
+    const totalOrders = stats.reduce((acc, curr) => acc + curr._count.status, 0);
+
+    const activeCount = stats
+        .filter(s => s.status === 'IN_PROGRESS')
+        .reduce((acc, curr) => acc + curr._count.status, 0);
+
+    const draftCount = stats
+        .filter(s => ['DRAFT', 'RELEASED'].includes(s.status))
+        .reduce((acc, curr) => acc + curr._count.status, 0);
+
+    // Calculate late orders (this needs a separate query as it depends on endDate)
+    const lateCount = await prisma.productionOrder.count({
+        where: {
+            status: { in: ['RELEASED', 'IN_PROGRESS'] },
+            plannedEndDate: {
+                lt: new Date()
+            }
+        }
+    });
+
+    return {
+        totalOrders,
+        activeCount,
+        draftCount,
+        lateCount
+    };
+}
+
+/**
  * Add Shift to Production Order
  */
 export async function addProductionShift(data: {

@@ -66,7 +66,14 @@ export default async function SuppliersPage() {
                                         <TableCell className="font-medium text-muted-foreground font-mono text-xs">
                                             {supplier.code || '-'}
                                         </TableCell>
-                                        <TableCell className="font-medium">{supplier.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                            <div>{supplier.name}</div>
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-emerald-200 text-emerald-700 bg-emerald-50">
+                                                    Reliable
+                                                </Badge>
+                                            </div>
+                                        </TableCell>
                                         <TableCell>
                                             {supplier.phone ? (
                                                 <div className="flex items-center gap-2">

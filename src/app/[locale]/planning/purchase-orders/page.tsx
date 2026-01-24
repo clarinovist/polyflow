@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 
 export default async function PurchaseOrdersPage() {
     const orders = await PurchaseService.getPurchaseOrders();
+    const stats = await PurchaseService.getPurchaseStats();
 
     // Serialize all Prisma objects for Client Components
     const serializedOrders = serializeData(orders);
@@ -29,6 +30,27 @@ export default async function PurchaseOrdersPage() {
                         <p className="text-muted-foreground">
                             Create and track orders sent to your suppliers.
                         </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                    <div className="text-sm font-medium text-muted-foreground">Total Orders</div>
+                    <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                </div>
+                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                    <div className="text-sm font-medium text-muted-foreground">Open / Sent</div>
+                    <div className="text-2xl font-bold text-blue-600">{stats.openOrders}</div>
+                </div>
+                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                    <div className="text-sm font-medium text-muted-foreground">Completed</div>
+                    <div className="text-2xl font-bold text-emerald-600">{stats.completedOrders}</div>
+                </div>
+                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                    <div className="text-sm font-medium text-muted-foreground">Total Spend</div>
+                    <div className="text-2xl font-bold">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.totalSpend)}
                     </div>
                 </div>
             </div>

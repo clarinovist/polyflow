@@ -200,3 +200,38 @@ export async function deleteSalesOrder(id: string) {
         return true;
     });
 }
+
+/**
+ * Get sales order statistics
+ */
+export async function getSalesOrderStats() {
+    await requireAuth();
+
+    const stats = await prisma.salesOrder.groupBy({
+        by: ['status'],
+        _count: {
+            status: true
+        }
+    });
+
+    const totalOrders = stats.reduce((acc, curr) => acc + curr._count.status, 0);
+
+    const activeCount = stats
+        .filter(s => ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(s.status))
+        .reduce((acc, curr) => acc + curr._count.status, 0);
+
+    const completedCount = stats
+        .filter(s => ['SHIPPED', 'DELIVERED'].includes(s.status))
+        .reduce((acc, curr) => acc + curr._count.status, 0);
+
+    const cancelledCount = stats
+        .filter(s => s.status === 'CANCELLED')
+        .reduce((acc, curr) => acc + curr._count.status, 0);
+
+    return {
+        totalOrders,
+        activeCount,
+        completedCount,
+        cancelledCount
+    };
+}

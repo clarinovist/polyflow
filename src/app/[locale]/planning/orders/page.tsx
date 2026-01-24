@@ -1,19 +1,20 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, ChevronRight } from 'lucide-react';
+import { Plus, Search, ChevronRight, Activity, Clock, AlertCircle, Layers } from 'lucide-react';
 import Link from 'next/link';
-import { getProductionOrders } from '@/actions/production';
+import { getProductionOrders, getProductionOrderStats } from '@/actions/production';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 
 export default async function ProductionOrdersPage() {
     const orders = await getProductionOrders();
+    const stats = await getProductionOrderStats();
 
     return (
         <div className="p-4 md:p-8 space-y-6">
-
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -26,6 +27,46 @@ export default async function ProductionOrdersPage() {
                         Create Order
                     </Button>
                 </Link>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                        <Layers className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                        <Activity className="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.activeCount}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Ready to Release</CardTitle>
+                        <Clock className="h-4 w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{stats.draftCount}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Late / Overdue</CardTitle>
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-red-600">{stats.lateCount}</div>
+                    </CardContent>
+                </Card>
             </div>
 
             <Card className="border shadow-sm">
@@ -52,7 +93,7 @@ export default async function ProductionOrdersPage() {
                                     <TableHead>Product</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Machine</TableHead>
-                                    <TableHead>Location</TableHead>
+                                    <TableHead>Progress</TableHead>
                                     <TableHead>Planned</TableHead>
                                     <TableHead>Start Date</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -66,45 +107,52 @@ export default async function ProductionOrdersPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    orders.map((order) => (
-                                        <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
-                                            <TableCell className="font-medium">
-                                                <Link href={`/planning/orders/${order.id}`} className="hover:underline text-foreground">
-                                                    {order.orderNumber}
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
-                                                <div className="text-xs text-muted-foreground">{order.bom.name}</div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <StatusBadge status={order.status} />
-                                            </TableCell>
-                                            <TableCell>
-                                                {order.machine ? (
-                                                    <Badge variant="secondary" className="font-normal text-xs">
-                                                        {order.machine.code}
-                                                    </Badge>
-                                                ) : <span className="text-muted-foreground">-</span>}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground font-medium text-xs">
-                                                {order.location.name}
-                                            </TableCell>
-                                            <TableCell>
-                                                {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Link href={`/planning/orders/${order.id}`}>
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                                                    </Button>
-                                                </Link>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                    orders.map((order) => {
+                                        const progress = (Number(order.actualQuantity || 0) / Number(order.plannedQuantity || 1)) * 100;
+
+                                        return (
+                                            <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
+                                                <TableCell className="font-medium">
+                                                    <Link href={`/planning/orders/${order.id}`} className="hover:underline text-foreground">
+                                                        {order.orderNumber}
+                                                    </Link>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
+                                                    <div className="text-xs text-muted-foreground">{order.bom.name}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge status={order.status} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.machine ? (
+                                                        <Badge variant="secondary" className="font-normal text-xs">
+                                                            {order.machine.code}
+                                                        </Badge>
+                                                    ) : <span className="text-muted-foreground">-</span>}
+                                                </TableCell>
+                                                <TableCell className="w-[150px]">
+                                                    <div className="flex items-center gap-2">
+                                                        <Progress value={Math.min(progress, 100)} className="h-2 w-16" />
+                                                        <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Link href={`/planning/orders/${order.id}`}>
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                                                        </Button>
+                                                    </Link>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })
                                 )}
                             </TableBody>
                         </Table>

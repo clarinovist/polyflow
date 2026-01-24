@@ -28,6 +28,7 @@ model User {
   inspections       QualityInspection[]
   salesOrders       SalesOrder[]        @relation("SalesCreator")
   quotations        SalesQuotation[]    @relation("QuotationCreator")
+  deliveryOrders    DeliveryOrder[]     @relation("DeliveryCreator")
   scrapRecords      ScrapRecord[]
   movements         StockMovement[]
   opnames           StockOpname[]
@@ -119,6 +120,7 @@ model Location {
   salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
   movementsFrom    StockMovement[]    @relation("FromLocation")
   movementsTo      StockMovement[]    @relation("ToLocation")
+  deliveryOrders   DeliveryOrder[]
   opnames          StockOpname[]
   StockReservation StockReservation[]
 }
@@ -169,6 +171,7 @@ model ProductVariant {
   purchaseOrderItems  PurchaseOrderItem[]
   salesOrderItems     SalesOrderItem[]
   quotationItems      SalesQuotationItem[]
+  deliveryOrderItems  DeliveryOrderItem[]
   ScrapRecord         ScrapRecord[]
   movements           StockMovement[]
   opnameItems         StockOpnameItem[]
@@ -515,6 +518,7 @@ model SalesOrder {
   quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
   sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
   items            SalesOrderItem[]
+  deliveryOrders   DeliveryOrder[]
   movements        StockMovement[]   @relation("SalesMovement")
 }
 
@@ -795,6 +799,51 @@ model Budget {
   account   Account  @relation(fields: [accountId], references: [id])
 
   @@unique([accountId, year, month])
+}
+
+
+
+model DeliveryOrder {
+  id              String             @id @default(uuid())
+  orderNumber     String             @unique
+  salesOrderId    String
+  deliveryDate    DateTime           @default(now())
+  status          DeliveryStatus     @default(PENDING)
+  trackingNumber  String?
+  carrier         String?
+  sourceLocationId String
+  createdById     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  notes           String?
+  
+  salesOrder      SalesOrder         @relation(fields: [salesOrderId], references: [id])
+  sourceLocation  Location           @relation(fields: [sourceLocationId], references: [id])
+  createdBy       User?              @relation("DeliveryCreator", fields: [createdById], references: [id])
+  items           DeliveryOrderItem[]
+  
+  @@index([salesOrderId])
+}
+
+model DeliveryOrderItem {
+  id              String         @id @default(uuid())
+  deliveryOrderId String
+  productVariantId String
+  quantity        Decimal        @db.Decimal(15, 4)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  deliveryOrder   DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  productVariant  ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+enum DeliveryStatus {
+  PENDING
+  SHIPPED
+  DELIVERED
+  RETURNED
+  CANCELLED
 }
 
 enum Role {

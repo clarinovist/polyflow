@@ -99,7 +99,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
-                    <Link href="/dashboard/purchasing/orders/create">
+                    <Link href="/planning/purchase-orders/create">
                         <Button className="bg-blue-600 hover:bg-blue-700">
                             <Plus className="mr-2 h-4 w-4" />
                             Create PO
@@ -128,7 +128,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                                 filteredOrders.map((order) => (
                                     <TableRow key={order.id} className="hover:bg-muted/30 transition-colors">
                                         <TableCell className="font-mono font-medium text-blue-600">
-                                            <Link href={`/dashboard/purchasing/orders/${order.id}`} className="hover:underline">
+                                            <Link href={`/planning/purchase-orders/${order.id}`} className="hover:underline">
                                                 {order.orderNumber}
                                             </Link>
                                         </TableCell>
@@ -158,7 +158,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                                             {getStatusBadge(order.status)}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Link href={`/dashboard/purchasing/orders/${order.id}`}>
+                                            <Link href={`/planning/purchase-orders/${order.id}`}>
                                                 <Button variant="ghost" size="sm">
                                                     <Eye className="h-4 w-4" />
                                                 </Button>

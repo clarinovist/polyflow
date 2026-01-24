@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 interface PlanningSidebarProps {
     user: {
@@ -54,6 +55,9 @@ const planningLinks = [
 export function PlanningSidebar({ user }: PlanningSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Planning" accentColor="amber">
+            <div className="px-3 mb-2">
+                <AdminBackButton role={user.role || undefined} />
+            </div>
             {planningLinks.map((group) => (
                 <PortalNavGroup
                     key={group.heading}

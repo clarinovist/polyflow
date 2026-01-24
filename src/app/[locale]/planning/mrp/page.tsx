@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, ShoppingCart, ArrowRight } from 'lucide-react';
+import { AlertCircle, ShoppingCart, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { ProductionStatus } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -134,8 +134,18 @@ export default async function PpicMrpPage() {
                         <TableBody>
                             {analysis.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                                        No material demand detected for pending orders.
+                                    <TableCell colSpan={5} className="h-64 text-center">
+                                        <div className="flex flex-col items-center justify-center space-y-3">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                                                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h3 className="text-lg font-medium">No Shortages Detected</h3>
+                                                <p className="text-muted-foreground">
+                                                    All active production orders have sufficient material coverage.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (

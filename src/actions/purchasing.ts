@@ -27,6 +27,7 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
 
     revalidatePath('/dashboard/purchasing');
     revalidatePath('/dashboard/purchasing/orders');
+    revalidatePath('/planning/purchase-orders');
     return serializeData(order);
 }
 
@@ -38,6 +39,8 @@ export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
 
     revalidatePath('/dashboard/purchasing/orders');
     revalidatePath(`/dashboard/purchasing/orders/${validated.id}`);
+    revalidatePath('/planning/purchase-orders');
+    revalidatePath(`/planning/purchase-orders/${validated.id}`);
     return serializeData(order);
 }
 
@@ -100,6 +103,7 @@ export async function deletePurchaseOrder(id: string) {
     try {
         const result = await PurchaseService.deleteOrder(id, session.user.id);
         revalidatePath('/dashboard/purchasing/orders');
+        revalidatePath('/planning/purchase-orders');
         return { success: true, orderNumber: result.orderNumber };
     } catch (error) {
         return {

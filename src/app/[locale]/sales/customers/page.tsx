@@ -11,7 +11,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Users, Phone, MapPin, Eye } from 'lucide-react';
+import { Users, Phone, MapPin, Eye, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Customer } from '@prisma/client';
@@ -56,8 +56,27 @@ export default async function CustomersPage() {
                         <TableBody>
                             {customers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        No customers found. Add your first customer!
+                                    <TableCell colSpan={6} className="h-96 text-center">
+                                        <div className="flex flex-col items-center justify-center space-y-3">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                                <Users className="h-6 w-6 text-muted-foreground" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h3 className="text-lg font-medium">No customers found</h3>
+                                                <p className="text-muted-foreground">
+                                                    Get started by creating a new customer.
+                                                </p>
+                                            </div>
+                                            <CustomerDialog
+                                                mode="create"
+                                                trigger={
+                                                    <Button variant="outline" className="mt-4">
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Add Customer
+                                                    </Button>
+                                                }
+                                            />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
