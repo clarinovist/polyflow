@@ -1,6 +1,6 @@
 import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AdjustmentForm } from '@/components/inventory/AdjustmentForm';
+import { AdjustmentForm } from '@/components/warehouse/inventory/AdjustmentForm';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, PackagePlus } from 'lucide-react';

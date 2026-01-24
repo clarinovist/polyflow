@@ -48,6 +48,7 @@ const warehouseLinks: SidebarLinkGroup[] = [
             { title: "Job Queue", href: "/warehouse", icon: LayoutDashboard },
             { title: "Incoming Receipts", href: "/warehouse/incoming", icon: PackageSearch },
             { title: "Outgoing Orders", href: "/warehouse/outgoing", icon: ChevronRight },
+            { title: "Inventory Analysis", href: "/warehouse/analytics", icon: PackageSearch },
         ],
     },
     {

@@ -1,6 +1,6 @@
 import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TransferForm } from '@/components/inventory/TransferForm';
+import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';

@@ -34,7 +34,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { classPresets } from '@/lib/design-tokens';
 
 interface UserData {
     id: string;
@@ -144,7 +143,7 @@ export function UsersTab() {
                 </div>
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
-                        <Button className={classPresets.buttonPrimary}>
+                        <Button>
                             <Plus className="mr-2 h-4 w-4" />
                             Add User
                         </Button>
@@ -163,7 +162,6 @@ export function UsersTab() {
                                     id="name"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className={classPresets.inputDefault}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -173,7 +171,6 @@ export function UsersTab() {
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className={classPresets.inputDefault}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -183,7 +180,6 @@ export function UsersTab() {
                                     type="password"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className={classPresets.inputDefault}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -192,7 +188,7 @@ export function UsersTab() {
                                     value={formData.role}
                                     onValueChange={(val: Role) => setFormData({ ...formData, role: val })}
                                 >
-                                    <SelectTrigger className={classPresets.inputDefault}>
+                                    <SelectTrigger>
                                         <SelectValue placeholder="Select role" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -209,7 +205,7 @@ export function UsersTab() {
                             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={isSubmitting}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleCreate} disabled={isSubmitting} className={classPresets.buttonPrimary}>
+                            <Button onClick={handleCreate} disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Create User
                             </Button>
@@ -289,7 +285,6 @@ export function UsersTab() {
                                             id="edit-name"
                                             value={editData.name}
                                             onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                                            className={classPresets.inputDefault}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -299,7 +294,6 @@ export function UsersTab() {
                                             type="email"
                                             value={editData.email}
                                             onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                                            className={classPresets.inputDefault}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -310,7 +304,6 @@ export function UsersTab() {
                                             placeholder="••••••••"
                                             value={editData.password}
                                             onChange={(e) => setEditData({ ...editData, password: e.target.value })}
-                                            className={classPresets.inputDefault}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -319,7 +312,7 @@ export function UsersTab() {
                                             value={editData.role}
                                             onValueChange={(val: Role) => setEditData({ ...editData, role: val })}
                                         >
-                                            <SelectTrigger className={classPresets.inputDefault}>
+                                            <SelectTrigger>
                                                 <SelectValue placeholder="Select role" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -336,7 +329,7 @@ export function UsersTab() {
                                     <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
                                         Cancel
                                     </Button>
-                                    <Button onClick={handleUpdate} disabled={isSubmitting} className={classPresets.buttonPrimary}>
+                                    <Button onClick={handleUpdate} disabled={isSubmitting}>
                                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Save Changes
                                     </Button>

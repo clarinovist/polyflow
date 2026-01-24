@@ -9,7 +9,7 @@ import {
     History,
     Moon,
     Sun,
-    LucideIcon,
+    LucideIcon, Calculator, Clock,
     Users,
     ClipboardCheck
 } from 'lucide-react';
@@ -54,6 +54,8 @@ const productionLinks: SidebarLinkGroup[] = [
             { title: "Floor Stock", href: "/production/inventory", icon: Boxes },
             { title: "Team / Shifts", href: "/production/resources", icon: Users },
             { title: "Output Logs", href: "/production/history", icon: History },
+            { title: "Production Costing", href: "/production/costing", icon: Calculator },
+            { title: "Work Shifts", href: "/production/shifts", icon: Clock },
         ],
     },
     {

@@ -1,6 +1,6 @@
 import { PurchaseService } from '@/services/purchase-service';
 import { notFound } from 'next/navigation';
-import { GoodsReceiptDetailClient } from '@/components/purchasing/GoodsReceiptDetailClient';
+import { GoodsReceiptDetailClient } from '@/components/planning/purchasing/GoodsReceiptDetailClient';
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils';
 

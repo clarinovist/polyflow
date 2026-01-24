@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { CreateOpnameDialog } from '@/components/inventory/opname/CreateOpnameDialog';
+import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/CreateOpnameDialog';
 import { Separator } from '@/components/ui/separator';
 
 export default async function WarehouseOpnameListPage() {

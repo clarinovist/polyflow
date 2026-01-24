@@ -2,7 +2,6 @@
 
 import { GlobalSearch } from '@/components/GlobalSearch';
 import {
-    LayoutDashboard,
     Factory,
     Package,
     Files,
@@ -19,14 +18,10 @@ import {
     ChevronRight,
     Truck,
     ShoppingCart,
-    Receipt,
-    FileText,
     Calculator,
     Menu,
     X,
-    BookOpen,
-    Calendar,
-    Building2
+    PackageSearch
 } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
@@ -58,41 +53,23 @@ interface SidebarLinkGroup {
 
 export const sidebarLinks: SidebarLinkGroup[] = [
     {
-        heading: "sidebar.overview",
+        heading: "sidebar.workspaces",
         items: [
-            { title: "sidebar.dashboard", href: "/dashboard", icon: LayoutDashboard },
+            { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
+            { title: "navigation.purchasing", href: "/planning", icon: Truck },
+            { title: "navigation.production", href: "/production", icon: Factory },
+            { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
+            { title: "navigation.accounting", href: "/finance", icon: Calculator },
         ],
     },
     {
-        heading: "sidebar.salesDist",
+        heading: "sidebar.analytics",
         items: [
-            { title: "sidebar.quotations", href: "/dashboard/sales/quotations", icon: FileText },
-            { title: "sidebar.salesOrders", href: "/dashboard/sales", icon: ShoppingCart },
-            { title: "sidebar.invoices", href: "/dashboard/sales/invoices", icon: Receipt },
-            { title: "sidebar.salesAnalytics", href: "/dashboard/sales/analytics", icon: BarChart3 },
-        ],
-    },
-    {
-        heading: "sidebar.procurement",
-        items: [
-            { title: "sidebar.purchaseOrders", href: "/dashboard/purchasing/orders", icon: ShoppingCart },
-            { title: "sidebar.purchaseInvoices", href: "/dashboard/purchasing/invoices", icon: FileText },
-            { title: "sidebar.procAnalytics", href: "/dashboard/purchasing/analytics", icon: BarChart3 },
-        ],
-    },
-    {
-        heading: "sidebar.ppic",
-        items: [
-            { title: "sidebar.prodOrders", href: "/dashboard/production/orders", icon: Factory },
-            { title: "sidebar.prodSchedule", href: "/dashboard/ppic/schedule", icon: BarChart3 },
-            { title: "sidebar.materialPlanning", href: "/dashboard/ppic/mrp", icon: FileText },
-            { title: "sidebar.prodAnalytics", href: "/dashboard/production/analytics", icon: BarChart3 },
-        ],
-    },
-    {
-        heading: "sidebar.inventory",
-        items: [
-            { title: "sidebar.invAnalysis", href: "/dashboard/inventory", icon: BarChart3 },
+            { title: "sidebar.salesAnalytics", href: "/sales/analytics", icon: BarChart3 },
+            { title: "sidebar.prodAnalytics", href: "/planning/production-analytics", icon: BarChart3 },
+            { title: "sidebar.invAnalysis", href: "/warehouse/analytics", icon: BarChart3 },
+            { title: "sidebar.procAnalytics", href: "/planning/procurement-analytics", icon: BarChart3 },
+            { title: "sidebar.costing", href: "/production/costing", icon: Calculator },
         ],
     },
     {
@@ -100,23 +77,10 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
             { title: "sidebar.boms", href: "/dashboard/production/boms", icon: Files },
-            { title: "sidebar.suppliers", href: "/dashboard/suppliers", icon: Truck },
-            { title: "sidebar.customers", href: "/dashboard/customers", icon: Users2 },
             { title: "sidebar.machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
             { title: "sidebar.employees", href: "/dashboard/production/resources/employees", icon: Users },
-        ],
-    },
-    {
-        heading: "sidebar.finance",
-        items: [
-            { title: "sidebar.finOverview", href: "/dashboard/accounting", icon: LayoutDashboard },
-            { title: "sidebar.costing", href: "/dashboard/finance/costing", icon: Calculator },
-            { title: "sidebar.finReports", href: "/dashboard/accounting/reports", icon: FileText },
-            { title: "sidebar.journals", href: "/dashboard/accounting/journals", icon: BookOpen },
-            { title: "sidebar.manageCoa", href: "/dashboard/accounting/coa", icon: Settings2 },
-            { title: "sidebar.fiscalPeriods", href: "/dashboard/accounting/periods", icon: Calendar },
-            { title: "sidebar.fixedAssets", href: "/dashboard/accounting/assets", icon: Building2 },
-            { title: "sidebar.budgeting", href: "/dashboard/accounting/budget", icon: BarChart3 },
+            { title: "sidebar.suppliers", href: "/planning/suppliers", icon: Truck },
+            { title: "sidebar.customers", href: "/sales/customers", icon: Users2 },
         ],
     },
 ];
@@ -164,7 +128,9 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
         <>
             {/* Mobile Header */}
             <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-sidebar-border bg-sidebar px-4 flex items-center justify-between">
-                <PolyFlowLogo showText={true} size="sm" />
+                <Link href="/dashboard">
+                    <PolyFlowLogo showText={true} size="sm" />
+                </Link>
                 <button
                     onClick={() => setIsMobileOpen(true)}
                     className="p-2 text-muted-foreground hover:text-primary transition-colors"
@@ -189,7 +155,9 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                 <div className="flex h-full flex-col">
                     {/* Logo & Close Button (Mobile) */}
                     <div className="flex h-16 items-center border-b border-sidebar-border px-6 justify-between">
-                        <PolyFlowLogo showText={true} size="md" />
+                        <Link href="/dashboard">
+                            <PolyFlowLogo showText={true} size="md" />
+                        </Link>
                         <button
                             onClick={() => setIsMobileOpen(false)}
                             className="lg:hidden p-1 text-muted-foreground hover:text-primary transition-colors"

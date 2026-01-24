@@ -13,8 +13,13 @@ export async function authenticate(
         const role = String(formData.get('role') ?? '');
 
         let targetUrl = '/dashboard';
-        if (role === 'WAREHOUSE') targetUrl = '/warehouse';
-        if (role === 'PRODUCTION') targetUrl = '/production';
+        const roleStr = role.toUpperCase();
+        if (roleStr === 'WAREHOUSE') targetUrl = '/warehouse';
+        else if (roleStr === 'PRODUCTION') targetUrl = '/production';
+        else if (roleStr === 'SALES') targetUrl = '/sales';
+        else if (roleStr === 'FINANCE') targetUrl = '/finance';
+        else if (roleStr === 'PPIC' || roleStr === 'PROCUREMENT') targetUrl = '/planning';
+        else targetUrl = '/dashboard';
 
         const remember = formData.get('remember') === 'on';
 

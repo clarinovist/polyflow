@@ -33,7 +33,13 @@
         "manageCoa": "Manage COA",
         "fiscalPeriods": "Fiscal Periods",
         "fixedAssets": "Fixed Assets",
-        "budgeting": "Budgeting"
+        "budgeting": "Budgeting",
+        "analytics": "Analytics & Monitoring",
+        "administration": "Administration",
+        "workShifts": "Work Shifts",
+        "workspaces": "Workspaces",
+        "users": "User Management",
+        "settings": "General Settings"
     },
     "dashboard": {
         "overview": {

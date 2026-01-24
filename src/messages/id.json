@@ -34,7 +34,13 @@
         "fiscalPeriods": "Periode Fiskal",
         "marketing": "Marketing",
         "fixedAssets": "Aset Tetap",
-        "budgeting": "Anggaran"
+        "budgeting": "Anggaran",
+        "analytics": "Analisis & Pemantauan",
+        "administration": "Administrasi",
+        "workShifts": "Shift Kerja",
+        "workspaces": "Ruang Kerja",
+        "users": "Manajemen Pengguna",
+        "settings": "Pengaturan Umum"
     },
     "dashboard": {
         "overview": {
