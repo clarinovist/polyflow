@@ -4,7 +4,7 @@ import { signIn, signOut } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { defaultLocale, locales } from '@/i18n/config';
+import { defaultLocale, locales, Locale } from '@/i18n/config';
 
 export async function authenticate(
     prevState: string | undefined,
@@ -36,7 +36,7 @@ export async function authenticate(
 
         const cookieStore = await cookies();
         const localeCookie = cookieStore.get('NEXT_LOCALE')?.value;
-        const locale = locales.includes(localeCookie as any) ? localeCookie : defaultLocale;
+        const locale = (localeCookie && locales.includes(localeCookie as Locale)) ? (localeCookie as Locale) : defaultLocale;
         const localePrefix = locale && locale !== defaultLocale ? `/${locale}` : '';
 
         redirect(`${localePrefix}${targetUrl}`);

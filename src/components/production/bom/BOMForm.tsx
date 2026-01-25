@@ -29,7 +29,7 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/boms';
 import { toast } from 'sonner';
 import { ProductCombobox } from '@/components/ui/product-combobox';
-import { Card, CardContent } from '@/components/ui/card';
+import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from '@/components/brand/BrandCard';
 
 interface BOMFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,10 +124,10 @@ export function BOMForm({
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                        {bom ? 'Edit Recipe' : 'Design New Recipe'}
+                    <h1 className="text-3xl font-black tracking-tight">
+                        <BrandGradientText>{bom ? 'Edit Recipe' : 'Design New Recipe'}</BrandGradientText>
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm font-medium">
                         {bom ? `Refining ${bom.name}` : 'Construct a new Bill of Materials architecture.'}
                     </p>
                 </div>
@@ -137,8 +137,8 @@ export function BOMForm({
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     {/* Header Section: General Info & Summary */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <Card className="lg:col-span-2 bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl overflow-hidden">
-                            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <BrandCard className="lg:col-span-2 overflow-hidden">
+                            <BrandCardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -205,12 +205,12 @@ export function BOMForm({
                                         </FormItem>
                                     )}
                                 />
-                            </CardContent>
-                        </Card>
+                            </BrandCardContent>
+                        </BrandCard>
 
                         {/* Summary Box */}
                         {showPrices && (
-                            <div className="bg-emerald-600/10 backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden group shadow-2xl shadow-emerald-500/10">
+                            <div className="bg-emerald-600/10 backdrop-blur-brand border border-emerald-500/20 rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden group shadow-brand">
                                 <div className="absolute -right-8 -bottom-8 opacity-5 group-hover:scale-110 transition-transform duration-1000 rotate-12">
                                     <Save className="w-48 h-48 text-emerald-600" />
                                 </div>
@@ -238,8 +238,8 @@ export function BOMForm({
                     </div>
 
                     {/* Ingredients Listing (Table Based) */}
-                    <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-2xl overflow-hidden rounded-3xl">
-                        <div className="p-8 pb-4 flex items-center justify-between border-b border-white/5">
+                    <BrandCard className="overflow-hidden rounded-3xl">
+                        <BrandCardHeader>
                             <div className="flex items-center gap-3">
                                 <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
                                     <Plus className="h-5 w-5 text-primary" />
@@ -258,11 +258,11 @@ export function BOMForm({
                             >
                                 <Plus className="h-4 w-4 mr-2" /> Add Material
                             </Button>
-                        </div>
+                        </BrandCardHeader>
 
                         <div className="overflow-x-auto">
                             <Table>
-                                <TableHeader className="bg-muted/30 border-b border-white/5">
+                                <TableHeader className="bg-muted/30 border-b border-brand">
                                     <TableRow className="hover:bg-transparent border-0">
                                         <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-8 py-5">Ingredient Material & SKU</TableHead>
                                         <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-center w-[200px]">Quantity</TableHead>
@@ -343,7 +343,7 @@ export function BOMForm({
                                 </TableBody>
                             </Table>
                         </div>
-                    </Card>
+                    </BrandCard>
 
                     <div className="flex items-center justify-end gap-4 pb-12">
                         <Button
