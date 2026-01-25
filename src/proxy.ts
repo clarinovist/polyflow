@@ -18,8 +18,8 @@ const handler = auth((req) => {
 	return intlMiddleware(req);
 });
 
-export default function proxy(request: Parameters<typeof handler>[0]) {
-	return handler(request);
+export default function proxy(...args: Parameters<typeof handler>) {
+	return handler(...args);
 }
 
 export const config = {
