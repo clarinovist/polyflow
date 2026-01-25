@@ -87,7 +87,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={t('salesPerf')}
                     icon={TrendingUp}
-                    href="/dashboard/sales"
+                    href="/sales"
                     accentColor="text-emerald-600"
                     bgColor="bg-emerald-50"
                 >
@@ -95,7 +95,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         <MetricRow label={t('activeQuotes')} value={stats.sales.activeOrders.toString()} />
                         <MetricRow label={t('pendingInv')} value={stats.sales.pendingInvoices.toString()} />
                         <div className="pt-2">
-                            <Link href="/dashboard/sales/analytics" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                            <Link href="/sales/analytics" className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
                                 {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -106,7 +106,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={t('procurement')}
                     icon={ShoppingCart}
-                    href="/dashboard/purchasing"
+                    href="/planning/purchase-orders"
                     accentColor="text-blue-600"
                     bgColor="bg-blue-50"
                 >
@@ -114,7 +114,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         <MetricRow label={t('pendingPOs')} value={stats.purchasing.pendingPOs.toString()} />
                         <MetricRow label={t('spending')} value={formatRupiah(stats.purchasing.mtdSpending)} />
                         <div className="pt-2">
-                            <Link href="/dashboard/purchasing/analytics" className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                            <Link href="/planning/procurement-analytics" className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
                                 {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -125,7 +125,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={t('manufacturing')}
                     icon={Factory}
-                    href="/dashboard/production/orders"
+                    href="/planning/orders"
                     accentColor="text-amber-600"
                     bgColor="bg-amber-50"
                 >
@@ -138,7 +138,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         />
                         <MetricRow label={t('downtime')} value={`${stats.production.downtimeHours.toFixed(1)} hrs`} />
                         <div className="pt-2">
-                            <Link href="/dashboard/production/analytics" className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                            <Link href="/planning/production-analytics" className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1">
                                 {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -149,7 +149,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={t('invHealth')}
                     icon={Package}
-                    href="/dashboard/inventory"
+                    href="/warehouse/inventory"
                     accentColor="text-purple-600"
                     bgColor="bg-purple-50"
                 >
@@ -161,7 +161,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                             valueClass={stats.inventory.lowStockCount > 0 ? "text-red-500 font-bold" : "text-zinc-700"}
                         />
                         <div className="pt-2">
-                            <Link href="/dashboard/inventory" className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1">
+                            <Link href="/warehouse/analytics" className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1">
                                 {t('viewAnalytics')} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -172,9 +172,11 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
 
             {/* Quick Actions Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                <QuickAction href="/dashboard/production/downtime/create" label={t('logDowntime')} icon={TrendingDown} />
+                {/* Downtime log is likely in production module, possibly needing a new route if not exists, but mapping to close equivalent or generic prod  */}
+                {/* Adjusting to /production/machines for now as downtime is machine related */}
+                <QuickAction href="/production/machines" label={t('logDowntime')} icon={TrendingDown} />
                 <QuickAction href="/kiosk" label={t('recordScrap')} icon={Factory} />
-                <QuickAction href="/dashboard/production/orders/create" label={t('newOrder')} icon={Factory} />
+                <QuickAction href="/planning/orders/create" label={t('newOrder')} icon={Factory} />
                 <QuickAction href="/dashboard/products/create" label={t('addProduct')} icon={Package} />
             </div>
         </div>
