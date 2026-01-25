@@ -49,7 +49,7 @@ export async function createMachine(data: {
                 costPerHour: data.costPerHour || 0,
             },
         });
-        revalidatePath('/dashboard/production/resources/machines');
+        revalidatePath('/dashboard/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to create machine:', error);
@@ -73,7 +73,7 @@ export async function updateMachine(
             where: { id },
             data,
         });
-        revalidatePath('/dashboard/production/resources/machines');
+        revalidatePath('/dashboard/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to update machine:', error);
@@ -86,7 +86,7 @@ export async function deleteMachine(id: string) {
         await prisma.machine.delete({
             where: { id },
         });
-        revalidatePath('/dashboard/production/resources/machines');
+        revalidatePath('/dashboard/machines');
         return { success: true };
     } catch (error) {
         console.error('Failed to delete machine:', error);
@@ -100,7 +100,7 @@ export async function setMachineStatus(id: string, status: MachineStatus) {
             where: { id },
             data: { status }
         });
-        revalidatePath('/dashboard/production/resources/machines');
+        revalidatePath('/dashboard/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to update machine status:', error);

@@ -72,7 +72,7 @@ export async function createBom(data: CreateBomValues) {
             }
         });
 
-        revalidatePath('/dashboard/production/boms');
+        revalidatePath('/dashboard/boms');
         return { success: true, data: bom };
     } catch (error) {
         console.error("Error creating BOM:", error);
@@ -148,7 +148,7 @@ export async function updateBom(id: string, data: CreateBomValues) {
             return updatedBom;
         });
 
-        revalidatePath('/dashboard/production/boms');
+        revalidatePath('/dashboard/boms');
         return { success: true, data: result };
     } catch (error) {
         console.error("Error updating BOM:", error);

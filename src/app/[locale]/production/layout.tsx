@@ -2,7 +2,6 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { ProductionSidebar } from '@/components/production/production-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
-import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 export default async function ProductionLayout({
     children,

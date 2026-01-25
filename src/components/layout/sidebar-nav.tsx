@@ -76,9 +76,9 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "sidebar.masterData",
         items: [
             { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
-            { title: "sidebar.boms", href: "/dashboard/production/boms", icon: Files },
-            { title: "sidebar.machines", href: "/dashboard/production/resources/machines", icon: Settings2 },
-            { title: "sidebar.employees", href: "/dashboard/production/resources/employees", icon: Users },
+            { title: "sidebar.boms", href: "/dashboard/boms", icon: Files },
+            { title: "sidebar.machines", href: "/dashboard/machines", icon: Settings2 },
+            { title: "sidebar.employees", href: "/dashboard/employees", icon: Users },
             { title: "sidebar.suppliers", href: "/planning/suppliers", icon: Truck },
             { title: "sidebar.customers", href: "/sales/customers", icon: Users2 },
         ],

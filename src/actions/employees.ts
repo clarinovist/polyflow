@@ -45,7 +45,7 @@ export async function createEmployee(data: {
                 hourlyRate: data.hourlyRate || 0,
             },
         });
-        revalidatePath('/dashboard/production/resources/employees');
+        revalidatePath('/dashboard/employees');
         return { success: true, data: employee };
     } catch (error) {
         console.error('Failed to create employee:', error);
@@ -68,7 +68,7 @@ export async function updateEmployee(
             where: { id },
             data,
         });
-        revalidatePath('/dashboard/production/resources/employees');
+        revalidatePath('/dashboard/employees');
         return { success: true, data: employee };
     } catch (error) {
         console.error('Failed to update employee:', error);
@@ -81,7 +81,7 @@ export async function deleteEmployee(id: string) {
         await prisma.employee.delete({
             where: { id },
         });
-        revalidatePath('/dashboard/production/resources/employees');
+        revalidatePath('/dashboard/employees');
         return { success: true };
     } catch (error) {
         console.error('Failed to delete employee:', error);

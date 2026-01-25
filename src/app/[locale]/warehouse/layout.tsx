@@ -2,7 +2,6 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { WarehouseSidebar } from '@/components/warehouse/warehouse-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
-import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 export default async function WarehouseLayout({
     children,

@@ -31,7 +31,7 @@ export async function createJobRole(name: string) {
         const role = await prisma.jobRole.create({
             data: { name },
         });
-        revalidatePath('/dashboard/production/resources/employees');
+        revalidatePath('/dashboard/employees');
         return { success: true, data: role };
     } catch (error) {
         console.error('Error creating job role:', error);
