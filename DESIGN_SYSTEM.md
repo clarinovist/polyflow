@@ -261,21 +261,22 @@ import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from 
 
 ---
 
-### Inputs
+### Form Controls
 
-#### Standard Input
-
+#### 1. **Standard Input**
 ```tsx
 <Input className="h-12 bg-white border-zinc-200 rounded-lg focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-400" />
 ```
 
-#### Input with Icon
-
+#### 2. **Product Combobox**
+For searchable product selection in forms:
 ```tsx
-<div className="relative">
-    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
-    <Input className="pl-10 h-12" placeholder="Email" />
-</div>
+import { ProductCombobox } from '@/components/products/ProductCombobox';
+
+<ProductCombobox
+  onSelect={(variant) => handleSelect(variant)}
+  placeholder="Search products..."
+/>
 ```
 
 ---

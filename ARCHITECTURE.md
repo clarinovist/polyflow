@@ -286,8 +286,9 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 - ✅ **Authentication**: NextAuth.js (v5) with Credentials provider
 - ✅ **Authorization**: Database-driven Role-Based Access Control (RBAC)
 - ✅ **Server-Side Validation**: All inputs validated with Zod
-- ✅ **Form Security**: Password visibility toggle and role selection gate
-- ✅ **Data Security**: SQL injection prevention via Prisma; Server Actions protection
+- ✅ **Middleware**: Locale-aware routing via `next-intl` middleware
+- ✅ **Proxy Convention**: Session integrity maintained via `__Secure-` cookies and proxy-compatible auth headers
+- ✅ **Data Security**: SQL injection prevention via Prisma; Protected Server Actions
 
 **Missing (Planned)**:
 - ❌ Rate limiting
@@ -464,24 +465,18 @@ polyflow/
 │   └── images/
 ├── src/
 │   ├── app/                   # Next.js App Router pages
+│   │   ├── [locale]/          # Localization root wrapper
 │   │   ├── layout.tsx         # Root layout
 │   │   ├── page.tsx           # Landing page
 │   │   └── dashboard/
-│   │       ├── layout.tsx     # Dashboard layout with nav
-│   │       ├── page.tsx       # Dashboard home
-│   │       ├── products/
-│   │       ├── inventory/
-│   │       └── settings/
 │   ├── components/
+│   │   ├── brand/             # BRANDED UI (Design System)
 │   │   ├── ui/                # shadcn/ui components
 │   │   ├── inventory/         # Domain-specific components
-│   │   └── products/
-│   ├── actions/               # Server Actions
-│   │   ├── inventory.ts
-│   │   └── product.ts
+│   ├── actions/               # Server Action handlers
+│   ├── services/              # DOMAIN SERVICES (Business Logic)
 │   ├── lib/
 │   │   ├── prisma.ts          # Prisma Client singleton
-│   │   ├── zod-schemas.ts     # Validation schemas
 │   │   └── utils.ts           # Utility functions
 │   └── types/                 # Shared TypeScript types
 ├── .env                       # Environment variables (gitignored)
@@ -568,6 +563,27 @@ polyflow/
 
 ---
 
+## 🛠️ Logic Layer: Service Pattern
+
+To prevent "God File" Server Actions and maintain clean boundaries, PolyFlow uses a **Service Pattern** located in `src/services/`.
+
+### Core Responsibilities
+- **Business Logic**: Complex calculations (e.g., COGS, Yield Rate) are isolated here.
+- **Data Coordination**: Orchestrating multiple Prisma calls across domain boundaries.
+- **Inventory Integrity**: Enforcing FIFO and stock reservation constraints.
+
+### Example Service Call
+```typescript
+// src/actions/production.ts
+import { ProductionService } from '@/services/production-service';
+
+export async function startExecution(orderId: string) {
+  return await ProductionService.startOrder(orderId);
+}
+```
+
+---
+
 ## 🚀 Scalability Considerations
 
 ### Current Limits
@@ -591,4 +607,4 @@ polyflow/
 
 ---
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 25, 2026

@@ -400,10 +400,20 @@ Comprehensive business intelligence and reporting:
 - Scrap rate analysis
 - OEE calculations
 
-#### 4. **Finance Analytics**
-- COGS calculations
-- Profitability analysis
-- Cost trends
+#### 4. **Finance & Accounting Analytics**
+- COGS (Cost of Goods Sold) calculations based on Weighted Average
+- Real-time WIP (Work-in-Progress) valuation
+- Asset depreciation tracking
+- AR/AP (Accounts Receivable/Payable) aging summaries
+- Production costing (COGM) breakdowns
+
+#### 5. **Executive Dashboard (New KPIs)**
+High-level manufacturing metrics for management:
+- **Yield Rate (%)**: Total output vs. raw material input.
+- **Total Scrap (Kg)**: Consolidated scrap quantity from all processes.
+- **Downtime Hours**: Total recorded machine downtime.
+- **Machine Utilization**: OEE-based machine availability tracking.
+- **Running vs. Total Machines**: Real-time floor status.
 
 ---
 
@@ -480,6 +490,37 @@ Comprehensive business intelligence and reporting:
 
 ---
 
+## 🏛️ Accounting & Finance Module
+
+A robust foundation for industrial financial management:
+
+### 1. **General Ledger**
+- **Chart of Accounts (CoA)**: Standardized structure with manufacturing-specific categories.
+- **Journal Entries**: Double-entry bookkeeping with automatic system-generated entries.
+- **Fiscal Periods**: Manage open/closed months for financial integrity.
+
+### 2. **Fixed Asset Management**
+- Track high-value machinery and equipment.
+- Automatic depreciation calculation (Straight Line method).
+- Integration with balance sheet accounts.
+
+### 3. **Purchasing & AP**
+- Supplier invoices linked to Goods Receipts.
+- Payment tracking and AP aging.
+- Purchase tax (PPN) handling.
+
+---
+
+## 🌍 Localization (i18n)
+
+PolyFlow supports multi-language interfaces through `next-intl`:
+
+- **Bahasa Indonesia**: Full support for Indonesian terminology (e.g., "Surat Perintah Kerja", "Stok Opname").
+- **English**: Original base language.
+- **Locale-Aware Routing**: Direct access via `/[locale]/dashboard`.
+
+---
+
 ## 🎯 Feature Highlights
 
 ### ✅ Implemented Features
@@ -507,6 +548,10 @@ Comprehensive business intelligence and reporting:
 21. ✅ **Automatic FIFO Logic** - Intelligent batch allocation during issuance
 22. ✅ **Authentication & RBAC** - Secure login with role-based dashboard access
 23. ✅ **Finance Dashboard** - Specialized accounting and costing views
+24. ✅ **Accounting Module** - General Ledger, CoA, and Journal Entries
+25. ✅ **Fixed Assets** - Tracking and depreciation management
+26. ✅ **Localization** - Support for Bahasa Indonesia
+27. ✅ **Executive KPIs** - Yield rate, scrap kg, and machine monitoring
 
 ### 🚧 Planned Features
 
@@ -580,4 +625,4 @@ This ensures UI reflects latest data without full page reload.
 
 ---
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 25, 2026

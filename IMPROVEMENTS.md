@@ -718,6 +718,7 @@ Inventory Aging Report
 5. WIP (Work-in-Progress) Valuation ✅
 6. AR/AP Overdue Tracking ✅
 7. Executive Manufacturing KPIs ✅
+8. Accounting Module (General Ledger) ✅
 
 ### Phase 5 (Sprint 9+): Future Enhancements
 
@@ -764,6 +765,6 @@ For immediate value with minimal effort:
 
 ---
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 25, 2026
 
 **Next Review**: After Phase 5 completion
