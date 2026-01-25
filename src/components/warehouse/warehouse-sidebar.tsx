@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/theme-provider';
+import { AdminBackButton } from '@/components/layout/admin-back-button';
 
 interface WarehouseSidebarProps {
     user: {
@@ -87,6 +88,11 @@ export function WarehouseSidebar({ user }: WarehouseSidebarProps) {
                 {/* Logo */}
                 <div className="flex h-16 items-center border-b border-sidebar-border px-6">
                     <PolyFlowLogo showText={true} size="md" />
+                </div>
+
+                {/* Optional Admin Back Button */}
+                <div className="px-4 pt-4">
+                    <AdminBackButton role={user.role || undefined} />
                 </div>
 
                 {/* Navigation */}

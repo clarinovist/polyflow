@@ -48,7 +48,6 @@ export default async function ProductionLayout({
 
                     <div className="flex items-center gap-4">
                         <ClockDisplay />
-                        <AdminBackButton role={user.role} />
                     </div>
                 </header>
 
