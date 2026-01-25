@@ -6,7 +6,12 @@ import { serializeData, formatRupiah } from '@/lib/utils';
 import { Package, ShoppingCart, TrendingUp, Users, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
 
-export default async function SalesDashboardPage() {
+export default async function SalesDashboardPage({
+    params
+}: {
+    params: Promise<{ locale: string }>;
+}) {
+    const { locale } = await params;
     const stats = await getSalesDashboardStats();
     const serializedOrders = serializeData(stats.recentOrders);
 
@@ -101,7 +106,7 @@ export default async function SalesDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <SalesOrderTable initialData={serializedOrders as any} />
+                        <SalesOrderTable initialData={serializedOrders as any} basePath={`/${locale}/sales/orders`} />
                     </CardContent>
                 </Card>
             </div>

@@ -23,6 +23,7 @@ export async function getSalesDashboardStats() {
             }
         }
     });
+    const revenue = Number(currentMonthRevenue._sum?.totalAmount || 0);
 
     // 2. Active Orders (Not Completed or Cancelled)
     const activeOrdersCount = await prisma.salesOrder.count({
@@ -58,12 +59,22 @@ export async function getSalesDashboardStats() {
                 select: {
                     name: true
                 }
+            },
+            _count: {
+                select: {
+                    items: true
+                }
+            },
+            sourceLocation: {
+                select: {
+                    name: true
+                }
             }
         }
     });
 
     return {
-        revenue: Number(currentMonthRevenue._sum.totalAmount || 0),
+        revenue,
         activeOrders: activeOrdersCount,
         pendingDeliveries: pendingDeliveriesCount,
         activeCustomers: activeCustomersCount,
