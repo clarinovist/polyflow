@@ -2,6 +2,9 @@
 
 import { signIn, signOut } from '@/auth';
 import { AuthError } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { defaultLocale, locales } from '@/i18n/config';
 
 export async function authenticate(
     prevState: string | undefined,
@@ -28,9 +31,14 @@ export async function authenticate(
             password,
             role,
             remember,
-            redirectTo: targetUrl,
-            callbackUrl: targetUrl,
+            redirect: false,
         });
+
+        const localeCookie = cookies().get('NEXT_LOCALE')?.value;
+        const locale = locales.includes(localeCookie as any) ? localeCookie : defaultLocale;
+        const localePrefix = locale && locale !== defaultLocale ? `/${locale}` : '';
+
+        redirect(`${localePrefix}${targetUrl}`);
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
