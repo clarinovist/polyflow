@@ -37,20 +37,23 @@ export const authConfig = {
                         if (userRole === 'WAREHOUSE') {
                             // Warehouse user trying to access Dashboard or Production -> Redirect to Warehouse
                             if (isOnDashboard || isOnProduction) {
-                                return Response.redirect(new URL('/warehouse', nextUrl));
+                                const locale = nextUrl.pathname.split('/')[1];
+                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
+                                return Response.redirect(new URL(`${prefix}/warehouse`, nextUrl));
                             }
                         } else if (userRole === 'PRODUCTION') {
                             // Production user trying to access Warehouse -> Redirect to Production
                             if (isOnWarehouse) {
-                                return Response.redirect(new URL('/production', nextUrl));
+                                const locale = nextUrl.pathname.split('/')[1];
+                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
+                                return Response.redirect(new URL(`${prefix}/production`, nextUrl));
                             }
                         } else if (userRole === 'FINANCE' || userRole === 'SALES' || userRole === 'PPIC') {
                             // These roles stay in /dashboard, but should be blocked from /warehouse and /production
-                            if (isOnWarehouse) {
-                                return Response.redirect(new URL('/dashboard', nextUrl));
-                            }
-                            if (isOnProduction) {
-                                return Response.redirect(new URL('/dashboard', nextUrl));
+                            if (isOnWarehouse || isOnProduction) {
+                                const locale = nextUrl.pathname.split('/')[1];
+                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
+                                return Response.redirect(new URL(`${prefix}/dashboard`, nextUrl));
                             }
                         }
 

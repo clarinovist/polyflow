@@ -3,11 +3,18 @@ import { getMyPermissions } from '@/actions/permissions';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+    children,
+    params
+}: {
+    children: React.ReactNode;
+    params: Promise<{ locale: string }>;
+}) {
     const session = await auth();
+    const { locale } = await params;
 
     if (!session) {
-        redirect('/login');
+        redirect(`/${locale}/login`);
     }
 
     const user = {

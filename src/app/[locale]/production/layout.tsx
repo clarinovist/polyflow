@@ -5,13 +5,16 @@ import { ClockDisplay } from '../kiosk/ClockDisplay';
 
 export default async function ProductionLayout({
     children,
+    params
 }: {
     children: React.ReactNode;
+    params: Promise<{ locale: string }>;
 }) {
     const session = await auth();
+    const { locale } = await params;
 
     if (!session) {
-        redirect('/login');
+        redirect(`/${locale}/login`);
     }
 
     const user = {
@@ -26,7 +29,7 @@ export default async function ProductionLayout({
         user.role === 'PPIC';
 
     if (!isAuthorized) {
-        redirect('/dashboard');
+        redirect(`/${locale}/dashboard`);
     }
 
     return (

@@ -4,20 +4,23 @@ import { PlanningSidebar } from '@/components/planning/planning-sidebar';
 
 export default async function PlanningLayout({
     children,
+    params
 }: {
     children: React.ReactNode;
+    params: Promise<{ locale: string }>;
 }) {
     const session = await auth();
+    const { locale } = await params;
 
     if (!session?.user) {
-        redirect('/login');
+        redirect(`/${locale}/login`);
     }
 
     // Allow PPIC, PROCUREMENT, and ADMIN roles
     const role = session.user.role?.toUpperCase();
     const allowedRoles = ['PPIC', 'PROCUREMENT', 'ADMIN'];
     if (!role || !allowedRoles.includes(role)) {
-        redirect('/dashboard?error=Unauthorized');
+        redirect(`/${locale}/dashboard?error=Unauthorized`);
     }
 
     return (

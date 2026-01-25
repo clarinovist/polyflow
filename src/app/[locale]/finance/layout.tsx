@@ -4,19 +4,22 @@ import { FinanceSidebar } from '@/components/finance/finance-sidebar';
 
 export default async function FinanceLayout({
     children,
+    params
 }: {
     children: React.ReactNode;
+    params: Promise<{ locale: string }>;
 }) {
     const session = await auth();
+    const { locale } = await params;
 
     if (!session?.user) {
-        redirect('/login');
+        redirect(`/${locale}/login`);
     }
 
     // Only allow FINANCE and ADMIN roles
     const role = session.user.role?.toUpperCase();
     if (role !== 'FINANCE' && role !== 'ADMIN') {
-        redirect('/dashboard?error=Unauthorized');
+        redirect(`/${locale}/dashboard?error=Unauthorized`);
     }
 
     return (
