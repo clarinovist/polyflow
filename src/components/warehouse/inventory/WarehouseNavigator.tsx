@@ -59,7 +59,7 @@ export function WarehouseNavigator({
                                     className={cn(
                                         "flex items-center justify-between p-3 rounded-lg border transition-all hover:bg-muted/50",
                                         isActive
-                                            ? "bg-primary/5 border-primary/50 shadow-sm ring-1 ring-primary/20"
+                                            ? "bg-primary/10 border-primary/50 shadow-sm ring-1 ring-primary/20 dark:bg-primary/20 dark:border-primary/40"
                                             : "bg-card border-border"
                                     )}
                                 >

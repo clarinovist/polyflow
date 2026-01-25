@@ -180,7 +180,7 @@ export default async function WarehouseInventoryPage({
                         <Warehouse className="h-3 w-3" />
                         <span>Warehouse / Stock Overview</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Inventory Control</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">Inventory Control</h1>
                     <p className="text-muted-foreground mt-1">Monitor stock levels and warehouse status</p>
                 </div>
             </div>
@@ -207,22 +207,22 @@ export default async function WarehouseInventoryPage({
                                         <Box className="h-4 w-4 text-muted-foreground" />
                                         {pageTitle}
                                     </CardTitle>
-                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1.5 px-2.5 py-1">
+                                    <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1.5 px-2.5 py-1">
                                         <PackageCheck className="h-3.5 w-3.5" />
                                         <span className="font-semibold">{displayedTotalStock.toLocaleString()}</span>
-                                        <span className="text-emerald-600 font-normal ml-1">total stock</span>
+                                        <span className="text-emerald-600/80 dark:text-emerald-400/80 font-normal ml-1">total stock</span>
                                     </Badge>
 
                                     {showPrices && (
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1.5 px-2.5 py-1">
+                                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1.5 px-2.5 py-1">
                                             <DollarSign className="h-3.5 w-3.5" />
                                             <span className="font-semibold">{formatRupiah(liveTotalValue)}</span>
-                                            <span className="text-blue-600 font-normal ml-1">total value</span>
+                                            <span className="text-blue-600/80 dark:text-blue-400/80 font-normal ml-1">total value</span>
                                         </Badge>
                                     )}
                                 </div>
                                 {asOfDate && (
-                                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+                                    <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
                                         <AlertCircle className="h-3 w-3 mr-1" />
                                         History: {format(asOfDate, 'MMM d, yyyy')}
                                     </Badge>

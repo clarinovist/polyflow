@@ -283,13 +283,13 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     return (
         <div className="h-full flex flex-col pt-4">
             {/* Filters Bar - Fixed at top */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-3 border-b border-zinc-100 bg-background pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-3 border-b border-border bg-background pt-2">
                 {/* Top Row: Date, Badges on mobile maybe keep simple or stack */}
                 <div className="flex items-center gap-2 flex-wrap">
                     {topBadges && (
                         <>
                             {topBadges}
-                            <div className="w-px h-6 bg-zinc-200" />
+                            <div className="w-px h-6 bg-border" />
                         </>
                     )}
                     {/* Date Filter */}
@@ -364,7 +364,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                             placeholder="Search product..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-8 pr-8 h-8 text-[13px] bg-background border-zinc-200"
+                            className="pl-8 pr-8 h-8 text-[13px] bg-background border-border"
                         />
                         {searchTerm && (
                             <X
@@ -376,7 +376,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
                     {/* Product Type Filter (Slim) */}
                     <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
-                        <SelectTrigger className="w-full sm:w-[130px] h-8 text-[13px] border-zinc-200 bg-background">
+                        <SelectTrigger className="w-full sm:w-[130px] h-8 text-[13px] border-border bg-background">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -481,7 +481,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             className={cn(
                                                 "transition-colors",
                                                 isLowStock ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/30",
-                                                isSelected ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/10" : ""
+                                                isSelected ? "bg-primary/10 hover:bg-primary/20" : ""
                                             )}
                                         >
                                             <TableCell className="pl-4 py-1.5 align-middle">
@@ -500,9 +500,9 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                         {abcMap && abcMap[item.productVariantId] && (
                                                             <Badge variant="outline" className={cn(
                                                                 "h-4 px-1 text-[10px] font-bold",
-                                                                abcMap[item.productVariantId] === 'A' ? "bg-green-100 text-green-700 border-green-200" :
-                                                                    abcMap[item.productVariantId] === 'B' ? "bg-blue-100 text-blue-700 border-blue-200" :
-                                                                        "bg-slate-100 text-slate-700 border-slate-200"
+                                                                abcMap[item.productVariantId] === 'A' ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                                                                    abcMap[item.productVariantId] === 'B' ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" :
+                                                                        "bg-muted text-muted-foreground border-border"
                                                             )}>
                                                                 {abcMap[item.productVariantId]}
                                                             </Badge>
@@ -549,7 +549,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             </TableCell>
                                             <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
                                                 {item.reservedQuantity ? (
-                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 tabular-nums">
+                                                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums">
                                                         {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
                                                     </Badge>
                                                 ) : (
