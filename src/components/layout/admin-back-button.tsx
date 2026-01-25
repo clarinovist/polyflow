@@ -9,7 +9,9 @@ interface AdminBackButtonProps {
 }
 
 export function AdminBackButton({ role }: AdminBackButtonProps) {
-    if (role !== 'ADMIN') {
+    const isAuthorized = role === 'ADMIN' || role === 'PRODUCTION' || role === 'WAREHOUSE' || role === 'PPIC';
+
+    if (!isAuthorized) {
         return null;
     }
 
