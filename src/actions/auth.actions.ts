@@ -34,7 +34,8 @@ export async function authenticate(
             redirect: false,
         });
 
-        const localeCookie = cookies().get('NEXT_LOCALE')?.value;
+        const cookieStore = await cookies();
+        const localeCookie = cookieStore.get('NEXT_LOCALE')?.value;
         const locale = locales.includes(localeCookie as any) ? localeCookie : defaultLocale;
         const localePrefix = locale && locale !== defaultLocale ? `/${locale}` : '';
 

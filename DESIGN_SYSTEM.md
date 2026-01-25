@@ -192,21 +192,38 @@ Based on a **4px base unit** (Tailwind default).
 
 ---
 
-## Shadows
+### Industrial Glassmorphism (Brand Design System)
 
-| Name | Class | Usage |
-|------|-------|-------|
-| **XS** | `shadow-xs` | Inputs |
-| **SM** | `shadow-sm` | Cards, dropdowns |
-| **MD** | `shadow-md` | Elevated cards |
-| **LG** | `shadow-lg` | Modals |
-| **2XL** | `shadow-2xl` | Floating elements |
+The core aesthetic of PolyFlow "Mother Office" is based on high-end industrial glassmorphism. This is formalized in the `BrandCard` component.
 
-### Glassmorphism (Dark Panels)
+#### Brand Tokens
+
+| Token | Description | Value |
+|-------|-------------|-------|
+| `--color-brand-glass` | Semi-transparent background | `oklch(1 0 0 / 40%)` |
+| `--color-brand-glass-heavy` | Near-opaque background | `oklch(1 0 0 / 95%)` |
+| `--color-brand-border` | Subtle glass border | `oklch(1 0 0 / 10%)` |
+| `--blur-brand` | Standard backdrop blur | `20px` |
+| `--shadow-brand` | Deep industrial shadow | Custom 50px spread |
+
+#### Usage with BrandCard
 
 ```tsx
-// Dark glassmorphism card
-<div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl">
+import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from '@/components/brand/BrandCard';
+
+// Standard Glass Panel
+<BrandCard>
+  <BrandCardHeader>...</BrandCardHeader>
+  <BrandCardContent>...</BrandCardContent>
+</BrandCard>
+
+// Heavy Panel (for Dialogs/Modals)
+<BrandCard variant="heavy">...</BrandCard>
+
+// Hero Text with Animated Gradient
+<BrandGradientText className="text-4xl font-black">
+  Master Recipes
+</BrandGradientText>
 ```
 
 ---
