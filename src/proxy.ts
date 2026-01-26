@@ -16,10 +16,27 @@ const intlMiddleware = createMiddleware({
 const { auth } = NextAuth(authConfig);
 
 const handler = auth((req) => {
-	return intlMiddleware(req);
+	console.log(`[PROXY] ----------------------------------------------------------------`);
+	console.log(`[PROXY] Incoming request: ${req.nextUrl.pathname}`);
+	console.log(`[PROXY] Auth status: ${!!req.auth ? 'Authenticated' : 'Not Authenticated'}`);
+	if (req.auth?.user) {
+		console.log(`[PROXY] User Role: ${(req.auth.user as any).role}`);
+	}
+
+	const response = intlMiddleware(req);
+	
+	if (response) {
+		console.log(`[PROXY] Intl response status: ${response.status}`);
+		if (response.headers.has('location')) {
+			console.log(`[PROXY] Intl Redirect -> ${response.headers.get('location')}`);
+		}
+	}
+	
+	return response;
 });
 
 export default function proxy(...args: Parameters<typeof handler>) {
+	// console.log('[PROXY] Proxy entry point hit');
 	return handler(...args);
 }
 
