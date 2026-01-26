@@ -70,9 +70,10 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
         setIsConverting(true);
         try {
             const result = await convertToOrder(quotation.id, selectedLocationId);
-            if (result.success) {
+            if (result.success && result.data) {
                 toast.success("Quotation converted to Sales Order successfully!");
-                router.push(`/dashboard/sales/${result.orderId}`);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                router.push(`/sales/orders/${(result.data as any).id}`);
             } else {
                 toast.error(result.error);
             }
@@ -305,7 +306,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                             <CardContent>
                                 <div className="space-y-2">
                                     {quotation.salesOrders.map(order => (
-                                        <div key={order.id} className="flex items-center justify-between border p-2 rounded text-sm hover:bg-muted/50 cursor-pointer" onClick={() => router.push(`/dashboard/sales/${order.id}`)}>
+                                        <div key={order.id} className="flex items-center justify-between border p-2 rounded text-sm hover:bg-muted/50 cursor-pointer" onClick={() => router.push(`/sales/orders/${order.id}`)}>
                                             <div className="font-medium">{order.orderNumber}</div>
                                             <Badge variant="outline" className="text-xs">{order.status}</Badge>
                                         </div>

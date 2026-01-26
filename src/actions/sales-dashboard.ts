@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { startOfMonth, endOfMonth } from 'date-fns';
+import { serializeData } from '@/lib/utils';
 
 export async function getSalesDashboardStats() {
     const now = new Date();
@@ -73,11 +74,11 @@ export async function getSalesDashboardStats() {
         }
     });
 
-    return {
+    return serializeData({
         revenue,
         activeOrders: activeOrdersCount,
         pendingDeliveries: pendingDeliveriesCount,
         activeCustomers: activeCustomersCount,
         recentOrders
-    };
+    });
 }

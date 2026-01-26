@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
+import { serializeData } from "./utils";
 
 export type ActionResponse<T = unknown> = {
     success: boolean;
@@ -74,14 +75,14 @@ export function handleError(error: unknown): ActionResponse {
 }
 
 /**
- * Wrapper for Server Actions to automatically handle errors.
+ * Wrapper for Server Actions to automatically handle errors and serialize data.
  */
 export async function catchError<T>(
     action: () => Promise<T>
 ): Promise<ActionResponse<T>> {
     try {
         const data = await action();
-        return { success: true, data };
+        return { success: true, data: serializeData(data) };
     } catch (error) {
         return handleError(error) as ActionResponse<T>;
     }
