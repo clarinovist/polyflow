@@ -70,7 +70,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <Link href={`/dashboard/production/resources/machines/${id}`}>
+                    <Link href={`/production/resources/machines/${id}`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit Details

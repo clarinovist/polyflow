@@ -158,35 +158,48 @@ export class MrpService {
 
             // Let's use prisma directly to set status immediately.
 
-            const po = await prisma.productionOrder.create({
-                data: {
-                    orderNumber: `PO-${so.orderNumber}-${item.id.slice(0, 4)}`, // Unique logic
-                    salesOrderId: so.id,
-                    bomId: bom.id,
-                    plannedQuantity: item.quantity,
-                    status: status,
-                    plannedStartDate: new Date(),
-                    plannedEndDate: so.expectedDate || undefined,
-                    locationId: so.sourceLocationId || '', // Or default factory location
-                    notes: `Generated from SO ${so.orderNumber}. Simulation: ${status}`
-                }
+            // Check if PO already exists for this line item (Idempotency)
+            const orderNumber = `PO-${so.orderNumber}-${item.id.slice(0, 4)}`;
+
+            let po = await prisma.productionOrder.findFirst({
+                where: { orderNumber }
             });
 
-            // Create Planned Materials
-            const bomItems = await prisma.bomItem.findMany({
-                where: { bomId: bom.id }
-            });
-
-            if (bomItems.length > 0) {
-                const outputRatio = Number(item.quantity) / Number(bom.outputQuantity);
-
-                await prisma.productionMaterial.createMany({
-                    data: bomItems.map(bi => ({
-                        productionOrderId: po.id,
-                        productVariantId: bi.productVariantId,
-                        quantity: Number(bi.quantity) * outputRatio
-                    }))
+            if (!po) {
+                // Create new PO if not exists
+                po = await prisma.productionOrder.create({
+                    data: {
+                        orderNumber,
+                        salesOrderId: so.id,
+                        bomId: bom.id,
+                        plannedQuantity: item.quantity,
+                        status: status,
+                        plannedStartDate: new Date(),
+                        plannedEndDate: so.expectedDate || undefined,
+                        locationId: so.sourceLocationId || '',
+                        notes: `Generated from SO ${so.orderNumber}. Simulation: ${status}`
+                    }
                 });
+
+                // Create Planned Materials
+                const bomItems = await prisma.bomItem.findMany({
+                    where: { bomId: bom.id }
+                });
+
+                if (bomItems.length > 0) {
+                    const outputRatio = Number(item.quantity) / Number(bom.outputQuantity);
+
+                    await prisma.productionMaterial.createMany({
+                        data: bomItems.map(bi => ({
+                            productionOrderId: po!.id,
+                            productVariantId: bi.productVariantId,
+                            quantity: Number(bi.quantity) * outputRatio
+                        }))
+                    });
+                }
+            } else {
+                // Optional: Update status if needed, or just skip
+                // For now, we assume if it exists, it's handled.
             }
 
             createdOrders.push(po);

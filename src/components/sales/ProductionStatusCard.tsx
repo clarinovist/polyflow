@@ -171,7 +171,7 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                                         </div>
                                         <div className="flex justify-between text-muted-foreground">
                                             <span>Qty: {Number(po.actualQuantity || 0)} / {Number(po.plannedQuantity)}</span>
-                                            <Link href={`/dashboard/production/orders/${po.id}`} className="text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline">
+                                            <Link href={`/production/orders/${po.id}`} className="text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline">
                                                 details <ArrowRight className="h-3 w-3" />
                                             </Link>
                                         </div>

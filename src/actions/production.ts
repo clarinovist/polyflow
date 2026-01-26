@@ -68,8 +68,8 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
         const order = await ProductionService.createOrder(result.data);
 
-        revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/production');
+        revalidatePath('/sales');
         return { success: true, data: serializeData(order) };
     } catch (error) {
         console.error("Create Production Order Error:", error);
@@ -236,8 +236,8 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
 
         await ProductionService.updateOrder(result.data);
 
-        revalidatePath(`/dashboard/production/orders/${result.data.id}`);
-        revalidatePath('/dashboard/production');
+        revalidatePath(`/production/orders/${result.data.id}`);
+        revalidatePath('/production');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -258,7 +258,7 @@ export async function deleteProductionOrder(id: string) {
 
         await ProductionService.deleteOrder(id);
 
-        revalidatePath('/dashboard/production');
+        revalidatePath('/production');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -320,7 +320,7 @@ export async function addProductionShift(data: {
 }) {
     try {
         await ProductionService.addShift(data);
-        revalidatePath(`/dashboard/production/orders/${data.productionOrderId}`);
+        revalidatePath(`/production/orders/${data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -333,7 +333,7 @@ export async function addProductionShift(data: {
 export async function deleteProductionShift(shiftId: string, orderId: string) {
     try {
         await ProductionService.deleteShift(shiftId);
-        revalidatePath(`/dashboard/production/orders/${orderId}`);
+        revalidatePath(`/production/orders/${orderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -352,8 +352,8 @@ export async function startExecution(data: StartExecutionValues) {
     try {
         const execution = await ProductionService.startExecution(result.data);
 
-        revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/production');
+        revalidatePath('/production/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error starting execution:', error);
@@ -373,8 +373,8 @@ export async function stopExecution(data: StopExecutionValues) {
     try {
         const execution = await ProductionService.stopExecution(result.data);
 
-        revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/production');
+        revalidatePath('/production/kiosk');
         return { success: true, data: serializeData(execution) };
     } catch (error) {
         console.error('Error stopping execution:', error);
@@ -393,9 +393,9 @@ export async function addProductionOutput(data: ProductionOutputValues) {
 
     try {
         await ProductionService.addProductionOutput(result.data);
-        revalidatePath('/dashboard/production');
+        revalidatePath('/production');
         // Revalidate detail page of order
-        revalidatePath(`/dashboard/production/orders/${result.data.productionOrderId}`);
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -413,7 +413,7 @@ export async function recordQualityInspection(data: QualityInspectionValues) {
 
     try {
         await ProductionService.recordQualityInspection(result.data);
-        revalidatePath(`/dashboard/production/orders/${result.data.productionOrderId}`);
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -445,7 +445,7 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
     try {
         await ProductionService.batchIssueMaterials(result.data);
 
-        revalidatePath(`/dashboard/production/orders/${result.data.productionOrderId}`);
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         console.error("Batch Issue Error:", error);
@@ -465,7 +465,7 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
     try {
         await ProductionService.recordMaterialIssue(result.data);
 
-        revalidatePath(`/dashboard/production/orders/${result.data.productionOrderId}`);
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -479,7 +479,7 @@ export async function deleteMaterialIssue(issueId: string, productionOrderId: st
     try {
         await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
 
-        revalidatePath(`/dashboard/production/orders/${productionOrderId}`);
+        revalidatePath(`/production/orders/${productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -498,7 +498,7 @@ export async function recordScrap(data: ScrapRecordValues) {
     try {
         await ProductionService.recordScrap(result.data);
 
-        revalidatePath(`/dashboard/production/orders/${result.data.productionOrderId}`);
+        revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
@@ -534,8 +534,8 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
     try {
         await ProductionService.logRunningOutput(result.data);
 
-        revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/production/kiosk');
+        revalidatePath('/production');
+        revalidatePath('/production/kiosk');
         return { success: true };
     } catch (error) {
         console.error('Error logging output:', error);
@@ -556,16 +556,16 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
         if (productVariantId && quantity) {
             // Create for specific item
             const result = await ProductionService.createOrderFromSales(salesOrderId, productVariantId, quantity);
-            revalidatePath('/dashboard/production');
-            revalidatePath('/dashboard/sales');
+            revalidatePath('/production');
+            revalidatePath('/sales');
             return { success: true, data: serializeData(result) };
         }
 
         // Default: Run MRP for whole order (if implemented)
         const result = await MrpService.convertSoToPo(salesOrderId);
 
-        revalidatePath('/dashboard/production');
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/production');
+        revalidatePath('/sales');
         return serializeData(result);
     } catch (error) {
         console.error("Create PO from SO Error:", error);
@@ -596,7 +596,7 @@ export async function logMachineDowntime(data: LogMachineDowntimeValues) {
 
     try {
         await ProductionService.recordDowntime(result.data);
-        revalidatePath('/dashboard/production');
+        revalidatePath('/production');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };

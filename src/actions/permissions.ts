@@ -106,8 +106,8 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     ],
     PRODUCTION: [
         '/dashboard',
-        '/dashboard/production/orders',
-        '/dashboard/production/analytics',
+        '/production/orders',
+        '/production/analytics',
         '/dashboard/boms',
         '/dashboard/machines',
         '/dashboard/employees',
@@ -123,7 +123,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     ],
     PPIC: [
         '/dashboard',
-        '/dashboard/production/orders',
+        '/production/orders',
         '/dashboard/boms',
         '/dashboard/ppic',
         '/dashboard/inventory',

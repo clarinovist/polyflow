@@ -52,7 +52,7 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <Link href={`/dashboard/production/resources/employees/${id}`}>
+                    <Link href={`/production/resources/employees/${id}`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit Details

@@ -23,7 +23,7 @@ export async function createQuotation(data: CreateSalesQuotationValues) {
     const session = await requireAuth();
     return catchError(async () => {
         const quotation = await QuotationService.createQuotation(data, session.user.id);
-        revalidatePath('/dashboard/sales/quotations');
+        revalidatePath('/sales/quotations');
         return quotation;
     });
 }
@@ -32,8 +32,8 @@ export async function updateQuotation(data: UpdateSalesQuotationValues) {
     await requireAuth();
     return catchError(async () => {
         await QuotationService.updateQuotation(data);
-        revalidatePath('/dashboard/sales/quotations');
-        revalidatePath(`/dashboard/sales/quotations/${data.id}`);
+        revalidatePath('/sales/quotations');
+        revalidatePath(`/sales/quotations/${data.id}`);
         return { id: data.id };
     });
 }
@@ -42,7 +42,7 @@ export async function deleteQuotation(id: string) {
     await requireAuth();
     return catchError(async () => {
         await QuotationService.deleteQuotation(id);
-        revalidatePath('/dashboard/sales/quotations');
+        revalidatePath('/sales/quotations');
         return true;
     });
 }
@@ -51,8 +51,8 @@ export async function convertToOrder(quotationId: string, sourceLocationId: stri
     const session = await requireAuth();
     return catchError(async () => {
         const order = await QuotationService.convertToOrder(quotationId, session.user.id, sourceLocationId);
-        revalidatePath('/dashboard/sales/quotations');
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/sales/quotations');
+        revalidatePath('/sales');
         return order;
     });
 }

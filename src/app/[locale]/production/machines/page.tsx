@@ -93,7 +93,7 @@ export default async function ProductionMachinesPage() {
 
                                 <div className="pt-2 flex items-center gap-2">
                                     <MachineActions id={machine.id} name={machine.name} />
-                                    <Link href={`/dashboard/production/resources/machines/${machine.id}`}>
+                                    <Link href={`/production/resources/machines/${machine.id}`}>
                                         <Button variant="ghost" size="sm" className="h-8 text-xs">
                                             {commonT('view')}
                                         </Button>

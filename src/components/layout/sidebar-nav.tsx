@@ -56,7 +56,7 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         heading: "sidebar.workspaces",
         items: [
             { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
-            { title: "navigation.purchasing", href: "/planning", icon: Truck },
+            { title: "Planning", href: "/planning", icon: Truck },
             { title: "navigation.production", href: "/production", icon: Factory },
             { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
             { title: "navigation.accounting", href: "/finance", icon: Calculator },
@@ -260,7 +260,7 @@ function CollapsibleGroup({ group, pathname, t }: { group: SidebarLinkGroup, pat
                         key={item.href}
                         href={item.href}
                         icon={item.icon}
-                        label={t(item.title)}
+                        label={item.title.includes('.') ? t(item.title) : item.title}
                         pathname={pathname}
                     />
                 ))}

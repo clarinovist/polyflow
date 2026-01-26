@@ -157,7 +157,7 @@ export default async function ProductionDispatchPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <ReassignMachineButton orderId={order.id} orderNumber={order.orderNumber} currentMachineId={order.machine?.id ?? null} machines={machines} />
-                                                    <Link href={`/dashboard/production/orders/${order.id}`}>
+                                                    <Link href={`/production/orders/${order.id}`}>
                                                         <Button variant="ghost" size="sm" className="h-8 text-xs">
                                                             {t('manageDetail')} <ChevronRight className="h-4 w-4 ml-1" />
                                                         </Button>

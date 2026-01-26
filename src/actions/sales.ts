@@ -50,7 +50,7 @@ export async function createSalesOrder(data: CreateSalesOrderValues) {
     return catchError(async () => {
         const result = createSalesOrderSchema.parse(data);
         const order = await SalesService.createOrder(result, session.user.id);
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/sales');
         return order;
     });
 }
@@ -63,8 +63,8 @@ export async function updateSalesOrder(data: UpdateSalesOrderValues) {
     return catchError(async () => {
         const result = updateSalesOrderSchema.parse(data);
         await SalesService.updateOrder(result, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${data.id}`);
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${data.id}`);
         return { id: data.id };
     });
 }
@@ -76,8 +76,8 @@ export async function confirmSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.confirmOrder(id, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${id}`);
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${id}`);
         return true;
     });
 }
@@ -86,8 +86,8 @@ export async function markReadyToShip(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.markReadyToShip(id, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${id}`);
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${id}`);
         return true;
     });
 }
@@ -99,9 +99,9 @@ export async function shipSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.shipOrder(id, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${id}`);
-        revalidatePath('/dashboard/inventory'); // Stock changed
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${id}`);
+        revalidatePath('/warehouse/inventory'); // Stock changed
         return true;
     });
 }
@@ -170,8 +170,8 @@ export async function deliverSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.deliverOrder(id, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${id}`);
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${id}`);
         return true;
     });
 }
@@ -183,8 +183,8 @@ export async function cancelSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.cancelOrder(id, session.user.id);
-        revalidatePath('/dashboard/sales');
-        revalidatePath(`/dashboard/sales/${id}`);
+        revalidatePath('/sales');
+        revalidatePath(`/sales/orders/${id}`);
         return true;
     });
 }
@@ -196,7 +196,7 @@ export async function deleteSalesOrder(id: string) {
     await requireAuth();
     return catchError(async () => {
         await SalesService.deleteOrder(id);
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/sales');
         return true;
     });
 }

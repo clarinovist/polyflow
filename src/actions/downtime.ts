@@ -33,7 +33,7 @@ export async function logMachineDowntime(
         });
 
         revalidatePath('/kiosk');
-        revalidatePath('/dashboard/production');
+        revalidatePath('/production');
         return { success: true };
     } catch (error) {
         console.error("Downtime Log Error:", error);

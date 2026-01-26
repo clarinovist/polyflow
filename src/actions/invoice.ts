@@ -72,8 +72,8 @@ export async function createInvoice(data: CreateInvoiceValues) {
             console.error("Auto-Journal failed:", err);
         });
 
-        revalidatePath('/dashboard/sales'); // Refresh sales to update invoice status if any
-        revalidatePath(`/dashboard/sales/${data.salesOrderId}`);
+        revalidatePath('/sales'); // Refresh sales to update invoice status if any
+        revalidatePath(`/sales/${data.salesOrderId}`);
         return { success: true, data: serializeData(invoice) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create invoice" };
@@ -93,10 +93,10 @@ export async function updateInvoiceStatus(data: { id: string, status: InvoiceSta
 
     try {
         await InvoiceService.updateStatus(result.data, session.user.id);
-        revalidatePath('/dashboard/sales'); // If there were an invoice list page, verify path
+        revalidatePath('/sales'); // If there were an invoice list page, verify path
         const invoice = await prisma.invoice.findUnique({ where: { id: data.id }, select: { salesOrderId: true } });
         if (invoice) {
-            revalidatePath(`/dashboard/sales/${invoice.salesOrderId}`);
+            revalidatePath(`/sales/${invoice.salesOrderId}`);
         }
 
         // Auto-Journal: Sales Payment

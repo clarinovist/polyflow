@@ -187,7 +187,7 @@ export function SalesOrderDetailClient({
                 toast.success(`Production Order(s) created! Status: ${data.status}`);
                 // Redirect to production dashboard or refreshing creates the link in sidebar
                 setIsSimulationOpen(false);
-                router.push('/dashboard/production');
+                router.push('/production');
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 toast.error((result as any).error);
