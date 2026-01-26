@@ -125,49 +125,48 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/dashboard',
         '/production/orders',
         '/dashboard/boms',
-        '/dashboard/ppic',
-        '/dashboard/inventory',
-        '/dashboard/inventory/analytics',
-        '/dashboard/inventory/aging',
+        '/planning', // Was /dashboard/ppic
+        '/warehouse/inventory',
+        '/warehouse/analytics',
+        '/warehouse/inventory/aging',
         '/dashboard/products',
-        // PPIC typically views procurement status but doesn't manage invoices/payments
-        '/dashboard/purchasing/orders',
-        '/dashboard/ppic/mrp',
-        '/dashboard/ppic/schedule',
+        '/planning/purchase-orders',
+        '/planning/mrp',
+        '/planning/schedule',
         '/production',
     ],
     SALES: [
         '/dashboard',
-        '/dashboard/sales',
-        '/dashboard/sales/quotations',
-        '/dashboard/sales/invoices', // Sales might generate invoices, but Finance approves/pays
-        '/dashboard/sales/analytics',
+        '/sales',
+        '/sales/quotations',
+        '/sales/invoices',
+        '/sales/analytics',
         '/dashboard/products',
-        '/dashboard/customers',
-        '/dashboard/inventory', // View only usually
+        '/sales/customers',
+        '/warehouse/inventory', // View only usually
     ],
     FINANCE: [
         '/dashboard',
-        '/dashboard/accounting',
-        '/dashboard/finance/costing',
-        '/dashboard/accounting/reports',
-        '/dashboard/accounting/journals',
-        '/dashboard/accounting/coa',
-        '/dashboard/accounting/periods',
-        '/dashboard/accounting/assets',
-        '/dashboard/accounting/budget',
-        '/dashboard/sales/invoices',
-        '/dashboard/purchasing/invoices',
+        '/finance',
+        '/finance/costing',
+        '/finance/reports',
+        '/finance/journals',
+        '/finance/coa',
+        '/finance/periods',
+        '/finance/assets',
+        '/finance/budget',
+        '/sales/invoices',
+        '/finance/invoices',
     ],
     PROCUREMENT: [
         '/dashboard',
-        '/dashboard/purchasing/orders',
-        '/dashboard/purchasing/invoices',
-        '/dashboard/purchasing/analytics',
-        '/dashboard/suppliers',
+        '/planning/purchase-orders',
+        '/finance/invoices',
+        '/planning/procurement-analytics',
+        '/planning/suppliers',
         '/dashboard/products',
-        '/dashboard/inventory', // Need to see stock levels to buy
-    ]
+        '/warehouse/inventory', // Need to see stock levels to buy
+    ],
 };
 
 // Client-side helper (but executed on server for initial load) to get user's own permissions

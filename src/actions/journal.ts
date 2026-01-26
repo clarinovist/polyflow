@@ -79,8 +79,8 @@ export async function postJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.postJournal(id, session.user.id);
-        revalidatePath('/dashboard/accounting/journals');
-        revalidatePath(`/dashboard/accounting/journals/${id}`);
+        revalidatePath('/finance/journals');
+        revalidatePath(`/finance/journals/${id}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to post journal" };
@@ -91,8 +91,8 @@ export async function voidJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.voidJournal(id, session.user.id);
-        revalidatePath('/dashboard/accounting/journals');
-        revalidatePath(`/dashboard/accounting/journals/${id}`);
+        revalidatePath('/finance/journals');
+        revalidatePath(`/finance/journals/${id}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to void journal" };
@@ -103,7 +103,7 @@ export async function reverseJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.reverseJournal(id, session.user.id);
-        revalidatePath('/dashboard/accounting/journals');
+        revalidatePath('/finance/journals');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to reverse journal" };

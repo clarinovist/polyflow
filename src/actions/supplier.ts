@@ -111,7 +111,7 @@ export async function createSupplier(data: CreateSupplierValues) {
             },
         });
 
-        revalidatePath('/dashboard/suppliers');
+        revalidatePath('/planning/suppliers');
         return { success: true };
     } catch (error) {
         console.error('Create supplier error:', error);
@@ -140,8 +140,8 @@ export async function updateSupplier(data: UpdateSupplierValues) {
             data: result.data,
         });
 
-        revalidatePath('/dashboard/suppliers');
-        revalidatePath(`/dashboard/suppliers/${data.id}`);
+        revalidatePath('/planning/suppliers');
+        revalidatePath(`/planning/suppliers/${data.id}`);
         return { success: true };
     } catch (error) {
         console.error('Update supplier error:', error);
@@ -174,7 +174,7 @@ export async function deleteSupplier(id: string) {
             where: { id },
         });
 
-        revalidatePath('/dashboard/suppliers');
+        revalidatePath('/planning/suppliers');
         return { success: true };
     } catch (error) {
         console.error('Delete supplier error:', error);

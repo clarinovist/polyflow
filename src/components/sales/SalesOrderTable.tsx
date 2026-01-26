@@ -32,7 +32,7 @@ interface SalesOrderTableProps {
     basePath?: string;
 }
 
-export function SalesOrderTable({ initialData, basePath = '/dashboard/sales' }: SalesOrderTableProps) {
+export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: SalesOrderTableProps) {
     const router = useRouter();
 
     const getStatusColor = (status: SalesOrderStatus) => {

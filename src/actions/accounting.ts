@@ -17,7 +17,7 @@ export async function createAccount(data: { code: string; name: string; type: Ac
     await requireAuth();
     try {
         const account = await AccountingService.createAccount(data);
-        revalidatePath('/dashboard/accounting/coa');
+        revalidatePath('/finance/coa');
         return { success: true, data: serializeData(account) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -28,7 +28,7 @@ export async function updateAccount(id: string, data: { code?: string; name?: st
     await requireAuth();
     try {
         const account = await AccountingService.updateAccount(id, data);
-        revalidatePath('/dashboard/accounting/coa');
+        revalidatePath('/finance/coa');
         return { success: true, data: serializeData(account) };
     } catch (error) {
         // ... (rest same)
@@ -40,7 +40,7 @@ export async function deleteAccount(id: string) {
     await requireAuth();
     try {
         await AccountingService.deleteAccount(id);
-        revalidatePath('/dashboard/accounting/coa');
+        revalidatePath('/finance/coa');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -56,7 +56,7 @@ export async function createManualJournalEntry(data: CreateJournalEntryInput) {
             createdById: session.user?.id
         });
 
-        revalidatePath('/dashboard/accounting/journal-entries');
+        revalidatePath('/finance/journal-entries');
         return { success: true, data: serializeData(entry) };
     } catch (error) {
         console.error('Failed to create journal entry:', error);
@@ -104,7 +104,7 @@ export async function createFiscalPeriod(year: number, month: number) {
     await requireAuth();
     try {
         const period = await AccountingService.createFiscalPeriod(year, month);
-        revalidatePath('/dashboard/accounting/periods');
+        revalidatePath('/finance/periods');
         return { success: true, data: serializeData(period) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -115,8 +115,8 @@ export async function closeFiscalPeriod(id: string) {
     const session = await requireAuth();
     try {
         const period = await AccountingService.closeFiscalPeriod(id, session.user.id);
-        revalidatePath('/dashboard/accounting/periods');
-        revalidatePath('/dashboard/accounting/journals');
+        revalidatePath('/finance/periods');
+        revalidatePath('/finance/journals');
         return { success: true, data: serializeData(period) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -145,7 +145,7 @@ export async function createFixedAsset(data: {
     await requireAuth();
     try {
         const asset = await FixedAssetService.createAsset(data);
-        revalidatePath('/dashboard/accounting/assets');
+        revalidatePath('/finance/assets');
         return { success: true, data: serializeData(asset) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -156,8 +156,8 @@ export async function runDepreciation(year: number, month: number) {
     const session = await requireAuth();
     try {
         const results = await FixedAssetService.runDepreciation(year, month, session.user.id);
-        revalidatePath('/dashboard/accounting/assets');
-        revalidatePath('/dashboard/accounting/journals');
+        revalidatePath('/finance/assets');
+        revalidatePath('/finance/journals');
         return { success: true, count: results.length };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -176,7 +176,7 @@ export async function setBudget(data: { accountId: string, year: number, month: 
     await requireAuth();
     try {
         const budget = await BudgetService.setBudget(data);
-        revalidatePath('/dashboard/accounting/budget');
+        revalidatePath('/finance/budget');
         return { success: true, data: serializeData(budget) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

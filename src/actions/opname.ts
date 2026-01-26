@@ -65,7 +65,7 @@ export async function createOpnameSession(locationId: string, remarks?: string) 
             }
         });
 
-        revalidatePath('/dashboard/inventory/opname');
+        revalidatePath('/warehouse/opname');
         return { success: true, id: session.id };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -89,7 +89,7 @@ export async function saveOpnameCount(
             )
         );
 
-        revalidatePath(`/dashboard/inventory/opname/${opnameId}`);
+        revalidatePath(`/warehouse/opname/${opnameId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -171,7 +171,7 @@ export async function completeOpname(opnameId: string) {
             });
         });
 
-        revalidatePath(`/dashboard/inventory/opname/${opnameId}`);
+        revalidatePath(`/warehouse/opname/${opnameId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };

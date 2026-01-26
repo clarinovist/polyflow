@@ -67,7 +67,7 @@ export function SalesQuotationTable({ initialData }: SalesQuotationTableProps) {
                             <TableRow
                                 key={quotation.id}
                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => router.push(`/dashboard/sales/quotations/${quotation.id}`)}
+                                onClick={() => router.push(`/sales/quotations/${quotation.id}`)}
                             >
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">

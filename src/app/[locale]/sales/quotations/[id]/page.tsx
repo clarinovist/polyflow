@@ -4,9 +4,10 @@ import { SalesQuotationDetailClient } from '@/components/sales/quotations/SalesQ
 import { notFound } from 'next/navigation';
 import { serializeData } from '@/lib/utils';
 
-export default async function SalesQuotationDetailPage({ params }: { params: { id: string } }) {
+export default async function SalesQuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const [quotation, locations] = await Promise.all([
-        getQuotationById(params.id),
+        getQuotationById(id),
         getLocations()
     ]);
 

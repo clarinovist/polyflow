@@ -82,8 +82,8 @@ export async function importInitialStock(
             totalImported += locationItems.length;
         }
 
-        revalidatePath('/dashboard/inventory');
-        revalidatePath('/dashboard/inventory/history');
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/history');
 
         return {
             success: true,

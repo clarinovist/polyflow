@@ -54,6 +54,15 @@ export class QuotationService {
     }
 
     static async createQuotation(data: CreateSalesQuotationValues, userId: string) {
+        // Validate customer existence
+        const customerExists = await prisma.customer.findUnique({
+            where: { id: data.customerId }
+        });
+
+        if (!customerExists) {
+            throw new Error(`Customer with ID ${data.customerId} not found`);
+        }
+
         const quotationNumber = await this.generateQuotationNumber();
 
         // Calculate totals

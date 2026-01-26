@@ -390,6 +390,41 @@ export class SalesService {
                 });
             }
 
+            // ... (existing stock movement logic)
+
+            // 4. Create Delivery Order Record
+            const lastDo = await tx.deliveryOrder.findFirst({
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const year = new Date().getFullYear();
+            let nextDoNumber = 1;
+            if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
+                const parts = lastDo.orderNumber.split('-');
+                if (parts.length === 3) {
+                    nextDoNumber = parseInt(parts[2]) + 1;
+                }
+            }
+            const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
+
+            await tx.deliveryOrder.create({
+                data: {
+                    orderNumber: doNumber,
+                    salesOrderId: order.id,
+                    sourceLocationId: order.sourceLocationId!,
+                    status: 'SHIPPED', // Since we are in shipOrder action
+                    deliveryDate: new Date(),
+                    createdById: userId,
+                    items: {
+                        create: order.items.map(item => ({
+                            productVariantId: item.productVariantId,
+                            quantity: item.quantity,
+                            notes: item.id // storing SO item ID reference optionally or just null
+                        }))
+                    }
+                }
+            });
+
             await tx.salesOrder.update({
                 where: { id },
                 data: { status: SalesOrderStatus.SHIPPED }
@@ -403,7 +438,7 @@ export class SalesService {
                 action: 'SHIP_SALES',
                 entityType: 'SalesOrder',
                 entityId: id,
-                details: `Sales Order ${order.orderNumber} shipped`,
+                details: `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${doNumber}`,
                 tx
             });
         });

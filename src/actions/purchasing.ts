@@ -26,7 +26,7 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const order = await PurchaseService.createOrder(validated, session.user.id);
 
     revalidatePath('/dashboard/purchasing');
-    revalidatePath('/dashboard/purchasing/orders');
+    revalidatePath('/planning/purchase-orders');
     revalidatePath('/planning/purchase-orders');
     return serializeData(order);
 }
@@ -37,8 +37,8 @@ export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
 
     const order = await PurchaseService.updateOrder(validated);
 
-    revalidatePath('/dashboard/purchasing/orders');
-    revalidatePath(`/dashboard/purchasing/orders/${validated.id}`);
+    revalidatePath('/planning/purchase-orders');
+    revalidatePath(`/planning/purchase-orders/${validated.id}`);
     revalidatePath('/planning/purchase-orders');
     revalidatePath(`/planning/purchase-orders/${validated.id}`);
     return serializeData(order);
@@ -50,8 +50,8 @@ export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
 
     const receipt = await PurchaseService.createGoodsReceipt(validated, session.user.id);
 
-    revalidatePath('/dashboard/purchasing/orders');
-    revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
+    revalidatePath('/planning/purchase-orders');
+    revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
     revalidatePath('/dashboard/purchasing/receipts');
     revalidatePath(`/dashboard/purchasing/receipts/create`);
     revalidatePath('/dashboard/inventory');
@@ -64,9 +64,9 @@ export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValue
 
     const invoice = await PurchaseService.createInvoice(validated);
 
-    revalidatePath('/dashboard/purchasing/invoices');
-    revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
-    revalidatePath(`/dashboard/purchasing/orders/${validated.purchaseOrderId}`);
+    revalidatePath('/finance/invoices');
+    revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
+    revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
 
     // Auto-Journal: Purchase Invoice
     await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(console.error);
@@ -78,9 +78,9 @@ export async function recordPurchasePayment(id: string, amount: number) {
     const session = await requireAuth();
     const updated = await PurchaseService.recordPayment(id, amount, session.user.id);
 
-    revalidatePath('/dashboard/purchasing/invoices');
-    revalidatePath(`/dashboard/purchasing/invoices/${id}`);
-    revalidatePath(`/dashboard/purchasing/invoices/${id}`);
+    revalidatePath('/finance/invoices');
+    revalidatePath(`/finance/invoices/${id}`);
+    revalidatePath(`/finance/invoices/${id}`);
 
     // Auto-Journal: Purchase Payment
     await AutoJournalService.handlePurchasePayment(id, amount).catch(console.error);
@@ -92,8 +92,8 @@ export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrde
     const session = await requireAuth();
     const order = await PurchaseService.updateOrderStatus(id, status, session.user.id);
 
-    revalidatePath('/dashboard/purchasing/orders');
-    revalidatePath(`/dashboard/purchasing/orders/${id}`);
+    revalidatePath('/planning/purchase-orders');
+    revalidatePath(`/planning/purchase-orders/${id}`);
     return serializeData(order);
 }
 
@@ -102,7 +102,7 @@ export async function deletePurchaseOrder(id: string) {
 
     try {
         const result = await PurchaseService.deleteOrder(id, session.user.id);
-        revalidatePath('/dashboard/purchasing/orders');
+        revalidatePath('/planning/purchase-orders');
         revalidatePath('/planning/purchase-orders');
         return { success: true, orderNumber: result.orderNumber };
     } catch (error) {
