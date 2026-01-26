@@ -211,5 +211,67 @@
         "priorityNormal": "Normal",
         "requiredAbbr": "Dibutuhkan:",
         "printPickList": "Cetak Daftar Ambil"
+    },
+    "auth": {
+        "login": {
+            "backToRoles": "Kembali ke peran",
+            "signIn": "Masuk",
+            "emailLabel": "Alamat Email",
+            "emailPlaceholder": "Johndoe@gmail.com",
+            "passwordLabel": "Kata Sandi",
+            "passwordPlaceholder": "••••••••",
+            "rememberMe": "Ingat saya",
+            "noAccount": "Belum punya akun?",
+            "signUp": "Daftar",
+            "forgotPassword": "Lupa Kata Sandi",
+            "socialLogin": "Masuk dengan Google",
+            "errors": {
+                "invalid": "Email atau kata sandi salah.",
+                "notRegistered": "Akun ini tidak terdaftar di sistem kami.",
+                "permissionDenied": "Anda tidak memiliki izin untuk mengakses ruang kerja ini dengan akun Anda.",
+                "generic": "Terjadi kesalahan. Silakan coba lagi."
+            }
+        },
+        "roles": {
+            "title": "Siapa Anda?",
+            "subtitle": "Pilih ruang kerja Anda untuk melanjutkan ke dasbor.",
+            "floorDivider": "Lantai Produksi",
+            "kiosk": {
+                "title": "Mode Kios / Operator",
+                "description": "Akses langsung untuk operasional lantai pabrik. Tanpa kata sandi."
+            },
+            "ADMIN": {
+                "title": "Administrator",
+                "description": "Akses penuh ke pengaturan dan manajemen sistem."
+            },
+            "WAREHOUSE": {
+                "title": "Gudang",
+                "description": "Persediaan, pergerakan stok, dan pengeluaran material."
+            },
+            "PRODUCTION": {
+                "title": "Produksi",
+                "description": "Perintah manufaktur dan pelacakan eksekusi."
+            },
+            "PPIC": {
+                "title": "PPIC",
+                "description": "Perencanaan produksi dan kontrol inventaris."
+            },
+            "SALES": {
+                "title": "Penjualan",
+                "description": "Order penjualan, penawaran, dan pelanggan."
+            },
+            "FINANCE": {
+                "title": "Keuangan",
+                "description": "Faktur, tagihan, dan akuntansi keuangan."
+            }
+        },
+        "brand": {
+            "polyFlow": "PolyFlow",
+            "welcome": "Selamat datang di PolyFlow",
+            "description": "PolyFlow membantu bisnis membangun operasional yang terorganisir dan terstruktur dengan modul yang kaya dan indah. Bergabunglah dengan kami dan mulai bangun bisnis Anda sekarang.",
+            "socialProof": "Lebih dari {count} orang telah bergabung, giliran Anda",
+            "cta": "Sederhanakan operasional bisnis Anda sekarang",
+            "ctaSub": "Jadilah pengusaha pertama yang merasakan cara termudah untuk mengelola bisnis."
+        }
     }
 }

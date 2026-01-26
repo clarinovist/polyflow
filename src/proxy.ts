@@ -8,6 +8,7 @@ const intlMiddleware = createMiddleware({
 	locales,
 	defaultLocale,
 	localePrefix,
+	localeDetection: false,
 });
 
 // Keep Proxy compatible with runtime constraints by using `authConfig` only.

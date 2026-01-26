@@ -34,9 +34,18 @@ export async function authenticate(
             redirect: false,
         });
 
+        // Get user to check their preferred locale
+        const { prisma } = await import('@/lib/prisma');
+        const user = await prisma.user.findUnique({
+            where: { email },
+            select: { locale: true }
+        });
+
         const cookieStore = await cookies();
         const localeCookie = cookieStore.get('NEXT_LOCALE')?.value;
-        const locale = (localeCookie && locales.includes(localeCookie as Locale)) ? (localeCookie as Locale) : defaultLocale;
+
+        // Priority: Stored User Locale > Cookie > Default
+        const locale = user?.locale || (localeCookie && locales.includes(localeCookie as Locale) ? localeCookie : defaultLocale);
         const localePrefix = locale && locale !== defaultLocale ? `/${locale}` : '';
 
         redirect(`${localePrefix}${targetUrl}`);

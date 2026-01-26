@@ -11,13 +11,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Languages } from 'lucide-react';
 
+import { toast } from 'sonner';
+
 export function LanguageSwitcher() {
     const locale = useLocale();
     const router = useRouter();
     const pathname = usePathname();
 
     const handleLocaleChange = (newLocale: string) => {
-        router.replace(pathname, { locale: newLocale });
+        try {
+            router.replace(pathname, { locale: newLocale });
+            toast.success(newLocale === 'id' ? 'Bahasa diubah ke Indonesia' : 'Language changed to English');
+        } catch (error) {
+            console.error('Failed to change locale:', error);
+            toast.error(locale === 'id' ? 'Gagal mengubah bahasa' : 'Failed to change language');
+        }
     };
 
     return (

@@ -255,6 +255,9 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                 today.setHours(23, 59, 59, 999);
                                                 return date > today || date < new Date("1900-01-01"); // Allow past dates? Sure.
                                             }}
+                                            captionLayout="dropdown"
+                                            fromYear={2000}
+                                            toYear={new Date().getFullYear() + 1}
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -298,6 +301,9 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             disabled={(date) =>
                                                 date < new Date("1900-01-01")
                                             }
+                                            captionLayout="dropdown"
+                                            fromYear={2000}
+                                            toYear={new Date().getFullYear() + 5}
                                             initialFocus
                                         />
                                     </PopoverContent>

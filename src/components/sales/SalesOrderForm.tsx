@@ -347,10 +347,16 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                             selected={field.value}
                                             onSelect={field.onChange}
                                             disabled={(date) => {
-                                                const today = new Date();
-                                                today.setHours(23, 59, 59, 999);
-                                                return date > today || date < new Date("1900-01-01");
+                                                const maxDate = new Date();
+                                                maxDate.setHours(23, 59, 59, 999);
+                                                // Allow selection up to end of today, but maybe also allow some future dates if order can be backdated/postdated?
+                                                // User mentioned they couldn't change month, which might be because they were trying to select a different month but arrows weren't working.
+                                                // Let's allow a wider range for order date if needed, or just fix the UI.
+                                                return date < new Date("1900-01-01") || date > maxDate;
                                             }}
+                                            captionLayout="dropdown"
+                                            fromYear={2000}
+                                            toYear={new Date().getFullYear() + 1}
                                             initialFocus
                                         />
                                     </PopoverContent>
@@ -395,6 +401,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 disabled={(date) =>
                                                     date < new Date("1900-01-01")
                                                 }
+                                                captionLayout="dropdown"
+                                                fromYear={2000}
+                                                toYear={new Date().getFullYear() + 10}
                                                 initialFocus
                                             />
                                         </PopoverContent>

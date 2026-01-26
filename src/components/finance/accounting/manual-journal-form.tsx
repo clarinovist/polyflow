@@ -143,6 +143,9 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                                             disabled={(date) =>
                                                 date > new Date() || date < new Date("1900-01-01")
                                             }
+                                            captionLayout="dropdown"
+                                            fromYear={2000}
+                                            toYear={new Date().getFullYear() + 1}
                                             initialFocus
                                         />
                                     </PopoverContent>

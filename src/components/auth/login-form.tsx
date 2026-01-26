@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertCircle, Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import PolyFlowLogo from './polyflow-logo';
 import { RoleType } from './role-selection';
 
@@ -17,6 +18,8 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
+    const t = useTranslations('auth.login');
+    const tr = useTranslations('auth.roles');
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
         undefined,
@@ -37,7 +40,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
             >
                 <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                Back to roles
+                {t('backToRoles')}
             </button>
 
             {/* Logo */}
@@ -47,12 +50,12 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
 
             {/* Role Badge */}
             <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-4">
-                {selectedRole} Workspace
+                {tr(`${selectedRole}.title`)} Workspace
             </div>
 
             {/* Sign in Header */}
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8">
-                Sign in
+                {t('signIn')}
             </h1>
 
             <form action={formAction} className="space-y-5">
@@ -62,7 +65,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 {/* Email Field */}
                 <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-foreground">
-                        Email Address
+                        {t('emailLabel')}
                     </Label>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -70,7 +73,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="Johndoe@gmail.com"
+                            placeholder={t('emailPlaceholder')}
                             required
                             className="pl-10 h-12 bg-background border-input rounded-lg focus:ring-2 focus:ring-ring/10 focus:border-ring transition-all"
                         />
@@ -80,7 +83,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 {/* Password Field */}
                 <div className="space-y-2">
                     <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                        Password
+                        {t('passwordLabel')}
                     </Label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -88,7 +91,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                             id="password"
                             name="password"
                             type={showPassword ? "text" : "password"}
-                            placeholder="••••••••"
+                            placeholder={t('passwordPlaceholder')}
                             required
                             className="flex h-12 w-full rounded-lg border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/10 focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 pl-10 pr-10 transition-all"
                         />
@@ -111,7 +114,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 <div className="flex items-center space-x-2">
                     <Checkbox id="remember" name="remember" className="border-input data-[state=checked]:bg-zinc-900 data-[state=checked]:border-zinc-900" />
                     <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-                        Remember me
+                        {t('rememberMe')}
                     </Label>
                 </div>
 
@@ -132,7 +135,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                     {isPending ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                        'Sign in'
+                        t('signIn')
                     )}
                 </Button>
             </form>
@@ -140,13 +143,13 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
             {/* Sign Up & Forgot Password Links */}
             <div className="mt-6 space-y-2 text-sm">
                 <p className="text-muted-foreground">
-                    Don&apos;t have an account?{' '}
+                    {t('noAccount')}{' '}
                     <button
                         type="button"
                         onClick={() => toast.info('Coming soon!', { description: 'Registration will be available in a future update.' })}
                         className="text-foreground font-medium hover:underline"
                     >
-                        Sign up
+                        {t('signUp')}
                     </button>
                 </p>
                 <button
@@ -154,7 +157,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                     onClick={() => toast.info('Coming soon!', { description: 'Password reset will be available in a future update.' })}
                     className="text-muted-foreground hover:text-foreground hover:underline"
                 >
-                    Forgot Password
+                    {t('forgotPassword')}
                 </button>
             </div>
 
@@ -164,7 +167,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                     type="button"
                     onClick={handleGoogleLogin}
                     className="flex items-center justify-center w-12 h-12 rounded-full border border-border hover:border-ring hover:bg-muted transition-all duration-200"
-                    aria-label="Sign in with Google"
+                    aria-label={t('socialLogin')}
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path

@@ -81,6 +81,9 @@ export default function BalanceSheetPage() {
                                 mode="single"
                                 selected={date}
                                 onSelect={(d) => d && setDate(d)}
+                                captionLayout="dropdown"
+                                fromYear={2000}
+                                toYear={new Date().getFullYear() + 1}
                                 initialFocus
                             />
                         </PopoverContent>

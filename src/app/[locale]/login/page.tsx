@@ -7,10 +7,12 @@ import BrandPanel from '@/components/auth/brand-panel';
 import RoleSelection, { RoleType } from '@/components/auth/role-selection';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useTranslations } from 'next-intl';
 
 export default function LoginPage() {
     const [selectedRole, setSelectedRole] = useState<RoleType | null>(null);
     const router = useRouter();
+    const t = useTranslations('auth.brand');
 
     const handleSelectRole = (role: RoleType) => {
         if (role === 'KIOSK') {
@@ -63,13 +65,12 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <footer className="relative z-10 mt-auto pb-6 text-center text-muted-foreground text-sm">
-                    &copy; {new Date().getFullYear()} PolyFlow ERP Systems
+                    &copy; {new Date().getFullYear()} {t('polyFlow')} ERP Systems
                 </footer>
             </div>
 
             {/* Right Panel - Brand */}
-            <BrandPanel />
-        </main>
+            < BrandPanel />
+        </main >
     );
 }
-

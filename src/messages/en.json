@@ -210,5 +210,67 @@
         "priorityNormal": "Normal",
         "requiredAbbr": "Req:",
         "printPickList": "Print Pick List"
+    },
+    "auth": {
+        "login": {
+            "backToRoles": "Back to roles",
+            "signIn": "Sign in",
+            "emailLabel": "Email Address",
+            "emailPlaceholder": "Johndoe@gmail.com",
+            "passwordLabel": "Password",
+            "passwordPlaceholder": "••••••••",
+            "rememberMe": "Remember me",
+            "noAccount": "Don't have an account?",
+            "signUp": "Sign up",
+            "forgotPassword": "Forgot Password",
+            "socialLogin": "Sign in with Google",
+            "errors": {
+                "invalid": "Invalid email or password.",
+                "notRegistered": "This account is not registered in our system.",
+                "permissionDenied": "You do not have permission to access this workspace with your account.",
+                "generic": "Something went wrong. Please try again."
+            }
+        },
+        "roles": {
+            "title": "Who are you?",
+            "subtitle": "Select your workspace to continue to your dashboard.",
+            "floorDivider": "Production Floor",
+            "kiosk": {
+                "title": "Kiosk / Operator Mode",
+                "description": "Direct access for factory floor operations. No password required."
+            },
+            "ADMIN": {
+                "title": "Administrator",
+                "description": "Full access to system settings and management."
+            },
+            "WAREHOUSE": {
+                "title": "Warehouse",
+                "description": "Inventory, stock movements, and material issues."
+            },
+            "PRODUCTION": {
+                "title": "Production",
+                "description": "Manufacturing orders and execution tracking."
+            },
+            "PPIC": {
+                "title": "PPIC",
+                "description": "Production planning and inventory control."
+            },
+            "SALES": {
+                "title": "Sales",
+                "description": "Sales orders, quotations, and customers."
+            },
+            "FINANCE": {
+                "title": "Finance",
+                "description": "Invoices, bills, and financial accounting."
+            }
+        },
+        "brand": {
+            "polyFlow": "PolyFlow",
+            "welcome": "Welcome to PolyFlow",
+            "description": "PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.",
+            "socialProof": "More than {count} people joined us, it's your turn",
+            "cta": "Streamline your business operations today",
+            "ctaSub": "Be among the first entrepreneurs to experience the easiest way to manage a business."
+        }
     }
 }

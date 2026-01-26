@@ -89,6 +89,9 @@ export function RescheduleOrderDialog({
                                     mode="single"
                                     selected={date}
                                     onSelect={setDate}
+                                    captionLayout="dropdown"
+                                    fromYear={2000}
+                                    toYear={new Date().getFullYear() + 1}
                                     initialFocus
                                 />
                             </PopoverContent>
