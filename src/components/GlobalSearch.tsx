@@ -76,7 +76,7 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Quick Navigation">
-                        <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/inventory'))}>
+                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory'))}>
                             <Warehouse className="mr-2 h-4 w-4" />
                             <span>Inventory</span>
                         </CommandItem>
@@ -84,11 +84,11 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                             <Package className="mr-2 h-4 w-4" />
                             <span>Products</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/opname'))}>
+                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/opname'))}>
                             <Calculator className="mr-2 h-4 w-4" />
                             <span>Stock Opname</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/inventory/history'))}>
+                        <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory/history'))}>
                             <FileText className="mr-2 h-4 w-4" />
                             <span>Stock History</span>
                         </CommandItem>

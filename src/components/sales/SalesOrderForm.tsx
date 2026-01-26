@@ -171,7 +171,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         {
             form,
             successMessage: `Sales Order ${mode === 'create' ? 'Created' : 'Updated'}`,
-            onSuccess: () => router.push('/dashboard/sales'),
+            onSuccess: () => router.push('/sales'),
         }
     );
 

@@ -92,7 +92,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
             const result = await createManualJournal(data);
             if (result.success) {
                 toast.success('Journal Entry created successfully');
-                router.push('/dashboard/accounting/reports/trial-balance');
+                router.push('/finance/reports/trial-balance');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Failed to create journal');

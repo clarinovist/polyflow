@@ -121,7 +121,7 @@ interface SalesOrderDetailClientProps {
 }
 export function SalesOrderDetailClient({
     order,
-    basePath = '/dashboard/sales',
+    basePath = '/sales',
     warehouseMode = false
 }: SalesOrderDetailClientProps) {
     const router = useRouter();

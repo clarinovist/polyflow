@@ -45,7 +45,7 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             } else {
                 await createMachine(formData);
             }
-            router.push('/dashboard/production/resources/machines');
+            router.push('/production/machines');
             router.refresh();
         } catch (_unused) {
             setError('Something went wrong. Please try again.');

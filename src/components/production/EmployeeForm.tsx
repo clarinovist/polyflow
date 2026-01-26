@@ -76,7 +76,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             } else {
                 await createEmployee(formData);
             }
-            router.push('/dashboard/production/resources/employees');
+            router.push('/production/resources');
             router.refresh();
         } catch (_unused) {
             setError('Something went wrong. Please try again.');

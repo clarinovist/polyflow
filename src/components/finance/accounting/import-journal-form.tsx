@@ -139,7 +139,7 @@ export default function ImportJournalForm({ accounts }: ImportJournalFormProps) 
 
             if (result.success) {
                 toast.success(`Successfully imported ${result.count} journal entries`);
-                router.push('/dashboard/accounting/reports/trial-balance');
+                router.push('/finance/reports/trial-balance');
                 router.refresh();
             } else {
                 toast.error(result.error);

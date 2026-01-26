@@ -141,7 +141,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
 
             if (result.success) {
                 toast.success(`Quotation ${mode === 'create' ? 'Created' : 'Updated'}`);
-                router.push('/dashboard/sales/quotations');
+                router.push('/sales/quotations');
             } else {
                 toast.error(result.error || "Failed to save quotation");
             }
