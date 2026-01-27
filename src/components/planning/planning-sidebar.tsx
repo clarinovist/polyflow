@@ -7,7 +7,8 @@ import {
     FileText,
     ShoppingCart,
     Truck,
-    BarChart3
+    BarChart3,
+    ClipboardCheck
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -32,6 +33,7 @@ const planningLinks = [
         heading: 'Production Planning',
         items: [
             { href: '/planning/orders', icon: Factory, label: 'Work Orders' },
+            { href: '/planning/requests', icon: ClipboardCheck, label: 'Incoming Requests' },
             { href: '/planning/schedule', icon: Calendar, label: 'Production Schedule' },
             { href: '/planning/mrp', icon: FileText, label: 'Material Requirements' },
         ],

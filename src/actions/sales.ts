@@ -16,9 +16,9 @@ import { serializeData } from '@/lib/utils';
 /**
  * Get all sales orders
  */
-export async function getSalesOrders() {
+export async function getSalesOrders(includeItems = false) {
     await requireAuth();
-    const orders = await SalesService.getOrders();
+    const orders = await SalesService.getOrders({ includeItems });
     return serializeData(orders);
 }
 

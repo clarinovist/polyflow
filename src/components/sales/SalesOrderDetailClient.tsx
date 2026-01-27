@@ -43,17 +43,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter
-} from "@/components/ui/dialog";
-import { simulateMrp, createProductionFromSalesOrder } from '@/actions/production';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Factory } from "lucide-react";
+
 
 // Helper types for client-side usage where Decimals are converted to numbers and Dates to strings
 type SerializedSalesOrderItem = Omit<SalesOrderItem, 'quantity' | 'unitPrice' | 'subtotal' | 'deliveredQty' | 'createdAt' | 'updatedAt'> & {
@@ -123,32 +113,14 @@ interface SalesOrderDetailClientProps {
 export function SalesOrderDetailClient({
     order,
     basePath = '/sales',
-    warehouseMode = false,
-    currentUserRole
+    warehouseMode = false
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
-    const canSimulate = currentUserRole ? ['ADMIN', 'PPIC'].includes(currentUserRole) : false;
 
     // MRP Simulation State
-    const [isSimulating, setIsSimulating] = useState(false);
-    const [simulationResult, setSimulationResult] = useState<{
-        requirements: {
-            materialName: string;
-            productVariantId: string;
-            neededQty: number;
-            availableQty: number;
-            shortageQty: number;
-            unit: string;
-        }[];
-        canProduce: boolean;
-        missingBoms: {
-            productName: string;
-            productVariantId: string;
-        }[];
-    } | null>(null);
-    const [isSimulationOpen, setIsSimulationOpen] = useState(false);
+
 
     const handleAction = async (action: string, handler: (id: string) => Promise<{ success: boolean; error?: string }>) => {
         setIsLoading(true);
@@ -167,45 +139,7 @@ export function SalesOrderDetailClient({
         }
     };
 
-    const handleSimulateProduction = async () => {
-        setIsSimulating(true);
-        try {
-            const result = await simulateMrp(order.id);
-            if (result.success && result.data) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setSimulationResult(result.data as any); // Cast because of serialization boundary if needed
-                setIsSimulationOpen(true);
-            } else {
-                toast.error(result.error);
-            }
-        } catch (_error) {
-            toast.error("Failed to run simulation");
-        } finally {
-            setIsSimulating(false);
-        }
-    };
 
-    const handleGeneratePO = async () => {
-        setIsLoading(true);
-        try {
-            const result = await createProductionFromSalesOrder(order.id);
-            if (result.success) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const data = result as any;
-                toast.success(`Work Order(s) created! Status: ${data.status}`);
-                // Redirect to production dashboard or refreshing creates the link in sidebar
-                setIsSimulationOpen(false);
-                router.push('/production');
-            } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                toast.error((result as any).error);
-            }
-        } catch (_error) {
-            toast.error("Failed to generate Work Order");
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleGenerateInvoice = async () => {
         if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
@@ -292,17 +226,7 @@ export function SalesOrderDetailClient({
 
                 <div className="flex gap-2">
                     {/* Button Place */}
-                    {!warehouseMode && ['CONFIRMED', 'IN_PRODUCTION'].includes(order.status) && canSimulate && (
-                        <Button
-                            onClick={handleSimulateProduction}
-                            disabled={isSimulating || isLoading}
-                            variant="secondary"
-                            className="bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-200"
-                        >
-                            <Factory className="mr-2 h-4 w-4" />
-                            {isSimulating ? "Simulating..." : "Simulate Production"}
-                        </Button>
-                    )}
+
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <>
                             <Button variant="outline" asChild>
@@ -547,97 +471,7 @@ export function SalesOrderDetailClient({
                 </div>
             </div>
             {/* MRP Simulation Dialog */}
-            <Dialog open={isSimulationOpen} onOpenChange={setIsSimulationOpen}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Production Simulation & MRP</DialogTitle>
-                        <DialogDescription>
-                            Material requirements analysis for Order {order.orderNumber}
-                        </DialogDescription>
-                    </DialogHeader>
 
-                    {simulationResult && (
-                        <div className="space-y-4">
-                            {simulationResult.missingBoms && simulationResult.missingBoms.length > 0 && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertTitle>Missing Bill of Materials (BOM)</AlertTitle>
-                                    <AlertDescription>
-                                        The following products do not have a default BOM defined. Please create a BOM before generating a production order:
-                                        <ul className="list-disc pl-5 mt-2">
-                                            {simulationResult.missingBoms.map(item => (
-                                                <li key={item.productVariantId}>{item.productName}</li>
-                                            ))}
-                                        </ul>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            {simulationResult.missingBoms && simulationResult.missingBoms.length === 0 && !simulationResult.canProduce && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertTitle>Material Shortage Detected</AlertTitle>
-                                    <AlertDescription>
-                                        Insufficient raw materials to fulfill this order immediately. Work Order will be created as <strong>WAITING_MATERIAL</strong>.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            {simulationResult.missingBoms && simulationResult.missingBoms.length === 0 && simulationResult.canProduce && (
-                                <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200">
-                                    <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                    <AlertTitle>Materials Available</AlertTitle>
-                                    <AlertDescription>
-                                        All required materials are in stock. Work Order will be created as <strong>DRAFT</strong>.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-
-                            <div className="border rounded-md overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted">
-                                        <tr>
-                                            <th className="p-2 text-left">Material</th>
-                                            <th className="p-2 text-right">Required</th>
-                                            <th className="p-2 text-right">Available</th>
-                                            <th className="p-2 text-right">Shortage</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {simulationResult.requirements.map((req, idx) => (
-                                            <tr key={idx} className={req.shortageQty > 0 ? "bg-red-50" : ""}>
-                                                <td className="p-2 font-medium">
-                                                    {req.materialName}
-                                                </td>
-                                                <td className="p-2 text-right">
-                                                    {Number(req.neededQty).toFixed(2)} {req.unit}
-                                                </td>
-                                                <td className="p-2 text-right">
-                                                    {Number(req.availableQty).toFixed(2)} {req.unit}
-                                                </td>
-                                                <td className={`p-2 text-right font-bold ${req.shortageQty > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                                                    {req.shortageQty > 0 ? `-${Number(req.shortageQty).toFixed(2)}` : "OK"}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsSimulationOpen(false)}>Close</Button>
-                        <Button
-                            onClick={handleGeneratePO}
-                            disabled={isLoading || (simulationResult?.missingBoms?.length ?? 0) > 0}
-                            variant={simulationResult?.canProduce ? "default" : "destructive"}
-                        >
-                            {isLoading ? "Generating..." : "Generate Work Order"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
 
 

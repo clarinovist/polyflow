@@ -1,6 +1,6 @@
 import { getPlanningDashboardStats } from '@/actions/planning-dashboard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Activity, AlertTriangle, CheckCircle2, Factory, Hammer, Settings2, Truck } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Factory, Hammer, Settings2, Truck, ClipboardCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,12 @@ export default async function PlanningDashboardPage() {
                     <Button asChild>
                         <Link href="/planning/schedule">
                             View Schedule
+                        </Link>
+                    </Button>
+                    <Button asChild className="bg-amber-600 hover:bg-amber-700">
+                        <Link href="/planning/requests">
+                            <ClipboardCheck className="mr-2 h-4 w-4" />
+                            Incoming Requests
                         </Link>
                     </Button>
                 </div>

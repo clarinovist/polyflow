@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+
 import { Loader2, AlertTriangle, Hammer, CheckCircle2, ArrowRight } from 'lucide-react';
 import { checkSalesOrderFulfillment } from '@/actions/sales';
-import { createProductionFromSalesOrder } from '@/actions/production';
-import { useRouter } from 'next/navigation';
+
 import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';
 
@@ -48,39 +46,28 @@ interface ProductionStatusCardProps {
 export function ProductionStatusCard({ salesOrderId, status: _status, productionOrders, items }: ProductionStatusCardProps) {
     const [shortages, setShortages] = useState<Shortage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isTriggering, setIsTriggering] = useState(false);
-    const router = useRouter();
-
-    const fetchShortages = useCallback(async () => {
-        setIsLoading(true);
-        const result = await checkSalesOrderFulfillment(salesOrderId);
-        if (result.success && result.data) {
-            setShortages(result.data.shortages);
-        }
-        setIsLoading(false);
-    }, [salesOrderId]);
 
     useEffect(() => {
-        fetchShortages();
-    }, [fetchShortages]);
-
-    const handleTriggerProduction = async (item: Shortage) => {
-        setIsTriggering(true);
-        try {
-            const result = await createProductionFromSalesOrder(salesOrderId, item.productVariantId, item.shortage);
-            if (result.success) {
-                toast.success("Work Order created successfully");
-                fetchShortages();
-                router.refresh();
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                toast.error((result as any).error || "Failed to trigger production");
+        let isMounted = true;
+        const fetchShortages = async () => {
+            setIsLoading(true);
+            const result = await checkSalesOrderFulfillment(salesOrderId);
+            if (isMounted) {
+                if (result.success && result.data) {
+                    setShortages(result.data.shortages);
+                }
+                setIsLoading(false);
             }
-        } catch (_error) {
-            toast.error("An error occurred while linking production");
-        } finally {
-            setIsTriggering(false);
-        }
-    };
+        };
+
+        fetchShortages();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [salesOrderId]);
+
+
 
     // Calculate overall production progress
     const totalPlanned = productionOrders.reduce((sum, po) => sum + Number(po.plannedQuantity), 0);
@@ -123,16 +110,7 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
                                                 <span className="text-red-500 dark:text-red-500 font-medium">Need: {s.shortage}</span>
                                             </div>
                                         </div>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50 dark:text-amber-400"
-                                            onClick={() => handleTriggerProduction(s)}
-                                            disabled={isTriggering}
-                                        >
-                                            {isTriggering ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Hammer className="mr-2 h-3 w-3" />}
-                                            Make {s.shortage}
-                                        </Button>
+
                                     </div>
                                 );
                             })}

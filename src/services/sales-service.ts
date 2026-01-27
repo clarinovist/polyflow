@@ -11,17 +11,36 @@ export class SalesService {
     /**
      * Get All Sales Orders (Optimized)
      */
-    static async getOrders(filters?: { customerId?: string }) {
+    static async getOrders(filters?: { customerId?: string, includeItems?: boolean }) {
         const where: Prisma.SalesOrderWhereInput = {};
         if (filters?.customerId) where.customerId = filters.customerId;
 
+        const include: Prisma.SalesOrderInclude = {
+            customer: true,
+            sourceLocation: true,
+            _count: {
+                select: {
+                    items: true,
+                    productionOrders: true
+                }
+            }
+        };
+
+        if (filters?.includeItems) {
+            include.items = {
+                include: {
+                    productVariant: {
+                        include: {
+                            product: true
+                        }
+                    }
+                }
+            };
+        }
+
         const orders = await prisma.salesOrder.findMany({
             where,
-            include: {
-                customer: true,
-                sourceLocation: true,
-                _count: { select: { items: true } }
-            },
+            include,
             orderBy: { orderDate: 'desc' }
         });
 
