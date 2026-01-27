@@ -124,6 +124,8 @@ model Location {
   movementsTo      StockMovement[]    @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
+  MaterialIssue    MaterialIssue[]
+  ScrapRecord      ScrapRecord[]
 }
 
 model Product {
@@ -385,6 +387,7 @@ model MaterialIssue {
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String
+  locationId        String?
   quantity          Decimal         @db.Decimal(15, 4)
   issuedAt          DateTime        @default(now())
   createdById       String?
@@ -393,12 +396,14 @@ model MaterialIssue {
   createdBy         User?           @relation(fields: [createdById], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  location          Location?       @relation(fields: [locationId], references: [id])
 }
 
 model ScrapRecord {
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String
+  locationId        String?
   quantity          Decimal         @db.Decimal(15, 4)
   reason            String?
   recordedAt        DateTime        @default(now())
@@ -406,6 +411,7 @@ model ScrapRecord {
   createdBy         User?           @relation(fields: [createdById], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  location          Location?       @relation(fields: [locationId], references: [id])
 }
 
 model QualityInspection {

@@ -92,8 +92,6 @@ export class ProductionMaterialService {
 
                 const remaining = Math.max(0, plannedQty - issuedSoFar);
 
-                // If planned exists, we cap it. If it's a "bonus" item not in plan, we might allow it (flexibility) 
-                // but usually PolyFlow follows the plan. For now, let's cap if plannedQty > 0.
                 let quantityToIssue = item.quantity;
                 if (plannedQty > 0 && quantityToIssue > remaining) {
                     console.warn(`Capping issue for ${item.productVariantId}: requested ${quantityToIssue}, available ${remaining}`);
@@ -117,7 +115,7 @@ export class ProductionMaterialService {
                     });
 
                     if (batches.length === 0) {
-                        // Fallback: Check if there's stock without batch record (not recommended but for safety)
+                        // Fallback: Check if there's stock without batch record
                         await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, remainingToDeduct);
                         await InventoryService.deductStock(tx, locationId, item.productVariantId, remainingToDeduct);
 
@@ -126,6 +124,7 @@ export class ProductionMaterialService {
                                 productionOrderId,
                                 productVariantId: item.productVariantId,
                                 quantity: remainingToDeduct,
+                                locationId, // SAVED: Direct location tracking
                                 createdById: userId
                             }
                         });
@@ -166,6 +165,7 @@ export class ProductionMaterialService {
                                     productVariantId: item.productVariantId,
                                     quantity: deductFromBatch,
                                     batchId: batch.id,
+                                    locationId, // SAVED: Direct location tracking
                                     createdById: userId
                                 }
                             });
@@ -214,6 +214,7 @@ export class ProductionMaterialService {
                             productVariantId: item.productVariantId,
                             quantity: remainingToDeduct,
                             batchId: item.batchId,
+                            locationId, // SAVED: Direct location tracking
                             createdById: userId
                         }
                     });
@@ -290,7 +291,8 @@ export class ProductionMaterialService {
                     productVariantId,
                     quantity,
                     createdById: userId,
-                    batchId: batchId
+                    batchId,
+                    locationId // SAVED: Direct location tracking
                 }
             });
             issueId = issue.id;
@@ -308,17 +310,28 @@ export class ProductionMaterialService {
             });
             if (!issue) throw new Error("Material Issue record not found");
 
-            const refundLocation = await tx.location.findUnique({
-                where: { slug: 'raw_material_warehouse' }
-            });
-            if (!refundLocation) throw new Error("Could not determine refund location (Raw Material Warehouse not found)");
+            // ROBUST: Use saved locationId or fallback to rm_warehouse slug only if record is old (NULL locationId)
+            let refundLocationId = issue.locationId;
+            if (!refundLocationId) {
+                const legacyLoc = await tx.location.findUnique({ where: { slug: 'rm_warehouse' } }); // CORRECTED SLUG
+                if (!legacyLoc) throw new Error("Could not determine refund location (rm_warehouse slug not found)");
+                refundLocationId = legacyLoc.id;
+            }
 
             await InventoryService.incrementStock(
                 tx,
-                refundLocation.id,
+                refundLocationId,
                 issue.productVariantId,
                 issue.quantity.toNumber()
             );
+
+            // Re-increment batch if it existed
+            if (issue.batchId) {
+                await tx.batch.update({
+                    where: { id: issue.batchId },
+                    data: { quantity: { increment: issue.quantity } }
+                });
+            }
 
             // Fetch orderNumber for tracking
             const order = await tx.productionOrder.findUnique({
@@ -330,9 +343,10 @@ export class ProductionMaterialService {
                 data: {
                     type: MovementType.IN,
                     productVariantId: issue.productVariantId,
-                    toLocationId: refundLocation.id,
+                    toLocationId: refundLocationId,
                     quantity: issue.quantity,
-                    reference: `VOID Issue: ${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `VOID Issue: ${order?.orderNumber || 'UNKNOWN'}`,
+                    batchId: issue.batchId
                 }
             });
 
@@ -372,7 +386,7 @@ export class ProductionMaterialService {
             });
 
             const scrap = await tx.scrapRecord.create({
-                data: { productionOrderId, productVariantId, quantity, reason, createdById: userId }
+                data: { productionOrderId, productVariantId, quantity, reason, createdById: userId, locationId }
             });
             scrapId = scrap.id;
         });
@@ -391,26 +405,29 @@ export class ProductionMaterialService {
 
             if (!scrap) throw new Error("Scrap record not found");
 
-            // We need to determine the location where it was scrapped.
-            const movement = await tx.stockMovement.findFirst({
-                where: {
-                    productVariantId: scrap.productVariantId,
-                    reference: { contains: `${productionOrderId}` },
-                    type: MovementType.IN,
-                    quantity: scrap.quantity
-                },
-                orderBy: { createdAt: 'desc' }
-            });
+            // ROBUST: Use saved locationId
+            let locationId = scrap.locationId;
+            if (!locationId) {
+                // Legacy fallback: determine from StockMovement
+                const movement = await tx.stockMovement.findFirst({
+                    where: {
+                        productVariantId: scrap.productVariantId,
+                        reference: { contains: `${productionOrderId}` },
+                        type: MovementType.IN,
+                        quantity: scrap.quantity
+                    },
+                    orderBy: { createdAt: 'desc' }
+                });
+                locationId = movement?.toLocationId ?? null;
+            }
 
-            const locationId = movement?.toLocationId;
             if (!locationId) {
                 const scrapLoc = await tx.location.findUnique({ where: { slug: 'scrap_warehouse' } });
                 if (!scrapLoc) throw new Error("Could not determine location to reverse scrap from.");
-
-                await InventoryService.deductStock(tx, scrapLoc.id, scrap.productVariantId, scrap.quantity.toNumber());
-            } else {
-                await InventoryService.deductStock(tx, locationId, scrap.productVariantId, scrap.quantity.toNumber());
+                locationId = scrapLoc.id;
             }
+
+            await InventoryService.deductStock(tx, locationId, scrap.productVariantId, scrap.quantity.toNumber());
 
             const order = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },
@@ -421,7 +438,7 @@ export class ProductionMaterialService {
                 data: {
                     type: MovementType.OUT,
                     productVariantId: scrap.productVariantId,
-                    fromLocationId: locationId || 'UNKNOWN',
+                    fromLocationId: locationId,
                     quantity: scrap.quantity,
                     reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`
                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
