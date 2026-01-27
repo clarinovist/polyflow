@@ -60,25 +60,25 @@ export default function WarehouseRefreshWrapper({
 
     // --- Main Content UI ---
     return (
-        <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50">
+        <div className="flex-1 flex flex-col min-h-0 bg-background/50">
             {/* Action Bar */}
-            <div className="bg-white border-b px-4 py-3 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
+            <div className="bg-card border-b px-4 py-3 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
                 <div className="relative w-full sm:max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                         placeholder={t('searchPlaceholder')}
-                        className="pl-10 h-10 shadow-inner bg-slate-50/50"
+                        className="pl-10 h-10 shadow-inner bg-muted/50 border-none"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
 
                 <div className="flex items-center gap-3 self-end sm:self-auto">
-                    <div className="flex items-center gap-3 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
+                    <div className="flex items-center gap-3 bg-blue-500/10 px-3 py-1.5 rounded-full border border-blue-500/20">
                         <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
                             {sessionUser?.name?.charAt(0) || 'U'}
                         </div>
-                        <span className="text-xs font-bold text-blue-800">{sessionUser?.name || 'User'}</span>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{sessionUser?.name || 'User'}</span>
                     </div>
                 </div>
             </div>
@@ -87,11 +87,11 @@ export default function WarehouseRefreshWrapper({
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 <div className="max-w-5xl mx-auto">
                     <div className="mb-4 flex items-center justify-between">
-                        <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-4 bg-orange-500 rounded-full" />
                             {t('releasedOrdersQueue')}
                         </h2>
-                        <span className="text-xs font-medium text-slate-400">{t('ordersFound', { count: filteredOrders.length })}</span>
+                        <span className="text-xs font-medium text-muted-foreground/60">{t('ordersFound', { count: filteredOrders.length })}</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">

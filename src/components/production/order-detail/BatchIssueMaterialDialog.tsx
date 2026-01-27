@@ -197,8 +197,8 @@ export function BatchIssueMaterialDialog({
                                                 <div className="flex items-center gap-2">
                                                     <Package className="w-4 h-4 text-muted-foreground" />
                                                     <div className="flex flex-col">
-                                                        <span className={cn("font-medium", item.isDeletedPlan && "line-through")}>{item.name}</span>
-                                                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Planned</span>
+                                                        <span className={cn("font-medium text-foreground", item.isDeletedPlan && "line-through")}>{item.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Planned</span>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -213,7 +213,7 @@ export function BatchIssueMaterialDialog({
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
-                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Substitute</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Substitute</span>
                                                 </div>
                                             )}
                                         </td>
@@ -227,7 +227,7 @@ export function BatchIssueMaterialDialog({
                                                     value={item.quantity || ''}
                                                     onChange={(e) => handleUpdateQty(item.id, Number(e.target.value))}
                                                 />
-                                                <span className="text-slate-500 w-10 text-xs font-bold">{item.unit || '-'}</span>
+                                                <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
                                             </div>
                                             <div className="mt-1">
                                                 <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Auto-FIFO Active</span>

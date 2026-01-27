@@ -34,15 +34,15 @@ export default async function WarehouseLayout({
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 flex">
+        <div className="min-h-screen bg-background flex text-foreground">
             {/* Dedicated Warehouse Sidebar */}
             <WarehouseSidebar user={user} />
 
             <div className="flex-1 flex flex-col ml-64 min-h-screen">
                 {/* Simplified Header for Utility (Clock, Context) */}
-                <header className="sticky top-0 z-30 w-full border-b bg-white/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
+                <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div>
-                        <h1 className="text-md font-bold text-slate-800">Warehouse Workspace</h1>
+                        <h1 className="text-md font-bold">Warehouse Workspace</h1>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">PolyFlow ERP</p>
                     </div>
 
