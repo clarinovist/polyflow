@@ -121,7 +121,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
         '/production/resources',
         '/production/history',
     ],
-    PPIC: [
+    PLANNING: [
         '/dashboard',
         '/production/orders',
         '/dashboard/boms',

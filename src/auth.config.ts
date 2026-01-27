@@ -63,7 +63,7 @@ export const authConfig = {
                                 const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
                                 return Response.redirect(new URL(`${prefix}/production`, nextUrl));
                             }
-                        } else if (userRole === 'FINANCE' || userRole === 'SALES' || userRole === 'PPIC') {
+                        } else if (userRole === 'FINANCE' || userRole === 'SALES' || userRole === 'PLANNING') {
                             // These roles stay in /dashboard, but should be blocked from /warehouse and /production
                             if (isOnWarehouse || isOnProduction) {
                                 const locale = nextUrl.pathname.split('/')[1];

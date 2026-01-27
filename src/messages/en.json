@@ -11,7 +11,7 @@
         "purchaseOrders": "Purchase Orders",
         "purchaseInvoices": "Purchase Invoices",
         "procAnalytics": "Procurement Analytics",
-        "ppic": "PPIC & Manufacturing",
+        "ppic": "Planning & Manufacturing",
         "prodOrders": "Work Orders",
         "prodSchedule": "Production Schedule",
         "materialPlanning": "Material Planning",
@@ -150,7 +150,7 @@
             "activeJobs": "Active Jobs",
             "onMachines": "Currently on machines",
             "waitForDispatch": "Wait for Dispatch",
-            "releasedFromPpic": "Released from PPIC",
+            "releasedFromPlanning": "Released from Planning",
             "completedToday": "Completed Today",
             "shiftPerformance": "Shift performance",
             "systemAlerts": "System Alerts",
@@ -251,8 +251,8 @@
                 "title": "Production",
                 "description": "Work orders and execution tracking."
             },
-            "PPIC": {
-                "title": "PPIC",
+            "PLANNING": {
+                "title": "Planning",
                 "description": "Production planning and inventory control."
             },
             "SALES": {

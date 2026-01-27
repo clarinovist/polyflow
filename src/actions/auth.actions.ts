@@ -21,7 +21,7 @@ export async function authenticate(
         else if (roleStr === 'PRODUCTION') targetUrl = '/production';
         else if (roleStr === 'SALES') targetUrl = '/sales';
         else if (roleStr === 'FINANCE') targetUrl = '/finance';
-        else if (roleStr === 'PPIC' || roleStr === 'PROCUREMENT') targetUrl = '/planning';
+        else if (roleStr === 'PLANNING' || roleStr === 'PROCUREMENT') targetUrl = '/planning';
         else targetUrl = '/dashboard';
 
         const remember = formData.get('remember') === 'on';

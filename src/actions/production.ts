@@ -62,8 +62,8 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 
     try {
         const session = await auth();
-        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can create work orders' };
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PLANNING') {
+            return { success: false, error: 'Unauthorized: Only Planning can create work orders' };
         }
 
         const order = await ProductionService.createOrder({ ...result.data, userId: session.user.id });
@@ -230,8 +230,8 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
 
     try {
         const session = await auth();
-        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can update work orders' };
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PLANNING') {
+            return { success: false, error: 'Unauthorized: Only Planning can update work orders' };
         }
 
         await ProductionService.updateOrder(result.data);
@@ -252,8 +252,8 @@ export async function deleteProductionOrder(id: string) {
 
     try {
         const session = await auth();
-        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can delete work orders' };
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PLANNING') {
+            return { success: false, error: 'Unauthorized: Only Planning can delete work orders' };
         }
 
         await ProductionService.deleteOrder(id);
@@ -571,8 +571,8 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
 export async function createProductionFromSalesOrder(salesOrderId: string, productVariantId?: string, quantity?: number) {
     try {
         const session = await auth();
-        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can trigger work orders' };
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PLANNING') {
+            return { success: false, error: 'Unauthorized: Only Planning can trigger work orders' };
         }
 
         if (productVariantId && quantity) {

@@ -11,7 +11,7 @@
         "purchaseOrders": "Order Pembelian",
         "purchaseInvoices": "Faktur Pembelian",
         "procAnalytics": "Analisis Pengadaan",
-        "ppic": "PPIC & Manufaktur",
+        "ppic": "Perencanaan & Manufaktur",
         "prodOrders": "Work Order",
         "prodSchedule": "Jadwal Produksi",
         "materialPlanning": "Perencanaan Material (MRP)",
@@ -151,7 +151,7 @@
             "activeJobs": "Pekerjaan Aktif",
             "onMachines": "Sedang di mesin",
             "waitForDispatch": "Menunggu Pengiriman",
-            "releasedFromPpic": "Dilepas dari PPIC",
+            "releasedFromPlanning": "Dilepas dari Planning",
             "completedToday": "Selesai Hari Ini",
             "shiftPerformance": "Kinerja shift",
             "systemAlerts": "Peringatan Sistem",
@@ -252,8 +252,8 @@
                 "title": "Produksi",
                 "description": "Work order dan pelacakan eksekusi."
             },
-            "PPIC": {
-                "title": "PPIC",
+            "PLANNING": {
+                "title": "Perencanaan",
                 "description": "Perencanaan produksi dan kontrol inventaris."
             },
             "SALES": {

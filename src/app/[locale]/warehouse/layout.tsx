@@ -27,7 +27,7 @@ export default async function WarehouseLayout({
     const isAuthorized = user.role === 'ADMIN' ||
         user.role === 'PRODUCTION' ||
         user.role === 'WAREHOUSE' ||
-        user.role === 'PPIC';
+        user.role === 'PLANNING';
 
     if (!isAuthorized) {
         redirect(`/${locale}/dashboard`);

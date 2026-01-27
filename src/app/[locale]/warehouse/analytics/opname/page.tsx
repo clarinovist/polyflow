@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 
 export default async function OpnameListPage() {
     try {
-        await requireRole([Role.WAREHOUSE, Role.PRODUCTION, Role.PPIC]);
+        await requireRole([Role.WAREHOUSE, Role.PRODUCTION, Role.PLANNING]);
     } catch (_) {
         // If user is not authorized, redirect to dashboard for safety
         redirect('/dashboard');

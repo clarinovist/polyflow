@@ -193,7 +193,7 @@ export function UsersTab() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ADMIN">Admin</SelectItem>
-                                        <SelectItem value="PPIC">PPIC</SelectItem>
+                                        <SelectItem value="PLANNING">Planning</SelectItem>
                                         <SelectItem value="WAREHOUSE">Warehouse</SelectItem>
                                         <SelectItem value="PRODUCTION">Production</SelectItem>
                                         <SelectItem value="SALES">Sales</SelectItem>
@@ -317,7 +317,7 @@ export function UsersTab() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="ADMIN">Admin</SelectItem>
-                                                <SelectItem value="PPIC">PPIC</SelectItem>
+                                                <SelectItem value="PLANNING">Planning</SelectItem>
                                                 <SelectItem value="WAREHOUSE">Warehouse</SelectItem>
                                                 <SelectItem value="PRODUCTION">Production</SelectItem>
                                                 <SelectItem value="SALES">Sales</SelectItem>

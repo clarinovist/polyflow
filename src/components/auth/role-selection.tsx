@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
-export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PPIC' | 'SALES' | 'FINANCE' | 'KIOSK';
+export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PLANNING' | 'SALES' | 'FINANCE' | 'KIOSK';
 
 interface RoleOption {
     id: RoleType;
@@ -46,9 +46,9 @@ const roles: RoleOption[] = [
         color: 'text-emerald-500 bg-emerald-500/10'
     },
     {
-        id: 'PPIC',
-        titleKey: 'PPIC.title',
-        descriptionKey: 'PPIC.description',
+        id: 'PLANNING',
+        titleKey: 'PLANNING.title',
+        descriptionKey: 'PLANNING.description',
         icon: ClipboardList,
         color: 'text-purple-500 bg-purple-500/10'
     },

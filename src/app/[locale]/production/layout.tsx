@@ -26,7 +26,7 @@ export default async function ProductionLayout({
     // Check for PRODUCTION, PPIC, or ADMIN role
     const isAuthorized = user.role === 'ADMIN' ||
         user.role === 'PRODUCTION' ||
-        user.role === 'PPIC';
+        user.role === 'PLANNING';
 
     if (!isAuthorized) {
         redirect(`/${locale}/dashboard`);

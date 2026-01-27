@@ -18,7 +18,7 @@ export default async function PlanningLayout({
 
     // Allow PPIC, PROCUREMENT, and ADMIN roles
     const role = session.user.role?.toUpperCase();
-    const allowedRoles = ['PPIC', 'PROCUREMENT', 'ADMIN'];
+    const allowedRoles = ['PLANNING', 'PROCUREMENT', 'ADMIN'];
     if (!role || !allowedRoles.includes(role)) {
         redirect(`/${locale}/dashboard?error=Unauthorized`);
     }
