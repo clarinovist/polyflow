@@ -441,6 +441,8 @@ model ProductionExecution {
   shiftId           String?
   quantityProduced  Decimal         @db.Decimal(15, 4)
   scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
+  scrapProngkolQty  Decimal         @default(0) @db.Decimal(15, 4)
+  scrapDaunQty      Decimal         @default(0) @db.Decimal(15, 4)
   startTime         DateTime
   endTime           DateTime?
   notes             String?
