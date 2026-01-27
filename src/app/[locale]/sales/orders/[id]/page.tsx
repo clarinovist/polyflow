@@ -9,8 +9,12 @@ interface PageProps {
     }>;
 }
 
+import { auth } from '@/auth';
+
 export default async function SalesOrderDetailPage({ params }: PageProps) {
     const { id } = await params;
+    const session = await auth();
+    const currentUserRole = session?.user?.role;
     const order = await getSalesOrderById(id);
 
     if (!order) {
@@ -23,7 +27,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
     return (
         <div className="p-6 max-w-5xl mx-auto">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <SalesOrderDetailClient order={serializedOrder as any} />
+            <SalesOrderDetailClient order={serializedOrder as any} currentUserRole={currentUserRole} />
         </div>
     );
 }

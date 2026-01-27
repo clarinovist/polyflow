@@ -118,14 +118,18 @@ interface SalesOrderDetailClientProps {
     order: SerializedSalesOrder;
     basePath?: string;
     warehouseMode?: boolean;
+    currentUserRole?: string;
 }
 export function SalesOrderDetailClient({
     order,
     basePath = '/sales',
-    warehouseMode = false
+    warehouseMode = false,
+    currentUserRole
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+
+    const canSimulate = currentUserRole ? ['ADMIN', 'PPIC'].includes(currentUserRole) : false;
 
     // MRP Simulation State
     const [isSimulating, setIsSimulating] = useState(false);
@@ -288,7 +292,7 @@ export function SalesOrderDetailClient({
 
                 <div className="flex gap-2">
                     {/* Button Place */}
-                    {!warehouseMode && ['CONFIRMED', 'IN_PRODUCTION'].includes(order.status) && (
+                    {!warehouseMode && ['CONFIRMED', 'IN_PRODUCTION'].includes(order.status) && canSimulate && (
                         <Button
                             onClick={handleSimulateProduction}
                             disabled={isSimulating || isLoading}
