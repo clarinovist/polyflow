@@ -63,10 +63,10 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
     try {
         const session = await auth();
         if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can create production orders' };
+            return { success: false, error: 'Unauthorized: Only PPIC can create work orders' };
         }
 
-        const order = await ProductionService.createOrder(result.data);
+        const order = await ProductionService.createOrder({ ...result.data, userId: session.user.id });
 
         revalidatePath('/production');
         revalidatePath('/sales');
@@ -231,7 +231,7 @@ export async function updateProductionOrder(data: UpdateProductionOrderValues) {
     try {
         const session = await auth();
         if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can update production orders' };
+            return { success: false, error: 'Unauthorized: Only PPIC can update work orders' };
         }
 
         await ProductionService.updateOrder(result.data);
@@ -253,7 +253,7 @@ export async function deleteProductionOrder(id: string) {
     try {
         const session = await auth();
         if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can delete production orders' };
+            return { success: false, error: 'Unauthorized: Only PPIC can delete work orders' };
         }
 
         await ProductionService.deleteOrder(id);
@@ -412,7 +412,8 @@ export async function recordQualityInspection(data: QualityInspectionValues) {
     }
 
     try {
-        await ProductionService.recordQualityInspection(result.data);
+        const session = await auth();
+        await ProductionService.recordQualityInspection({ ...result.data, userId: session?.user?.id });
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
     } catch (error) {
@@ -443,7 +444,8 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
     }
 
     try {
-        await ProductionService.batchIssueMaterials(result.data);
+        const session = await auth();
+        await ProductionService.batchIssueMaterials({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
@@ -463,7 +465,8 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
     }
 
     try {
-        await ProductionService.recordMaterialIssue(result.data);
+        const session = await auth();
+        await ProductionService.recordMaterialIssue({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
@@ -496,7 +499,8 @@ export async function recordScrap(data: ScrapRecordValues) {
     }
 
     try {
-        await ProductionService.recordScrap(result.data);
+        const session = await auth();
+        await ProductionService.recordScrap({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
@@ -567,7 +571,7 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
     try {
         const session = await auth();
         if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PPIC') {
-            return { success: false, error: 'Unauthorized: Only PPIC can trigger production orders' };
+            return { success: false, error: 'Unauthorized: Only PPIC can trigger work orders' };
         }
 
         if (productVariantId && quantity) {
@@ -585,7 +589,7 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
         revalidatePath('/sales');
         return serializeData(result);
     } catch (error) {
-        console.error("Create PO from SO Error:", error);
+        console.error("Create WO from SO Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to trigger production" };
     }
 }

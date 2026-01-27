@@ -20,18 +20,18 @@ const handler = auth((req) => {
 	console.log(`[PROXY] Incoming request: ${req.nextUrl.pathname}`);
 	console.log(`[PROXY] Auth status: ${!!req.auth ? 'Authenticated' : 'Not Authenticated'}`);
 	if (req.auth?.user) {
-		console.log(`[PROXY] User Role: ${(req.auth.user as any).role}`);
+		console.log(`[PROXY] User Role: ${req.auth.user.role}`);
 	}
 
 	const response = intlMiddleware(req);
-	
+
 	if (response) {
 		console.log(`[PROXY] Intl response status: ${response.status}`);
 		if (response.headers.has('location')) {
 			console.log(`[PROXY] Intl Redirect -> ${response.headers.get('location')}`);
 		}
 	}
-	
+
 	return response;
 });
 

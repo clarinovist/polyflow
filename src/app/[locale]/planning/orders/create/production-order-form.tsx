@@ -19,7 +19,7 @@ function generateOrderNumber(processType: string) {
     const dateStr = format(new Date(), 'yyMMdd');
     const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : 'PCK';
     const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-    return `PO-${dateStr}-${typeCode}${randomDigits}`;
+    return `WO-${dateStr}-${typeCode}${randomDigits}`;
 }
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -295,7 +295,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
             setIsSubmitting(false);
 
             if (response.success && response.data) {
-                toast.success("Production Order Created", {
+                toast.success("Work Order Created", {
                     description: `Order ${response.data.orderNumber} has been created successfully.`,
                 });
                 router.push(`/planning/orders/${response.data.id}`);

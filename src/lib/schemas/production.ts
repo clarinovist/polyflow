@@ -34,6 +34,7 @@ export const materialIssueSchema = z.object({
     productVariantId: z.string().min(1, "Material variant is required"),
     locationId: z.string().min(1, "Source location is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
+    batchId: z.string().optional(),
 });
 
 export const scrapRecordSchema = z.object({
@@ -63,6 +64,7 @@ export const batchMaterialIssueSchema = z.object({
         productVariantId: z.string(),
         quantity: z.coerce.number().nonnegative()
     })).optional(),
+    requestId: z.string().optional(), // NEW: Idempotency support
 });
 
 export type CreateProductionOrderValues = z.infer<typeof createProductionOrderSchema>;

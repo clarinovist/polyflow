@@ -29,10 +29,10 @@ export function ProductionGlossary() {
                         <DialogHeader className="pb-3 pr-10">
                             <DialogTitle className="flex items-center gap-2">
                                 <Info className="h-5 w-5 text-blue-600" />
-                                Production Module - Field Guide
+                                Work Order Guide
                             </DialogTitle>
                             <DialogDescription>
-                                Complete reference for production workflows and terminology
+                                Complete reference for work order workflows and terminology
                             </DialogDescription>
                         </DialogHeader>
 
@@ -49,14 +49,14 @@ export function ProductionGlossary() {
                         <TabsContent value="overview" className="space-y-6 mt-6 pb-6">
                             <GlossarySection
                                 icon={Factory}
-                                title="Production Order"
+                                title="Work Order"
                                 description="Manufacturing job that tracks production from planning to completion"
                             >
                                 <div className="space-y-4">
                                     <GlossaryItem
                                         term="Order Number"
-                                        description="Unique identifier for each production job (auto-generated or manual)"
-                                        example="PO-20260105-001"
+                                        description="Unique identifier for each manufacturing job (auto-generated or manual)"
+                                        example="WO-20260105-001"
                                     />
                                     <GlossaryItem
                                         term="BOM (Bill of Materials)"
@@ -140,7 +140,7 @@ export function ProductionGlossary() {
                         {/* Status Flow Tab */}
                         <TabsContent value="status" className="space-y-6 mt-6">
                             <div className="bg-slate-50 p-6 rounded-lg border">
-                                <h3 className="font-semibold text-lg mb-4">Production Order Lifecycle</h3>
+                                <h3 className="font-semibold text-lg mb-4">Work Order Lifecycle</h3>
                                 <div className="space-y-3">
                                     <StatusFlowItem
                                         status="DRAFT"
@@ -219,7 +219,7 @@ export function ProductionGlossary() {
                                         <li>Material consumption is recorded</li>
                                         <li>Inventory stock is automatically reduced</li>
                                         <li>Stock movement (OUT) is created for audit trail</li>
-                                        <li>Linked to production order for tracking</li>
+                                        <li>Linked to work order for tracking</li>
                                     </ol>
                                 </div>
                                 <div className="space-y-4">
@@ -289,7 +289,7 @@ export function ProductionGlossary() {
                                     </div>
                                 </div>
                                 <p className="text-xs text-slate-600 italic mt-3">
-                                    * Each stage requires its own production order and BOM<br />
+                                    * Each stage requires its own work order and BOM<br />
                                     * Transfer material between locations as needed
                                 </p>
                             </div>
@@ -361,7 +361,7 @@ export function ProductionGlossary() {
                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                                 <div className="text-sm text-blue-800">
                                     <span className="font-semibold">Note:</span> Multiple inspections can be recorded
-                                    for a single production order. Include inspector name and timestamp for accountability.
+                                    for a single work order. Include inspector name and timestamp for accountability.
                                 </div>
                             </div>
                         </TabsContent>

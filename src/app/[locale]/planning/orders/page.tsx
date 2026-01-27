@@ -18,8 +18,8 @@ export default async function ProductionOrdersPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-foreground">Production Orders</h1>
-                    <p className="text-muted-foreground mt-1">Manage and track all production jobs</p>
+                    <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
+                    <p className="text-muted-foreground mt-2">Plan a new manufacturing job</p>
                 </div>
                 <Link href="/planning/orders/create" className="w-full sm:w-auto">
                     <Button className="w-full sm:w-auto gap-2">

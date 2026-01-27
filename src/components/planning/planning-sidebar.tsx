@@ -31,7 +31,7 @@ const planningLinks = [
     {
         heading: 'Production Planning',
         items: [
-            { href: '/planning/orders', icon: Factory, label: 'Production Orders' },
+            { href: '/planning/orders', icon: Factory, label: 'Work Orders' },
             { href: '/planning/schedule', icon: Calendar, label: 'Production Schedule' },
             { href: '/planning/mrp', icon: FileText, label: 'Material Requirements' },
         ],

@@ -215,7 +215,7 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                         ) : (
                             <>
                                 <p className="text-2xl font-bold">NO JOBS READY FOR PRODUCTION</p>
-                                <p className="text-lg">Waiting for SPK release from PPIC office.</p>
+                                <p className="text-lg">Waiting for Work Order release from PPIC office.</p>
                             </>
                         )}
                     </div>

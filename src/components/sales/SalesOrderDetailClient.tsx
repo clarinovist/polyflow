@@ -188,7 +188,7 @@ export function SalesOrderDetailClient({
             if (result.success) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const data = result as any;
-                toast.success(`Production Order(s) created! Status: ${data.status}`);
+                toast.success(`Work Order(s) created! Status: ${data.status}`);
                 // Redirect to production dashboard or refreshing creates the link in sidebar
                 setIsSimulationOpen(false);
                 router.push('/production');
@@ -197,7 +197,7 @@ export function SalesOrderDetailClient({
                 toast.error((result as any).error);
             }
         } catch (_error) {
-            toast.error("Failed to generate PO");
+            toast.error("Failed to generate Work Order");
         } finally {
             setIsLoading(false);
         }
@@ -574,7 +574,7 @@ export function SalesOrderDetailClient({
                                     <AlertCircle className="h-4 w-4" />
                                     <AlertTitle>Material Shortage Detected</AlertTitle>
                                     <AlertDescription>
-                                        Insufficient raw materials to fulfill this order immediately. Production Order will be created as <strong>WAITING_MATERIAL</strong>.
+                                        Insufficient raw materials to fulfill this order immediately. Work Order will be created as <strong>WAITING_MATERIAL</strong>.
                                     </AlertDescription>
                                 </Alert>
                             )}
@@ -584,7 +584,7 @@ export function SalesOrderDetailClient({
                                     <CheckCircle className="h-4 w-4 text-emerald-600" />
                                     <AlertTitle>Materials Available</AlertTitle>
                                     <AlertDescription>
-                                        All required materials are in stock. Production Order will be created as <strong>DRAFT</strong>.
+                                        All required materials are in stock. Work Order will be created as <strong>DRAFT</strong>.
                                     </AlertDescription>
                                 </Alert>
                             )}
@@ -629,7 +629,7 @@ export function SalesOrderDetailClient({
                             disabled={isLoading || (simulationResult?.missingBoms?.length ?? 0) > 0}
                             variant={simulationResult?.canProduce ? "default" : "destructive"}
                         >
-                            {isLoading ? "Generating..." : "Generate Production Order"}
+                            {isLoading ? "Generating..." : "Generate Work Order"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

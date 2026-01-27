@@ -7,8 +7,8 @@ import { ProductionStatus, PurchaseOrderStatus } from '@prisma/client';
 export async function getWarehouseDashboardStats() {
     await requireAuth();
 
-    // 1. Pending Material Issues (For Production)
-    // Production Orders that are Released/InProgress
+    // 1. Pending Material Issues (For Work Order)
+    // Work Orders that are Released/InProgress
     const pendingProductionCount = await prisma.productionOrder.count({
         where: {
             status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] }

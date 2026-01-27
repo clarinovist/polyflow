@@ -51,7 +51,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
     const logs = await prisma.stockMovement.findMany({
         where: {
             reference: {
-                in: orderNumbers.map(n => `Production Partial Output: PO-${n}`)
+                in: orderNumbers.map(n => `Production Partial Output: WO#${n}`)
             }
         },
         orderBy: { createdAt: 'desc' }
@@ -61,7 +61,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
     const ordersWithLogs = filteredOrders.map(order => ({
         ...order,
         outputLogs: logs
-            .filter(l => l.reference === `Production Partial Output: PO-${order.orderNumber}`)
+            .filter(l => l.reference === `Production Partial Output: WO#${order.orderNumber}`)
             .map(l => ({
                 id: l.id,
                 quantity: l.quantity.toNumber(),

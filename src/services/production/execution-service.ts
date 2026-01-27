@@ -145,7 +145,7 @@ export class ProductionExecutionService {
                     toLocationId: locationId,
                     quantity: quantityProduced,
                     cost: unitCost,
-                    reference: `Production Partial Output: PO-${order.orderNumber}`,
+                    reference: `Production Partial Output: WO#${order.orderNumber}`,
                 }
             });
 
@@ -181,7 +181,7 @@ export class ProductionExecutionService {
                                 productVariantId: item.productVariantId,
                                 fromLocationId: locationId,
                                 quantity: qtyToDeduct,
-                                reference: `Backflush (Partial): PO-${order.orderNumber}`
+                                reference: `Backflush (Partial): WO#${order.orderNumber}`
                             }
                         });
                     }
@@ -261,7 +261,7 @@ export class ProductionExecutionService {
                     toLocationId: locationId,
                     quantity: quantityProduced,
                     cost: unitCost,
-                    reference: `Production Output: PO-${order.orderNumber}`,
+                    reference: `Production Output: WO#${order.orderNumber}`,
                 }
             });
 
@@ -292,7 +292,7 @@ export class ProductionExecutionService {
                                 productVariantId: item.productVariantId,
                                 fromLocationId: locationId,
                                 quantity: qtyToDeduct,
-                                reference: `Backflush (Batch): PO-${order.orderNumber}`
+                                reference: `Backflush (Batch): WO#${order.orderNumber}`
                             }
                         });
                     }

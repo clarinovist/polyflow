@@ -148,17 +148,17 @@ export class ProductionOrderService {
     /**
      * Create a new Production Order
      */
-    static async createOrder(data: CreateProductionOrderValues) {
+    static async createOrder(data: CreateProductionOrderValues & { userId?: string }) {
         const {
             bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-            locationId, orderNumber, notes, salesOrderId
+            locationId, orderNumber, notes, salesOrderId, userId
         } = data;
 
         return await prisma.$transaction(async (tx) => {
             // 1. Create Order
             const newOrder = await tx.productionOrder.create({
                 data: {
-                    orderNumber: orderNumber || `PO-${Date.now()}`,
+                    orderNumber: orderNumber || `WO-${Date.now()}`,
                     bomId,
                     plannedQuantity,
                     plannedStartDate,
@@ -167,7 +167,8 @@ export class ProductionOrderService {
                     notes,
                     status: ProductionStatus.DRAFT,
                     actualQuantity: 0,
-                    salesOrderId: salesOrderId || null
+                    salesOrderId: salesOrderId || null,
+                    createdById: userId
                 }
             });
 

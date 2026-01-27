@@ -34,7 +34,7 @@ export default async function CostingDashboardPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Production Orders Cost Sheet</CardTitle>
+                    <CardTitle>Work Orders Cost Sheet</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>

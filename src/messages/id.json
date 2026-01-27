@@ -12,7 +12,7 @@
         "purchaseInvoices": "Faktur Pembelian",
         "procAnalytics": "Analisis Pengadaan",
         "ppic": "PPIC & Manufaktur",
-        "prodOrders": "Perintah Produksi",
+        "prodOrders": "Work Order",
         "prodSchedule": "Jadwal Produksi",
         "materialPlanning": "Perencanaan Material (MRP)",
         "prodAnalytics": "Analisis Produksi",
@@ -69,7 +69,7 @@
             "quickActions": "Aksi Cepat",
             "logDowntime": "Catat Waktu Henti",
             "recordScrap": "Catat Scrap/Output",
-            "newOrder": "Order Produksi Baru",
+            "newOrder": "Work Order Baru",
             "addProduct": "Tambah Produk"
         }
     },
@@ -172,7 +172,7 @@
         },
         "dispatch": {
             "title": "Pengiriman Tugas",
-            "subtitle": "Kelola SPK aktif dan penugasan lantai.",
+            "subtitle": "Kelola Work Order aktif dan penugasan lantai.",
             "noOrders": "Tidak ada pesanan yang menunggu pengiriman.",
             "manageDetail": "Kelola Detail",
             "shortcuts": "Pintasan Pengiriman",
@@ -196,11 +196,11 @@
             "subtitle": "Status langsung dari semua aset produksi di lantai.",
             "runningJob": "Pekerjaan Sedang Berjalan",
             "operatorLabel": "Operator:",
-            "idle": "Diam / Menunggu SPK"
+            "idle": "Diam / Menunggu Work Order"
         }
     },
     "warehouse": {
-        "searchPlaceholder": "Cari SPK atau Produk...",
+        "searchPlaceholder": "Cari Work Order atau Produk...",
         "releasedOrdersQueue": "Antrean Pesanan Rilis",
         "ordersFound": "{count} pesanan ditemukan",
         "noOrders": "Tidak ada pesanan yang cocok dengan pencarian atau membutuhkan pemenuhan segera.",
@@ -250,7 +250,7 @@
             },
             "PRODUCTION": {
                 "title": "Produksi",
-                "description": "Perintah manufaktur dan pelacakan eksekusi."
+                "description": "Work order dan pelacakan eksekusi."
             },
             "PPIC": {
                 "title": "PPIC",

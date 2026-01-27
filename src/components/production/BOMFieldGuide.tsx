@@ -137,7 +137,7 @@ export function BOMFieldGuide() {
                             iconColor="text-muted-foreground"
                         >
                             <p className="text-sm text-muted-foreground mb-3">
-                                When you create a production order, the BOM automatically scales based on your planned quantity:
+                                When you create a work order, the BOM automatically scales based on your planned quantity:
                             </p>
                             <div className="bg-muted/30 p-4 rounded-lg border">
                                 <div className="text-sm space-y-2">
@@ -147,7 +147,7 @@ export function BOMFieldGuide() {
                                         <div>• Red Colorant: 2 KG</div>
                                     </div>
                                     <div className="mt-3 pt-3 border-t border-border">
-                                        <div className="font-semibold text-foreground">Production Order: 500 KG</div>
+                                        <div className="font-semibold text-foreground">Work Order: 500 KG</div>
                                         <div className="ml-4 space-y-1 text-muted-foreground">
                                             <div>• Pure PP: 98 × 5 = <span className="font-bold text-foreground">490 KG</span></div>
                                             <div>• Red Colorant: 2 × 5 = <span className="font-bold text-foreground">10 KG</span></div>
@@ -190,7 +190,7 @@ export function BOMFieldGuide() {
                                     <div className="text-sm text-muted-foreground">
                                         <span className="font-semibold text-foreground">Tip:</span> Mark one BOM as &quot;Default&quot; for
                                         the most commonly used recipe. You can select alternative BOMs when creating
-                                        production orders.
+                                        work orders.
                                     </div>
                                 </div>
                             </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ export function BatchIssueMaterialDialog({
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState(order.machine?.locationId || locations[0]?.id);
+    const router = useRouter();
 
     // Initial items based on plannedMaterials (NOT BOM icons anymore)
     const initialItems = useMemo(() => {
@@ -114,9 +116,7 @@ export function BatchIssueMaterialDialog({
         // Requirements to remove
         const removedPlannedMaterialIds = items.filter(i => i.isPlanned && i.isDeletedPlan).map(i => i.id);
 
-        // Requirements to add (new items that user wants to track)
-        // For simplicity, we assume any added substitute with quantity > 0 becomes a requirement IF it's not already there.
-        // Actually, let's just send them as consumption + addedPlan.
+        // Requirements to add
         const addedPlannedMaterials = items.filter(i => !i.isPlanned && i.quantity > 0 && i.productVariantId !== '').map(i => ({
             productVariantId: i.productVariantId,
             quantity: i.quantity
@@ -132,12 +132,14 @@ export function BatchIssueMaterialDialog({
                     quantity: i.quantity
                 })),
                 removedPlannedMaterialIds,
-                addedPlannedMaterials // This makes them "official" requirements for future batches
+                addedPlannedMaterials,
+                requestId: `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             });
 
             if (result.success) {
                 toast.success("Materials issued and plan updated");
                 setOpen(false);
+                router.refresh();
             } else {
                 toast.error(result.error || "Failed to update materials");
             }

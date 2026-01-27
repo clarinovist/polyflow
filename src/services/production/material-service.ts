@@ -14,18 +14,31 @@ export class ProductionMaterialService {
 
     // --- Material Issues ---
 
-    static async batchIssueMaterials(data: BatchMaterialIssueValues) {
+    static async batchIssueMaterials(data: BatchMaterialIssueValues & { userId?: string }) {
         const {
             productionOrderId,
             locationId,
             items,
             removedPlannedMaterialIds,
-            addedPlannedMaterials
+            addedPlannedMaterials,
+            requestId
         } = data;
+        const userId = data.userId;
 
         const issueIds: string[] = [];
 
         await prisma.$transaction(async (tx) => {
+            // 1. Idempotency Check
+            if (requestId) {
+                const existing = await tx.stockMovement.findFirst({
+                    where: { reference: { contains: `REQ:${requestId}` } }
+                });
+                if (existing) {
+                    console.log(`Idempotency: Request ${requestId} already processed. Skipping.`);
+                    return;
+                }
+            }
+
             const order = await tx.productionOrder.findUniqueOrThrow({
                 where: { id: productionOrderId },
                 include: {
@@ -36,6 +49,7 @@ export class ProductionMaterialService {
                 }
             });
 
+            // Handle plan changes (remove/add)
             if (removedPlannedMaterialIds && removedPlannedMaterialIds.length > 0) {
                 for (const id of removedPlannedMaterialIds) {
                     const planItem = order.plannedMaterials.find(pm => pm.id === id);
@@ -64,44 +78,160 @@ export class ProductionMaterialService {
                 }
             }
 
+            // Standardize Prefix
+            const refPrefix = `PROD-ISSUE-${order.orderNumber}`;
+            const idempotencySuffix = requestId ? ` REQ:${requestId}` : "";
+
             for (const item of items) {
-                // Lock & Check
-                await InventoryService.validateAndLockStock(
-                    tx,
-                    locationId,
-                    item.productVariantId,
-                    item.quantity
-                );
+                // 2. Server-side Capping
+                const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
+                const plannedQty = planItem ? Number(planItem.quantity) : 0;
+                const issuedSoFar = order.materialIssues
+                    .filter(mi => mi.productVariantId === item.productVariantId)
+                    .reduce((sum, mi) => sum + Number(mi.quantity), 0);
 
-                // Deduct
-                await InventoryService.deductStock(
-                    tx,
-                    locationId,
-                    item.productVariantId,
-                    item.quantity
-                );
+                const remaining = Math.max(0, plannedQty - issuedSoFar);
 
-                const newIssue = await tx.materialIssue.create({
-                    data: {
-                        productionOrderId,
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity,
-                        batchId: item.batchId
+                // If planned exists, we cap it. If it's a "bonus" item not in plan, we might allow it (flexibility) 
+                // but usually PolyFlow follows the plan. For now, let's cap if plannedQty > 0.
+                let quantityToIssue = item.quantity;
+                if (plannedQty > 0 && quantityToIssue > remaining) {
+                    console.warn(`Capping issue for ${item.productVariantId}: requested ${quantityToIssue}, available ${remaining}`);
+                    quantityToIssue = remaining;
+                }
+
+                if (quantityToIssue <= 0) continue;
+
+                // 3. Auto-FIFO logic
+                let remainingToDeduct = quantityToIssue;
+
+                if (!item.batchId) {
+                    // Find available batches for this variant in this location
+                    const batches = await tx.batch.findMany({
+                        where: {
+                            productVariantId: item.productVariantId,
+                            locationId,
+                            quantity: { gt: 0 }
+                        },
+                        orderBy: { manufacturingDate: 'asc' } // FIFO
+                    });
+
+                    if (batches.length === 0) {
+                        // Fallback: Check if there's stock without batch record (not recommended but for safety)
+                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, remainingToDeduct);
+                        await InventoryService.deductStock(tx, locationId, item.productVariantId, remainingToDeduct);
+
+                        const newIssue = await tx.materialIssue.create({
+                            data: {
+                                productionOrderId,
+                                productVariantId: item.productVariantId,
+                                quantity: remainingToDeduct,
+                                createdById: userId
+                            }
+                        });
+                        issueIds.push(newIssue.id);
+
+                        await tx.stockMovement.create({
+                            data: {
+                                type: MovementType.OUT,
+                                productVariantId: item.productVariantId,
+                                fromLocationId: locationId,
+                                toLocationId: null,
+                                quantity: remainingToDeduct,
+                                reference: `${refPrefix}${idempotencySuffix}`,
+                                createdById: userId
+                            } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        } as any);
+                    } else {
+                        for (const batch of batches) {
+                            if (remainingToDeduct <= 0) break;
+
+                            const deductFromBatch = Math.min(Number(batch.quantity), remainingToDeduct);
+
+                            // Deduct from Batch table
+                            await tx.batch.update({
+                                where: { id: batch.id },
+                                data: { quantity: { decrement: deductFromBatch } }
+                            });
+
+                            // Deduct from Inventory
+                            await tx.inventory.update({
+                                where: { locationId_productVariantId: { locationId, productVariantId: item.productVariantId } },
+                                data: { quantity: { decrement: deductFromBatch } }
+                            });
+
+                            const newIssue = await tx.materialIssue.create({
+                                data: {
+                                    productionOrderId,
+                                    productVariantId: item.productVariantId,
+                                    quantity: deductFromBatch,
+                                    batchId: batch.id,
+                                    createdById: userId
+                                }
+                            });
+                            issueIds.push(newIssue.id);
+
+                            await tx.stockMovement.create({
+                                data: {
+                                    type: MovementType.OUT,
+                                    productVariantId: item.productVariantId,
+                                    fromLocationId: locationId,
+                                    toLocationId: null,
+                                    quantity: deductFromBatch,
+                                    reference: `${refPrefix}${idempotencySuffix}`,
+                                    batchId: batch.id,
+                                    createdById: userId
+                                } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            } as any);
+
+                            remainingToDeduct -= deductFromBatch;
+                        }
+
+                        if (remainingToDeduct > 0.0001) {
+                            throw new Error(`Insufficient stock in batches for ${item.productVariantId}. Missing: ${remainingToDeduct}`);
+                        }
                     }
-                });
-                issueIds.push(newIssue.id);
+                } else {
+                    // Manual batchId selected
+                    const batch = await tx.batch.findUnique({ where: { id: item.batchId } });
+                    if (!batch || Number(batch.quantity) < remainingToDeduct) {
+                        throw new Error(`Selected batch ${batch?.batchNumber || item.batchId} has insufficient stock or not found.`);
+                    }
 
-                await tx.stockMovement.create({
-                    data: {
-                        type: MovementType.OUT,
-                        productVariantId: item.productVariantId,
-                        fromLocationId: locationId,
-                        toLocationId: null,
-                        quantity: item.quantity,
-                        reference: `PROD-ISSUE-PO-${order.orderNumber}`,
-                        batchId: item.batchId
-                    } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any);
+                    await tx.batch.update({
+                        where: { id: item.batchId },
+                        data: { quantity: { decrement: remainingToDeduct } }
+                    });
+
+                    await tx.inventory.update({
+                        where: { locationId_productVariantId: { locationId, productVariantId: item.productVariantId } },
+                        data: { quantity: { decrement: remainingToDeduct } }
+                    });
+
+                    const newIssue = await tx.materialIssue.create({
+                        data: {
+                            productionOrderId,
+                            productVariantId: item.productVariantId,
+                            quantity: remainingToDeduct,
+                            batchId: item.batchId,
+                            createdById: userId
+                        }
+                    });
+                    issueIds.push(newIssue.id);
+
+                    await tx.stockMovement.create({
+                        data: {
+                            type: MovementType.OUT,
+                            productVariantId: item.productVariantId,
+                            fromLocationId: locationId,
+                            toLocationId: null,
+                            quantity: remainingToDeduct,
+                            reference: `${refPrefix}${idempotencySuffix}`,
+                            batchId: item.batchId,
+                            createdById: userId
+                        } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any);
+                }
             }
         });
 
@@ -110,8 +240,8 @@ export class ProductionMaterialService {
         }
     }
 
-    static async recordMaterialIssue(data: MaterialIssueValues) {
-        const { productionOrderId, productVariantId, locationId, quantity } = data;
+    static async recordMaterialIssue(data: MaterialIssueValues & { userId?: string }) {
+        const { productionOrderId, productVariantId, locationId, quantity, userId, batchId } = data;
         let issueId = '';
 
         await prisma.$transaction(async (tx) => {
@@ -148,12 +278,20 @@ export class ProductionMaterialService {
                     fromLocationId: locationId,
                     quantity,
                     cost: wacCost,
-                    reference: `Production Consumption: PO-${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `Production Consumption: ${order?.orderNumber || 'UNKNOWN'}`,
+                    createdById: userId,
+                    batchId: batchId
                 }
             });
 
             const issue = await tx.materialIssue.create({
-                data: { productionOrderId, productVariantId, quantity }
+                data: {
+                    productionOrderId,
+                    productVariantId,
+                    quantity,
+                    createdById: userId,
+                    batchId: batchId
+                }
             });
             issueId = issue.id;
         });
@@ -194,7 +332,7 @@ export class ProductionMaterialService {
                     productVariantId: issue.productVariantId,
                     toLocationId: refundLocation.id,
                     quantity: issue.quantity,
-                    reference: `VOID Issue: PO-${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `VOID Issue: ${order?.orderNumber || 'UNKNOWN'}`
                 }
             });
 
@@ -204,8 +342,8 @@ export class ProductionMaterialService {
 
     // --- Scrap ---
 
-    static async recordScrap(data: ScrapRecordValues) {
-        const { productionOrderId, productVariantId, locationId, quantity, reason } = data;
+    static async recordScrap(data: ScrapRecordValues & { userId?: string }) {
+        const { productionOrderId, productVariantId, locationId, quantity, reason, userId } = data;
         let scrapId = '';
 
         await prisma.$transaction(async (tx) => {
@@ -228,12 +366,13 @@ export class ProductionMaterialService {
                     productVariantId,
                     toLocationId: locationId,
                     quantity,
-                    reference: `Production Scrap: PO-${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `Production Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
+                    createdById: userId
                 }
             });
 
             const scrap = await tx.scrapRecord.create({
-                data: { productionOrderId, productVariantId, quantity, reason }
+                data: { productionOrderId, productVariantId, quantity, reason, createdById: userId }
             });
             scrapId = scrap.id;
         });
@@ -253,12 +392,10 @@ export class ProductionMaterialService {
             if (!scrap) throw new Error("Scrap record not found");
 
             // We need to determine the location where it was scrapped.
-            // Since ScrapRecord doesn't store location (which is a bug/limitation in current schema),
-            // we should find the corresponding StockMovement to know where to deduct from.
             const movement = await tx.stockMovement.findFirst({
                 where: {
                     productVariantId: scrap.productVariantId,
-                    reference: { contains: `PO-` }, // Basic filter
+                    reference: { contains: `${productionOrderId}` },
                     type: MovementType.IN,
                     quantity: scrap.quantity
                 },
@@ -267,7 +404,6 @@ export class ProductionMaterialService {
 
             const locationId = movement?.toLocationId;
             if (!locationId) {
-                // Fallback to scrap warehouse if possible
                 const scrapLoc = await tx.location.findUnique({ where: { slug: 'scrap_warehouse' } });
                 if (!scrapLoc) throw new Error("Could not determine location to reverse scrap from.");
 
@@ -287,7 +423,7 @@ export class ProductionMaterialService {
                     productVariantId: scrap.productVariantId,
                     fromLocationId: locationId || 'UNKNOWN',
                     quantity: scrap.quantity,
-                    reference: `VOID Scrap: PO-${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`
                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
 
@@ -305,7 +441,6 @@ export class ProductionMaterialService {
             if (journal && journal.status === 'POSTED') {
                 await AccountingService.voidJournal(journal.id);
             } else if (journal && journal.status === 'DRAFT') {
-                // If it's still a draft, we can just delete it or void it. Voiding is safer for audit trails.
                 await tx.journalEntry.update({
                     where: { id: journal.id },
                     data: { status: 'VOIDED' }
@@ -316,15 +451,15 @@ export class ProductionMaterialService {
 
     // --- Quality ---
 
-    static async recordQualityInspection(data: QualityInspectionValues) {
-        const { productionOrderId, result, notes } = data;
+    static async recordQualityInspection(data: QualityInspectionValues & { userId?: string }) {
+        const { productionOrderId, result, notes, userId } = data;
 
         await prisma.qualityInspection.create({
             data: {
                 productionOrderId,
                 result,
                 notes,
-                inspectorId: 'SYSTEM', // Placeholder or need user context
+                inspectorId: userId || 'SYSTEM',
                 inspectedAt: new Date()
             }
         });

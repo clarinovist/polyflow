@@ -28,7 +28,7 @@ export default async function CreateProductionOrderPage({
 
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Create Production Order</h1>
+                    <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
                     <p className="text-muted-foreground mt-2">Plan a new manufacturing job</p>
                 </div>
                 <div>

@@ -12,7 +12,7 @@
         "purchaseInvoices": "Purchase Invoices",
         "procAnalytics": "Procurement Analytics",
         "ppic": "PPIC & Manufacturing",
-        "prodOrders": "Production Orders",
+        "prodOrders": "Work Orders",
         "prodSchedule": "Production Schedule",
         "materialPlanning": "Material Planning",
         "prodAnalytics": "Production Analytics",
@@ -68,7 +68,7 @@
             "quickActions": "Quick Actions",
             "logDowntime": "Log Machine Downtime",
             "recordScrap": "Record Scrap/Output",
-            "newOrder": "New Production Order",
+            "newOrder": "New Work Order",
             "addProduct": "Add Product"
         }
     },
@@ -171,7 +171,7 @@
         },
         "dispatch": {
             "title": "Job Dispatcher",
-            "subtitle": "Manage active SPKs and floor assignments.",
+            "subtitle": "Manage active Work Orders and floor assignments.",
             "noOrders": "No orders pending dispatch.",
             "manageDetail": "Manage Detail",
             "shortcuts": "Dispatch Shortcuts",
@@ -195,7 +195,7 @@
             "subtitle": "Live status of all production assets on the floor.",
             "runningJob": "Running Job",
             "operatorLabel": "Operator:",
-            "idle": "Idle / Waiting for SPK"
+            "idle": "Idle / Waiting for Work Order"
         }
     },
     "warehouse": {
@@ -249,7 +249,7 @@
             },
             "PRODUCTION": {
                 "title": "Production",
-                "description": "Manufacturing orders and execution tracking."
+                "description": "Work orders and execution tracking."
             },
             "PPIC": {
                 "title": "PPIC",

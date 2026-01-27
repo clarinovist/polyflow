@@ -69,7 +69,7 @@ export function ProductionStatusCard({ salesOrderId, status: _status, production
         try {
             const result = await createProductionFromSalesOrder(salesOrderId, item.productVariantId, item.shortage);
             if (result.success) {
-                toast.success("Production Order created successfully");
+                toast.success("Work Order created successfully");
                 fetchShortages();
                 router.refresh();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
