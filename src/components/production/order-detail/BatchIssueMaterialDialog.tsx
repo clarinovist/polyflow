@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ExtendedProductionOrder } from './types';
 import { Location, ProductVariant } from '@prisma/client';
 import { batchIssueMaterials } from '@/actions/production';
+import { transferStockBulk } from '@/actions/inventory';
 import { toast } from 'sonner';
-import { Plus, Trash2, Package, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BatchItem {
@@ -37,7 +38,9 @@ export function BatchIssueMaterialDialog({
     const [selectedLocation, setSelectedLocation] = useState(order.machine?.locationId || locations[0]?.id);
     const router = useRouter();
 
-    // Initial items based on plannedMaterials (NOT BOM icons anymore)
+    const isMixing = order.machine?.type === 'MIXER';
+
+    // Initial items based on plannedMaterials
     const initialItems = useMemo(() => {
         const plannedItems = (order.plannedMaterials || []).map((pm) => {
             const issued = order.materialIssues
@@ -45,6 +48,7 @@ export function BatchIssueMaterialDialog({
                 .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
             const remaining = Math.max(0, Number(pm.quantity) - issued);
+            // Default to remaining if > 0, otherwise 0
             const quantityNum = remaining > 0 ? Number(remaining.toFixed(2)) : 0;
 
             return {
@@ -110,38 +114,69 @@ export function BatchIssueMaterialDialog({
     };
 
     async function onSubmit() {
-        // Items to actually consume
-        const validConsumptionItems = items.filter(i => !i.isDeletedPlan && i.quantity > 0 && i.productVariantId !== '');
+        const validItems = items.filter(i => !i.isDeletedPlan && i.quantity > 0 && i.productVariantId !== '');
 
-        // Requirements to remove
-        const removedPlannedMaterialIds = items.filter(i => i.isPlanned && i.isDeletedPlan).map(i => i.id);
-
-        // Requirements to add
-        const addedPlannedMaterials = items.filter(i => !i.isPlanned && i.quantity > 0 && i.productVariantId !== '').map(i => ({
-            productVariantId: i.productVariantId,
-            quantity: i.quantity
-        }));
+        if (validItems.length === 0) {
+            toast.error("No items to process");
+            return;
+        }
 
         setLoading(true);
         try {
-            const result = await batchIssueMaterials({
-                productionOrderId: order.id,
-                locationId: selectedLocation,
-                items: validConsumptionItems.map(i => ({
+            if (isMixing) {
+                if (selectedLocation === order.location.id) {
+                    toast.error("Source and destination locations must be different for transfer.");
+                    setLoading(false);
+                    return;
+                }
+                // MIXING MODE: Transfer Stock Logic
+                const itemsToTransfer = validItems.map(i => ({
                     productVariantId: i.productVariantId,
                     quantity: i.quantity
-                })),
-                removedPlannedMaterialIds,
-                addedPlannedMaterials,
-                requestId: `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            });
+                }));
 
-            if (result.success) {
-                toast.success("Materials issued and plan updated");
-                setOpen(false);
-                router.refresh();
+                const result = await transferStockBulk({
+                    sourceLocationId: selectedLocation,
+                    destinationLocationId: order.location.id, // Target is the Production Location
+                    items: itemsToTransfer,
+                    date: new Date(),
+                    notes: `Transfer for Mixing Order ${order.orderNumber}`
+                });
+
+                if (result.success) {
+                    toast.success(`Successfully transferred materials to ${order.location.name}`);
+                    setOpen(false);
+                    router.refresh();
+                } else {
+                    toast.error(result.error || "Failed to transfer materials");
+                }
             } else {
-                toast.error(result.error || "Failed to update materials");
+                // STANDARD MODE: Issue Logic
+                const removedPlannedMaterialIds = items.filter(i => i.isPlanned && i.isDeletedPlan).map(i => i.id);
+                const addedPlannedMaterials = items.filter(i => !i.isPlanned && i.quantity > 0 && i.productVariantId !== '').map(i => ({
+                    productVariantId: i.productVariantId,
+                    quantity: i.quantity
+                }));
+
+                const result = await batchIssueMaterials({
+                    productionOrderId: order.id,
+                    locationId: selectedLocation,
+                    items: validItems.map(i => ({
+                        productVariantId: i.productVariantId,
+                        quantity: i.quantity
+                    })),
+                    removedPlannedMaterialIds,
+                    addedPlannedMaterials,
+                    requestId: `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                });
+
+                if (result.success) {
+                    toast.success("Materials issued and plan updated");
+                    setOpen(false);
+                    router.refresh();
+                } else {
+                    toast.error(result.error || "Failed to update materials");
+                }
             }
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -154,12 +189,13 @@ export function BatchIssueMaterialDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-2" /> Issue Material
+                    {isMixing ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    {isMixing ? "Transfer Material" : "Issue Material"}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Issue Materials & Update Plan</DialogTitle>
+                    <DialogTitle>{isMixing ? "Transfer Materials to Mixing Area" : "Issue Materials & Update Plan"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-6">
@@ -173,9 +209,23 @@ export function BatchIssueMaterialDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-end pb-1 text-sm text-muted-foreground">
-                            <AlertCircle className="w-4 h-4 mr-2 text-blue-500" />
-                            Editing rows will update the Order Plan permanently.
+                        <div className="flex items-end pb-1 text-sm text-center">
+                            {isMixing ? (
+                                <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
+                                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                                    <span className="text-xs text-left">
+                                        Items will be <b>MOVED</b> to <b>{order.location.name}</b>.
+                                        Stock will be consumed automatically when you Record Output (Backflush).
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="text-muted-foreground flex items-center w-full">
+                                    <AlertCircle className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                                    <span className="text-xs text-left">
+                                        Editing rows will update the Order Plan permanently.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -184,7 +234,7 @@ export function BatchIssueMaterialDialog({
                             <thead className="bg-muted/40 border-b">
                                 <tr>
                                     <th className="p-3 text-left font-medium">Material</th>
-                                    <th className="p-3 text-right font-medium w-32">Qty to Issue</th>
+                                    <th className="p-3 text-right font-medium w-32">{isMixing ? "Qty to Transfer" : "Qty to Issue"}</th>
                                     <th className="p-3 text-center font-medium w-16"></th>
                                 </tr>
                             </thead>
@@ -231,9 +281,11 @@ export function BatchIssueMaterialDialog({
                                                 />
                                                 <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
                                             </div>
-                                            <div className="mt-1">
-                                                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Auto-FIFO Active</span>
-                                            </div>
+                                            {!isMixing && (
+                                                <div className="mt-1">
+                                                    <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Auto-FIFO Active</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-3 text-center">
                                             {item.isPlanned ? (
@@ -275,7 +327,7 @@ export function BatchIssueMaterialDialog({
                 <DialogFooter className="mt-6">
                     <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                     <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
-                        {loading ? "Updating..." : "Save & Update Plan"}
+                        {loading ? "Processing..." : (isMixing ? "Move Stock to Mixing" : "Save & Update Plan")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

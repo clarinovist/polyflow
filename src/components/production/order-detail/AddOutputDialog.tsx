@@ -60,6 +60,10 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     const defaultShift = matchedShift?.id || formData.workShifts[0]?.id;
     const defaultOperator = activeProductionShift?.operatorId || formData.operators[0]?.id;
 
+    // Determine Logic based on UOM
+    const uom = order.bom.productVariant.primaryUnit || 'KG';
+    const itemName = uom === 'ROLL' ? 'Roll' : (uom === 'ZAK' ? 'Sack' : 'Item');
+
     // Helper handling
     const toggleHelper = (helperId: string) => {
         if (selectedHelpers.includes(helperId)) {
@@ -222,7 +226,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
                         {/* RIGHT COLUMN: Production Data */}
                         <div className="space-y-6">
-                            {/* Good Goods (Rolls) */}
+                            {/* Good Goods (Dynamic UOM) */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between border-b pb-2">
                                     <h3 className="font-semibold text-foreground flex items-center gap-2">
@@ -230,13 +234,13 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                     </h3>
                                     <div className="text-right">
                                         <span className="text-xs text-muted-foreground block">Total Good</span>
-                                        <span className="text-xl font-bold text-foreground">{totalGoodQty.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">kg</span></span>
+                                        <span className="text-xl font-bold text-foreground">{totalGoodQty.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">{uom}</span></span>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-2">
                                     <Input
-                                        placeholder="Enter Roll Weight (kg)..."
+                                        placeholder={`Enter ${itemName} Size/Qty (${uom})...`}
                                         type="number"
                                         step="0.01"
                                         className="flex-1"
@@ -251,14 +255,14 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                     {rolls.length === 0 && (
                                         <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
                                             <Package className="w-8 h-8 opacity-20 mb-2" />
-                                            <span>No rolls added yet</span>
+                                            <span>No {itemName.toLowerCase()}s added yet</span>
                                         </div>
                                     )}
                                     {rolls.map((weight, idx) => (
                                         <div key={idx} className="flex items-center justify-between bg-card p-2 border rounded shadow-sm text-sm">
-                                            <span className="font-medium">Roll {idx + 1}</span>
+                                            <span className="font-medium">{itemName} {idx + 1}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono">{weight} kg</span>
+                                                <span className="font-mono">{weight} {uom}</span>
                                                 <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => removeRoll(idx)}>
                                                     <Trash2 className="w-3 h-3" />
                                                 </Button>

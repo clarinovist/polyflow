@@ -39,9 +39,19 @@ export class InventoryService {
 
         // 2. Check Physical Stock
         if (currentQty < quantity) {
-            // Fetch name for better error
-            const variant = await tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
-            throw new Error(`Insufficient physical stock for ${variant?.name || 'item'}. Available: ${currentQty}, Required: ${quantity}`);
+            // Fetch details for better error
+            const [variant, location] = await Promise.all([
+                tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true, primaryUnit: true } }),
+                tx.location.findUnique({ where: { id: locationId }, select: { name: true } })
+            ]);
+
+            throw new Error(
+                `Insufficient physical stock at location "${location?.name || locationId}".\n` +
+                `Product: ${variant?.name || 'Unknown Item'}\n` +
+                `Required: ${quantity} ${variant?.primaryUnit || ''}\n` +
+                `Available: ${currentQty} ${variant?.primaryUnit || ''}\n` +
+                `Tip: Check if the stock is in a different location (e.g., Main Warehouse vs Raw Material) or perform a Stock Adjustment.`
+            );
         }
 
         // 3. Check Reservations
@@ -58,8 +68,19 @@ export class InventoryService {
         const availableQty = currentQty - reservedQty;
 
         if (availableQty < quantity) {
-            const variant = await tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
-            throw new Error(`Stock is reserved for ${variant?.name || 'item'}. Physical: ${currentQty}, Reserved: ${reservedQty}, Available: ${availableQty}`);
+            const [variant, location] = await Promise.all([
+                tx.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true, primaryUnit: true } }),
+                tx.location.findUnique({ where: { id: locationId }, select: { name: true } })
+            ]);
+
+            throw new Error(
+                `Stock is reserved at location "${location?.name || locationId}".\n` +
+                `Product: ${variant?.name || 'Unknown Item'}\n` +
+                `Physical Stock: ${currentQty}\n` +
+                `Reserved: ${reservedQty}\n` +
+                `Net Available: ${availableQty} ${variant?.primaryUnit || ''}\n` +
+                `Required: ${quantity} ${variant?.primaryUnit || ''}`
+            );
         }
 
         return currentQty;
