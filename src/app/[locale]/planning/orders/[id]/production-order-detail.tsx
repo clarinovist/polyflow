@@ -38,6 +38,7 @@ import { AddOutputDialog } from '@/components/production/order-detail/AddOutputD
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
 import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIssueButton';
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
+import { DeleteScrapButton } from '@/components/production/order-detail/DeleteScrapButton';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
 import { VarianceAnalysis } from '@/components/production/order-detail/VarianceAnalysis';
 
@@ -482,9 +483,18 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         <p className="font-medium">{scrap.productVariant.name}</p>
                                                         <p className="text-xs text-muted-foreground">{scrap.reason || 'No reason provided'}</p>
                                                     </div>
-                                                    <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                                                        {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                                            {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
+                                                        </Badge>
+                                                        {order.status === 'IN_PROGRESS' && (
+                                                            <DeleteScrapButton
+                                                                scrapId={scrap.id}
+                                                                orderId={order.id}
+                                                                productName={scrap.productVariant.name}
+                                                            />
+                                                        )}
+                                                    </div>
                                                 </li>
                                             ))}
                                         </ul>

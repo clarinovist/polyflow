@@ -31,6 +31,7 @@ export class ProductionService {
     static recordMaterialIssue = ProductionMaterialService.recordMaterialIssue;
     static deleteMaterialIssue = ProductionMaterialService.deleteMaterialIssue;
     static recordScrap = ProductionMaterialService.recordScrap;
+    static deleteScrap = ProductionMaterialService.deleteScrap;
     static recordQualityInspection = ProductionMaterialService.recordQualityInspection;
 
     // --- Costing ---

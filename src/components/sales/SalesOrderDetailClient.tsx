@@ -139,6 +139,10 @@ export function SalesOrderDetailClient({
             unit: string;
         }[];
         canProduce: boolean;
+        missingBoms: {
+            productName: string;
+            productVariantId: string;
+        }[];
     } | null>(null);
     const [isSimulationOpen, setIsSimulationOpen] = useState(false);
 
@@ -284,7 +288,7 @@ export function SalesOrderDetailClient({
 
                 <div className="flex gap-2">
                     {/* Button Place */}
-                    {!warehouseMode && order.status === 'CONFIRMED' && (
+                    {!warehouseMode && ['CONFIRMED', 'IN_PRODUCTION'].includes(order.status) && (
                         <Button
                             onClick={handleSimulateProduction}
                             disabled={isSimulating || isLoading}
@@ -550,7 +554,22 @@ export function SalesOrderDetailClient({
 
                     {simulationResult && (
                         <div className="space-y-4">
-                            {!simulationResult.canProduce && (
+                            {simulationResult.missingBoms && simulationResult.missingBoms.length > 0 && (
+                                <Alert variant="destructive">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertTitle>Missing Bill of Materials (BOM)</AlertTitle>
+                                    <AlertDescription>
+                                        The following products do not have a default BOM defined. Please create a BOM before generating a production order:
+                                        <ul className="list-disc pl-5 mt-2">
+                                            {simulationResult.missingBoms.map(item => (
+                                                <li key={item.productVariantId}>{item.productName}</li>
+                                            ))}
+                                        </ul>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {simulationResult.missingBoms && simulationResult.missingBoms.length === 0 && !simulationResult.canProduce && (
                                 <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
                                     <AlertTitle>Material Shortage Detected</AlertTitle>
@@ -560,7 +579,7 @@ export function SalesOrderDetailClient({
                                 </Alert>
                             )}
 
-                            {simulationResult.canProduce && (
+                            {simulationResult.missingBoms && simulationResult.missingBoms.length === 0 && simulationResult.canProduce && (
                                 <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200">
                                     <CheckCircle className="h-4 w-4 text-emerald-600" />
                                     <AlertTitle>Materials Available</AlertTitle>
@@ -607,7 +626,7 @@ export function SalesOrderDetailClient({
                         <Button variant="outline" onClick={() => setIsSimulationOpen(false)}>Close</Button>
                         <Button
                             onClick={handleGeneratePO}
-                            disabled={isLoading}
+                            disabled={isLoading || (simulationResult?.missingBoms?.length ?? 0) > 0}
                             variant={simulationResult?.canProduce ? "default" : "destructive"}
                         >
                             {isLoading ? "Generating..." : "Generate Production Order"}

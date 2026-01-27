@@ -506,6 +506,23 @@ export async function recordScrap(data: ScrapRecordValues) {
 }
 
 /**
+ * Delete Scrap Record
+ */
+export async function deleteScrap(scrapId: string, productionOrderId: string) {
+    const session = await auth();
+    if (!session) return { success: false, error: 'Unauthorized' };
+
+    try {
+        await ProductionService.deleteScrap(scrapId, productionOrderId);
+
+        revalidatePath(`/production/orders/${productionOrderId}`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+    }
+}
+
+/**
  * Calculate BOM Requirements with Stock Check
  */
 export async function getBomWithInventory(

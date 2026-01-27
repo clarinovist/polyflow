@@ -15,6 +15,10 @@ export interface MrpSimulationResult {
     salesOrderId: string;
     requirements: MaterialRequirement[];
     canProduce: boolean;
+    missingBoms: {
+        productName: string;
+        productVariantId: string;
+    }[];
 }
 
 export class MrpService {
@@ -44,6 +48,8 @@ export class MrpService {
             unit: string;
         }>();
 
+        const missingBoms: { productName: string; productVariantId: string; }[] = [];
+
         // 2. Iterate and Explode BOMs
         for (const item of so.items) {
             // Find default BOM for this product variant
@@ -56,9 +62,11 @@ export class MrpService {
             });
 
             if (!bom) {
-                // If no BOM, we can't calculate raw materials. 
-                // In real world, maybe skip or warn. Here we'll skip but log?
-                // Or maybe the item IS a raw material? (Unlikely for Sales Order in this context)
+                // If no BOM, we record it as a missing requirement
+                missingBoms.push({
+                    productName: item.productVariant.name,
+                    productVariantId: item.productVariantId
+                });
                 continue;
             }
 
@@ -117,7 +125,8 @@ export class MrpService {
         return {
             salesOrderId,
             requirements,
-            canProduce: globalCanProduce
+            canProduce: globalCanProduce && missingBoms.length === 0,
+            missingBoms
         };
     }
 

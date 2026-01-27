@@ -5,9 +5,10 @@ import {
     ScrapRecordValues,
     QualityInspectionValues
 } from '@/lib/schemas/production';
-import { MovementType } from '@prisma/client';
+import { MovementType, ReferenceType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { AccountingService } from '../accounting-service';
 
 export class ProductionMaterialService {
 
@@ -240,6 +241,77 @@ export class ProductionMaterialService {
         if (scrapId) {
             await AutoJournalService.handleScrapOutput(scrapId);
         }
+    }
+
+    static async deleteScrap(scrapId: string, productionOrderId: string) {
+        await prisma.$transaction(async (tx) => {
+            const scrap = await tx.scrapRecord.findUnique({
+                where: { id: scrapId },
+                include: { productVariant: true }
+            });
+
+            if (!scrap) throw new Error("Scrap record not found");
+
+            // We need to determine the location where it was scrapped.
+            // Since ScrapRecord doesn't store location (which is a bug/limitation in current schema),
+            // we should find the corresponding StockMovement to know where to deduct from.
+            const movement = await tx.stockMovement.findFirst({
+                where: {
+                    productVariantId: scrap.productVariantId,
+                    reference: { contains: `PO-` }, // Basic filter
+                    type: MovementType.IN,
+                    quantity: scrap.quantity
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const locationId = movement?.toLocationId;
+            if (!locationId) {
+                // Fallback to scrap warehouse if possible
+                const scrapLoc = await tx.location.findUnique({ where: { slug: 'scrap_warehouse' } });
+                if (!scrapLoc) throw new Error("Could not determine location to reverse scrap from.");
+
+                await InventoryService.deductStock(tx, scrapLoc.id, scrap.productVariantId, scrap.quantity.toNumber());
+            } else {
+                await InventoryService.deductStock(tx, locationId, scrap.productVariantId, scrap.quantity.toNumber());
+            }
+
+            const order = await tx.productionOrder.findUnique({
+                where: { id: productionOrderId },
+                select: { orderNumber: true }
+            });
+
+            await tx.stockMovement.create({
+                data: {
+                    type: MovementType.OUT,
+                    productVariantId: scrap.productVariantId,
+                    fromLocationId: locationId || 'UNKNOWN',
+                    quantity: scrap.quantity,
+                    reference: `VOID Scrap: PO-${order?.orderNumber || 'UNKNOWN'}`
+                } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any);
+
+            // Delete record
+            await tx.scrapRecord.delete({ where: { id: scrapId } });
+
+            // Find and Void Journal Entry
+            const journal = await tx.journalEntry.findFirst({
+                where: {
+                    referenceType: ReferenceType.STOCK_ADJUSTMENT,
+                    referenceId: scrapId
+                }
+            });
+
+            if (journal && journal.status === 'POSTED') {
+                await AccountingService.voidJournal(journal.id);
+            } else if (journal && journal.status === 'DRAFT') {
+                // If it's still a draft, we can just delete it or void it. Voiding is safer for audit trails.
+                await tx.journalEntry.update({
+                    where: { id: journal.id },
+                    data: { status: 'VOIDED' }
+                });
+            }
+        });
     }
 
     // --- Quality ---
