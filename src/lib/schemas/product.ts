@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { Unit, ProductType } from '@prisma/client';
 
+import { PRODUCT_CONSTANTS } from '@/lib/constants/products';
+
 export const productVariantSchema = z.object({
     id: z.string().optional(), // For editing existing variants
     name: z.string().min(1, "Variant name is required"),
     skuCode: z.string()
-        .length(8, "SKU must be exactly 8 characters")
-        .regex(/^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$/,
-            "SKU format: [TYPE][CATEGORY][SEQ] (e.g., RMPPG001)")
+        .min(5, "SKU must be at least 5 characters")
+        .max(20, "SKU must be at most 20 characters")
+        .regex(PRODUCT_CONSTANTS.SKU_REGEX, PRODUCT_CONSTANTS.SKU_HELPER_TEXT)
         .transform(val => val.toUpperCase()),
     primaryUnit: z.nativeEnum(Unit, { message: "Primary unit is required" }),
     salesUnit: z.nativeEnum(Unit).optional().nullable(),
