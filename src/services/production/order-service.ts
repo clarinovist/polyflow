@@ -5,6 +5,8 @@ import {
 } from '@/lib/schemas/production';
 import { ProductionStatus } from '@prisma/client';
 
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+
 export class ProductionOrderService {
     /**
      * Get Initialization Data for Production Forms
@@ -102,7 +104,7 @@ export class ProductionOrderService {
         let suggestedSourceLocation: { id: string; name: string } | null = null;
         if (sourceLocationId && !requestedSourceHasAny) {
             const rmLocation = await prisma.location.findUnique({
-                where: { slug: 'rm_warehouse' },
+                where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
                 select: { id: true, name: true }
             });
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,7 @@ export default async function PpicMrpPage() {
 
     // 2. Fetch current RM inventory
     const rmInventory = await prisma.inventory.findMany({
-        where: { location: { slug: 'rm_warehouse' } },
+        where: { location: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } },
         include: { productVariant: true }
     });
 

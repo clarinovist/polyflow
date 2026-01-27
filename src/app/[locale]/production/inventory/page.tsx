@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function ProductionInventoryPage() {
     // 1. Fetch Current Floor Stock (Mixing Area)
     const floorInventory = await prisma.inventory.findMany({
-        where: { location: { slug: 'mixing_area' } },
+        where: { location: { slug: WAREHOUSE_SLUGS.MIXING } },
         include: {
             productVariant: {
                 include: { product: true }
@@ -24,7 +25,7 @@ export default async function ProductionInventoryPage() {
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
     const recentHandovers = await prisma.stockMovement.findMany({
         where: {
-            toLocation: { slug: 'mixing_area' },
+            toLocation: { slug: WAREHOUSE_SLUGS.MIXING },
             type: 'TRANSFER'
         },
         include: {
@@ -150,7 +151,7 @@ export default async function ProductionInventoryPage() {
                                                         <span className="text-[9px] text-muted-foreground">By {move.createdBy?.name || 'System'}</span>
                                                         <div className="ml-auto">
                                                             {/* Client component */}
-                                                                <AcknowledgeHandoverButton movementId={move.id} />
+                                                            <AcknowledgeHandoverButton movementId={move.id} />
                                                         </div>
                                                     </div>
                                                 </div>

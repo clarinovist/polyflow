@@ -3,6 +3,7 @@
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProductionOrderSchema } from '@/lib/schemas/production';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -156,9 +157,9 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
     // Automated Source Location Selection
     const defaultSourceLocationId = useMemo(() => {
-        const rmLoc = locations.find(l => l.slug === 'rm_warehouse');
-        const mixingLoc = locations.find(l => l.slug === 'mixing_area');
-        const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
+        const rmLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
+        const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
+        const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
         if (processType === 'mixing') return rmLoc?.id || '';
         if (processType === 'extrusion') return mixingLoc?.id || '';
         if (processType === 'packing') return fgLoc?.id || '';
@@ -251,8 +252,8 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
     // Smart Location Logic for target location (managed by Hook Form)
     useEffect(() => {
-        const mixingLoc = locations.find(l => l.slug === 'mixing_area');
-        const fgLoc = locations.find(l => l.slug === 'fg_warehouse');
+        const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
+        const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
 
         if (processType === 'mixing') {
             if (mixingLoc) form.setValue('locationId', mixingLoc.id);

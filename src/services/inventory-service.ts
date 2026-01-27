@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { MovementType, Prisma, ReservationStatus, BatchStatus, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/audit';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import {
     TransferStockValues,
     BulkTransferStockValues,
@@ -692,7 +693,7 @@ export class InventoryService {
         }, {} as Record<string, number>);
 
         // For low stock alert we only consider Raw Material and Finished Goods warehouses
-        const allowedLocationSlugs = new Set(['rm_warehouse', 'fg_warehouse']);
+        const allowedLocationSlugs = new Set<string>([WAREHOUSE_SLUGS.RAW_MATERIAL, WAREHOUSE_SLUGS.FINISHING]);
         const variantQuantitiesForAlerts = inventory.reduce((acc, item) => {
             const slug = item.location?.slug;
             if (slug && allowedLocationSlugs.has(slug)) {

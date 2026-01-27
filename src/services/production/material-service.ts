@@ -9,6 +9,7 @@ import { MovementType, ReferenceType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting-service';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export class ProductionMaterialService {
 
@@ -313,8 +314,8 @@ export class ProductionMaterialService {
             // ROBUST: Use saved locationId or fallback to rm_warehouse slug only if record is old (NULL locationId)
             let refundLocationId = issue.locationId;
             if (!refundLocationId) {
-                const legacyLoc = await tx.location.findUnique({ where: { slug: 'rm_warehouse' } }); // CORRECTED SLUG
-                if (!legacyLoc) throw new Error("Could not determine refund location (rm_warehouse slug not found)");
+                const legacyLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
+                if (!legacyLoc) throw new Error(`Could not determine refund location (${WAREHOUSE_SLUGS.RAW_MATERIAL} slug not found)`);
                 refundLocationId = legacyLoc.id;
             }
 
@@ -422,7 +423,7 @@ export class ProductionMaterialService {
             }
 
             if (!locationId) {
-                const scrapLoc = await tx.location.findUnique({ where: { slug: 'scrap_warehouse' } });
+                const scrapLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.SCRAP } });
                 if (!scrapLoc) throw new Error("Could not determine location to reverse scrap from.");
                 locationId = scrapLoc.id;
             }
