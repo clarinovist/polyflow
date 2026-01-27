@@ -392,7 +392,8 @@ export async function addProductionOutput(data: ProductionOutputValues) {
     }
 
     try {
-        await ProductionService.addProductionOutput(result.data);
+        const session = await auth();
+        await ProductionService.addProductionOutput({ ...result.data, userId: session?.user?.id });
         revalidatePath('/production');
         // Revalidate detail page of order
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);

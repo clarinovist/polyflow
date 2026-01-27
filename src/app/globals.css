@@ -46,19 +46,21 @@
   --radius-4xl: calc(var(--radius) + 16px);
 
   /* Brand Design System: Industrial Glassmorphism */
-  --color-brand-glass: oklch(1 0 0 / 40%);
-  --color-brand-glass-heavy: oklch(1 0 0 / 95%);
-  --color-brand-border: oklch(1 0 0 / 10%);
-  --color-brand-border-heavy: oklch(1 0 0 / 20%);
+  --color-brand-glass: var(--brand-glass);
+  --color-brand-glass-heavy: var(--brand-glass-heavy);
+  --color-brand-border: var(--brand-border);
+  --color-brand-border-heavy: var(--brand-border-heavy);
 
-  --shadow-brand: 0 25px 50px -12px oklch(0 0 0 / 0.15);
-
-  --blur-brand: 20px;
-
+  --shadow-brand: 0 10px 30px -5px oklch(0 0 0 / 0.3);
+  --blur-brand: 16px;
   --background-image-brand-gradient: linear-gradient(to right, oklch(0.5 0.2 260), oklch(0.5 0.2 280), oklch(0.5 0.2 300));
 }
 
 :root {
+  --brand-glass: oklch(1 0 0 / 15%);
+  --brand-glass-heavy: oklch(1 0 0 / 40%);
+  --brand-border: oklch(1 0 0 / 10%);
+  --brand-border-heavy: oklch(1 0 0 / 25%);
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -125,6 +127,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --brand-glass: oklch(1 0 0 / 6%);
+  --brand-glass-heavy: oklch(1 0 0 / 12%);
+  --brand-border: oklch(1 0 0 / 15%);
+  --brand-border-heavy: oklch(1 0 0 / 25%);
 }
 
 @layer base {
@@ -144,6 +151,17 @@
 
   .animate-gradient {
     animation: gradient 8s ease infinite;
+  }
+
+  .no-stepper::-webkit-inner-spin-button,
+  .no-stepper::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .no-stepper {
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 

@@ -357,11 +357,13 @@ export class ProductionMaterialService {
 
     // --- Scrap ---
 
-    static async recordScrap(data: ScrapRecordValues & { userId?: string }) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async recordScrap(data: ScrapRecordValues & { userId?: string }, existingTx?: any) {
         const { productionOrderId, productVariantId, locationId, quantity, reason, userId } = data;
         let scrapId = '';
 
-        await prisma.$transaction(async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recordLogic = async (tx: any) => {
             await InventoryService.incrementStock(
                 tx,
                 locationId,
@@ -389,8 +391,16 @@ export class ProductionMaterialService {
             const scrap = await tx.scrapRecord.create({
                 data: { productionOrderId, productVariantId, quantity, reason, createdById: userId, locationId }
             });
-            scrapId = scrap.id;
-        });
+            return scrap.id;
+        };
+
+        if (existingTx) {
+            scrapId = await recordLogic(existingTx);
+        } else {
+            scrapId = await prisma.$transaction(async (tx) => {
+                return await recordLogic(tx);
+            });
+        }
 
         if (scrapId) {
             await AutoJournalService.handleScrapOutput(scrapId);

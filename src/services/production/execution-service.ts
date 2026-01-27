@@ -11,6 +11,8 @@ import { ProductionStatus, MovementType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { ProductionMaterialService } from './material-service';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export class ProductionExecutionService {
 
@@ -197,11 +199,11 @@ export class ProductionExecutionService {
     /**
      * Record Production Output (Batch/Completed)
      */
-    static async addProductionOutput(data: ProductionOutputValues) {
+    static async addProductionOutput(data: ProductionOutputValues & { userId?: string }) {
         const {
             productionOrderId, machineId, operatorId, shiftId,
             quantityProduced, scrapQuantity, scrapProngkolQty, scrapDaunQty,
-            startTime, endTime, notes
+            startTime, endTime, notes, userId
         } = data;
 
         let executionId = '';
@@ -295,6 +297,51 @@ export class ProductionExecutionService {
                                 reference: `Backflush (Batch): WO#${order.orderNumber}`
                             }
                         });
+                    }
+                }
+            }
+
+            // --- SYSTEM: AUTOMATIC SCRAP RECORDING ---
+            // If prongkol or daun qty is provided, we record them as actual ScrapRecord
+            // so they enter the 'Scrap Warehouse' and become sellable inventory.
+            if (scrapProngkolQty > 0 || scrapDaunQty > 0) {
+                const scrapLocation = await tx.location.findUnique({
+                    where: { slug: WAREHOUSE_SLUGS.SCRAP }
+                });
+
+                if (scrapLocation) {
+                    // Record Prongkol
+                    if (scrapProngkolQty > 0) {
+                        const variant = await tx.productVariant.findUnique({
+                            where: { skuCode: 'SCRAP-PRONGKOL' }
+                        });
+                        if (variant) {
+                            await ProductionMaterialService.recordScrap({
+                                productionOrderId,
+                                productVariantId: variant.id,
+                                locationId: scrapLocation.id,
+                                quantity: scrapProngkolQty,
+                                reason: 'Production Process Waste (Lumps)',
+                                userId
+                            }, tx);
+                        }
+                    }
+
+                    // Record Daun
+                    if (scrapDaunQty > 0) {
+                        const variant = await tx.productVariant.findUnique({
+                            where: { skuCode: 'SCRAP-DAUN' }
+                        });
+                        if (variant) {
+                            await ProductionMaterialService.recordScrap({
+                                productionOrderId,
+                                productVariantId: variant.id,
+                                locationId: scrapLocation.id,
+                                quantity: scrapDaunQty,
+                                reason: 'Production Process Waste (Trim)',
+                                userId
+                            }, tx);
+                        }
                     }
                 }
             }

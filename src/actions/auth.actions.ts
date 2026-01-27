@@ -46,7 +46,7 @@ export async function authenticate(
 
         // Priority: Stored User Locale > Cookie > Default
         const locale = user?.locale || (localeCookie && locales.includes(localeCookie as Locale) ? localeCookie : defaultLocale);
-        const localePrefix = locale && locale !== defaultLocale ? `/${locale}` : '';
+        const localePrefix = `/${locale}`;
 
         redirect(`${localePrefix}${targetUrl}`);
     } catch (error) {
