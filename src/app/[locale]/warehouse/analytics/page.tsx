@@ -173,12 +173,12 @@ export default async function InventoryDashboard({
 
 
     return (
-        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden bg-[#fafafa]">
+        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden bg-background">
             {/* Professional Strategic Header */}
             <div className="flex items-end justify-between shrink-0 mb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Inventory Analysis</h1>
-                    <p className="text-sm text-zinc-500 mt-1 font-geist">Strategic oversight of performance & stock health</p>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Inventory Analysis</h1>
+                    <p className="text-sm text-muted-foreground mt-1 font-geist">Strategic oversight of performance & stock health</p>
                 </div>
 
                 <div className="flex items-center gap-10">
@@ -186,32 +186,32 @@ export default async function InventoryDashboard({
                         label="Turnover Ratio"
                         value={turnoverStats.turnoverRatio}
                         icon={<Activity className="h-4 w-4" />}
-                        color="text-zinc-900"
+                        color="text-foreground"
                     />
                     <StatBlock
                         label="Days on Hand"
                         value={dohStats.daysOnHand.toFixed(1)}
                         icon={<CalendarClock className="h-4 w-4" />}
-                        color="text-zinc-900"
+                        color="text-foreground"
                     />
                     <StatBlock
                         label="Low Stock Alert"
                         value={dashboardStats.lowStockCount}
-                        icon={<AlertCircle className="h-4 w-4 text-amber-600" />}
-                        color="text-amber-600"
+                        icon={<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                        color="text-amber-600 dark:text-amber-400"
                     />
                     <StatBlock
                         label="Active SKUs"
                         value={liveInventory.length}
                         icon={<Box className="h-4 w-4" />}
-                        color="text-zinc-900"
+                        color="text-foreground"
                     />
                 </div>
             </div>
 
             {/* Main Content Area - Card-less for Modern ERP Feel */}
             <div className="flex-1 overflow-hidden min-h-0">
-                <div className="h-full flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                <div className="h-full flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                     <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
                         <div className="h-full overflow-auto">
                             <InventoryTable
@@ -226,18 +226,18 @@ export default async function InventoryDashboard({
                                 // Passing badges as props to let InventoryTable render them in its filter row
                                 topBadges={
                                     <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                        <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
                                             <span className="font-bold">{displayedTotalStock.toLocaleString()}</span>
                                             <span className="opacity-70">units</span>
                                         </Badge>
                                         {showPrices && (
-                                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
                                                 <span className="font-bold">{formatRupiah(finalTotalValue)}</span>
                                                 <span className="opacity-70">value</span>
                                             </Badge>
                                         )}
                                         {asOfDate && (
-                                            <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 text-[10px] h-6 px-2">
+                                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] h-6 px-2">
                                                 Snapshot: {format(asOfDate, 'MMM d')}
                                             </Badge>
                                         )}
@@ -257,9 +257,9 @@ function StatBlock({ label, value, icon, color }: { label: string, value: string
         <div className="flex flex-col items-start gap-1">
             <div className="flex items-center gap-2">
                 <div className={cn("opacity-40", color)}>{icon}</div>
-                <p className="text-2xl font-bold tracking-tight text-zinc-900 leading-none">{value}</p>
+                <p className="text-2xl font-bold tracking-tight text-foreground leading-none">{value}</p>
             </div>
-            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest leading-none pl-6">{label}</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-none pl-6">{label}</p>
         </div>
     );
 }

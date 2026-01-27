@@ -49,11 +49,11 @@ type SortOrder = 'asc' | 'desc';
 // Sort icon component
 const SortIcon = ({ field, currentSortField, currentSortOrder }: { field: SortField, currentSortField: SortField, currentSortOrder: SortOrder }) => {
     if (currentSortField !== field) {
-        return <ChevronsUpDown className="h-4 w-4 text-slate-400" />;
+        return <ChevronsUpDown className="h-4 w-4 text-muted-foreground/30" />;
     }
     return currentSortOrder === 'asc'
-        ? <ArrowUp className="h-4 w-4 text-blue-600" />
-        : <ArrowDown className="h-4 w-4 text-blue-600" />;
+        ? <ArrowUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        : <ArrowDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
 };
 
 export interface InventoryItem {
@@ -480,8 +480,8 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                         <TableRow
                                             className={cn(
                                                 "transition-colors",
-                                                isLowStock ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/30",
-                                                isSelected ? "bg-primary/10 hover:bg-primary/20" : ""
+                                                isLowStock ? "bg-destructive/5 hover:bg-destructive/10" : "hover:bg-muted/30",
+                                                isSelected ? "bg-primary/20 hover:bg-primary/30" : ""
                                             )}
                                         >
                                             <TableCell className="pl-4 py-1.5 align-middle">
@@ -540,7 +540,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                         </span>
                                                     </div>
                                                     {showComparison && delta !== 0 && (
-                                                        <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                        <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-500'}`}>
                                                             {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
                                                             {Math.abs(delta).toLocaleString()}
                                                         </div>
@@ -559,7 +559,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                             <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
                                                 <div className={cn(
                                                     "font-medium tabular-nums",
-                                                    (item.availableQuantity || 0) <= 0 ? "text-red-600" : "text-green-600"
+                                                    (item.availableQuantity || 0) <= 0 ? "text-red-500" : "text-green-500"
                                                 )}>
                                                     {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
                                                 </div>
@@ -587,7 +587,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-normal">
+                                                    <Badge variant="outline" className="h-5 text-[10px] px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-normal">
                                                         In Stock
                                                     </Badge>
                                                 )}
