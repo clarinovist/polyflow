@@ -1,141 +1,132 @@
-
-import { getJournalById } from '@/actions/journal';
-import { formatRupiah } from '@/lib/utils';
+import { prisma } from '@/lib/prisma';
+import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { formatRupiah } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { JournalActions } from './journal-actions';
 
-interface JournalLine {
-    id: string;
-    description: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    debit: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    credit: any;
-    account: {
-        code: string;
-        name: string;
-    };
+interface JournalDetailPageProps {
+    params: Promise<{ id: string }>;
 }
 
-export default async function JournalDetailPage({ params }: { params: { id: string } }) {
-    const journal = await getJournalById(params.id);
+export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
+    const { id } = await params;
+
+    const journal = await prisma.journalEntry.findUnique({
+        where: { id },
+        include: {
+            createdBy: { select: { name: true, email: true } },
+            lines: {
+                include: {
+                    account: true
+                },
+                orderBy: { debit: 'desc' } // Debits first usually
+            }
+        }
+    });
 
     if (!journal) {
         notFound();
     }
 
-    const totalDebit = journal.lines.reduce((sum: number, line: JournalLine) => sum + Number(line.debit), 0);
-    const totalCredit = journal.lines.reduce((sum: number, line: JournalLine) => sum + Number(line.credit), 0);
+    const totalDebit = journal.lines.reduce((sum, line) => sum + Number(line.debit), 0);
+    const totalCredit = journal.lines.reduce((sum, line) => sum + Number(line.credit), 0);
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
                     <Link href="/finance/journals">
-                        <ArrowLeft className="h-4 w-4" />
+                        <Button variant="outline" size="icon">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
                     </Link>
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">{journal.entryNumber}</h1>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <span>{format(new Date(journal.entryDate), 'dd MMMM yyyy')}</span>
-                        <span>•</span>
-                        <Badge variant="outline">{journal.status}</Badge>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Journal Entry #{journal.entryNumber}</h1>
+                        <p className="text-muted-foreground">
+                            {format(journal.entryDate, 'dd MMMM yyyy, HH:mm')}
+                        </p>
                     </div>
                 </div>
-                <div className="ml-auto flex gap-2">
+                <div className="flex items-center gap-2">
+                    <Badge variant={journal.status === 'POSTED' ? 'default' : 'secondary'}>
+                        {journal.status}
+                    </Badge>
                     <Button variant="outline">
                         <Printer className="mr-2 h-4 w-4" /> Print
                     </Button>
-                    <JournalActions id={journal.id} status={journal.status} />
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card>
+            <div className="grid gap-6 md:grid-cols-3">
+                <Card className="md:col-span-2">
                     <CardHeader>
-                        <CardTitle>Details</CardTitle>
+                        <CardTitle>Transaction Details</CardTitle>
+                        <CardDescription>{journal.description}</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="flex justify-between py-1 border-b">
-                            <span className="text-muted-foreground">Description</span>
-                            <span className="font-medium text-right">{journal.description}</span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b">
-                            <span className="text-muted-foreground">Reference</span>
-                            <span className="font-medium">{journal.reference || '-'}</span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b">
-                            <span className="text-muted-foreground">Type</span>
-                            <span className="font-medium">{journal.referenceType}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">Created By</span>
-                            <span className="font-medium">{journal.createdBy?.name || 'System'}</span>
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Account</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Debit</TableHead>
+                                        <TableHead className="text-right">Credit</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {journal.lines.map((line) => (
+                                        <TableRow key={line.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{line.account.code}</div>
+                                                <div className="text-xs text-muted-foreground">{line.account.name}</div>
+                                            </TableCell>
+                                            <TableCell>{line.description || '-'}</TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {Number(line.debit) > 0 ? formatRupiah(Number(line.debit)) : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {Number(line.credit) > 0 ? formatRupiah(Number(line.credit)) : '-'}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/50 font-bold">
+                                        <TableCell colSpan={2} className="text-right">Total</TableCell>
+                                        <TableCell className="text-right">{formatRupiah(totalDebit)}</TableCell>
+                                        <TableCell className="text-right">{formatRupiah(totalCredit)}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Summary</CardTitle>
+                        <CardTitle>Metadata</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="flex justify-between py-1 border-b">
-                            <span className="text-muted-foreground">Total Debit</span>
-                            <span className="font-medium">{formatRupiah(totalDebit)}</span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b">
-                            <span className="text-muted-foreground">Total Credit</span>
-                            <span className="font-medium">{formatRupiah(totalCredit)}</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                            <span className="text-muted-foreground">Status</span>
-                            <span className={totalDebit === totalCredit ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                                {totalDebit === totalCredit ? "Balanced" : "Unbalanced"}
-                            </span>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="text-muted-foreground">Reference Type</div>
+                            <div className="font-medium text-right">{journal.referenceType || '-'}</div>
+
+                            <div className="text-muted-foreground">Reference ID</div>
+                            <div className="font-medium text-right truncate" title={journal.reference || ''}>{journal.reference || '-'}</div>
+
+                            <div className="text-muted-foreground">Created By</div>
+                            <div className="font-medium text-right">{journal.createdBy?.name || 'System'}</div>
+
+                            <div className="text-muted-foreground">Auto-Generated</div>
+                            <div className="font-medium text-right">{journal.isAutoGenerated ? 'Yes' : 'No'}</div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Journal Lines</CardTitle>
-                    <CardDescription>Ledger impact details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Account Code</TableHead>
-                                <TableHead>Account Name</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Debit</TableHead>
-                                <TableHead className="text-right">Credit</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {journal.lines.map((line: JournalLine) => (
-                                <TableRow key={line.id}>
-                                    <TableCell className="font-mono">{line.account.code}</TableCell>
-                                    <TableCell>{line.account.name}</TableCell>
-                                    <TableCell>{line.description || '-'}</TableCell>
-                                    <TableCell className="text-right">{Number(line.debit) > 0 ? formatRupiah(line.debit) : '-'}</TableCell>
-                                    <TableCell className="text-right">{Number(line.credit) > 0 ? formatRupiah(line.credit) : '-'}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
         </div>
     );
 }

@@ -7,7 +7,7 @@ import {
 } from '@/lib/schemas/production';
 import { MovementType, ReferenceType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
-import { AutoJournalService } from '../finance/auto-journal-service';
+// import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
@@ -131,7 +131,7 @@ export class ProductionMaterialService {
                         });
                         issueIds.push(newIssue.id);
 
-                        await tx.stockMovement.create({
+                        const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
@@ -142,6 +142,7 @@ export class ProductionMaterialService {
                                 createdById: userId
                             } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         } as any);
+                        await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
                     } else {
                         for (const batch of batches) {
                             if (remainingToDeduct <= 0) break;
@@ -172,7 +173,7 @@ export class ProductionMaterialService {
                             });
                             issueIds.push(newIssue.id);
 
-                            await tx.stockMovement.create({
+                            const moveOut = await tx.stockMovement.create({
                                 data: {
                                     type: MovementType.OUT,
                                     productVariantId: item.productVariantId,
@@ -184,6 +185,7 @@ export class ProductionMaterialService {
                                     createdById: userId
                                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             } as any);
+                            await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
 
                             remainingToDeduct -= deductFromBatch;
                         }
@@ -221,7 +223,7 @@ export class ProductionMaterialService {
                     });
                     issueIds.push(newIssue.id);
 
-                    await tx.stockMovement.create({
+                    const moveOut = await tx.stockMovement.create({
                         data: {
                             type: MovementType.OUT,
                             productVariantId: item.productVariantId,
@@ -233,18 +235,18 @@ export class ProductionMaterialService {
                             createdById: userId
                         } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } as any);
+                    await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
                 }
             }
         });
 
-        for (const id of issueIds) {
-            await AutoJournalService.handleMaterialIssue(id);
-        }
+        // for (const id of issueIds) {
+        //     await AutoJournalService.handleMaterialIssue(id);
+        // }
     }
 
     static async recordMaterialIssue(data: MaterialIssueValues & { userId?: string }) {
         const { productionOrderId, productVariantId, locationId, quantity, userId, batchId } = data;
-        let issueId = '';
 
         await prisma.$transaction(async (tx) => {
             await InventoryService.validateAndLockStock(
@@ -273,7 +275,7 @@ export class ProductionMaterialService {
                 select: { orderNumber: true }
             });
 
-            await tx.stockMovement.create({
+            const movement = await tx.stockMovement.create({
                 data: {
                     type: MovementType.OUT,
                     productVariantId,
@@ -285,8 +287,9 @@ export class ProductionMaterialService {
                     batchId: batchId
                 }
             });
+            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
 
-            const issue = await tx.materialIssue.create({
+            await tx.materialIssue.create({
                 data: {
                     productionOrderId,
                     productVariantId,
@@ -296,12 +299,11 @@ export class ProductionMaterialService {
                     locationId // SAVED: Direct location tracking
                 }
             });
-            issueId = issue.id;
         });
 
-        if (issueId) {
-            await AutoJournalService.handleMaterialIssue(issueId);
-        }
+        // if (issueId) {
+        //     await AutoJournalService.handleMaterialIssue(issueId);
+        // }
     }
 
     static async deleteMaterialIssue(issueId: string, productionOrderId: string) {
@@ -340,7 +342,7 @@ export class ProductionMaterialService {
                 select: { orderNumber: true }
             });
 
-            await tx.stockMovement.create({
+            const movement = await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId: issue.productVariantId,
@@ -350,6 +352,7 @@ export class ProductionMaterialService {
                     batchId: issue.batchId
                 }
             });
+            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
 
             await tx.materialIssue.delete({ where: { id: issueId } });
         });
@@ -360,7 +363,6 @@ export class ProductionMaterialService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async recordScrap(data: ScrapRecordValues & { userId?: string }, existingTx?: any) {
         const { productionOrderId, productVariantId, locationId, quantity, reason, userId } = data;
-        let scrapId = '';
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recordLogic = async (tx: any) => {
@@ -377,7 +379,7 @@ export class ProductionMaterialService {
                 select: { orderNumber: true }
             });
 
-            await tx.stockMovement.create({
+            const movement = await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId,
@@ -387,24 +389,24 @@ export class ProductionMaterialService {
                     createdById: userId
                 }
             });
+            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
 
-            const scrap = await tx.scrapRecord.create({
+            await tx.scrapRecord.create({
                 data: { productionOrderId, productVariantId, quantity, reason, createdById: userId, locationId }
             });
-            return scrap.id;
         };
 
         if (existingTx) {
-            scrapId = await recordLogic(existingTx);
+            await recordLogic(existingTx);
         } else {
-            scrapId = await prisma.$transaction(async (tx) => {
+            await prisma.$transaction(async (tx) => {
                 return await recordLogic(tx);
             });
         }
 
-        if (scrapId) {
-            await AutoJournalService.handleScrapOutput(scrapId);
-        }
+        // if (scrapId) {
+        //     await AutoJournalService.handleScrapOutput(scrapId);
+        // }
     }
 
     static async deleteScrap(scrapId: string, productionOrderId: string) {
@@ -445,7 +447,7 @@ export class ProductionMaterialService {
                 select: { orderNumber: true }
             });
 
-            await tx.stockMovement.create({
+            const movement = await tx.stockMovement.create({
                 data: {
                     type: MovementType.OUT,
                     productVariantId: scrap.productVariantId,
@@ -454,6 +456,7 @@ export class ProductionMaterialService {
                     reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`
                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
+            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
 
             // Delete record
             await tx.scrapRecord.delete({ where: { id: scrapId } });

@@ -144,43 +144,43 @@ export default async function PlanningDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50">
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 dark:bg-emerald-500/10 dark:border-emerald-500/20">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">Active & Running</p>
                                         <p className="text-xs text-muted-foreground">Productive machines</p>
                                     </div>
                                 </div>
-                                <span className="text-xl font-bold text-emerald-700">{stats.machineStats.active}</span>
+                                <span className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{stats.machineStats.active}</span>
                             </div>
 
-                            <div className="flex items-center justify-between p-3 border rounded-lg bg-amber-50/50">
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-500/10 dark:border-amber-500/20">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
-                                        <Hammer className="h-4 w-4 text-amber-600" />
+                                    <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                                        <Hammer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">Maintenance</p>
                                         <p className="text-xs text-muted-foreground">Scheduled downtime</p>
                                     </div>
                                 </div>
-                                <span className="text-xl font-bold text-amber-700">{stats.machineStats.maintenance}</span>
+                                <span className="text-xl font-bold text-amber-700 dark:text-amber-400">{stats.machineStats.maintenance}</span>
                             </div>
 
-                            <div className="flex items-center justify-between p-3 border rounded-lg bg-red-50/50">
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-red-50/50 dark:bg-red-500/10 dark:border-red-500/20">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-                                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                                    <div className="h-8 w-8 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center">
+                                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">Broken / Down</p>
                                         <p className="text-xs text-muted-foreground">Requires attention</p>
                                     </div>
                                 </div>
-                                <span className="text-xl font-bold text-red-700">{stats.machineStats.broken}</span>
+                                <span className="text-xl font-bold text-red-700 dark:text-red-400">{stats.machineStats.broken}</span>
                             </div>
                         </div>
                     </CardContent>

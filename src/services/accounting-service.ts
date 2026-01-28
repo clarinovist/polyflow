@@ -28,7 +28,9 @@ export class AccountingService {
      * Create a new Journal Entry.
      * Default Status: DRAFT
      */
-    static async createJournalEntry(input: CreateJournalEntryInput) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async createJournalEntry(input: CreateJournalEntryInput, tx?: any) {
+        const db = tx || prisma;
         const { lines } = input;
 
         // Validate Balance
@@ -45,7 +47,7 @@ export class AccountingService {
             throw new Error("Cannot create journal entry in a closed fiscal period.");
         }
 
-        return await prisma.journalEntry.create({
+        return await db.journalEntry.create({
             data: {
                 entryNumber: await this.generateEntryNumber(input.entryDate),
                 entryDate: input.entryDate,
@@ -381,8 +383,8 @@ export class AccountingService {
         const totalExpense = expenses.reduce((sum, a) => sum + a.amount, 0);
 
         return {
-            revenues,
-            expenses,
+            revenue: revenues,
+            expense: expenses,
             totalRevenue,
             totalExpense,
             netIncome: totalRevenue - totalExpense
@@ -526,5 +528,137 @@ export class AccountingService {
         if (!period) return true;
 
         return period.status === 'OPEN';
+    }
+
+    /**
+     * AUTO-JOURNAL: Record Inventory Movement
+     * Maps StockMovement to GL Entries
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async recordInventoryMovement(movement: any, tx?: any) {
+        const db = tx || prisma;
+        // We need extended data: productVariant, fromLocation, toLocation
+        // If not provided, we might need to fetch, but let's assume caller provides it or we fetch minimal.
+
+        if (!movement.productVariant) {
+            // defensive fetch
+            movement.productVariant = await db.productVariant.findUnique({
+                where: { id: movement.productVariantId },
+                include: { product: true }
+            });
+        }
+
+        const date = movement.createdAt || new Date();
+        // const value = Number(movement.quantity) * Number(movement.productVariant.price || 0); // TODO: Use Cost/Weighted Avg
+        // For now, using standard price or cost. If StandardCost exists use that.
+        const cost = Number(movement.productVariant.standardCost || movement.productVariant.price || 0);
+        const totalAmount = Number(movement.quantity) * cost;
+
+        if (totalAmount === 0) return; // No financial impact?
+
+        const productType = movement.productVariant.product.productType; // RAW_MATERIAL, FINISHED_GOOD, etc.
+
+        // Account Mapping Helper
+        const getInventoryAccount = (pType: string) => {
+            switch (pType) {
+                case 'RAW_MATERIAL': return '11310'; // RM Inventory
+                case 'FINISHED_GOOD': return '11330'; // FG Inventory
+                case 'WIP': return '11320'; // WIP
+                case 'SCRAP': return '11390'; // Scrap
+                case 'INTERMEDIATE': return '11320'; // Treat as WIP or separate
+                case 'PACKAGING': return '11310'; // Treat as RM/Packaging
+                default: return '11310';
+            }
+        };
+
+        const lines = [];
+
+        // 1. GOODS RECEIPT (Purchase)
+        if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
+            // Dr Inventory (11310)
+            // Cr GR/IR or AP (21110) - Using Trade Payables for MVP
+            const invAccount = getInventoryAccount(productType);
+            lines.push(
+                { accountId: (await this.getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${movement.productVariant.name}` },
+                { accountId: (await this.getAccountId('21110')), debit: 0, credit: totalAmount, description: `AP Accrual: ${movement.productVariant.name}` }
+            );
+        }
+
+        // 2. SALES SHIPMENT (Out)
+        else if (movement.type === 'OUT' && movement.salesOrderId) {
+            // Dr COGS (51000 or 50000)
+            // Cr Inventory (11330)
+            const invAccount = getInventoryAccount(productType);
+            lines.push(
+                { accountId: (await this.getAccountId('50000')), debit: totalAmount, credit: 0, description: `COGS: ${movement.productVariant.name}` },
+                { accountId: (await this.getAccountId(invAccount)), debit: 0, credit: totalAmount, description: `Shipment: ${movement.productVariant.name}` }
+            );
+        }
+
+        // 3. PRODUCTION ISSUE (Out)
+        // Explicit logic: Type OUT + reference 'Production' (weak) or just no salesOrder/GR?
+        // Better: Caller should specify context. For now, if no SalesOrder and type is OUT, assume usage?
+        // Or if reference indicates.
+        else if (movement.type === 'OUT' && !movement.salesOrderId) {
+            // Dr WIP (11320)
+            // Cr Inventory (RM/11310)
+            const creditAccount = getInventoryAccount(productType); // Credit what we consumed
+            lines.push(
+                { accountId: (await this.getAccountId('11320')), debit: totalAmount, credit: 0, description: `Production Issue: ${movement.productVariant.name}` },
+                { accountId: (await this.getAccountId(creditAccount)), debit: 0, credit: totalAmount, description: `Material Consumed` }
+            );
+        }
+
+        // 4. PRODUCTION OUTPUT (In)
+        else if (movement.type === 'IN' && !movement.goodsReceiptId) {
+            // Dr Inventory (FG/11330)
+            // Cr WIP (11320)
+            const debitAccount = getInventoryAccount(productType); // Debit what we produced
+            lines.push(
+                { accountId: (await this.getAccountId(debitAccount)), debit: totalAmount, credit: 0, description: `Production Output: ${movement.productVariant.name}` },
+                { accountId: (await this.getAccountId('11320')), debit: 0, credit: totalAmount, description: `WIP Relief` }
+            );
+        }
+
+        // 5. ADJUSTMENT
+        else if (movement.type === 'ADJUSTMENT') {
+            // If Qty > 0: Dr Inventory, Cr Adjustment Gain (53300)
+            // If Qty < 0: Dr Adjustment Loss (53300), Cr Inventory
+            const invAccount = getInventoryAccount(productType);
+            const absAmt = Math.abs(totalAmount);
+
+            if (Number(movement.quantity) > 0) {
+                lines.push(
+                    { accountId: (await this.getAccountId(invAccount)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
+                    { accountId: (await this.getAccountId('53300')), debit: 0, credit: absAmt, description: `Adj Gain` }
+                );
+            } else {
+                lines.push(
+                    { accountId: (await this.getAccountId('53300')), debit: absAmt, credit: 0, description: `Adj Loss` },
+                    { accountId: (await this.getAccountId(invAccount)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
+                );
+            }
+        }
+
+        // Create Entry
+        if (lines.length > 0) {
+            await this.createJournalEntry({
+                entryDate: date,
+                description: `Auto: ${movement.type} - ${movement.productVariant.name}`,
+                reference: movement.reference || movement.id,
+                referenceType: movement.type === 'PURCHASE' ? 'GOODS_RECEIPT' : (movement.type === 'ADJUSTMENT' ? 'STOCK_ADJUSTMENT' : 'MANUAL_ENTRY'), // TODO: Better mapping
+                referenceId: movement.id,
+                isAutoGenerated: true,
+                lines,
+                createdById: movement.createdById
+            }, tx);
+        }
+    }
+
+    // Cache or helper for fetch by code
+    private static async getAccountId(code: string): Promise<string> {
+        const acc = await prisma.account.findUnique({ where: { code } });
+        if (!acc) throw new Error(`GL Account code ${code} not found during auto-journal.`);
+        return acc.id;
     }
 }

@@ -1,11 +1,17 @@
-import { PlaceholderPage } from "@/components/finance/PlaceholderPage";
+import { PeriodManagementClient } from "@/components/finance/periods/PeriodManagementClient";
+import { getFiscalPeriods } from "@/actions/finance/period-actions";
+import { auth } from "@/auth";
 
-export default function PeriodsPage() {
+export default async function PeriodsPage() {
+    const session = await auth();
+    const currentYear = new Date().getFullYear();
+    const periods = await getFiscalPeriods(currentYear);
+
     return (
-        <PlaceholderPage
-            title="Fiscal Periods"
-            description="Open and close accounting periods."
-            moduleName="Accounting"
+        <PeriodManagementClient
+            initialPeriods={periods}
+            currentYear={currentYear}
+            userId={session?.user?.id || 'system'}
         />
     );
 }

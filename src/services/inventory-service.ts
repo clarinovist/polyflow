@@ -13,7 +13,8 @@ import {
 
 import { InventoryWithRelations } from '@/types/inventory';
 import { subDays, format } from 'date-fns';
-import { AutoJournalService } from '@/services/finance/auto-journal-service';
+import { AutoJournalService } from '@/services/finance/auto-journal-service'; // Deprecated?
+import { AccountingService } from '@/services/accounting-service';
 
 
 // Local constants for conflicting enums (Defensive Programming)
@@ -575,7 +576,8 @@ export class InventoryService {
         });
 
         if (result) {
-            await AutoJournalService.handleStockMovement(result.id).catch(console.error);
+            // await AutoJournalService.handleStockMovement(result.id).catch(console.error);
+            await AccountingService.recordInventoryMovement(result).catch(console.error);
         }
     }
 

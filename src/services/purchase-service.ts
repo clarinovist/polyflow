@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { InventoryService } from './inventory-service';
+import { AccountingService } from './accounting-service';
 import {
     PurchaseOrderStatus,
     PurchaseInvoiceStatus,
@@ -241,7 +242,7 @@ export class PurchaseService {
                 );
 
                 // c. Record Stock Movement
-                await tx.stockMovement.create({
+                const movement = await tx.stockMovement.create({
                     data: {
                         type: MovementType.PURCHASE,
                         productVariantId: item.productVariantId,
@@ -253,6 +254,10 @@ export class PurchaseService {
                         reference: `GR: ${receiptNumber} for PO`
                     }
                 });
+
+                // Auto Journal
+                // Need to inject productVariant into movement or let service fetch it (but service fetch uses db=tx so it works)
+                await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
 
                 // d. Update PO Item received quantity
                 const poItem = await tx.purchaseOrderItem.findFirst({

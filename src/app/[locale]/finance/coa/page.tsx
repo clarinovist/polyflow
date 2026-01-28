@@ -1,18 +1,17 @@
+import { AccountListClient } from "@/components/finance/coa/AccountListClient";
+import { getAccounts } from "@/actions/finance/account-actions";
 import { COAAuditTool } from "@/components/finance/COAAuditTool";
 
-export default function CoaPage() {
+export default async function CoaPage() {
+    const accounts = await getAccounts();
+
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Chart of Accounts</h1>
-                <p className="text-muted-foreground">Manage your organizational account structure and ensure accounting integrity.</p>
-            </div>
+        <div className="space-y-6">
+            <AccountListClient initialAccounts={accounts} />
 
-            <COAAuditTool />
-
-            <div className="border rounded-lg p-12 flex flex-col items-center justify-center text-center bg-slate-50/50 dark:bg-slate-900/50 border-dashed">
-                <p className="text-sm text-muted-foreground italic">Full account management (CRUD) is currently under development.</p>
-                <p className="text-xs text-muted-foreground mt-1">Use the integrity check above to ensure core accounts are initialized.</p>
+            <div className="mt-8 pt-8 border-t">
+                <h3 className="text-lg font-semibold mb-4">Integrity Check</h3>
+                <COAAuditTool />
             </div>
         </div>
     );

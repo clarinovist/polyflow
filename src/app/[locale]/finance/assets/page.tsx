@@ -1,11 +1,19 @@
-import { PlaceholderPage } from "@/components/finance/PlaceholderPage";
+import { getAssets } from "@/actions/finance/asset-actions";
+import { getAccounts } from "@/actions/finance/account-actions";
+import { AssetListClient } from "@/components/finance/assets/AssetListClient";
 
-export default function AssetsPage() {
+export default async function AssetsPage() {
+    const assetsRes = await getAssets();
+    const accountsRes = await getAccounts();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const assets = assetsRes.success ? (assetsRes.data as any[]) : [];
+    const accounts = accountsRes || [];
+
     return (
-        <PlaceholderPage
-            title="Fixed Assets"
-            description="Track assets and depreciation."
-            moduleName="Accounting"
+        <AssetListClient
+            initialAssets={assets}
+            accounts={accounts}
         />
     );
 }

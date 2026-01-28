@@ -1,4 +1,5 @@
-import { PrismaClient, ProductType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus, AccountType, AccountCategory } from '@prisma/client'
+import { PrismaClient, ProductType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus } from '@prisma/client'
+import { seedCoA } from './seed-coa';
 
 const prisma = new PrismaClient()
 
@@ -19,6 +20,8 @@ async function main() {
     await prisma.goodsReceipt.deleteMany()
     await prisma.purchaseOrderItem.deleteMany()
     await prisma.purchaseOrder.deleteMany()
+    await prisma.purchaseRequestItem.deleteMany() // Fix FK Violation
+    await prisma.purchaseRequest.deleteMany()     // Fix FK Violation
     await prisma.qualityInspection.deleteMany()
     await prisma.scrapRecord.deleteMany()
     await prisma.materialIssue.deleteMany()
@@ -66,29 +69,9 @@ async function main() {
     })
 
     // 0.6. Chart of Accounts (Required for Auto-Journaling)
-    console.log('Seeding mandatory Chart of Accounts...')
-    const mandatoryAccounts = [
-        { code: '11120', name: 'Bank Accounts', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'Default account for payments and receipts' },
-        { code: '11210', name: 'Accounts Receivable', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'Main account for customer invoices' },
-        { code: '11310', name: 'Raw Material Inventory', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'Inventory account for raw materials' },
-        { code: '11320', name: 'Finished Goods Inventory', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'Inventory account for finished goods' },
-        { code: '11330', name: 'Work in Progress (WIP)', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'WIP account for manufacturing' },
-        { code: '11390', name: 'Scrap Inventory', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, description: 'Inventory account for scrap/afval' },
-        { code: '21110', name: 'Accounts Payable', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, description: 'Main account for supplier invoices' },
-        { code: '21310', name: 'VAT Output', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, description: 'Taxes on sales' },
-        { code: '21320', name: 'VAT Input', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, description: 'Taxes on purchases' },
-        { code: '41100', name: 'Sales Revenue', type: AccountType.REVENUE, category: AccountCategory.OPERATING_REVENUE, description: 'Revenue from finished goods sales' },
-        { code: '53300', name: 'Inventory Adjustment Loss/Gain', type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, description: 'Account for stock adjustments' },
-        { code: '54000', name: 'Scrap Cost Recovery', type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, description: 'Revenue from recycling or selling scrap' },
-    ]
-
-    for (const acc of mandatoryAccounts) {
-        await prisma.account.upsert({
-            where: { code: acc.code },
-            update: {},
-            create: acc,
-        })
-    }
+    // 0.6. Chart of Accounts (Using detailed Manufacturing COA)
+    // import { seedCoA } from './seed-coa';
+    await seedCoA();
 
     // 1. Locations (Factory Stages)
     const locations = [

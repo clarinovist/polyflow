@@ -11,6 +11,7 @@ import { ProductionStatus, MovementType } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { AccountingService } from '../accounting-service';
 import { ProductionMaterialService } from './material-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
@@ -140,7 +141,7 @@ export class ProductionExecutionService {
                 console.warn("COGM Calc failed", e);
             }
 
-            await tx.stockMovement.create({
+            const moveIn = await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId: outputVariantId,
@@ -150,6 +151,7 @@ export class ProductionExecutionService {
                     reference: `Production Partial Output: WO#${order.orderNumber}`,
                 }
             });
+            await AccountingService.recordInventoryMovement(moveIn, tx).catch(console.error);
 
             // Update WAC
             const fgInv = await tx.inventory.findUnique({
@@ -177,7 +179,7 @@ export class ProductionExecutionService {
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
                         await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
-                        await tx.stockMovement.create({
+                        const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
@@ -186,6 +188,7 @@ export class ProductionExecutionService {
                                 reference: `Backflush (Partial): WO#${order.orderNumber}`
                             }
                         });
+                        await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
                     }
                 }
             }
@@ -205,8 +208,6 @@ export class ProductionExecutionService {
             quantityProduced, scrapQuantity, scrapProngkolQty, scrapDaunQty,
             startTime, endTime, notes, userId
         } = data;
-
-        let executionId = '';
 
         await prisma.$transaction(async (tx) => {
             const executionData: {
@@ -228,8 +229,7 @@ export class ProductionExecutionService {
             if (scrapProngkolQty !== undefined) executionData.scrapProngkolQty = Number(scrapProngkolQty);
             if (scrapDaunQty !== undefined) executionData.scrapDaunQty = Number(scrapDaunQty);
 
-            const execution = await tx.productionExecution.create({ data: executionData });
-            executionId = execution.id;
+            await tx.productionExecution.create({ data: executionData });
 
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
             const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
@@ -256,7 +256,7 @@ export class ProductionExecutionService {
                 console.warn("COGM Calc failed", e);
             }
 
-            await tx.stockMovement.create({
+            const moveIn = await tx.stockMovement.create({
                 data: {
                     type: MovementType.IN,
                     productVariantId: outputVariantId,
@@ -266,6 +266,7 @@ export class ProductionExecutionService {
                     reference: `Production Output: WO#${order.orderNumber}`,
                 }
             });
+            await AccountingService.recordInventoryMovement(moveIn, tx).catch(console.error);
 
             // WAC Update
             const fgInv = await tx.inventory.findUnique({
@@ -288,7 +289,7 @@ export class ProductionExecutionService {
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
                         await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
-                        await tx.stockMovement.create({
+                        const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
@@ -297,6 +298,7 @@ export class ProductionExecutionService {
                                 reference: `Backflush (Batch): WO#${order.orderNumber}`
                             }
                         });
+                        await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
                     }
                 }
             }
@@ -347,9 +349,9 @@ export class ProductionExecutionService {
             }
         });
 
-        if (executionId && quantityProduced > 0) {
-            await AutoJournalService.handleProductionOutput(executionId);
-        }
+        // if (executionId && quantityProduced > 0) {
+        //     await AutoJournalService.handleProductionOutput(executionId);
+        // }
     }
 
     /**
