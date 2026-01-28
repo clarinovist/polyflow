@@ -716,4 +716,115 @@ export class PurchaseService {
             return po;
         });
     }
+
+    static async consolidateRequestsToOrder(requestIds: string[], supplierId: string, userId: string) {
+        if (requestIds.length === 0) throw new Error("No requests selected for consolidation");
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Fetch all PRs with their items
+            const prs = await tx.purchaseRequest.findMany({
+                where: { id: { in: requestIds } },
+                include: { items: { include: { productVariant: true } } }
+            });
+
+            if (prs.length !== requestIds.length) throw new Error("Some requests could not be found");
+            const alreadyConverted = prs.find(pr => pr.status === PurchaseRequestStatus.CONVERTED);
+            if (alreadyConverted) throw new Error(`Request ${alreadyConverted.requestNumber} is already converted`);
+
+            // 2. Aggregate Items
+            const aggregatedItems = new Map<string, {
+                productVariantId: string;
+                quantity: number;
+                unitPrice: number;
+                notes: string[];
+            }>();
+
+            for (const pr of prs) {
+                for (const item of pr.items) {
+                    const existing = aggregatedItems.get(item.productVariantId);
+                    const unitPrice = item.productVariant.standardCost?.toNumber() || 0;
+
+                    if (existing) {
+                        existing.quantity += item.quantity.toNumber();
+                        if (item.notes) existing.notes.push(`${pr.requestNumber}: ${item.notes}`);
+                    } else {
+                        aggregatedItems.set(item.productVariantId, {
+                            productVariantId: item.productVariantId,
+                            quantity: item.quantity.toNumber(),
+                            unitPrice,
+                            notes: item.notes ? [`${pr.requestNumber}: ${item.notes}`] : [`From ${pr.requestNumber}`]
+                        });
+                    }
+                }
+            }
+
+            // 3. Create PO
+            const year = new Date().getFullYear();
+            const prefix = `PO-${year}-`;
+            const lastOrder = await tx.purchaseOrder.findFirst({
+                where: { orderNumber: { startsWith: prefix } },
+                orderBy: { orderNumber: 'desc' },
+                select: { orderNumber: true }
+            });
+            let nextNumber = 1;
+            if (lastOrder?.orderNumber) {
+                const numPart = parseInt(lastOrder.orderNumber.replace(prefix, ''));
+                if (!isNaN(numPart)) nextNumber = numPart + 1;
+            }
+            const orderNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+
+            // Calculate totals
+            let totalAmount = 0;
+            const poItemsData = [];
+
+            for (const item of aggregatedItems.values()) {
+                const subtotal = item.quantity * item.unitPrice;
+                totalAmount += subtotal;
+                poItemsData.push({
+                    productVariantId: item.productVariantId,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    subtotal
+                });
+            }
+
+            const po = await tx.purchaseOrder.create({
+                data: {
+                    orderNumber,
+                    supplierId,
+                    orderDate: new Date(),
+                    status: PurchaseOrderStatus.DRAFT,
+                    totalAmount,
+                    notes: `Consolidated from PRs: ${prs.map(pr => pr.requestNumber).join(', ')}`,
+                    createdById: userId,
+                    items: {
+                        create: poItemsData
+                    },
+                    purchaseRequests: {
+                        connect: requestIds.map(id => ({ id }))
+                    }
+                }
+            });
+
+            // 4. Update PR Statuses
+            await tx.purchaseRequest.updateMany({
+                where: { id: { in: requestIds } },
+                data: {
+                    status: PurchaseRequestStatus.CONVERTED,
+                    convertedToPoId: po.id
+                }
+            });
+
+            await logActivity({
+                userId,
+                action: 'CONSOLIDATE_PR_TO_PO',
+                entityType: 'PurchaseOrder',
+                entityId: po.id,
+                details: `Consolidated ${prs.length} PRs into PO ${po.orderNumber}`,
+                tx
+            });
+
+            return po;
+        });
+    }
 }

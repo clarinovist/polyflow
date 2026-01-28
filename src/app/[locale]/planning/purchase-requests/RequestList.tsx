@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
-import { convertToPo } from './actions';
+import { consolidatePurchaseRequests } from '@/actions/purchasing';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Merge } from 'lucide-react';
 
 type RequestWithRelations = PurchaseRequest & {
     items: (PurchaseRequestItem & {
@@ -34,29 +35,59 @@ interface RequestListProps {
 }
 
 export function RequestList({ requests, suppliers }: RequestListProps) {
-    const [selectedRequest, setSelectedRequest] = useState<RequestWithRelations | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isConvertOpen, setIsConvertOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState('');
     const [isConverting, setIsConverting] = useState(false);
 
-    const handleConvertClick = (request: RequestWithRelations) => {
-        setSelectedRequest(request);
+    // Filter only OPEN requests for selection
+    const openRequests = requests.filter(r => r.status === 'OPEN');
+
+    // Toggle single selection
+    const handleSelect = (id: string, checked: boolean) => {
+        if (checked) {
+            setSelectedIds(prev => [...prev, id]);
+        } else {
+            setSelectedIds(prev => prev.filter(i => i !== id));
+        }
+    };
+
+    // Toggle all
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(openRequests.map(r => r.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleActionClick = (id?: string) => {
+        if (id) {
+            setSelectedIds([id]);
+        }
+        if (selectedIds.length === 0 && !id) {
+            toast.error("Please select at least one request");
+            return;
+        }
         setSelectedSupplier('');
         setIsConvertOpen(true);
     };
 
     const handleConfirmConvert = async () => {
-        if (!selectedRequest || !selectedSupplier) return;
+        if (selectedIds.length === 0 || !selectedSupplier) return;
 
         setIsConverting(true);
         try {
-            const result = await convertToPo(selectedRequest.id, selectedSupplier);
+            const result = await consolidatePurchaseRequests(selectedIds, selectedSupplier);
             if (result.success) {
-                toast.success("Purchase Order created successfully");
+                toast.success(`Successfully created Purchase Order from ${selectedIds.length} requests`);
                 setIsConvertOpen(false);
+                setSelectedIds([]);
+            } else {
+                toast.error(result.error);
             }
         } catch (error) {
-            toast.error("Failed to convert request");
+            toast.error("Failed to consolidate requests");
             console.error(error);
         } finally {
             setIsConverting(false);
@@ -66,14 +97,31 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>Purchase Requests</CardTitle>
-                    <CardDescription>Manage internal requests for materials.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div className="space-y-1">
+                        <CardTitle>Purchase Requests</CardTitle>
+                        <CardDescription>Manage internal requests for materials.</CardDescription>
+                    </div>
+                    <div>
+                        {selectedIds.length > 0 && (
+                            <Button onClick={() => handleActionClick()} className="gap-2">
+                                <Merge className="h-4 w-4" />
+                                Consolidate ({selectedIds.length})
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[50px]">
+                                    <Checkbox
+                                        checked={selectedIds.length === openRequests.length && openRequests.length > 0}
+                                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                                        disabled={openRequests.length === 0}
+                                    />
+                                </TableHead>
                                 <TableHead>Request #</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Items</TableHead>
@@ -86,6 +134,13 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                         <TableBody>
                             {requests.map((req) => (
                                 <TableRow key={req.id}>
+                                    <TableCell>
+                                        <Checkbox
+                                            checked={selectedIds.includes(req.id)}
+                                            onCheckedChange={(checked) => handleSelect(req.id, checked as boolean)}
+                                            disabled={req.status !== 'OPEN'}
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-medium">{req.requestNumber}</TableCell>
                                     <TableCell>{format(new Date(req.requestDate), 'dd MMM yyyy')}</TableCell>
                                     <TableCell>
@@ -112,7 +167,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         {req.status === 'OPEN' && (
-                                            <Button size="sm" onClick={() => handleConvertClick(req)}>Convert to PO</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => handleActionClick(req.id)}>Convert</Button>
                                         )}
                                         {req.status === 'CONVERTED' && (
                                             <Button size="sm" variant="ghost" disabled>Converted</Button>
@@ -122,7 +177,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                             ))}
                             {requests.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                         No open purchase requests found.
                                     </TableCell>
                                 </TableRow>
@@ -135,9 +190,12 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
             <Dialog open={isConvertOpen} onOpenChange={setIsConvertOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Convert to Purchase Order</DialogTitle>
+                        <DialogTitle>
+                            {selectedIds.length > 1 ? `Consolidate ${selectedIds.length} Requests` : 'Convert to Purchase Order'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Select a supplier for <strong>{selectedRequest?.requestNumber}</strong>.
+                            Select a supplier to create a Purchase Order for the selected requests.
+                            Items will be aggregated by product variant.
                         </DialogDescription>
                     </DialogHeader>
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -94,10 +94,11 @@ export function BatchIssueMaterialDialog({
     };
 
     // Check on location change or open
-    useMemo(() => {
+    useEffect(() => {
         if (open) {
             checkStocks();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, selectedLocation]);
 
     const handleQuickAdjust = async () => {

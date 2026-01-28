@@ -278,7 +278,16 @@ polyflow/
 
 ### Week of Jan 19-24, 2026
 
-1. **Finance & Costing Module - PHASE 4 COMPLETED** (Jan 24, 2026)
+### Week of Jan 26-30, 2026
+
+1. **Multi-Stage MRP & Procurement Aggregation** (Jan 28, 2026)
+   - **Recursive MRP Engine**: Implemented multi-level BOM explosion to handle nested production dependencies (e.g., Extrusion -> Mixing -> Raw Materials).
+   - **Hierarchical Work Orders**: Automated creation of parent-child Work Order trees for complex products.
+   - **Smart Procurement**: Automatic "Make vs. Buy" decision logic (BOM = Produce, No BOM = Buy).
+   - **Purchase Request Aggregation**: Added capability to consolidate multiple PRs into a single Purchase Order for efficient supplier management.
+   - **Enhanced Planning UI**: Visual indicators for production vs. procurement requirements and multi-select PR consolidation.
+
+2. **Finance & Costing Module - PHASE 4 COMPLETED** (Jan 24, 2026)
    - Implemented `CostReportingService` for automated COGM and WIP valuation.
    - Added `getExecutiveStats` with real-time manufacturing KPIs (Yield, Scrap, Downtime).
    - Implemented automated status updates for Overdue Invoices (Sales & Purchase).

@@ -12,9 +12,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { Factory, ShoppingCart, AlertCircle, CheckCircle } from 'lucide-react';
 import { simulateMrp, createProductionFromSalesOrder } from '@/actions/production';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 interface ProductionPlanningDialogProps {
     salesOrderId: string;
@@ -43,6 +44,8 @@ export function ProductionPlanningDialog({
             availableQty: number;
             shortageQty: number;
             unit: string;
+            productType: string;
+            hasBom: boolean;
         }[];
         canProduce: boolean;
         missingBoms: {
@@ -165,20 +168,41 @@ export function ProductionPlanningDialog({
                                     </Alert>
                                 )}
 
-                                <div className="border rounded-md overflow-hidden max-h-[300px] overflow-y-auto">
+                                <div className="border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-muted sticky top-0">
+                                        <thead className="bg-muted sticky top-0 z-10">
                                             <tr>
-                                                <th className="p-2 text-left">Material</th>
+                                                <th className="p-2 text-left">Item</th>
+                                                <th className="p-2 text-center">Replenishment</th>
                                                 <th className="p-2 text-right">Required</th>
                                                 <th className="p-2 text-right">Available</th>
                                                 <th className="p-2 text-right">Shortage</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y">
+                                        <tbody className="divide-y relative">
                                             {simulationResult.requirements.map((req, idx) => (
-                                                <tr key={idx} className={req.shortageQty > 0 ? "bg-red-50" : ""}>
-                                                    <td className="p-2 font-medium">{req.materialName}</td>
+                                                <tr key={idx} className={req.shortageQty > 0 ? "bg-red-50/50" : ""}>
+                                                    <td className="p-2 font-medium">
+                                                        <div className="flex flex-col">
+                                                            <span>{req.materialName}</span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase">{req.productType.replace('_', ' ')}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        <div className="flex justify-center">
+                                                            {req.hasBom ? (
+                                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
+                                                                    <Factory className="h-3 w-3" />
+                                                                    PRODUCE
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
+                                                                    <ShoppingCart className="h-3 w-3" />
+                                                                    BUY
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="p-2 text-right">
                                                         {Number(req.neededQty).toFixed(2)} {req.unit}
                                                     </td>

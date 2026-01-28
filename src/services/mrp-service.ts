@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { ProductionStatus } from '@prisma/client';
+import { ProductionStatus, Prisma, ProductionOrder } from '@prisma/client';
 
 
 export interface MaterialRequirement {
@@ -9,6 +9,8 @@ export interface MaterialRequirement {
     availableQty: number;
     shortageQty: number;
     unit: string;
+    productType: string;
+    hasBom: boolean;
 }
 
 export interface MrpSimulationResult {
@@ -19,6 +21,14 @@ export interface MrpSimulationResult {
         productName: string;
         productVariantId: string;
     }[];
+}
+
+interface AggregatedRequirement {
+    name: string;
+    needed: number;
+    unit: string;
+    productType: string;
+    hasBom: boolean;
 }
 
 export class MrpService {
@@ -42,71 +52,18 @@ export class MrpService {
 
         if (!so) throw new Error("Sales Order not found");
 
-        const requirementsMap = new Map<string, {
-            name: string;
-            needed: number;
-            unit: string;
-        }>();
-
+        const requirementsMap = new Map<string, AggregatedRequirement>();
         const missingBoms: { productName: string; productVariantId: string; }[] = [];
 
-        // 2. Iterate and Explode BOMs
+        // 2. Recursive Explosion
         for (const item of so.items) {
-            // Find default BOM for this product variant
-            const bom = await prisma.bom.findFirst({
-                where: {
-                    productVariantId: item.productVariantId,
-                    isDefault: true
-                },
-                include: { items: { include: { productVariant: true } } }
-            });
-
-            if (!bom) {
-                // If no BOM, and it's MTO, record it as missing
-                if (so.orderType === 'MAKE_TO_ORDER') {
-                    missingBoms.push({
-                        productName: item.productVariant.name,
-                        productVariantId: item.productVariantId
-                    });
-                }
-
-                // fallback: add the item itself to requirements if no BOM found
-                // this ensures that even if it's MTO, we can still trigger a PR for the product itself
-                // if the planner decides to process it despite missing BOM.
-                const materialId = item.productVariantId;
-                const needed = Number(item.quantity);
-                const existing = requirementsMap.get(materialId);
-                if (existing) {
-                    existing.needed += needed;
-                } else {
-                    requirementsMap.set(materialId, {
-                        name: item.productVariant.name,
-                        needed,
-                        unit: item.productVariant.primaryUnit || 'unit'
-                    });
-                }
-                continue;
-            }
-
-            const productionQty = Number(item.quantity);
-            const outputRatio = productionQty / bom.outputQuantity.toNumber();
-
-            for (const bomItem of bom.items) {
-                const materialId = bomItem.productVariantId;
-                const neededForOne = bomItem.quantity.toNumber();
-                const totalNeeded = neededForOne * outputRatio;
-
-                const existing = requirementsMap.get(materialId);
-                if (existing) {
-                    existing.needed += totalNeeded;
-                } else {
-                    requirementsMap.set(materialId, {
-                        name: bomItem.productVariant.name,
-                        needed: totalNeeded,
-                        unit: bomItem.productVariant.primaryUnit || 'unit'
-                    });
-                }
-            }
+            await this.explodeRecursively(
+                item.productVariantId,
+                Number(item.quantity),
+                requirementsMap,
+                missingBoms,
+                includeReserved
+            );
         }
 
         // 3. Check Inventory for Aggregated Requirements
@@ -146,7 +103,9 @@ export class MrpService {
                 neededQty: req.needed,
                 availableQty,
                 shortageQty,
-                unit: req.unit
+                unit: req.unit,
+                productType: req.productType,
+                hasBom: req.hasBom
             });
         }
 
@@ -176,78 +135,43 @@ export class MrpService {
         if (!so) throw new Error("Sales Order not found");
 
         return await prisma.$transaction(async (tx) => {
-            const createdOrders = [];
+            const createdOrders: ProductionOrder[] = [];
+            const shortages = simulation.requirements.filter(r => r.shortageQty > 0);
 
-            // 2. Create Production Orders for each line item with a BOM
+            // 2. Recursive Work Order Creation
             for (const item of so.items) {
-                const bom = await prisma.bom.findFirst({
-                    where: { productVariantId: item.productVariantId, isDefault: true }
-                });
+                const materialReq = simulation.requirements.find(r => r.productVariantId === item.productVariantId);
 
-                if (!bom) continue; // Skip if no BOM (could be purchased item)
-
-                const orderNumber = `WO-${so.orderNumber}-${item.id.slice(0, 4)}`;
-
-                let po = await tx.productionOrder.findFirst({
-                    where: { orderNumber }
-                });
-
-                if (!po) {
-                    po = await tx.productionOrder.create({
-                        data: {
-                            orderNumber,
-                            salesOrderId: so.id,
-                            bomId: bom.id,
-                            plannedQuantity: item.quantity,
-                            status: status,
-                            plannedStartDate: new Date(),
-                            plannedEndDate: so.expectedDate || undefined,
-                            locationId: so.sourceLocationId || '',
-                            notes: `Auto-generated from SO ${so.orderNumber}. Simulation Result: ${status}`
-                        }
-                    });
-
-                    // Create Planned Materials
-                    const bomItems = await tx.bomItem.findMany({
-                        where: { bomId: bom.id }
-                    });
-
-                    if (bomItems.length > 0) {
-                        const outputRatio = Number(item.quantity) / Number(bom.outputQuantity);
-
-                        await tx.productionMaterial.createMany({
-                            data: bomItems.map(bi => ({
-                                productionOrderId: po!.id,
-                                productVariantId: bi.productVariantId,
-                                quantity: Number(bi.quantity) * outputRatio
-                            }))
-                        });
-                    }
+                if (materialReq?.hasBom) {
+                    await this.createWorkOrderHierarchy(
+                        item.productVariantId,
+                        Number(item.quantity),
+                        so.id,
+                        null, // Root level (Ekstrusi)
+                        status,
+                        so.sourceLocationId || '',
+                        userId || '',
+                        tx,
+                        createdOrders,
+                        simulation.requirements
+                    );
                 }
-                createdOrders.push(po);
             }
 
-            // 3. Create Purchase Requests for ALL shortages found in simulation
-            const shortages = simulation.requirements.filter(r => r.shortageQty > 0);
-            if (shortages.length > 0 && userId) {
-                // Import PurchaseService dynamically or ensure it's available. 
-                // Since it's in a different folder, we use full path or assume it's imported at top (if possible).
-                // Actually MrpService doesn't import PurchaseService currently.
-                // I will add the import at the top later or use a dynamic import.
-                // For now, let's assume it's available or use regular prisma if we can't easily import.
+            // 3. Create Purchase Requests for ALL shortages that DO NOT have a BOM (Buy items)
+            const prItems = shortages.filter(s => !s.hasBom);
 
-                // Let's use dynamic import to avoid circular dependencies if any.
+            if (prItems.length > 0 && userId) {
                 const { PurchaseService } = await import('./purchase-service');
-
                 await PurchaseService.createPurchaseRequest({
                     salesOrderId: so.id,
-                    items: shortages.map(s => ({
+                    items: prItems.map(s => ({
                         productVariantId: s.productVariantId,
                         quantity: s.shortageQty,
-                        notes: `Shortage detected during planning for SO ${so.orderNumber}`
+                        notes: `Shortage detected during recursive planning for SO ${so.orderNumber}`
                     })),
                     priority: 'URGENT',
-                    notes: `Auto-generated during planning conversion for SO ${so.orderNumber}`
+                    notes: `Auto-generated during hierarchical planning for SO ${so.orderNumber}`
                 }, userId, tx);
             }
 
@@ -255,9 +179,175 @@ export class MrpService {
                 success: true,
                 status,
                 orderCount: createdOrders.length,
-                prCreated: shortages.length > 0,
+                prCreated: prItems.length > 0,
                 simulation
             };
         });
+    }
+
+    /**
+     * Recursive Work Order Creation Helper
+     */
+    private static async createWorkOrderHierarchy(
+        productVariantId: string,
+        quantity: number,
+        salesOrderId: string,
+        parentOrderId: string | null,
+        status: ProductionStatus,
+        locationId: string,
+        userId: string,
+        tx: Prisma.TransactionClient,
+        createdOrders: ProductionOrder[],
+        allRequirements: MaterialRequirement[]
+    ) {
+        // 1. Find BOM
+        const bom = await tx.bom.findFirst({
+            where: { productVariantId, isDefault: true }
+        });
+
+        if (!bom) return;
+
+        const variant = await tx.productVariant.findUnique({
+            where: { id: productVariantId }
+        });
+
+        // 2. Generate Order Number
+        const rand = Math.random().toString(36).substr(2, 4).toUpperCase();
+        const prefix = parentOrderId ? 'SWO' : 'WO'; // Sub-Work Order for children
+        const orderNumber = `${prefix}-${productVariantId.slice(0, 4)}-${rand}`;
+
+        // 3. Create the Production Order
+        const po = await tx.productionOrder.create({
+            data: {
+                orderNumber,
+                salesOrderId,
+                bomId: bom.id,
+                plannedQuantity: quantity,
+                status,
+                plannedStartDate: new Date(),
+                locationId,
+                parentOrderId,
+                notes: `Auto-generated ${parentOrderId ? 'child' : 'root'} stage for ${variant?.name}`
+            }
+        });
+        createdOrders.push(po);
+
+        // 4. Create Planned Materials
+        const bomItems = await tx.bomItem.findMany({
+            where: { bomId: bom.id }
+        });
+
+        const outputRatio = quantity / Number(bom.outputQuantity);
+
+        for (const bi of bomItems) {
+            await tx.productionMaterial.create({
+                data: {
+                    productionOrderId: po.id,
+                    productVariantId: bi.productVariantId,
+                    quantity: Number(bi.quantity) * outputRatio
+                }
+            });
+
+            // 5. Recursive check: If this material has a shortage AND its own BOM, create a child WO
+            const subReq = allRequirements.find(r => r.productVariantId === bi.productVariantId);
+            if (subReq && subReq.shortageQty > 0 && subReq.hasBom) {
+                await this.createWorkOrderHierarchy(
+                    bi.productVariantId,
+                    subReq.shortageQty,
+                    salesOrderId,
+                    po.id,
+                    status,
+                    locationId,
+                    userId,
+                    tx,
+                    createdOrders,
+                    allRequirements
+                );
+            }
+        }
+    }
+
+    /**
+     * Recursive Explosion Helper
+     */
+    private static async explodeRecursively(
+        productVariantId: string,
+        quantity: number,
+        requirementsMap: Map<string, AggregatedRequirement>,
+        missingBoms: { productName: string; productVariantId: string; }[],
+        includeReserved: boolean
+    ) {
+        // 1. Fetch Item Info (for product type)
+        const variant = await prisma.productVariant.findUnique({
+            where: { id: productVariantId },
+            include: { product: true }
+        });
+
+        if (!variant) return;
+
+        // 2. Find BOM
+        const bom = await prisma.bom.findFirst({
+            where: { productVariantId, isDefault: true },
+            include: {
+                items: {
+                    include: {
+                        productVariant: {
+                            include: { product: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Mark the item itself in requirements map
+        const existing = requirementsMap.get(productVariantId);
+        if (existing) {
+            existing.needed += quantity;
+        } else {
+            requirementsMap.set(productVariantId, {
+                name: variant.name,
+                needed: quantity,
+                unit: variant.primaryUnit || 'unit',
+                productType: variant.product.productType,
+                hasBom: !!bom
+            });
+        }
+
+        if (!bom) {
+            // No BOM -> Leaf node (Raw Material or missing recipe)
+            return;
+        }
+
+        // 4. Check Stock for Intermediate/Finished Good
+        // If we have stock, we only explode for the shortage
+        const inventory = await prisma.inventory.aggregate({
+            where: { productVariantId },
+            _sum: { quantity: true }
+        });
+        let availableQty = inventory._sum.quantity?.toNumber() || 0;
+
+        if (includeReserved) {
+            const reservations = await prisma.stockReservation.aggregate({
+                where: { productVariantId, status: 'ACTIVE' },
+                _sum: { quantity: true }
+            });
+            availableQty = Math.max(0, availableQty - (reservations._sum.quantity?.toNumber() || 0));
+        }
+
+        const effectiveShortage = Math.max(0, quantity - availableQty);
+
+        // 5. If there's a shortage, explode the BOM for the shortage amount
+        if (effectiveShortage > 0) {
+            const outputRatio = effectiveShortage / bom.outputQuantity.toNumber();
+            for (const bomItem of bom.items) {
+                await this.explodeRecursively(
+                    bomItem.productVariantId,
+                    bomItem.quantity.toNumber() * outputRatio,
+                    requirementsMap,
+                    missingBoms,
+                    includeReserved
+                );
+            }
+        }
     }
 }

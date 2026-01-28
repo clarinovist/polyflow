@@ -368,6 +368,9 @@ model ProductionOrder {
   shifts                  ProductionShift[]
   inspections             QualityInspection[]
   scrapRecords            ScrapRecord[]
+  parentOrderId           String?
+  parentOrder             ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders            ProductionOrder[]     @relation("OrderHierarchy")
 }
 
 model MachineDowntime {

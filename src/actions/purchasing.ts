@@ -156,3 +156,18 @@ export async function getPurchaseInvoices() {
     const invoices = await PurchaseService.getPurchaseInvoices();
     return serializeData(invoices);
 }
+
+export async function consolidatePurchaseRequests(requestIds: string[], supplierId: string) {
+    const session = await requireAuth();
+    try {
+        const po = await PurchaseService.consolidateRequestsToOrder(requestIds, supplierId, session.user.id);
+        revalidatePath('/planning/purchase-requests');
+        revalidatePath('/planning/purchase-orders');
+        return { success: true, data: serializeData(po) };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to consolidate requests'
+        };
+    }
+}
