@@ -5,6 +5,8 @@ import { logActivity } from '@/lib/audit';
 import { formatRupiah } from '@/lib/utils';
 import { InventoryService } from './inventory-service';
 import { InvoiceService } from './invoice-service';
+import { PurchaseService } from './purchase-service';
+import { PurchaseRequestItemValues } from '@/lib/schemas/purchasing';
 
 export class SalesService {
 
@@ -235,17 +237,77 @@ export class SalesService {
             : SalesOrderStatus.CONFIRMED;
 
         await prisma.$transaction(async (tx) => {
-            // Create Stock Reservations (for Make to Stock)
+            // Make to Stock Logic
             if (order.sourceLocationId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
+                const prItems: PurchaseRequestItemValues[] = [];
+
                 for (const item of order.items) {
-                    await InventoryService.createStockReservation({
-                        productVariantId: item.productVariantId,
-                        locationId: order.sourceLocationId,
-                        quantity: item.quantity.toNumber(),
-                        reservedFor: ReservationType.SALES_ORDER,
-                        referenceId: order.id,
-                        reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
-                    }, tx);
+                    // Check Physical Stock directly using tx
+                    const inventory = await tx.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId: order.sourceLocationId,
+                                productVariantId: item.productVariantId
+                            }
+                        }
+                    });
+
+                    // Check Existing Reservations
+                    const reservations = await tx.stockReservation.aggregate({
+                        where: {
+                            locationId: order.sourceLocationId,
+                            productVariantId: item.productVariantId,
+                            status: ReservationStatus.ACTIVE
+                        },
+                        _sum: { quantity: true }
+                    });
+
+                    const currentQty = inventory?.quantity?.toNumber() || 0;
+                    const reservedQty = reservations._sum.quantity?.toNumber() || 0;
+                    const available = currentQty - reservedQty;
+                    const demand = item.quantity.toNumber();
+
+                    let activeReservationAmount = 0;
+                    let shortageAmount = 0;
+
+                    if (available >= demand) {
+                        activeReservationAmount = demand;
+                    } else {
+                        // Partial reservation
+                        activeReservationAmount = Math.max(0, available);
+                        shortageAmount = demand - activeReservationAmount;
+                    }
+
+                    // 1. Create Active Reservation (if any)
+                    if (activeReservationAmount > 0) {
+                        await InventoryService.createStockReservation({
+                            productVariantId: item.productVariantId,
+                            locationId: order.sourceLocationId,
+                            quantity: activeReservationAmount,
+                            reservedFor: ReservationType.SALES_ORDER,
+                            referenceId: order.id,
+                            reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
+                        }, tx);
+                    }
+
+                    // 2. Track Shortage for PR
+                    if (shortageAmount > 0) {
+                        prItems.push({
+                            productVariantId: item.productVariantId,
+                            quantity: shortageAmount,
+                            notes: `Shortage for SO ${order.orderNumber}`
+                        });
+                    }
+                }
+
+                // 3. Create Purchase Request if needed
+                if (prItems.length > 0) {
+                    await PurchaseService.createPurchaseRequest({
+                        salesOrderId: order.id,
+                        items: prItems,
+                        priority: 'URGENT', // Urgent because it's for an active order
+                        notes: `Auto-generated for Sales Order ${order.orderNumber}`
+                    }, userId, tx);
                 }
             }
 

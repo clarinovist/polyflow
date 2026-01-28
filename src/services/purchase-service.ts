@@ -11,9 +11,11 @@ import {
     CreatePurchaseOrderValues,
     UpdatePurchaseOrderValues,
     CreateGoodsReceiptValues,
-    CreatePurchaseInvoiceValues
+    CreatePurchaseInvoiceValues,
+    CreatePurchaseRequestValues
 } from '@/lib/schemas/purchasing';
 import { logActivity } from '@/lib/audit';
+import { PurchaseRequestStatus } from '@prisma/client';
 
 export class PurchaseService {
 
@@ -589,5 +591,129 @@ export class PurchaseService {
             completedOrders,
             totalSpend
         };
+    }
+
+    static async createPurchaseRequest(data: CreatePurchaseRequestValues, userId: string, tx?: Prisma.TransactionClient) {
+        const client = tx || prisma;
+
+        // Generate PR Number: PR-YYYY-XXXX
+        const year = new Date().getFullYear();
+        const prefix = `PR-${year}-`;
+
+        const lastPr = await client.purchaseRequest.findFirst({
+            where: { requestNumber: { startsWith: prefix } },
+            orderBy: { requestNumber: 'desc' },
+            select: { requestNumber: true }
+        });
+
+        let nextNumber = 1;
+        if (lastPr?.requestNumber) {
+            const numPart = parseInt(lastPr.requestNumber.replace(prefix, ''));
+            if (!isNaN(numPart)) nextNumber = numPart + 1;
+        }
+
+        const requestNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+
+        return await prisma.purchaseRequest.create({
+            data: {
+                requestNumber,
+                salesOrderId: data.salesOrderId,
+                priority: data.priority,
+                notes: data.notes,
+                status: PurchaseRequestStatus.OPEN,
+                createdById: userId,
+                items: {
+                    create: data.items.map(item => ({
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity,
+                        notes: item.notes
+                    }))
+                }
+            },
+            include: { items: true }
+        });
+    }
+
+    static async convertRequestToOrder(requestId: string, supplierId: string, userId: string) {
+        return await prisma.$transaction(async (tx) => {
+            const pr = await tx.purchaseRequest.findUnique({
+                where: { id: requestId },
+                include: { items: { include: { productVariant: true } } }
+            });
+
+            if (!pr) throw new Error("Purchase Request not found");
+            if (pr.status === PurchaseRequestStatus.CONVERTED) throw new Error("Request already converted");
+
+            // Create PO
+            // Generate Order Number: PO-YYYY-XXXX
+            const year = new Date().getFullYear();
+            const prefix = `PO-${year}-`;
+            const lastOrder = await tx.purchaseOrder.findFirst({
+                where: { orderNumber: { startsWith: prefix } },
+                orderBy: { orderNumber: 'desc' },
+                select: { orderNumber: true }
+            });
+            let nextNumber = 1;
+            if (lastOrder?.orderNumber) {
+                const numPart = parseInt(lastOrder.orderNumber.replace(prefix, ''));
+                if (!isNaN(numPart)) nextNumber = numPart + 1;
+            }
+            const orderNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+
+            const itemsWithCost = pr.items.map(item => {
+                const unitPrice = item.productVariant.standardCost?.toNumber() || 0;
+                return {
+                    productVariantId: item.productVariantId,
+                    quantity: item.quantity.toNumber(),
+                    unitPrice: unitPrice,
+                    subtotal: item.quantity.toNumber() * unitPrice
+                };
+            });
+
+            const totalAmount = itemsWithCost.reduce((sum, item) => sum + item.subtotal, 0);
+
+            const po = await tx.purchaseOrder.create({
+                data: {
+                    orderNumber,
+                    supplierId,
+                    orderDate: new Date(),
+                    status: PurchaseOrderStatus.DRAFT,
+                    totalAmount,
+                    notes: `Converted from PR ${pr.requestNumber}`,
+                    createdById: userId,
+                    items: {
+                        create: itemsWithCost.map(item => ({
+                            productVariantId: item.productVariantId,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice,
+                            subtotal: item.subtotal
+                        }))
+                    },
+                    purchaseRequests: {
+                        connect: { id: requestId }
+                    }
+                }
+            });
+
+            // Update PR Status
+            await tx.purchaseRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: PurchaseRequestStatus.CONVERTED,
+                    convertedToPoId: po.id
+                }
+            });
+
+            await logActivity({
+                userId,
+                action: 'CONVERT_PR_TO_PO',
+                entityType: 'PurchaseOrder',
+                entityId: po.id,
+                details: `Converted PR ${pr.requestNumber} to PO ${po.orderNumber}`,
+                tx
+            });
+
+            return po;
+        });
     }
 }

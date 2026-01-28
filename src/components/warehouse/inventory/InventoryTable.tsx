@@ -80,6 +80,7 @@ export interface InventoryItem {
         name: string;
     };
     reservedQuantity?: number;
+    waitingQuantity?: number;
     availableQuantity?: number;
 }
 
@@ -548,13 +549,22 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
-                                                {item.reservedQuantity ? (
-                                                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums">
-                                                        {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
+                                                <div className="flex flex-col items-center gap-1">
+                                                    {item.reservedQuantity ? (
+                                                        <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums">
+                                                            {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
+                                                        </Badge>
+                                                    ) : !item.waitingQuantity ? (
+                                                        <span className="text-muted-foreground">-</span>
+                                                    ) : null}
+
+                                                    {item.waitingQuantity && item.waitingQuantity > 0 ? (
+                                                        <Badge variant="outline" className="text-slate-500 dark:text-slate-400 border-slate-500/20 bg-slate-500/10 tabular-nums flex items-center gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+                                                            {item.waitingQuantity.toLocaleString()} Waiting
+                                                        </Badge>
+                                                    ) : null}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
                                                 <div className={cn(

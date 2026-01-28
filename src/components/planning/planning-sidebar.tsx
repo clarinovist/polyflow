@@ -8,7 +8,8 @@ import {
     ShoppingCart,
     Truck,
     BarChart3,
-    ClipboardCheck
+    ClipboardCheck,
+    ClipboardList
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -41,6 +42,7 @@ const planningLinks = [
     {
         heading: 'Procurement',
         items: [
+            { href: '/planning/purchase-requests', icon: ClipboardList, label: 'Purchase Requests' },
             { href: '/planning/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
             { href: '/planning/suppliers', icon: Truck, label: 'Supplier Management' },
         ],

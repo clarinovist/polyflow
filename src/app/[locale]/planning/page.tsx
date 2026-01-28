@@ -31,8 +31,14 @@ export default async function PlanningDashboardPage() {
                     </Button>
                     <Button asChild className="bg-amber-600 hover:bg-amber-700">
                         <Link href="/planning/requests">
+                            <Factory className="mr-2 h-4 w-4" />
+                            Production Requests
+                        </Link>
+                    </Button>
+                    <Button asChild variant="secondary">
+                        <Link href="/planning/purchase-requests">
                             <ClipboardCheck className="mr-2 h-4 w-4" />
-                            Incoming Requests
+                            Purchase Requests
                         </Link>
                     </Button>
                 </div>

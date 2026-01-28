@@ -47,9 +47,26 @@ export const createPurchaseInvoiceSchema = z.object({
     notes: z.string().optional(),
 });
 
+
+export const purchaseRequestItemSchema = z.object({
+    productVariantId: z.string().min(1, "Product is required"),
+    quantity: z.coerce.number().positive("Quantity must be positive"),
+    notes: z.string().optional(),
+});
+
+export const createPurchaseRequestSchema = z.object({
+    salesOrderId: z.string().optional(),
+    priority: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
+    notes: z.string().optional(),
+    items: z.array(purchaseRequestItemSchema).min(1, "At least one item is required"),
+});
+
 export type PurchaseOrderItemValues = z.infer<typeof purchaseOrderItemSchema>;
 export type CreatePurchaseOrderValues = z.infer<typeof createPurchaseOrderSchema>;
 export type UpdatePurchaseOrderValues = z.infer<typeof updatePurchaseOrderSchema>;
 export type GoodsReceiptItemValues = z.infer<typeof goodsReceiptItemSchema>;
 export type CreateGoodsReceiptValues = z.infer<typeof createGoodsReceiptSchema>;
 export type CreatePurchaseInvoiceValues = z.infer<typeof createPurchaseInvoiceSchema>;
+
+export type PurchaseRequestItemValues = z.infer<typeof purchaseRequestItemSchema>;
+export type CreatePurchaseRequestValues = z.infer<typeof createPurchaseRequestSchema>;

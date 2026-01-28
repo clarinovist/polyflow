@@ -24,5 +24,6 @@ export type InventoryWithRelations = {
         name: string;
     };
     reservedQuantity?: number;
+    waitingQuantity?: number;
     availableQuantity?: number;
 };

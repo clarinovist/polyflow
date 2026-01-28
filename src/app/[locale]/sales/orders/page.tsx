@@ -74,7 +74,7 @@ export default async function SalesPage() {
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <SalesOrderTable initialData={serializedOrders as any} />
+                    <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
                 </CardContent>
             </Card>
         </div>

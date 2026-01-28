@@ -14,7 +14,7 @@ import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { SalesOrder, SalesOrderStatus, Customer, Location } from '@prisma/client';
 import { FileText } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
@@ -75,7 +75,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                 <TableRow
                                     key={order.id}
                                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                    onClick={() => router.push(`${basePath}/${order.id}`)}
+                                    onClick={() => router.push(`${basePath}/${order.id}` as any)}
                                 >
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">

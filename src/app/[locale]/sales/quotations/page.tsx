@@ -33,7 +33,7 @@ export default async function SalesQuotationsPage() {
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <SalesQuotationTable initialData={serializedQuotations as any} />
+                    <SalesQuotationTable initialData={serializedQuotations as any} basePath="/sales/quotations" />
                 </CardContent>
             </Card>
         </div>

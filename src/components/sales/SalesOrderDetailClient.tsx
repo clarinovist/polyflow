@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import {
     confirmSalesOrder,
     shipSalesOrder,
@@ -112,7 +112,7 @@ interface SalesOrderDetailClientProps {
 }
 export function SalesOrderDetailClient({
     order,
-    basePath = '/sales',
+    basePath = '/sales/orders',
     warehouseMode = false
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
@@ -209,7 +209,7 @@ export function SalesOrderDetailClient({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href={basePath}>
+                        <Link href={basePath as any}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
                     </Button>
@@ -230,7 +230,7 @@ export function SalesOrderDetailClient({
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <>
                             <Button variant="outline" asChild>
-                                <Link href={`${basePath}/${order.id}/edit`}>
+                                <Link href={`${basePath}/${order.id}/edit` as any}>
                                     <Edit className="mr-2 h-4 w-4" /> Edit
                                 </Link>
                             </Button>

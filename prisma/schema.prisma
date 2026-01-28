@@ -33,6 +33,7 @@ model User {
   scrapRecords      ScrapRecord[]
   movements         StockMovement[]
   opnames           StockOpname[]
+  createdPurchaseRequests PurchaseRequest[]
 }
 
 model Employee {
@@ -173,6 +174,7 @@ model ProductVariant {
   product             Product              @relation(fields: [productId], references: [id])
   productionMaterials ProductionMaterial[]
   purchaseOrderItems  PurchaseOrderItem[]
+  purchaseRequestItems PurchaseRequestItem[]
   salesOrderItems     SalesOrderItem[]
   quotationItems      SalesQuotationItem[]
   ScrapRecord         ScrapRecord[]
@@ -529,6 +531,7 @@ model SalesOrder {
   sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
   items            SalesOrderItem[]
   movements        StockMovement[]   @relation("SalesMovement")
+  purchaseRequests PurchaseRequest[] 
 }
 
 model SalesQuotation {
@@ -621,6 +624,7 @@ model PurchaseOrder {
   createdBy     User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
   supplier      Supplier            @relation(fields: [supplierId], references: [id])
   items         PurchaseOrderItem[]
+  purchaseRequests PurchaseRequest[] @relation("PrToPo")
 }
 
 model PurchaseOrderItem {
@@ -921,6 +925,7 @@ enum ReservationType {
 
 enum ReservationStatus {
   ACTIVE
+  WAITING
   FULFILLED
   CANCELLED
   EXPIRED
@@ -1058,4 +1063,43 @@ enum AssetStatus {
   FULLY_DEPRECIATED
   DISPOSED
   MAINTENANCE
+}
+enum PurchaseRequestStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
+model PurchaseRequest {
+  id              String                @id @default(uuid())
+  requestNumber   String                @unique // PR-YYYY-XXXX
+  requestDate     DateTime              @default(now())
+  status          PurchaseRequestStatus @default(OPEN)
+  priority        String                @default("NORMAL") // NORMAL, URGENT
+  notes           String?
+  
+  // Relations
+  items           PurchaseRequestItem[]
+  salesOrderId    String?               
+  salesOrder      SalesOrder?           @relation(fields: [salesOrderId], references: [id])
+  convertedToPoId String?
+  purchaseOrder   PurchaseOrder?        @relation("PrToPo", fields: [convertedToPoId], references: [id])
+  
+  // Audit
+  createdById     String
+  createdBy       User                  @relation(fields: [createdById], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  productVariantId  String
+  quantity          Decimal         @db.Decimal(15, 4)
+  notes             String?
+
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
 }

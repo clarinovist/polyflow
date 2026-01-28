@@ -27,7 +27,7 @@ export default async function SalesOrderDetailPage({ params }: PageProps) {
     return (
         <div className="p-6 max-w-5xl mx-auto">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <SalesOrderDetailClient order={serializedOrder as any} currentUserRole={currentUserRole} />
+            <SalesOrderDetailClient order={serializedOrder as any} currentUserRole={currentUserRole} basePath="/sales/orders" />
         </div>
     );
 }

@@ -13,7 +13,7 @@ import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { SalesQuotation, SalesQuotationStatus, Customer } from '@prisma/client';
 import { FileText } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesQuotation = Omit<SalesQuotation, 'totalAmount'> & {
@@ -24,9 +24,10 @@ type SerializedSalesQuotation = Omit<SalesQuotation, 'totalAmount'> & {
 
 interface SalesQuotationTableProps {
     initialData: SerializedSalesQuotation[];
+    basePath?: string;
 }
 
-export function SalesQuotationTable({ initialData }: SalesQuotationTableProps) {
+export function SalesQuotationTable({ initialData, basePath = '/sales/quotations' }: SalesQuotationTableProps) {
     const router = useRouter();
 
     const getStatusColor = (status: SalesQuotationStatus) => {
@@ -67,7 +68,7 @@ export function SalesQuotationTable({ initialData }: SalesQuotationTableProps) {
                             <TableRow
                                 key={quotation.id}
                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => router.push(`/sales/quotations/${quotation.id}`)}
+                                onClick={() => router.push(`${basePath}/${quotation.id}` as any)}
                             >
                                 <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">

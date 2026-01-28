@@ -16,6 +16,12 @@ import { subDays, format } from 'date-fns';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
 
+// Local constants for conflicting enums (Defensive Programming)
+// Next.js dev server cache sometimes fails to load new enum members
+const STATUS_ACTIVE = 'ACTIVE';
+const STATUS_WAITING = 'WAITING';
+const STATUS_CANCELLED = 'CANCELLED';
+
 export class InventoryService {
 
     /**
@@ -59,7 +65,7 @@ export class InventoryService {
             where: {
                 locationId,
                 productVariantId,
-                status: ReservationStatus.ACTIVE
+                status: STATUS_ACTIVE
             },
             _sum: { quantity: true }
         });
@@ -177,32 +183,43 @@ export class InventoryService {
             },
         });
 
-        // Fetch active reservations
+        // Fetch active and waiting reservations
         const reservations = await prisma.stockReservation.groupBy({
-            by: ['productVariantId', 'locationId'],
+            by: ['productVariantId', 'locationId', 'status'],
             where: {
-                status: ReservationStatus.ACTIVE
+                status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
             },
             _sum: {
                 quantity: true
             }
         });
 
-        const reservationMap = new Map<string, number>();
+        const activeReservationMap = new Map<string, number>();
+        const waitingReservationMap = new Map<string, number>();
+
         reservations.forEach(r => {
             const key = `${r.locationId}-${r.productVariantId}`;
-            reservationMap.set(key, r._sum.quantity?.toNumber() || 0);
+            const qty = r._sum.quantity?.toNumber() || 0;
+            // Use string comparison for safety
+            const status = r.status as string;
+            if (status === STATUS_ACTIVE) {
+                activeReservationMap.set(key, qty);
+            } else if (status === STATUS_WAITING) {
+                waitingReservationMap.set(key, qty);
+            }
         });
 
         return inventory.map(item => {
             const key = `${item.locationId}-${item.productVariantId}`;
-            const reservedQuantity = reservationMap.get(key) || 0;
+            const reservedQuantity = activeReservationMap.get(key) || 0;
+            const waitingQuantity = waitingReservationMap.get(key) || 0;
             const totalQuantity = item.quantity.toNumber();
             const availableQuantity = totalQuantity - reservedQuantity;
 
             return {
                 ...item,
                 reservedQuantity,
+                waitingQuantity,
                 availableQuantity
             } as unknown as InventoryWithRelations;
         });
@@ -283,7 +300,7 @@ export class InventoryService {
                 where: {
                     locationId: sourceLocationId,
                     productVariantId: productVariantId,
-                    status: ReservationStatus.ACTIVE
+                    status: STATUS_ACTIVE
                 },
                 _sum: { quantity: true }
             });
@@ -367,7 +384,7 @@ export class InventoryService {
                     where: {
                         locationId: sourceLocationId,
                         productVariantId: productVariantId,
-                        status: ReservationStatus.ACTIVE
+                        status: STATUS_ACTIVE
                     },
                     _sum: { quantity: true }
                 });
@@ -451,7 +468,7 @@ export class InventoryService {
                     where: {
                         locationId,
                         productVariantId,
-                        status: ReservationStatus.ACTIVE
+                        status: STATUS_ACTIVE
                     },
                     _sum: { quantity: true }
                 });
@@ -940,7 +957,7 @@ export class InventoryService {
                 where: {
                     locationId,
                     productVariantId,
-                    status: ReservationStatus.ACTIVE
+                    status: STATUS_ACTIVE
                 },
                 _sum: { quantity: true }
             });
@@ -949,11 +966,7 @@ export class InventoryService {
             const totalReserved = currentReservations._sum.quantity?.toNumber() || 0;
             const available = totalPhysical - totalReserved;
 
-            if (available < quantity) {
-                // Fetch name for error
-                const variant = await transaction.productVariant.findUnique({ where: { id: productVariantId }, select: { name: true } });
-                throw new Error(`Stok tidak cukup untuk reservasi ${variant?.name || productVariantId}. Fisik: ${totalPhysical}, Reserved: ${totalReserved}, Tersedia: ${available}, Diminta: ${quantity}`);
-            }
+            const status = (available >= quantity ? STATUS_ACTIVE : STATUS_WAITING) as any;
 
             await transaction.stockReservation.create({
                 data: {
@@ -963,7 +976,7 @@ export class InventoryService {
                     reservedFor,
                     referenceId,
                     reservedUntil,
-                    status: ReservationStatus.ACTIVE
+                    status
                 }
             });
         };
@@ -978,13 +991,13 @@ export class InventoryService {
     static async cancelStockReservation(data: CancelReservationValues) {
         await prisma.stockReservation.update({
             where: { id: data.reservationId },
-            data: { status: ReservationStatus.CANCELLED }
+            data: { status: STATUS_CANCELLED as any }
         });
     }
 
     static async getActiveReservations(locationId?: string, productVariantId?: string) {
         const where: Prisma.StockReservationWhereInput = {
-            status: ReservationStatus.ACTIVE
+            status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
         };
 
         if (locationId) where.locationId = locationId;
