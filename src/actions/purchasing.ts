@@ -13,7 +13,9 @@ import {
     CreatePurchaseOrderValues,
     UpdatePurchaseOrderValues,
     CreateGoodsReceiptValues,
-    CreatePurchaseInvoiceValues
+    CreatePurchaseInvoiceValues,
+    CreatePurchaseRequestValues,
+    createPurchaseRequestSchema
 } from '@/lib/schemas/purchasing';
 import { PurchaseOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
@@ -26,9 +28,17 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const order = await PurchaseService.createOrder(validated, session.user.id);
 
     revalidatePath('/planning/purchase-orders');
-    revalidatePath('/planning/purchase-orders');
-    revalidatePath('/planning/purchase-orders');
     return serializeData(order);
+}
+
+export async function createManualPurchaseRequest(data: CreatePurchaseRequestValues) {
+    const session = await requireAuth();
+    const validated = createPurchaseRequestSchema.parse(data);
+
+    const pr = await PurchaseService.createPurchaseRequest(validated, session.user.id);
+
+    revalidatePath('/planning/purchase-requests');
+    return serializeData(pr);
 }
 
 export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
@@ -37,8 +47,6 @@ export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
 
     const order = await PurchaseService.updateOrder(validated);
 
-    revalidatePath('/planning/purchase-orders');
-    revalidatePath(`/planning/purchase-orders/${validated.id}`);
     revalidatePath('/planning/purchase-orders');
     revalidatePath(`/planning/purchase-orders/${validated.id}`);
     return serializeData(order);

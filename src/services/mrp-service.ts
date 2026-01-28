@@ -68,21 +68,22 @@ export class MrpService {
                         productName: item.productVariant.name,
                         productVariantId: item.productVariantId
                     });
+                }
+
+                // fallback: add the item itself to requirements if no BOM found
+                // this ensures that even if it's MTO, we can still trigger a PR for the product itself
+                // if the planner decides to process it despite missing BOM.
+                const materialId = item.productVariantId;
+                const needed = Number(item.quantity);
+                const existing = requirementsMap.get(materialId);
+                if (existing) {
+                    existing.needed += needed;
                 } else {
-                    // For MTS without BOM, it's likely a purchased item. 
-                    // We add it to requirements directly.
-                    const materialId = item.productVariantId;
-                    const needed = Number(item.quantity);
-                    const existing = requirementsMap.get(materialId);
-                    if (existing) {
-                        existing.needed += needed;
-                    } else {
-                        requirementsMap.set(materialId, {
-                            name: item.productVariant.name,
-                            needed,
-                            unit: item.productVariant.primaryUnit || 'unit'
-                        });
-                    }
+                    requirementsMap.set(materialId, {
+                        name: item.productVariant.name,
+                        needed,
+                        unit: item.productVariant.primaryUnit || 'unit'
+                    });
                 }
                 continue;
             }

@@ -40,6 +40,7 @@ import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIs
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
 import { DeleteScrapButton } from '@/components/production/order-detail/DeleteScrapButton';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
+import { ManualProcurementDialog } from '@/components/production/order-detail/ManualProcurementDialog';
 
 
 interface PageProps {
@@ -296,13 +297,16 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                 <TabsContent value="materials" className="space-y-6 mt-6">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold">Material Requirements</h3>
-                        {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
-                            <BatchIssueMaterialDialog
-                                order={order}
-                                locations={formData.locations}
-                                rawMaterials={formData.rawMaterials || []}
-                            />
-                        )}
+                        <div className="flex items-center gap-2">
+                            <ManualProcurementDialog order={order} />
+                            {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
+                                <BatchIssueMaterialDialog
+                                    order={order}
+                                    locations={formData.locations}
+                                    rawMaterials={formData.rawMaterials || []}
+                                />
+                            )}
+                        </div>
                     </div>
 
                     <Card>
