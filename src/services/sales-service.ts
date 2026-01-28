@@ -7,6 +7,7 @@ import { InventoryService } from './inventory-service';
 import { InvoiceService } from './invoice-service';
 import { PurchaseService } from './purchase-service';
 import { PurchaseRequestItemValues } from '@/lib/schemas/purchasing';
+import { MrpService } from './mrp-service';
 
 export class SalesService {
 
@@ -325,6 +326,36 @@ export class SalesService {
                 tx
             });
         });
+
+        // 4. (New) MTO Auto-Purchasing Check
+        if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
+            try {
+                // Run Simulation
+                const simulation = await MrpService.simulateMaterialRequirements(id);
+                // Filter specifically for Raw Materials (Shortage > 0)
+                const shortages = simulation.requirements.filter(r => r.shortageQty > 0);
+
+                if (shortages.length > 0) {
+                    await prisma.$transaction(async (tx) => {
+                        const prItems: PurchaseRequestItemValues[] = shortages.map(s => ({
+                            productVariantId: s.productVariantId,
+                            quantity: s.shortageQty,
+                            notes: `Auto-generated for MTO SO ${order.orderNumber}. Missing: ${s.shortageQty} ${s.unit}`
+                        }));
+
+                        await PurchaseService.createPurchaseRequest({
+                            salesOrderId: order.id,
+                            items: prItems,
+                            priority: 'URGENT',
+                            notes: `Auto-generated for MTO Order ${order.orderNumber} due to raw material shortage.`
+                        }, userId, tx);
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to auto-create PR for MTO:", error);
+                // We don't throw here to avoid rolling back the confirmation
+            }
+        }
     }
 
     private static async checkCreditLimit(customerId: string, newAmount: number) {
