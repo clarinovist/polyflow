@@ -130,7 +130,7 @@ export function PurchaseOrderDetailClient({
                     )}
 
                     {(order.status === 'SENT' || order.status === 'PARTIAL_RECEIVED') && (
-                        <Link href={`${basePath}/create-receipt?poId=${order.id}`}>
+                        <Link href={`/warehouse/incoming/create-receipt?poId=${order.id}`}>
                             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
                                 <Download className="mr-2 h-4 w-4" /> Receive Goods
                             </Button>
@@ -300,7 +300,7 @@ export function PurchaseOrderDetailClient({
                                         <li key={gr.id} className="border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 p-3 rounded-r-md">
                                             <div className="flex justify-between items-center mb-1">
                                                 <Link
-                                                    href={`${basePath}/receipts/${gr.id}`}
+                                                    href={`/warehouse/incoming/${gr.id}`}
                                                     className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
                                                 >
                                                     {gr.receiptNumber}
