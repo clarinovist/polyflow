@@ -38,7 +38,7 @@ interface GoodsReceiptDetailProps {
     basePath?: string;
 }
 
-export function GoodsReceiptDetailClient({ receipt, basePath = '/dashboard/purchasing' }: GoodsReceiptDetailProps) {
+export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incoming' }: GoodsReceiptDetailProps) {
     const totalValue = receipt.items.reduce(
         (sum, item) => sum + item.receivedQty * item.unitCost,
         0

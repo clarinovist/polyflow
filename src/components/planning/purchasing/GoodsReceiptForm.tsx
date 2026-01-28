@@ -38,7 +38,7 @@ export function GoodsReceiptForm({
     items,
     locations,
     defaultLocationId,
-    basePath = '/dashboard/purchasing/orders'
+    basePath = '/planning/purchase-orders'
 }: GoodsReceiptFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);

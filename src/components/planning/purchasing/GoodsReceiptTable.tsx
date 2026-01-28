@@ -53,7 +53,7 @@ interface GoodsReceiptTableProps {
     basePath?: string;
 }
 
-export function GoodsReceiptTable({ receipts, basePath = '/dashboard/purchasing/receipts' }: GoodsReceiptTableProps) {
+export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }: GoodsReceiptTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredReceipts = useMemo(() => {

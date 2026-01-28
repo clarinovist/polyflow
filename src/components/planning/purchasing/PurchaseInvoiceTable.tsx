@@ -96,7 +96,7 @@ export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
                                     <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
                                         <TableCell className="font-mono font-medium">
                                             <Link
-                                                href={`/dashboard/purchasing/invoices/${inv.id}`}
+                                                href={`/finance/invoices/purchase/${inv.id}`}
                                                 className="text-slate-900 hover:text-blue-600 hover:underline"
                                             >
                                                 {inv.invoiceNumber}

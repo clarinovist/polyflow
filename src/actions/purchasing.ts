@@ -25,7 +25,7 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
 
     const order = await PurchaseService.createOrder(validated, session.user.id);
 
-    revalidatePath('/dashboard/purchasing');
+    revalidatePath('/planning/purchase-orders');
     revalidatePath('/planning/purchase-orders');
     revalidatePath('/planning/purchase-orders');
     return serializeData(order);
@@ -52,8 +52,8 @@ export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
 
     revalidatePath('/planning/purchase-orders');
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
-    revalidatePath('/dashboard/purchasing/receipts');
-    revalidatePath(`/dashboard/purchasing/receipts/create`);
+    revalidatePath('/warehouse/incoming');
+    revalidatePath(`/warehouse/incoming/create-receipt`);
     revalidatePath('/dashboard/inventory');
     return serializeData(receipt);
 }

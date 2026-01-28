@@ -105,7 +105,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/dashboard/purchasing/invoices">
+                        <Link href="/finance/invoices/purchase">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
                     </Button>
@@ -271,7 +271,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                 <div>
                                     <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
                                     <Link
-                                        href={`/dashboard/purchasing/orders/${invoice.purchaseOrder.id}`}
+                                        href={`/planning/purchase-orders/${invoice.purchaseOrder.id}`}
                                         className="font-mono text-blue-600 hover:underline"
                                     >
                                         {invoice.purchaseOrder.orderNumber}
