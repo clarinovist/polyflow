@@ -275,10 +275,6 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
     const selectedBom = boms.find(b => b.id === watchBomId);
 
     async function onSubmit(data: FormValues) {
-        if (hasStockIssues) {
-            toast.error("Insufficient Stock", { description: "Cannot create order with insufficient materials." });
-            return;
-        }
 
         setIsSubmitting(true);
         try {
@@ -611,7 +607,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
                         <div className="flex justify-end gap-4">
                             <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
-                            <Button type="submit" disabled={isSubmitting || hasStockIssues}>
+                            <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Create Order
                             </Button>
@@ -669,11 +665,11 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                     )}
 
                                     {hasStockIssues && (
-                                        <Alert variant="destructive" className="py-2">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertTitle className="text-sm">Insufficient Stock</AlertTitle>
-                                            <AlertDescription className="text-xs">
-                                                Check highlighted items.
+                                        <Alert variant="default" className="py-2 border-amber-200 bg-amber-50">
+                                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                                            <AlertTitle className="text-sm text-amber-800">Material Shortage</AlertTitle>
+                                            <AlertDescription className="text-xs text-amber-700">
+                                                Order will be created as <b>Waiting Material</b>.
                                             </AlertDescription>
                                         </Alert>
                                     )}

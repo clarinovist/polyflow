@@ -241,3 +241,12 @@ export async function acknowledgeHandover(movementId: string) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
+
+export async function getRealtimeStock(locationId: string, productVariantId: string) {
+    await requireAuth();
+    const inventory = await (await import('@/lib/prisma')).prisma.inventory.findUnique({
+        where: { locationId_productVariantId: { locationId, productVariantId } },
+        select: { quantity: true }
+    });
+    return inventory?.quantity.toNumber() || 0;
+}

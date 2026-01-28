@@ -8,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ExtendedProductionOrder } from './types';
 import { Location, ProductVariant } from '@prisma/client';
 import { batchIssueMaterials } from '@/actions/production';
-import { transferStockBulk } from '@/actions/inventory';
+import { transferStockBulk, getRealtimeStock, adjustStock } from '@/actions/inventory';
 import { toast } from 'sonner';
-import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft, RefreshCw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BatchItem {
@@ -69,6 +69,62 @@ export function BatchIssueMaterialDialog({
     }, [order]);
 
     const [items, setItems] = useState<BatchItem[]>(initialItems);
+    const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
+    const [checkingStock, setCheckingStock] = useState(false);
+    const [adjustingItem, setAdjustingItem] = useState<{ id: string, name: string, variantId: string, needed: number, current: number } | null>(null);
+    const [adjustReason, setAdjustReason] = useState("Ad-hoc production adjustment");
+
+    // Fetch Stock Levels
+    const checkStocks = async () => {
+        setCheckingStock(true);
+        const newStocks: Record<string, number> = {};
+        const activeItems = items.filter(i => !i.isDeletedPlan && i.productVariantId);
+
+        await Promise.all(activeItems.map(async (item) => {
+            try {
+                const qty = await getRealtimeStock(selectedLocation, item.productVariantId);
+                newStocks[item.productVariantId] = qty;
+            } catch (_e) {
+                console.error(_e);
+            }
+        }));
+
+        setStockLevels(newStocks);
+        setCheckingStock(false);
+    };
+
+    // Check on location change or open
+    useMemo(() => {
+        if (open) {
+            checkStocks();
+        }
+    }, [open, selectedLocation]);
+
+    const handleQuickAdjust = async () => {
+        if (!adjustingItem) return;
+        const missing = Math.max(0, adjustingItem.needed - adjustingItem.current);
+        if (missing <= 0) return;
+
+        try {
+            const res = await adjustStock({
+                locationId: selectedLocation,
+                productVariantId: adjustingItem.variantId,
+                type: 'ADJUSTMENT_IN',
+                quantity: missing,
+                reason: adjustReason
+            });
+
+            if (res.success) {
+                toast.success("Stock adjusted successfully");
+                setAdjustingItem(null);
+                checkStocks(); // Refresh
+            } else {
+                toast.error(res.error || "Failed to adjust stock");
+            }
+        } catch (_e) {
+            toast.error("Error adjusting stock");
+        }
+    };
 
     const handleAddSubstitute = () => {
         const newItem: BatchItem = {
@@ -189,156 +245,207 @@ export function BatchIssueMaterialDialog({
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                    {isMixing ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                    {isMixing ? "Transfer Material" : "Issue Material"}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>{isMixing ? "Transfer Materials to Mixing Area" : "Issue Materials & Update Plan"}</DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 rounded-lg border">
-                        <div className="space-y-2">
-                            <Label>Source Location</Label>
-                            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex items-end pb-1 text-sm text-center">
-                            {isMixing ? (
-                                <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
-                                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                                    <span className="text-xs text-left">
-                                        Items will be <b>MOVED</b> to <b>{order.location.name}</b>.
-                                        Stock will be consumed automatically when you Record Output (Backflush).
-                                        {!order.location.name.toLowerCase().includes('production') && !order.location.name.toLowerCase().includes('staging') && (
-                                            <div className="mt-1 font-bold text-red-600">
-                                                Warning: Target is likely a Warehouse. Ensure this Order is set to a Production Location.
-                                            </div>
-                                        )}
-                                    </span>
-                                </div>
-                            ) : (
-                                <div className="text-muted-foreground flex items-center w-full">
-                                    <AlertCircle className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
-                                    <span className="text-xs text-left">
-                                        Editing rows will update the Order Plan permanently.
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="rounded-md border">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted/40 border-b">
-                                <tr>
-                                    <th className="p-3 text-left font-medium">Material</th>
-                                    <th className="p-3 text-right font-medium w-32">{isMixing ? "Qty to Transfer" : "Qty to Issue"}</th>
-                                    <th className="p-3 text-center font-medium w-16"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {items.map((item) => (
-                                    <tr key={item.id} className={cn(
-                                        !item.isPlanned && "bg-amber-500/5",
-                                        item.isDeletedPlan && "bg-destructive/5 opacity-60"
-                                    )}>
-                                        <td className="p-3">
-                                            {item.isPlanned ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Package className="w-4 h-4 text-muted-foreground" />
-                                                    <div className="flex flex-col">
-                                                        <span className={cn("font-medium text-foreground", item.isDeletedPlan && "line-through")}>{item.name}</span>
-                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Planned</span>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-1">
-                                                    <Select value={item.productVariantId} onValueChange={(val) => handleUpdateVariant(item.id, val)}>
-                                                        <SelectTrigger className="h-9">
-                                                            <SelectValue placeholder="Select substitute..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {rawMaterials.map(m => (
-                                                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Substitute</span>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-3">
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    disabled={item.isDeletedPlan}
-                                                    className="text-right h-9"
-                                                    value={item.quantity || ''}
-                                                    onChange={(e) => handleUpdateQty(item.id, Number(e.target.value))}
-                                                />
-                                                <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
-                                            </div>
-                                            {!isMixing && (
-                                                <div className="mt-1">
-                                                    <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Auto-FIFO Active</span>
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            {item.isPlanned ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className={cn(
-                                                        "h-8 w-8 transition-colors",
-                                                        item.isDeletedPlan
-                                                            ? "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                            : "text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
-                                                    )}
-                                                    onClick={() => handleToggleDeletePlan(item.id)}
-                                                    title={item.isDeletedPlan ? "Undo Delete" : "Remove Requirement"}
-                                                >
-                                                    {item.isDeletedPlan ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
-                                                </Button>
-                                            ) : (
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleRemoveSubstitute(item.id)}>
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full h-10 rounded-none border-t text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                            onClick={handleAddSubstitute}
-                        >
-                            <Plus className="w-4 h-4 mr-2" /> Add Substitute Material
-                        </Button>
-                    </div>
-                </div>
-
-                <DialogFooter className="mt-6">
-                    <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
-                        {loading ? "Processing..." : (isMixing ? "Move Stock to Mixing" : "Save & Update Plan")}
+        <>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                        {isMixing ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {isMixing ? "Transfer Material" : "Issue Material"}
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>{isMixing ? "Transfer Materials to Mixing Area" : "Issue Materials & Update Plan"}</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 rounded-lg border relative">
+                            <div className="space-y-2">
+                                <Label>Source Location</Label>
+                                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex items-end pb-1 text-sm text-center">
+                                {isMixing ? (
+                                    <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
+                                        <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                                        <span className="text-xs text-left">
+                                            Items will be <b>MOVED</b> to <b>{order.location.name}</b>.
+                                            Stock will be consumed automatically when you Record Output (Backflush).
+                                            {!order.location.name.toLowerCase().includes('production') && !order.location.name.toLowerCase().includes('staging') && (
+                                                <div className="mt-1 font-bold text-red-600">
+                                                    Warning: Target is likely a Warehouse. Ensure this Order is set to a Production Location.
+                                                </div>
+                                            )}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="text-muted-foreground flex items-center w-full">
+                                        <AlertCircle className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                                        <span className="text-xs text-left">
+                                            Editing rows will update the Order Plan permanently.
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={checkStocks} disabled={checkingStock} className="h-6 text-xs absolute top-2 right-2">
+                                <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} /> Refresh Stock
+                            </Button>
+                        </div>
+
+                        <div className="rounded-md border">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/40 border-b">
+                                    <tr>
+                                        <th className="p-3 text-left font-medium">Material</th>
+                                        <th className="p-3 text-right font-medium w-32">{isMixing ? "Qty to Transfer" : "Qty to Issue"}</th>
+                                        <th className="p-3 text-center font-medium w-16"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {items.map((item) => (
+                                        <tr key={item.id} className={cn(
+                                            !item.isPlanned && "bg-amber-500/5",
+                                            item.isDeletedPlan && "bg-destructive/5 opacity-60"
+                                        )}>
+                                            <td className="p-3">
+                                                {item.isPlanned ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Package className="w-4 h-4 text-muted-foreground" />
+                                                        <div className="flex flex-col">
+                                                            <span className={cn("font-medium text-foreground", item.isDeletedPlan && "line-through")}>{item.name}</span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Planned</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1">
+                                                        <Select value={item.productVariantId} onValueChange={(val) => handleUpdateVariant(item.id, val)}>
+                                                            <SelectTrigger className="h-9">
+                                                                <SelectValue placeholder="Select substitute..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {rawMaterials.map(m => (
+                                                                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Substitute</span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        disabled={item.isDeletedPlan}
+                                                        className="text-right h-9"
+                                                        value={item.quantity || ''}
+                                                        onChange={(e) => handleUpdateQty(item.id, Number(e.target.value))}
+                                                    />
+                                                    <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
+                                                </div>
+                                                {!isMixing && (
+                                                    <div className="mt-1 flex items-center justify-end gap-2">
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            Stock: {stockLevels[item.productVariantId] ?? '...'}
+                                                        </span>
+                                                        {(stockLevels[item.productVariantId] !== undefined && stockLevels[item.productVariantId] < item.quantity) && (
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                className="h-5 text-[10px] px-1.5"
+                                                                onClick={() => setAdjustingItem({
+                                                                    id: item.id,
+                                                                    name: item.name,
+                                                                    variantId: item.productVariantId,
+                                                                    needed: item.quantity,
+                                                                    current: stockLevels[item.productVariantId] || 0
+                                                                })}
+                                                            >
+                                                                <Wrench className="w-3 h-3 mr-1" /> Fix Shortage
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                {item.isPlanned ? (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className={cn(
+                                                            "h-8 w-8 transition-colors",
+                                                            item.isDeletedPlan
+                                                                ? "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                : "text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                                                        )}
+                                                        onClick={() => handleToggleDeletePlan(item.id)}
+                                                        title={item.isDeletedPlan ? "Undo Delete" : "Remove Requirement"}
+                                                    >
+                                                        {item.isDeletedPlan ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                                                    </Button>
+                                                ) : (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleRemoveSubstitute(item.id)}>
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full h-10 rounded-none border-t text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                onClick={handleAddSubstitute}
+                            >
+                                <Plus className="w-4 h-4 mr-2" /> Add Substitute Material
+                            </Button>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="mt-6">
+                        <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
+                            {loading ? "Processing..." : (isMixing ? "Move Stock to Mixing" : "Save & Update Plan")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Quick Adjust Dialog */}
+            <Dialog open={!!adjustingItem} onOpenChange={(o) => !o && setAdjustingItem(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Quick Stock Adjustment</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                            Insufficient stock for <b>{adjustingItem?.name}</b>.
+                            <br />
+                            Required: <b>{adjustingItem?.needed}</b>. Available: <b>{adjustingItem?.current}</b>.
+                            <br />
+                            Adding difference: <b>{adjustingItem ? (adjustingItem.needed - adjustingItem.current).toFixed(2) : 0}</b>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Reason</Label>
+                            <Input value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAdjustingItem(null)}>Cancel</Button>
+                        <Button onClick={handleQuickAdjust}>Confirm Adjustment</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
+
+

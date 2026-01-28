@@ -157,23 +157,6 @@ export class ProductionOrderService {
         } = data;
 
         return await prisma.$transaction(async (tx) => {
-            // 1. Create Order
-            const newOrder = await tx.productionOrder.create({
-                data: {
-                    orderNumber: orderNumber || `WO-${Date.now()}`,
-                    bomId,
-                    plannedQuantity,
-                    plannedStartDate,
-                    plannedEndDate,
-                    locationId,
-                    notes,
-                    status: ProductionStatus.DRAFT,
-                    actualQuantity: 0,
-                    salesOrderId: salesOrderId || null,
-                    createdById: userId
-                }
-            });
-
             // 2. Calculate Materials (Standard or Flexible)
             let materialsToCreate = data.items || [];
 
@@ -192,6 +175,45 @@ export class ProductionOrderService {
                 }
             }
 
+            // 3. Determine Initial Status based on Stock Availability
+            let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
+            if (materialsToCreate.length > 0) {
+                const variantIds = materialsToCreate.map(m => m.productVariantId);
+                const inventoryRows = await tx.inventory.findMany({
+                    where: {
+                        locationId: locationId,
+                        productVariantId: { in: variantIds }
+                    }
+                });
+
+                const isShortage = materialsToCreate.some(m => {
+                    const stock = inventoryRows.find(ir => ir.productVariantId === m.productVariantId)?.quantity.toNumber() || 0;
+                    return m.quantity > stock;
+                });
+
+                if (isShortage) {
+                    initialStatus = ProductionStatus.WAITING_MATERIAL;
+                }
+            }
+
+            // 4. Create Order
+            const newOrder = await tx.productionOrder.create({
+                data: {
+                    orderNumber: orderNumber || `WO-${Date.now()}`,
+                    bomId,
+                    plannedQuantity,
+                    plannedStartDate,
+                    plannedEndDate,
+                    locationId,
+                    notes,
+                    status: initialStatus,
+                    actualQuantity: 0,
+                    salesOrderId: salesOrderId || null,
+                    createdById: userId
+                }
+            });
+
+            // 5. Create Material Requirements
             if (materialsToCreate.length > 0) {
                 await tx.productionMaterial.createMany({
                     data: materialsToCreate.map(item => ({
@@ -277,8 +299,8 @@ export class ProductionOrderService {
             throw new Error("Order not found");
         }
 
-        if (order.status !== 'DRAFT') {
-            throw new Error("Only DRAFT orders can be deleted.");
+        if (order.status !== 'DRAFT' && order.status !== 'WAITING_MATERIAL') {
+            throw new Error("Only DRAFT or WAITING_MATERIAL orders can be deleted.");
         }
 
         await prisma.$transaction(async (tx) => {

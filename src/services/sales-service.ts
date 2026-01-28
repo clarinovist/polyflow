@@ -5,9 +5,6 @@ import { logActivity } from '@/lib/audit';
 import { formatRupiah } from '@/lib/utils';
 import { InventoryService } from './inventory-service';
 import { InvoiceService } from './invoice-service';
-import { PurchaseService } from './purchase-service';
-import { PurchaseRequestItemValues } from '@/lib/schemas/purchasing';
-import { MrpService } from './mrp-service';
 
 export class SalesService {
 
@@ -240,8 +237,6 @@ export class SalesService {
         await prisma.$transaction(async (tx) => {
             // Make to Stock Logic
             if (order.sourceLocationId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
-                const prItems: PurchaseRequestItemValues[] = [];
-
                 for (const item of order.items) {
                     // Check Physical Stock directly using tx
                     const inventory = await tx.inventory.findUnique({
@@ -269,17 +264,17 @@ export class SalesService {
                     const demand = item.quantity.toNumber();
 
                     let activeReservationAmount = 0;
-                    let shortageAmount = 0;
 
                     if (available >= demand) {
                         activeReservationAmount = demand;
                     } else {
                         // Partial reservation
                         activeReservationAmount = Math.max(0, available);
-                        shortageAmount = demand - activeReservationAmount;
                     }
 
-                    // 1. Create Active Reservation (if any)
+                    // Create Active Reservation (if any)
+                    // Note: Shortages are no longer handled by SalesService. 
+                    // They will be picked up by the Planning/MRP process.
                     if (activeReservationAmount > 0) {
                         await InventoryService.createStockReservation({
                             productVariantId: item.productVariantId,
@@ -290,25 +285,6 @@ export class SalesService {
                             reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 Days
                         }, tx);
                     }
-
-                    // 2. Track Shortage for PR
-                    if (shortageAmount > 0) {
-                        prItems.push({
-                            productVariantId: item.productVariantId,
-                            quantity: shortageAmount,
-                            notes: `Shortage for SO ${order.orderNumber}`
-                        });
-                    }
-                }
-
-                // 3. Create Purchase Request if needed
-                if (prItems.length > 0) {
-                    await PurchaseService.createPurchaseRequest({
-                        salesOrderId: order.id,
-                        items: prItems,
-                        priority: 'URGENT', // Urgent because it's for an active order
-                        notes: `Auto-generated for Sales Order ${order.orderNumber}`
-                    }, userId, tx);
                 }
             }
 
@@ -327,35 +303,6 @@ export class SalesService {
             });
         });
 
-        // 4. (New) MTO Auto-Purchasing Check
-        if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
-            try {
-                // Run Simulation
-                const simulation = await MrpService.simulateMaterialRequirements(id);
-                // Filter specifically for Raw Materials (Shortage > 0)
-                const shortages = simulation.requirements.filter(r => r.shortageQty > 0);
-
-                if (shortages.length > 0) {
-                    await prisma.$transaction(async (tx) => {
-                        const prItems: PurchaseRequestItemValues[] = shortages.map(s => ({
-                            productVariantId: s.productVariantId,
-                            quantity: s.shortageQty,
-                            notes: `Auto-generated for MTO SO ${order.orderNumber}. Missing: ${s.shortageQty} ${s.unit}`
-                        }));
-
-                        await PurchaseService.createPurchaseRequest({
-                            salesOrderId: order.id,
-                            items: prItems,
-                            priority: 'URGENT',
-                            notes: `Auto-generated for MTO Order ${order.orderNumber} due to raw material shortage.`
-                        }, userId, tx);
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to auto-create PR for MTO:", error);
-                // We don't throw here to avoid rolling back the confirmation
-            }
-        }
     }
 
     private static async checkCreditLimit(customerId: string, newAmount: number) {

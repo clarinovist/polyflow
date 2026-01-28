@@ -170,6 +170,7 @@ function StatusBadge({ status }: { status: string }) {
         IN_PROGRESS: "default",
         COMPLETED: "secondary",
         CANCELLED: "destructive",
+        WAITING_MATERIAL: "outline",
     };
 
     return (

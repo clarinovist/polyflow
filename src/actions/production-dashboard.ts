@@ -33,7 +33,7 @@ export async function getProductionDashboardStats() {
     // 4. Pending Release
     const draftJobsCount = await prisma.productionOrder.count({
         where: {
-            status: ProductionStatus.DRAFT
+            status: { in: [ProductionStatus.DRAFT, ProductionStatus.WAITING_MATERIAL] }
         }
     });
 

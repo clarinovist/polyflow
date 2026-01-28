@@ -110,6 +110,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
             case 'IN_PROGRESS': return 'bg-amber-100 text-amber-700';
             case 'COMPLETED': return 'bg-emerald-100 text-emerald-700';
             case 'CANCELLED': return 'bg-red-100 text-red-700';
+            case 'WAITING_MATERIAL': return 'bg-orange-100 text-orange-700';
             default: return 'bg-muted text-muted-foreground';
         }
     };
@@ -127,7 +128,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {order.status === 'DRAFT' && (
+                    {(order.status === 'DRAFT' || order.status === 'WAITING_MATERIAL') && (
                         <>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -139,7 +140,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the draft production order and its material requirements.
+                                            This action cannot be undone. This will permanently delete the production order and its material requirements.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>

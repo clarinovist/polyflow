@@ -25,9 +25,9 @@ export class MrpService {
 
     /**
      * Simulate Material Requirements for a Sales Order.
-     * Explodes BOMs for all items and aggregates raw material needs.
+     * Explodes BOMs for MTO/MTS items and aggregates needs.
      */
-    static async simulateMaterialRequirements(salesOrderId: string): Promise<MrpSimulationResult> {
+    static async simulateMaterialRequirements(salesOrderId: string, includeReserved = true): Promise<MrpSimulationResult> {
         // 1. Fetch Sales Order Items
         const so = await prisma.salesOrder.findUnique({
             where: { id: salesOrderId },
@@ -62,11 +62,28 @@ export class MrpService {
             });
 
             if (!bom) {
-                // If no BOM, we record it as a missing requirement
-                missingBoms.push({
-                    productName: item.productVariant.name,
-                    productVariantId: item.productVariantId
-                });
+                // If no BOM, and it's MTO, record it as missing
+                if (so.orderType === 'MAKE_TO_ORDER') {
+                    missingBoms.push({
+                        productName: item.productVariant.name,
+                        productVariantId: item.productVariantId
+                    });
+                } else {
+                    // For MTS without BOM, it's likely a purchased item. 
+                    // We add it to requirements directly.
+                    const materialId = item.productVariantId;
+                    const needed = Number(item.quantity);
+                    const existing = requirementsMap.get(materialId);
+                    if (existing) {
+                        existing.needed += needed;
+                    } else {
+                        requirementsMap.set(materialId, {
+                            name: item.productVariant.name,
+                            needed,
+                            unit: item.productVariant.primaryUnit || 'unit'
+                        });
+                    }
+                }
                 continue;
             }
 
@@ -96,16 +113,26 @@ export class MrpService {
         let globalCanProduce = true;
 
         for (const [materialId, req] of requirementsMap.entries()) {
-            // Check total available stock across ALL locations (or specific raw material warehouse)
-            // For MRP, we usually check global or specific "RM Warehouse".
-            // Let's check Global for simplicity or use the "raw_material_warehouse" slug if we want to be specific.
-            // Using global sum for now.
+            // Check total available stock across ALL locations
             const inventory = await prisma.inventory.aggregate({
                 where: { productVariantId: materialId },
                 _sum: { quantity: true }
             });
 
-            const availableQty = inventory._sum.quantity?.toNumber() || 0;
+            let availableQty = inventory._sum.quantity?.toNumber() || 0;
+
+            if (includeReserved) {
+                const reservations = await prisma.stockReservation.aggregate({
+                    where: {
+                        productVariantId: materialId,
+                        status: 'ACTIVE'
+                    },
+                    _sum: { quantity: true }
+                });
+                const reservedQty = reservations._sum.quantity?.toNumber() || 0;
+                availableQty = Math.max(0, availableQty - reservedQty);
+            }
+
             const shortageQty = Math.max(0, req.needed - availableQty);
 
             if (shortageQty > 0) {
@@ -131,13 +158,11 @@ export class MrpService {
     }
 
     /**
-     * Create Production Orders from Sales Order based on MRP simulation.
-     * Can create one giant PO or multiple POs (one per SO item).
-     * Usually one PO per Line Item of SO is cleaner for tracking.
+     * Create Production Orders from Sales Order and trigger Purchase Requests for shortages.
      */
-    static async convertSoToPo(salesOrderId: string) {
-        // 1. Run Simulation first to determine status
-        const simulation = await this.simulateMaterialRequirements(salesOrderId);
+    static async convertSoToPo(salesOrderId: string, userId?: string) {
+        // 1. Run Simulation first to determine status and shortages
+        const simulation = await this.simulateMaterialRequirements(salesOrderId, true);
 
         // Status for ALL created POs
         const status = simulation.canProduce ? ProductionStatus.DRAFT : 'WAITING_MATERIAL' as ProductionStatus;
@@ -149,76 +174,89 @@ export class MrpService {
 
         if (!so) throw new Error("Sales Order not found");
 
-        const createdOrders = [];
+        return await prisma.$transaction(async (tx) => {
+            const createdOrders = [];
 
-        // 2. Create a Production Order for each Sales Order Item
-        for (const item of so.items) {
-            // Find BOM
-            const bom = await prisma.bom.findFirst({
-                where: { productVariantId: item.productVariantId, isDefault: true }
-            });
-
-            if (!bom) continue; // Skip if no BOM
-
-            // Create PO via ProductionService logic but override status
-            // We'll manually create here to control the Status specifically or update checks.
-            // Actually `ProductionService.createOrder` sets DRAFT by default.
-            // We can call it then update, or implement custom logic here.
-
-            // Let's use prisma directly to set status immediately.
-
-            // Check if PO already exists for this line item (Idempotency)
-            const orderNumber = `PO-${so.orderNumber}-${item.id.slice(0, 4)}`;
-
-            let po = await prisma.productionOrder.findFirst({
-                where: { orderNumber }
-            });
-
-            if (!po) {
-                // Create new PO if not exists
-                po = await prisma.productionOrder.create({
-                    data: {
-                        orderNumber,
-                        salesOrderId: so.id,
-                        bomId: bom.id,
-                        plannedQuantity: item.quantity,
-                        status: status,
-                        plannedStartDate: new Date(),
-                        plannedEndDate: so.expectedDate || undefined,
-                        locationId: so.sourceLocationId || '',
-                        notes: `Generated from SO ${so.orderNumber}. Simulation: ${status}`
-                    }
+            // 2. Create Production Orders for each line item with a BOM
+            for (const item of so.items) {
+                const bom = await prisma.bom.findFirst({
+                    where: { productVariantId: item.productVariantId, isDefault: true }
                 });
 
-                // Create Planned Materials
-                const bomItems = await prisma.bomItem.findMany({
-                    where: { bomId: bom.id }
+                if (!bom) continue; // Skip if no BOM (could be purchased item)
+
+                const orderNumber = `WO-${so.orderNumber}-${item.id.slice(0, 4)}`;
+
+                let po = await tx.productionOrder.findFirst({
+                    where: { orderNumber }
                 });
 
-                if (bomItems.length > 0) {
-                    const outputRatio = Number(item.quantity) / Number(bom.outputQuantity);
-
-                    await prisma.productionMaterial.createMany({
-                        data: bomItems.map(bi => ({
-                            productionOrderId: po!.id,
-                            productVariantId: bi.productVariantId,
-                            quantity: Number(bi.quantity) * outputRatio
-                        }))
+                if (!po) {
+                    po = await tx.productionOrder.create({
+                        data: {
+                            orderNumber,
+                            salesOrderId: so.id,
+                            bomId: bom.id,
+                            plannedQuantity: item.quantity,
+                            status: status,
+                            plannedStartDate: new Date(),
+                            plannedEndDate: so.expectedDate || undefined,
+                            locationId: so.sourceLocationId || '',
+                            notes: `Auto-generated from SO ${so.orderNumber}. Simulation Result: ${status}`
+                        }
                     });
+
+                    // Create Planned Materials
+                    const bomItems = await tx.bomItem.findMany({
+                        where: { bomId: bom.id }
+                    });
+
+                    if (bomItems.length > 0) {
+                        const outputRatio = Number(item.quantity) / Number(bom.outputQuantity);
+
+                        await tx.productionMaterial.createMany({
+                            data: bomItems.map(bi => ({
+                                productionOrderId: po!.id,
+                                productVariantId: bi.productVariantId,
+                                quantity: Number(bi.quantity) * outputRatio
+                            }))
+                        });
+                    }
                 }
-            } else {
-                // Optional: Update status if needed, or just skip
-                // For now, we assume if it exists, it's handled.
+                createdOrders.push(po);
             }
 
-            createdOrders.push(po);
-        }
+            // 3. Create Purchase Requests for ALL shortages found in simulation
+            const shortages = simulation.requirements.filter(r => r.shortageQty > 0);
+            if (shortages.length > 0 && userId) {
+                // Import PurchaseService dynamically or ensure it's available. 
+                // Since it's in a different folder, we use full path or assume it's imported at top (if possible).
+                // Actually MrpService doesn't import PurchaseService currently.
+                // I will add the import at the top later or use a dynamic import.
+                // For now, let's assume it's available or use regular prisma if we can't easily import.
 
-        return {
-            success: true,
-            status,
-            orderCount: createdOrders.length,
-            simulation
-        };
+                // Let's use dynamic import to avoid circular dependencies if any.
+                const { PurchaseService } = await import('./purchase-service');
+
+                await PurchaseService.createPurchaseRequest({
+                    salesOrderId: so.id,
+                    items: shortages.map(s => ({
+                        productVariantId: s.productVariantId,
+                        quantity: s.shortageQty,
+                        notes: `Shortage detected during planning for SO ${so.orderNumber}`
+                    })),
+                    priority: 'URGENT',
+                    notes: `Auto-generated during planning conversion for SO ${so.orderNumber}`
+                }, userId, tx);
+            }
+
+            return {
+                success: true,
+                status,
+                orderCount: createdOrders.length,
+                prCreated: shortages.length > 0,
+                simulation
+            };
+        });
     }
 }

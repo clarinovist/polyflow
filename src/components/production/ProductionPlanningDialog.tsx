@@ -77,6 +77,10 @@ export function ProductionPlanningDialog({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const data = result as any;
                 toast.success(`Work Order(s) created! Status: ${data.status}`);
+                if (data.prCreated) {
+                    toast.info("Purchase Request(s) created for shortages.", { duration: 5000 });
+                }
+
                 if (onOrderCreated) {
                     onOrderCreated();
                 } else {
@@ -145,7 +149,8 @@ export function ProductionPlanningDialog({
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertTitle>Material Shortage Detected</AlertTitle>
                                         <AlertDescription>
-                                            Insufficient raw materials. Work Order will be created as <strong>WAITING_MATERIAL</strong>.
+                                            Insufficient raw materials. Work Order will be created as <strong>WAITING_MATERIAL</strong>
+                                            and a <strong>Purchase Request</strong> will be automatically generated for the shortages.
                                         </AlertDescription>
                                     </Alert>
                                 )}

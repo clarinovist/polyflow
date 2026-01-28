@@ -285,7 +285,7 @@ export async function getProductionOrderStats() {
         .reduce((acc, curr) => acc + curr._count.status, 0);
 
     const draftCount = stats
-        .filter(s => ['DRAFT', 'RELEASED'].includes(s.status))
+        .filter(s => ['DRAFT', 'RELEASED', 'WAITING_MATERIAL'].includes(s.status))
         .reduce((acc, curr) => acc + curr._count.status, 0);
 
     // Calculate late orders (this needs a separate query as it depends on endDate)
@@ -584,7 +584,7 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
         }
 
         // Default: Run MRP for whole order (if implemented)
-        const result = await MrpService.convertSoToPo(salesOrderId);
+        const result = await MrpService.convertSoToPo(salesOrderId, session.user.id);
 
         revalidatePath('/production');
         revalidatePath('/sales');
