@@ -11,7 +11,7 @@ export default async function SalesDashboardPage({
 }: {
     params: Promise<{ locale: string }>;
 }) {
-    const { locale } = await params;
+    await params;
     const stats = await getSalesDashboardStats();
     const serializedOrders = serializeData(stats.recentOrders);
 

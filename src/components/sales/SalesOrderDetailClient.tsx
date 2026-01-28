@@ -209,6 +209,7 @@ export function SalesOrderDetailClient({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <Link href={basePath as any}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
@@ -230,6 +231,7 @@ export function SalesOrderDetailClient({
                     {!warehouseMode && order.status === 'DRAFT' && (
                         <>
                             <Button variant="outline" asChild>
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 <Link href={`${basePath}/${order.id}/edit` as any}>
                                     <Edit className="mr-2 h-4 w-4" /> Edit
                                 </Link>

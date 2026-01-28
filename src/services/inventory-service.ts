@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { MovementType, Prisma, ReservationStatus, BatchStatus, ProductType } from '@prisma/client';
+import { MovementType, Prisma, BatchStatus, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/audit';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import {
@@ -187,6 +187,7 @@ export class InventoryService {
         const reservations = await prisma.stockReservation.groupBy({
             by: ['productVariantId', 'locationId', 'status'],
             where: {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
             },
             _sum: {
@@ -966,6 +967,7 @@ export class InventoryService {
             const totalReserved = currentReservations._sum.quantity?.toNumber() || 0;
             const available = totalPhysical - totalReserved;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const status = (available >= quantity ? STATUS_ACTIVE : STATUS_WAITING) as any;
 
             await transaction.stockReservation.create({
@@ -991,12 +993,14 @@ export class InventoryService {
     static async cancelStockReservation(data: CancelReservationValues) {
         await prisma.stockReservation.update({
             where: { id: data.reservationId },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: { status: STATUS_CANCELLED as any }
         });
     }
 
     static async getActiveReservations(locationId?: string, productVariantId?: string) {
         const where: Prisma.StockReservationWhereInput = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
         };
 

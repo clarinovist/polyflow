@@ -68,6 +68,7 @@ export function SalesQuotationTable({ initialData, basePath = '/sales/quotations
                             <TableRow
                                 key={quotation.id}
                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 onClick={() => router.push(`${basePath}/${quotation.id}` as any)}
                             >
                                 <TableCell className="font-medium">

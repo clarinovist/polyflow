@@ -75,6 +75,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                 <TableRow
                                     key={order.id}
                                     className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     onClick={() => router.push(`${basePath}/${order.id}` as any)}
                                 >
                                     <TableCell className="font-medium">
