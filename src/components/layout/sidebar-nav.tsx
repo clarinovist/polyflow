@@ -22,7 +22,6 @@ import {
     Menu,
     X,
     PackageSearch,
-    ClipboardList
 } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
@@ -58,7 +57,6 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         items: [
             { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
             { title: "Planning", href: "/planning", icon: Truck },
-            { title: "Purchase Requests", href: "/planning/purchase-requests", icon: ClipboardList },
             { title: "navigation.production", href: "/production", icon: Factory },
             { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
             { title: "navigation.accounting", href: "/finance", icon: Calculator },

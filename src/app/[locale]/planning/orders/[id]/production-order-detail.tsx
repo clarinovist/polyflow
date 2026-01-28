@@ -40,7 +40,7 @@ import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIs
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
 import { DeleteScrapButton } from '@/components/production/order-detail/DeleteScrapButton';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
-import { VarianceAnalysis } from '@/components/production/order-detail/VarianceAnalysis';
+
 
 interface PageProps {
     order: ExtendedProductionOrder;
@@ -304,34 +304,15 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         )}
                     </div>
 
-                    <VarianceAnalysis items={(order.plannedMaterials || []).map((item) => {
-                        const issued = (order.materialIssues || [])
-                            .filter((mi) => mi.productVariantId === item.productVariantId)
-                            .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
-                        const required = Number(item.quantity);
-                        const variance = issued - required;
-                        const variancePercent = required > 0 ? (variance / required) * 100 : 0;
-
-                        return {
-                            productName: item.productVariant.name,
-                            sku: item.productVariant.skuCode,
-                            planned: required,
-                            actual: issued,
-                            unit: item.productVariant.primaryUnit,
-                            variance,
-                            variancePercent
-                        };
-                    })} />
-
                     <Card>
                         <CardContent className="p-0">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-muted/50 text-muted-foreground">
                                     <tr>
-                                        <th className="p-3">Material</th>
+                                        <th className="p-3 pl-4">Material</th>
                                         <th className="p-3 text-right">Plan</th>
-                                        <th className="p-3 text-right">Actually Issued</th>
-                                        <th className="p-3 text-right">Remaining</th>
+                                        <th className="p-3 text-right w-[25%]">Issued</th>
+                                        <th className="p-3 text-right">Variance</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -341,33 +322,59 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                                         const required = Number(item.quantity);
-                                        const remaining = Math.max(0, required - issued);
+                                        const variance = issued - required;
+                                        const variancePercent = required > 0 ? (variance / required) * 100 : 0;
+                                        const isOver = variance > 0;
+                                        const isUnder = variance < 0;
+
+                                        // Progress Bar Color Logic
+                                        let progressColor = "bg-emerald-500";
+                                        if (variancePercent > 5) progressColor = "bg-red-500";
+                                        else if (variancePercent < -5) progressColor = "bg-amber-500";
+
+                                        // Progress Width (capped at 100%)
+                                        const progressValue = Math.min(100, (issued / (required || 1)) * 100);
 
                                         return (
                                             <tr key={item.id} className="hover:bg-muted/50">
-                                                <td className="p-3">
+                                                <td className="p-3 pl-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-foreground">{item.productVariant.name}</span>
                                                         <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Planned</span>
+                                                        <span className="text-xs text-muted-foreground">{item.productVariant.skuCode}</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-right font-medium text-muted-foreground">{required.toFixed(2)} {item.productVariant.primaryUnit}</td>
                                                 <td className="p-3 text-right">
-                                                    <span className={cn(
-                                                        issued < required - 0.01 ? "text-amber-600" : "text-emerald-600",
-                                                        "font-semibold"
-                                                    )}>
-                                                        {issued.toFixed(2)}
-                                                    </span>
+                                                    <div className="flex flex-col gap-1 w-full">
+                                                        <span className={cn(
+                                                            "font-bold",
+                                                            isOver ? "text-red-600" : isUnder ? "text-amber-600" : "text-emerald-600"
+                                                        )}>
+                                                            {issued.toFixed(2)} {item.productVariant.primaryUnit}
+                                                        </span>
+                                                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                                            <div
+                                                                className={cn("h-full rounded-full", progressColor)}
+                                                                style={{ width: `${progressValue}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    {remaining > 0.01 ? (
-                                                        <span className="text-muted-foreground font-medium">{remaining.toFixed(2)} {item.productVariant.primaryUnit}</span>
-                                                    ) : (
-                                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                                            ✓ Complete
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <Badge variant="outline" className={cn(
+                                                            "font-mono",
+                                                            isOver ? "text-red-600 border-red-200 bg-red-50" :
+                                                                Math.abs(variancePercent) < 0.01 ? "text-emerald-600 border-emerald-200 bg-emerald-50" :
+                                                                    "text-amber-600 border-amber-200 bg-amber-50"
+                                                        )}>
+                                                            {variance > 0 ? '+' : ''}{variance.toFixed(2)}
                                                         </Badge>
-                                                    )}
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {variance > 0 ? '+' : ''}{variancePercent.toFixed(1)}%
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -376,7 +383,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                     {/* Handle Substitute Materials */}
                                     {(order.materialIssues || [])
                                         .filter((mi) => !(order.plannedMaterials || []).some((pm) => pm.productVariantId === mi.productVariantId))
-                                        .reduce((acc: { productVariantId: string; productVariant: { name: string; primaryUnit: string }; quantity: number }[], mi) => {
+                                        .reduce((acc: { productVariantId: string; productVariant: { name: string; skuCode?: string; primaryUnit: string }; quantity: number }[], mi) => {
                                             const existing = acc.find(a => a.productVariantId === mi.productVariantId);
                                             if (existing) {
                                                 existing.quantity += Number(mi.quantity);
@@ -385,6 +392,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                     productVariantId: mi.productVariantId,
                                                     productVariant: {
                                                         name: mi.productVariant.name,
+                                                        skuCode: mi.productVariant.skuCode,
                                                         primaryUnit: mi.productVariant.primaryUnit
                                                     },
                                                     quantity: Number(mi.quantity)
@@ -394,17 +402,23 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                         }, [])
                                         .map((sub) => (
                                             <tr key={sub.productVariantId} className="bg-amber-500/10 hover:bg-amber-500/20">
-                                                <td className="p-3">
+                                                <td className="p-3 pl-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-foreground">{sub.productVariant.name}</span>
                                                         <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Unplanned Issue</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-right text-muted-foreground">-</td>
-                                                <td className="p-3 text-right font-semibold text-amber-600">
-                                                    {Number(sub.quantity).toFixed(2)} {sub.productVariant.primaryUnit}
+                                                <td className="p-3 text-right">
+                                                    <span className="font-bold text-amber-600">
+                                                        {Number(sub.quantity).toFixed(2)} {sub.productVariant.primaryUnit}
+                                                    </span>
                                                 </td>
-                                                <td className="p-3 text-right text-muted-foreground">-</td>
+                                                <td className="p-3 text-right">
+                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                                                        Substitute
+                                                    </Badge>
+                                                </td>
                                             </tr>
                                         ))}
                                 </tbody>
