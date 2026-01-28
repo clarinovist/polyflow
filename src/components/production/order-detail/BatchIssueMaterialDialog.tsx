@@ -38,7 +38,10 @@ export function BatchIssueMaterialDialog({
     const [selectedLocation, setSelectedLocation] = useState(order.machine?.locationId || locations[0]?.id);
     const router = useRouter();
 
-    const isMixing = order.machine?.type === 'MIXER';
+    // Check if mixing based on machine type OR bom name OR order number
+    const isMixing = order.machine?.type === 'MIXER' ||
+        (order.bom?.name || '').toLowerCase().includes('mix') ||
+        (order.orderNumber || '').includes('MIX');
 
     // Initial items based on plannedMaterials
     const initialItems = useMemo(() => {
@@ -216,6 +219,11 @@ export function BatchIssueMaterialDialog({
                                     <span className="text-xs text-left">
                                         Items will be <b>MOVED</b> to <b>{order.location.name}</b>.
                                         Stock will be consumed automatically when you Record Output (Backflush).
+                                        {!order.location.name.toLowerCase().includes('production') && !order.location.name.toLowerCase().includes('staging') && (
+                                            <div className="mt-1 font-bold text-red-600">
+                                                Warning: Target is likely a Warehouse. Ensure this Order is set to a Production Location.
+                                            </div>
+                                        )}
                                     </span>
                                 </div>
                             ) : (
