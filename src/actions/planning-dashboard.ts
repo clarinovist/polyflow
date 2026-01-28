@@ -50,7 +50,7 @@ export async function getPlanningDashboardStats() {
             status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] }
         },
         orderBy: {
-            plannedStartDate: 'asc'
+            plannedStartDate: 'desc'
         },
         take: 5,
         include: {
