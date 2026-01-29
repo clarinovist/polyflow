@@ -2,6 +2,7 @@ import { ProductionOrderService } from './production/order-service';
 import { ProductionExecutionService } from './production/execution-service';
 import { ProductionMaterialService } from './production/material-service';
 import { ProductionCostService } from './production/cost-service';
+import { ProductionIssueService } from './production/issue-service';
 
 /**
  * Facade for Production sub-services.
@@ -36,4 +37,10 @@ export class ProductionService {
 
     // --- Costing ---
     static calculateBatchCOGM = ProductionCostService.calculateBatchCOGM;
+
+    // --- Issues ---
+    static getIssuesByOrder = ProductionIssueService.getIssuesByOrder;
+    static createIssue = ProductionIssueService.createIssue;
+    static updateIssueStatus = ProductionIssueService.updateIssueStatus;
+    static deleteIssue = ProductionIssueService.deleteIssue;
 }

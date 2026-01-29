@@ -34,6 +34,7 @@ model User {
   scrapRecords            ScrapRecord[]
   movements               StockMovement[]
   opnames                 StockOpname[]
+  reportedIssues          ProductionIssue[] @relation("IssueReporter")
 }
 
 model Employee {
@@ -372,6 +373,7 @@ model ProductionOrder {
   shifts                  ProductionShift[]
   inspections             QualityInspection[]
   scrapRecords            ScrapRecord[]
+  issues                  ProductionIssue[]
 }
 
 model MachineDowntime {
@@ -403,6 +405,25 @@ model MaterialIssue {
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+}
+
+model ProductionIssue {
+  id                String              @id @default(uuid())
+  productionOrderId String
+  category          ProductionIssueType
+  description       String
+  status            IssueStatus         @default(OPEN)
+  reportedAt        DateTime            @default(now())
+  resolvedAt        DateTime?
+  resolvedNotes     String?
+  reportedById      String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  productionOrder   ProductionOrder     @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  reportedBy        User?               @relation("IssueReporter", fields: [reportedById], references: [id])
+
+  @@index([productionOrderId])
 }
 
 model ScrapRecord {
@@ -885,6 +906,22 @@ enum BomCategory {
   EXTRUSION
   PACKING
 }
+
+enum ProductionIssueType {
+  MACHINE_BREAKDOWN
+  MATERIAL_DEFECT
+  QUALITY_ISSUE
+  OPERATOR_ERROR
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+
 
 enum DeliveryStatus {
   PENDING

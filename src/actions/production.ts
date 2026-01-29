@@ -231,7 +231,13 @@ export async function getProductionOrder(id: string) {
                     }
                 }
             },
-            parentOrder: true
+            parentOrder: true,
+            issues: {
+                include: {
+                    reportedBy: { select: { id: true, name: true } }
+                },
+                orderBy: { reportedAt: 'desc' }
+            }
         }
     });
 
@@ -721,5 +727,63 @@ export async function createChildProductionOrder(
     } catch (error) {
         console.error("Create Child WO Error:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to create sub-order" };
+    }
+}
+
+// ============== ISSUE ACTIONS ==============
+
+export async function createProductionIssue(data: {
+    productionOrderId: string;
+    category: 'MACHINE_BREAKDOWN' | 'MATERIAL_DEFECT' | 'QUALITY_ISSUE' | 'OPERATOR_ERROR' | 'OTHER';
+    description: string;
+}) {
+    try {
+        const session = await auth();
+        // Allow PLANNING, ADMIN, or PRODUCTION (Shift Leader)
+        // Adjust role check as needed
+        if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+        const issue = await ProductionService.createIssue({
+            ...data,
+            reportedById: session.user.id
+        });
+
+        revalidatePath(`/planning/orders/${data.productionOrderId}`);
+        return { success: true, data: serializeData(issue) };
+    } catch (error) {
+        console.error('[createProductionIssue]', error);
+        return { success: false, error: 'Failed to create issue' };
+    }
+}
+
+export async function updateProductionIssueStatus(
+    issueId: string,
+    status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED',
+    resolvedNotes?: string,
+    productionOrderId?: string
+) {
+    try {
+        const issue = await ProductionService.updateIssueStatus(issueId, status, resolvedNotes);
+
+        if (productionOrderId) {
+            revalidatePath(`/planning/orders/${productionOrderId}`);
+        }
+
+        return { success: true, data: serializeData(issue) };
+    } catch (error) {
+        console.error('[updateProductionIssueStatus]', error);
+        return { success: false, error: 'Failed to update issue' };
+    }
+}
+
+export async function deleteProductionIssue(issueId: string, productionOrderId: string) {
+    try {
+        await ProductionService.deleteIssue(issueId);
+
+        revalidatePath(`/planning/orders/${productionOrderId}`);
+        return { success: true };
+    } catch (error) {
+        console.error('[deleteProductionIssue]', error);
+        return { success: false, error: 'Failed to delete issue' };
     }
 }

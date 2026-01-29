@@ -77,6 +77,7 @@ async function main() {
     const locations = [
         { name: 'Raw Material Warehouse', slug: 'rm_warehouse', description: 'Storage for incoming raw materials' },
         { name: 'Mixing Area', slug: 'mixing_area', description: 'Production floor for mixing and compounding' },
+        { name: 'WIP Storage', slug: 'wip_storage', description: 'Work-in-Progress storage for Roll Film before Converting' },
         // Extrusion output now goes to FG, so no separate Extrusion Warehouse.
         { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
         { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for waste/afval' },
