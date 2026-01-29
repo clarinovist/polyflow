@@ -41,6 +41,7 @@ import { RecordScrapDialog } from '@/components/production/order-detail/RecordSc
 import { DeleteScrapButton } from '@/components/production/order-detail/DeleteScrapButton';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
 import { ManualProcurementDialog } from '@/components/production/order-detail/ManualProcurementDialog';
+import { ChildOrderList } from '@/components/production/order-detail/ChildOrderList';
 
 
 interface PageProps {
@@ -295,6 +296,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                 </TabsContent>
 
                 <TabsContent value="materials" className="space-y-6 mt-6">
+                    {/* Sub-Orders Handling */}
+                    <ChildOrderList order={order} />
+
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold">Material Requirements</h3>
                         <div className="flex items-center gap-2">

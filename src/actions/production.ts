@@ -206,11 +206,21 @@ export async function getProductionOrder(id: string) {
                 include: {
                     productVariant: {
                         include: {
-                            product: { select: { id: true, name: true, productType: true } }
+                            product: true
                         }
                     }
                 }
-            }
+            },
+            childOrders: {
+                include: {
+                    bom: {
+                        include: {
+                            productVariant: { select: { id: true, name: true } }
+                        }
+                    }
+                }
+            },
+            parentOrder: true
         }
     });
 
@@ -622,5 +632,83 @@ export async function logMachineDowntime(data: LogMachineDowntimeValues) {
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+    }
+}
+
+/**
+ * Create Child Production Order (Sub-WO)
+ */
+export async function createChildProductionOrder(
+    parentOrderId: string,
+    productVariantId: string,
+    quantity: number
+) {
+    try {
+        const session = await auth();
+        // Allow PLANNING or ADMIN roles
+        if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'PLANNING') {
+            return { success: false, error: 'Unauthorized: Only Planning can create sub-work orders' };
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            const parentOrder = await tx.productionOrder.findUnique({
+                where: { id: parentOrderId },
+                select: { salesOrderId: true, locationId: true, status: true }
+            });
+
+            if (!parentOrder) throw new Error("Parent order not found");
+
+            // Look for DEFAULT BOM for this intermediate item
+            const bom = await tx.bom.findFirst({
+                where: { productVariantId, isDefault: true }
+            });
+
+            if (!bom) throw new Error("No default BOM found for this item. Please set a Primary Default Recipe first.");
+
+            // Generate Order Number
+            const rand = Math.random().toString(36).substr(2, 4).toUpperCase();
+            // Prefix SWO = Sub Work Order
+            const orderNumber = `SWO-${productVariantId.slice(0, 4)}-${rand}`;
+
+            const po = await tx.productionOrder.create({
+                data: {
+                    orderNumber,
+                    salesOrderId: parentOrder.salesOrderId,
+                    bomId: bom.id,
+                    plannedQuantity: quantity,
+                    status: 'DRAFT', // Always start as draft
+                    plannedStartDate: new Date(), // Plan for today
+                    locationId: parentOrder.locationId,
+                    parentOrderId: parentOrderId,
+                    notes: `Sub-order for ${parentOrder.status} parent`
+                }
+            });
+
+            // Create Planned Materials for this new Child WO
+            const bomItems = await tx.bomItem.findMany({
+                where: { bomId: bom.id }
+            });
+
+            const outputRatio = quantity / Number(bom.outputQuantity);
+
+            for (const bi of bomItems) {
+                await tx.productionMaterial.create({
+                    data: {
+                        productionOrderId: po.id,
+                        productVariantId: bi.productVariantId,
+                        quantity: Number(bi.quantity) * outputRatio
+                    }
+                });
+            }
+
+            return po;
+        });
+
+        revalidatePath(`/production/orders/${parentOrderId}`);
+        revalidatePath('/production'); // Refresh list as well
+        return { success: true, data: serializeData(result) };
+    } catch (error) {
+        console.error("Create Child WO Error:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Failed to create sub-order" };
     }
 }
