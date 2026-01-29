@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon, Factory } from 'lucide-react';
 import { cn, formatRupiah } from '@/lib/utils';
 import { getOrderCosting } from '@/actions/finance';
 import { useEffect } from 'react';
@@ -217,82 +217,88 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardContent>
                     </Card>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Order Details</CardTitle></CardHeader>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left Column: Order Details & Resources */}
+                        <Card className="lg:col-span-1 h-fit">
+                            <CardHeader><CardTitle className="text-base">Order Information</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
-                                <DetailRow label="BOM Recipe" value={order.bom.name} />
-                                <DetailRow label="Planned Start" value={format(new Date(order.plannedStartDate), 'PPP')} />
-                                <DetailRow label="Planned End" value={order.plannedEndDate ? format(new Date(order.plannedEndDate), 'PPP') : '-'} />
-                                <DetailRow label="Output Location" value={order.location.name} />
+                                <div className="space-y-4">
+                                    <DetailRow label="BOM Recipe" value={order.bom.name} />
+                                    <DetailRow label="Planned Start" value={format(new Date(order.plannedStartDate), 'PPP')} />
+                                    <DetailRow label="Planned End" value={order.plannedEndDate ? format(new Date(order.plannedEndDate), 'PPP') : '-'} />
+                                    <DetailRow label="Output Location" value={order.location.name} />
+                                </div>
+
+                                <div className="border-t pt-4 mt-4">
+                                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                                        <Factory className="w-3 h-3" /> Assigned Resources
+                                    </h4>
+                                    <div className="space-y-4">
+                                        <DetailRow label="Machine" value={order.machine?.name || 'Unassigned'} />
+                                        <div>
+                                            <p className="text-sm text-muted-foreground mb-1">Workforce</p>
+                                            <p className="text-sm font-medium">
+                                                {order.shifts?.length || 0} Shifts Assigned
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Resource Assignment</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <DetailRow label="Machine" value={order.machine?.name || 'Unassigned'} />
-                                <div className="border-t pt-2 mt-2">
-                                    <p className="text-sm text-muted-foreground mb-1">Workforce</p>
-                                    <p className="text-sm font-medium">
-                                        {order.shifts?.length || 0} Shifts Assigned
-                                    </p>
 
-                                </div>
+                        {/* Right Column: Production History */}
+                        <Card className="lg:col-span-2 h-full">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <History className="w-4 h-4" /> Production History
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {order.executions && order.executions.length > 0 ? (
+                                    <div className="rounded-md border overflow-x-auto custom-scrollbar">
+                                        <table className="w-full text-sm text-left min-w-[500px]">
+                                            <thead className="bg-muted/50 text-muted-foreground font-medium">
+                                                <tr>
+                                                    <th className="p-3">Date/Time</th>
+                                                    <th className="p-3">Shift</th>
+                                                    <th className="p-3">Operator</th>
+                                                    <th className="p-3 text-right">Output</th>
+                                                    <th className="p-3 text-right">Scrap</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {order.executions.map((exec) => (
+                                                    <tr key={exec.id}>
+                                                        <td className="p-3">
+                                                            <div className="flex flex-col">
+                                                                <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-3">{exec.shift?.name || '-'}</td>
+                                                        <td className="p-3">{exec.operator?.name || '-'}</td>
+                                                        <td className="p-3 text-right font-medium text-emerald-600">
+                                                            +{Number(exec.quantityProduced)}
+                                                        </td>
+                                                        <td className="p-3 text-right text-destructive">
+                                                            {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity) : '-'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center">
+                                        <History className="w-10 h-10 mb-4 opacity-10" />
+                                        <p>No production output recorded yet.</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
-
-                    {/* Production History Table */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <History className="w-4 h-4" /> Production History
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {order.executions && order.executions.length > 0 ? (
-                                <div className="rounded-md border overflow-x-auto custom-scrollbar">
-                                    <table className="w-full text-sm text-left min-w-[500px]">
-                                        <thead className="bg-muted/50 text-muted-foreground font-medium">
-                                            <tr>
-                                                <th className="p-3">Date/Time</th>
-                                                <th className="p-3">Shift</th>
-                                                <th className="p-3">Operator</th>
-                                                <th className="p-3 text-right">Output</th>
-                                                <th className="p-3 text-right">Scrap</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {order.executions.map((exec) => (
-                                                <tr key={exec.id}>
-                                                    <td className="p-3">
-                                                        <div className="flex flex-col">
-                                                            <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3">{exec.shift?.name || '-'}</td>
-                                                    <td className="p-3">{exec.operator?.name || '-'}</td>
-                                                    <td className="p-3 text-right font-medium text-emerald-600">
-                                                        +{Number(exec.quantityProduced)}
-                                                    </td>
-                                                    <td className="p-3 text-right text-destructive">
-                                                        {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity) : '-'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    No production output recorded yet.
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
                 </TabsContent>
 
                 <TabsContent value="materials" className="space-y-6 mt-6">

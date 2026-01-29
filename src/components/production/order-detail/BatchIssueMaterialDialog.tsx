@@ -38,10 +38,11 @@ export function BatchIssueMaterialDialog({
     const [selectedLocation, setSelectedLocation] = useState(order.machine?.locationId || locations[0]?.id);
     const router = useRouter();
 
-    // Check if mixing based on machine type OR bom name OR order number
+    // Check if mixing based on machine type OR bom category
+    // We avoid checking 'mix' in name narrowly because 'Mixed HMP 15' is an extrusion product.
     const isMixing = order.machine?.type === 'MIXER' ||
-        (order.bom?.name || '').toLowerCase().includes('mix') ||
-        (order.orderNumber || '').includes('MIX');
+        order.bom?.category === 'MIXING' ||
+        (order.bom?.name || '').toLowerCase().includes('adonan');
 
     // Initial items based on plannedMaterials
     const initialItems = useMemo(() => {

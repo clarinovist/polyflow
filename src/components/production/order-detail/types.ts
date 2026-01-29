@@ -7,6 +7,7 @@ import {
 export type ExtendedProductionOrder = ProductionOrder & {
     bom: Bom & {
         productVariant: ProductVariant & { product: { name: string } },
+        category: 'STANDARD' | 'MIXING' | 'EXTRUSION' | 'PACKING',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items: { id: string; productVariantId: string; productVariant: ProductVariant & { product: { name: string } }; quantity: any }[]
     };
