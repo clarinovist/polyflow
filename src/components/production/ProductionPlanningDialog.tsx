@@ -79,8 +79,16 @@ export function ProductionPlanningDialog({
             if (result.success) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const data = result as any;
-                toast.success(`Work Order(s) created! Status: ${data.status}`);
-                if (data.prCreated) {
+
+                if (data.orderCount > 0) {
+                    toast.success(`${data.orderCount} Work Order(s) created! Status: ${data.status}`);
+                } else if (data.prCreated) {
+                    toast.success("Purchase Request(s) created for shortages. No Work Order needed.");
+                } else {
+                    toast.info("Stock allocated from inventory. No Work Order needed.");
+                }
+
+                if (data.prCreated && data.orderCount > 0) {
                     toast.info("Purchase Request(s) created for shortages.", { duration: 5000 });
                 }
 

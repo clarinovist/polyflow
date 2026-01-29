@@ -315,6 +315,16 @@ export class MrpService {
 
         if (!bom) {
             // No BOM -> Leaf node (Raw Material or missing recipe)
+
+            // Fix: Check if it SHOULD have a BOM
+            const needsBom = ['FINISHED_GOOD', 'INTERMEDIATE', 'WIP'].includes(variant.product.productType);
+            if (needsBom) {
+                missingBoms.push({
+                    productName: variant.name,
+                    productVariantId: productVariantId
+                });
+            }
+
             return;
         }
 
