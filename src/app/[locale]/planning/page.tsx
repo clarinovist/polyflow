@@ -6,43 +6,46 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
+import { PageHeader } from '@/components/ui/page-header';
+import { ResponsiveButtonGroup } from '@/components/ui/responsive-button-group';
+
 export const dynamic = 'force-dynamic';
 
 export default async function PlanningDashboardPage() {
     const stats = await getPlanningDashboardStats();
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Mission Control</h1>
-                    <p className="text-muted-foreground">Real-time overview of production and procurement.</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button asChild variant="outline">
-                        <Link href="/planning/mrp">
-                            Check Shortages
-                        </Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href="/planning/schedule">
-                            View Schedule
-                        </Link>
-                    </Button>
-                    <Button asChild className="bg-amber-600 hover:bg-amber-700">
-                        <Link href="/planning/requests">
-                            <Factory className="mr-2 h-4 w-4" />
-                            Production Requests
-                        </Link>
-                    </Button>
-                    <Button asChild variant="secondary">
-                        <Link href="/planning/purchase-requests">
-                            <ClipboardCheck className="mr-2 h-4 w-4" />
-                            Purchase Requests
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+        <div className="flex flex-col space-y-6">
+            <PageHeader
+                title="Mission Control"
+                description="Real-time overview of production and procurement."
+                actions={
+                    <ResponsiveButtonGroup mobileStack>
+                        <Button asChild variant="outline">
+                            <Link href="/planning/mrp">
+                                Check Shortages
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href="/planning/schedule">
+                                View Schedule
+                            </Link>
+                        </Button>
+                        <Button asChild className="bg-amber-600 hover:bg-amber-700">
+                            <Link href="/planning/requests">
+                                <Factory className="mr-2 h-4 w-4" />
+                                Production Requests
+                            </Link>
+                        </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/planning/purchase-requests">
+                                <ClipboardCheck className="mr-2 h-4 w-4" />
+                                Purchase Requests
+                            </Link>
+                        </Button>
+                    </ResponsiveButtonGroup>
+                }
+            />
 
             {/* Hero Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

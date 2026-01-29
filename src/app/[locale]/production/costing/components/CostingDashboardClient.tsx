@@ -12,6 +12,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { DateRange } from 'react-day-picker';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 interface CostingDashboardClientProps {
     initialDateRange?: { from: Date; to: Date };
@@ -161,8 +162,8 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                 <CardTitle>Cost Detail Breakdown</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="rounded-xl border border-zinc-200 overflow-x-auto shadow-sm custom-scrollbar">
-                                    <table className="w-full text-sm min-w-[600px]">
+                                <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 shadow-sm custom-scrollbar">
+                                    <table className="w-full text-sm">
                                         <thead className="bg-zinc-50 border-b border-zinc-200">
                                             <tr>
                                                 <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>
@@ -193,7 +194,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                             )}
                                         </tbody>
                                     </table>
-                                </div>
+                                </ResponsiveTable>
                             </CardContent>
                         </Card>
                     </div>
@@ -206,7 +207,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                             <CardDescription>Value of raw materials consumed in currently active orders</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
+                            <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 shadow-sm">
                                 <table className="w-full text-sm">
                                     <thead className="bg-zinc-50 border-b border-zinc-200">
                                         <tr>
@@ -233,7 +234,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                         )}
                                     </tbody>
                                 </table>
-                            </div>
+                            </ResponsiveTable>
                         </CardContent>
                     </Card>
                 </TabsContent>

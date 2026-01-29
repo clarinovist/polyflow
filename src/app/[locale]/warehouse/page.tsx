@@ -10,6 +10,8 @@ import { auth } from '@/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Package, Truck, Boxes, MapPin } from 'lucide-react';
 
+import { PageHeader } from '@/components/ui/page-header';
+
 export const dynamic = 'force-dynamic';
 
 export default async function WarehousePage() {
@@ -63,13 +65,11 @@ export default async function WarehousePage() {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Warehouse Operations</h1>
-                <p className="text-muted-foreground">
-                    Manage inventory, material issues, and receipts.
-                </p>
-            </div>
+        <div className="flex flex-col gap-6">
+            <PageHeader
+                title="Warehouse Operations"
+                description="Manage inventory, material issues, and receipts."
+            />
 
             {/* Premium Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

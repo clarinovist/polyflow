@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
+import { PageHeader } from '@/components/ui/page-header';
+
 export const dynamic = 'force-dynamic';
 
 export default async function FinanceDashboardPage() {
@@ -21,13 +23,10 @@ export default async function FinanceDashboardPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Finance Overview</h1>
-                <p className="text-muted-foreground mt-1">
-                    Real-time financial snapshot and cash flow analysis.
-                </p>
-            </div>
+            <PageHeader
+                title="Finance Overview"
+                description="Real-time financial snapshot and cash flow analysis."
+            />
 
             {/* Core Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

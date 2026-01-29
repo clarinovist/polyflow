@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { format } from 'date-fns';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
@@ -207,7 +208,7 @@ export default function WarehouseRefreshWrapper({
 
                                             {/* Section 2: Material Requirements Table */}
                                             <div className="lg:col-span-2">
-                                                <div className="rounded-lg border bg-card overflow-hidden">
+                                                <ResponsiveTable minWidth={500} className="rounded-lg border bg-card overflow-hidden">
                                                     <table className="w-full text-sm">
                                                         <thead className="bg-muted/50 border-b">
                                                             <tr>
@@ -239,7 +240,7 @@ export default function WarehouseRefreshWrapper({
                                                             ))}
                                                         </tbody>
                                                     </table>
-                                                </div>
+                                                </ResponsiveTable>
                                             </div>
                                         </div>
                                     </AccordionContent>

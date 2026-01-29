@@ -5,6 +5,8 @@ import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData, formatRupiah } from '@/lib/utils';
 import { Package, ShoppingCart, TrendingUp, Users, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
+import { ResponsiveButtonGroup } from '@/components/ui/responsive-button-group';
 
 export default async function SalesDashboardPage({
     params
@@ -17,26 +19,26 @@ export default async function SalesDashboardPage({
 
     return (
         <div className="flex flex-col space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Dashboard</h1>
-                    <p className="text-muted-foreground">Overview of sales performance for this month.</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button asChild variant="outline">
-                        <Link href="/sales/quotations/create">
-                            <FileText className="mr-2 h-4 w-4" />
-                            New Quotation
-                        </Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href="/sales/orders/create">
-                            <Plus className="mr-2 h-4 w-4" />
-                            New Order
-                        </Link>
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title="Sales Dashboard"
+                description="Overview of sales performance for this month."
+                actions={
+                    <ResponsiveButtonGroup>
+                        <Button asChild variant="outline">
+                            <Link href="/sales/quotations/create">
+                                <FileText className="mr-2 h-4 w-4" />
+                                New Quotation
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href="/sales/orders/create">
+                                <Plus className="mr-2 h-4 w-4" />
+                                New Order
+                            </Link>
+                        </Button>
+                    </ResponsiveButtonGroup>
+                }
+            />
 
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

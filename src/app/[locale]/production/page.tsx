@@ -4,6 +4,8 @@ import { Factory, Cog, CheckCircle2, FileClock, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
+import { PageHeader } from '@/components/ui/page-header';
+
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionDashboardPage() {
@@ -11,13 +13,10 @@ export default async function ProductionDashboardPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Production Floor</h1>
-                <p className="text-muted-foreground mt-1">
-                    Real-time monitoring and control of manufacturing operations.
-                </p>
-            </div>
+            <PageHeader
+                title="Production Floor"
+                description="Real-time monitoring and control of manufacturing operations."
+            />
 
             {/* Core Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
