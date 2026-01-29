@@ -30,6 +30,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 
 import { ShiftManager } from '@/components/production/ShiftManager';
+import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
 
 // Imported Components
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
@@ -234,7 +235,18 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                         <Factory className="w-3 h-3" /> Assigned Resources
                                     </h4>
                                     <div className="space-y-4">
-                                        <DetailRow label="Machine" value={order.machine?.name || 'Unassigned'} />
+                                        <div className="flex justify-between items-center border-b pb-2 last:border-0 last:pb-0">
+                                            <span className="text-muted-foreground text-sm">Machine</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-sm">{order.machine?.name || 'Unassigned'}</span>
+                                                <ReassignMachineButton
+                                                    orderId={order.id}
+                                                    orderNumber={order.orderNumber}
+                                                    currentMachineId={order.machine?.id || null}
+                                                    machines={formData.machines}
+                                                />
+                                            </div>
+                                        </div>
                                         <div>
                                             <p className="text-sm text-muted-foreground mb-1">Workforce</p>
                                             <p className="text-sm font-medium">
