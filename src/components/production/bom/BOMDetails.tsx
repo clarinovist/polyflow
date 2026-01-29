@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { ArrowLeft, Edit2, Package, Layers } from 'lucide-react';
+import { ArrowLeft, Edit2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -13,7 +14,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from '@/components/brand/BrandCard';
 import { Link } from '@/i18n/navigation';
 
 interface BOMDetailsProps {
@@ -50,21 +50,19 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         variant="ghost"
                         size="icon"
                         onClick={() => router.back()}
-                        className="h-10 w-10 rounded-full border border-white/10 bg-background/50"
+                        className="h-10 w-10 rounded-full border bg-background"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-black tracking-tight">
-                            <BrandGradientText>Recipe Details</BrandGradientText>
-                        </h1>
-                        <p className="text-muted-foreground text-sm font-medium">
+                        <h1 className="text-3xl font-bold tracking-tight">Recipe Details</h1>
+                        <p className="text-muted-foreground text-sm">
                             Viewing configuration for {bom.name}
                         </p>
                     </div>
                 </div>
                 <Link href={`/dashboard/boms/${bom.id}/edit`}>
-                    <Button className="bg-brand hover:bg-brand-hover shadow-lg shadow-brand/20">
+                    <Button>
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit Recipe
                     </Button>
@@ -73,41 +71,36 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 {/* General Info */}
-                <BrandCard className="lg:col-span-2">
-                    <BrandCardHeader>
+                <Card className="lg:col-span-2">
+                    <CardHeader>
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                <Package className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black uppercase tracking-widest text-foreground">General Information</h3>
-                            </div>
+                            <CardTitle className="text-lg font-bold">General Information</CardTitle>
                         </div>
-                    </BrandCardHeader>
-                    <BrandCardContent>
+                    </CardHeader>
+                    <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Recipe Name</div>
-                                <div className="text-lg font-bold">{bom.name}</div>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Recipe Name</div>
+                                <div className="text-lg font-medium">{bom.name}</div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Output Product</div>
-                                <div className="font-bold flex items-center gap-2">
-                                    <span className="font-mono bg-muted/50 px-1 rounded text-sm">{bom.productVariant.skuCode}</span>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Output Product</div>
+                                <div className="font-medium flex items-center gap-2">
+                                    <span className="font-mono bg-muted px-1 rounded text-sm">{bom.productVariant.skuCode}</span>
                                     <span>{bom.productVariant.name}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Basis Output Quantity</div>
-                                <div className="text-lg font-mono font-bold">
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Basis Output Quantity</div>
+                                <div className="text-lg font-mono font-medium">
                                     {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit}
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Status</div>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Status</div>
                                 <div>
                                     {bom.isDefault ? (
-                                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/10">
+                                        <Badge variant="secondary" className="text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
                                             Default Recipe
                                         </Badge>
                                     ) : (
@@ -118,87 +111,85 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                 </div>
                             </div>
                         </div>
-                    </BrandCardContent>
-                </BrandCard>
+                    </CardContent>
+                </Card>
 
                 {/* Cost Summary */}
                 {showPrices && (
-                    <div className="bg-emerald-600/10 backdrop-blur-brand border border-emerald-500/20 rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden group shadow-brand">
-                        <div className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600/70 dark:text-emerald-400/70 mb-2">Total Formula Cost</div>
-                        <div className="text-5xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">
-                            {formatCurrency(totalCost)}
-                        </div>
-                        <div className="mt-6">
-                            <p className="text-[11px] text-muted-foreground font-bold italic">Calculated based on current standard costs.</p>
-                        </div>
-                    </div>
+                    <Card className="flex flex-col justify-center">
+                        <CardContent className="pt-6">
+                            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Total Formula Cost</div>
+                            <div className="text-4xl font-bold tracking-tight">
+                                {formatCurrency(totalCost)}
+                            </div>
+                            <div className="mt-4">
+                                <p className="text-[11px] text-muted-foreground italic">Calculated based on current standard costs.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 )}
             </div>
 
             {/* Ingredients Table */}
-            <BrandCard className="overflow-hidden rounded-3xl">
-                <BrandCardHeader>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                            <Layers className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-black uppercase tracking-widest text-foreground">Formula Components</h3>
-                            <p className="text-xs text-muted-foreground font-medium">Bill of Materials breakdown</p>
-                        </div>
-                        <Badge variant="secondary" className="ml-2 h-6 px-3 font-black text-xs bg-primary/10 text-primary border-primary/20">{bom.items.length} Components</Badge>
+                        <CardTitle className="text-lg font-bold">Formula Components</CardTitle>
+                        <Badge variant="secondary" className="ml-2">{bom.items.length} Components</Badge>
                     </div>
-                </BrandCardHeader>
+                </CardHeader>
 
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-muted/30 border-b border-brand">
-                            <TableRow className="hover:bg-transparent border-0">
-                                <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-8 py-5">Ingredient Material & SKU</TableHead>
-                                <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-center w-[200px]">Quantity</TableHead>
-                                {showPrices && <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-right w-[200px]">Line Cost</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody className="[&_tr:last-child]:border-0 px-8">
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                            {bom.items.map((item: any, index: number) => {
-                                const lineCost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0) * Number(item.quantity);
-                                
-                                return (
-                                    <TableRow key={index} className="border-white/5 hover:bg-primary/[0.02] transition-colors">
-                                        <TableCell className="py-6 px-8">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-sm tracking-tight">{item.productVariant.name}</span>
-                                                <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1 rounded w-fit mt-1">
-                                                    {item.productVariant.skuCode}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="py-6 text-center">
-                                            <span className="font-mono text-lg font-medium">
-                                                {Number(item.quantity).toLocaleString()}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground ml-1">{item.productVariant.primaryUnit}</span>
-                                        </TableCell>
-                                        {showPrices && (
-                                            <TableCell className="py-6 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                                        {formatCurrency(lineCost)}
-                                                    </span>
-                                                    <span className="text-[10px] text-muted-foreground opacity-60">
-                                                        @ {formatCurrency(Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0))}
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[400px]">Ingredient Material & SKU</TableHead>
+                                    <TableHead className="text-center w-[200px]">Quantity</TableHead>
+                                    {showPrices && <TableHead className="text-right w-[200px]">Line Cost</TableHead>}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                {bom.items.map((item: any, index: number) => {
+                                    const lineCost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0) * Number(item.quantity);
+
+                                    return (
+                                        <TableRow key={index}>
+                                            <TableCell className="py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-sm">{item.productVariant.name}</span>
+                                                    <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded w-fit mt-1">
+                                                        {item.productVariant.skuCode}
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                        )}
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
-            </BrandCard>
+                                            <TableCell className="py-4 text-center">
+                                                <span className="font-mono text-base font-medium">
+                                                    {Number(item.quantity).toLocaleString()}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground ml-1">{item.productVariant.primaryUnit}</span>
+                                            </TableCell>
+                                            {showPrices && (
+                                                <TableCell className="py-4 text-right">
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-medium">
+                                                            {formatCurrency(lineCost)}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            @ {formatCurrency(Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0))}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

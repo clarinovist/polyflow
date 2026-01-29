@@ -15,14 +15,10 @@ export default async function BomsPage() {
     const boms = (bomsRes.success && bomsRes.data) ? bomsRes.data : [];
 
     return (
-        <div className="relative flex flex-col gap-8">
-            {/* Background Decorative Element */}
-            <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute top-1/2 -left-24 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-bold tracking-tight">
                         Master Recipes
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">
@@ -35,8 +31,7 @@ export default async function BomsPage() {
                 </div>
             </div>
 
-            <Alert className="bg-background/40 backdrop-blur-md border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <Alert className="bg-background border-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm relative overflow-hidden">
                 <div className="flex items-start gap-3 relative">
                     <Info className="h-4 w-4 mt-0.5 shrink-0" />
                     <div>
@@ -52,6 +47,6 @@ export default async function BomsPage() {
                 boms={boms}
                 showPrices={showPrices}
             />
-        </div>
+        </div >
     );
 }

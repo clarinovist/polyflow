@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Edit2, Files, ChevronRight, Package, Plus } from 'lucide-react';
+import { Search, Edit2, ChevronRight, Plus } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
-import { BrandCard, BrandCardContent } from '@/components/brand/BrandCard';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -54,13 +54,13 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search recipes, products, or SKUs..."
-                        className="pl-9 bg-background/50 backdrop-blur-sm"
+                        className="pl-9"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <Link href="/dashboard/boms/create">
-                    <Button className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/20 border-0">
+                    <Button className="w-full md:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         New BOM
                     </Button>
@@ -68,21 +68,21 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
             </div>
 
             <Tabs defaultValue="ALL" onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-background/50 backdrop-blur-sm p-1 rounded-xl h-auto flex-wrap justify-start mb-6">
-                    <TabsTrigger value="ALL" className="rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-bold">All Recipes</TabsTrigger>
-                    <TabsTrigger value="MIXING" className="rounded-lg data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 font-bold">Mixing</TabsTrigger>
-                    <TabsTrigger value="EXTRUSION" className="rounded-lg data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 font-bold">Extrusion</TabsTrigger>
-                    <TabsTrigger value="PACKING" className="rounded-lg data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600 font-bold">Packing</TabsTrigger>
-                    <TabsTrigger value="STANDARD" className="rounded-lg data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 font-bold">Standard</TabsTrigger>
+                <TabsList>
+                    <TabsTrigger value="ALL">All Recipes</TabsTrigger>
+                    <TabsTrigger value="MIXING">Mixing</TabsTrigger>
+                    <TabsTrigger value="EXTRUSION">Extrusion</TabsTrigger>
+                    <TabsTrigger value="PACKING">Packing</TabsTrigger>
+                    <TabsTrigger value="STANDARD">Standard</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value={activeTab} className="mt-0">
-                    <BrandCard>
-                        <BrandCardContent className="p-0">
+                <TabsContent value={activeTab}>
+                    <Card>
+                        <CardContent className="p-0">
                             <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader className="bg-muted/30">
-                                        <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
+                                    <TableHeader>
+                                        <TableRow>
                                             <TableHead className="w-[300px]">Recipe & Product</TableHead>
                                             <TableHead>Category</TableHead>
                                             <TableHead>Basis Quantity</TableHead>
@@ -94,9 +94,8 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                     <TableBody>
                                         {filteredBoms.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={showPrices ? 6 : 5} className="h-32 text-center text-muted-foreground">
+                                                <TableCell colSpan={showPrices ? 6 : 5} className="h-24 text-center text-muted-foreground">
                                                     <div className="flex flex-col items-center gap-2">
-                                                        <Files className="h-8 w-8 opacity-20" />
                                                         <span>No recipes found in {activeTab}</span>
                                                     </div>
                                                 </TableCell>
@@ -110,19 +109,19 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                 }, 0);
 
                                                 return (
-                                                    <TableRow key={bom.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
+                                                    <TableRow key={bom.id} className="group cursor-pointer">
                                                         <TableCell>
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="font-bold text-sm tracking-tight">{bom.name}</span>
+                                                                    <span className="font-medium text-sm">{bom.name}</span>
                                                                     {bom.isDefault && (
-                                                                        <Badge variant="secondary" className="bg-blue-500/10 text-xs text-blue-600 dark:text-blue-400 border-blue-500/10 h-5 px-1.5 font-bold">
+                                                                        <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
                                                                             Default
                                                                         </Badge>
                                                                     )}
                                                                 </div>
                                                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                                                    <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1 rounded uppercase">
+                                                                    <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded uppercase">
                                                                         {bom.productVariant.skuCode}
                                                                     </span>
                                                                     <span className="text-xs text-muted-foreground truncate max-w-[180px]">
@@ -132,29 +131,25 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <Badge variant="outline" className="text-[10px] font-bold border-white/10 px-2 py-0.5">
+                                                            <Badge variant="outline" className="text-[10px] font-normal px-2 py-0.5">
                                                                 {bom.category || 'STANDARD'}
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-1.5">
-                                                                <Package className="h-3 w-3 text-muted-foreground" />
-                                                                <span className="font-medium text-sm">
+                                                                <span className="text-sm">
                                                                     {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit}
                                                                 </span>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="flex -space-x-1.5">
-                                                                {/* Visual representation of ingredients count */}
-                                                                <Badge variant="outline" className="text-[11px] font-bold border-white/10 bg-background/50 h-6 px-2">
-                                                                    {bom.items.length} materials
-                                                                </Badge>
-                                                            </div>
+                                                            <Badge variant="secondary" className="font-normal text-[11px]">
+                                                                {bom.items.length} materials
+                                                            </Badge>
                                                         </TableCell>
                                                         {showPrices && (
                                                             <TableCell className="text-right">
-                                                                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                                                                <span className="font-medium text-sm">
                                                                     {formatCurrency(totalCost)}
                                                                 </span>
                                                             </TableCell>
@@ -162,7 +157,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                         <TableCell className="text-right">
                                                             <div className="flex justify-end gap-1">
                                                                 <Link href={`/dashboard/boms/${bom.id}/edit`}>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                                                                         <Edit2 className="h-4 w-4" />
                                                                     </Button>
                                                                 </Link>
@@ -180,8 +175,8 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                     </TableBody>
                                 </Table>
                             </div>
-                        </BrandCardContent>
-                    </BrandCard>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>
