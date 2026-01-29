@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/audit';
 import { formatRupiah } from '@/lib/utils';
 import { InventoryService } from './inventory-service';
 import { InvoiceService } from './invoice-service';
+import { ProductionService } from './production-service';
 
 export class SalesService {
 
@@ -234,6 +235,21 @@ export class SalesService {
             ? SalesOrderStatus.IN_PRODUCTION
             : SalesOrderStatus.CONFIRMED;
 
+        // Validation for MTO: Check if Default BOM exists
+        if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
+            for (const item of order.items) {
+                const bom = await prisma.bom.findFirst({
+                    where: { productVariantId: item.productVariantId, isDefault: true }
+                });
+                // Optional: We could strictly block here, or warn. 
+                // Plan says: Block confirmation if BOM is missing.
+                if (!bom) {
+                    const variant = await prisma.productVariant.findUnique({ where: { id: item.productVariantId }, select: { name: true } });
+                    throw new Error(`Cannot confirm MTO order: Default BOM not found for product "${variant?.name || 'Unknown'}". Please create a BOM first.`);
+                }
+            }
+        }
+
         await prisma.$transaction(async (tx) => {
             // Make to Stock Logic
             if (order.sourceLocationId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
@@ -302,6 +318,23 @@ export class SalesService {
                 tx
             });
         });
+
+        // Trigger Production Order Creation for MTO (After transaction commits)
+        if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
+            try {
+                const results = await Promise.allSettled(order.items.map(item =>
+                    ProductionService.createOrderFromSales(order.id, item.productVariantId, Number(item.quantity))
+                ));
+
+                results.forEach((res, idx) => {
+                    if (res.status === 'rejected') {
+                        console.error(`Failed to auto-create WO for item ${order.items[idx].productVariantId}:`, res.reason);
+                    }
+                });
+            } catch (error) {
+                console.error("Auto-creation of WO failed:", error);
+            }
+        }
 
     }
 
