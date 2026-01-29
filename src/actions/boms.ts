@@ -5,9 +5,16 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
 
-export async function getBoms() {
+export async function getBoms(category?: string) {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const where: any = {};
+        if (category && category !== 'ALL') {
+            where.category = category;
+        }
+
         const boms = await prisma.bom.findMany({
+            where,
             include: {
                 productVariant: {
                     include: {
@@ -59,21 +66,22 @@ export async function createBom(data: CreateBomValues) {
         const bom = await prisma.bom.create({
             data: {
                 name: validated.name,
-                productVariantId: validated.productVariantId,
+                productVariant: { connect: { id: validated.productVariantId } },
                 outputQuantity: validated.outputQuantity,
                 isDefault: validated.isDefault,
+                category: validated.category,
                 items: {
                     create: validated.items.map(item => ({
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
-                        scrapPercentage: 0
+                        scrapPercentage: item.scrapPercentage
                     }))
                 }
             }
         });
 
         revalidatePath('/dashboard/boms');
-        return { success: true, data: bom };
+        return { success: true, data: serializeData(bom) };
     } catch (error) {
         console.error("Error creating BOM:", error);
         return { success: false, error: "Failed to create BOM" };
@@ -124,9 +132,10 @@ export async function updateBom(id: string, data: CreateBomValues) {
                 where: { id },
                 data: {
                     name: validated.name,
-                    productVariantId: validated.productVariantId,
+                    productVariant: { connect: { id: validated.productVariantId } },
                     outputQuantity: validated.outputQuantity,
                     isDefault: validated.isDefault,
+                    category: validated.category,
                 }
             });
 
@@ -141,7 +150,7 @@ export async function updateBom(id: string, data: CreateBomValues) {
                     bomId: id,
                     productVariantId: item.productVariantId,
                     quantity: item.quantity,
-                    scrapPercentage: 0
+                    scrapPercentage: item.scrapPercentage
                 }))
             });
 
@@ -149,7 +158,7 @@ export async function updateBom(id: string, data: CreateBomValues) {
         });
 
         revalidatePath('/dashboard/boms');
-        return { success: true, data: result };
+        return { success: true, data: serializeData(result) };
     } catch (error) {
         console.error("Error updating BOM:", error);
         return { success: false, error: "Failed to update BOM" };

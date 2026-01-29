@@ -80,9 +80,11 @@ export const createBomSchema = z.object({
     productVariantId: z.string().min(1, "Output product is required"),
     outputQuantity: z.coerce.number().positive("Output quantity must be positive"),
     isDefault: z.boolean().default(false),
+    category: z.enum(['STANDARD', 'MIXING', 'EXTRUSION', 'PACKING']).default('STANDARD'),
     items: z.array(z.object({
         productVariantId: z.string().min(1, "Ingredient is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
+        scrapPercentage: z.coerce.number().min(0).max(100).default(0),
     })).min(1, "At least one ingredient is required"),
 });
 

@@ -15,6 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface BOMListProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,18 +33,22 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-export function BOMList({ boms: initialBoms, showPrices }: BOMListProps) {
+export function BOMList({ boms, showPrices }: BOMListProps) {
     const [searchTerm, setSearchTerm] = useState('');
-    const [boms] = useState(initialBoms);
+    const [activeTab, setActiveTab] = useState('ALL');
 
-    const filteredBoms = boms.filter((bom) =>
-        bom.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bom.productVariant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bom.productVariant.skuCode.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredBoms = boms.filter((bom) => {
+        const matchesSearch = bom.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            bom.productVariant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            bom.productVariant.skuCode.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesCategory = activeTab === 'ALL' || (bom.category || 'STANDARD') === activeTab;
+
+        return matchesSearch && matchesCategory;
+    });
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -62,105 +67,123 @@ export function BOMList({ boms: initialBoms, showPrices }: BOMListProps) {
                 </Link>
             </div>
 
-            <BrandCard>
-                <BrandCardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-muted/30">
-                                <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
-                                    <TableHead className="w-[300px]">Recipe & Product</TableHead>
-                                    <TableHead>Basis Quantity</TableHead>
-                                    <TableHead>Ingredients</TableHead>
-                                    {showPrices && <TableHead className="text-right">Est. Cost</TableHead>}
-                                    <TableHead className="text-right w-[100px]">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredBoms.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={showPrices ? 5 : 4} className="h-32 text-center text-muted-foreground">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <Files className="h-8 w-8 opacity-20" />
-                                                <span>No recipes found</span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredBoms.map((bom) => {
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const totalCost = bom.items.reduce((acc: number, item: any) => {
-                                            const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0);
-                                            return acc + (cost * Number(item.quantity));
-                                        }, 0);
+            <Tabs defaultValue="ALL" onValueChange={setActiveTab} className="w-full">
+                <TabsList className="bg-background/50 backdrop-blur-sm p-1 rounded-xl h-auto flex-wrap justify-start mb-6">
+                    <TabsTrigger value="ALL" className="rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary font-bold">All Recipes</TabsTrigger>
+                    <TabsTrigger value="MIXING" className="rounded-lg data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600 font-bold">Mixing</TabsTrigger>
+                    <TabsTrigger value="EXTRUSION" className="rounded-lg data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-600 font-bold">Extrusion</TabsTrigger>
+                    <TabsTrigger value="PACKING" className="rounded-lg data-[state=active]:bg-green-500/10 data-[state=active]:text-green-600 font-bold">Packing</TabsTrigger>
+                    <TabsTrigger value="STANDARD" className="rounded-lg data-[state=active]:bg-slate-500/10 data-[state=active]:text-slate-600 font-bold">Standard</TabsTrigger>
+                </TabsList>
 
-                                        return (
-                                            <TableRow key={bom.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-sm tracking-tight">{bom.name}</span>
-                                                            {bom.isDefault && (
-                                                                <Badge variant="secondary" className="bg-blue-500/10 text-xs text-blue-600 dark:text-blue-400 border-blue-500/10 h-5 px-1.5 font-bold">
-                                                                    Default
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                                            <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1 rounded uppercase">
-                                                                {bom.productVariant.skuCode}
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground truncate max-w-[180px]">
-                                                                {bom.productVariant.name}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Package className="h-3 w-3 text-muted-foreground" />
-                                                        <span className="font-medium text-sm">
-                                                            {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex -space-x-1.5">
-                                                        {/* Visual representation of ingredients count */}
-                                                        <Badge variant="outline" className="text-[11px] font-bold border-white/10 bg-background/50 h-6 px-2">
-                                                            {bom.items.length} materials
-                                                        </Badge>
-                                                    </div>
-                                                </TableCell>
-                                                {showPrices && (
-                                                    <TableCell className="text-right">
-                                                        <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
-                                                            {formatCurrency(totalCost)}
-                                                        </span>
-                                                    </TableCell>
-                                                )}
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Link href={`/dashboard/boms/${bom.id}/edit`}>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
-                                                                <Edit2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </Link>
-                                                        <Link href={`/dashboard/boms/${bom.id}`}>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            </Button>
-                                                        </Link>
+                <TabsContent value={activeTab} className="mt-0">
+                    <BrandCard>
+                        <BrandCardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader className="bg-muted/30">
+                                        <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
+                                            <TableHead className="w-[300px]">Recipe & Product</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Basis Quantity</TableHead>
+                                            <TableHead>Ingredients</TableHead>
+                                            {showPrices && <TableHead className="text-right">Est. Cost</TableHead>}
+                                            <TableHead className="text-right w-[100px]">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredBoms.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={showPrices ? 6 : 5} className="h-32 text-center text-muted-foreground">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <Files className="h-8 w-8 opacity-20" />
+                                                        <span>No recipes found in {activeTab}</span>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </BrandCardContent>
-            </BrandCard>
+                                        ) : (
+                                            filteredBoms.map((bom) => {
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                const totalCost = bom.items.reduce((acc: number, item: any) => {
+                                                    const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0);
+                                                    return acc + (cost * Number(item.quantity));
+                                                }, 0);
+
+                                                return (
+                                                    <TableRow key={bom.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
+                                                        <TableCell>
+                                                            <div className="flex flex-col">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-sm tracking-tight">{bom.name}</span>
+                                                                    {bom.isDefault && (
+                                                                        <Badge variant="secondary" className="bg-blue-500/10 text-xs text-blue-600 dark:text-blue-400 border-blue-500/10 h-5 px-1.5 font-bold">
+                                                                            Default
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                                    <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1 rounded uppercase">
+                                                                        {bom.productVariant.skuCode}
+                                                                    </span>
+                                                                    <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                                                                        {bom.productVariant.name}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="text-[10px] font-bold border-white/10 px-2 py-0.5">
+                                                                {bom.category || 'STANDARD'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Package className="h-3 w-3 text-muted-foreground" />
+                                                                <span className="font-medium text-sm">
+                                                                    {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit}
+                                                                </span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex -space-x-1.5">
+                                                                {/* Visual representation of ingredients count */}
+                                                                <Badge variant="outline" className="text-[11px] font-bold border-white/10 bg-background/50 h-6 px-2">
+                                                                    {bom.items.length} materials
+                                                                </Badge>
+                                                            </div>
+                                                        </TableCell>
+                                                        {showPrices && (
+                                                            <TableCell className="text-right">
+                                                                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                                                                    {formatCurrency(totalCost)}
+                                                                </span>
+                                                            </TableCell>
+                                                        )}
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Link href={`/dashboard/boms/${bom.id}/edit`}>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
+                                                                        <Edit2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </Link>
+                                                                <Link href={`/dashboard/boms/${bom.id}`}>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                                        <ChevronRight className="h-4 w-4" />
+                                                                    </Button>
+                                                                </Link>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </BrandCardContent>
+                    </BrandCard>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

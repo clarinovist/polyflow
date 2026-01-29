@@ -9,31 +9,31 @@ datasource db {
 }
 
 model User {
-  id                String              @id @default(uuid())
-  email             String              @unique
-  name              String?
-  password          String
-  role              Role                @default(WAREHOUSE)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  locale            String              @default("en")
-  auditLogs         AuditLog[]
-  deliveryOrders    DeliveryOrder[]     @relation("DeliveryCreator")
-  goodsReceipts     GoodsReceipt[]      @relation("GoodsReceiptCreator")
-  approvedJournals  JournalEntry[]      @relation("JournalApprover")
-  createdJournals   JournalEntry[]      @relation("JournalCreator")
-  downtimeLogs      MachineDowntime[]
-  materialIssues    MaterialIssue[]
-  productionCreator ProductionOrder[]   @relation("ProductionCreator")
-  purchaseOrders    PurchaseOrder[]     @relation("PurchaseCreator")
-  purchasePayments  PurchasePayment[]   @relation("PaymentCreator")
-  inspections       QualityInspection[]
-  salesOrders       SalesOrder[]        @relation("SalesCreator")
-  quotations        SalesQuotation[]    @relation("QuotationCreator")
-  scrapRecords      ScrapRecord[]
-  movements         StockMovement[]
-  opnames           StockOpname[]
+  id                      String              @id @default(uuid())
+  email                   String              @unique
+  name                    String?
+  password                String
+  role                    Role                @default(WAREHOUSE)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  locale                  String              @default("en")
+  auditLogs               AuditLog[]
+  deliveryOrders          DeliveryOrder[]     @relation("DeliveryCreator")
+  goodsReceipts           GoodsReceipt[]      @relation("GoodsReceiptCreator")
+  approvedJournals        JournalEntry[]      @relation("JournalApprover")
+  createdJournals         JournalEntry[]      @relation("JournalCreator")
+  downtimeLogs            MachineDowntime[]
+  materialIssues          MaterialIssue[]
+  productionCreator       ProductionOrder[]   @relation("ProductionCreator")
+  purchaseOrders          PurchaseOrder[]     @relation("PurchaseCreator")
+  purchasePayments        PurchasePayment[]   @relation("PaymentCreator")
   createdPurchaseRequests PurchaseRequest[]
+  inspections             QualityInspection[]
+  salesOrders             SalesOrder[]        @relation("SalesCreator")
+  quotations              SalesQuotation[]    @relation("QuotationCreator")
+  scrapRecords            ScrapRecord[]
+  movements               StockMovement[]
+  opnames                 StockOpname[]
 }
 
 model Employee {
@@ -119,14 +119,14 @@ model Location {
   goodsReceipts    GoodsReceipt[]
   inventories      Inventory[]
   machines         Machine[]
+  MaterialIssue    MaterialIssue[]
   ProductionOrder  ProductionOrder[]
   salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
+  ScrapRecord      ScrapRecord[]
   movementsFrom    StockMovement[]    @relation("FromLocation")
   movementsTo      StockMovement[]    @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
-  MaterialIssue    MaterialIssue[]
-  ScrapRecord      ScrapRecord[]
 }
 
 model Product {
@@ -143,45 +143,45 @@ model Product {
 }
 
 model ProductVariant {
-  id                  String               @id @default(uuid())
-  productId           String
-  name                String
-  skuCode             String               @unique
-  price               Decimal?             @db.Decimal(10, 2)
-  buyPrice            Decimal?             @db.Decimal(10, 2)
-  sellPrice           Decimal?             @db.Decimal(10, 2)
-  primaryUnit         Unit
-  salesUnit           Unit?
-  conversionFactor    Decimal              @default(1.0) @db.Decimal(10, 4)
-  attributes          Json?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  minStockAlert       Decimal?             @db.Decimal(15, 4)
-  leadTimeDays        Int?
-  preferredSupplierId String?
-  reorderPoint        Decimal?             @db.Decimal(15, 4)
-  reorderQuantity     Decimal?             @db.Decimal(15, 4)
-  costingMethod       CostingMethod        @default(WEIGHTED_AVERAGE)
-  standardCost        Decimal?             @db.Decimal(15, 4)
-  Batch               Batch[]
-  productionBoms      Bom[]                @relation("ProductBom")
-  ingredientInBoms    BomItem[]            @relation("Ingredient")
-  deliveryOrderItems  DeliveryOrderItem[]
-  goodsReceiptItems   GoodsReceiptItem[]
-  inventories         Inventory[]
-  MaterialIssue       MaterialIssue[]
-  preferredSupplier   Supplier?            @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
-  product             Product              @relation(fields: [productId], references: [id])
-  productionMaterials ProductionMaterial[]
-  purchaseOrderItems  PurchaseOrderItem[]
+  id                   String                @id @default(uuid())
+  productId            String
+  name                 String
+  skuCode              String                @unique
+  price                Decimal?              @db.Decimal(10, 2)
+  buyPrice             Decimal?              @db.Decimal(10, 2)
+  sellPrice            Decimal?              @db.Decimal(10, 2)
+  primaryUnit          Unit
+  salesUnit            Unit?
+  conversionFactor     Decimal               @default(1.0) @db.Decimal(10, 4)
+  attributes           Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  minStockAlert        Decimal?              @db.Decimal(15, 4)
+  leadTimeDays         Int?
+  preferredSupplierId  String?
+  reorderPoint         Decimal?              @db.Decimal(15, 4)
+  reorderQuantity      Decimal?              @db.Decimal(15, 4)
+  costingMethod        CostingMethod         @default(WEIGHTED_AVERAGE)
+  standardCost         Decimal?              @db.Decimal(15, 4)
+  Batch                Batch[]
+  productionBoms       Bom[]                 @relation("ProductBom")
+  ingredientInBoms     BomItem[]             @relation("Ingredient")
+  deliveryOrderItems   DeliveryOrderItem[]
+  goodsReceiptItems    GoodsReceiptItem[]
+  inventories          Inventory[]
+  MaterialIssue        MaterialIssue[]
+  preferredSupplier    Supplier?             @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
+  product              Product               @relation(fields: [productId], references: [id])
+  productionMaterials  ProductionMaterial[]
+  purchaseOrderItems   PurchaseOrderItem[]
   purchaseRequestItems PurchaseRequestItem[]
-  salesOrderItems     SalesOrderItem[]
-  quotationItems      SalesQuotationItem[]
-  ScrapRecord         ScrapRecord[]
-  movements           StockMovement[]
-  opnameItems         StockOpnameItem[]
-  StockReservation    StockReservation[]
-  supplierProducts    SupplierProduct[]
+  salesOrderItems      SalesOrderItem[]
+  quotationItems       SalesQuotationItem[]
+  ScrapRecord          ScrapRecord[]
+  movements            StockMovement[]
+  opnameItems          StockOpnameItem[]
+  StockReservation     StockReservation[]
+  supplierProducts     SupplierProduct[]
 }
 
 model SupplierProduct {
@@ -210,6 +210,7 @@ model Bom {
   isDefault        Boolean           @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  category         BomCategory       @default(STANDARD)
   productVariant   ProductVariant    @relation("ProductBom", fields: [productVariantId], references: [id])
   items            BomItem[]
   ProductionOrder  ProductionOrder[]
@@ -357,6 +358,7 @@ model ProductionOrder {
   notes                   String?
   salesOrderId            String?
   estimatedConversionCost Decimal?              @db.Decimal(15, 2)
+  parentOrderId           String?
   materialIssues          MaterialIssue[]
   executions              ProductionExecution[]
   plannedMaterials        ProductionMaterial[]
@@ -364,13 +366,12 @@ model ProductionOrder {
   createdBy               User?                 @relation("ProductionCreator", fields: [createdById], references: [id])
   location                Location              @relation(fields: [locationId], references: [id])
   machine                 Machine?              @relation(fields: [machineId], references: [id])
+  parentOrder             ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders             ProductionOrder[]     @relation("OrderHierarchy")
   salesOrder              SalesOrder?           @relation("SalesProduction", fields: [salesOrderId], references: [id])
   shifts                  ProductionShift[]
   inspections             QualityInspection[]
   scrapRecords            ScrapRecord[]
-  parentOrderId           String?
-  parentOrder             ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
-  childOrders            ProductionOrder[]     @relation("OrderHierarchy")
 }
 
 model MachineDowntime {
@@ -392,31 +393,31 @@ model MaterialIssue {
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String
-  locationId        String?
   quantity          Decimal         @db.Decimal(15, 4)
   issuedAt          DateTime        @default(now())
   createdById       String?
   batchId           String?
+  locationId        String?
   batch             Batch?          @relation(fields: [batchId], references: [id])
   createdBy         User?           @relation(fields: [createdById], references: [id])
+  location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
-  location          Location?       @relation(fields: [locationId], references: [id])
 }
 
 model ScrapRecord {
   id                String          @id @default(uuid())
   productionOrderId String
   productVariantId  String
-  locationId        String?
   quantity          Decimal         @db.Decimal(15, 4)
   reason            String?
   recordedAt        DateTime        @default(now())
   createdById       String?
+  locationId        String?
   createdBy         User?           @relation(fields: [createdById], references: [id])
+  location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
-  location          Location?       @relation(fields: [locationId], references: [id])
 }
 
 model QualityInspection {
@@ -528,13 +529,13 @@ model SalesOrder {
   deliveryOrders   DeliveryOrder[]
   invoices         Invoice[]
   productionOrders ProductionOrder[] @relation("SalesProduction")
+  purchaseRequests PurchaseRequest[]
   createdBy        User?             @relation("SalesCreator", fields: [createdById], references: [id])
   customer         Customer?         @relation(fields: [customerId], references: [id])
   quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
   sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
   items            SalesOrderItem[]
   movements        StockMovement[]   @relation("SalesMovement")
-  purchaseRequests PurchaseRequest[] 
 }
 
 model SalesQuotation {
@@ -611,23 +612,23 @@ model Invoice {
 }
 
 model PurchaseOrder {
-  id            String              @id @default(uuid())
-  orderNumber   String              @unique
-  supplierId    String
-  orderDate     DateTime            @default(now())
-  expectedDate  DateTime?
-  status        PurchaseOrderStatus @default(DRAFT)
-  totalAmount   Decimal?            @db.Decimal(15, 2)
-  notes         String?
-  createdById   String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  goodsReceipts GoodsReceipt[]
-  invoices      PurchaseInvoice[]
-  createdBy     User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
-  supplier      Supplier            @relation(fields: [supplierId], references: [id])
-  items         PurchaseOrderItem[]
-  purchaseRequests PurchaseRequest[] @relation("PrToPo")
+  id               String              @id @default(uuid())
+  orderNumber      String              @unique
+  supplierId       String
+  orderDate        DateTime            @default(now())
+  expectedDate     DateTime?
+  status           PurchaseOrderStatus @default(DRAFT)
+  totalAmount      Decimal?            @db.Decimal(15, 2)
+  notes            String?
+  createdById      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  goodsReceipts    GoodsReceipt[]
+  invoices         PurchaseInvoice[]
+  createdBy        User?               @relation("PurchaseCreator", fields: [createdById], references: [id])
+  supplier         Supplier            @relation(fields: [supplierId], references: [id])
+  items            PurchaseOrderItem[]
+  purchaseRequests PurchaseRequest[]   @relation("PrToPo")
 }
 
 model PurchaseOrderItem {
@@ -850,6 +851,41 @@ model DeliveryOrderItem {
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
+model PurchaseRequest {
+  id              String                @id @default(uuid())
+  requestNumber   String                @unique
+  requestDate     DateTime              @default(now())
+  status          PurchaseRequestStatus @default(OPEN)
+  priority        String                @default("NORMAL")
+  notes           String?
+  salesOrderId    String?
+  convertedToPoId String?
+  createdById     String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  purchaseOrder   PurchaseOrder?        @relation("PrToPo", fields: [convertedToPoId], references: [id])
+  createdBy       User                  @relation(fields: [createdById], references: [id])
+  salesOrder      SalesOrder?           @relation(fields: [salesOrderId], references: [id])
+  items           PurchaseRequestItem[]
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  productVariantId  String
+  quantity          Decimal         @db.Decimal(15, 4)
+  notes             String?
+  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+}
+
+enum BomCategory {
+  STANDARD
+  MIXING
+  EXTRUSION
+  PACKING
+}
+
 enum DeliveryStatus {
   PENDING
   SHIPPED
@@ -928,10 +964,10 @@ enum ReservationType {
 
 enum ReservationStatus {
   ACTIVE
-  WAITING
   FULFILLED
   CANCELLED
   EXPIRED
+  WAITING
 }
 
 enum ProductionStatus {
@@ -1067,42 +1103,10 @@ enum AssetStatus {
   DISPOSED
   MAINTENANCE
 }
+
 enum PurchaseRequestStatus {
   OPEN
   APPROVED
   REJECTED
   CONVERTED
-}
-
-model PurchaseRequest {
-  id              String                @id @default(uuid())
-  requestNumber   String                @unique // PR-YYYY-XXXX
-  requestDate     DateTime              @default(now())
-  status          PurchaseRequestStatus @default(OPEN)
-  priority        String                @default("NORMAL") // NORMAL, URGENT
-  notes           String?
-  
-  // Relations
-  items           PurchaseRequestItem[]
-  salesOrderId    String?               
-  salesOrder      SalesOrder?           @relation(fields: [salesOrderId], references: [id])
-  convertedToPoId String?
-  purchaseOrder   PurchaseOrder?        @relation("PrToPo", fields: [convertedToPoId], references: [id])
-  
-  // Audit
-  createdById     String
-  createdBy       User                  @relation(fields: [createdById], references: [id])
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-}
-
-model PurchaseRequestItem {
-  id                String          @id @default(uuid())
-  purchaseRequestId String
-  productVariantId  String
-  quantity          Decimal         @db.Decimal(15, 4)
-  notes             String?
-
-  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
 }

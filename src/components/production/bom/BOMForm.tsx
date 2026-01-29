@@ -25,6 +25,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/boms';
 import { toast } from 'sonner';
@@ -65,7 +72,8 @@ export function BOMForm({
             productVariantId: '',
             outputQuantity: 1,
             isDefault: false,
-            items: [{ productVariantId: '', quantity: 1 }]
+            category: 'STANDARD',
+            items: [{ productVariantId: '', quantity: 1, scrapPercentage: 0 }]
         }
     });
 
@@ -82,10 +90,12 @@ export function BOMForm({
                 productVariantId: bom.productVariantId,
                 outputQuantity: Number(bom.outputQuantity),
                 isDefault: bom.isDefault,
+                category: bom.category || 'STANDARD',
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 items: bom.items.map((item: any) => ({
                     productVariantId: item.productVariantId,
-                    quantity: Number(item.quantity)
+                    quantity: Number(item.quantity),
+                    scrapPercentage: Number(item.scrapPercentage || 0)
                 }))
             });
         }
@@ -176,6 +186,30 @@ export function BOMForm({
 
                                 <FormField
                                     control={form.control}
+                                    name="category"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-bold uppercase tracking-wider opacity-60">Production Stage (Category)</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-background/20 h-12 border-white/10 text-lg font-bold">
+                                                        <SelectValue placeholder="Select Stage" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="STANDARD">Standard (General)</SelectItem>
+                                                    <SelectItem value="MIXING">Mixing (Adonan)</SelectItem>
+                                                    <SelectItem value="EXTRUSION">Extrusion (Bahan Setengah Jadi)</SelectItem>
+                                                    <SelectItem value="PACKING">Packing (Finishing)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
                                     name="outputQuantity"
                                     render={({ field }) => (
                                         <FormItem>
@@ -253,7 +287,7 @@ export function BOMForm({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => append({ productVariantId: '', quantity: 1 })}
+                                onClick={() => append({ productVariantId: '', quantity: 1, scrapPercentage: 0 })}
                                 className="h-11 px-6 border-primary/20 hover:border-primary/50 bg-primary/10 hover:bg-primary/20 transition-all font-bold rounded-xl"
                             >
                                 <Plus className="h-4 w-4 mr-2" /> Add Material
@@ -265,8 +299,9 @@ export function BOMForm({
                                 <TableHeader className="bg-muted/30 border-b border-brand">
                                     <TableRow className="hover:bg-transparent border-0">
                                         <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground px-8 py-5">Ingredient Material & SKU</TableHead>
-                                        <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-center w-[200px]">Quantity</TableHead>
-                                        {showPrices && <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-right w-[200px]">Line Investment</TableHead>}
+                                        <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-center w-[150px]">Quantity</TableHead>
+                                        <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-center w-[120px]">Scrap %</TableHead>
+                                        {showPrices && <TableHead className="text-[11px] font-black uppercase tracking-widest text-muted-foreground py-5 text-right w-[180px]">Line Investment</TableHead>}
                                         <TableHead className="py-5 text-right w-[100px] px-8"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -274,8 +309,34 @@ export function BOMForm({
                                     {fields.map((field, index) => {
                                         const materialId = form.watch(`items.${index}.productVariantId`);
                                         const quantity = form.watch(`items.${index}.quantity`);
+                                        const scrapPct = form.watch(`items.${index}.scrapPercentage`) || 0;
                                         const variant = productVariants.find(v => v.id === materialId);
-                                        const lineCost = variant ? Number(variant.standardCost ?? variant.buyPrice ?? 0) * Number(quantity ?? 0) : 0;
+
+                                        // Effective quantity considering scrap
+                                        const effectiveQty = Number(quantity ?? 0) * (1 + (Number(scrapPct) / 100));
+                                        const lineCost = variant ? Number(variant.standardCost ?? variant.buyPrice ?? 0) * effectiveQty : 0;
+
+                                        // Smart Suggestion Logic
+                                        const currentCategory = form.watch('category');
+                                        const displayVariants = productVariants.map(v => {
+                                            let isSuggested = false;
+                                            if (currentCategory === 'EXTRUSION') {
+                                                // Prioritize Adonan/WIP-MIX
+                                                isSuggested = v.name.toLowerCase().includes('adon') ||
+                                                    v.skuCode.toLowerCase().includes('mix') ||
+                                                    v.skuCode.toLowerCase().includes('wip');
+                                            } else if (currentCategory === 'PACKING') {
+                                                // Prioritize Roll/Packaging
+                                                isSuggested = v.name.toLowerCase().includes('roll') ||
+                                                    v.name.toLowerCase().includes('pack') ||
+                                                    v.name.toLowerCase().includes('kemas') ||
+                                                    v.skuCode.toLowerCase().includes('ext') ||
+                                                    v.skuCode.toLowerCase().includes('pkg');
+                                            }
+                                            return { ...v, isSuggested };
+                                        });
+
+                                        const hasSuggestions = displayVariants.some(v => v.isSuggested);
 
                                         return (
                                             <TableRow key={field.id} className="border-white/5 hover:bg-primary/[0.02] group transition-colors">
@@ -287,10 +348,10 @@ export function BOMForm({
                                                             <FormItem className="flex flex-col">
                                                                 <FormControl>
                                                                     <ProductCombobox
-                                                                        products={productVariants}
+                                                                        products={displayVariants}
                                                                         value={field.value}
                                                                         onValueChange={field.onChange}
-                                                                        placeholder="Search and select material..."
+                                                                        placeholder={hasSuggestions ? "Suggested materials..." : "Search material..."}
                                                                         className="h-11 border-white/10 bg-background/30 transition-all focus:bg-background/50"
                                                                     />
                                                                 </FormControl>
@@ -306,7 +367,24 @@ export function BOMForm({
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormControl>
-                                                                    <Input type="number" step="0.0001" {...field} className="h-11 text-center font-black bg-background/30 border-white/10 text-lg focus:bg-background/50" />
+                                                                    <Input type="number" step="0.0001" {...field} className="h-11 text-center font-bold bg-background/30 border-white/10 text-base focus:bg-background/50" />
+                                                                </FormControl>
+                                                                <FormMessage className="text-[10px] font-bold" />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="py-6">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`items.${index}.scrapPercentage`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <div className="relative">
+                                                                        <Input type="number" step="0.1" {...field} className="h-11 text-center font-bold bg-background/30 border-white/10 text-base focus:bg-background/50 pr-6" />
+                                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-40">%</span>
+                                                                    </div>
                                                                 </FormControl>
                                                                 <FormMessage className="text-[10px] font-bold" />
                                                             </FormItem>

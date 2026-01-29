@@ -24,6 +24,7 @@ export interface ProductOption {
     name: string
     skuCode: string
     primaryUnit?: string
+    isSuggested?: boolean
 }
 
 interface ProductComboboxProps {
@@ -91,8 +92,38 @@ export function ProductCombobox({
                     <CommandInput placeholder="Search product..." />
                     <CommandList>
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
-                        <CommandGroup>
-                            {products.map((product) => (
+                        <CommandGroup heading={products.some(p => p.isSuggested) ? "Suggestions" : undefined}>
+                            {products.filter(p => p.isSuggested).map((product) => (
+                                <CommandItem
+                                    key={product.id}
+                                    value={product.id}
+                                    onSelect={(currentValue) => {
+                                        onValueChange(currentValue === value ? "" : currentValue)
+                                        setOpen(false)
+                                    }}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Check
+                                        className={cn(
+                                            "h-4 w-4 shrink-0",
+                                            value === product.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="truncate font-medium">{product.name}</span>
+                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Smart</span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                            {product.skuCode}
+                                            {product.primaryUnit && ` • ${product.primaryUnit}`}
+                                        </span>
+                                    </div>
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                        <CommandGroup heading={products.some(p => p.isSuggested) ? "All Materials" : undefined}>
+                            {products.filter(p => !p.isSuggested).map((product) => (
                                 <CommandItem
                                     key={product.id}
                                     value={product.id}
