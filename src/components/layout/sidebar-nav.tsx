@@ -7,12 +7,10 @@ import {
     Files,
     Settings2,
     Users,
-    Users2,
     Settings,
     LogOut,
     Moon,
     Sun,
-    BarChart3,
     LucideIcon,
     ChevronDown,
     ChevronRight,
@@ -63,24 +61,12 @@ export const sidebarLinks: SidebarLinkGroup[] = [
         ],
     },
     {
-        heading: "sidebar.analytics",
-        items: [
-            { title: "sidebar.salesAnalytics", href: "/sales/analytics", icon: BarChart3 },
-            { title: "sidebar.prodAnalytics", href: "/planning/production-analytics", icon: BarChart3 },
-            { title: "sidebar.invAnalysis", href: "/warehouse/analytics", icon: BarChart3 },
-            { title: "sidebar.procAnalytics", href: "/planning/procurement-analytics", icon: BarChart3 },
-            { title: "sidebar.costing", href: "/production/costing", icon: Calculator },
-        ],
-    },
-    {
         heading: "sidebar.masterData",
         items: [
             { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
             { title: "sidebar.boms", href: "/dashboard/boms", icon: Files },
             { title: "sidebar.machines", href: "/dashboard/machines", icon: Settings2 },
             { title: "sidebar.employees", href: "/dashboard/employees", icon: Users },
-            { title: "sidebar.suppliers", href: "/planning/suppliers", icon: Truck },
-            { title: "sidebar.customers", href: "/sales/customers", icon: Users2 },
         ],
     },
 ];
