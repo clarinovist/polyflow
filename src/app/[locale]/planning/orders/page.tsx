@@ -9,8 +9,23 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
-export default async function ProductionOrdersPage() {
-    const orders = await getProductionOrders();
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductType } from '@prisma/client';
+
+export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+    const { category } = await searchParams;
+
+    let productTypes: ProductType[] | undefined;
+
+    if (category === 'mixing') {
+        productTypes = ['INTERMEDIATE'];
+    } else if (category === 'extrusion') {
+        productTypes = ['WIP'];
+    } else if (category === 'packing') {
+        productTypes = ['FINISHED_GOOD'];
+    }
+
+    const orders = await getProductionOrders({ productTypes });
     const stats = await getProductionOrderStats();
 
     return (
@@ -69,96 +84,115 @@ export default async function ProductionOrdersPage() {
                 </Card>
             </div>
 
-            <Card className="border shadow-sm">
-                <CardHeader className="pb-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <CardTitle>All Orders</CardTitle>
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <div className="relative w-full sm:w-auto">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search orders..."
-                                    className="pl-9 w-full sm:w-[250px]"
-                                />
+            <div className="flex flex-col gap-4">
+                <Tabs defaultValue={category || 'all'} className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+                        <TabsTrigger value="all" asChild>
+                            <Link href="/planning/orders">All</Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="mixing" asChild>
+                            <Link href="/planning/orders?category=mixing">Mixing</Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="extrusion" asChild>
+                            <Link href="/planning/orders?category=extrusion">Extrusion</Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="packing" asChild>
+                            <Link href="/planning/orders?category=packing">Packing</Link>
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+
+                <Card className="border shadow-sm">
+                    <CardHeader className="pb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <CardTitle>All Orders</CardTitle>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <div className="relative w-full sm:w-auto">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Search orders..."
+                                        className="pl-9 w-full sm:w-[250px]"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border overflow-x-auto custom-scrollbar">
-                        <Table className="min-w-[800px]">
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Order #</TableHead>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Machine</TableHead>
-                                    <TableHead>Progress</TableHead>
-                                    <TableHead>Planned</TableHead>
-                                    <TableHead>Start Date</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {orders.length === 0 ? (
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border overflow-x-auto custom-scrollbar">
+                            <Table className="min-w-[800px]">
+                                <TableHeader>
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
-                                            No orders found.
-                                        </TableCell>
+                                        <TableHead>Order #</TableHead>
+                                        <TableHead>Product</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Machine</TableHead>
+                                        <TableHead>Progress</TableHead>
+                                        <TableHead>Planned</TableHead>
+                                        <TableHead>Start Date</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
-                                ) : (
-                                    orders.map((order) => {
-                                        const progress = (Number(order.actualQuantity || 0) / Number(order.plannedQuantity || 1)) * 100;
+                                </TableHeader>
+                                <TableBody>
+                                    {orders.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                                No orders found.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        orders.map((order) => {
+                                            const progress = (Number(order.actualQuantity || 0) / Number(order.plannedQuantity || 1)) * 100;
 
-                                        return (
-                                            <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
-                                                <TableCell className="font-medium">
-                                                    <Link href={`/planning/orders/${order.id}`} className="hover:underline text-foreground">
-                                                        {order.orderNumber}
-                                                    </Link>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{order.bom.name}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <StatusBadge status={order.status} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    {order.machine ? (
-                                                        <Badge variant="secondary" className="font-normal text-xs">
-                                                            {order.machine.code}
-                                                        </Badge>
-                                                    ) : <span className="text-muted-foreground">-</span>}
-                                                </TableCell>
-                                                <TableCell className="w-[150px]">
-                                                    <div className="flex items-center gap-2">
-                                                        <Progress value={Math.min(progress, 100)} className="h-2 w-16" />
-                                                        <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Link href={`/planning/orders/${order.id}`}>
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                                                        </Button>
-                                                    </Link>
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                            return (
+                                                <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
+                                                    <TableCell className="font-medium">
+                                                        <Link href={`/planning/orders/${order.id}`} className="hover:underline text-foreground">
+                                                            {order.orderNumber}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
+                                                        <div className="text-xs text-muted-foreground">{order.bom.name}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <StatusBadge status={order.status} />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {order.machine ? (
+                                                            <Badge variant="secondary" className="font-normal text-xs">
+                                                                {order.machine.code}
+                                                            </Badge>
+                                                        ) : <span className="text-muted-foreground">-</span>}
+                                                    </TableCell>
+                                                    <TableCell className="w-[150px]">
+                                                        <div className="flex items-center gap-2">
+                                                            <Progress value={Math.min(progress, 100)} className="h-2 w-16" />
+                                                            <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">
+                                                        {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Link href={`/planning/orders/${order.id}`}>
+                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                                                            </Button>
+                                                        </Link>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

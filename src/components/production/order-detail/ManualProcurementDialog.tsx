@@ -28,15 +28,21 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
 
     // Initialize quantities based on planned materials
     const [items, setItems] = useState(
-        order.plannedMaterials.map(pm => ({
-            productVariantId: pm.productVariantId,
-            name: pm.productVariant.name,
-            skuCode: pm.productVariant.skuCode,
-            unit: pm.productVariant.primaryUnit,
-            plannedQty: Number(pm.quantity),
-            procureQty: 0,
-            selected: false
-        }))
+        order.plannedMaterials
+            .filter(pm => {
+                const type = pm.productVariant.product.productType;
+                // Exclude internal items (Intermediate, WIP, Finished Goods)
+                return !['INTERMEDIATE', 'WIP', 'FINISHED_GOOD', 'SCRAP'].includes(type || '');
+            })
+            .map(pm => ({
+                productVariantId: pm.productVariantId,
+                name: pm.productVariant.name,
+                skuCode: pm.productVariant.skuCode,
+                unit: pm.productVariant.primaryUnit,
+                plannedQty: Number(pm.quantity),
+                procureQty: 0,
+                selected: false
+            }))
     );
 
     const [priority, setPriority] = useState<'NORMAL' | 'URGENT'>('NORMAL');
@@ -95,6 +101,11 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
             setLoading(false);
         }
     };
+
+    // If all materials are internal (Intermediate/WIP), hide the Procure button
+    if (items.length === 0) {
+        return null;
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
