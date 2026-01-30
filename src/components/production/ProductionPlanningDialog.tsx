@@ -167,8 +167,8 @@ export function ProductionPlanningDialog({
                                 )}
 
                                 {simulationResult.missingBoms && simulationResult.missingBoms.length === 0 && simulationResult.canProduce && (
-                                    <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200">
-                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                    <Alert className="bg-success/10 text-success border-success/20">
+                                        <CheckCircle className="h-4 w-4 text-success" />
                                         <AlertTitle>Materials Available</AlertTitle>
                                         <AlertDescription>
                                             All materials are in stock. Work Order will be created as <strong>DRAFT</strong>.
@@ -189,7 +189,7 @@ export function ProductionPlanningDialog({
                                         </thead>
                                         <tbody className="divide-y relative">
                                             {simulationResult.requirements.map((req, idx) => (
-                                                <tr key={idx} className={req.shortageQty > 0 ? "bg-red-50/50" : ""}>
+                                                <tr key={idx} className={req.shortageQty > 0 ? "bg-destructive/5" : ""}>
                                                     <td className="p-2 font-medium">
                                                         <div className="flex flex-col">
                                                             <span>{req.materialName}</span>
@@ -199,12 +199,12 @@ export function ProductionPlanningDialog({
                                                     <td className="p-2 text-center">
                                                         <div className="flex justify-center">
                                                             {req.hasBom ? (
-                                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
+                                                                <Badge variant="outline" className="bg-info/10 text-info border-info/20 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
                                                                     <Factory className="h-3 w-3" />
                                                                     PRODUCE
                                                                 </Badge>
                                                             ) : (
-                                                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
+                                                                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 gap-1 text-[10px] py-0 h-5 px-1.5 flex items-center">
                                                                     <ShoppingCart className="h-3 w-3" />
                                                                     BUY
                                                                 </Badge>
@@ -217,7 +217,7 @@ export function ProductionPlanningDialog({
                                                     <td className="p-2 text-right">
                                                         {Number(req.availableQty).toFixed(2)} {req.unit}
                                                     </td>
-                                                    <td className={`p-2 text-right font-bold ${req.shortageQty > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                                                    <td className={`p-2 text-right font-bold ${req.shortageQty > 0 ? "text-destructive" : "text-success"}`}>
                                                         {req.shortageQty > 0 ? `-${Number(req.shortageQty).toFixed(2)}` : "OK"}
                                                     </td>
                                                 </tr>

@@ -16,15 +16,15 @@ export default async function WarehouseHistoryPage() {
     const movements = await getStockMovements(100);
 
     return (
-        <div className="p-8 pt-6 space-y-6">
+        <div className="space-y-6">
             <Card className="border shadow-sm overflow-hidden">
-                <CardHeader className="bg-muted/30 border-b py-3 flex flex-row items-center justify-between">
+                <CardHeader className="bg-muted/10 border-b py-3 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
                             <History className="h-4 w-4" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-bold text-slate-900">Stock Movement History</CardTitle>
+                            <CardTitle className="text-lg font-bold text-foreground">Stock Movement History</CardTitle>
                             <p className="text-xs text-muted-foreground">Track all inventory transactions (Last 100)</p>
                         </div>
                     </div>
@@ -63,10 +63,10 @@ export default async function WarehouseHistoryPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="font-semibold text-sm text-slate-900">{movement.productVariant.name}</div>
+                                        <div className="font-semibold text-sm text-foreground">{movement.productVariant.name}</div>
                                         <div className="text-[11px] text-muted-foreground font-mono">{movement.productVariant.skuCode}</div>
                                     </TableCell>
-                                    <TableCell className="text-right font-mono font-bold text-slate-900">
+                                    <TableCell className="text-right font-mono font-bold text-foreground">
                                         {movement.quantity.toNumber() > 0 ? `+${movement.quantity.toNumber()}` : movement.quantity.toNumber()}
                                     </TableCell>
                                     <TableCell className="text-sm">{movement.fromLocation?.name || <span className="text-muted-foreground/50">-</span>}</TableCell>

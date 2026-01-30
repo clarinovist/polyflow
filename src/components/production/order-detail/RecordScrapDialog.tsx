@@ -8,7 +8,8 @@ import { Location } from '@prisma/client';
 import { recordScrap } from '@/actions/production';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
+import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
 export function RecordScrapDialog({ order, locations }: { order: ExtendedProductionOrder, locations: Location[] }) {
     const [open, setOpen] = useState(false);
@@ -47,42 +48,60 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
             <DialogTrigger asChild><Button variant="destructive" size="sm">Record Scrap</Button></DialogTrigger>
             <DialogContent>
                 <DialogHeader><DialogTitle>Record Scrap/Waste</DialogTitle></DialogHeader>
-                <form onSubmit={onSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Item Scrapped</Label>
-                        <Select name="productVariantId" required disabled={isPending}>
-                            <SelectTrigger><SelectValue placeholder="Select Item" /></SelectTrigger>
-                            <SelectContent>
-                                {/* Output Item as Bad Goods */}
-                                <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
-                                {/* Input Items as Waste */}
-                                {order.bom.items.map((item) => (
-                                    <SelectItem key={item.id} value={item.productVariantId}>[Input] {item.productVariant.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                <form onSubmit={onSubmit}>
+                    <BrandCard variant="default" className="mt-4 shadow-brand">
+                        <BrandCardHeader className="pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                </div>
+                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Scrap Details</h3>
+                            </div>
+                        </BrandCardHeader>
+                        <BrandCardContent className="space-y-4 pt-6">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Item Scrapped</Label>
+                                <Select name="productVariantId" required disabled={isPending}>
+                                    <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
+                                        <SelectValue placeholder="Select Item" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
+                                        {order.bom.items.map((item) => (
+                                            <SelectItem key={item.id} value={item.productVariantId}>[Input] {item.productVariant.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Location (Scrap Bin)</Label>
+                                <Select name="locationId" required disabled={isPending}>
+                                    <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
+                                        <SelectValue placeholder="Select Location" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Quantity</Label>
+                                    <Input type="number" step="0.01" name="quantity" required disabled={isPending} className="bg-background/80 border-brand-border font-mono font-bold" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Reason</Label>
+                                    <Input name="reason" placeholder="e.g. Machine setup" disabled={isPending} className="bg-background/80 border-brand-border" />
+                                </div>
+                            </div>
+                        </BrandCardContent>
+                    </BrandCard>
+                    <div className="mt-6">
+                        <Button type="submit" variant="destructive" className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg" disabled={isPending}>
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Confirm Scrap Record
+                        </Button>
                     </div>
-                    <div className="space-y-2">
-                        <Label>Location (Scrap Bin)</Label>
-                        <Select name="locationId" required disabled={isPending}>
-                            <SelectTrigger><SelectValue placeholder="Select Location" /></SelectTrigger>
-                            <SelectContent>
-                                {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Quantity</Label>
-                        <Input type="number" step="0.01" name="quantity" required disabled={isPending} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Reason</Label>
-                        <Input name="reason" placeholder="e.g. Machine setup, Contamination" disabled={isPending} />
-                    </div>
-                    <Button type="submit" variant="destructive" className="w-full" disabled={isPending}>
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Record Scrap
-                    </Button>
                 </form>
             </DialogContent>
         </Dialog>

@@ -404,7 +404,7 @@ export class SalesService {
         });
     }
 
-    static async shipOrder(id: string, userId: string) {
+    static async shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string, carrier?: string }) {
         const order = await prisma.salesOrder.findUnique({
             where: { id },
             include: { items: true }
@@ -506,6 +506,8 @@ export class SalesService {
                     sourceLocationId: order.sourceLocationId!,
                     status: 'SHIPPED', // Since we are in shipOrder action
                     deliveryDate: new Date(),
+                    trackingNumber: trackingInfo?.trackingNumber,
+                    carrier: trackingInfo?.carrier,
                     createdById: userId,
                     items: {
                         create: order.items.map(item => ({

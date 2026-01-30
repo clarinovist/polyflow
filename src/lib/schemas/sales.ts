@@ -44,6 +44,8 @@ export const confirmSalesOrderSchema = z.object({
 
 export const shipSalesOrderSchema = z.object({
     id: z.string(),
+    trackingNumber: z.string().optional(),
+    carrier: z.string().optional(),
 });
 
 export const cancelSalesOrderSchema = z.object({
@@ -53,4 +55,5 @@ export const cancelSalesOrderSchema = z.object({
 
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
+export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;

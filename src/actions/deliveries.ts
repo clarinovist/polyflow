@@ -28,3 +28,32 @@ export async function getDeliveryOrders() {
 
     return deliveryOrders;
 }
+export async function getDeliveryOrderById(id: string) {
+    const deliveryOrder = await prisma.deliveryOrder.findUnique({
+        where: { id },
+        include: {
+            salesOrder: {
+                include: {
+                    customer: true,
+                },
+            },
+            sourceLocation: true,
+            items: {
+                include: {
+                    productVariant: {
+                        include: {
+                            product: true,
+                        },
+                    },
+                },
+            },
+            createdBy: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+    });
+
+    return deliveryOrder;
+}

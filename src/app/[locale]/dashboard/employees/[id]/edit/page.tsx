@@ -1,6 +1,6 @@
 import { getEmployeeById } from '@/actions/employees';
 import { EmployeeForm } from '@/components/production/EmployeeForm';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
 
 interface EditEmployeePageProps {

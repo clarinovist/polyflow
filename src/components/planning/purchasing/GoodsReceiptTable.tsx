@@ -98,20 +98,20 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                         <TableCell className="font-mono font-medium">
                                             <Link
                                                 href={`${basePath}/${gr.id}`}
-                                                className="text-emerald-600 hover:underline"
+                                                className="text-emerald-600 dark:text-emerald-400 hover:underline"
                                             >
                                                 {gr.receiptNumber}
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+                                            <Badge variant="outline" className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10">
                                                 {gr.purchaseOrder.orderNumber}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant={gr.purchaseOrder.status === 'COMPLETED' ? 'default' : gr.purchaseOrder.status === 'PARTIAL_RECEIVED' ? 'secondary' : 'outline'}
-                                                className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                                                className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 border-none' : ''}
                                             >
                                                 {gr.purchaseOrder.status.replace(/_/g, ' ')}
                                             </Badge>

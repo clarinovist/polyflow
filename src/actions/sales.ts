@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import {
     createSalesOrderSchema,
     updateSalesOrderSchema,
+    shipSalesOrderSchema,
     CreateSalesOrderValues,
     UpdateSalesOrderValues
 } from '@/lib/schemas/sales';
@@ -95,12 +96,16 @@ export async function markReadyToShip(id: string) {
 /**
  * Ship a sales order (Deduct Stock)
  */
-export async function shipSalesOrder(id: string) {
+export async function shipSalesOrder(data: { id: string, trackingNumber?: string, carrier?: string }) {
     const session = await requireAuth();
     return catchError(async () => {
-        await SalesService.shipOrder(id, session.user.id);
+        const validatedData = shipSalesOrderSchema.parse(data);
+        await SalesService.shipOrder(validatedData.id, session.user.id, {
+            trackingNumber: validatedData.trackingNumber,
+            carrier: validatedData.carrier
+        });
         revalidatePath('/sales');
-        revalidatePath(`/sales/orders/${id}`);
+        revalidatePath(`/sales/orders/${validatedData.id}`);
         revalidatePath('/warehouse/inventory'); // Stock changed
         return true;
     });
@@ -172,6 +177,8 @@ export async function deliverSalesOrder(id: string) {
         await SalesService.deliverOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
+        revalidatePath('/sales/deliveries');
+        revalidatePath(`/sales/deliveries/${id}`);
         return true;
     });
 }

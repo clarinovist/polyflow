@@ -21,7 +21,6 @@ import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt } from '
 import { Link } from '@/i18n/navigation';
 import {
     confirmSalesOrder,
-    shipSalesOrder,
     deliverSalesOrder,
     cancelSalesOrder,
     deleteSalesOrder,
@@ -32,6 +31,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ProductionStatusCard } from './ProductionStatusCard';
+import { ShipmentDialog } from './ShipmentDialog';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -117,6 +117,7 @@ export function SalesOrderDetailClient({
 }: SalesOrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
 
 
     // MRP Simulation State
@@ -279,7 +280,7 @@ export function SalesOrderDetailClient({
 
                     {(order.status === 'CONFIRMED' || order.status === 'READY_TO_SHIP') && (
                         <Button
-                            onClick={() => handleAction('shipped', shipSalesOrder)}
+                            onClick={() => setIsShipDialogOpen(true)}
                             disabled={isLoading}
                             className="bg-purple-600 hover:bg-purple-700 text-white"
                         >
@@ -474,6 +475,12 @@ export function SalesOrderDetailClient({
             </div>
             {/* MRP Simulation Dialog */}
 
+            <ShipmentDialog
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+                isOpen={isShipDialogOpen}
+                onClose={() => setIsShipDialogOpen(false)}
+            />
         </div>
 
 

@@ -16,15 +16,15 @@ export default async function WarehouseStockAgingPage() {
     const summary = await StockAgingService.getAgingSummary();
 
     return (
-        <div className="p-8 pt-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="max-w-[1600px] mx-auto space-y-6">
             <Card className="border shadow-sm overflow-hidden">
-                <CardHeader className="bg-muted/30 border-b py-3 flex flex-row items-center justify-between">
+                <CardHeader className="bg-muted/10 border-b py-3 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-orange-50 text-orange-600">
                             <Clock className="h-4 w-4" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-bold text-slate-900">Stock Aging Report</CardTitle>
+                            <CardTitle className="text-lg font-bold text-foreground">Stock Aging Report</CardTitle>
                             <p className="text-xs text-muted-foreground">Analyze inventory age based on batch receiving dates</p>
                         </div>
                     </div>

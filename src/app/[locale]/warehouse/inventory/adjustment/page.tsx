@@ -26,7 +26,7 @@ export default async function WarehouseAdjustmentPage() {
     }));
 
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex-1 space-y-4">
             <Card className="border shadow-sm">
                 <CardHeader className="bg-muted/30 border-b py-3 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -34,7 +34,7 @@ export default async function WarehouseAdjustmentPage() {
                             <PackagePlus className="h-4 w-4" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-bold text-slate-900">Stock Adjustment</CardTitle>
+                            <CardTitle className="text-lg font-bold text-foreground">Stock Adjustment</CardTitle>
                             <p className="text-xs text-muted-foreground">Manually correct stock levels</p>
                         </div>
                     </div>

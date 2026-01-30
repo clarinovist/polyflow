@@ -51,7 +51,7 @@ export default async function WarehouseLayout({
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-hidden">
+                <main className="flex-1 overflow-auto bg-muted/20 p-6">
                     {children}
                 </main>
             </div>

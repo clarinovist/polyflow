@@ -1,6 +1,6 @@
 import { getMachineById } from '@/actions/machines';
 import { MachineForm } from '@/components/production/MachineForm';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 

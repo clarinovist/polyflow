@@ -95,7 +95,7 @@ export function ProductionRequestsClient({ orders }: ProductionRequestsClientPro
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                            <Badge variant="outline" className="bg-info/10 text-info border-info/20">
                                                 {order.status}
                                             </Badge>
                                         </TableCell>

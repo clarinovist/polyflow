@@ -252,7 +252,7 @@ export default function WarehouseRefreshWrapper({
                     {filteredOrders.length === 0 && (
                         <Card className="border-dashed bg-transparent mt-4">
                             <CardContent className="py-20 text-center">
-                                <p className="text-slate-400 italic">{t('noOrders')}</p>
+                                <p className="text-muted-foreground italic">{t('noOrders')}</p>
                             </CardContent>
                         </Card>
                     )}
