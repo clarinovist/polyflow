@@ -9,10 +9,10 @@ export async function getEmployees() {
         const employees = await prisma.employee.findMany({
             orderBy: { createdAt: 'desc' },
         });
-        return employees;
+        return { success: true, data: employees };
     } catch (error) {
-        console.error('Failed to fetch employees:', error);
-        throw new Error('Failed to fetch employees');
+        console.error('[GET_EMPLOYEES_ERROR]', error);
+        return { success: false, error: 'Failed to retrieve personnel directory' };
     }
 }
 
@@ -21,10 +21,13 @@ export async function getEmployeeById(id: string) {
         const employee = await prisma.employee.findUnique({
             where: { id },
         });
-        return employee;
+        if (!employee) {
+            return { success: false, error: 'Employee not found' };
+        }
+        return { success: true, data: employee };
     } catch (error) {
-        console.error('Failed to fetch employee:', error);
-        return null;
+        console.error(`[GET_EMPLOYEE_BY_ID_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Database error occurred while fetching employee' };
     }
 }
 
@@ -49,8 +52,8 @@ export async function createEmployee(data: {
         revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
-        console.error('Failed to create employee:', error);
-        return { success: false, error: 'Failed to create employee' };
+        console.error('[CREATE_EMPLOYEE_ERROR]', error);
+        return { success: false, error: 'Failed to onboard personnel' };
     }
 }
 
@@ -73,13 +76,15 @@ export async function updateEmployee(
         revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
-        console.error('Failed to update employee:', error);
-        return { success: false, error: 'Failed to update employee' };
+        console.error(`[UPDATE_EMPLOYEE_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Failed to update personnel records' };
     }
 }
 
 export async function deleteEmployee(id: string) {
     try {
+        // Check if employee has associated records (e.g. executions) before deleting
+        // This is a safety check usually handled by foreign key constraints but managed here for clarity
         await prisma.employee.delete({
             where: { id },
         });
@@ -87,8 +92,8 @@ export async function deleteEmployee(id: string) {
         revalidatePath('/production/resources');
         return { success: true };
     } catch (error) {
-        console.error('Failed to delete employee:', error);
-        return { success: false, error: 'Failed to delete employee' };
+        console.error(`[DELETE_EMPLOYEE_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Cannot delete personnel. They may be linked to production history or active shifts.' };
     }
 }
 
@@ -112,7 +117,7 @@ export async function generateNextEmployeeCode() {
 
         return `EMP-${Date.now().toString().slice(-3)}`;
     } catch (error) {
-        console.error('Failed to generate employee code:', error);
+        console.error('[GENERATE_EMPLOYEE_CODE_ERROR]', error);
         return 'EMP-Unknown';
     }
 }

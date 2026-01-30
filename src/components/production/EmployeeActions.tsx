@@ -36,9 +36,13 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
     async function handleDelete() {
         const result = await deleteEmployee(id);
         if (result.success) {
-            toast.success('Staff member deleted successfully');
+            toast.success('Personnel record removed', {
+                description: `${name} has been deleted from the directory.`
+            });
         } else {
-            toast.error('Failed to delete staff member', { description: result.error });
+            toast.error('Deletion Failed', {
+                description: result.error || 'Could not remove personnel record. Please ensure they are not linked to active production orders.'
+            });
         }
     }
 

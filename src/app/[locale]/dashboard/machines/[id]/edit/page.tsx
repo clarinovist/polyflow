@@ -10,14 +10,16 @@ interface EditMachinePageProps {
 
 export default async function EditMachinePage({ params }: EditMachinePageProps) {
     const { id } = await params;
-    const machine = await getMachineById(id);
+    const result = await getMachineById(id);
     const locations = await prisma.location.findMany({
         orderBy: { name: 'asc' }
     });
 
-    if (!machine) {
+    if (!result.success || !result.data) {
         notFound();
     }
+
+    const machine = result.data;
 
     // Convert decimal to number for the form
     const machineData = {
@@ -34,12 +36,8 @@ export default async function EditMachinePage({ params }: EditMachinePageProps) 
                 </p>
             </div>
 
-            <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl">
-                <CardHeader>
-                    <CardTitle>Machine Configuration</CardTitle>
-                    <CardDescription>Update technical specifications and status.</CardDescription>
-                </CardHeader>
-                <CardContent>
+            <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl border-0 overflow-hidden">
+                <CardContent className="pt-6">
                     <MachineForm initialData={machineData as unknown as Parameters<typeof MachineForm>[0]['initialData']} locations={locations} />
                 </CardContent>
             </Card>

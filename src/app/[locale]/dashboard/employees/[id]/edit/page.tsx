@@ -9,11 +9,13 @@ interface EditEmployeePageProps {
 
 export default async function EditEmployeePage({ params }: EditEmployeePageProps) {
     const { id } = await params;
-    const employee = await getEmployeeById(id);
+    const result = await getEmployeeById(id);
 
-    if (!employee) {
+    if (!result.success || !result.data) {
         notFound();
     }
+
+    const employee = result.data;
 
     // Convert decimal to number for the form
     const employeeData = {
@@ -30,12 +32,8 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
                 </p>
             </div>
 
-            <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl">
-                <CardHeader>
-                    <CardTitle>Staff Member Information</CardTitle>
-                    <CardDescription>Update the details as needed.</CardDescription>
-                </CardHeader>
-                <CardContent>
+            <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl border-0 overflow-hidden">
+                <CardContent className="pt-6">
                     <EmployeeForm initialData={employeeData as unknown as Parameters<typeof EmployeeForm>[0]['initialData']} />
                 </CardContent>
             </Card>
