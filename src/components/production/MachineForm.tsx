@@ -24,7 +24,6 @@ interface MachineFormProps {
 export function MachineForm({ initialData, locations }: MachineFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
 
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
@@ -35,11 +34,9 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         costPerHour: initialData?.costPerHour ? Number(initialData.costPerHour) : 0,
     });
 
-    // ... inside MachineForm
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
 
         try {
             let res;
@@ -50,122 +47,134 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             }
 
             if (res.success) {
-                toast.success(initialData ? 'Machine updated successfully' : 'Machine created successfully');
+                toast.success(initialData ? 'Configuration updated' : 'Machine registered', {
+                    description: `${formData.name} (${formData.code}) has been saved successfully.`
+                });
                 router.push('/dashboard/machines');
                 router.refresh();
             } else {
-                setError(res.error || 'Failed to save machine');
+                toast.error('System Error', {
+                    description: res.error || 'Failed to save machine configuration'
+                });
                 setLoading(false);
             }
-        } catch (_unused) {
-            setError('Something went wrong. Please try again.');
+        } catch (err) {
+            console.error('[MACHINE_FORM_SUBMIT_ERROR]', err);
+            toast.error('Unexpected failure', {
+                description: 'An unexpected error occurred. Please check your connection and try again.'
+            });
             setLoading(false);
         }
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
-            <div className="space-y-2">
-                <Label htmlFor="name">Machine Name</Label>
-                <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="e.g. Mixer Turbo 01"
-                />
+            <div className="grid gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-semibold tracking-tight">Machine Name</Label>
+                    <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                        placeholder="e.g. Mixer Turbo 01"
+                        className="bg-background/50"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="code" className="text-sm font-semibold tracking-tight">Machine Code</Label>
+                    <Input
+                        id="code"
+                        value={formData.code}
+                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                        required
+                        placeholder="e.g. MIX-01"
+                        className="bg-background/50"
+                    />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="type" className="text-sm font-semibold tracking-tight">Machine Type</Label>
+                        <Select
+                            value={formData.type}
+                            onValueChange={(value) => setFormData({ ...formData, type: value as MachineType })}
+                        >
+                            <SelectTrigger className="bg-background/50">
+                                <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.keys(MachineType).map((type) => (
+                                    <SelectItem key={type} value={type}>
+                                        {type.replace('_', ' ')}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="location" className="text-sm font-semibold tracking-tight">Location</Label>
+                        <Select
+                            value={formData.locationId}
+                            onValueChange={(value) => setFormData({ ...formData, locationId: value })}
+                        >
+                            <SelectTrigger className="bg-background/50">
+                                <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {locations.map((loc) => (
+                                    <SelectItem key={loc.id} value={loc.id}>
+                                        {loc.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="costPerHour" className="text-sm font-semibold tracking-tight">Cost Per Hour (IDR)</Label>
+                    <Input
+                        id="costPerHour"
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={formData.costPerHour}
+                        onChange={(e) => setFormData({ ...formData, costPerHour: Number(e.target.value) })}
+                        placeholder="e.g. 50000"
+                        className="bg-background/50"
+                    />
+                    <p className="text-[11px] text-muted-foreground italic">Standard operating cost including electricity/depreciation.</p>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="status" className="text-sm font-semibold tracking-tight">Status</Label>
+                    <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData({ ...formData, status: value as MachineStatus })}
+                    >
+                        <SelectTrigger className="bg-background/50">
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.keys(MachineStatus).map((status) => (
+                                <SelectItem key={status} value={status}>
+                                    {status}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="code">Machine Code</Label>
-                <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    required
-                    placeholder="e.g. MIX-01"
-                />
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="type">Machine Type</Label>
-                <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as MachineType })}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.keys(MachineType).map((type) => (
-                            <SelectItem key={type} value={type}>
-                                {type}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Select
-                    value={formData.locationId}
-                    onValueChange={(value) => setFormData({ ...formData, locationId: value })}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {locations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                                {loc.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="costPerHour">Cost Per Hour (IDR)</Label>
-                <Input
-                    id="costPerHour"
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={formData.costPerHour}
-                    onChange={(e) => setFormData({ ...formData, costPerHour: Number(e.target.value) })}
-                    placeholder="e.g. 50000"
-                />
-                <p className="text-xs text-muted-foreground">Standard operating cost per hour including electricity/depreciation.</p>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                    value={formData.status}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as MachineStatus })}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.keys(MachineStatus).map((status) => (
-                            <SelectItem key={status} value={status}>
-                                {status}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {error && <div className="text-red-500 text-sm">{error}</div>}
-
-            <div className="flex gap-4">
-                <Button type="button" variant="outline" onClick={() => router.back()}>
+            <div className="flex items-center gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : initialData ? 'Update Machine' : 'Create Machine'}
+                <Button type="submit" disabled={loading} className="min-w-[140px]">
+                    {loading ? 'Processing...' : initialData ? 'Update Machine' : 'Register Machine'}
                 </Button>
             </div>
         </form >

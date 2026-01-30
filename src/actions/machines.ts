@@ -10,10 +10,10 @@ export async function getMachines() {
             include: { location: true },
             orderBy: { code: 'asc' },
         });
-        return machines;
+        return { success: true, data: machines };
     } catch (error) {
-        console.error('Failed to fetch machines:', error);
-        throw new Error('Failed to fetch machines');
+        console.error('[GET_MACHINES_ERROR]', error);
+        return { success: false, error: 'Failed to retrieve production fleet' };
     }
 }
 
@@ -23,10 +23,13 @@ export async function getMachineById(id: string) {
             where: { id },
             include: { location: true },
         });
-        return machine;
+        if (!machine) {
+            return { success: false, error: 'Machine not found' };
+        }
+        return { success: true, data: machine };
     } catch (error) {
-        console.error('Failed to fetch machine:', error);
-        return null;
+        console.error(`[GET_MACHINE_BY_ID_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Database error occurred while fetching machine' };
     }
 }
 
@@ -53,8 +56,8 @@ export async function createMachine(data: {
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error('Failed to create machine:', error);
-        return { success: false, error: 'Failed to create machine' };
+        console.error('[CREATE_MACHINE_ERROR]', error);
+        return { success: false, error: 'Failed to register machine' };
     }
 }
 
@@ -78,8 +81,8 @@ export async function updateMachine(
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error('Failed to update machine:', error);
-        return { success: false, error: 'Failed to update machine' };
+        console.error(`[UPDATE_MACHINE_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Failed to update machine configuration' };
     }
 }
 
@@ -92,8 +95,8 @@ export async function deleteMachine(id: string) {
         revalidatePath('/production/machines');
         return { success: true };
     } catch (error) {
-        console.error('Failed to delete machine:', error);
-        return { success: false, error: 'Failed to delete machine' };
+        console.error(`[DELETE_MACHINE_ERROR] ID: ${id}`, error);
+        return { success: false, error: 'Cannot delete machine. It may have linked production history.' };
     }
 }
 
@@ -107,7 +110,7 @@ export async function setMachineStatus(id: string, status: MachineStatus) {
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error('Failed to update machine status:', error);
-        return { success: false, error: 'Failed to update machine status' };
+        console.error(`[SET_MACHINE_STATUS_ERROR] ID: ${id} Status: ${status}`, error);
+        return { success: false, error: `Failed to transition machine to ${status}` };
     }
 }
