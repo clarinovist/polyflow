@@ -25,8 +25,9 @@ export type ProductWithVariantsAndStock = {
         _count: {
             inventories: number;
         };
+        stock?: number; // Calculated field per variant
     }[];
-    totalStock?: number; // Calculated field
+    totalStock?: number; // Calculated field for entire product
 };
 
 /**
@@ -66,22 +67,30 @@ export async function getProducts(options?: { type?: ProductType }): Promise<Pro
         },
     });
 
-    // Calculate total stock for each product
+    // Calculate stock for each variant and total stock for each product
     return products.map(product => {
-        const totalStock = product.variants.reduce((sum, variant) => {
+        let productTotalStock = 0;
+
+        const cleanedVariants = product.variants.map(variant => {
             const variantStock = variant.inventories.reduce((vSum, inv) => {
                 return vSum + inv.quantity.toNumber();
             }, 0);
-            return sum + variantStock;
-        }, 0);
 
-        // Remove inventories from variants to clean up the response
-        const cleanedVariants = product.variants.map(({ inventories: _, ...variant }) => variant);
+            productTotalStock += variantStock;
+
+            // Remove inventories from variant to clean up the response
+            const { inventories: _, ...variantData } = variant;
+
+            return {
+                ...variantData,
+                stock: variantStock,
+            };
+        });
 
         return {
             ...product,
             variants: cleanedVariants,
-            totalStock,
+            totalStock: productTotalStock,
         };
     });
 }
