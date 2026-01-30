@@ -193,4 +193,17 @@ export async function updateBom(id: string, data: CreateBomValues) {
     }
 }
 
+export async function deleteBom(id: string) {
+    try {
+        await prisma.bom.delete({
+            where: { id }
+        });
+        revalidatePath('/dashboard/boms');
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting BOM:", error);
+        return { success: false, error: "Failed to delete BOM. It might be in use by a production order." };
+    }
+}
+
 

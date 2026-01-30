@@ -50,6 +50,7 @@ export async function createMachine(data: {
             },
         });
         revalidatePath('/dashboard/machines');
+        revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to create machine:', error);
@@ -74,6 +75,7 @@ export async function updateMachine(
             data,
         });
         revalidatePath('/dashboard/machines');
+        revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to update machine:', error);
@@ -87,6 +89,7 @@ export async function deleteMachine(id: string) {
             where: { id },
         });
         revalidatePath('/dashboard/machines');
+        revalidatePath('/production/machines');
         return { success: true };
     } catch (error) {
         console.error('Failed to delete machine:', error);
@@ -101,6 +104,7 @@ export async function setMachineStatus(id: string, status: MachineStatus) {
             data: { status }
         });
         revalidatePath('/dashboard/machines');
+        revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
         console.error('Failed to update machine status:', error);

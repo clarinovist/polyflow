@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 
 interface EmployeeFormProps {
     initialData?: Employee;
@@ -62,6 +63,9 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             setFormData({ ...formData, role: res.data.name });
             setOpenRole(false);
             setSearchValue('');
+            toast.success('Job role created successfully');
+        } else {
+            toast.error('Failed to create job role');
         }
     };
 
@@ -71,14 +75,23 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
         setError('');
 
         try {
+            let res;
             if (initialData) {
-                await updateEmployee(initialData.id, formData);
+                res = await updateEmployee(initialData.id, formData);
             } else {
-                await createEmployee(formData);
+                res = await createEmployee(formData);
             }
-            router.push('/production/resources');
-            router.refresh();
-        } catch (_unused) {
+
+            if (res.success) {
+                toast.success(initialData ? 'Worker updated successfully' : 'Worker added successfully');
+                router.push('/dashboard/employees');
+                router.refresh();
+            } else {
+                setError(res.error || 'Failed to save worker');
+                setLoading(false);
+            }
+        } catch (err) {
+            console.error(err);
             setError('Something went wrong. Please try again.');
             setLoading(false);
         }

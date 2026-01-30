@@ -46,6 +46,7 @@ export async function createEmployee(data: {
             },
         });
         revalidatePath('/dashboard/employees');
+        revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
         console.error('Failed to create employee:', error);
@@ -69,6 +70,7 @@ export async function updateEmployee(
             data,
         });
         revalidatePath('/dashboard/employees');
+        revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
         console.error('Failed to update employee:', error);
@@ -82,6 +84,7 @@ export async function deleteEmployee(id: string) {
             where: { id },
         });
         revalidatePath('/dashboard/employees');
+        revalidatePath('/production/resources');
         return { success: true };
     } catch (error) {
         console.error('Failed to delete employee:', error);

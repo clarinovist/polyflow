@@ -32,6 +32,7 @@ export async function createJobRole(name: string) {
             data: { name },
         });
         revalidatePath('/dashboard/employees');
+        revalidatePath('/production/resources');
         return { success: true, data: role };
     } catch (error) {
         console.error('Error creating job role:', error);

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Edit2, ChevronRight, Plus } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -16,6 +16,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { BOMActions } from './BOMActions';
 
 interface BOMListProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,7 +110,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                 }, 0);
 
                                                 return (
-                                                    <TableRow key={bom.id} className="group cursor-pointer">
+                                                    <TableRow key={bom.id} className="group">
                                                         <TableCell>
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-center gap-2">
@@ -155,18 +156,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                             </TableCell>
                                                         )}
                                                         <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-1">
-                                                                <Link href={`/dashboard/boms/${bom.id}/edit`}>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                                        <Edit2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </Link>
-                                                                <Link href={`/dashboard/boms/${bom.id}`}>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                                        <ChevronRight className="h-4 w-4" />
-                                                                    </Button>
-                                                                </Link>
-                                                            </div>
+                                                            <BOMActions id={bom.id} name={bom.name} />
                                                         </TableCell>
                                                     </TableRow>
                                                 );

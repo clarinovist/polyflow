@@ -1,7 +1,7 @@
 import { getEmployees } from '@/actions/employees';
 import { Employee } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Plus, UserCheck } from 'lucide-react';
+import { Plus, UserCheck, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import Link from 'next/link';
+import { EmployeeActions } from '@/components/production/EmployeeActions';
 
 export default async function EmployeesPage() {
     const employees = await getEmployees().catch(() => []);
@@ -26,10 +28,12 @@ export default async function EmployeesPage() {
                         Manage your workforce, operators, and production staff.
                     </p>
                 </div>
-                <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Onboard Staff
-                </Button>
+                <Link href="/dashboard/employees/create">
+                    <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Onboard Staff
+                    </Button>
+                </Link>
             </div>
 
             <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 overflow-hidden shadow-xl">
@@ -40,7 +44,7 @@ export default async function EmployeesPage() {
                 <CardContent className="p-0">
                     <div className="p-4 bg-muted/10 border-b border-white/5">
                         <div className="relative max-w-sm">
-                            <Plus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input placeholder="Search staff members..." className="pl-9 bg-background/50" />
                         </div>
                     </div>
@@ -90,9 +94,7 @@ export default async function EmployeesPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                    <Plus className="h-4 w-4 rotate-45" />
-                                                </Button>
+                                                <EmployeeActions id={employee.id} name={employee.name} />
                                             </TableCell>
                                         </TableRow>
                                     ))

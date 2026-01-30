@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { MachineType, MachineStatus, Machine } from '@prisma/client';
 import { createMachine, updateMachine } from '@/actions/machines';
+import { toast } from 'sonner';
 
 interface MachineFormProps {
     initialData?: Machine;
@@ -34,19 +35,28 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         costPerHour: initialData?.costPerHour ? Number(initialData.costPerHour) : 0,
     });
 
+    // ... inside MachineForm
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
+            let res;
             if (initialData) {
-                await updateMachine(initialData.id, formData);
+                res = await updateMachine(initialData.id, formData);
             } else {
-                await createMachine(formData);
+                res = await createMachine(formData);
             }
-            router.push('/production/machines');
-            router.refresh();
+
+            if (res.success) {
+                toast.success(initialData ? 'Machine updated successfully' : 'Machine created successfully');
+                router.push('/dashboard/machines');
+                router.refresh();
+            } else {
+                setError(res.error || 'Failed to save machine');
+                setLoading(false);
+            }
         } catch (_unused) {
             setError('Something went wrong. Please try again.');
             setLoading(false);

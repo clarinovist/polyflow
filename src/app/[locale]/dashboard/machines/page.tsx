@@ -1,5 +1,4 @@
 import { getMachines } from '@/actions/machines';
-import { Machine } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Settings2, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import Link from 'next/link';
+import { MachineActions } from '@/components/production/MachineActions';
 
 export default async function MachinesPage() {
     const machines = await getMachines().catch(() => []);
@@ -28,10 +29,12 @@ export default async function MachinesPage() {
                         Configure your production fleet and maintenance status.
                     </p>
                 </div>
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/20 border-0">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Register Machine
-                </Button>
+                <Link href="/dashboard/machines/create">
+                    <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/20 border-0">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Register Machine
+                    </Button>
+                </Link>
             </div>
 
             <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 overflow-hidden shadow-xl">
@@ -66,7 +69,7 @@ export default async function MachinesPage() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    machines.map((machine: Machine & { location?: { name: string } | null }) => (
+                                    machines.map((machine: Parameters<typeof MachineActions>[0] & { code: string, location?: { name: string } | null, status: string }) => (
                                         <TableRow key={machine.id} className="group border-white/5 hover:bg-primary/[0.02]">
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -92,9 +95,7 @@ export default async function MachinesPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                    <Settings2 className="h-4 w-4" />
-                                                </Button>
+                                                <MachineActions id={machine.id} name={machine.name} />
                                             </TableCell>
                                         </TableRow>
                                     ))
