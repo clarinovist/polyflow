@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
+import { calculateBomCost } from '@/lib/production-utils';
 
 export async function getBoms(category?: string) {
     try {
@@ -80,6 +81,20 @@ export async function createBom(data: CreateBomValues) {
             }
         });
 
+        // Perform Cost Roll-up
+        const createdBom = await prisma.bom.findUnique({
+            where: { id: bom.id },
+            include: { items: { include: { productVariant: true } } }
+        });
+
+        if (createdBom) {
+            const totalCost = calculateBomCost(createdBom.items);
+            await prisma.productVariant.update({
+                where: { id: validated.productVariantId },
+                data: { standardCost: totalCost }
+            });
+        }
+
         revalidatePath('/dashboard/boms');
         return { success: true, data: serializeData(bom) };
     } catch (error) {
@@ -152,6 +167,19 @@ export async function updateBom(id: string, data: CreateBomValues) {
                     quantity: item.quantity,
                     scrapPercentage: item.scrapPercentage
                 }))
+            });
+
+            // Re-fetch items to calculate cost (since we just inserted them)
+            const newItemsWithCosts = await tx.bomItem.findMany({
+                where: { bomId: id },
+                include: { productVariant: true }
+            });
+
+            const totalCost = calculateBomCost(newItemsWithCosts);
+
+            await tx.productVariant.update({
+                where: { id: validated.productVariantId },
+                data: { standardCost: totalCost }
             });
 
             return updatedBom;
