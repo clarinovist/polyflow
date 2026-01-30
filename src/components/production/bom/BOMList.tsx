@@ -150,9 +150,14 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                         </TableCell>
                                                         {showPrices && (
                                                             <TableCell className="text-right">
-                                                                <span className="font-medium text-sm">
-                                                                    {formatCurrency(totalCost)}
-                                                                </span>
+                                                                <div className="flex flex-col items-end">
+                                                                    <span className="font-medium text-sm">
+                                                                        {formatCurrency(totalCost)}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+                                                                        {formatCurrency(totalCost / Number(bom.outputQuantity || 1))} / {bom.productVariant.primaryUnit}
+                                                                    </span>
+                                                                </div>
                                                             </TableCell>
                                                         )}
                                                         <TableCell className="text-right">
