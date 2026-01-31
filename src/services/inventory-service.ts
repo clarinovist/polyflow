@@ -12,16 +12,19 @@ import {
 } from '@/lib/schemas/inventory';
 
 import { InventoryWithRelations } from '@/types/inventory';
-import { subDays, format } from 'date-fns';
 import { AutoJournalService } from '@/services/finance/auto-journal-service'; // Deprecated?
 import { AccountingService } from '@/services/accounting-service';
-
-
-// Local constants for conflicting enums (Defensive Programming)
-// Next.js dev server cache sometimes fails to load new enum members
-const STATUS_ACTIVE = 'ACTIVE';
-const STATUS_WAITING = 'WAITING';
-const STATUS_CANCELLED = 'CANCELLED';
+import { STATUS_ACTIVE, STATUS_WAITING } from './inventory/constants';
+import { createStockReservation, cancelStockReservation, getActiveReservations } from './inventory/reservation-service';
+import {
+    getSuggestedPurchases,
+    getInventoryValuation,
+    getInventoryAsOf,
+    getStockHistory,
+    getInventoryTurnover,
+    getDaysOfInventoryOnHand,
+    getStockMovementTrends
+} from './inventory/analytics-service';
 
 export class InventoryService {
 
@@ -778,249 +781,31 @@ export class InventoryService {
     }
 
     static async getSuggestedPurchases() {
-        const variants = await prisma.productVariant.findMany({
-            where: { reorderPoint: { not: null } },
-            include: {
-                product: { select: { name: true, productType: true } },
-                preferredSupplier: { select: { name: true } },
-                inventories: { select: { quantity: true } }
-            }
-        });
-
-        return variants.map(v => {
-            const totalPhysical = v.inventories.reduce((sum, inv) => sum + inv.quantity.toNumber(), 0);
-            return {
-                ...v,
-                totalStock: totalPhysical,
-                shouldReorder: totalPhysical < (v.reorderPoint?.toNumber() || 0)
-            };
-        }).filter(v => v.shouldReorder);
+        return getSuggestedPurchases();
     }
 
     static async getInventoryValuation() {
-        const stock = await prisma.inventory.findMany({
-            where: { quantity: { gt: 0 } },
-            include: {
-                productVariant: {
-                    select: { name: true, skuCode: true, buyPrice: true }
-                }
-            }
-        });
-
-        let totalValuation = 0;
-        const valuationDetails = [];
-
-        for (const item of stock) {
-            const quantity = item.quantity.toNumber();
-            const unitCost = item.averageCost?.toNumber() || item.productVariant.buyPrice?.toNumber() || 0;
-            const value = quantity * unitCost;
-
-            totalValuation += value;
-
-            valuationDetails.push({
-                productVariantId: item.productVariantId,
-                name: item.productVariant.name,
-                sku: item.productVariant.skuCode,
-                locationId: item.locationId,
-                quantity,
-                unitCost,
-                totalValue: value
-            });
-        }
-
-        return {
-            totalValuation,
-            details: valuationDetails
-        };
+        return getInventoryValuation();
     }
 
     static async getInventoryAsOf(targetDate: Date, locationId?: string) {
-        // Optimized query using SQL UNION and GROUP BY to avoid in-memory aggregation of all movements
-        // This reduces complexity from O(N) application-side to O(N) database-side (which is much faster and indexed)
-
-        // We calculate net change per location:
-        // - Outgoing: -quantity
-        // - Incoming: +quantity
-
-        const result = await prisma.$queryRaw<Array<{ productVariantId: string, locationId: string, quantity: number }>>`
-            SELECT
-                "productVariantId",
-                "locationId",
-                SUM("quantity")::float as "quantity"
-            FROM (
-                SELECT "productVariantId", "fromLocationId" as "locationId", -1 * "quantity" as "quantity"
-                FROM "StockMovement"
-                WHERE "fromLocationId" IS NOT NULL AND "createdAt" <= ${targetDate}::timestamp
-
-                UNION ALL
-
-                SELECT "productVariantId", "toLocationId" as "locationId", "quantity"
-                FROM "StockMovement"
-                WHERE "toLocationId" IS NOT NULL AND "createdAt" <= ${targetDate}::timestamp
-            ) as movements
-            WHERE "locationId" IS NOT NULL
-            ${locationId ? Prisma.sql`AND "locationId" = ${locationId}` : Prisma.empty}
-            GROUP BY "productVariantId", "locationId"
-        `;
-
-        return result;
+        return getInventoryAsOf(targetDate, locationId);
     }
 
     static async getStockHistory(productVariantId: string, startDate: Date, endDate: Date, locationId?: string) {
-        const initialMovements = await prisma.stockMovement.findMany({
-            where: {
-                productVariantId,
-                createdAt: { lt: startDate },
-                ...(locationId ? {
-                    OR: [
-                        { fromLocationId: locationId },
-                        { toLocationId: locationId }
-                    ]
-                } : {})
-            }
-        });
-
-        let currentStock = initialMovements.reduce((sum, m) => {
-            const qty = m.quantity.toNumber();
-            let delta = 0;
-            if (locationId) {
-                if (m.toLocationId === locationId) delta += qty;
-                if (m.fromLocationId === locationId) delta -= qty;
-            } else {
-                if (m.toLocationId && !m.fromLocationId) delta += qty;
-                if (m.fromLocationId && !m.toLocationId) delta -= qty;
-            }
-            return sum + delta;
-        }, 0);
-
-        const movements = await prisma.stockMovement.findMany({
-            where: {
-                productVariantId,
-                createdAt: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                ...(locationId ? {
-                    OR: [
-                        { fromLocationId: locationId },
-                        { toLocationId: locationId }
-                    ]
-                } : {})
-            },
-            orderBy: { createdAt: 'asc' }
-        });
-
-        const historyData = [];
-        const curr = new Date(startDate);
-
-        while (curr <= endDate) {
-            const dayStart = new Date(curr);
-            dayStart.setHours(0, 0, 0, 0);
-            const dayEnd = new Date(curr);
-            dayEnd.setHours(23, 59, 59, 999);
-
-            const dayMovements = movements.filter(m =>
-                m.createdAt >= dayStart && m.createdAt <= dayEnd
-            );
-
-            dayMovements.forEach(m => {
-                const qty = m.quantity.toNumber();
-                if (locationId) {
-                    if (m.toLocationId === locationId) currentStock += qty;
-                    if (m.fromLocationId === locationId) currentStock -= qty;
-                } else {
-                    if (m.toLocationId && !m.fromLocationId) currentStock += qty;
-                    if (m.fromLocationId && !m.toLocationId) currentStock -= qty;
-                }
-            });
-
-            historyData.push({
-                date: dayStart.toISOString().split('T')[0],
-                stock: currentStock
-            });
-
-            curr.setDate(curr.getDate() + 1);
-        }
-
-        return historyData;
+        return getStockHistory(productVariantId, startDate, endDate, locationId);
     }
 
     static async createStockReservation(data: CreateReservationValues, tx?: Prisma.TransactionClient) {
-        const { productVariantId, locationId, quantity, reservedFor, referenceId, reservedUntil } = data;
-
-        const execute = async (transaction: Prisma.TransactionClient) => {
-            const physicalStock = await transaction.inventory.findUnique({
-                where: {
-                    locationId_productVariantId: { locationId, productVariantId }
-                },
-                select: { quantity: true }
-            });
-
-            const currentReservations = await transaction.stockReservation.aggregate({
-                where: {
-                    locationId,
-                    productVariantId,
-                    status: STATUS_ACTIVE
-                },
-                _sum: { quantity: true }
-            });
-
-            const totalPhysical = physicalStock?.quantity.toNumber() || 0;
-            const totalReserved = currentReservations._sum.quantity?.toNumber() || 0;
-            const available = totalPhysical - totalReserved;
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const status = (available >= quantity ? STATUS_ACTIVE : STATUS_WAITING) as any;
-
-            await transaction.stockReservation.create({
-                data: {
-                    productVariantId,
-                    locationId,
-                    quantity,
-                    reservedFor,
-                    referenceId,
-                    reservedUntil,
-                    status
-                }
-            });
-        };
-
-        if (tx) {
-            await execute(tx);
-        } else {
-            await prisma.$transaction(execute);
-        }
+        return createStockReservation(data, tx);
     }
 
     static async cancelStockReservation(data: CancelReservationValues) {
-        await prisma.stockReservation.update({
-            where: { id: data.reservationId },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data: { status: STATUS_CANCELLED as any }
-        });
+        return cancelStockReservation(data);
     }
 
     static async getActiveReservations(locationId?: string, productVariantId?: string) {
-        const where: Prisma.StockReservationWhereInput = {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
-        };
-
-        if (locationId) where.locationId = locationId;
-        if (productVariantId) where.productVariantId = productVariantId;
-
-        return await prisma.stockReservation.findMany({
-            where,
-            include: {
-                productVariant: {
-                    select: { name: true, skuCode: true }
-                },
-                location: {
-                    select: { name: true }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+        return getActiveReservations(locationId, productVariantId);
     }
 
     // ============================================
@@ -1032,58 +817,7 @@ export class InventoryService {
      * Returns global ratio and breakdown by product type
      */
     static async getInventoryTurnover(periodDays = 30) {
-        const startDate = subDays(new Date(), periodDays);
-        const endDate = new Date();
-
-        // 1. Calculate COGS (Cost of Goods Sold)
-        // Sum of quantity * cost for OUT movements (Sales, Production usage)
-        const outboundMovements = await prisma.stockMovement.findMany({
-            where: {
-                type: MovementType.OUT,
-                createdAt: { gte: startDate, lte: endDate },
-                cost: { not: null }
-            },
-            select: { quantity: true, cost: true }
-        });
-
-        const cogs = outboundMovements.reduce((sum, m) => {
-            return sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0));
-        }, 0);
-
-        // 2. Average Inventory Value
-        // (Opening Inventory + Closing Inventory) / 2
-        // We reuse getInventoryValuation logic but need it for specific dates
-        // For simplicity in this iteration, we'll use current valuation as "Closing" 
-        // and approximate Opening by reversing movements from current.
-
-        // Current Value
-        const currentValuation = await this.getInventoryValuation();
-        const closingValue = currentValuation.totalValuation;
-
-        // Opening Value Approximation = Closing - (In Value) + (Out Value)
-        // "In Value" during period
-        const inboundMovements = await prisma.stockMovement.findMany({
-            where: {
-                type: MovementType.IN,
-                createdAt: { gte: startDate, lte: endDate },
-                cost: { not: null }
-            },
-            select: { quantity: true, cost: true }
-        });
-        const inValue = inboundMovements.reduce((sum, m) => sum + (m.quantity.toNumber() * (m.cost?.toNumber() || 0)), 0);
-        const outValue = cogs; // Reuse COGS calculation
-
-        const openingValue = closingValue - inValue + outValue;
-        const averageInventory = (openingValue + closingValue) / 2;
-
-        const turnoverRatio = averageInventory > 0 ? cogs / averageInventory : 0;
-
-        return {
-            periodDays,
-            cogs,
-            averageInventory,
-            turnoverRatio: Number(turnoverRatio.toFixed(2))
-        };
+        return getInventoryTurnover(periodDays);
     }
 
     /**
@@ -1091,69 +825,14 @@ export class InventoryService {
      * DOH = (Average Inventory / COGS) * Period Days
      */
     static async getDaysOfInventoryOnHand(periodDays = 30) {
-        const turnoverStats = await this.getInventoryTurnover(periodDays);
-
-        // If no COGS, means infinite days (or 0 if no stock)
-        // To avoid division by zero:
-        if (turnoverStats.cogs === 0) {
-            return {
-                ...turnoverStats,
-                daysOnHand: turnoverStats.averageInventory > 0 ? 999 : 0
-            };
-        }
-
-        const daysOnHand = (turnoverStats.averageInventory / turnoverStats.cogs) * periodDays;
-
-        return {
-            ...turnoverStats,
-            daysOnHand: Number(daysOnHand.toFixed(1))
-        };
+        return getDaysOfInventoryOnHand(periodDays);
     }
 
     /**
      * Get stock movement trends for charts
      */
     static async getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
-        const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
-        const startDate = subDays(new Date(), days);
-
-        const movements = await prisma.stockMovement.findMany({
-            where: {
-                createdAt: { gte: startDate }
-            },
-            select: {
-                type: true,
-                quantity: true,
-                createdAt: true
-            },
-            orderBy: { createdAt: 'asc' }
-        });
-
-        // Group by Date
-        const grouped = movements.reduce((acc, m) => {
-            const dateStr = format(m.createdAt, 'yyyy-MM-dd');
-            if (!acc[dateStr]) {
-                acc[dateStr] = { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 };
-            }
-
-            const qty = m.quantity.toNumber();
-            if (m.type === MovementType.IN) acc[dateStr].in += qty;
-            else if (m.type === MovementType.OUT) acc[dateStr].out += qty;
-            else if (m.type === MovementType.TRANSFER) acc[dateStr].transfer += qty;
-            else if (m.type === MovementType.ADJUSTMENT) acc[dateStr].adjustment += qty;
-
-            return acc;
-        }, {} as Record<string, { date: string; in: number; out: number; transfer: number; adjustment: number }>);
-
-        // Fill missing dates
-        const results = [];
-        for (let i = 0; i <= days; i++) {
-            const date = subDays(new Date(), days - i);
-            const dateStr = format(date, 'yyyy-MM-dd');
-            results.push(grouped[dateStr] || { date: dateStr, in: 0, out: 0, transfer: 0, adjustment: 0 });
-        }
-
-        return results;
+        return getStockMovementTrends(period);
     }
 
 }
