@@ -106,7 +106,9 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                 const totalCost = bom.items.reduce((acc: number, item: any) => {
                                                     const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0);
-                                                    return acc + (cost * Number(item.quantity));
+                                                    const quantity = Number(item.quantity);
+                                                    const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
+                                                    return acc + (cost * quantity * scrap);
                                                 }, 0);
 
                                                 return (
