@@ -13,7 +13,7 @@ export function calculateBomCost(items: any[]): number {
         const variant = item.productVariant;
         if (!variant) return acc;
 
-        const unitCost = Number(variant.standardCost ?? variant.buyPrice ?? 0);
+        const unitCost = Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0);
         const quantity = Number(item.quantity ?? 0);
         const scrapAndWaste = 1 + (Number(item.scrapPercentage ?? 0) / 100);
 

@@ -38,10 +38,11 @@ export class CostingService {
         // 2. Material Cost
         let materialCost = 0;
         for (const issue of order.materialIssues) {
-            // Priority: Standard Cost -> Average Cost -> 0
-            // Assuming Average Cost is stored in Inventory (which is location specific).
-            // For now, taking the max average cost found across inventories or standard cost.
-            const avgCost = issue.productVariant.inventories[0]?.averageCost ?? issue.productVariant.standardCost ?? 0;
+            // Priority: Average Cost -> Standard Cost -> Buy Price -> Reference Price -> 0
+            const avgCost = issue.productVariant.inventories[0]?.averageCost ??
+                issue.productVariant.standardCost ??
+                issue.productVariant.buyPrice ??
+                issue.productVariant.price ?? 0;
             materialCost += Number(issue.quantity) * Number(avgCost);
         }
 

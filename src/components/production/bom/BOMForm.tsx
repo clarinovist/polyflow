@@ -252,7 +252,7 @@ export function BOMForm({
                                             const total = watchedItems.reduce((acc, item) => {
                                                 const variant = productVariants.find(v => v.id === item.productVariantId);
                                                 if (!variant) return acc;
-                                                const cost = Number(variant.standardCost ?? variant.buyPrice ?? 0);
+                                                const cost = Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0);
                                                 const quantity = Number(item.quantity ?? 0);
                                                 const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
                                                 return acc + (cost * quantity * scrap);
@@ -309,7 +309,7 @@ export function BOMForm({
 
                                             // Effective quantity considering scrap
                                             const effectiveQty = Number(quantity ?? 0) * (1 + (Number(scrapPct) / 100));
-                                            const lineCost = variant ? Number(variant.standardCost ?? variant.buyPrice ?? 0) * effectiveQty : 0;
+                                            const lineCost = variant ? Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0) * effectiveQty : 0;
 
                                             // Smart Suggestion Logic
                                             const currentCategory = form.watch('category');
@@ -392,7 +392,7 @@ export function BOMForm({
                                                                     {formatCurrency(lineCost)}
                                                                 </span>
                                                                 <span className="text-[10px] text-muted-foreground">
-                                                                    {variant ? `@ ${formatCurrency(Number(variant.standardCost ?? variant.buyPrice ?? 0))}` : 'Rate Unavailable'}
+                                                                    {variant ? `@ ${formatCurrency(Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0))}` : 'Rate Unavailable'}
                                                                 </span>
                                                             </div>
                                                         </TableCell>
