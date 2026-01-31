@@ -183,6 +183,53 @@ Optional: reset Inventory/Batch balances to 0 (for fresh stock opname)
 - Deleting stock movements removes audit trail. Use only if you intentionally want a clean transactional slate.
 - If you use `--reset-inventory`, you are explicitly choosing to rebuild balances via stock opname.
 
+### Troubleshooting & Rollback
+
+Check DB connectivity (from inside app container)
+
+```bash
+docker compose exec -T polyflow sh -lc 'echo "$DATABASE_URL"'
+```
+
+If you suspect the container is pointing to the wrong DB, stop and fix `.env` / `DATABASE_URL` first.
+
+Backup errors / disk space
+- Ensure there is enough free space on the host: `df -h`
+- Write backups to a dedicated folder (example below)
+
+```bash
+mkdir -p backups
+docker compose exec -T db pg_dump -U polyflow -d polyflow -Fc > backups/polyflow-before-purge.dump
+ls -lh backups/
+```
+
+Rollback (restore from dump)
+
+> [!CAUTION]
+> Restoring will overwrite data in the target database. Only run if you know the dump is correct.
+
+```bash
+# Drop & recreate public schema, then restore
+docker compose exec -T db psql -U polyflow -d polyflow -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+cat backups/polyflow-before-purge.dump | docker compose exec -T db pg_restore -U polyflow -d polyflow --no-owner --no-privileges
+```
+
+If purge fails mid-run
+- The script runs inside a single transaction; if it errors, changes should rollback automatically.
+- Re-run dry-run to see what remains:
+
+```bash
+docker compose exec -T polyflow node scripts/purge-transaction-history.js
+```
+
+Performance / timeouts
+- Large datasets may take longer. Run during maintenance window.
+- If you see timeouts, consider running on a stronger VM, or temporarily increase resources.
+
+After purge
+- Validate app pages load.
+- Proceed with stock opname if using `--reset-inventory`.
+
 ## Initial Login
 
 - **URL**: `http://your-server-ip:3002/login`
