@@ -110,10 +110,62 @@ This repo includes a safety-gated purge script that removes transactional histor
 
 It is designed to **keep master data** intact (Products, BOM, Inventory balances, Batches, Locations, Customers, Suppliers).
 
-Prerequisites
-- Confirm `DATABASE_URL` points to the intended production database.
-- Take a database backup (recommended: `pg_dump`) before executing.
-- Run during a maintenance window (the script performs large deletes).
+### What this purge does
+
+Deleted (transaction history)
+- Sales: Sales Orders + items, deliveries, sales invoices, stock movements, stock reservations
+- Purchasing: Purchase Orders + items, goods receipts + items, purchase invoices + payments, stock movements
+- Production (WO = `ProductionOrder`): orders + shifts, executions, planned materials, issues/inspections/scrap
+- Finance (optional): auto-generated journal entries that reference deleted transactional docs
+
+Preserved (master data)
+- Products, Product Variants, BOMs
+- Locations, Customers, Suppliers, Machines
+
+Optional behavior
+- `--reset-inventory`: sets Inventory and Batch quantities to 0 (intended for fresh stock opname)
+
+### Prerequisites / Checklist
+- Do this in a maintenance window; stop users from creating transactions.
+- Confirm you are operating on the correct server and project folder.
+- Confirm containers are up: `docker compose ps`
+- Confirm the app container has the script: `docker compose exec polyflow ls -la scripts/purge-transaction-history.js`
+- Confirm `DATABASE_URL` inside the app container points to the intended DB.
+
+### Backup first (recommended)
+
+Create a compressed Postgres dump from the DB container (saved to the host):
+
+```bash
+mkdir -p backups
+docker compose exec -T db pg_dump -U polyflow -d polyflow -Fc > backups/polyflow-before-purge.dump
+```
+
+### Runbook (docker container)
+
+Dry-run (prints counts only, no changes)
+
+```bash
+docker compose exec -T polyflow node scripts/purge-transaction-history.js
+```
+
+Execute (delete history)
+
+```bash
+docker compose exec -T polyflow node scripts/purge-transaction-history.js --execute --yes --production
+```
+
+Common production cutover (recommended for clean slate + stock opname)
+
+```bash
+docker compose exec -T polyflow node scripts/purge-transaction-history.js --execute --yes --production --purge-finance --reset-inventory
+```
+
+Verify (run dry-run again; transactional counts should be zero)
+
+```bash
+docker compose exec -T polyflow node scripts/purge-transaction-history.js
+```
 
 Dry-run (recommended first)
 - `docker compose exec polyflow node scripts/purge-transaction-history.js`
@@ -127,9 +179,9 @@ Optional: purge auto-generated finance journals
 Optional: reset Inventory/Batch balances to 0 (for fresh stock opname)
 - `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production --reset-inventory`
 
-Notes
-- Keeping inventory balances while deleting movements removes audit trail; only do this if you intentionally want a clean transactional slate.
-- Re-run `npm run db:purge:dry` after execution to confirm counts are zero.
+### Notes
+- Deleting stock movements removes audit trail. Use only if you intentionally want a clean transactional slate.
+- If you use `--reset-inventory`, you are explicitly choosing to rebuild balances via stock opname.
 
 ## Initial Login
 
@@ -151,8 +203,8 @@ docker compose up -d
 ```
 
 ### Port Conflicts
-- **App Port**: Defaults to `3002` on the host. Change in `docker-compose.yml` if needed.
-- **DB Port**: Internal only (`5434`). Not exposed to the host by default for security.
+- **App Port**: This compose setup does not publish an app port on the host by default (access via reverse proxy).
+- **DB Port**: Internal only (`5432`). Not exposed to the host by default for security.
 
 ## Maintenance
 
