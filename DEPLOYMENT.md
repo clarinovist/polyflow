@@ -152,19 +152,35 @@ docker compose exec -T polyflow node scripts/purge-transaction-history.js
 Execute (delete history)
 
 ```bash
-docker compose exec -T polyflow node scripts/purge-transaction-history.js --execute --yes --production
+docker compose exec -T polyflow node scripts/purge-transaction-history.js --execute --yes --production --i-have-a-backup
 ```
 
 Common production cutover (recommended for clean slate + stock opname)
 
 ```bash
-docker compose exec -T polyflow node scripts/purge-transaction-history.js --execute --yes --production --purge-finance --reset-inventory
+docker compose exec -T polyflow node scripts/purge-transaction-history.js \
+  --execute --yes --production --i-have-a-backup \
+  --purge-finance --confirm-purge-finance \
+  --reset-inventory --confirm-reset-inventory
 ```
 
 Verify (run dry-run again; transactional counts should be zero)
 
 ```bash
 docker compose exec -T polyflow node scripts/purge-transaction-history.js
+```
+
+Optional: SQL verification (directly on DB container)
+
+```bash
+# Any non-zero inventory after reset?
+docker compose exec -T db psql -U polyflow -d polyflow -c 'SELECT COUNT(*) AS non_zero_inventory_rows FROM "Inventory" WHERE quantity <> 0;'
+
+# Any remaining stock movements?
+docker compose exec -T db psql -U polyflow -d polyflow -c 'SELECT COUNT(*) AS stock_movement_rows FROM "StockMovement";'
+
+# Quick sanity: remaining SO/PO/WO
+docker compose exec -T db psql -U polyflow -d polyflow -c 'SELECT (SELECT COUNT(*) FROM "SalesOrder") AS sales_orders, (SELECT COUNT(*) FROM "PurchaseOrder") AS purchase_orders, (SELECT COUNT(*) FROM "ProductionOrder") AS production_orders;'
 ```
 
 Dry-run (recommended first)
