@@ -253,7 +253,9 @@ export function BOMForm({
                                                 const variant = productVariants.find(v => v.id === item.productVariantId);
                                                 if (!variant) return acc;
                                                 const cost = Number(variant.standardCost ?? variant.buyPrice ?? 0);
-                                                return acc + (cost * Number(item.quantity ?? 0));
+                                                const quantity = Number(item.quantity ?? 0);
+                                                const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
+                                                return acc + (cost * quantity * scrap);
                                             }, 0);
                                             return formatCurrency(total);
                                         })()}

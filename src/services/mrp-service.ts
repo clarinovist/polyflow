@@ -238,13 +238,13 @@ export class MrpService {
         });
 
         const outputRatio = quantity / Number(bom.outputQuantity);
-
         for (const bi of bomItems) {
+            const scrapPct = Number(bi.scrapPercentage || 0);
             await tx.productionMaterial.create({
                 data: {
                     productionOrderId: po.id,
                     productVariantId: bi.productVariantId,
-                    quantity: Number(bi.quantity) * outputRatio
+                    quantity: Number(bi.quantity) * (1 + (scrapPct / 100)) * outputRatio
                 }
             });
 
@@ -350,9 +350,10 @@ export class MrpService {
         if (effectiveShortage > 0) {
             const outputRatio = effectiveShortage / bom.outputQuantity.toNumber();
             for (const bomItem of bom.items) {
+                const scrapPct = bomItem.scrapPercentage?.toNumber() || 0;
                 await this.explodeRecursively(
                     bomItem.productVariantId,
-                    bomItem.quantity.toNumber() * outputRatio,
+                    bomItem.quantity.toNumber() * (1 + (scrapPct / 100)) * outputRatio,
                     requirementsMap,
                     missingBoms,
                     includeReserved

@@ -36,7 +36,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     const isSimpleUnitMode = productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL;
 
     const [isGeneratingSKU, setIsGeneratingSKU] = useState(false);
-    const { setValue } = useFormContext<CreateProductValues>();
+    const { setValue, getValues } = useFormContext<CreateProductValues>();
 
     const handleAutoSKU = async () => {
         if (!productType || !productName) {
@@ -46,7 +46,11 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
 
         setIsGeneratingSKU(true);
         try {
-            const nextSKU = await getNextSKU(productType as ProductType, productName);
+            // Get all current SKUs in the form
+            const formValues = getValues();
+            const currentSkus = formValues.variants?.map(v => v.skuCode).filter(Boolean) as string[] || [];
+
+            const nextSKU = await getNextSKU(productType as ProductType, productName, currentSkus);
             setValue(`variants.${index}.skuCode`, nextSKU, { shouldValidate: true });
             toast.success('SKU generated successfully');
         } catch (error) {

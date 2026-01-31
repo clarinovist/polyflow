@@ -490,7 +490,7 @@ export async function deleteVariant(id: string) {
 /**
  * Auto-generate a unique SKU code based on product type and name
  */
-export async function getNextSKU(productType: ProductType, productName: string): Promise<string> {
+export async function getNextSKU(productType: ProductType, productName: string, currentSkus: string[] = []): Promise<string> {
     await requireAuth();
     const prefixes: Record<string, string> = {
         [ProductType.RAW_MATERIAL]: 'RM',
@@ -515,7 +515,7 @@ export async function getNextSKU(productType: ProductType, productName: string):
 
     const skuPrefix = `${prefix}${category}`;
 
-    // Find all existing SKUs with this prefix
+    // Find all existing SKUs with this prefix in DB
     const existingVariants = await prisma.productVariant.findMany({
         where: {
             skuCode: {
@@ -530,18 +530,33 @@ export async function getNextSKU(productType: ProductType, productName: string):
         },
     });
 
-    let nextSeq = 1;
+    // Collect all sequence numbers from DB and current form
+    const sequences = new Set<number>();
 
-    if (existingVariants.length > 0) {
-        // Find the highest sequence number among existing codes with our prefix
-        for (const variant of existingVariants) {
-            const seqPart = variant.skuCode.substring(5);
+    // From DB
+    for (const variant of existingVariants) {
+        const seqPart = variant.skuCode.substring(5);
+        const seq = parseInt(seqPart, 10);
+        if (!isNaN(seq)) {
+            sequences.add(seq);
+        }
+    }
+
+    // From current form
+    for (const sku of currentSkus) {
+        if (sku && sku.startsWith(skuPrefix)) {
+            const seqPart = sku.substring(5);
             const seq = parseInt(seqPart, 10);
             if (!isNaN(seq)) {
-                nextSeq = seq + 1;
-                break; // Because it's ordered desc, the first match should be highest
+                sequences.add(seq);
             }
         }
+    }
+
+    let nextSeq = 1;
+    if (sequences.size > 0) {
+        // Find the maximum sequence and increment
+        nextSeq = Math.max(...Array.from(sequences)) + 1;
     }
 
     return `${skuPrefix}${nextSeq.toString().padStart(3, '0')}`;

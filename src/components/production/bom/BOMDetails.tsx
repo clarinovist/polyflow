@@ -39,7 +39,9 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalCost = bom.items.reduce((acc: number, item: any) => {
         const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0);
-        return acc + (cost * Number(item.quantity));
+        const quantity = Number(item.quantity);
+        const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
+        return acc + (cost * quantity * scrap);
     }, 0);
 
     return (
@@ -129,7 +131,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                 <span className="text-[10px] text-muted-foreground">Estimated Unit Cost</span>
                             </div>
                             <div className="mt-4 pt-4 border-t border-dashed">
-                                <p className="text-[11px] text-muted-foreground italic">Calculated based on current standard costs of ingredients.</p>
+                                <p className="text-[11px] text-muted-foreground italic">Calculated based on current standard costs of ingredients (including scrap).</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -150,15 +152,20 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[400px]">Ingredient Material & SKU</TableHead>
-                                    <TableHead className="text-center w-[200px]">Quantity</TableHead>
-                                    {showPrices && <TableHead className="text-right w-[200px]">Line Cost</TableHead>}
+                                    <TableHead className="w-[350px]">Ingredient Material & SKU</TableHead>
+                                    <TableHead className="text-center w-[150px]">Base Quantity</TableHead>
+                                    <TableHead className="text-center w-[120px]">Scrap %</TableHead>
+                                    <TableHead className="text-center w-[180px]">Total Requirement</TableHead>
+                                    {showPrices && <TableHead className="text-right w-[180px]">Line Cost</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 {bom.items.map((item: any, index: number) => {
-                                    const lineCost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0) * Number(item.quantity);
+                                    const scrapPct = Number(item.scrapPercentage || 0);
+                                    const baseQty = Number(item.quantity);
+                                    const totalQty = baseQty * (1 + (scrapPct / 100));
+                                    const lineCost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0) * totalQty;
 
                                     return (
                                         <TableRow key={index}>
@@ -171,8 +178,23 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4 text-center">
+                                                <span className="font-mono text-sm">
+                                                    {baseQty.toLocaleString()}
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground ml-1">{item.productVariant.primaryUnit}</span>
+                                            </TableCell>
+                                            <TableCell className="py-4 text-center">
+                                                {scrapPct > 0 ? (
+                                                    <Badge variant="outline" className="text-[10px] font-normal border-amber-500/20 text-amber-600 bg-amber-50/50 dark:bg-amber-900/10 dark:text-amber-400">
+                                                        {scrapPct}%
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="py-4 text-center">
                                                 <span className="font-mono text-base font-medium">
-                                                    {Number(item.quantity).toLocaleString()}
+                                                    {totalQty.toLocaleString()}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground ml-1">{item.productVariant.primaryUnit}</span>
                                             </TableCell>
