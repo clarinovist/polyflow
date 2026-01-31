@@ -20,8 +20,8 @@
   NEXTAUTH_URL=https://your-domain.com # e.g. https://erp.nugrohopramono.my.id
     ```
     
-    Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, ensure it points to the internal port 5434:
-    `DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5434/polyflow`
+    Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, use the internal container port 5432:
+    `DATABASE_URL=postgresql://polyflow:polyflow@polyflow-db:5432/polyflow`
 
 ## CI/CD Pipeline (GitHub Actions)
 
@@ -100,6 +100,36 @@ docker compose exec polyflow node prisma/seed.js
 ```
 
 **Note**: The seed script is now built into the Docker image, so no manual copying is required.
+
+## One-time production cutover: purge SO/PO/WO history
+
+This repo includes a safety-gated purge script that removes transactional history for:
+- Sales Orders (SO) and dependent docs (delivery orders, invoices, related stock movements/reservations)
+- Purchase Orders (PO) and dependent docs (goods receipts, purchase invoices/payments, related stock movements)
+- Work Orders (WO) which are `ProductionOrder` and dependent docs (shifts, executions, materials, issues, inspections)
+
+It is designed to **keep master data** intact (Products, BOM, Inventory balances, Batches, Locations, Customers, Suppliers).
+
+Prerequisites
+- Confirm `DATABASE_URL` points to the intended production database.
+- Take a database backup (recommended: `pg_dump`) before executing.
+- Run during a maintenance window (the script performs large deletes).
+
+Dry-run (recommended first)
+- `docker compose exec polyflow node scripts/purge-transaction-history.js`
+
+Execute
+- `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production`
+
+Optional: purge auto-generated finance journals
+- `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production --purge-finance`
+
+Optional: reset Inventory/Batch balances to 0 (for fresh stock opname)
+- `docker compose exec polyflow node scripts/purge-transaction-history.js --execute --yes --production --reset-inventory`
+
+Notes
+- Keeping inventory balances while deleting movements removes audit trail; only do this if you intentionally want a clean transactional slate.
+- Re-run `npm run db:purge:dry` after execution to confirm counts are zero.
 
 ## Initial Login
 

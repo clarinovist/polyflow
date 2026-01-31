@@ -63,6 +63,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema and migrations if needed for runtime migrations
 COPY --from=builder /app/prisma ./prisma
 
+# Copy operational scripts (e.g. one-time purge)
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs entrypoint.sh ./
 RUN chmod +x entrypoint.sh
