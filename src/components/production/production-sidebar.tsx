@@ -91,16 +91,16 @@ export function ProductionSidebar({ user }: ProductionSidebarProps) {
     return (
         <>
             {/* Mobile Header */}
-            <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-sidebar-border bg-sidebar px-4 flex items-center justify-between">
-                <Link href="/production">
-                    <PolyFlowLogo showText={true} size="sm" />
-                </Link>
+            <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-sidebar-border bg-sidebar px-4 flex items-center">
                 <button
                     onClick={() => setIsMobileOpen(true)}
-                    className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                    className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-primary transition-colors"
                 >
                     <Menu className="h-6 w-6" />
                 </button>
+                <Link href="/production">
+                    <PolyFlowLogo showText={true} size="sm" />
+                </Link>
             </header>
 
             {/* Mobile Overlay */}
