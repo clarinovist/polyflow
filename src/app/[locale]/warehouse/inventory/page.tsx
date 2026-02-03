@@ -59,7 +59,8 @@ export default async function WarehouseInventoryPage({
         : null;
 
     // Initialize table inventory with live data
-    let tableInventory: (InventoryWithRelations | SimplifiedInventory)[] = liveInventory;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let tableInventory: any[] = liveInventory;
 
     if (asOfDate) {
         const historicalInventory = await getInventoryAsOf(asOfDate);
@@ -162,11 +163,10 @@ export default async function WarehouseInventoryPage({
         }, 0)
         : dashboardStats.totalStock;
 
-    const liveTotalValue = liveInventory.reduce((acc, item) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const qty = typeof item.quantity === 'number' ? item.quantity : (item.quantity as any).toNumber();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const price = (item.productVariant.price as any) ? (item.productVariant.price as any).toNumber() : 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const liveTotalValue = (displayInventory as any[]).reduce((acc, item) => {
+        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+        const price = item.productVariant.price ? (typeof item.productVariant.price === 'number' ? item.productVariant.price : item.productVariant.price.toNumber()) : 0;
         return acc + (qty * price);
     }, 0);
 
