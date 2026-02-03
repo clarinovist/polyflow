@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { SessionProvider } from "@/components/auth/SessionProvider";
+import SessionTimeoutHandler from "@/components/auth/SessionTimeoutHandler";
+
 export default async function RootLayout({
   children,
   params
@@ -48,10 +51,13 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <NextIntlClientProvider messages={messages}>
-          <ThemeProvider>
-            {children}
-            <Toaster position="bottom-right" richColors />
-          </ThemeProvider>
+          <SessionProvider>
+            <ThemeProvider>
+              {children}
+              <Toaster position="bottom-right" richColors />
+              <SessionTimeoutHandler />
+            </ThemeProvider>
+          </SessionProvider>
         </NextIntlClientProvider>
       </body>
     </html>
