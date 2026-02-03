@@ -37,7 +37,7 @@ export default async function ProductionLayout({
             {/* Dedicated Production Sidebar */}
             <ProductionSidebar user={user} />
 
-            <div className="flex-1 flex flex-col ml-64 min-h-screen">
+            <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">
                 {/* Header for Superintendent Portal */}
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
