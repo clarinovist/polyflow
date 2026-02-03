@@ -137,7 +137,7 @@ export default async function WarehousePage() {
             {/* Existing Job Queue (RefreshWrapper) */}
             <BrandCard>
                 <BrandCardHeader className="p-5 border-none">
-                    <h3 className="font-bold text-sm italic uppercase tracking-wider">Material Issue Queue</h3>
+                    <h3 className="font-bold text-sm italic uppercase tracking-wider">Issue Queue</h3>
                 </BrandCardHeader>
                 <BrandCardContent className="p-0">
                     <WarehouseRefreshWrapper
