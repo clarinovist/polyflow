@@ -3,6 +3,7 @@ export const WAREHOUSE_SLUGS = {
     FINISHING: 'fg_warehouse',
     SCRAP: 'scrap_warehouse',
     MIXING: 'mixing_area',
+    PACKING_AREA: 'packing_area',
     WIP_STORAGE: 'wip_storage'
 } as const;
 

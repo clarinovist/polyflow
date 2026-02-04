@@ -80,6 +80,7 @@ async function main() {
         { name: 'WIP Storage', slug: 'wip_storage', description: 'Work-in-Progress storage for Roll Film before Converting' },
         // Extrusion output now goes to FG, so no separate Extrusion Warehouse.
         { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
+        { name: 'Packing Area', slug: 'packing_area', description: 'Production floor for bag-making and finishing processes' },
         { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for waste/afval' },
     ]
 
@@ -396,6 +397,8 @@ async function main() {
     // 6. Machines Master Data
     console.log('Seeding machines...')
 
+    const locPack = (await prisma.location.findUnique({ where: { slug: 'packing_area' } }))!
+
     await prisma.machine.createMany({
         data: [
             {
@@ -416,7 +419,7 @@ async function main() {
                 name: 'Packing Station P1',
                 code: 'PAK-01',
                 type: MachineType.PACKER, // Assuming PACKER exists in enum
-                locationId: locFG.id, // Packing at FG Warehouse stage
+                locationId: locPack.id, // Packing at dedicated Packing Area
                 status: MachineStatus.ACTIVE,
             },
         ]

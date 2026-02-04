@@ -160,9 +160,10 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
         const rmLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
         const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
         const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
+
         if (processType === 'mixing') return rmLoc?.id || '';
         if (processType === 'extrusion') return mixingLoc?.id || '';
-        if (processType === 'packing') return fgLoc?.id || '';
+        if (processType === 'packing') return fgLoc?.id || ''; // Source is Jumbo Roll from FG
         return '';
     }, [processType, locations]);
 
@@ -250,15 +251,17 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
         }
     }, [selectedProductVariantId, boms, form]);
 
-    // Smart Location Logic for target location (managed by Hook Form)
     useEffect(() => {
         const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
         const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
+        const packingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.PACKING_AREA);
 
         if (processType === 'mixing') {
             if (mixingLoc) form.setValue('locationId', mixingLoc.id);
-        } else if (processType === 'extrusion' || processType === 'packing') {
+        } else if (processType === 'extrusion') {
             if (fgLoc) form.setValue('locationId', fgLoc.id);
+        } else if (processType === 'packing') {
+            if (packingLoc) form.setValue('locationId', packingLoc.id);
         }
     }, [processType, locations, form]);
 
