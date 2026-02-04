@@ -71,7 +71,7 @@ export default async function WarehouseHistoryPage() {
                                     </TableCell>
                                     <TableCell className="text-sm">{movement.fromLocation?.name || <span className="text-muted-foreground/50">-</span>}</TableCell>
                                     <TableCell className="text-sm">{movement.toLocation?.name || <span className="text-muted-foreground/50">-</span>}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground pr-6 font-mono truncate max-w-[150px]">{movement.reference || '-'}</TableCell>
+                                    <TableCell className="text-sm text-muted-foreground pr-6 font-mono min-w-[200px]">{movement.reference || '-'}</TableCell>
                                 </TableRow>
                             ))}
                             {movements.length === 0 && (

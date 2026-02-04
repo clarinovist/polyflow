@@ -56,7 +56,7 @@ export default async function HistoryPage() {
                                     </TableCell>
                                     <TableCell>{movement.fromLocation?.name || '-'}</TableCell>
                                     <TableCell>{movement.toLocation?.name || '-'}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">{movement.reference || '-'}</TableCell>
+                                    <TableCell className="text-sm text-muted-foreground min-w-[200px]">{movement.reference || '-'}</TableCell>
                                 </TableRow>
                             ))}
                             {movements.length === 0 && (
