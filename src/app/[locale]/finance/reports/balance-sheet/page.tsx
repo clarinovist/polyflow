@@ -133,7 +133,7 @@ export default function BalanceSheetPage() {
                                                 <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
                                             </TableRow>
                                         ))}
-                                        <TableRow className="font-bold border-t-2 bg-slate-50">
+                                        <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL ASSETS</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalAssets)}</TableCell>
                                         </TableRow>
@@ -149,7 +149,7 @@ export default function BalanceSheetPage() {
                                                 <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
                                             </TableRow>
                                         ))}
-                                        <TableRow className="font-bold border-t-2">
+                                        <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL LIABILITIES</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalLiabilities)}</TableCell>
                                         </TableRow>
@@ -173,7 +173,7 @@ export default function BalanceSheetPage() {
                                             <TableCell className="text-right">{formatRupiah(data.calculatedNetIncome)}</TableCell>
                                         </TableRow>
 
-                                        <TableRow className="font-bold border-t-2">
+                                        <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL EQUITY</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalEquity + data.calculatedNetIncome)}</TableCell>
                                         </TableRow>
