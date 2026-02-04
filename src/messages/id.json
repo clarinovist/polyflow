@@ -40,7 +40,8 @@
         "workShifts": "Shift Kerja",
         "workspaces": "Ruang Kerja",
         "users": "Manajemen Pengguna",
-        "settings": "Pengaturan Umum"
+        "settings": "Pengaturan Umum",
+        "tools": "Alat"
     },
     "dashboard": {
         "overview": {

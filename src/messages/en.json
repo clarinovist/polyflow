@@ -39,7 +39,8 @@
         "workShifts": "Work Shifts",
         "workspaces": "Workspaces",
         "users": "User Management",
-        "settings": "General Settings"
+        "settings": "General Settings",
+        "tools": "Tools"
     },
     "dashboard": {
         "overview": {

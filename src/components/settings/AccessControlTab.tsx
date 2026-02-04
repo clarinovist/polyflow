@@ -18,13 +18,11 @@ import { toast } from 'sonner';
 import { sidebarLinks } from '@/components/layout/sidebar-nav';
 
 // Extract resources from sidebar links
-const RESOURCES = sidebarLinks.flatMap(group =>
-    group.items.map(item => ({
-        key: item.href,
-        label: item.title,
-        group: group.heading
-    }))
-);
+const RESOURCES = sidebarLinks.map(item => ({
+    key: item.href,
+    label: item.title,
+    group: 'Menu'
+}));
 
 const FEATURE_PERMISSIONS = [
     {

@@ -12,14 +12,13 @@ import {
     Moon,
     Sun,
     LucideIcon,
-    ChevronDown,
-    ChevronRight,
     Truck,
     ShoppingCart,
     Calculator,
     Menu,
     X,
     PackageSearch,
+    Sparkles,
 } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
@@ -44,31 +43,22 @@ interface NavItemType {
     icon: LucideIcon;
 }
 
-interface SidebarLinkGroup {
-    heading: string;
-    items: NavItemType[];
-}
+// Flattened links
+export const sidebarLinks: NavItemType[] = [
+    { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
+    { title: "Planning", href: "/planning", icon: Truck },
+    { title: "navigation.production", href: "/production", icon: Factory },
+    { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
+    { title: "navigation.accounting", href: "/finance", icon: Calculator },
 
-export const sidebarLinks: SidebarLinkGroup[] = [
-    {
-        heading: "sidebar.workspaces",
-        items: [
-            { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
-            { title: "Planning", href: "/planning", icon: Truck },
-            { title: "navigation.production", href: "/production", icon: Factory },
-            { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
-            { title: "navigation.accounting", href: "/finance", icon: Calculator },
-        ],
-    },
-    {
-        heading: "sidebar.masterData",
-        items: [
-            { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
-            { title: "sidebar.boms", href: "/dashboard/boms", icon: Files },
-            { title: "sidebar.machines", href: "/dashboard/machines", icon: Settings2 },
-            { title: "sidebar.employees", href: "/dashboard/employees", icon: Users },
-        ],
-    },
+    // Master Data
+    { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
+    { title: "sidebar.boms", href: "/dashboard/boms", icon: Files },
+    { title: "sidebar.machines", href: "/dashboard/machines", icon: Settings2 },
+    { title: "sidebar.employees", href: "/dashboard/employees", icon: Users },
+
+    // Tools
+    { title: "AI Assistant (Beta)", href: "/admin/database-assistant", icon: Sparkles },
 ];
 
 import { useTranslations } from 'next-intl';
@@ -101,14 +91,10 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
 
     const ThemeIcon = theme === 'system' ? (resolvedTheme === 'dark' ? Moon : Sun) : (theme === 'dark' ? Moon : Sun);
 
-    const filteredGroups = sidebarLinks.map(group => {
-        if (permissions === 'ALL') return group;
-        const filteredItems = group.items.filter(item => permissions.includes(item.href));
-        return {
-            ...group,
-            items: filteredItems
-        };
-    }).filter(group => group.items.length > 0);
+    const filteredItems = sidebarLinks.filter(item => {
+        if (permissions === 'ALL') return true;
+        return permissions.includes(item.href);
+    });
 
     return (
         <>
@@ -157,9 +143,15 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                        {filteredGroups.map((group) => (
-                            <CollapsibleGroup key={group.heading} group={group} pathname={pathname} t={t} />
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+                        {filteredItems.map((item) => (
+                            <NavItem
+                                key={item.href}
+                                href={item.href}
+                                icon={item.icon}
+                                label={item.title.includes('.') ? t(item.title) : item.title}
+                                pathname={pathname}
+                            />
                         ))}
                     </nav>
 
@@ -206,55 +198,6 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     );
 }
 
-function CollapsibleGroup({ group, pathname, t }: { group: SidebarLinkGroup, pathname: string, t: (key: string) => string }) {
-    // Check if any child is active
-    const isChildActive = group.items.some(item =>
-        pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
-    );
-
-    // Auto-expand if child is active, otherwise default to expanded for 'Overview' or collapsed for others
-    const [isOpen, setIsOpen] = useState(isChildActive || group.heading === 'sidebar.overview');
-
-    const [prevIsChildActive, setPrevIsChildActive] = useState(isChildActive);
-
-    // If a child becomes active, manually ensure the group is open
-    if (isChildActive && !prevIsChildActive) {
-        setPrevIsChildActive(true);
-        setIsOpen(true);
-    } else if (!isChildActive && prevIsChildActive) {
-        setPrevIsChildActive(false);
-    }
-
-    if (group.items.length === 0) return null;
-
-    return (
-        <div className="space-y-1">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-            >
-                {t(group.heading)}
-                {isOpen ? (
-                    <ChevronDown className="h-3 w-3" />
-                ) : (
-                    <ChevronRight className="h-3 w-3" />
-                )}
-            </button>
-            <div className={cn("space-y-1 overflow-hidden transition-all", isOpen ? "block" : "hidden")}>
-                {group.items.map((item) => (
-                    <NavItem
-                        key={item.href}
-                        href={item.href}
-                        icon={item.icon}
-                        label={item.title.includes('.') ? t(item.title) : item.title}
-                        pathname={pathname}
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
 function NavItem({ href, icon: Icon, label, pathname }: { href: string; icon: LucideIcon; label: string; pathname: string }) {
     const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
 
@@ -262,7 +205,7 @@ function NavItem({ href, icon: Icon, label, pathname }: { href: string; icon: Lu
         <Link
             href={href}
             className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm ml-2", // Added ml-2 for hierarchy visual
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
                 isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
