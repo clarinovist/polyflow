@@ -3,7 +3,7 @@ import {
     CreateProductionOrderValues,
     UpdateProductionOrderValues
 } from '@/lib/schemas/production';
-import { ProductionStatus } from '@prisma/client';
+import { ProductionStatus, MachineType, BomCategory } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
@@ -153,10 +153,30 @@ export class ProductionOrderService {
     static async createOrder(data: CreateProductionOrderValues & { userId?: string }) {
         const {
             bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-            locationId, orderNumber, notes, salesOrderId, userId
+            locationId, orderNumber, notes, salesOrderId, userId, machineId
         } = data;
 
         return await prisma.$transaction(async (tx) => {
+            // 1. Validate Machine Type against BOM Category if machineId is provided
+            if (machineId) {
+                const [machine, bom] = await Promise.all([
+                    tx.machine.findUnique({ where: { id: machineId }, select: { type: true } }),
+                    tx.bom.findUnique({ where: { id: bomId }, select: { category: true } })
+                ]);
+
+                if (machine && bom) {
+                    const isTypeMatch = (
+                        (bom.category === BomCategory.MIXING && machine.type === MachineType.MIXER) ||
+                        (bom.category === BomCategory.EXTRUSION && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.REWINDER)) ||
+                        (bom.category === BomCategory.PACKING && (machine.type === MachineType.PACKER || machine.type === MachineType.GRANULATOR)) ||
+                        (bom.category === BomCategory.STANDARD && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.MIXER)) // Standard fallback
+                    );
+
+                    if (!isTypeMatch) {
+                        throw new Error(`Machine type ${machine.type} is not compatible with stage ${bom.category}`);
+                    }
+                }
+            }
             // 2. Calculate Materials (Standard or Flexible)
             let materialsToCreate = data.items || [];
 
@@ -209,7 +229,8 @@ export class ProductionOrderService {
                     status: initialStatus,
                     actualQuantity: 0,
                     salesOrderId: salesOrderId || null,
-                    createdById: userId
+                    createdById: userId,
+                    machineId: machineId || null
                 }
             });
 

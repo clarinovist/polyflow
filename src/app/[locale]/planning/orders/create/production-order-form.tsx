@@ -342,6 +342,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
                                             }}
@@ -359,6 +360,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
                                             }}
@@ -376,6 +378,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
                                             }}
