@@ -1147,3 +1147,10 @@ enum PurchaseRequestStatus {
   REJECTED
   CONVERTED
 }
+
+model SystemSequence {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+}
