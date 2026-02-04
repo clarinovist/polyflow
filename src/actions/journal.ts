@@ -30,7 +30,7 @@ export async function createBulkJournals(entries: {
     }
 }
 
-export async function createManualJournal(data: ManualJournalValues) {
+export async function createManualJournal(data: ManualJournalValues, post: boolean = false) {
     const session = await requireAuth();
 
     // Validate Input
@@ -40,7 +40,7 @@ export async function createManualJournal(data: ManualJournalValues) {
     }
 
     try {
-        await AccountingService.createJournalEntry({
+        const result = await AccountingService.createJournalEntry({
             entryDate: data.entryDate,
             description: data.description,
             reference: data.reference ?? "",
@@ -54,6 +54,14 @@ export async function createManualJournal(data: ManualJournalValues) {
                 description: l.description || data.description
             }))
         });
+
+        if (post && result.id) {
+            await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        revalidatePath('/finance/journals');
+        revalidatePath('/finance/reports/balance-sheet');
+        revalidatePath('/finance/reports/trial-balance');
 
         return { success: true };
     } catch (error) {

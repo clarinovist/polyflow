@@ -120,16 +120,17 @@ export async function getBalanceSheet(asOfDate: Date) {
     const totalLiability = liabilities.reduce((sum, a) => sum + a.amount, 0);
     const totalEquity = equity.reduce((sum, a) => sum + a.amount, 0);
 
-    const retainedEarnings = totalAsset - (totalLiability + totalEquity);
+    const calculatedNetIncome = totalAsset - (totalLiability + totalEquity);
 
     return {
         assets,
         liabilities,
         equity,
-        totalAsset,
-        totalLiability,
+        totalAssets: totalAsset,
+        totalLiabilities: totalLiability,
         totalEquity,
-        retainedEarnings
+        calculatedNetIncome,
+        totalLiabilitiesAndEquity: totalLiability + totalEquity + calculatedNetIncome
     };
 }
 

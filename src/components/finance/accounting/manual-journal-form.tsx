@@ -86,27 +86,30 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
         toast.success(`Template "${template.label}" applied`);
     };
 
-    async function onSubmit(data: ManualJournalValues) {
+    async function onSubmit(data: ManualJournalValues, post: boolean) {
         setLoading(true);
         try {
-            const result = await createManualJournal(data);
+            const result = await createManualJournal(data, post);
             if (result.success) {
-                toast.success('Journal Entry created successfully');
-                router.push('/finance/reports/trial-balance');
+                toast.success(post ? 'Journal Entry created and posted successfully' : 'Journal Entry created as DRAFT');
+                router.push('/finance/journals');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Failed to create journal');
             }
         } catch (_error) {
-            toast.error('An error occurred');
+            toast.error('An unexpected error occurred. Please check your data and try again.');
         } finally {
             setLoading(false);
         }
     }
 
+    const handleSaveDraft = form.handleSubmit((data) => onSubmit(data, false));
+    const handleSavePost = form.handleSubmit((data) => onSubmit(data, true));
+
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSaveDraft} className="space-y-6">
 
                 {/* Header Section */}
                 <div className="grid gap-4 md:grid-cols-3">
@@ -352,10 +355,23 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                     </CardContent>
                 </Card>
 
-                <div className="flex justify-end">
-                    <Button type="submit" disabled={loading || !isBalanced}>
+                <div className="flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loading || !isBalanced}
+                        onClick={handleSaveDraft}
+                    >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Journal Entry
+                        Save as Draft
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={loading || !isBalanced}
+                        onClick={handleSavePost}
+                    >
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save & Post
                     </Button>
                 </div>
             </form>
