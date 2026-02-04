@@ -115,16 +115,10 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     });
 
     // Filter products based on selected source location
-    const selectedLocationId = useWatch({ control: form.control, name: 'sourceLocationId' });
+    // Unified types and watching
     const selectedOrderType = useWatch({ control: form.control, name: 'orderType' });
 
-    const filteredProducts = products.filter(p => {
-        if (!selectedLocationId) return true; // Show all if no location selected (or maybe show none?)
-        // Check if product has inventory in the selected location
-        // We show all items "registered" in this location, even if quantity is 0
-        const inventory = p.inventories?.find(i => i.locationId === selectedLocationId);
-        return !!inventory;
-    });
+    const filteredProducts = products;
 
     // Clear customerId if Order Type is MTS
     /* useEffect(() => {
