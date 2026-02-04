@@ -85,7 +85,11 @@ async function main() {
     ]
 
     for (const loc of locations) {
-        await prisma.location.create({ data: loc })
+        await prisma.location.upsert({
+            where: { slug: loc.slug },
+            update: { name: loc.name, description: loc.description },
+            create: loc
+        })
     }
 
     // 2. Suppliers & Customers
