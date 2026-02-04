@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 
+import { JournalActions } from './journal-actions';
+
 interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
 }
@@ -56,6 +58,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                     <Badge variant={journal.status === 'POSTED' ? 'default' : 'secondary'}>
                         {journal.status}
                     </Badge>
+                    <JournalActions id={journal.id} status={journal.status as any} />
                     <Button variant="outline">
                         <Printer className="mr-2 h-4 w-4" /> Print
                     </Button>
