@@ -103,22 +103,22 @@ export async function getBalanceSheet(asOfDate: Date) {
 
     const assets = accounts.filter(a => a.type === 'ASSET').map(a => ({
         ...a,
-        amount: a.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0)
+        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0)
     }));
 
     const liabilities = accounts.filter(a => a.type === 'LIABILITY').map(a => ({
         ...a,
-        amount: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
+        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
     }));
 
     const equity = accounts.filter(a => a.type === 'EQUITY').map(a => ({
         ...a,
-        amount: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
+        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
     }));
 
-    const totalAsset = assets.reduce((sum, a) => sum + a.amount, 0);
-    const totalLiability = liabilities.reduce((sum, a) => sum + a.amount, 0);
-    const totalEquity = equity.reduce((sum, a) => sum + a.amount, 0);
+    const totalAsset = assets.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalLiability = liabilities.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalEquity = equity.reduce((sum, a) => sum + a.netBalance, 0);
 
     const calculatedNetIncome = totalAsset - (totalLiability + totalEquity);
 
