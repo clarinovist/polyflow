@@ -247,21 +247,51 @@ export async function getJournalById(id: string) {
 }
 
 async function generateEntryNumber(date: Date, tx?: Prisma.TransactionClient): Promise<string> {
-    const db = (tx || prisma) as unknown as { systemSequence: Prisma.SystemSequenceDelegate };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = (tx || prisma) as any;
     const year = date.getFullYear();
     const key = `JOURNAL_ENTRY_${year}`;
 
-    // Atomic increment using SystemSequence table
-    const sequence = await db.systemSequence.upsert({
-        where: { key },
-        update: { value: { increment: 1 } },
-        create: { key, value: 2 } // Start at 2 if creating because we'll use 1 for the first result
-    });
+    try {
+        // Try to increment existing sequence
+        const sequence = await db.systemSequence.update({
+            where: { key },
+            data: { value: { increment: 1 } }
+        });
+        const currentVal = Number(sequence.value) - 1;
+        return `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
+    } catch (error) {
+        // Record not found (P2025) means sequence hasn't been initialized for this year
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            const latestEntry = await (tx || prisma).journalEntry.findFirst({
+                where: {
+                    entryDate: {
+                        gte: new Date(year, 0, 1),
+                        lt: new Date(year + 1, 0, 1)
+                    }
+                },
+                orderBy: { entryNumber: 'desc' }
+            });
 
-    // If we just created it, the value in DB is 2, so the current sequence is 1
-    // If we updated it, the value in DB is N, so the current sequence is N-1
-    const currentVal = Number(sequence.value) - 1;
-    const sequenceStr = currentVal.toString().padStart(5, '0');
+            let startValue = 1;
+            if (latestEntry && latestEntry.entryNumber) {
+                // JE - 2026 -00003
+                const parts = latestEntry.entryNumber.split('-');
+                const lastPart = parts[parts.length - 1].trim();
+                const lastNum = parseInt(lastPart, 10);
+                if (!isNaN(lastNum)) {
+                    startValue = lastNum + 1;
+                }
+            }
 
-    return `JE - ${year} -${sequenceStr}`;
+            const sequence = await db.systemSequence.upsert({
+                where: { key },
+                update: { value: { increment: 1 } },
+                create: { key, value: BigInt(startValue + 1) }
+            });
+            const currentVal = Number(sequence.value) - 1;
+            return `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
+        }
+        throw error;
+    }
 }
