@@ -1,7 +1,7 @@
 import { getInventoryStats, getLocations, getProductVariants, getStockMovements } from '@/actions/inventory';
 import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 import { QuickStockCheck } from '@/components/warehouse/inventory/QuickStockCheck';
-import { RecentTransfers } from '@/components/warehouse/inventory/RecentTransfers';
+import { RecentTransfers, StockMovement } from '@/components/warehouse/inventory/RecentTransfers';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
@@ -22,10 +22,10 @@ export default async function WarehouseTransferPage() {
 
     const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
     const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
-    const liveInventorySimple = serializeData(liveInventory) as any;
+    const liveInventorySimple = serializeData(liveInventory) as unknown as { locationId: string; productVariantId: string; quantity: number }[];
 
     // Serialize movements to plain objects for Client Component
-    const recentMovementsSerialized = serializeData(recentMovements) as any;
+    const recentMovementsSerialized = serializeData(recentMovements) as unknown as StockMovement[];
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">

@@ -1,7 +1,7 @@
 import { getOpnameSession } from '@/actions/opname';
 import { auth } from '@/auth';
 import { notFound } from 'next/navigation';
-import { OpnameDetailClient } from '@/components/warehouse/inventory/opname/OpnameDetailClient';
+import { OpnameDetailClient, OpnameSession } from '@/components/warehouse/inventory/opname/OpnameDetailClient';
 import { serializeData } from '@/lib/utils';
 
 interface PageProps {
@@ -16,7 +16,7 @@ export default async function WarehouseOpnameDetailPage({ params }: PageProps) {
         notFound();
     }
 
-    const serializedSession = serializeData(session) as any;
+    const serializedSession = serializeData(session) as unknown as OpnameSession;
 
     const userSession = await auth();
     const currentUserId = userSession?.user?.id || '';

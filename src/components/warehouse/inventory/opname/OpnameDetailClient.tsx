@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { completeOpname } from '@/actions/opname';
 import Link from 'next/link';
 
-interface OpnameItem {
+export interface OpnameItem {
     id: string;
     systemQuantity: number;
     countedQuantity: number | null;
@@ -29,7 +29,7 @@ interface OpnameItem {
     };
 }
 
-interface OpnameSession {
+export interface OpnameSession {
     id: string;
     status: string;
     remarks: string | null;
