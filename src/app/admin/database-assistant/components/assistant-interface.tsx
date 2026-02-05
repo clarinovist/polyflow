@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Send, Terminal, Database, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Loader2, Send, Terminal, Database, AlertCircle, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react';
 
 export function AssistantInterface() {
     const [question, setQuestion] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Analyzing request...');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [result, setResult] = useState<{ sql?: string, data?: any[], error?: string } | null>(null);
     const [history, setHistory] = useState<string[]>([]);
@@ -39,7 +40,16 @@ export function AssistantInterface() {
         if (!question.trim()) return;
 
         setIsLoading(true);
+        setLoadingMessage('Analyzing request...');
         setResult(null);
+
+        const messageTimer = setTimeout(() => {
+            setLoadingMessage('Model is warming up (initial start may take a moment)...');
+        }, 4000);
+
+        const messageTimer2 = setTimeout(() => {
+            setLoadingMessage('Almost there, preparing the analysis engine...');
+        }, 12000);
 
         try {
             const response = await generateAndRunQuery(question);
@@ -55,6 +65,8 @@ export function AssistantInterface() {
         } catch (_err) {
             setResult({ error: "Failed to communicate with the server." });
         } finally {
+            clearTimeout(messageTimer);
+            clearTimeout(messageTimer2);
             setIsLoading(false);
         }
     };
@@ -74,7 +86,14 @@ export function AssistantInterface() {
                                 Ask questions about your data in plain English.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
+                            {!isLoading && (
+                                <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 border border-amber-500/20 rounded px-3 py-1.5 flex items-center gap-2">
+                                    <Sparkles className="h-3 w-3 animate-pulse" />
+                                    <span>First request might take 15-30 seconds as the model initializes.</span>
+                                </div>
+                            )}
+
                             <form onSubmit={handleSubmit} className="flex gap-4">
                                 <Input
                                     placeholder="e.g., Show me the top 5 customers..."
@@ -84,8 +103,17 @@ export function AssistantInterface() {
                                     className="flex-1"
                                 />
                                 <Button type="submit" disabled={isLoading || !question.trim()}>
-                                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                    Ask
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            {loadingMessage}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="mr-2 h-4 w-4" />
+                                            Ask
+                                        </>
+                                    )}
                                 </Button>
                             </form>
 
