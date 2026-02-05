@@ -46,7 +46,7 @@ type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
 };
 
 // Helper type for client-side usage where Decimals are converted to numbers
-type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity'> & {
+type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity' | 'standardCost'> & {
     price: number | null;
     buyPrice: number | null;
     sellPrice: number | null;
@@ -54,6 +54,7 @@ type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sel
     minStockAlert: number | null;
     reorderPoint: number | null;
     reorderQuantity: number | null;
+    standardCost: number | null;
     product: Product;
     inventories: {
         locationId: string;
@@ -123,14 +124,13 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     const filteredProducts = useMemo(() => {
         if (!selectedSourceLocationId) return products;
 
-        // For MTO, we usually show all products as production will fulfill
-        if (selectedOrderType === 'MAKE_TO_ORDER') return products;
+        // Filter by inventory if a sourceLocationId is chosen
 
         // For MTS, only show products that have stock in the selected location
         return products.filter((p: SerializedProductVariant) =>
             p.inventories.some(inv => inv.locationId === selectedSourceLocationId && inv.quantity > 0)
         );
-    }, [products, selectedSourceLocationId, selectedOrderType]);
+    }, [products, selectedSourceLocationId]);
 
     // Clear customerId if Order Type is MTS
     /* useEffect(() => {
@@ -247,7 +247,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                         )}
                                                                     />
                                                                     {customer.name}
-                                                                    {customer.creditLimit && (
+                                                                    {!!customer.creditLimit && (
                                                                         <span className="ml-auto text-xs text-muted-foreground">
                                                                             Limit: {formatRupiah(customer.creditLimit)}
                                                                         </span>
@@ -259,7 +259,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 </Command>
                                             </PopoverContent>
                                         </Popover>
-                                        {selectedCustomer?.creditLimit && (
+                                        {!!selectedCustomer?.creditLimit && (
                                             <div className={cn("text-xs flex justify-between", isOverLimit ? "text-red-500 font-medium" : "text-muted-foreground")}>
                                                 <span>Limit: {formatRupiah(selectedCustomer.creditLimit)}</span>
                                                 {isOverLimit && <span>Exceeds Limit!</span>}

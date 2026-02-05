@@ -33,7 +33,7 @@ export default async function CreateSalesOrderPage() {
                         }))}
                         locations={locations}
                         products={products
-                            .filter(p => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP')
+                            .filter(p => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP' || p.product.productType === 'PACKAGING')
                             .map(p => ({
                                 ...p,
                                 price: p.price ? Number(p.price) : null,
@@ -43,6 +43,7 @@ export default async function CreateSalesOrderPage() {
                                 minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
                                 reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
                                 reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
+                                standardCost: p.standardCost ? Number(p.standardCost) : null,
                                 inventories: p.inventories?.map((inv) => ({
                                     locationId: inv.locationId,
                                     quantity: Number(inv.quantity)
