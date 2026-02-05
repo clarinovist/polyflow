@@ -1,10 +1,8 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import PolyFlowLogo from './polyflow-logo';
 
 export default function BrandPanel() {
-    const t = useTranslations('auth.brand');
 
     return (
         <div className="hidden lg:flex lg:w-1/2 bg-zinc-950 relative overflow-hidden flex-col justify-between p-10">
@@ -79,28 +77,28 @@ export default function BrandPanel() {
                 {/* Brand Header */}
                 <div className="mb-6">
                     <PolyFlowLogo variant="light" size="sm" showText={false} />
-                    <p className="text-zinc-400 text-sm mt-2">{t('polyFlow')}</p>
+                    <p className="text-zinc-400 text-sm mt-2">PolyFlow</p>
                 </div>
 
                 {/* Welcome Text */}
                 <h1 className="text-4xl font-bold text-white mb-4">
-                    {t('welcome')}
+                    Welcome to PolyFlow
                 </h1>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-                    {t('description')}
+                    PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.
                 </p>
                 <p className="text-zinc-500 text-sm">
-                    {t('socialProof', { count: '1K' })}
+                    More than 1K people joined us, it&apos;s your turn
                 </p>
 
                 {/* Feature Card */}
                 <div className="mt-10 bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl p-6">
                     <h3 className="text-white font-semibold text-lg mb-2">
-                        {t('cta')}
+                        Streamline your business operations today
                     </h3>
                     <div className="flex items-center justify-between">
                         <p className="text-zinc-400 text-sm max-w-[200px]">
-                            {t('ctaSub')}
+                            Be among the first entrepreneurs to experience the easiest way to manage a business.
                         </p>
                         {/* Avatar Stack */}
                         <div className="flex -space-x-2">

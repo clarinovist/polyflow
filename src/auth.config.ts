@@ -23,25 +23,23 @@ export const authConfig = {
         authorized({ auth, request: { nextUrl } }) {
             try {
                 const isLoggedIn = !!auth?.user;
+                const pathname = nextUrl.pathname;
 
-                // Strip locale from pathname to normalize checks
-                // Matches /id, /en, /id/..., /en/...
-                const pathWithoutLocale = nextUrl.pathname.replace(/^\/(?:id|en)(?:\/|$)/, '/');
-                // Ensure it starts with / if it became empty string (unlikely with replace logic but safe to be sure)
-                const normalizedPath = pathWithoutLocale === '' ? '/' : pathWithoutLocale;
-
-                const isOnDashboard = normalizedPath.startsWith('/dashboard');
-                const isOnKiosk = normalizedPath.startsWith('/kiosk');
-                const isOnWarehouse = normalizedPath.startsWith('/warehouse');
-                const isOnProduction = normalizedPath.startsWith('/production');
+                const isOnDashboard = pathname.startsWith('/dashboard');
+                const isOnKiosk = pathname.startsWith('/kiosk');
+                const isOnWarehouse = pathname.startsWith('/warehouse');
+                const isOnProduction = pathname.startsWith('/production');
+                const isOnFinance = pathname.startsWith('/finance');
+                const isOnSales = pathname.startsWith('/sales');
+                const isOnPlanning = pathname.startsWith('/planning');
 
                 // Kiosk is public
                 if (isOnKiosk) return true;
 
-                if (isOnDashboard || isOnWarehouse || isOnProduction) {
+                if (isOnDashboard || isOnWarehouse || isOnProduction || isOnFinance || isOnSales || isOnPlanning) {
                     if (isLoggedIn) {
                         // Allow access to logout page to break redirect loops
-                        if (nextUrl.pathname === '/logout') return true;
+                        if (pathname === '/logout') return true;
 
                         const userRole = (auth?.user as { role?: string })?.role;
 
@@ -50,25 +48,20 @@ export const authConfig = {
 
                         // Strict Workspace Isolation
                         if (userRole === 'WAREHOUSE') {
-                            // Warehouse user trying to access Dashboard or Production -> Redirect to Warehouse
-                            if (isOnDashboard || isOnProduction) {
-                                const locale = nextUrl.pathname.split('/')[1];
-                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
-                                return Response.redirect(new URL(`${prefix}/warehouse`, nextUrl));
+                            // Warehouse user trying to access other workspaces -> Redirect to Warehouse
+                            if (!isOnWarehouse) {
+                                return Response.redirect(new URL('/warehouse', nextUrl));
                             }
                         } else if (userRole === 'PRODUCTION') {
-                            // Production user trying to access Warehouse -> Redirect to Production
-                            if (isOnWarehouse) {
-                                const locale = nextUrl.pathname.split('/')[1];
-                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
-                                return Response.redirect(new URL(`${prefix}/production`, nextUrl));
+                            // Production user trying to access other workspaces -> Redirect to Production
+                            if (!isOnProduction) {
+                                return Response.redirect(new URL('/production', nextUrl));
                             }
-                        } else if (userRole === 'FINANCE' || userRole === 'SALES' || userRole === 'PLANNING') {
-                            // These roles stay in /dashboard, but should be blocked from /warehouse and /production
+                        } else if (['FINANCE', 'SALES', 'PLANNING'].includes(userRole || '')) {
+                            // These roles should stay in their respective areas or dashboard
+                            // For now, allow dashboard + sales/finance/planning
                             if (isOnWarehouse || isOnProduction) {
-                                const locale = nextUrl.pathname.split('/')[1];
-                                const prefix = ['id', 'en'].includes(locale) ? `/${locale}` : '';
-                                return Response.redirect(new URL(`${prefix}/dashboard`, nextUrl));
+                                return Response.redirect(new URL('/dashboard', nextUrl));
                             }
                         }
 
@@ -76,28 +69,22 @@ export const authConfig = {
                     }
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {
-                    const isLoginPage = normalizedPath === '/login';
-                    const isRootPage = normalizedPath === '/';
+                    const isLoginPage = pathname === '/login';
+                    const isRootPage = pathname === '/';
 
                     if (isLoginPage || isRootPage) {
                         const userRole = (auth?.user as { role?: string })?.role;
                         let targetPath = '/dashboard';
                         if (userRole === 'WAREHOUSE') targetPath = '/warehouse';
                         if (userRole === 'PRODUCTION') targetPath = '/production';
-                        if (userRole === 'FINANCE') targetPath = '/dashboard';
 
-                        // Construct locale-aware URL
-                        const locale = nextUrl.pathname.split('/')[1];
-                        const hasLocale = ['id', 'en'].includes(locale);
-                        const targetUrlPath = hasLocale ? `/${locale}${targetPath}` : targetPath;
-
-                        return Response.redirect(new URL(targetUrlPath, nextUrl));
+                        return Response.redirect(new URL(targetPath, nextUrl));
                     }
                 }
                 return true;
             } catch (error) {
                 console.error('Authorization callback error:', error);
-                return false; // Deny access on error during auth check
+                return false;
             }
         },
         jwt({ token, user }) {

@@ -1,7 +1,7 @@
 'use client';
 
-import { Link } from '@/i18n/navigation';
-import { usePathname } from '@/i18n/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LucideIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';

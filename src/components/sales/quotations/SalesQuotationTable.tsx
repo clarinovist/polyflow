@@ -13,7 +13,7 @@ import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { SalesQuotation, SalesQuotationStatus, Customer } from '@prisma/client';
 import { FileText } from 'lucide-react';
-import { useRouter } from '@/i18n/navigation';
+import { useRouter } from 'next/navigation';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesQuotation = Omit<SalesQuotation, 'totalAmount'> & {

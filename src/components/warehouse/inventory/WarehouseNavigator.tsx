@@ -26,7 +26,7 @@ export function WarehouseNavigator({
     activeLocationIds,
     totalSkus: _totalSkus,
     totalLowStock: _totalLowStock,
-    basePath = '/dashboard/inventory'
+    basePath = '/warehouse/inventory'
 }: WarehouseNavigatorProps) {
     return (
         <Card className="h-full border-none shadow-none bg-transparent flex flex-col overflow-hidden">

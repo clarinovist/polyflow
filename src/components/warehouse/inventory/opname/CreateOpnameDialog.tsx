@@ -26,7 +26,7 @@ import { createOpnameSession } from '@/actions/opname';
 import { getLocations } from '@/actions/inventory';
 import { useRouter } from 'next/navigation';
 
-export function CreateOpnameDialog({ basePath = '/dashboard/inventory/opname' }: { basePath?: string }) {
+export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }: { basePath?: string }) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     interface Location {

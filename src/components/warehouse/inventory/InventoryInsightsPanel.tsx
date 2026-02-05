@@ -15,21 +15,21 @@ export function InventoryInsightsPanel({ activeLocationId: _activeLocationId, cl
     const actions = [
         {
             label: "Transfer Stock",
-            href: "/dashboard/inventory/transfer",
+            href: "/warehouse/inventory/transfer",
             icon: ArrowLeftRight,
             variant: "outline" as const,
             colorClass: "bg-blue-500/10 text-blue-600 group-hover:bg-blue-500/20"
         },
         {
             label: "Adjust Stock",
-            href: "/dashboard/inventory/adjust",
+            href: "/warehouse/inventory/adjust",
             icon: PackagePlus,
             variant: "outline" as const,
             colorClass: "bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-500/20"
         },
         {
             label: "Stock Opname",
-            href: "/dashboard/inventory/opname",
+            href: "/warehouse/inventory/opname",
             icon: ClipboardCheck,
             variant: "outline" as const,
             colorClass: "bg-purple-500/10 text-purple-600 group-hover:bg-purple-500/20"
@@ -37,14 +37,14 @@ export function InventoryInsightsPanel({ activeLocationId: _activeLocationId, cl
 
         {
             label: "Stock Aging",
-            href: "/dashboard/inventory/aging",
+            href: "/warehouse/inventory/aging",
             icon: Clock,
             variant: "outline" as const,
             colorClass: "bg-orange-500/10 text-orange-600 group-hover:bg-orange-500/20"
         },
         {
             label: "History Logs",
-            href: "/dashboard/inventory/history",
+            href: "/warehouse/inventory/history",
             icon: History,
             variant: "outline" as const,
             colorClass: "bg-amber-500/10 text-amber-600 group-hover:bg-amber-500/20"

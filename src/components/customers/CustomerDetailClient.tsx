@@ -33,7 +33,7 @@ export function CustomerDetailClient({ customer, salesOrders }: CustomerDetailCl
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard/customers">
+                    <Link href="/sales/customers">
                         <Button variant="outline" size="icon">
                             <ChevronLeft className="h-4 w-4" />
                         </Button>

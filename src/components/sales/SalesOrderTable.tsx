@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import { SalesOrder, SalesOrderStatus, Customer, Location } from '@prisma/client';
 import { FileText, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { useRouter } from '@/i18n/navigation';
+import { useRouter } from 'next/navigation';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {

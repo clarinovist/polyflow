@@ -86,7 +86,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                                     </TableCell>
                                     <TableCell>{invoice.salesOrder.customer?.name || 'Internal / MTS'}</TableCell>
                                     <TableCell>
-                                        <Link href={`/dashboard/sales/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
+                                        <Link href={`/sales/orders/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
                                             {invoice.salesOrder.orderNumber}
                                         </Link>
                                     </TableCell>
@@ -96,7 +96,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="sm" asChild>
-                                            <Link href={`/dashboard/sales/${invoice.salesOrderId}`}>
+                                            <Link href={`/sales/orders/${invoice.salesOrderId}`}>
                                                 View <ArrowRight className="ml-2 h-4 w-4" />
                                             </Link>
                                         </Button>

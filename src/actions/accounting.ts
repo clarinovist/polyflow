@@ -56,7 +56,7 @@ export async function createManualJournalEntry(data: CreateJournalEntryInput) {
             createdById: session.user?.id
         });
 
-        revalidatePath('/finance/journal-entries');
+        revalidatePath('/finance/journals');
         return { success: true, data: serializeData(entry) };
     } catch (error) {
         console.error('Failed to create journal entry:', error);

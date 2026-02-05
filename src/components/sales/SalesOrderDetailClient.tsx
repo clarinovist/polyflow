@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt } from 'lucide-react';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import {
     confirmSalesOrder,
     deliverSalesOrder,
@@ -309,6 +309,17 @@ export function SalesOrderDetailClient({
                                     <Receipt className="mr-2 h-4 w-4" /> Generate Invoice
                                 </Button>
                             )}
+                            {!warehouseMode && order.invoices.length > 0 && order.invoices.some(i => i.status === 'DRAFT') && (
+                                <Button
+                                    variant="outline"
+                                    className="border-sky-600 text-sky-600 hover:bg-sky-50"
+                                    asChild
+                                >
+                                    <Link href={`/finance/invoices/sales/${order.invoices.find(i => i.status === 'DRAFT')?.id}`}>
+                                        <Receipt className="mr-2 h-4 w-4" /> View Draft Invoice
+                                    </Link>
+                                </Button>
+                            )}
                         </>
                     )}
 
@@ -419,19 +430,21 @@ export function SalesOrderDetailClient({
                                 {order.invoices && order.invoices.length > 0 ? (
                                     <ul className="space-y-4">
                                         {order.invoices.map((inv) => (
-                                            <li key={inv.id} className="border p-3 rounded-md">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-medium">{inv.invoiceNumber}</span>
-                                                    <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
-                                                        {inv.status}
-                                                    </Badge>
-                                                </div>
-                                                <div className="text-sm text-muted-foreground mb-1">
-                                                    {format(new Date(inv.invoiceDate), 'PP')}
-                                                </div>
-                                                <div className="font-semibold">
-                                                    {formatRupiah(Number(inv.totalAmount))}
-                                                </div>
+                                            <li key={inv.id} className="border p-3 rounded-md hover:bg-muted/50 transition-colors">
+                                                <Link href={`/finance/invoices/sales/${inv.id}`} className="block">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-medium text-blue-600 hover:underline">{inv.invoiceNumber}</span>
+                                                        <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
+                                                            {inv.status}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground mb-1">
+                                                        {format(new Date(inv.invoiceDate), 'PP')}
+                                                    </div>
+                                                    <div className="font-semibold">
+                                                        {formatRupiah(Number(inv.totalAmount))}
+                                                    </div>
+                                                </Link>
                                             </li>
                                         ))}
                                     </ul>

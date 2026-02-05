@@ -44,7 +44,7 @@ export async function updateOverdueStatuses() {
         });
 
         // Revalidate relevant paths to reflect changes in UI
-        revalidatePath('/dashboard/sales');
+        revalidatePath('/sales');
         revalidatePath('/finance/invoices/purchase');
         revalidatePath('/finance'); // Assuming a finance dashboard might exist or be created
 

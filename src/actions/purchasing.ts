@@ -62,7 +62,7 @@ export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
     revalidatePath('/warehouse/incoming');
     revalidatePath(`/warehouse/incoming/create-receipt`);
-    revalidatePath('/dashboard/inventory');
+    revalidatePath('/warehouse/inventory');
     return serializeData(receipt);
 }
 
@@ -72,7 +72,7 @@ export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValue
 
     const invoice = await PurchaseService.createInvoice(validated);
 
-    revalidatePath('/finance/invoices');
+    revalidatePath('/finance/invoices/purchase');
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
 
@@ -86,7 +86,7 @@ export async function recordPurchasePayment(id: string, amount: number) {
     const session = await requireAuth();
     const updated = await PurchaseService.recordPayment(id, amount, session.user.id);
 
-    revalidatePath('/finance/invoices');
+    revalidatePath('/finance/invoices/purchase');
     revalidatePath(`/finance/invoices/${id}`);
     revalidatePath(`/finance/invoices/${id}`);
 

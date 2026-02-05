@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { formatRupiah, cn } from '@/lib/utils';
 import { InvoiceStatus } from '@prisma/client';
-import { Printer, CreditCard, ArrowLeft } from 'lucide-react';
+import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import { updateInvoiceStatus } from '@/actions/invoice';
 import { toast } from 'sonner';
 import {
@@ -86,6 +86,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
             case 'PAID': return 'bg-green-100 text-green-800 hover:bg-green-200';
             case 'PARTIAL': return 'bg-amber-100 text-amber-800 hover:bg-amber-200';
             case 'UNPAID': return 'bg-slate-100 text-slate-800 hover:bg-slate-200';
+            case 'DRAFT': return 'bg-sky-50 text-sky-700 border-sky-100';
             case 'OVERDUE' as InvoiceStatus: return 'bg-red-100 text-red-800 hover:bg-red-200';
             case 'CANCELLED': return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
             default: return 'bg-gray-100 text-gray-800';
@@ -155,6 +156,35 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {invoice.status === 'DRAFT' && (
+                        <Button
+                            className="bg-sky-600 hover:bg-sky-700 text-white"
+                            onClick={async () => {
+                                setIsUpdating(true);
+                                try {
+                                    const result = await updateInvoiceStatus({
+                                        id: invoice.id,
+                                        status: 'UNPAID'
+                                    });
+                                    if (result.success) {
+                                        toast.success('Invoice confirmed successfully');
+                                        router.refresh();
+                                    } else {
+                                        toast.error(result.error || 'Failed to confirm invoice');
+                                    }
+                                } catch (_error) {
+                                    toast.error('An unexpected error occurred');
+                                } finally {
+                                    setIsUpdating(false);
+                                }
+                            }}
+                            disabled={isUpdating}
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Confirm Invoice
+                        </Button>
+                    )}
+
                     <Button variant="outline" onClick={() => window.print()}>
                         <Printer className="mr-2 h-4 w-4" />
                         Print

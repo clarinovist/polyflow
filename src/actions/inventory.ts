@@ -38,8 +38,8 @@ export async function transferStock(data: TransferStockValues, _userId?: string)
 
     try {
         await InventoryService.transferStock(result.data, currentUserId);
-        revalidatePath('/dashboard/inventory');
-        revalidatePath('/dashboard/inventory/history');
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
         console.error("Transfer Error", error);
@@ -58,8 +58,8 @@ export async function transferStockBulk(data: BulkTransferStockValues, _userId?:
 
     try {
         await InventoryService.transferStockBulk(result.data, currentUserId);
-        revalidatePath('/dashboard/inventory');
-        revalidatePath('/dashboard/inventory/history');
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
         console.error("Bulk Transfer Error", error);
@@ -78,8 +78,8 @@ export async function adjustStock(data: AdjustStockWithBatchValues, _userId?: st
 
     try {
         await InventoryService.adjustStock(result.data, currentUserId);
-        revalidatePath('/dashboard/inventory');
-        revalidatePath('/dashboard/inventory/history');
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -97,8 +97,8 @@ export async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: str
 
     try {
         await InventoryService.adjustStockBulk(result.data, currentUserId);
-        revalidatePath('/dashboard/inventory');
-        revalidatePath('/dashboard/inventory/history');
+        revalidatePath('/warehouse/inventory');
+        revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -110,7 +110,7 @@ export async function updateThreshold(productVariantId: string, minStockAlert: n
     try {
         await InventoryService.updateThreshold(productVariantId, minStockAlert);
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/inventory');
+        revalidatePath('/warehouse/inventory');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
@@ -161,7 +161,7 @@ export async function createStockReservation(data: CreateReservationValues) {
 
     try {
         await InventoryService.createStockReservation(result.data);
-        revalidatePath('/dashboard/inventory');
+        revalidatePath('/warehouse/inventory');
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create reservation" };
@@ -177,7 +177,7 @@ export async function cancelStockReservation(data: CancelReservationValues) {
 
     try {
         await InventoryService.cancelStockReservation(result.data);
-        revalidatePath('/dashboard/inventory');
+        revalidatePath('/warehouse/inventory');
         return { success: true };
     } catch (_error) {
         return { success: false, error: "Failed to cancel reservation" };

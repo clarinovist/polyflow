@@ -3,8 +3,6 @@
 import { signIn, signOut } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { defaultLocale, locales, Locale } from '@/i18n/config';
 
 export async function authenticate(
     prevState: string | undefined,
@@ -34,21 +32,7 @@ export async function authenticate(
             redirect: false,
         });
 
-        // Get user to check their preferred locale
-        const { prisma } = await import('@/lib/prisma');
-        const user = await prisma.user.findUnique({
-            where: { email },
-            select: { locale: true }
-        });
-
-        const cookieStore = await cookies();
-        const localeCookie = cookieStore.get('NEXT_LOCALE')?.value;
-
-        // Priority: Stored User Locale > Cookie > Default
-        const locale = user?.locale || (localeCookie && locales.includes(localeCookie as Locale) ? localeCookie : defaultLocale);
-        const localePrefix = `/${locale}`;
-
-        redirect(`${localePrefix}${targetUrl}`);
+        redirect(targetUrl);
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {

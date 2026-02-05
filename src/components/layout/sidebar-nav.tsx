@@ -20,7 +20,8 @@ import {
     PackageSearch,
     Sparkles,
 } from 'lucide-react';
-import { Link, usePathname } from '@/i18n/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
@@ -45,26 +46,23 @@ interface NavItemType {
 
 // Flattened links
 export const sidebarLinks: NavItemType[] = [
-    { title: "navigation.sales", href: "/sales", icon: ShoppingCart },
+    { title: "Sales", href: "/sales", icon: ShoppingCart },
     { title: "Planning", href: "/planning", icon: Truck },
-    { title: "navigation.production", href: "/production", icon: Factory },
-    { title: "navigation.inventory", href: "/warehouse", icon: PackageSearch },
-    { title: "navigation.accounting", href: "/finance", icon: Calculator },
+    { title: "Production", href: "/production", icon: Factory },
+    { title: "Inventory", href: "/warehouse", icon: PackageSearch },
+    { title: "Accounting", href: "/finance", icon: Calculator },
 
     // Master Data
-    { title: "sidebar.productCatalog", href: "/dashboard/products", icon: Package },
-    { title: "sidebar.boms", href: "/dashboard/boms", icon: Files },
-    { title: "sidebar.machines", href: "/dashboard/machines", icon: Settings2 },
-    { title: "sidebar.employees", href: "/dashboard/employees", icon: Users },
+    { title: "Product Catalog", href: "/dashboard/products", icon: Package },
+    { title: "BOMs", href: "/dashboard/boms", icon: Files },
+    { title: "Machines", href: "/dashboard/machines", icon: Settings2 },
+    { title: "Employees", href: "/dashboard/employees", icon: Users },
 
     // Tools
     { title: "AI Assistant (Beta)", href: "/admin/database-assistant", icon: Sparkles },
 ];
 
-import { useTranslations } from 'next-intl';
-
 export function SidebarNav({ user, permissions }: SidebarNavProps) {
-    const t = useTranslations();
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -149,7 +147,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                                 key={item.href}
                                 href={item.href}
                                 icon={item.icon}
-                                label={item.title.includes('.') ? t(item.title) : item.title}
+                                label={item.title}
                                 pathname={pathname}
                             />
                         ))}

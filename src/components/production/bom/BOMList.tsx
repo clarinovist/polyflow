@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Plus } from 'lucide-react';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     Table,
