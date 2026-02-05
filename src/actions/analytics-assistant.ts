@@ -21,12 +21,18 @@ Database Schema (PostgreSQL/Prisma):
 - SalesOrder(id, orderNumber, customerId, totalAmount, status, orderDate)
 - SalesOrderItem(id, salesOrderId, productVariantId, quantity, unitPrice)
 - Product(id, name, productType)
-- ProductVariant(id, productId, name, price, stockLevel)
+- ProductVariant(id, productId, name, price)
 - Inventory(id, productVariantId, locationId, quantity)
 - Machine(id, code, name, status, locationId)
-- ProductionOrder(id, orderNumber, machineId, productVariantId, quantity, status)
+- ProductionOrder(id, orderNumber, machineId, bomId, plannedQuantity, status)
+- Bom(id, productVariantId, outputQuantity)
+- BomItem(id, bomId, productVariantId, quantity)
 - Location(id, name, slug)
 - Invoice(id, invoiceNumber, salesOrderId, totalAmount, status)
+
+RELATIONSHIPS:
+- ProductionOrder linked to ProductVariant via Bom: ProductionOrder.bomId -> Bom.id, then Bom.productVariantId -> ProductVariant.id
+- Product stock is in Inventory table, NOT in ProductVariant.
 `;
 
 export async function generateAndRunQuery(question: string) {
