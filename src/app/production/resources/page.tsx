@@ -69,12 +69,12 @@ export default async function ProductionResourcesPage() {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {employees.map((emp) => (
-                            <div key={emp.id} className="flex items-center p-3 rounded-lg border border-zinc-200 bg-white/50 space-x-4">
+                            <div key={emp.id} className="flex items-center p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 space-x-4">
                                 <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold">
                                     {emp.name?.charAt(0) || 'E'}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-zinc-900 truncate">{emp.name}</p>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">{emp.name}</p>
                                     <div className="flex items-center text-xs text-muted-foreground">
                                         <Hash className="mr-1 h-3 w-3 shrink-0" />
                                         <span className="truncate">{emp.code}</span>
@@ -82,7 +82,9 @@ export default async function ProductionResourcesPage() {
                                 </div>
                                 <Badge
                                     variant={emp.status === 'ACTIVE' ? 'outline' : 'secondary'}
-                                    className={emp.status === 'ACTIVE' ? "text-[9px] bg-emerald-50 text-emerald-600 border-emerald-100" : "text-[9px]"}
+                                    className={emp.status === 'ACTIVE'
+                                        ? "text-[9px] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50"
+                                        : "text-[9px]"}
                                 >
                                     {emp.status}
                                 </Badge>
