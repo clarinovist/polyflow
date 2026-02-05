@@ -94,7 +94,7 @@ export default async function ProductionMachinesPage() {
                 <p className="text-muted-foreground">Live status of all production assets on the floor.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-10">
                 {machines.map((machine: SerializedMachine) => {
                     const activeExecution = machine.executions[0];
                     const activeOrder = activeExecution?.productionOrder;
