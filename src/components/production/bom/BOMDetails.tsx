@@ -102,8 +102,12 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Status</div>
                                 <div>
                                     {bom.isDefault ? (
-                                        <Badge variant="secondary" className="text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
-                                            Default Recipe
+                                        <Badge className="text-[10px] h-5 px-1.5 font-bold bg-green-500/15 text-green-600 hover:bg-green-500/25 border-green-500/20 gap-1">
+                                            <span className="relative flex h-1.5 w-1.5 mr-0.5">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                                            </span>
+                                            ACTIVE RECIPE
                                         </Badge>
                                     ) : (
                                         <Badge variant="outline">

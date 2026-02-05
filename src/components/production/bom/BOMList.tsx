@@ -118,8 +118,12 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="font-medium text-sm">{bom.name}</span>
                                                                     {bom.isDefault && (
-                                                                        <Badge variant="secondary" className="text-xs h-5 px-1.5 font-normal">
-                                                                            Default
+                                                                        <Badge className="text-[10px] h-5 px-1.5 font-bold bg-green-500/15 text-green-600 hover:bg-green-500/25 border-green-500/20 gap-1">
+                                                                            <span className="relative flex h-1.5 w-1.5 mr-0.5">
+                                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                                                                            </span>
+                                                                            ACTIVE
                                                                         </Badge>
                                                                     )}
                                                                 </div>
