@@ -33,7 +33,7 @@ import { cn, formatRupiah } from '@/lib/utils';
 import { CalendarIcon, Plus, Trash2, Loader2, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
@@ -72,11 +72,12 @@ interface SalesOrderFormProps {
 export function SalesOrderForm({ customers, locations, products, mode, initialData }: SalesOrderFormProps) {
     const router = useRouter();
     const [openCustomer, setOpenCustomer] = useState(false);
+    const [openProduct, setOpenProduct] = useState<Record<number, boolean>>({});
 
-    // Filter locations for MTS constraint (Finished Good & Scrap only)
+    // Filter locations for MTS constraint (Finished Good, Scrap & Packing)
     const validLocations = locations.filter(l =>
-        l.slug?.includes('finished') || l.slug?.includes('scrap') ||
-        l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap')
+        l.slug?.includes('finished') || l.slug?.includes('scrap') || l.slug?.includes('packing') ||
+        l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap') || l.name.toLowerCase().includes('packing')
     );
 
     // Unified type to satisfy react-hook-form's need for a consistent generic standard
@@ -116,9 +117,20 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
     // Filter products based on selected source location
     // Unified types and watching
+    const selectedSourceLocationId = useWatch({ control: form.control, name: 'sourceLocationId' });
     const selectedOrderType = useWatch({ control: form.control, name: 'orderType' });
 
-    const filteredProducts = products;
+    const filteredProducts = useMemo(() => {
+        if (!selectedSourceLocationId) return products;
+
+        // For MTO, we usually show all products as production will fulfill
+        if (selectedOrderType === 'MAKE_TO_ORDER') return products;
+
+        // For MTS, only show products that have stock in the selected location
+        return products.filter((p: SerializedProductVariant) =>
+            p.inventories.some(inv => inv.locationId === selectedSourceLocationId && inv.quantity > 0)
+        );
+    }, [products, selectedSourceLocationId, selectedOrderType]);
 
     // Clear customerId if Order Type is MTS
     /* useEffect(() => {
@@ -461,20 +473,71 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 name={`items.${index}.productVariantId`}
                                                 render={({ field, fieldState }) => (
                                                     <div className="flex items-center gap-2">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <SelectTrigger className="border-0 shadow-none bg-transparent h-auto p-2 w-[300px]">
-                                                                <div className="truncate text-left font-medium">
-                                                                    <SelectValue placeholder="Select Product" />
-                                                                </div>
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {filteredProducts.map((p) => (
-                                                                    <SelectItem key={p.id} value={p.id}>
-                                                                        {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`} ({p.skuCode})
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <Popover
+                                                            open={openProduct[index]}
+                                                            onOpenChange={(open) => setOpenProduct(prev => ({ ...prev, [index]: open }))}
+                                                        >
+                                                            <PopoverTrigger asChild>
+                                                                <FormControl>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        role="combobox"
+                                                                        className={cn(
+                                                                            "w-[300px] justify-between border-0 shadow-none bg-transparent h-auto p-2 font-medium hover:bg-muted/50",
+                                                                            !field.value && "text-muted-foreground"
+                                                                        )}
+                                                                    >
+                                                                        <div className="truncate text-left">
+                                                                            {field.value
+                                                                                ? (() => {
+                                                                                    const p = filteredProducts.find((p: SerializedProductVariant) => p.id === field.value);
+                                                                                    return p ? (p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`) : "Select Product";
+                                                                                })()
+                                                                                : "Select Product"}
+                                                                        </div>
+                                                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                    </Button>
+                                                                </FormControl>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-[400px] p-0" align="start">
+                                                                <Command>
+                                                                    <CommandInput placeholder="Search product..." />
+                                                                    <CommandList>
+                                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                                        <CommandGroup>
+                                                                            {filteredProducts.map((p: SerializedProductVariant) => (
+                                                                                <CommandItem
+                                                                                    key={p.id}
+                                                                                    value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
+                                                                                    onSelect={() => {
+                                                                                        form.setValue(`items.${index}.productVariantId`, p.id);
+                                                                                        // Also update unit price if it's 0 or not set
+                                                                                        const currentPrice = form.getValues(`items.${index}.unitPrice`);
+                                                                                        if (!currentPrice || currentPrice === 0) {
+                                                                                            form.setValue(`items.${index}.unitPrice`, p.sellPrice || 0);
+                                                                                        }
+                                                                                        setOpenProduct(prev => ({ ...prev, [index]: false }));
+                                                                                    }}
+                                                                                >
+                                                                                    <Check
+                                                                                        className={cn(
+                                                                                            "mr-2 h-4 w-4",
+                                                                                            p.id === field.value
+                                                                                                ? "opacity-100"
+                                                                                                : "opacity-0"
+                                                                                        )}
+                                                                                    />
+                                                                                    <div className="flex flex-col">
+                                                                                        <span>{p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`}</span>
+                                                                                        <span className="text-xs text-muted-foreground">{p.skuCode} • {formatRupiah(p.sellPrice || 0)}</span>
+                                                                                    </div>
+                                                                                </CommandItem>
+                                                                            ))}
+                                                                        </CommandGroup>
+                                                                    </CommandList>
+                                                                </Command>
+                                                            </PopoverContent>
+                                                        </Popover>
                                                         {fieldState.error && (
                                                             <span className="text-xs text-destructive whitespace-nowrap">{fieldState.error.message}</span>
                                                         )}
