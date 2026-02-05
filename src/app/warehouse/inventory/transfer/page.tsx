@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { Metadata } from 'next';
+import { serializeData } from '@/lib/utils';
 
 export const metadata: Metadata = {
     title: 'Stock Transfer | PolyFlow Warehouse',
@@ -21,11 +22,10 @@ export default async function WarehouseTransferPage() {
 
     const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
     const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));
-    const liveInventorySimple = liveInventory.map(i => ({
-        locationId: i.locationId,
-        productVariantId: i.productVariantId,
-        quantity: i.quantity.toNumber(),
-    }));
+    const liveInventorySimple = serializeData(liveInventory) as any;
+
+    // Serialize movements to plain objects for Client Component
+    const recentMovementsSerialized = serializeData(recentMovements) as any;
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
@@ -64,7 +64,7 @@ export default async function WarehouseTransferPage() {
                     />
 
                     <RecentTransfers
-                        movements={recentMovements}
+                        movements={recentMovementsSerialized}
                     />
                 </div>
             </div>

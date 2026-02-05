@@ -4,12 +4,17 @@ import { getSuppliers } from '@/actions/supplier';
 import { OpeningBalanceForm } from '@/components/finance/OpeningBalanceForm';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { serializeData } from '@/lib/utils';
 
 export default async function OpeningBalancePage() {
-    const [customers, suppliers] = await Promise.all([
+    const [customersData, suppliersData] = await Promise.all([
         getCustomers(),
         getSuppliers()
     ]);
+
+    // Serialize Decimal objects for Client Components
+    const customers = serializeData(customersData);
+    const suppliers = serializeData(suppliersData);
 
     return (
         <div className="container mx-auto py-8">

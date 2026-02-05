@@ -2,6 +2,7 @@ import { getOpnameSession } from '@/actions/opname';
 import { auth } from '@/auth';
 import { notFound } from 'next/navigation';
 import { OpnameDetailClient } from '@/components/warehouse/inventory/opname/OpnameDetailClient';
+import { serializeData } from '@/lib/utils';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -15,25 +16,7 @@ export default async function WarehouseOpnameDetailPage({ params }: PageProps) {
         notFound();
     }
 
-    const serializedSession = {
-        ...session,
-        items: session.items.map((item) => ({
-            ...item,
-            systemQuantity: item.systemQuantity.toNumber(),
-            countedQuantity: item.countedQuantity ? item.countedQuantity.toNumber() : null,
-            productVariant: {
-                ...item.productVariant,
-                price: item.productVariant.price?.toNumber() || 0,
-                buyPrice: item.productVariant.buyPrice?.toNumber() || 0,
-                sellPrice: item.productVariant.sellPrice?.toNumber() || 0,
-                conversionFactor: item.productVariant.conversionFactor.toNumber(),
-                minStockAlert: item.productVariant.minStockAlert?.toNumber() || 0,
-                reorderPoint: item.productVariant.reorderPoint?.toNumber() || 0,
-                reorderQuantity: item.productVariant.reorderQuantity?.toNumber() || 0,
-                standardCost: item.productVariant.standardCost?.toNumber() || 0,
-            }
-        })),
-    };
+    const serializedSession = serializeData(session) as any;
 
     const userSession = await auth();
     const currentUserId = userSession?.user?.id || '';
