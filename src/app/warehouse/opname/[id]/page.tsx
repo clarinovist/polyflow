@@ -30,6 +30,7 @@ export default async function WarehouseOpnameDetailPage({ params }: PageProps) {
                 minStockAlert: item.productVariant.minStockAlert?.toNumber() || 0,
                 reorderPoint: item.productVariant.reorderPoint?.toNumber() || 0,
                 reorderQuantity: item.productVariant.reorderQuantity?.toNumber() || 0,
+                standardCost: item.productVariant.standardCost?.toNumber() || 0,
             }
         })),
     };
