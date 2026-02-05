@@ -21,6 +21,8 @@ export type ProductWithVariantsAndStock = {
         salesUnit: Unit | null;
         conversionFactor: Prisma.Decimal;
         price: Prisma.Decimal | null;
+        standardCost: Prisma.Decimal | null;
+        buyPrice: Prisma.Decimal | null;
         minStockAlert: Prisma.Decimal | null;
         _count: {
             inventories: number;

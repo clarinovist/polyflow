@@ -34,6 +34,8 @@ type ProductVariant = {
     salesUnit: Unit | null;
     conversionFactor: Prisma.Decimal;
     price: Prisma.Decimal | null;
+    standardCost: Prisma.Decimal | null;
+    buyPrice: Prisma.Decimal | null;
     minStockAlert: Prisma.Decimal | null;
     stock: number;
     _count: {
@@ -159,7 +161,27 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                         </Tooltip>
                                     </div>
                                 </TableHead>
-                                {showPrices && <TableHead className="text-right">Price</TableHead>}
+                                {showPrices && (
+                                    <>
+                                        <TableHead className="text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-1">
+                                                Standard Cost
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs text-xs">
+                                                            Unit cost calculated from the Bill of Materials (Recipe).
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Buy Price</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Catalog</TableHead>
+                                    </>
+                                )}
                                 <TableHead className="text-right pr-6">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -206,9 +228,44 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                         </div>
                                     </TableCell>
                                     {showPrices && (
-                                        <TableCell className="text-right font-bold text-sm tracking-tight tabular-nums">
-                                            {variant.price ? formatRupiah(Number(variant.price)) : '-'}
-                                        </TableCell>
+                                        <>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span className={variant.standardCost ? "text-primary font-bold" : "text-muted-foreground"}>
+                                                        {variant.standardCost ? formatRupiah(Number(variant.standardCost)) : '-'}
+                                                    </span>
+                                                    {variant.standardCost && (
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1 bg-primary/5 text-primary border-primary/20">
+                                                            FROM RECIPE
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span className={!variant.standardCost && variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
+                                                        {variant.buyPrice ? formatRupiah(Number(variant.buyPrice)) : '-'}
+                                                    </span>
+                                                    {!variant.standardCost && variant.buyPrice && (
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
+                                                            LAST BUY
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-xs tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span className={!variant.standardCost && !variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
+                                                        {variant.price ? formatRupiah(Number(variant.price)) : '-'}
+                                                    </span>
+                                                    {!variant.standardCost && !variant.buyPrice && variant.price && (
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
+                                                            CATALOG
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </>
                                     )}
                                     <TableCell className="text-right pr-6">
                                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
