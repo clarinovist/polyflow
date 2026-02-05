@@ -96,7 +96,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
             } else {
                 toast.error(res.error || 'Failed to save');
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error('An unexpected error occurred');
         } finally {
             setIsSubmitting(false);
@@ -134,7 +134,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                         </SelectContent>
                                     </Select>
                                     <FormDescription>
-                                        Select 'Receivable' if someone implies money to you. Select 'Payable' if you owe money.
+                                        Select &apos;Receivable&apos; if someone implies money to you. Select &apos;Payable&apos; if you owe money.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
