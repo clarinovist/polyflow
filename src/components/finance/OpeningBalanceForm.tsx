@@ -43,9 +43,11 @@ const formSchema = z.object({
     invoiceNumber: z.string().min(1, 'Invoice Number is required'),
     date: z.date(),
     dueDate: z.date(),
-    amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
+    amount: z.number().min(1, 'Amount must be greater than 0'),
     notes: z.string().optional(),
 });
+
+type OpeningBalanceFormValues = z.infer<typeof formSchema>;
 
 interface OpeningBalanceFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,7 +60,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
 
-    const form = useForm<z.infer<typeof formSchema>>({
+    const form = useForm<OpeningBalanceFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             type: 'AR',
@@ -75,7 +77,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
     const entityList = type === 'AR' ? customers : suppliers;
     const entityLabel = type === 'AR' ? 'Customer' : 'Supplier';
 
-    async function onSubmit(values: z.infer<typeof formSchema>) {
+    async function onSubmit(values: OpeningBalanceFormValues) {
         setIsSubmitting(true);
         try {
             const res = await createOpeningBalance(values);
@@ -270,7 +272,13 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                 <FormItem>
                                     <FormLabel>Outstanding Amount (IDR)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="100" placeholder="0" {...field} />
+                                        <Input
+                                            type="number"
+                                            step="100"
+                                            placeholder="0"
+                                            value={field.value}
+                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                        />
                                     </FormControl>
                                     <FormDescription>
                                         Enter the remaining unpaid amount for this invoice.

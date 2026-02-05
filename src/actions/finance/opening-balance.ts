@@ -65,7 +65,7 @@ async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: s
             orderNumber: `SO-OPEN-${data.invoiceNumber}`,
             customerId: data.entityId,
             orderDate: data.date,
-            status: SalesOrderStatus.COMPLETED, // Mark as completed so it doesn't show up in pending lists
+            status: SalesOrderStatus.DELIVERED, // Mark as delivered so it doesn't show up in pending lists
             orderType: SalesOrderType.MAKE_TO_STOCK, // Generic
             totalAmount: data.amount,
             notes: 'Opening Balance Entry',
@@ -123,7 +123,7 @@ async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: s
             orderNumber: `PO-OPEN-${data.invoiceNumber}`,
             supplierId: data.entityId,
             orderDate: data.date,
-            status: PurchaseOrderStatus.COMPLETED,
+            status: PurchaseOrderStatus.RECEIVED,
             totalAmount: data.amount,
             notes: 'Opening Balance Entry',
             createdById: userId,
