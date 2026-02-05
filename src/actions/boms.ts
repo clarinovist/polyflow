@@ -89,9 +89,11 @@ export async function createBom(data: CreateBomValues) {
 
         if (createdBom) {
             const totalCost = calculateBomCost(createdBom.items);
+            const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
+
             await prisma.productVariant.update({
                 where: { id: validated.productVariantId },
-                data: { standardCost: totalCost }
+                data: { standardCost: unitCost }
             });
         }
 
@@ -176,10 +178,11 @@ export async function updateBom(id: string, data: CreateBomValues) {
             });
 
             const totalCost = calculateBomCost(newItemsWithCosts);
+            const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
 
             await tx.productVariant.update({
                 where: { id: validated.productVariantId },
-                data: { standardCost: totalCost }
+                data: { standardCost: unitCost }
             });
 
             return updatedBom;
