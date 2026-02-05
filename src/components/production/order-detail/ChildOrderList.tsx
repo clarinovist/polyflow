@@ -31,14 +31,20 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
     // 2. Identify existing child orders
     const childOrders = order.childOrders || [];
 
-    // 3. Find shortages (Intermediates that don't have enough Child Orders covering them)
-    // Map material -> total qty covered by child orders
+    // 3. Map material -> total qty covered by child orders
     const coverageMap = new Map<string, number>();
     childOrders.forEach(co => {
         // We assume the Child WO produces the same Variant as its BOM Output
         const producedVariantId = co.bom.productVariantId;
         const current = coverageMap.get(producedVariantId) || 0;
         coverageMap.set(producedVariantId, current + Number(co.plannedQuantity));
+    });
+
+    // 4. Map material -> total qty issued (manual issues satisfy production requirement)
+    const issuedMap = new Map<string, number>();
+    order.materialIssues?.forEach(mi => {
+        const current = issuedMap.get(mi.productVariantId) || 0;
+        issuedMap.set(mi.productVariantId, current + Number(mi.quantity));
     });
 
     const handleCreateSubOrder = async (materialId: string, quantity: number, variantName: string) => {
@@ -74,8 +80,9 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                 {/* Section 1: Missing / Required Sub-Orders */}
                 {intermediateMaterials.map(mat => {
                     const coveredQty = coverageMap.get(mat.productVariantId) || 0;
+                    const issuedQty = issuedMap.get(mat.productVariantId) || 0;
                     const requiredQty = Number(mat.quantity);
-                    const shortage = requiredQty - coveredQty;
+                    const shortage = requiredQty - coveredQty - issuedQty;
 
                     if (shortage <= 0.001) return null; // Fully covered
 

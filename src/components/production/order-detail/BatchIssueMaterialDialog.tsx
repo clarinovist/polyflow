@@ -12,6 +12,7 @@ import { transferStockBulk, getRealtimeStock, adjustStock } from '@/actions/inve
 import { toast } from 'sonner';
 import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft, RefreshCw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
@@ -35,7 +36,29 @@ export function BatchIssueMaterialDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [selectedLocation, setSelectedLocation] = useState(order.machine?.locationId || locations[0]?.id);
+
+    // Refined default location logic
+    const defaultSourceLocationId = useMemo(() => {
+        // 1. If it's an EXTRUSION order, source should be Mixing Area
+        if (order.bom?.category === 'EXTRUSION') {
+            const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
+            if (mixingLoc) return mixingLoc.id;
+        }
+        // 2. If it's a MIXING order, source should be Raw Material Warehouse
+        if (order.bom?.category === 'MIXING') {
+            const rmLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
+            if (rmLoc) return rmLoc.id;
+        }
+        // 3. If it's a PACKING order, source should be Finished Goods Warehouse
+        if (order.bom?.category === 'PACKING') {
+            const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
+            if (fgLoc) return fgLoc.id;
+        }
+        // Fallback: Machine Location or first available
+        return order.machine?.locationId || locations[0]?.id;
+    }, [order, locations]);
+
+    const [selectedLocation, setSelectedLocation] = useState(defaultSourceLocationId);
     const router = useRouter();
 
     // Check if mixing based on machine type OR bom category

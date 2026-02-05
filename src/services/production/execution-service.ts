@@ -172,18 +172,31 @@ export class ProductionExecutionService {
 
             // Backflush
             if (order.bom && order.bom.items.length > 0) {
+                // Determine Backflush Source Location
+                let consumptionLocationId = locationId; // Default to order location
+                if (order.bom.category === 'EXTRUSION') {
+                    const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
+                    if (mixingLoc) consumptionLocationId = mixingLoc.id;
+                } else if (order.bom.category === 'MIXING') {
+                    const rmLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
+                    if (rmLoc) consumptionLocationId = rmLoc.id;
+                } else if (order.bom.category === 'PACKING') {
+                    const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+                    if (fgLoc) consumptionLocationId = fgLoc.id;
+                }
+
                 for (const item of order.bom.items) {
                     const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
                     const qtyToDeduct = quantityProduced * ratio;
 
                     if (qtyToDeduct > 0.0001) {
-                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
-                        await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                         const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
-                                fromLocationId: locationId,
+                                fromLocationId: consumptionLocationId,
                                 quantity: qtyToDeduct,
                                 reference: `Backflush (Partial): WO#${order.orderNumber}`
                             }
@@ -283,17 +296,30 @@ export class ProductionExecutionService {
 
             // Backflush
             if (order.bom && order.bom.items.length > 0) {
+                // Determine Backflush Source Location
+                let consumptionLocationId = locationId; // Default to order location
+                if (order.bom.category === 'EXTRUSION') {
+                    const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
+                    if (mixingLoc) consumptionLocationId = mixingLoc.id;
+                } else if (order.bom.category === 'MIXING') {
+                    const rmLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
+                    if (rmLoc) consumptionLocationId = rmLoc.id;
+                } else if (order.bom.category === 'PACKING') {
+                    const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+                    if (fgLoc) consumptionLocationId = fgLoc.id;
+                }
+
                 for (const item of order.bom.items) {
                     const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
                     const qtyToDeduct = quantityProduced * ratio;
                     if (qtyToDeduct > 0.0001) {
-                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qtyToDeduct);
-                        await InventoryService.deductStock(tx, locationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                         const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
-                                fromLocationId: locationId,
+                                fromLocationId: consumptionLocationId,
                                 quantity: qtyToDeduct,
                                 reference: `Backflush (Batch): WO#${order.orderNumber}`
                             }
