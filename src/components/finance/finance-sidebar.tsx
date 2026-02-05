@@ -10,7 +10,8 @@ import {
     Calendar,
     Building2,
     BarChart3,
-    Calculator
+    Calculator,
+    History
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -52,6 +53,7 @@ const financeLinks = [
             { href: '/finance/coa', icon: Settings2, label: 'Chart of Accounts' },
             { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
             { href: '/finance/assets', icon: Building2, label: 'Fixed Assets' },
+            { href: '/dashboard/finance/opening-balance', icon: History, label: 'Opening Balance Setup' },
             { href: '/finance/budget', icon: BarChart3, label: 'Budgeting' },
         ],
     },
