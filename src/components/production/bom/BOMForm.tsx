@@ -189,7 +189,7 @@ export function BOMForm({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Production Stage (Category)</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select Stage" />
