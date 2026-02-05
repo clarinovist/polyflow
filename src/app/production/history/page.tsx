@@ -80,13 +80,13 @@ export default async function ProductionHistoryPage() {
                                         <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{exec.productionOrder.bom.name}</div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className="text-[10px] bg-zinc-50">{exec.machine?.code || 'N/A'}</Badge>
+                                        <Badge variant="outline" className="text-[10px] bg-zinc-50 dark:bg-zinc-900/50 dark:border-zinc-800">{exec.machine?.code || 'N/A'}</Badge>
                                     </TableCell>
                                     <TableCell className="text-xs">
                                         {exec.operator?.name || 'Automated'}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <span className="font-bold text-emerald-600">
+                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
                                             {Number(exec.quantityProduced || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>
