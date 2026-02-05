@@ -24,19 +24,25 @@ import { Plus, Trash2, Users } from 'lucide-react';
 import { addProductionShift, deleteProductionShift } from '@/actions/production';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Employee, ProductionShift, WorkShift, Machine } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface ShiftManagerProps {
     orderId: string;
-    shifts: (ProductionShift & { operator: Employee | null; helpers: Employee[] })[];
-    operators: Employee[];
-    helpers: Employee[];
+    shifts: {
+        id: string;
+        shiftName: string;
+        startTime: Date | string;
+        endTime: Date | string;
+        operator: { id: string; name: string | null; code: string } | null;
+        helpers: { id: string; name: string | null; code: string }[];
+    }[];
+    operators: { id: string; name: string | null; code: string }[];
+    helpers: { id: string; name: string | null; code: string }[];
 
     readOnly?: boolean;
-    workShifts: WorkShift[];
-    machines: Machine[];
+    workShifts: { id: string; name: string; startTime: string; endTime: string; status: string }[];
+    machines: { id: string; name: string; code: string }[];
 }
 
 export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, workShifts, machines }: ShiftManagerProps) {
@@ -136,11 +142,11 @@ function AddShiftDialog({
     machines
 }: {
     orderId: string;
-    operators: Employee[];
-    helpers: Employee[];
+    operators: { id: string; name: string | null; code: string }[];
+    helpers: { id: string; name: string | null; code: string }[];
     onOpenChange: (open: boolean) => void;
-    workShifts: WorkShift[];
-    machines: Machine[];
+    workShifts: { id: string; name: string; startTime: string; endTime: string; status: string }[];
+    machines: { id: string; name: string; code: string }[];
 }) {
     const [open, setOpen] = useState(false);
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);

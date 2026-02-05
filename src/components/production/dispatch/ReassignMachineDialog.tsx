@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Machine } from '@prisma/client';
 import { updateProductionOrder } from '@/actions/production';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -16,7 +15,7 @@ interface ReassignMachineDialogProps {
     orderId: string;
     orderNumber: string;
     currentMachineId: string | null;
-    machines: Machine[];
+    machines: { id: string; name: string; code: string }[];
 }
 
 export function ReassignMachineDialog({
@@ -50,8 +49,8 @@ export function ReassignMachineDialog({
                 toast.error(result.error || 'Failed to reassign machine');
             }
         } catch (err) {
-                console.error(err);
-                toast.error('An error occurred during reassignment');
+            console.error(err);
+            toast.error('An error occurred during reassignment');
         } finally {
             setIsPending(false);
         }

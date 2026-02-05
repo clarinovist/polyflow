@@ -2,13 +2,14 @@ import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Send, Clock, Factory, User, ChevronRight } from 'lucide-react';
-import { ProductionStatus } from '@prisma/client';
+import { ProductionStatus, Employee, Machine, WorkShift } from '@prisma/client';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import ReassignMachineButton from '@/components/production/ReassignMachineButton';
 import { ShiftManager } from '@/components/production/ShiftManager';
+import { serializeData, cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +38,50 @@ export default async function ProductionDispatchPage() {
     });
 
     // Fetch supporting resources for client components
-    const machines = await prisma.machine.findMany({ include: { location: true }, orderBy: { code: 'asc' } });
-    const employees = await prisma.employee.findMany({ orderBy: { name: 'asc' } });
-    const workShifts = await prisma.workShift.findMany({ orderBy: { startTime: 'asc' } });
+    const machinesRaw = await prisma.machine.findMany({ include: { location: true }, orderBy: { code: 'asc' } });
+    const employeesRaw = await prisma.employee.findMany({ orderBy: { name: 'asc' } });
+    const workShiftsRaw = await prisma.workShift.findMany({ orderBy: { startTime: 'asc' } });
+
+    // Define specific types for serialized data to avoid 'any'
+    interface SerializedEmployee {
+        id: string;
+        name: string | null;
+        code: string;
+    }
+
+    interface SerializedShift {
+        id: string;
+        shiftName: string;
+        startTime: string;
+        endTime: string;
+        operator: SerializedEmployee | null;
+        helpers: SerializedEmployee[];
+    }
+
+    interface SerializedOrder {
+        id: string;
+        orderNumber: string;
+        status: string;
+        plannedQuantity: number;
+        actualQuantity: number | null;
+        plannedStartDate: string;
+        bom: {
+            name: string;
+            productVariant: {
+                name: string;
+                primaryUnit: string;
+            };
+        };
+        machine: { id: string; code: string } | null;
+        executions: { operator: SerializedEmployee | null }[];
+        shifts: SerializedShift[];
+    }
+
+    // Serialize for Client Components
+    const ordersSerialized = serializeData(orders) as unknown as SerializedOrder[];
+    const machines = serializeData(machinesRaw) as unknown as Machine[];
+    const employees = serializeData(employeesRaw) as unknown as Employee[];
+    const workShifts = serializeData(workShiftsRaw) as unknown as WorkShift[];
 
     return (
         <div className="space-y-6">
@@ -53,7 +95,7 @@ export default async function ProductionDispatchPage() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Orders List */}
                 <div className="lg:col-span-3 space-y-4">
-                    {orders.length === 0 ? (
+                    {ordersSerialized.length === 0 ? (
                         <Card className="border-dashed flex items-center justify-center p-12 h-64">
                             <div className="text-center text-muted-foreground">
                                 <Send className="h-10 w-10 mx-auto mb-4 opacity-20" />
@@ -61,7 +103,7 @@ export default async function ProductionDispatchPage() {
                             </div>
                         </Card>
                     ) : (
-                        orders.map((order) => {
+                        ordersSerialized.map((order) => {
                             const progress = order.actualQuantity && order.plannedQuantity
                                 ? (Number(order.actualQuantity) / Number(order.plannedQuantity)) * 100
                                 : 0;
@@ -155,7 +197,7 @@ export default async function ProductionDispatchPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <ReassignMachineButton orderId={order.id} orderNumber={order.orderNumber} currentMachineId={order.machine?.id ?? null} machines={machines} />
-                                                    <Link href={`/production/orders/${order.id}`}>
+                                                    <Link href={`/ production / orders / ${order.id} `}>
                                                         <Button variant="ghost" size="sm" className="h-8 text-xs">
                                                             Manage Detail <ChevronRight className="h-4 w-4 ml-1" />
                                                         </Button>
@@ -209,6 +251,4 @@ export default async function ProductionDispatchPage() {
     );
 }
 
-function cn(...inputs: (string | boolean | undefined | null)[]) {
-    return inputs.filter(Boolean).join(' ');
-}
+

@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Factory } from 'lucide-react';
 import { ReassignMachineDialog } from '@/components/production/dispatch/ReassignMachineDialog';
-import { Machine } from '@prisma/client';
 
-export function ReassignMachineButton({ orderId, orderNumber, currentMachineId, machines }: { orderId: string; orderNumber: string; currentMachineId: string | null; machines: Machine[] }) {
+export function ReassignMachineButton({ orderId, orderNumber, currentMachineId, machines }: { orderId: string; orderNumber: string; currentMachineId: string | null; machines: { id: string; name: string; code: string }[] }) {
     const [open, setOpen] = useState(false);
     if (currentMachineId) {
         return (
