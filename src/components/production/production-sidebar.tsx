@@ -12,7 +12,8 @@ import {
     Users,
     Menu,
     X,
-    ClipboardCheck
+    ClipboardCheck,
+    Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -64,6 +65,7 @@ const productionLinks: SidebarLinkGroup[] = [
         heading: "Tools",
         items: [
             { title: "Operator Kiosk", href: "/kiosk", icon: ClipboardCheck },
+            { title: "AI Assistant (Beta)", href: "/admin/database-assistant", icon: Sparkles },
         ],
     },
 ];
