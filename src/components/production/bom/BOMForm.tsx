@@ -102,6 +102,39 @@ export function BOMForm({
     }, [bom, form]);
 
     async function onSubmit(values: CreateBomValues) {
+        // Validation 1: Check for Physical Impossibility (Output > Total Input)
+        // It is impossible to create more mass than input (Conservation of Mass)
+        const totalInput = values.items.reduce((acc, item) => acc + Number(item.quantity), 0);
+        const output = Number(values.outputQuantity);
+
+        if (output > totalInput) {
+            const confirmed = window.confirm(
+                `⚠️ PHYSICAL IMPOSSIBILITY DETECTED ⚠️\n\n` +
+                `Total Material Input: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
+                `Target Output: ${output.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n\n` +
+                `PROHIBITED: You cannot produce MORE items than your input materials. This will cause negative COGS.\n` +
+                `Likely error: Basis Output is too high.\n\n` +
+                `Are you sure you want to proceed?`
+            );
+            if (!confirmed) return;
+        }
+
+        // Validation 2: Check for Suspicious Ratio (High Shrinkage/Unit Mismatch)
+        // If Input is > 20% higher than Output, it might be a unit error (100kg vs 1 Sack)
+        if (totalInput > output * 1.2) {
+            const confirmed = window.confirm(
+                `⚠️ HIGH SHRINKAGE / POTENTIAL UNIT ERROR ⚠️\n\n` +
+                `Total Material Input: ${totalInput.toLocaleString()}\n` +
+                `Target Output: ${output.toLocaleString()}\n` +
+                `Implied Shrinkage: ${((totalInput - output) / totalInput * 100).toFixed(1)}%\n\n` +
+                `This is unusually high. Did you mean to use '1 Sack' instead of 'Mass in KG'?\n` +
+                `POLYFLOW STANDARD: Use KG for both Input and Output.\n\n` +
+                `Click OK to save if this is intentional (e.g. high evaporation).\n` +
+                `Click Cancel to fix quantities.`
+            );
+            if (!confirmed) return;
+        }
+
         setIsSubmitting(true);
         try {
             const res = bom
