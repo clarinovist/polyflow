@@ -125,12 +125,13 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         if (!selectedSourceLocationId) return products;
 
         // Filter by inventory if a sourceLocationId is chosen
+        if (selectedOrderType === 'MAKE_TO_ORDER') return products;
 
         // For MTS, only show products that have stock in the selected location
         return products.filter((p: SerializedProductVariant) =>
             p.inventories.some(inv => inv.locationId === selectedSourceLocationId && inv.quantity > 0)
         );
-    }, [products, selectedSourceLocationId]);
+    }, [products, selectedSourceLocationId, selectedOrderType]);
 
     // Clear customerId if Order Type is MTS
     /* useEffect(() => {
