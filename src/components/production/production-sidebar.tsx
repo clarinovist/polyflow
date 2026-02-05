@@ -4,7 +4,6 @@ import {
     LayoutDashboard,
     Factory,
     LogOut,
-    Send,
     Boxes,
     History,
     Moon,
@@ -49,7 +48,6 @@ const productionLinks: SidebarLinkGroup[] = [
         items: [
             { title: "Overview", href: "/production", icon: LayoutDashboard },
             { title: "Machine Board", href: "/production/machines", icon: Factory },
-            { title: "Job Dispatcher", href: "/production/dispatch", icon: Send },
         ],
     },
     {
