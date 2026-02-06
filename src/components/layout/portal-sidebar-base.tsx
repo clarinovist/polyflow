@@ -53,6 +53,7 @@ export function PortalSidebarBase({
                 <button
                     onClick={() => setIsMobileOpen(true)}
                     className="p-2 -ml-2 text-muted-foreground hover:text-primary transition-colors"
+                    aria-label="Open sidebar"
                 >
                     <Menu className="h-6 w-6" />
                 </button>
@@ -79,6 +80,7 @@ export function PortalSidebarBase({
                         <button
                             onClick={() => setIsMobileOpen(false)}
                             className="lg:hidden p-1 text-muted-foreground hover:text-primary transition-colors"
+                            aria-label="Close sidebar"
                         >
                             <X className="h-5 w-5" />
                         </button>
@@ -103,6 +105,7 @@ export function PortalSidebarBase({
                                 onClick={cycleTheme}
                                 className="text-muted-foreground hover:text-primary transition-colors p-1"
                                 title={`Theme: ${theme}`}
+                                aria-label="Toggle theme"
                             >
                                 <ThemeIcon className="h-4 w-4" />
                             </button>
@@ -110,6 +113,7 @@ export function PortalSidebarBase({
                                 onClick={() => signOut({ callbackUrl: '/login' })}
                                 className="text-muted-foreground hover:text-red-500 transition-colors p-1"
                                 title="Logout"
+                                aria-label="Sign out"
                             >
                                 <LogOut className="h-4 w-4" />
                             </button>
