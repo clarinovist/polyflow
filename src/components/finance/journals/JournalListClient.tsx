@@ -2,14 +2,20 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { columns, JournalEntryWithDetails } from './JournalColumns';
-import { getJournalEntries } from '@/actions/finance/journal-actions';
+import { getJournalEntries, batchPostJournals } from '@/actions/finance/journal-actions';
+import { JournalStatus } from '@prisma/client';
+import { toast } from 'sonner';
 // import { DataTable } from '@/components/ui/data-table'; 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useDebounce } from '@/hooks/use-debounce'; // Assuming hook exists
-import { Loader2, Plus } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subDays, startOfDay, endOfDay } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { useDebounce } from '@/hooks/use-debounce';
+import { Loader2, Plus, Calendar as CalendarIcon, X } from 'lucide-react';
 import Link from 'next/link';
 
 // Fallback Simple Table if generic DataTable doesn't exist or is complex to integrate blindly
@@ -33,7 +39,11 @@ export function JournalListClient() {
     const [data, setData] = useState<JournalEntryWithDetails[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [status, setStatus] = useState<string>('ALL');
+    const [status, setStatus] = useState<JournalStatus | 'ALL'>('ALL');
+    const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
+    const [endDate, setEndDate] = useState<Date | undefined>(endOfMonth(new Date()));
+    const [rowSelection, setRowSelection] = useState({});
+    const [batchLoading, setBatchLoading] = useState(false);
 
     const debouncedSearch = useDebounce(search, 500);
 
@@ -43,10 +53,11 @@ export function JournalListClient() {
         try {
             const res = await getJournalEntries({
                 search: debouncedSearch,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                status: status !== 'ALL' ? status as any : undefined,
+                status: status !== 'ALL' ? status as JournalStatus : undefined,
+                startDate,
+                endDate,
                 page: 1, // TODO: Pagination
-                limit: 50
+                limit: 100 // Increased for verification
             });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setData(res.data as any);
@@ -55,7 +66,7 @@ export function JournalListClient() {
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status]);
+    }, [debouncedSearch, status, startDate, endDate]);
 
     useEffect(() => {
         fetchData();
@@ -68,77 +79,215 @@ export function JournalListClient() {
         data,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         columns: cols as any,
+        state: {
+            rowSelection,
+        },
+        enableRowSelection: true,
+        onRowSelectionChange: setRowSelection,
         getCoreRowModel: getCoreRowModel(),
+        getRowId: (row) => row.id,
     });
 
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const canBatchPost = selectedRows.length > 0 && selectedRows.every(r => r.original.status === 'DRAFT');
+
+    const handleBatchPost = async () => {
+        if (!canBatchPost) return;
+        setBatchLoading(true);
+        try {
+            const ids = selectedRows.map(r => r.original.id);
+            const res = await batchPostJournals(ids);
+            if (res.success) {
+                toast.success(`Successfully posted ${ids.length} journals`);
+                setRowSelection({});
+                fetchData();
+            } else {
+                toast.error(res.error || "Failed to post journals");
+            }
+        } catch (error) {
+            console.error("Batch post error", error);
+            toast.error("An unexpected error occurred");
+        } finally {
+            setBatchLoading(false);
+        }
+    };
+
+    // Date Shortcuts
+    const setToday = () => {
+        const d = new Date();
+        setStartDate(startOfDay(d));
+        setEndDate(endOfDay(d));
+    };
+
+    const setYesterday = () => {
+        const d = subDays(new Date(), 1);
+        setStartDate(startOfDay(d));
+        setEndDate(endOfDay(d));
+    };
+
+    const setThisMonth = () => {
+        const d = new Date();
+        setStartDate(startOfMonth(d));
+        setEndDate(endOfMonth(d));
+    };
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-6 max-w-full overflow-hidden">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Journal Entries</h2>
-                    <p className="text-muted-foreground">Manage and view general ledger transactions.</p>
+                    <p className="text-muted-foreground text-sm">Manage and post general ledger transactions from all modules.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {selectedRows.length > 0 && (
+                        <Button
+                            variant="default"
+                            className="bg-primary hover:bg-primary/90"
+                            onClick={handleBatchPost}
+                            disabled={!canBatchPost || batchLoading}
+                        >
+                            {batchLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Post Selected ({selectedRows.length})
+                        </Button>
+                    )}
                     <Link href="/finance/journals/create">
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" /> New Entry
+                        <Button variant="outline">
+                            <Plus className="mr-2 h-4 w-4" /> New Manual Entry
                         </Button>
                     </Link>
                 </div>
             </div>
 
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Transactions</CardTitle>
+            {/* Filter Card - Aligned with Ledger UI */}
+            <Card className="border-none shadow-sm pb-4">
+                <CardHeader className="pb-3 px-4 pt-4">
+                    <CardTitle className="text-sm font-medium">Quick Filters</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                    <div className="flex flex-wrap items-center gap-6">
+                        {/* Search */}
                         <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">Search:</span>
                             <Input
-                                placeholder="Search journals..."
-                                className="w-[200px] h-8"
+                                placeholder="Number, ref..."
+                                className="h-9 w-[180px] bg-background"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger className="w-[130px] h-8">
-                                    <SelectValue placeholder="Status" />
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">Status:</span>
+                            <Select value={status} onValueChange={(val) => setStatus(val as JournalStatus | 'ALL')}>
+                                <SelectTrigger className="h-9 w-[140px] bg-background">
+                                    <SelectValue placeholder="All" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ALL">All Status</SelectItem>
-                                    <SelectItem value="DRAFT">Draft</SelectItem>
-                                    <SelectItem value="POSTED">Posted</SelectItem>
-                                    <SelectItem value="VOID">Void</SelectItem>
+                                    <SelectItem value="ALL">All Transactions</SelectItem>
+                                    <SelectItem value="DRAFT">Draft Only</SelectItem>
+                                    <SelectItem value="POSTED">Posted Entry</SelectItem>
+                                    <SelectItem value="VOIDED">Voided</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Date Range */}
+                        <div className="flex items-center gap-2 min-w-[320px]">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">Date Range:</span>
+                            <div className="flex items-center gap-1.5 flex-1">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "h-9 px-3 text-xs font-normal w-[120px] bg-background justify-start",
+                                                !startDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                            {startDate ? format(startDate, 'dd/MM/yy') : 'From'}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                                <span className="text-xs text-muted-foreground">-</span>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "h-9 px-3 text-xs font-normal w-[120px] bg-background justify-start",
+                                                !endDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                            {endDate ? format(endDate, 'dd/MM/yy') : 'To'}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                                {(startDate || endDate) && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0 hover:text-destructive"
+                                        onClick={() => { setStartDate(undefined); setEndDate(undefined); }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Shortcuts - Discreet at the end */}
+                        <div className="flex items-center gap-3 border-l pl-6 ml-auto">
+                            <button onClick={setToday} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Today</button>
+                            <button onClick={setYesterday} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Yesterday</button>
+                            <button onClick={setThisMonth} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Month</button>
+                        </div>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm">
+                <CardHeader className="pb-3 border-b">
+                    <CardTitle className="text-base font-semibold">Transactions Log</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
+                <CardContent className="p-4">
+                    <div className="rounded-md border bg-background overflow-hidden overflow-x-auto">
+                        <Table className="table-fixed w-full min-w-[1000px]">
+                            <TableHeader className="bg-muted/50">
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => {
-                                            return (
-                                                <TableHead key={header.id}>
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : flexRender(
-                                                            header.column.columnDef.header,
-                                                            header.getContext()
-                                                        )}
-                                                </TableHead>
-                                            )
-                                        })}
+                                        {headerGroup.headers.map((header) => (
+                                            <TableHead
+                                                key={header.id}
+                                                className="h-10 text-xs font-bold uppercase tracking-wider"
+                                                style={{ width: header.column.columnDef.size }}
+                                            >
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                            </TableHead>
+                                        ))}
                                     </TableRow>
                                 ))}
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            <div className="flex justify-center items-center gap-2 text-muted-foreground">
-                                                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                                        <TableCell colSpan={columns.length} className="h-32 text-center">
+                                            <div className="flex flex-col justify-center items-center gap-2 text-muted-foreground">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+                                                <span className="text-sm font-medium">Fetching transactions...</span>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -147,9 +296,14 @@ export function JournalListClient() {
                                         <TableRow
                                             key={row.id}
                                             data-state={row.getIsSelected() && "selected"}
+                                            className="hover:bg-muted/50 transition-colors"
                                         >
                                             {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id}>
+                                                <TableCell
+                                                    key={cell.id}
+                                                    className="py-3 px-4 truncate"
+                                                    style={{ width: cell.column.columnDef.size }}
+                                                >
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </TableCell>
                                             ))}
@@ -157,8 +311,8 @@ export function JournalListClient() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            No results.
+                                        <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
+                                            No transactions found for the selected criteria.
                                         </TableCell>
                                     </TableRow>
                                 )}

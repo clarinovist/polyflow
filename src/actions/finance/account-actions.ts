@@ -133,8 +133,31 @@ export async function getAccountLedger(
         ]
     });
 
-    // Calculate running balance
-    let runningBalance = 0;
+    // Calculate beginning balance (all entries before startDate)
+    let beginningBalance = 0;
+    if (startDate) {
+        const preLines = await prisma.journalLine.findMany({
+            where: {
+                accountId,
+                journalEntry: {
+                    entryDate: { lt: startDate }
+                }
+            }
+        });
+
+        preLines.forEach(line => {
+            const d = Number(line.debit);
+            const c = Number(line.credit);
+            if (account.type === 'ASSET' || account.type === 'EXPENSE') {
+                beginningBalance += d - c;
+            } else {
+                beginningBalance += c - d;
+            }
+        });
+    }
+
+    // Calculate running balance starting from beginning balance
+    let runningBalance = beginningBalance;
     const ledgerEntries = lines.map(line => {
         const debit = Number(line.debit);
         const credit = Number(line.credit);
@@ -171,6 +194,7 @@ export async function getAccountLedger(
         },
         entries: ledgerEntries,
         summary: {
+            beginningBalance,
             totalDebit: ledgerEntries.reduce((sum, e) => sum + e.debit, 0),
             totalCredit: ledgerEntries.reduce((sum, e) => sum + e.credit, 0),
             endingBalance: runningBalance

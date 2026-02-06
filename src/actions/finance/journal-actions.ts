@@ -2,6 +2,9 @@
 
 import { prisma } from '@/lib/prisma';
 import { Prisma, JournalStatus } from '@prisma/client';
+import { postBulkJournals } from '@/services/accounting/journals-service';
+import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
 
 export interface JournalFilterParams {
     page?: number;
@@ -78,4 +81,16 @@ export async function getJournalEntries(params: JournalFilterParams) {
             totalPages: Math.ceil(total / limit)
         }
     };
+}
+
+export async function batchPostJournals(ids: string[]) {
+    const session = await requireAuth();
+    try {
+        await postBulkJournals(ids, session.user.id);
+        revalidatePath('/finance/journals');
+        return { success: true };
+    } catch (error) {
+        console.error("Batch posting failed:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Batch posting failed" };
+    }
 }

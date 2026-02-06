@@ -109,6 +109,20 @@ export async function postJournal(id: string, userId?: string) {
     });
 }
 
+export async function postBulkJournals(ids: string[], userId?: string) {
+    return await prisma.journalEntry.updateMany({
+        where: {
+            id: { in: ids },
+            status: 'DRAFT'
+        },
+        data: {
+            status: 'POSTED',
+            approvedById: userId,
+            approvedAt: new Date()
+        }
+    });
+}
+
 export async function voidJournal(id: string, _userId?: string) {
     const journal = await prisma.journalEntry.findUnique({
         where: { id }

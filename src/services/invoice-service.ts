@@ -77,6 +77,11 @@ export class InvoiceService {
             details: `Invoice ${invoiceNumber} created for Order ${salesOrder.orderNumber}`
         });
 
+        // Trigger Auto-Journaling
+        await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
+            console.error("Auto-Journal failed for manual invoice:", err);
+        });
+
         return invoice;
     }
 

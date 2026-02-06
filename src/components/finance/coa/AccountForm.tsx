@@ -79,7 +79,7 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                 await upsertAccount({
                     id: account?.id,
                     ...values,
-                    parentId: values.parentId || null
+                    parentId: (values.parentId === 'null' || !values.parentId) ? null : values.parentId
                 });
                 toast.success(account ? "Account updated" : "Account created");
                 setOpen(false);

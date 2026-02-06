@@ -36,6 +36,7 @@ interface LedgerData {
     account: Account;
     entries: LedgerEntry[];
     summary: {
+        beginningBalance: number;
         totalDebit: number;
         totalCredit: number;
         endingBalance: number;
@@ -224,6 +225,14 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium">Beginning Balance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(summary.beginningBalance)}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium">Total Debit</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -238,12 +247,12 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                         <div className="text-2xl font-bold">{formatCurrency(summary.totalCredit)}</div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-muted/50">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium">Ending Balance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(summary.endingBalance)}</div>
+                        <div className="text-2xl font-bold text-primary">{formatCurrency(summary.endingBalance)}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -270,6 +279,12 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
+                                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                                    <TableCell colSpan={6} className="font-medium">Beginning Balance</TableCell>
+                                    <TableCell className="text-right font-mono font-semibold">
+                                        {formatCurrency(summary.beginningBalance)}
+                                    </TableCell>
+                                </TableRow>
                                 {entries.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center text-muted-foreground">
