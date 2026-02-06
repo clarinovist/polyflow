@@ -64,16 +64,16 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
 
     const revenues = accounts.filter(a => a.type === 'REVENUE').map(a => ({
         ...a,
-        amount: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
+        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
     }));
 
     const expenses = accounts.filter(a => a.type === 'EXPENSE').map(a => ({
         ...a,
-        amount: a.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0)
+        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0)
     }));
 
-    const totalRevenue = revenues.reduce((sum, a) => sum + a.amount, 0);
-    const totalExpense = expenses.reduce((sum, a) => sum + a.amount, 0);
+    const totalRevenue = revenues.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalExpense = expenses.reduce((sum, a) => sum + a.netBalance, 0);
 
     return {
         revenue: revenues,

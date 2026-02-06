@@ -3,6 +3,7 @@ import { CreateInvoiceValues, UpdateInvoiceStatusValues } from "@/lib/schemas/in
 import { InvoiceStatus } from "@prisma/client";
 import { format, addDays } from "date-fns";
 import { logActivity } from "@/lib/audit";
+import { AutoJournalService } from "./finance/auto-journal-service";
 
 export class InvoiceService {
 
@@ -151,6 +152,11 @@ export class InvoiceService {
             entityType: 'Invoice',
             entityId: invoice.id,
             details: `Automated draft invoice ${invoiceNumber} generated for shipped Order ${salesOrder.orderNumber}`
+        });
+
+        // Auto-Journaling Trigger
+        await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
+            console.error("Auto-Journal failed for automated invoice:", err);
         });
 
         return invoice;

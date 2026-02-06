@@ -3,6 +3,7 @@ import { logActivity } from '@/lib/audit';
 import { addDays } from 'date-fns';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
+import { AutoJournalService } from '../finance/auto-journal-service';
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
     const finalDueDate = data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
@@ -14,7 +15,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
 
     if (!po) throw new Error("Purchase Order not found");
 
-    return await prisma.purchaseInvoice.create({
+    const invoice = await prisma.purchaseInvoice.create({
         data: {
             invoiceNumber: data.invoiceNumber,
             purchaseOrderId: data.purchaseOrderId,
@@ -25,6 +26,13 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
             status: PurchaseInvoiceStatus.UNPAID,
         }
     });
+
+    // Auto-Journaling Trigger
+    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(err => {
+        console.error("Auto-Journal failed for purchase invoice:", err);
+    });
+
+    return invoice;
 }
 
 export async function recordPayment(id: string, amount: number, userId: string) {
@@ -167,6 +175,11 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
         entityType: 'PurchaseInvoice',
         entityId: invoice.id,
         details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status}`,
+    });
+
+    // Auto-Journaling Trigger
+    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(err => {
+        console.error("Auto-Journal failed for automated bill:", err);
     });
 
     return invoice;
