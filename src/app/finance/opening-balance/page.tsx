@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { getCustomers } from '@/actions/customer';
 import { getSuppliers } from '@/actions/supplier';
 import { OpeningBalanceForm } from '@/components/finance/OpeningBalanceForm';
-import { OpeningBalanceHistory } from '@/components/finance/OpeningBalanceHistory';
+import { OpeningBalanceHistory, HistoryItem } from '@/components/finance/OpeningBalanceHistory';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { serializeData } from '@/lib/utils';
@@ -35,7 +35,7 @@ export default async function OpeningBalancePage() {
                 </Card>
             }>
                 <OpeningBalanceForm customers={customers} suppliers={suppliers} />
-                <OpeningBalanceHistory data={history as any} />
+                <OpeningBalanceHistory data={history as HistoryItem[]} />
             </Suspense>
         </div>
     );

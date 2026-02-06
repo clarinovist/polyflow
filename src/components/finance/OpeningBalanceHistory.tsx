@@ -14,7 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatRupiah } from '@/lib/utils';
 
-interface HistoryItem {
+export interface HistoryItem {
     id: string;
     type: 'AR' | 'AP';
     invoiceNumber: string;
