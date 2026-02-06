@@ -1,13 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Users, Package, AlertTriangle, Trash2 } from 'lucide-react';
+import { Plus, Users, Package, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { ExtendedProductionOrder } from './types';
 import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
 import { addProductionOutput } from '@/actions/production';
@@ -25,6 +24,7 @@ interface FormData {
 
 export function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, formData: FormData }) {
     const [open, setOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
     const [currentRollWeight, setCurrentRollWeight] = useState("");
 
@@ -36,42 +36,43 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
 
     // Auto-detect Shift
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeVal = currentHour * 60 + currentMinute;
+    const { matchedShift, defaultShift, defaultOperator } = useMemo(() => {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeVal = currentHour * 60 + currentMinute;
 
-    const matchedShift = formData.workShifts.find(shift => {
-        const [startH, startM] = shift.startTime.split(':').map(Number);
-        const [endH, endM] = shift.endTime.split(':').map(Number);
-        const startVal = startH * 60 + startM;
-        const endVal = endH * 60 + endM;
+        const matched = formData.workShifts.find(shift => {
+            const [startH, startM] = shift.startTime.split(':').map(Number);
+            const [endH, endM] = shift.endTime.split(':').map(Number);
+            const startVal = startH * 60 + startM;
+            const endVal = endH * 60 + endM;
 
-        if (startVal <= endVal) {
-            return currentTimeVal >= startVal && currentTimeVal <= endVal;
-        } else {
-            return currentTimeVal >= startVal || currentTimeVal <= endVal;
-        }
-    });
+            if (startVal <= endVal) {
+                return currentTimeVal >= startVal && currentTimeVal <= endVal;
+            } else {
+                return currentTimeVal >= startVal || currentTimeVal <= endVal;
+            }
+        });
 
-    const activeProductionShift = matchedShift
-        ? order.shifts?.find((ps) => ps.shiftName === matchedShift.name)
-        : null;
+        const activeProdShift = matched
+            ? order.shifts?.find((ps) => ps.shiftName === matched.name)
+            : null;
 
-    const defaultShift = matchedShift?.id || formData.workShifts[0]?.id;
-    const defaultOperator = activeProductionShift?.operatorId || formData.operators[0]?.id;
+        return {
+            matchedShift: matched,
+            defaultShift: matched?.id || formData.workShifts[0]?.id,
+            defaultOperator: activeProdShift?.operatorId || formData.operators[0]?.id
+        };
+    }, [formData.workShifts, formData.operators, order.shifts]);
 
     // Determine Logic based on UOM
     const uom = order.bom.productVariant.primaryUnit || 'KG';
     const itemName = uom === 'ROLL' ? 'Roll' : (uom === 'ZAK' ? 'Sack' : 'Item');
 
-    // Helper handling
-    const toggleHelper = (helperId: string) => {
-        if (selectedHelpers.includes(helperId)) {
-            setSelectedHelpers(selectedHelpers.filter(id => id !== helperId));
-        } else {
-            setSelectedHelpers([...selectedHelpers, helperId]);
-        }
+    const handleHelperChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+        setSelectedHelpers(selectedOptions);
     };
 
     const handleAddRoll = () => {
@@ -97,6 +98,8 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         const fd = new FormData(e.currentTarget);
 
         let finalNotes = notes || "";
@@ -132,6 +135,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         };
 
         const result = await addProductionOutput(data);
+        setIsSubmitting(false);
         if (result.success) {
             toast.success("Production output recorded");
             setOpen(false);
@@ -158,8 +162,8 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                 <form onSubmit={onSubmit}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-6">
                         {/* LEFT COLUMN: Metadata & Team */}
-                        <div className="lg:col-span-5 space-y-6 flex flex-col">
-                            <BrandCard variant="default" className="shadow-brand">
+                        <div className="lg:col-span-4 space-y-6 flex flex-col">
+                            <BrandCard variant="default" className="shadow-brand h-full">
                                 <BrandCardHeader className="pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -178,18 +182,25 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
                                         <div className="space-y-2">
                                             <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Shift</Label>
-                                            <Select name="shiftId" defaultValue={defaultShift} required>
-                                                <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
+                                            <div className="relative">
+                                                <select
+                                                    name="shiftId"
+                                                    defaultValue={defaultShift}
+                                                    required
+                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
+                                                >
                                                     {formData.workShifts.map(s => (
-                                                        <SelectItem key={s.id} value={s.id}>
+                                                        <option key={s.id} value={s.id}>
                                                             {s.name} ({s.startTime} - {s.endTime})
-                                                        </SelectItem>
+                                                        </option>
                                                     ))}
-                                                </SelectContent>
-                                            </Select>
+                                                </select>
+                                                <div className="pointer-events-none absolute right-3 top-3 opacity-50">
+                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                </div>
+                                            </div>
                                             {matchedShift && (
                                                 <p className="text-[10px] text-success font-bold uppercase tracking-tight">Active: {matchedShift.name} ({matchedShift.startTime} - {matchedShift.endTime})</p>
                                             )}
@@ -197,60 +208,50 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
                                         <div className="space-y-2">
                                             <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Lead Operator</Label>
-                                            <Select name="operatorId" defaultValue={defaultOperator} required>
-                                                <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
+                                            <div className="relative">
+                                                <select
+                                                    name="operatorId"
+                                                    defaultValue={defaultOperator}
+                                                    required
+                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none"
+                                                >
                                                     {formData.operators.map(op => (
-                                                        <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
+                                                        <option key={op.id} value={op.id}>{op.name}</option>
                                                     ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </BrandCardContent>
-                            </BrandCard>
-
-                            <BrandCard variant="default" className="flex-1 min-h-[300px] flex flex-col shadow-brand">
-                                <BrandCardHeader className="justify-between pb-4">
-                                    <h3 className="font-bold text-sm tracking-tight italic uppercase text-foreground">Active Helpers</h3>
-                                    <span className="bg-primary/20 text-primary text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-primary/20">{selectedHelpers.length} Selected</span>
-                                </BrandCardHeader>
-                                <BrandCardContent className="flex-1 flex flex-col pt-4">
-                                    <div className="flex-1 overflow-y-auto pr-2 space-y-1 custom-scrollbar">
-                                        {formData.helpers.map(helper => (
-                                            <div
-                                                key={helper.id}
-                                                className={cn(
-                                                    "flex items-center space-x-3 p-3 rounded-lg border transition-all cursor-pointer group",
-                                                    selectedHelpers.includes(helper.id)
-                                                        ? "bg-primary/10 border-primary/40"
-                                                        : "bg-muted/30 border-transparent hover:bg-muted/50 hover:border-brand-border"
-                                                )}
-                                                onClick={() => toggleHelper(helper.id)}
-                                            >
-                                                <Checkbox
-                                                    id={`helper-${helper.id}`}
-                                                    checked={selectedHelpers.includes(helper.id)}
-                                                    onCheckedChange={() => toggleHelper(helper.id)}
-                                                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary border-muted-foreground/50"
-                                                />
-                                                <span className={cn(
-                                                    "text-sm font-semibold transition-colors",
-                                                    selectedHelpers.includes(helper.id) ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                                                )}>
-                                                    {helper.name}
-                                                </span>
+                                                </select>
+                                                <div className="pointer-events-none absolute right-3 top-3 opacity-50">
+                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                </div>
                                             </div>
-                                        ))}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Helpers (Hold Ctrl/Cmd to select multiple)</Label>
+                                            <div className="relative">
+                                                <select
+                                                    multiple
+                                                    value={selectedHelpers}
+                                                    onChange={handleHelperChange}
+                                                    className="flex h-32 w-full rounded-md border border-brand-border bg-background/80 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {formData.helpers.map(h => (
+                                                        <option key={h.id} value={h.id}>{h.name}</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[10px] text-muted-foreground mt-1">
+                                                    {selectedHelpers.length > 0 ? `${selectedHelpers.length} helper(s) selected` : "No helpers selected"}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </BrandCardContent>
                             </BrandCard>
                         </div>
 
                         {/* RIGHT COLUMN: Production Data */}
-                        <div className="lg:col-span-7 space-y-6">
+                        <div className="lg:col-span-8 space-y-6">
                             <BrandCard variant="default" className="shadow-brand">
                                 <BrandCardHeader className="justify-between pb-4">
                                     <div className="flex items-center gap-3">
@@ -364,14 +365,21 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                     </div>
 
                     <DialogFooter className="mt-8 border-t border-brand-border pt-6 pb-2">
-                        <Button type="button" variant="ghost" className="font-bold tracking-tight italic uppercase" onClick={() => setOpen(false)}>Cancel Action</Button>
+                        <Button type="button" variant="ghost" className="font-bold tracking-tight italic uppercase" onClick={() => setOpen(false)}>Cancel</Button>
                         <Button
                             type="submit"
                             size="lg"
                             className="px-10 font-bold tracking-tight italic uppercase shadow-brand"
-                            disabled={rolls.length === 0 && !scrapProngkol && !scrapDaun}
+                            disabled={isSubmitting || (rolls.length === 0 && !scrapProngkol && !scrapDaun)}
                         >
-                            Confirm Production Record
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Recording...
+                                </>
+                            ) : (
+                                'Record Output'
+                            )}
                         </Button>
                     </DialogFooter>
 
