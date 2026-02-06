@@ -356,10 +356,22 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 </thead>
                                 <tbody className="divide-y">
                                     {(order.plannedMaterials || []).map((item) => {
-                                        const issued = (order.materialIssues || [])
+                                        const manualIssued = (order.materialIssues || [])
                                             .filter((mi) => mi.productVariantId === item.productVariantId)
                                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
+                                        const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
+                                        const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
+
+                                        let backflushedQty = 0;
+                                        // B. Backflushed Quantities (if applicable)
+                                        if (isBackflushCategory && actualQty > 0 && plannedQty > 0) {
+                                            // This block is intended to be outside the map function,
+                                            // to pre-calculate backflushed quantities for all items.
+                                            // However, given the current structure, we'll apply it per item.
+                                            backflushedQty = (actualQty / plannedQty) * Number(item.quantity);
+                                        }
+                                        const issued = manualIssued + backflushedQty;
                                         const required = Number(item.quantity);
                                         const variance = issued - required;
                                         const variancePercent = required > 0 ? (variance / required) * 100 : 0;

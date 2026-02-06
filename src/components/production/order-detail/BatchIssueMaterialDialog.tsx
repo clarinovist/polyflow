@@ -61,10 +61,9 @@ export function BatchIssueMaterialDialog({
     const [selectedLocation, setSelectedLocation] = useState(defaultSourceLocationId);
     const router = useRouter();
 
-    // Check if mixing based on machine type OR bom category
-    // We avoid checking 'mix' in name narrowly because 'Mixed HMP 15' is an extrusion product.
-    const isMixing = order.machine?.type === 'MIXER' ||
-        order.bom?.category === 'MIXING' ||
+    // Check if transfer mode (Backflush) based on machine type OR bom category
+    const isTransferMode = order.machine?.type === 'MIXER' ||
+        ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '') ||
         (order.bom?.name || '').toLowerCase().includes('adonan');
 
     // Initial items based on plannedMaterials
@@ -207,13 +206,13 @@ export function BatchIssueMaterialDialog({
 
         setLoading(true);
         try {
-            if (isMixing) {
+            if (isTransferMode) {
                 if (selectedLocation === order.location.id) {
                     toast.error("Source and destination locations must be different for transfer.");
                     setLoading(false);
                     return;
                 }
-                // MIXING MODE: Transfer Stock Logic
+                // TRANSFER MODE: Transfer Stock Logic
                 const itemsToTransfer = validItems.map(i => ({
                     productVariantId: i.productVariantId,
                     quantity: i.quantity
@@ -224,7 +223,7 @@ export function BatchIssueMaterialDialog({
                     destinationLocationId: order.location.id, // Target is the Production Location
                     items: itemsToTransfer,
                     date: new Date(),
-                    notes: `Transfer for Mixing Order ${order.orderNumber}`
+                    notes: `Transfer for Order ${order.orderNumber}`
                 });
 
                 if (result.success) {
@@ -274,13 +273,13 @@ export function BatchIssueMaterialDialog({
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
-                        {isMixing ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                        {isMixing ? "Transfer Material" : "Issue Material"}
+                        {isTransferMode ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        {isTransferMode ? "Transfer Material" : "Issue Material"}
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
-                        <DialogTitle>{isMixing ? "Transfer Materials to Mixing Area" : "Issue Materials & Update Plan"}</DialogTitle>
+                        <DialogTitle>{isTransferMode ? "Transfer Materials to Staging/Production Area" : "Issue Materials & Update Plan"}</DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-6">
@@ -295,7 +294,7 @@ export function BatchIssueMaterialDialog({
                                 </Select>
                             </div>
                             <div className="flex items-end pb-1 text-sm text-center">
-                                {isMixing ? (
+                                {isTransferMode ? (
                                     <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
                                         <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                                         <span className="text-xs text-left">
@@ -327,7 +326,7 @@ export function BatchIssueMaterialDialog({
                                 <thead className="bg-muted/40 border-b">
                                     <tr>
                                         <th className="p-3 text-left font-medium">Material</th>
-                                        <th className="p-3 text-right font-medium w-32">{isMixing ? "Qty to Transfer" : "Qty to Issue"}</th>
+                                        <th className="p-3 text-right font-medium w-32">{isTransferMode ? "Qty to Transfer" : "Qty to Issue"}</th>
                                         <th className="p-3 text-center font-medium w-16"></th>
                                     </tr>
                                 </thead>
@@ -374,7 +373,7 @@ export function BatchIssueMaterialDialog({
                                                     />
                                                     <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
                                                 </div>
-                                                {!isMixing && (
+                                                {!isTransferMode && (
                                                     <div className="mt-1 flex items-center justify-end gap-2">
                                                         <span className="text-[10px] text-muted-foreground">
                                                             Stock: {stockLevels[item.productVariantId] ?? '...'}
@@ -438,7 +437,7 @@ export function BatchIssueMaterialDialog({
                     <DialogFooter className="mt-6">
                         <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
                         <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
-                            {loading ? "Processing..." : (isMixing ? "Move Stock to Mixing" : "Save & Update Plan")}
+                            {loading ? "Processing..." : (isTransferMode ? "Move Stock" : "Save & Update Plan")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -40,12 +40,27 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
         coverageMap.set(producedVariantId, current + Number(co.plannedQuantity));
     });
 
-    // 4. Map material -> total qty issued (manual issues satisfy production requirement)
+    const plannedQty = Number(order.plannedQuantity);
+    const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
+    const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
+
+    // 4. Map material -> total qty consumed/issued
     const issuedMap = new Map<string, number>();
+
+    // A. Manual Issues
     order.materialIssues?.forEach(mi => {
         const current = issuedMap.get(mi.productVariantId) || 0;
         issuedMap.set(mi.productVariantId, current + Number(mi.quantity));
     });
+
+    // B. Backflushed Quantities (if applicable)
+    if (isBackflushCategory && actualQty > 0 && plannedQty > 0) {
+        (order.plannedMaterials || []).forEach(item => {
+            const backflushedQty = (actualQty / plannedQty) * Number(item.quantity);
+            const current = issuedMap.get(item.productVariantId) || 0;
+            issuedMap.set(item.productVariantId, current + backflushedQty);
+        });
+    }
 
     const handleCreateSubOrder = async (materialId: string, quantity: number, variantName: string) => {
         setIsCreating(materialId);
