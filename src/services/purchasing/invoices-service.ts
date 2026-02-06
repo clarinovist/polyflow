@@ -81,7 +81,7 @@ export async function getPurchaseInvoiceById(id: string) {
                     supplier: { select: { name: true, code: true } }
                 }
             },
-            payments: {
+            purchasePayments: {
                 include: {
                     createdBy: { select: { name: true } }
                 },
@@ -129,7 +129,7 @@ export async function generateBillNumber(): Promise<string> {
 export async function createDraftBillFromPo(purchaseOrderId: string, userId: string) {
     const po = await prisma.purchaseOrder.findUnique({
         where: { id: purchaseOrderId },
-        select: { totalAmount: true, orderNumber: true }
+        select: { totalAmount: true, orderNumber: true, status: true }
     });
 
     if (!po || !po.totalAmount) return;
@@ -143,6 +143,11 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
     const invoiceDate = new Date();
     const dueDate = addDays(invoiceDate, 30);
 
+    // Set status to UNPAID if PO is RECEIVED or PARTIAL_RECEIVED, otherwise DRAFT
+    const status = (po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED')
+        ? PurchaseInvoiceStatus.UNPAID
+        : PurchaseInvoiceStatus.DRAFT;
+
     const invoice = await prisma.purchaseInvoice.create({
         data: {
             invoiceNumber,
@@ -151,8 +156,8 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
             dueDate,
             termOfPaymentDays: 30,
             totalAmount: po.totalAmount,
-            status: PurchaseInvoiceStatus.DRAFT,
-            notes: `System generated draft bill for PO ${po.orderNumber}`
+            status,
+            notes: `System generated bill for PO ${po.orderNumber}`
         }
     });
 
@@ -161,7 +166,7 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
         action: 'AUTO_GENERATE_BILL',
         entityType: 'PurchaseInvoice',
         entityId: invoice.id,
-        details: `Automated draft bill ${invoiceNumber} generated for PO ${po.orderNumber}`,
+        details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status}`,
     });
 
     return invoice;

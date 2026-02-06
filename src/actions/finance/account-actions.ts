@@ -66,3 +66,114 @@ export async function deleteAccount(id: string) {
     revalidatePath('/finance/coa');
     return { success: true };
 }
+
+export async function getAccountLedger(
+    accountId: string,
+    startDate?: Date,
+    endDate?: Date
+) {
+    // Get account details
+    const account = await prisma.account.findUnique({
+        where: { id: accountId },
+        include: {
+            parent: {
+                select: { code: true, name: true }
+            }
+        }
+    });
+
+    if (!account) {
+        throw new Error('Account not found');
+    }
+
+    // Build date filter
+    const dateFilter: {
+        journalEntry?: {
+            entryDate?: {
+                gte?: Date;
+                lte?: Date;
+            };
+        };
+    } = {};
+    if (startDate || endDate) {
+        dateFilter.journalEntry = {};
+        if (startDate) {
+            dateFilter.journalEntry.entryDate = { gte: startDate };
+        }
+        if (endDate) {
+            if (dateFilter.journalEntry.entryDate) {
+                dateFilter.journalEntry.entryDate.lte = endDate;
+            } else {
+                dateFilter.journalEntry.entryDate = { lte: endDate };
+            }
+        }
+    }
+
+    // Get journal lines for this account
+    const lines = await prisma.journalLine.findMany({
+        where: {
+            accountId,
+            ...dateFilter
+        },
+        include: {
+            journalEntry: {
+                select: {
+                    id: true,
+                    entryNumber: true,
+                    entryDate: true,
+                    description: true,
+                    reference: true,
+                    referenceType: true
+                }
+            }
+        },
+        orderBy: [
+            { journalEntry: { entryDate: 'asc' } },
+            { journalEntry: { entryNumber: 'asc' } }
+        ]
+    });
+
+    // Calculate running balance
+    let runningBalance = 0;
+    const ledgerEntries = lines.map(line => {
+        const debit = Number(line.debit);
+        const credit = Number(line.credit);
+
+        // For asset and expense accounts: debit increases, credit decreases
+        // For liability, equity, and revenue: credit increases, debit decreases
+        if (account.type === 'ASSET' || account.type === 'EXPENSE') {
+            runningBalance += debit - credit;
+        } else {
+            runningBalance += credit - debit;
+        }
+
+        return {
+            id: line.id,
+            date: line.journalEntry.entryDate,
+            entryNumber: line.journalEntry.entryNumber,
+            description: line.description || line.journalEntry.description,
+            reference: line.journalEntry.reference,
+            referenceType: line.journalEntry.referenceType,
+            debit,
+            credit,
+            balance: runningBalance
+        };
+    });
+
+    return {
+        account: {
+            id: account.id,
+            code: account.code,
+            name: account.name,
+            type: account.type,
+            category: account.category,
+            parent: account.parent
+        },
+        entries: ledgerEntries,
+        summary: {
+            totalDebit: ledgerEntries.reduce((sum, e) => sum + e.debit, 0),
+            totalCredit: ledgerEntries.reduce((sum, e) => sum + e.credit, 0),
+            endingBalance: runningBalance
+        }
+    };
+}

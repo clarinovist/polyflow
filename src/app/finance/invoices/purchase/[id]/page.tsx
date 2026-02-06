@@ -1,8 +1,9 @@
 import { PurchaseService } from '@/services/purchase-service';
 import { notFound } from 'next/navigation';
-import { PurchaseInvoiceDetailClient } from '@/components/planning/purchasing/PurchaseInvoiceDetailClient';
-import { Metadata } from 'next';
-import { serializeData } from '@/lib/utils';
+import { FinancialPurchaseInvoiceDetail } from '@/components/finance/invoices/FinancialPurchaseInvoiceDetail';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 interface PageProps {
     params: Promise<{
@@ -10,15 +11,7 @@ interface PageProps {
     }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-    const { id } = await params;
-    const invoice = await PurchaseService.getPurchaseInvoiceById(id);
-    return {
-        title: invoice ? `${invoice.invoiceNumber} | PolyFlow` : 'Invoice Not Found',
-    };
-}
-
-export default async function PurchaseInvoiceDetailPage({ params }: PageProps) {
+export default async function FinancialPurchaseInvoicePage({ params }: PageProps) {
     const { id } = await params;
     const invoice = await PurchaseService.getPurchaseInvoiceById(id);
 
@@ -26,26 +19,23 @@ export default async function PurchaseInvoiceDetailPage({ params }: PageProps) {
         notFound();
     }
 
-    // Serialize and convert Decimal values to numbers
-    const serializedInvoice = {
-        ...serializeData(invoice),
-        totalAmount: Number(invoice.totalAmount),
-        paidAmount: Number(invoice.paidAmount),
-        purchaseOrder: {
-            ...invoice.purchaseOrder,
-            totalAmount: Number(invoice.purchaseOrder.totalAmount)
-        },
-        payments: invoice.payments.map(p => ({
-            ...p,
-            amount: Number(p.amount),
-            paymentDate: p.paymentDate.toISOString()
-        }))
-    };
-
     return (
-        <div className="p-6 max-w-6xl mx-auto">
+        <div className="p-6 space-y-6">
+            <div className="flex items-center gap-4">
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/finance/invoices/purchase">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to List
+                    </Link>
+                </Button>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Purchase Invoice Detail</h1>
+                    <p className="text-sm text-muted-foreground">Financial View</p>
+                </div>
+            </div>
+
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseInvoiceDetailClient invoice={serializedInvoice as any} />
+            <FinancialPurchaseInvoiceDetail invoice={invoice as any} />
         </div>
     );
 }

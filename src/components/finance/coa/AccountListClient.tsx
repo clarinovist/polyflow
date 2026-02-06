@@ -102,7 +102,11 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                     </TableRow>
                                 ) : (
                                     filteredAccounts.map((account) => (
-                                        <TableRow key={account.id}>
+                                        <TableRow
+                                            key={account.id}
+                                            className="cursor-pointer hover:bg-muted/50"
+                                            onClick={() => router.push(`/finance/coa/${account.id}`)}
+                                        >
                                             <TableCell className="font-mono font-medium">{account.code}</TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{account.name}</div>
@@ -115,25 +119,27 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                             <TableCell className="text-xs">
                                                 {account.parent ? `${account.parent.code}` : '-'}
                                             </TableCell>
-                                            <TableCell className="text-right flex items-center justify-end gap-2">
-                                                <AccountForm
-                                                    account={account}
-                                                    parentOptions={initialAccounts.filter(a => a.id !== account.id)} // Prevent self-parenting
-                                                    trigger={
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                    }
-                                                />
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                                    onClick={() => handleDelete(account.id, account.code)}
-                                                    disabled={isPending}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <AccountForm
+                                                        account={account}
+                                                        parentOptions={initialAccounts.filter(a => a.id !== account.id)} // Prevent self-parenting
+                                                        trigger={
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        }
+                                                    />
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                                        onClick={() => handleDelete(account.id, account.code)}
+                                                        disabled={isPending}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

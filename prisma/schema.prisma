@@ -628,6 +628,7 @@ model Invoice {
   updatedAt         DateTime      @updatedAt
   termOfPaymentDays Int           @default(0)
   salesOrder        SalesOrder    @relation(fields: [salesOrderId], references: [id])
+  payments          Payment[]
 
   @@index([salesOrderId])
 }
@@ -704,7 +705,8 @@ model PurchaseInvoice {
   updatedAt         DateTime              @updatedAt
   termOfPaymentDays Int                   @default(0)
   purchaseOrder     PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id])
-  payments          PurchasePayment[]
+  payments          Payment[]
+  purchasePayments  PurchasePayment[]
 }
 
 model PurchasePayment {
@@ -1153,4 +1155,26 @@ model SystemSequence {
   key       String   @unique
   value     BigInt   @default(0)
   updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  paymentNumber     String   @unique
+  paymentDate       DateTime
+  amount            Decimal  @db.Decimal(15, 2)
+  method            String   // Bank Transfer, Cash, Check, Credit Card
+  notes             String?  @db.Text
+  
+  // Relations - either invoiceId OR purchaseInvoiceId should be set
+  invoiceId         String?
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  purchaseInvoiceId String?
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([purchaseInvoiceId])
 }

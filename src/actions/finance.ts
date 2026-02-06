@@ -96,66 +96,228 @@ export async function getOrderCosting(orderId: string) {
 }
 /**
  * Get Received Payments (Sales)
- * This is a mock/proxy to get payments linked to Sales Invoices
  */
 export async function getReceivedPayments() {
     await requireAuth();
-    // In a real scenario, we would query a Payment table.
-    // Here we query "Paid" invoices as a proxy for history.
-    const payments = await prisma.invoice.findMany({
+
+    const payments = await prisma.payment.findMany({
         where: {
-            status: { in: [InvoiceStatus.PAID, InvoiceStatus.PARTIAL] },
-            paidAmount: { gt: 0 }
+            invoiceId: { not: null }
         },
-        orderBy: { updatedAt: 'desc' },
         include: {
-            salesOrder: {
+            invoice: {
                 include: {
-                    customer: true
+                    salesOrder: {
+                        include: {
+                            customer: true
+                        }
+                    }
                 }
             }
         },
+        orderBy: { paymentDate: 'desc' },
         take: 50
     });
 
     return serializeData(payments.map(p => ({
         id: p.id,
-        referenceNumber: p.invoiceNumber,
-        date: p.updatedAt, // Using update time as payment time proxy
-        entityName: p.salesOrder?.customer?.name || 'Unknown Details',
-        amount: Number(p.paidAmount),
-        method: 'Bank Transfer', // Mock
+        referenceNumber: p.paymentNumber,
+        date: p.paymentDate,
+        entityName: p.invoice?.salesOrder?.customer?.name || 'Unknown Customer',
+        amount: Number(p.amount),
+        method: p.method,
         status: 'COMPLETED'
     })));
 }
 
 /**
  * Get Sent Payments (Purchasing)
- * This is a mock/proxy to get payments linked to Purchase Invoices
  */
 export async function getSentPayments() {
     await requireAuth();
-    const payments = await prisma.purchaseInvoice.findMany({
+
+    const payments = await prisma.payment.findMany({
         where: {
-            status: { in: [PurchaseInvoiceStatus.PAID, PurchaseInvoiceStatus.PARTIAL] },
-            paidAmount: { gt: 0 }
+            purchaseInvoiceId: { not: null }
         },
-        orderBy: { updatedAt: 'desc' },
         include: {
-            purchaseOrder: {
-                include: { supplier: true }
+            purchaseInvoice: {
+                include: {
+                    purchaseOrder: {
+                        include: { supplier: true }
+                    }
+                }
             }
         },
+        orderBy: { paymentDate: 'desc' },
         take: 50
     });
 
     return serializeData(payments.map(p => ({
         id: p.id,
-        referenceNumber: p.invoiceNumber,
-        date: p.updatedAt,
-        entityName: p.purchaseOrder.supplier.name,
-        amount: Number(p.paidAmount),
-        method: 'Bank Transfer', // Mock
+        referenceNumber: p.paymentNumber,
+        date: p.paymentDate,
+        entityName: p.purchaseInvoice?.purchaseOrder.supplier.name || 'Unknown Supplier',
+        amount: Number(p.amount),
+        method: p.method,
         status: 'COMPLETED'
     })));
+}
+
+/**
+ * Record Customer Payment (AR)
+ */
+export async function recordCustomerPayment(data: {
+    invoiceId: string;
+    amount: number;
+    paymentDate: Date | string;
+    method: string;
+    notes?: string;
+}) {
+    await requireAuth();
+
+    try {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: data.invoiceId }
+        });
+
+        if (!invoice) {
+            return { success: false, error: 'Invoice not found' };
+        }
+
+        const totalAmount = Number(invoice.totalAmount);
+        const currentPaid = Number(invoice.paidAmount);
+        const remainingBalance = totalAmount - currentPaid;
+
+        if (data.amount > remainingBalance) {
+            return { success: false, error: 'Payment amount exceeds remaining balance' };
+        }
+
+        const newPaidAmount = currentPaid + data.amount;
+        const newStatus = newPaidAmount >= totalAmount
+            ? InvoiceStatus.PAID
+            : InvoiceStatus.PARTIAL;
+
+        // Generate payment number
+        const { getNextSequence } = await import('@/lib/sequence');
+        const paymentNumber = await getNextSequence('PAYMENT_IN');
+
+        // Create payment record and update invoice in a transaction
+        await prisma.$transaction(async (tx) => {
+            // Create payment record
+            await tx.payment.create({
+                data: {
+                    paymentNumber,
+                    paymentDate: new Date(data.paymentDate),
+                    amount: data.amount,
+                    method: data.method,
+                    notes: data.notes,
+                    invoiceId: data.invoiceId
+                }
+            });
+
+            // Update invoice
+            await tx.invoice.update({
+                where: { id: data.invoiceId },
+                data: {
+                    paidAmount: newPaidAmount,
+                    status: newStatus
+                }
+            });
+        });
+
+        // Create journal entry
+        const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
+        await AutoJournalService.handleSalesPayment(data.invoiceId, data.amount);
+
+        revalidatePath('/finance/payments/received');
+        revalidatePath('/finance/invoices/sales');
+
+        return { success: true, message: 'Payment recorded successfully' };
+    } catch (error) {
+        console.error('Error recording customer payment:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+/**
+ * Record Supplier Payment (AP)
+ */
+export async function recordSupplierPayment(data: {
+    invoiceId: string;
+    amount: number;
+    paymentDate: Date | string;
+    method: string;
+    notes?: string;
+}) {
+    await requireAuth();
+
+    try {
+        const invoice = await prisma.purchaseInvoice.findUnique({
+            where: { id: data.invoiceId }
+        });
+
+        if (!invoice) {
+            return { success: false, error: 'Purchase invoice not found' };
+        }
+
+        const totalAmount = Number(invoice.totalAmount);
+        const currentPaid = Number(invoice.paidAmount);
+        const remainingBalance = totalAmount - currentPaid;
+
+        if (data.amount > remainingBalance) {
+            return { success: false, error: 'Payment amount exceeds remaining balance' };
+        }
+
+        const newPaidAmount = currentPaid + data.amount;
+        const newStatus = newPaidAmount >= totalAmount
+            ? PurchaseInvoiceStatus.PAID
+            : PurchaseInvoiceStatus.PARTIAL;
+
+        // Generate payment number
+        const { getNextSequence } = await import('@/lib/sequence');
+        const paymentNumber = await getNextSequence('PAYMENT_OUT');
+
+        // Create payment record and update invoice in a transaction
+        await prisma.$transaction(async (tx) => {
+            // Create payment record
+            await tx.payment.create({
+                data: {
+                    paymentNumber,
+                    paymentDate: new Date(data.paymentDate),
+                    amount: data.amount,
+                    method: data.method,
+                    notes: data.notes,
+                    purchaseInvoiceId: data.invoiceId
+                }
+            });
+
+            // Update purchase invoice
+            await tx.purchaseInvoice.update({
+                where: { id: data.invoiceId },
+                data: {
+                    paidAmount: newPaidAmount,
+                    status: newStatus
+                }
+            });
+        });
+
+        // Create journal entry
+        const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
+        await AutoJournalService.handlePurchasePayment(data.invoiceId, data.amount);
+
+        revalidatePath('/finance/payments/sent');
+        revalidatePath('/finance/invoices/purchase');
+
+        return { success: true, message: 'Payment recorded successfully' };
+    } catch (error) {
+        console.error('Error recording supplier payment:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
 }

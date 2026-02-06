@@ -1,25 +1,33 @@
 import { getSentPayments } from '@/actions/finance';
-import { SharedPaymentTable } from '@/components/finance/SharedPaymentTable';
+import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsClient';
+import { prisma } from '@/lib/prisma';
+import { serializeData } from '@/lib/utils';
+import { PurchaseInvoiceStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SentPaymentsPage() {
     const payments = await getSentPayments();
 
-    return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Supplier Payments</h1>
-                <p className="text-muted-foreground">History of payments sent to vendors.</p>
-            </div>
+    // Fetch unpaid purchase invoices for payment recording
+    const unpaidInvoices = await prisma.purchaseInvoice.findMany({
+        where: {
+            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE] }
+        },
+        include: {
+            purchaseOrder: {
+                include: { supplier: true }
+            }
+        },
+        orderBy: { invoiceDate: 'desc' }
+    });
 
-            <SharedPaymentTable
-                title="Outgoing Transactions"
-                description="List of completed payments to suppliers."
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                payments={payments as any}
-                type="sent"
-            />
-        </div>
+    return (
+        <SentPaymentsClient
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            payments={payments as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            unpaidInvoices={serializeData(unpaidInvoices) as any}
+        />
     );
 }

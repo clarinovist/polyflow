@@ -24,7 +24,7 @@ export default async function InvoicesPage() {
             </div>
 
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <InvoiceTable invoices={serializedInvoices as any} />
+            <InvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/sales" />
         </div>
     );
 }

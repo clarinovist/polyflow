@@ -26,7 +26,9 @@ type InvoiceWithRelations = {
     status: PurchaseInvoiceStatus;
     totalAmount: number;
     paidAmount: number;
+    purchaseOrderId: string;
     purchaseOrder: {
+        id: string;
         orderNumber: string;
         supplier: {
             name: string;
@@ -36,9 +38,10 @@ type InvoiceWithRelations = {
 
 interface PurchaseInvoiceTableProps {
     invoices: InvoiceWithRelations[];
+    basePath?: string;
 }
 
-export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
+export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-orders' }: PurchaseInvoiceTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredInvoices = useMemo(() => {
@@ -51,10 +54,10 @@ export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
 
     const getStatusBadge = (status: PurchaseInvoiceStatus) => {
         const styles: Record<string, string> = {
-            UNPAID: 'bg-red-100 text-red-800 border-red-200',
-            PARTIAL: 'bg-amber-100 text-amber-800 border-amber-200',
-            PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
+            UNPAID: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900',
+            PARTIAL: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900',
+            PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-900',
+            OVERDUE: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900',
         };
         return (
             <Badge variant="outline" className={styles[status]}>
@@ -96,8 +99,8 @@ export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
                                     <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors">
                                         <TableCell className="font-mono font-medium">
                                             <Link
-                                                href={`/finance/invoices/purchase/${inv.id}`}
-                                                className="text-slate-900 hover:text-blue-600 hover:underline"
+                                                href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}
+                                                className="text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
                                             >
                                                 {inv.invoiceNumber}
                                             </Link>
@@ -122,7 +125,7 @@ export function PurchaseInvoiceTable({ invoices }: PurchaseInvoiceTableProps) {
                                         <TableCell className="text-right font-medium">
                                             {formatRupiah(inv.totalAmount)}
                                         </TableCell>
-                                        <TableCell className="text-right text-emerald-600 font-medium">
+                                        <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-medium">
                                             {formatRupiah(inv.paidAmount)}
                                         </TableCell>
                                         <TableCell>

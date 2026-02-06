@@ -120,11 +120,16 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
             const allReceived = updatedItems.every(item => item.receivedQty.toNumber() >= item.quantity.toNumber());
             const partialReceived = updatedItems.some(item => item.receivedQty.toNumber() > 0);
 
-            let status: PurchaseOrderStatus = PurchaseOrderStatus.SENT;
+            let status: PurchaseOrderStatus;
             if (allReceived) {
                 status = PurchaseOrderStatus.RECEIVED;
             } else if (partialReceived) {
                 status = PurchaseOrderStatus.PARTIAL_RECEIVED;
+            } else {
+                // No items received yet, keep current status or set to SENT if DRAFT
+                status = po.status === PurchaseOrderStatus.DRAFT
+                    ? PurchaseOrderStatus.SENT
+                    : po.status;
             }
 
             await tx.purchaseOrder.update({

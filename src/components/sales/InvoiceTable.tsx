@@ -34,7 +34,7 @@ interface InvoiceTableProps {
     }[];
 }
 
-export function InvoiceTable({ invoices }: InvoiceTableProps) {
+export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTableProps & { basePath?: string }) {
 
     const getStatusBadge = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
@@ -86,7 +86,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                                     </TableCell>
                                     <TableCell>{invoice.salesOrder.customer?.name || 'Internal / MTS'}</TableCell>
                                     <TableCell>
-                                        <Link href={`/sales/orders/${invoice.salesOrderId}`} className="text-blue-600 hover:underline">
+                                        <Link href={`${basePath}/${basePath.includes('finance') ? invoice.id : invoice.salesOrderId}`} className="text-blue-600 hover:underline">
                                             {invoice.salesOrder.orderNumber}
                                         </Link>
                                     </TableCell>
@@ -96,7 +96,7 @@ export function InvoiceTable({ invoices }: InvoiceTableProps) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="sm" asChild>
-                                            <Link href={`/sales/orders/${invoice.salesOrderId}`}>
+                                            <Link href={`${basePath}/${basePath.includes('finance') ? invoice.id : invoice.salesOrderId}`}>
                                                 View <ArrowRight className="ml-2 h-4 w-4" />
                                             </Link>
                                         </Button>

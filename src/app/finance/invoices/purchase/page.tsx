@@ -29,7 +29,7 @@ export default async function PurchaseInvoicesPage() {
             </div>
 
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseInvoiceTable invoices={serializedInvoices as any} />
+            <PurchaseInvoiceTable invoices={serializedInvoices as any} basePath="/finance/invoices/purchase" />
         </div>
     );
 }

@@ -1,25 +1,33 @@
 import { getReceivedPayments } from '@/actions/finance';
-import { SharedPaymentTable } from '@/components/finance/SharedPaymentTable';
+import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
+import { prisma } from '@/lib/prisma';
+import { serializeData } from '@/lib/utils';
+import { InvoiceStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReceivedPaymentsPage() {
     const payments = await getReceivedPayments();
 
-    return (
-        <div className="p-6 space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Customer Payments</h1>
-                <p className="text-muted-foreground">History of payments received from sales.</p>
-            </div>
+    // Fetch unpaid invoices for payment recording
+    const unpaidInvoices = await prisma.invoice.findMany({
+        where: {
+            status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] }
+        },
+        include: {
+            salesOrder: {
+                include: { customer: true }
+            }
+        },
+        orderBy: { invoiceDate: 'desc' }
+    });
 
-            <SharedPaymentTable
-                title="Incoming Transactions"
-                description="List of verified payments from your customers."
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                payments={payments as any}
-                type="received"
-            />
-        </div>
+    return (
+        <ReceivedPaymentsClient
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            payments={payments as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            unpaidInvoices={serializeData(unpaidInvoices) as any}
+        />
     );
 }
