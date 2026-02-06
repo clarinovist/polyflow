@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { AccountingService } from '@/services/accounting-service';
 import { InvoiceStatus, PurchaseInvoiceStatus, ReferenceType, AccountType, AccountCategory, SalesOrderType, SalesOrderStatus, PurchaseOrderStatus } from '@prisma/client';
+import { serializeData } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 
 const OPENING_BALANCE_ACCOUNT_CODE = '30000';
@@ -168,4 +169,67 @@ async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: s
             }
         ]
     });
+}
+
+export async function getRecentOpeningBalances() {
+    await requireAuth();
+
+    try {
+        const [arInvoices, apInvoices] = await Promise.all([
+            prisma.invoice.findMany({
+                where: {
+                    salesOrder: {
+                        orderNumber: { startsWith: 'SO-OPEN-' }
+                    }
+                },
+                include: {
+                    salesOrder: {
+                        include: { customer: { select: { name: true } } }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10
+            }),
+            prisma.purchaseInvoice.findMany({
+                where: {
+                    purchaseOrder: {
+                        orderNumber: { startsWith: 'PO-OPEN-' }
+                    }
+                },
+                include: {
+                    purchaseOrder: {
+                        include: { supplier: { select: { name: true } } }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10
+            })
+        ]);
+
+        const history = [
+            ...arInvoices.map(inv => ({
+                id: inv.id,
+                type: 'AR' as const,
+                invoiceNumber: inv.invoiceNumber,
+                entityName: inv.salesOrder?.customer?.name || 'Unknown',
+                date: inv.invoiceDate,
+                amount: Number(inv.totalAmount),
+                createdAt: inv.createdAt
+            })),
+            ...apInvoices.map(inv => ({
+                id: inv.id,
+                type: 'AP' as const,
+                invoiceNumber: inv.invoiceNumber,
+                entityName: inv.purchaseOrder?.supplier?.name || 'Unknown',
+                date: inv.invoiceDate,
+                amount: Number(inv.totalAmount),
+                createdAt: inv.createdAt
+            }))
+        ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+        return { success: true, data: serializeData(history) };
+    } catch (error) {
+        console.error('Failed to fetch opening balance history:', error);
+        return { success: false, error: 'Failed to fetch history' };
+    }
 }

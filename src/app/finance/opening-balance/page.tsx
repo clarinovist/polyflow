@@ -2,19 +2,23 @@ import { Suspense } from 'react';
 import { getCustomers } from '@/actions/customer';
 import { getSuppliers } from '@/actions/supplier';
 import { OpeningBalanceForm } from '@/components/finance/OpeningBalanceForm';
+import { OpeningBalanceHistory } from '@/components/finance/OpeningBalanceHistory';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { serializeData } from '@/lib/utils';
+import { getRecentOpeningBalances } from '@/actions/finance/opening-balance';
 
 export default async function OpeningBalancePage() {
-    const [customersData, suppliersData] = await Promise.all([
+    const [customersData, suppliersData, historyRes] = await Promise.all([
         getCustomers(),
-        getSuppliers()
+        getSuppliers(),
+        getRecentOpeningBalances()
     ]);
 
     // Serialize Decimal objects for Client Components
     const customers = serializeData(customersData);
     const suppliers = serializeData(suppliersData);
+    const history = historyRes.success ? historyRes.data : [];
 
     return (
         <div className="container mx-auto py-8">
@@ -31,6 +35,7 @@ export default async function OpeningBalancePage() {
                 </Card>
             }>
                 <OpeningBalanceForm customers={customers} suppliers={suppliers} />
+                <OpeningBalanceHistory data={history as any} />
             </Suspense>
         </div>
     );

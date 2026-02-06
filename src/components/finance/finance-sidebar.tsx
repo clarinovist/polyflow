@@ -53,7 +53,7 @@ const financeLinks = [
             { href: '/finance/coa', icon: Settings2, label: 'Chart of Accounts' },
             { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
             { href: '/finance/assets', icon: Building2, label: 'Fixed Assets' },
-            { href: '/dashboard/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
+            { href: '/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
             { href: '/finance/budget', icon: BarChart3, label: 'Budgeting' },
         ],
     },

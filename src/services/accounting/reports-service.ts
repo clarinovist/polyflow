@@ -6,10 +6,14 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
         orderBy: { code: 'asc' }
     });
 
+    const entryDate: Prisma.DateTimeFilter = {};
+    if (startDate) entryDate.gte = startDate;
+    if (endDate) entryDate.lte = endDate;
+
     const where: Prisma.JournalLineWhereInput = {
         journalEntry: {
             status: 'POSTED',
-            ...(endDate ? { entryDate: { lte: endDate } } : {})
+            ...(Object.keys(entryDate).length ? { entryDate } : {})
         }
     };
 
@@ -24,20 +28,20 @@ export async function getTrialBalance(startDate?: Date, endDate?: Date) {
 
     const result = accounts.map(acc => {
         const agg = balances.find(b => b.accountId === acc.id);
-        const totalDebit = Number(agg?._sum.debit || 0);
-        const totalCredit = Number(agg?._sum.credit || 0);
+        const debit = Number(agg?._sum.debit || 0);
+        const credit = Number(agg?._sum.credit || 0);
 
         let netBalance = 0;
         if (['ASSET', 'EXPENSE'].includes(acc.type)) {
-            netBalance = totalDebit - totalCredit;
+            netBalance = debit - credit;
         } else {
-            netBalance = totalCredit - totalDebit;
+            netBalance = credit - debit;
         }
 
         return {
             ...acc,
-            totalDebit,
-            totalCredit,
+            debit,
+            credit,
             netBalance
         };
     });
