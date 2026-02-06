@@ -37,6 +37,7 @@ export interface ProductionOrderFormProps {
         name: string;
         isDefault: boolean;
         productVariantId: string;
+        category: 'MIXING' | 'EXTRUSION' | 'PACKING' | 'STANDARD';
         outputQuantity: number;
         productVariant: {
             name: string;
@@ -102,9 +103,16 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
         // Filter based on Process Type
         return allProducts.filter(p => {
-            if (processType === 'mixing') return p.productType === 'INTERMEDIATE';
-            if (processType === 'extrusion') return p.productType === 'FINISHED_GOOD';
-            if (processType === 'packing') return p.productType === 'FINISHED_GOOD';
+            const productBoms = boms.filter(b => b.productVariantId === p.id);
+            if (processType === 'mixing') {
+                return productBoms.some(b => b.category === 'MIXING');
+            }
+            if (processType === 'extrusion') {
+                return productBoms.some(b => b.category === 'EXTRUSION');
+            }
+            if (processType === 'packing') {
+                return productBoms.some(b => b.category === 'PACKING');
+            }
             return true;
         });
     }, [boms, processType]);
