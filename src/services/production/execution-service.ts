@@ -352,6 +352,8 @@ export class ProductionExecutionService {
                                 reason: 'Production Process Waste (Lumps)',
                                 userId
                             }, tx);
+                        } else {
+                            console.warn(`Scrap variant SCRAP-PRONGKOL not found. Scrap tracking for this run will be recorded as execution data only.`);
                         }
                     }
 
@@ -369,6 +371,8 @@ export class ProductionExecutionService {
                                 reason: 'Production Process Waste (Trim)',
                                 userId
                             }, tx);
+                        } else {
+                            console.warn(`Scrap variant SCRAP-DAUN not found. Scrap tracking for this run will be recorded as execution data only.`);
                         }
                     }
                 }
