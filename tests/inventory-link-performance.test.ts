@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { recordInventoryMovement } from '../src/services/accounting/inventory-link-service';
 import { prisma } from '../src/lib/prisma';
@@ -60,10 +61,10 @@ describe('Inventory Link Service Benchmark', () => {
     // Simulate batch processing
     const ITERATIONS = 1000;
     for (let i = 0; i < ITERATIONS; i++) {
-        await recordInventoryMovement({
+      await recordInventoryMovement({
         ...mockMovement,
         productVariant: mockProductVariant,
-        });
+      });
     }
 
     const end = performance.now();
