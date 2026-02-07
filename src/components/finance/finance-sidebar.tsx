@@ -9,8 +9,6 @@ import {
     Settings2,
     Calendar,
     Building2,
-    BarChart3,
-    Calculator,
     History as HistoryIcon
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
@@ -54,14 +52,22 @@ const financeLinks = [
             { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
             { href: '/finance/assets', icon: Building2, label: 'Fixed Assets' },
             { href: '/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
-            { href: '/finance/budget', icon: BarChart3, label: 'Budgeting' },
         ],
     },
     {
         heading: 'Reports',
         items: [
-            { href: '/finance/reports', icon: FileText, label: 'Financial Reports' },
-            { href: '/finance/costing', icon: Calculator, label: 'Costing Dashboard' },
+            {
+                href: '/finance/reports',
+                icon: FileText,
+                label: 'Financial Reports',
+                children: [
+                    { title: "Balance Sheet", href: "/finance/reports/balance-sheet" },
+                    { title: "Income Statement", href: "/finance/reports/income-statement" },
+                    { title: "Trial Balance", href: "/finance/reports/trial-balance" },
+                    { title: "Budget Variance", href: "/finance/reports/budget-variance" },
+                ]
+            },
         ],
     },
 ];

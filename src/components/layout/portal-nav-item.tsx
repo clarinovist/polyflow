@@ -11,6 +11,10 @@ interface NavItemProps {
     icon: LucideIcon;
     label: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
+    children?: {
+        title: string;
+        href: string;
+    }[];
 }
 
 interface NavGroupProps {
@@ -20,9 +24,15 @@ interface NavGroupProps {
     defaultOpen?: boolean;
 }
 
-export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary' }: NavItemProps) {
+export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', children }: NavItemProps) {
     const pathname = usePathname();
-    const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+    const isDirectActive = pathname === href || (href !== '/' && pathname === href);
+    const isChildActive = children?.some(child => pathname === child.href);
+    const isActive = isDirectActive || isChildActive;
+
+    const [isOpen, setIsOpen] = useState(isChildActive);
+
+    const hasChildren = children && children.length > 0;
 
     const activeClasses = {
         primary: 'bg-sidebar-accent text-sidebar-accent-foreground',
@@ -42,18 +52,70 @@ export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary'
         rose: 'text-rose-600 dark:text-rose-400',
     }[accentColor] || 'text-sidebar-accent-foreground';
 
+    const baseClasses = "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm w-full text-left";
+    const inactiveClasses = "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground";
+
+    const content = (
+        <>
+            <Icon className={cn("h-4 w-4 shrink-0", isActive ? iconActiveClasses : "text-muted-foreground")} />
+            <span className="flex-1 truncate">{label}</span>
+            {hasChildren && (
+                isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground/50" /> : <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+            )}
+        </>
+    );
+
+    if (hasChildren) {
+        return (
+            <div className="space-y-1">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={cn(baseClasses, isActive ? "text-sidebar-foreground" : inactiveClasses, "cursor-pointer")}
+                >
+                    {content}
+                </button>
+                {isOpen && (
+                    <div className="ml-4 pl-3 border-l border-sidebar-border space-y-1 mt-1">
+                        <Link
+                            href={href}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors font-medium text-xs",
+                                isDirectActive
+                                    ? activeClasses
+                                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                            )}
+                        >
+                            Overview
+                        </Link>
+                        {children.map((child) => (
+                            <Link
+                                key={child.href}
+                                href={child.href}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors font-medium text-xs",
+                                    pathname === child.href
+                                        ? activeClasses
+                                        : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                                )}
+                            >
+                                {child.title}
+                            </Link>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <Link
             href={href}
             className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
-                isActive
-                    ? activeClasses
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                baseClasses,
+                isActive ? activeClasses : inactiveClasses
             )}
         >
-            <Icon className={cn("h-4 w-4", isActive ? iconActiveClasses : "text-muted-foreground")} />
-            <span>{label}</span>
+            {content}
         </Link>
     );
 }
