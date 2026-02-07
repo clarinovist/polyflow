@@ -108,8 +108,14 @@ export async function recordInventoryMovement(
     }
 }
 
+const accountCache = new Map<string, string>();
+
 async function getAccountId(code: string): Promise<string> {
+    if (accountCache.has(code)) return accountCache.get(code)!;
+
     const acc = await prisma.account.findUnique({ where: { code } });
     if (!acc) throw new Error(`GL Account code ${code} not found during auto-journal.`);
+
+    accountCache.set(code, acc.id);
     return acc.id;
 }
