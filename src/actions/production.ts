@@ -296,7 +296,15 @@ export async function deleteProductionOrder(id: string) {
  * Get Production Order Statistics
  */
 export async function getProductionOrderStats() {
-    await auth();
+    const session = await auth();
+    if (!session?.user) {
+        return {
+            totalOrders: 0,
+            activeCount: 0,
+            draftCount: 0,
+            lateCount: 0
+        };
+    }
 
     const stats = await prisma.productionOrder.groupBy({
         by: ['status'],
@@ -377,6 +385,11 @@ export async function startExecution(data: StartExecutionValues) {
     }
 
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const execution = await ProductionService.startExecution(result.data);
 
         revalidatePath('/production');
@@ -398,6 +411,11 @@ export async function stopExecution(data: StopExecutionValues) {
     }
 
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const execution = await ProductionService.stopExecution(result.data);
 
         revalidatePath('/production');
@@ -420,6 +438,10 @@ export async function addProductionOutput(data: ProductionOutputValues) {
 
     try {
         const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.addProductionOutput({ ...result.data, userId: session?.user?.id });
         revalidatePath('/production');
         // Revalidate detail page of order
@@ -441,6 +463,10 @@ export async function recordQualityInspection(data: QualityInspectionValues) {
 
     try {
         const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.recordQualityInspection({ ...result.data, userId: session?.user?.id });
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
         return { success: true };
@@ -454,6 +480,9 @@ export async function recordQualityInspection(data: QualityInspectionValues) {
  */
 export async function getActiveExecutions() {
     try {
+        const session = await auth();
+        if (!session?.user) return [];
+
         const executions = await ProductionService.getActiveExecutions();
         return serializeData(executions);
     } catch (error) {
@@ -473,6 +502,10 @@ export async function batchIssueMaterials(data: BatchMaterialIssueValues) {
 
     try {
         const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.batchIssueMaterials({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
@@ -494,6 +527,10 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
 
     try {
         const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.recordMaterialIssue({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
@@ -508,6 +545,11 @@ export async function recordMaterialIssue(data: MaterialIssueValues) {
  */
 export async function deleteMaterialIssue(issueId: string, productionOrderId: string) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
 
         revalidatePath(`/production/orders/${productionOrderId}`);
@@ -528,6 +570,10 @@ export async function recordScrap(data: ScrapRecordValues) {
 
     try {
         const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.recordScrap({ ...result.data, userId: session?.user?.id });
 
         revalidatePath(`/production/orders/${result.data.productionOrderId}`);
@@ -581,6 +627,11 @@ export async function logRunningOutput(data: LogRunningOutputValues) {
     }
 
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.logRunningOutput(result.data);
 
         revalidatePath('/production');
@@ -627,6 +678,11 @@ export async function createProductionFromSalesOrder(salesOrderId: string, produ
  */
 export async function simulateMrp(salesOrderId: string) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const result = await MrpService.simulateMaterialRequirements(salesOrderId);
         return { success: true, data: serializeData(result) };
     } catch (error) {
@@ -644,6 +700,11 @@ export async function logMachineDowntime(data: LogMachineDowntimeValues) {
     }
 
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.recordDowntime(result.data);
         revalidatePath('/production');
         return { success: true };
@@ -763,6 +824,11 @@ export async function updateProductionIssueStatus(
     productionOrderId?: string
 ) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const issue = await ProductionService.updateIssueStatus(issueId, status, resolvedNotes);
 
         if (productionOrderId) {
@@ -778,6 +844,11 @@ export async function updateProductionIssueStatus(
 
 export async function deleteProductionIssue(issueId: string, productionOrderId: string) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await ProductionService.deleteIssue(issueId);
 
         revalidatePath(`/planning/orders/${productionOrderId}`);
