@@ -70,9 +70,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --chown=nextjs:nodejs entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-# Copy compiled seed script
-COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed.js ./prisma/seed.js
-COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed-baseline.js ./prisma/seed-baseline.js
+# Copy compiled seed scripts
+COPY --from=builder --chown=nextjs:nodejs /app/prisma/*.js ./prisma/
 
 USER nextjs
 
