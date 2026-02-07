@@ -55,19 +55,12 @@ const financeLinks = [
         ],
     },
     {
-        heading: 'Reports',
+        heading: 'Financial Reports',
         items: [
-            {
-                href: '/finance/reports',
-                icon: FileText,
-                label: 'Financial Reports',
-                children: [
-                    { title: "Balance Sheet", href: "/finance/reports/balance-sheet" },
-                    { title: "Income Statement", href: "/finance/reports/income-statement" },
-                    { title: "Trial Balance", href: "/finance/reports/trial-balance" },
-                    { title: "Budget Variance", href: "/finance/reports/budget-variance" },
-                ]
-            },
+            { href: '/finance/reports/balance-sheet', icon: FileText, label: 'Balance Sheet' },
+            { href: '/finance/reports/income-statement', icon: FileText, label: 'Income Statement' },
+            { href: '/finance/reports/trial-balance', icon: FileText, label: 'Trial Balance' },
+            { href: '/finance/reports/budget-variance', icon: FileText, label: 'Budget Variance' },
         ],
     },
 ];
