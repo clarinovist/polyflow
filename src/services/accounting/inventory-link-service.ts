@@ -29,20 +29,20 @@ export async function recordInventoryMovement(
 
     const getInventoryAccount = (pType: string) => {
         switch (pType) {
-            case 'RAW_MATERIAL': return '11310';
-            case 'FINISHED_GOOD': return '11330';
-            case 'WIP': return '11320';
-            case 'SCRAP': return '11390';
-            case 'INTERMEDIATE': return '11320';
-            case 'PACKAGING': return '11310';
-            default: return '11310';
+            case 'RAW_MATERIAL': return '12100'; // Virgin Resin (Parent)
+            case 'FINISHED_GOOD': return '12500';
+            case 'WIP': return '12400';
+            case 'SCRAP': return '12300';
+            case 'INTERMEDIATE': return '12400';
+            case 'PACKAGING': return '12600';
+            default: return '12100';
         }
     };
 
     const lines = [];
 
     if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
-        const invAccount = getInventoryAccount(productType);
+        const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         lines.push(
             { accountId: (await getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
             { accountId: (await getAccountId('21110')), debit: 0, credit: totalAmount, description: `AP Accrual: ${productVariant.name}` }
@@ -50,26 +50,29 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'OUT' && movement.salesOrderId) {
-        const invAccount = getInventoryAccount(productType);
+        const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
+        const cogsAccount = productVariant.product.cogsAccountId || '50000';
         lines.push(
-            { accountId: (await getAccountId('50000')), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
+            { accountId: (await getAccountId(cogsAccount)), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
             { accountId: (await getAccountId(invAccount)), debit: 0, credit: totalAmount, description: `Shipment: ${productVariant.name}` }
         );
     }
 
     else if (movement.type === 'OUT' && !movement.salesOrderId) {
-        const creditAccount = getInventoryAccount(productType);
+        const creditAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
+        const wipAccount = productVariant.product.wipAccountId || '12400';
         lines.push(
-            { accountId: (await getAccountId('11320')), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
+            { accountId: (await getAccountId(wipAccount)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
             { accountId: (await getAccountId(creditAccount)), debit: 0, credit: totalAmount, description: `Material Consumed` }
         );
     }
 
     else if (movement.type === 'IN' && !movement.goodsReceiptId) {
-        const debitAccount = getInventoryAccount(productType);
+        const debitAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
+        const wipAccount = productVariant.product.wipAccountId || '12400';
         lines.push(
             { accountId: (await getAccountId(debitAccount)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
-            { accountId: (await getAccountId('11320')), debit: 0, credit: totalAmount, description: `WIP Relief` }
+            { accountId: (await getAccountId(wipAccount)), debit: 0, credit: totalAmount, description: `WIP Relief` }
         );
     }
 
@@ -80,11 +83,11 @@ export async function recordInventoryMovement(
         if (Number(movement.quantity) > 0) {
             lines.push(
                 { accountId: (await getAccountId(invAccount)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
-                { accountId: (await getAccountId('53300')), debit: 0, credit: absAmt, description: `Adj Gain` }
+                { accountId: (await getAccountId('81100')), debit: 0, credit: absAmt, description: `Adj Gain` }
             );
         } else {
             lines.push(
-                { accountId: (await getAccountId('53300')), debit: absAmt, credit: 0, description: `Adj Loss` },
+                { accountId: (await getAccountId('91100')), debit: absAmt, credit: 0, description: `Adj Loss` },
                 { accountId: (await getAccountId(invAccount)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
             );
         }

@@ -194,39 +194,136 @@ Based on a **4px base unit** (Tailwind default).
 
 ### Industrial Glassmorphism (Brand Design System)
 
-The core aesthetic of PolyFlow "Mother Office" is based on high-end industrial glassmorphism. This is formalized in the `BrandCard` component.
+The `BrandCard` component creates high-end glassmorphism effects. **Use sparingly** for hero sections, marketing pages, and special feature cards only.
 
-#### Brand Tokens
+> ⚠️ **Do NOT use BrandCard for standard data displays like reports, tables, or forms.** Use standard `Card` components instead.
 
-| Token | Description | Value |
-|-------|-------------|-------|
-| `--color-brand-glass` | Semi-transparent background | `oklch(1 0 0 / 40%)` |
-| `--color-brand-glass-heavy` | Near-opaque background | `oklch(1 0 0 / 95%)` |
-| `--color-brand-border` | Subtle glass border | `oklch(1 0 0 / 10%)` |
-| `--blur-brand` | Standard backdrop blur | `20px` |
-| `--shadow-brand` | Deep industrial shadow | Custom 50px spread |
+#### When to Use BrandCard
 
-#### Usage with BrandCard
+| Use Case | Component |
+|----------|-----------|
+| Landing pages, hero sections | `BrandCard` |
+| Marketing feature cards | `BrandCard variant="hero"` |
+| Special promotional content | `BrandCard` |
+| **Data tables, reports, forms** | **Standard `Card`** |
+| **Financial statements** | **Standard `Card`** |
+| **Ledgers, journals** | **Standard `Card`** |
+
+#### BrandCard Example (Hero Only)
 
 ```tsx
-import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from '@/components/brand/BrandCard';
+import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
-// Standard Glass Panel
-<BrandCard>
-  <BrandCardHeader>...</BrandCardHeader>
-  <BrandCardContent>...</BrandCardContent>
+// Only for hero/marketing sections
+<BrandCard variant="hero">
+  <BrandCardHeader>Feature Title</BrandCardHeader>
+  <BrandCardContent>Special content</BrandCardContent>
 </BrandCard>
-
-// Heavy Panel (for Dialogs/Modals)
-<BrandCard variant="heavy">...</BrandCard>
-
-// Hero Text with Animated Gradient
-<BrandGradientText className="text-4xl font-black">
-  Master Recipes
-</BrandGradientText>
 ```
 
 ---
+
+### Finance Module Patterns
+
+All finance and accounting pages follow a **clean, minimal design** based on the COA Ledger component. This ensures readability and professionalism.
+
+#### Core Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **No italic text** | Use `font-semibold` or `font-bold` for emphasis |
+| **Minimal colors** | Only `text-primary` for key values |
+| **Standard Card** | Use `Card`, not `BrandCard` |
+| **Monospace numbers** | Always use `font-mono` for financial data |
+| **Subtle highlights** | Use `bg-muted/50` for important rows |
+
+#### Summary Cards Pattern
+
+```tsx
+// Top summary cards (like COA Ledger)
+<div className="grid gap-4 md:grid-cols-4">
+    <Card>
+        <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Label</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(value)}</div>
+        </CardContent>
+    </Card>
+    
+    {/* Highlighted card for key metric */}
+    <Card className="bg-muted/50">
+        <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Key Metric</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold text-primary">{formatCurrency(value)}</div>
+        </CardContent>
+    </Card>
+</div>
+```
+
+#### Report Table Pattern
+
+```tsx
+<Card>
+    <CardHeader>
+        <CardTitle>Report Title</CardTitle>
+        <CardDescription>Description text</CardDescription>
+    </CardHeader>
+    <CardContent>
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Column</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {/* Section header */}
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={2} className="font-semibold">Section Title</TableCell>
+                    </TableRow>
+                    
+                    {/* Data rows */}
+                    <TableRow>
+                        <TableCell className="pl-8">Item name</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(amount)}</TableCell>
+                    </TableRow>
+                    
+                    {/* Subtotal row */}
+                    <TableRow className="font-semibold border-t">
+                        <TableCell>Subtotal</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(subtotal)}</TableCell>
+                    </TableRow>
+                    
+                    {/* Important total row */}
+                    <TableRow className="bg-muted/50 hover:bg-muted/50 font-bold">
+                        <TableCell>TOTAL</TableCell>
+                        <TableCell className="text-right font-mono text-lg">{formatCurrency(total)}</TableCell>
+                    </TableRow>
+                    
+                    {/* Final result row (e.g., Net Income) */}
+                    <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
+                        <TableCell className="text-lg">FINAL RESULT</TableCell>
+                        <TableCell className="text-right font-mono text-xl text-primary">{formatCurrency(result)}</TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
+        </div>
+    </CardContent>
+</Card>
+```
+
+#### Reference Components
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Account Ledger | `src/components/finance/coa/AccountLedgerClient.tsx` | Gold standard for finance tables |
+| Income Statement | `src/app/finance/reports/income-statement/page.tsx` | Multi-step P&L report |
+| Balance Sheet | `src/app/finance/reports/balance-sheet/page.tsx` | Assets & liabilities |
+
 
 ## Components
 
