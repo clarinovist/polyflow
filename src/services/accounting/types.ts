@@ -1,4 +1,4 @@
-import { ReferenceType } from '@prisma/client';
+import { ReferenceType, JournalStatus } from '@prisma/client';
 
 export type CreateJournalEntryInput = {
     entryDate: Date;
@@ -6,6 +6,7 @@ export type CreateJournalEntryInput = {
     reference: string;
     referenceType?: ReferenceType;
     referenceId?: string;
+    status?: JournalStatus;
     lines: {
         accountId: string;
         debit: number;
