@@ -7,7 +7,7 @@ import {
     ProductionOutputValues,
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MovementType } from '@prisma/client';
+import { ProductionStatus, MovementType, ProductionMaterial, BomItem } from '@prisma/client';
 import { InventoryService } from '../inventory-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
@@ -93,8 +93,8 @@ export class ProductionExecutionService {
     /**
      * Log Production Output (While Running)
      */
-    static async logRunningOutput(data: LogRunningOutputValues) {
-        const { executionId, quantityProduced, scrapQuantity, notes } = data;
+    static async logRunningOutput(data: LogRunningOutputValues & { userId?: string }) {
+        const { executionId, quantityProduced, scrapQuantity, notes, userId } = data;
 
         await prisma.$transaction(async (tx) => {
             const execution = await tx.productionExecution.findUniqueOrThrow({
@@ -120,7 +120,10 @@ export class ProductionExecutionService {
             const order = await tx.productionOrder.update({
                 where: { id: productionOrderId },
                 data: { actualQuantity: newTotal },
-                include: { bom: { include: { items: true } } }
+                include: {
+                    bom: { include: { items: true } },
+                    plannedMaterials: true
+                }
             });
 
             const locationId = order.locationId;
@@ -171,20 +174,27 @@ export class ProductionExecutionService {
             }
 
             // Backflush
-            if (order.bom && order.bom.items.length > 0) {
+            const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
+            const isUsingPlanned = order.plannedMaterials.length > 0;
+
+            if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = locationId; // Default to order location
-                if (order.bom.category === 'EXTRUSION') {
+                if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
-
-                } else if (order.bom.category === 'PACKING') {
+                } else if (order.bom?.category === 'PACKING') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
                 }
 
-                for (const item of order.bom.items) {
-                    const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
+                for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
+                    let ratio = 0;
+                    if (isUsingPlanned) {
+                        ratio = Number(item.quantity) / Number(order.plannedQuantity);
+                    } else {
+                        ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
+                    }
                     const qtyToDeduct = quantityProduced * ratio;
 
                     if (qtyToDeduct > 0.0001) {
@@ -200,6 +210,17 @@ export class ProductionExecutionService {
                             }
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
+
+                        // Also create MaterialIssue record for tracking consumption in the order plan
+                        await tx.materialIssue.create({
+                            data: {
+                                productionOrderId,
+                                productVariantId: item.productVariantId,
+                                quantity: qtyToDeduct,
+                                locationId: consumptionLocationId,
+                                createdById: userId
+                            }
+                        });
                     }
                 }
             }
@@ -248,7 +269,10 @@ export class ProductionExecutionService {
             const order = await tx.productionOrder.update({
                 where: { id: productionOrderId },
                 data: { actualQuantity: newTotal },
-                include: { bom: { include: { items: true } } }
+                include: {
+                    bom: { include: { items: true } },
+                    plannedMaterials: true
+                }
             });
 
             const locationId = order.locationId;
@@ -293,21 +317,30 @@ export class ProductionExecutionService {
             }
 
             // Backflush
-            if (order.bom && order.bom.items.length > 0) {
+            const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
+            const isUsingPlanned = order.plannedMaterials.length > 0;
+
+            if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = locationId; // Default to order location
-                if (order.bom.category === 'EXTRUSION') {
+                if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
 
-                } else if (order.bom.category === 'PACKING') {
+                } else if (order.bom?.category === 'PACKING') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
                 }
 
-                for (const item of order.bom.items) {
-                    const ratio = Number(item.quantity) / Number(order.bom.outputQuantity);
+                for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
+                    let ratio = 0;
+                    if (isUsingPlanned) {
+                        ratio = Number(item.quantity) / Number(order.plannedQuantity);
+                    } else {
+                        ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
+                    }
                     const qtyToDeduct = quantityProduced * ratio;
+
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                         await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
@@ -321,6 +354,17 @@ export class ProductionExecutionService {
                             }
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
+
+                        // Also create MaterialIssue record for tracking consumption in the order plan
+                        await tx.materialIssue.create({
+                            data: {
+                                productionOrderId,
+                                productVariantId: item.productVariantId,
+                                quantity: qtyToDeduct,
+                                locationId: consumptionLocationId,
+                                createdById: userId
+                            }
+                        });
                     }
                 }
             }

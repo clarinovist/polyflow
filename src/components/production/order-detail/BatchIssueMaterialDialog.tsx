@@ -199,8 +199,15 @@ export function BatchIssueMaterialDialog({
     async function onSubmit() {
         const validItems = items.filter(i => !i.isDeletedPlan && i.quantity > 0 && i.productVariantId !== '');
 
-        if (validItems.length === 0) {
-            toast.error("No items to process");
+        // Always calculate plan changes
+        const removedPlannedMaterialIds = items.filter(i => i.isPlanned && i.isDeletedPlan).map(i => i.id);
+        const addedPlannedMaterials = items.filter(i => !i.isPlanned && i.quantity > 0 && i.productVariantId !== '').map(i => ({
+            productVariantId: i.productVariantId,
+            quantity: i.quantity
+        }));
+
+        if (validItems.length === 0 && removedPlannedMaterialIds.length === 0 && addedPlannedMaterials.length === 0) {
+            toast.error("No changes to process");
             return;
         }
 
@@ -227,6 +234,25 @@ export function BatchIssueMaterialDialog({
                 });
 
                 if (result.success) {
+                    // SYNC PLAN: Also update the production plan if there are changes
+                    if (removedPlannedMaterialIds.length > 0 || addedPlannedMaterials.length > 0 || validItems.some(i => i.isPlanned)) {
+                        await batchIssueMaterials({
+                            productionOrderId: order.id,
+                            locationId: selectedLocation,
+                            items: [], // Don't issue stock here (already moved via transferStockBulk)
+                            removedPlannedMaterialIds,
+                            addedPlannedMaterials: [
+                                ...addedPlannedMaterials,
+                                // Also update existing planned items if their quantity changed
+                                ...items.filter(i => i.isPlanned && !i.isDeletedPlan && i.quantity !== i.originalQuantity).map(i => ({
+                                    productVariantId: i.productVariantId,
+                                    quantity: i.quantity
+                                }))
+                            ],
+                            requestId: `REQ-SYNC-${Date.now()}`
+                        });
+                    }
+
                     toast.success(`Successfully transferred materials to ${order.location.name}`);
                     setOpen(false);
                     router.refresh();
@@ -235,12 +261,6 @@ export function BatchIssueMaterialDialog({
                 }
             } else {
                 // STANDARD MODE: Issue Logic
-                const removedPlannedMaterialIds = items.filter(i => i.isPlanned && i.isDeletedPlan).map(i => i.id);
-                const addedPlannedMaterials = items.filter(i => !i.isPlanned && i.quantity > 0 && i.productVariantId !== '').map(i => ({
-                    productVariantId: i.productVariantId,
-                    quantity: i.quantity
-                }));
-
                 const result = await batchIssueMaterials({
                     productionOrderId: order.id,
                     locationId: selectedLocation,
