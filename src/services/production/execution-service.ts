@@ -177,9 +177,7 @@ export class ProductionExecutionService {
                 if (order.bom.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                } else if (order.bom.category === 'MIXING') {
-                    const rmLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
-                    if (rmLoc) consumptionLocationId = rmLoc.id;
+
                 } else if (order.bom.category === 'PACKING') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
@@ -301,9 +299,7 @@ export class ProductionExecutionService {
                 if (order.bom.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                } else if (order.bom.category === 'MIXING') {
-                    const rmLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
-                    if (rmLoc) consumptionLocationId = rmLoc.id;
+
                 } else if (order.bom.category === 'PACKING') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
