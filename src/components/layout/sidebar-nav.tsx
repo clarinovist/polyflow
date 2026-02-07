@@ -19,6 +19,8 @@ import {
     X,
     PackageSearch,
     Sparkles,
+    ChevronRight,
+    ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -42,6 +44,10 @@ interface NavItemType {
     title: string;
     href: string;
     icon: LucideIcon;
+    children?: {
+        title: string;
+        href: string;
+    }[];
 }
 
 // Flattened links
@@ -50,7 +56,17 @@ export const sidebarLinks: NavItemType[] = [
     { title: "Planning", href: "/planning", icon: Truck },
     { title: "Production", href: "/production", icon: Factory },
     { title: "Inventory", href: "/warehouse", icon: PackageSearch },
-    { title: "Accounting", href: "/finance", icon: Calculator },
+    {
+        title: "Accounting",
+        href: "/finance",
+        icon: Calculator,
+        children: [
+            { title: "Balance Sheet", href: "/finance/reports/balance-sheet" },
+            { title: "Income Statement", href: "/finance/reports/income-statement" },
+            { title: "Trial Balance", href: "/finance/reports/trial-balance" },
+            { title: "Budget Variance", href: "/finance/reports/budget-variance" },
+        ]
+    },
 
     // Master Data
     { title: "Product Catalog", href: "/dashboard/products", icon: Package },
@@ -145,9 +161,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                         {filteredItems.map((item) => (
                             <NavItem
                                 key={item.href}
-                                href={item.href}
-                                icon={item.icon}
-                                label={item.title}
+                                item={item}
                                 pathname={pathname}
                             />
                         ))}
@@ -196,21 +210,79 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     );
 }
 
-function NavItem({ href, icon: Icon, label, pathname }: { href: string; icon: LucideIcon; label: string; pathname: string }) {
-    const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+function NavItem({ item, pathname }: { item: NavItemType; pathname: string }) {
+    const { href, icon: Icon, title: label, children } = item;
+    const isDirectActive = pathname === href || (href !== '/dashboard' && pathname === href);
+    const isChildActive = children?.some(child => pathname === child.href);
+    const isActive = isDirectActive || isChildActive;
+
+    const [isOpen, setIsOpen] = useState(isChildActive);
+
+    const hasChildren = children && children.length > 0;
+
+    const content = (
+        <>
+            <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground")} />
+            <span className="flex-1 truncate">{label}</span>
+            {hasChildren && (
+                isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground/50" /> : <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+            )}
+        </>
+    );
+
+    const className = cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm w-full text-left",
+        isActive && !hasChildren
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : (isActive && hasChildren ? "text-sidebar-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground")
+    );
+
+    if (hasChildren) {
+        return (
+            <div className="space-y-1">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={cn(className, "cursor-pointer")}
+                >
+                    {content}
+                </button>
+                {isOpen && (
+                    <div className="ml-4 pl-3 border-l border-sidebar-border space-y-1 mt-1">
+                        {/* Main portal link as first child if it has children but we want a "Dashboard/Home" link */}
+                        <Link
+                            href={href}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors font-medium text-xs",
+                                isDirectActive
+                                    ? "bg-sidebar-accent/50 text-sidebar-accent-foreground"
+                                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                            )}
+                        >
+                            Overview
+                        </Link>
+                        {children.map((child) => (
+                            <Link
+                                key={child.href}
+                                href={child.href}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors font-medium text-xs",
+                                    pathname === child.href
+                                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                        : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                                )}
+                            >
+                                {child.title}
+                            </Link>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
-        <Link
-            href={href}
-            className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
-                isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            )}
-        >
-            <Icon className={cn("h-4 w-4", isActive ? "text-sidebar-accent-foreground" : "text-muted-foreground")} />
-            <span>{label}</span>
+        <Link href={href} className={className}>
+            {content}
         </Link>
     );
 }
