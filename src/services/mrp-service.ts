@@ -31,6 +31,8 @@ interface AggregatedRequirement {
     hasBom: boolean;
 }
 
+const TYPES_REQUIRING_BOM = ['FINISHED_GOOD', 'INTERMEDIATE', 'WIP'];
+
 export class MrpService {
 
     /**
@@ -315,9 +317,8 @@ export class MrpService {
 
         if (!bom) {
             // No BOM -> Leaf node (Raw Material or missing recipe)
+            const needsBom = TYPES_REQUIRING_BOM.includes(variant.product.productType);
 
-            // Fix: Check if it SHOULD have a BOM
-            const needsBom = ['FINISHED_GOOD', 'INTERMEDIATE', 'WIP'].includes(variant.product.productType);
             if (needsBom) {
                 missingBoms.push({
                     productName: variant.name,
