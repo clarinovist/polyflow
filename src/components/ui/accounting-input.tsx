@@ -12,19 +12,19 @@ interface AccountingInputProps extends Omit<React.ComponentProps<typeof Input>, 
 export function AccountingInput({ value, onValueChange, className, ...props }: AccountingInputProps) {
     const [displayValue, setDisplayValue] = React.useState('');
 
+    const formatNumeric = (val: string) => {
+        // Remove all non-digits
+        const digits = val.replace(/\D/g, '');
+        return digits ? parseInt(digits, 10) : 0;
+    };
+
     // Update display value when the numerical value changes from outside (e.g. form reset or auto-clear)
     React.useEffect(() => {
         const formattedValue = value === 0 ? '' : new Intl.NumberFormat('id-ID').format(value);
         if (formatNumeric(displayValue) !== value) {
             setDisplayValue(formattedValue);
         }
-    }, [value]);
-
-    const formatNumeric = (val: string) => {
-        // Remove all non-digits
-        const digits = val.replace(/\D/g, '');
-        return digits ? parseInt(digits, 10) : 0;
-    };
+    }, [value, displayValue]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const rawValue = e.target.value;

@@ -58,7 +58,7 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
             } else {
                 toast.error(res.error || 'Failed to delete');
             }
-        } catch (error) {
+        } catch {
             toast.error('An unexpected error occurred');
         } finally {
             setIsDeleting(null);
