@@ -152,6 +152,7 @@ export class ProductionExecutionService {
                     quantity: quantityProduced,
                     cost: unitCost,
                     reference: `Production Partial Output: WO#${order.orderNumber}`,
+                    productionOrderId: productionOrderId
                 }
             });
             await AccountingService.recordInventoryMovement(moveIn, tx).catch(console.error);
@@ -206,7 +207,8 @@ export class ProductionExecutionService {
                                 productVariantId: item.productVariantId,
                                 fromLocationId: consumptionLocationId,
                                 quantity: qtyToDeduct,
-                                reference: `Backflush (Partial): WO#${order.orderNumber}`
+                                reference: `Backflush (Partial): WO#${order.orderNumber}`,
+                                productionOrderId: productionOrderId
                             }
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
@@ -299,6 +301,7 @@ export class ProductionExecutionService {
                     quantity: quantityProduced,
                     cost: unitCost,
                     reference: `Production Output: WO#${order.orderNumber}`,
+                    productionOrderId: productionOrderId
                 }
             });
             await AccountingService.recordInventoryMovement(moveIn, tx).catch(console.error);
@@ -350,7 +353,8 @@ export class ProductionExecutionService {
                                 productVariantId: item.productVariantId,
                                 fromLocationId: consumptionLocationId,
                                 quantity: qtyToDeduct,
-                                reference: `Backflush (Batch): WO#${order.orderNumber}`
+                                reference: `Backflush (Batch): WO#${order.orderNumber}`,
+                                productionOrderId: productionOrderId
                             }
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
