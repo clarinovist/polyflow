@@ -370,36 +370,59 @@ export class InventoryService {
         const { sourceLocationId, destinationLocationId, items, notes, date } = data;
 
         await prisma.$transaction(async (tx) => {
+            // 1. Fetch and Lock all Source Inventory
+            const productVariantIds = items.map(i => i.productVariantId);
+
+            if (productVariantIds.length === 0) return;
+
+            const sourceStockRows = await tx.$queryRaw<Array<{ productVariantId: string, quantity: string }>>`
+                SELECT "productVariantId", "quantity"::text as quantity
+                FROM "Inventory"
+                WHERE "locationId" = ${sourceLocationId}
+                AND "productVariantId" IN (${Prisma.join(productVariantIds)})
+                FOR UPDATE
+            `;
+
+            const stockMap = new Map<string, number>();
+            sourceStockRows.forEach(row => {
+                stockMap.set(row.productVariantId, Number(row.quantity));
+            });
+
+            // 2. Fetch Reservations
+            const activeReservations = await tx.stockReservation.groupBy({
+                by: ['productVariantId'],
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: { in: productVariantIds },
+                    status: STATUS_ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+
+            const reservationMap = new Map<string, number>();
+            activeReservations.forEach(r => {
+                reservationMap.set(r.productVariantId, r._sum.quantity?.toNumber() || 0);
+            });
+
+            // 3. Process Transfers
             for (const item of items) {
                 const { productVariantId, quantity } = item;
 
-                const sourceStockRow = await tx.$queryRaw<Array<{ quantity: string }>>`
-                    SELECT "quantity"::text as quantity
-                    FROM "Inventory"
-                    WHERE "locationId" = ${sourceLocationId} AND "productVariantId" = ${productVariantId}
-                    FOR UPDATE
-                `;
-                const sourceStockQty = sourceStockRow[0] ? Number(sourceStockRow[0].quantity) : null;
+                const sourceStockQty = stockMap.get(productVariantId);
 
-                if (sourceStockQty === null || sourceStockQty < quantity) {
+                if (sourceStockQty === undefined || sourceStockQty < quantity) {
                     throw new Error(`Stok tidak mencukupi untuk produk ${productVariantId} di lokasi sumber.`);
                 }
 
-                const activeReservations = await tx.stockReservation.aggregate({
-                    where: {
-                        locationId: sourceLocationId,
-                        productVariantId: productVariantId,
-                        status: STATUS_ACTIVE
-                    },
-                    _sum: { quantity: true }
-                });
-
-                const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
+                const reservedQty = reservationMap.get(productVariantId) || 0;
                 const availableQty = sourceStockQty - reservedQty;
 
                 if (availableQty < quantity) {
                     throw new Error(`Tidak dapat mentransfer produk ${productVariantId}. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`);
                 }
+
+                // Update local map to reflect deduction for subsequent iterations (in case of duplicate items)
+                stockMap.set(productVariantId, sourceStockQty - quantity);
 
                 await tx.inventory.update({
                     where: {
