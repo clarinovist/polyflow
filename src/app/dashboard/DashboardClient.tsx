@@ -16,15 +16,27 @@ import {
     ArrowRight,
     Wallet,
     LucideIcon,
-    AlertCircle
+    AlertCircle,
+    RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 interface DashboardClientProps {
     stats: ExecutiveStats;
 }
 
 export default function DashboardClient({ stats }: DashboardClientProps) {
+    const router = useRouter();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
+
     const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     return (
@@ -35,8 +47,19 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Executive Overview</h1>
                     <p className="text-sm md:base text-muted-foreground mt-1">Real-time production and financial insights.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Badge variant="outline" className="px-3 py-1 text-sm bg-background shadow-sm" suppressHydrationWarning>
+                <div className="flex gap-2 items-center">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        aria-label="Refresh dashboard data"
+                        className="gap-2 h-7"
+                    >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline text-xs">Refresh</span>
+                    </Button>
+                    <Badge variant="outline" className="px-3 py-1 text-sm bg-background shadow-sm h-7 flex items-center" suppressHydrationWarning>
                         {currentDate}
                     </Badge>
                 </div>
@@ -249,11 +272,11 @@ function SummaryCard({ title, icon: Icon, children, href, iconBg, iconColor }: S
                         </div>
                         {title}
                     </CardTitle>
-                    <Link href={href}>
-                        <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground" asChild>
+                        <Link href={href} aria-label={`View ${title} details`}>
                             <ArrowUpRight className="h-4 w-4" />
-                        </Button>
-                    </Link>
+                        </Link>
+                    </Button>
                 </div>
             </CardHeader>
             <CardContent className="flex-1 pt-4 px-6 pb-6">
