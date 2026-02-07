@@ -158,12 +158,12 @@ export function JournalListClient() {
                 </div>
             </div>
 
-            {/* Filter Card - Aligned with Ledger UI */}
-            <Card className="border-none shadow-sm pb-4">
-                <CardHeader className="pb-3 px-4 pt-4">
-                    <CardTitle className="text-sm font-medium">Quick Filters</CardTitle>
+            {/* Filter Card */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Filter Transaksi</CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-4">
+                <CardContent>
                     <div className="flex flex-wrap items-center gap-6">
                         {/* Search */}
                         <div className="flex items-center gap-2">
@@ -244,24 +244,24 @@ export function JournalListClient() {
                             </div>
                         </div>
 
-                        {/* Shortcuts - Discreet at the end */}
+                        {/* Shortcuts */}
                         <div className="flex items-center gap-3 border-l pl-6 ml-auto">
-                            <button onClick={setToday} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Today</button>
-                            <button onClick={setYesterday} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Yesterday</button>
-                            <button onClick={setThisMonth} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">Month</button>
+                            <button onClick={setToday} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Today</button>
+                            <button onClick={setYesterday} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Yesterday</button>
+                            <button onClick={setThisMonth} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Month</button>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="border-none shadow-sm">
-                <CardHeader className="pb-3 border-b">
-                    <CardTitle className="text-base font-semibold">Transactions Log</CardTitle>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Transaction History</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
-                    <div className="rounded-md border bg-background overflow-hidden overflow-x-auto">
-                        <Table className="table-fixed w-full min-w-[1000px]">
-                            <TableHeader className="bg-muted/50">
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
                                         {headerGroup.headers.map((header) => (

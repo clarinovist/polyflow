@@ -96,6 +96,18 @@ const accounts = [
     { code: '62200', name: "Office Supplies", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
     { code: '62300', name: "Telecommunications", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
     { code: '62400', name: "Professional Fees", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: '62000' },
+
+    // 8. OTHER INCOME
+    { code: '80000', name: "Other Income", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: null },
+    { code: '81000', name: "Other Income Items", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '80000' },
+    { code: '81100', name: "Inventory Adjustment Gain", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '81000' },
+    { code: '81200', name: "Interest Income", type: AccountType.REVENUE, category: AccountCategory.OTHER_REVENUE, parentCode: '81000' },
+
+    // 9. OTHER EXPENSES
+    { code: '90000', name: "Other Expenses", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: null },
+    { code: '91000', name: "Other Expense Items", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '90000' },
+    { code: '91100', name: "Inventory Adjustment Loss", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '91000' },
+    { code: '91200', name: "Bank Charges", type: AccountType.EXPENSE, category: AccountCategory.OTHER_EXPENSE, parentCode: '91000' },
 ];
 
 export async function seedCoA() {
@@ -139,17 +151,53 @@ export async function seedCoA() {
     }
 
     console.log('Chart of Accounts seeded successfully.');
+
+    // --- MIGRATION: Fix Negative Overhead ---
+    // Move "Adj Gain" from 53300 to 81100
+    // Move "Adj Loss" from 53300 to 91100
+    try {
+        const overheadAcc = await prisma.account.findUnique({ where: { code: '53300' } });
+        const gainAcc = await prisma.account.findUnique({ where: { code: '81100' } });
+        const lossAcc = await prisma.account.findUnique({ where: { code: '91100' } });
+
+        if (overheadAcc && gainAcc && lossAcc) {
+            const gainLines = await prisma.journalLine.findMany({
+                where: { accountId: overheadAcc.id, description: { contains: 'Adj Gain' } }
+            });
+            if (gainLines.length > 0) {
+                console.log(`Migrating ${gainLines.length} 'Adj Gain' lines from 53300 to 81100...`);
+                await prisma.journalLine.updateMany({
+                    where: { id: { in: gainLines.map(l => l.id) } },
+                    data: { accountId: gainAcc.id }
+                });
+            }
+
+            const lossLines = await prisma.journalLine.findMany({
+                where: { accountId: overheadAcc.id, description: { contains: 'Adj Loss' } }
+            });
+            if (lossLines.length > 0) {
+                console.log(`Migrating ${lossLines.length} 'Adj Loss' lines from 53300 to 91100...`);
+                await prisma.journalLine.updateMany({
+                    where: { id: { in: lossLines.map(l => l.id) } },
+                    data: { accountId: lossAcc.id }
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error migrating overhead journals:", error);
+    }
 }
 
+
 // Run direct if called directly
-if (require.main === module) {
-    seedCoA()
-        .then(async () => {
-            await prisma.$disconnect()
-        })
-        .catch(async (e) => {
-            console.error(e)
-            await prisma.$disconnect()
-            process.exit(1)
-        });
-}
+// if (require.main === module) {
+//     seedCoA()
+//         .then(async () => {
+//             await prisma.$disconnect()
+//         })
+//         .catch(async (e) => {
+//             console.error(e)
+//             await prisma.$disconnect()
+//             process.exit(1)
+//         });
+// }

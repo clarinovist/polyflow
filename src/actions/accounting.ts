@@ -229,7 +229,7 @@ export async function getAccountingDashboardData() {
     return serializeData({
         performance: {
             revenue: performance.totalRevenue,
-            expense: performance.totalExpense,
+            expense: performance.totalCOGS + performance.totalOpEx + performance.totalOther,
             netIncome: performance.netIncome
         },
         balances: {
