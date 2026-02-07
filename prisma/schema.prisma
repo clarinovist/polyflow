@@ -250,6 +250,10 @@ model StockMovement {
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   salesOrder       SalesOrder?    @relation("SalesMovement", fields: [salesOrderId], references: [id])
   toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
+  productionOrderId String?
+  productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+
+  @@index([productionOrderId])
 }
 
 model Inventory {
@@ -374,6 +378,7 @@ model ProductionOrder {
   inspections             QualityInspection[]
   scrapRecords            ScrapRecord[]
   issues                  ProductionIssue[]
+  stockMovements          StockMovement[]
 }
 
 model MachineDowntime {

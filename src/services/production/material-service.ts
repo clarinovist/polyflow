@@ -146,7 +146,8 @@ export class ProductionMaterialService {
                                 toLocationId: null,
                                 quantity: remainingToDeduct,
                                 reference: `${refPrefix}${idempotencySuffix}`,
-                                createdById: userId
+                                createdById: userId,
+                                productionOrderId: productionOrderId // Add structured relation
                             } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         } as any);
                         await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
@@ -189,7 +190,8 @@ export class ProductionMaterialService {
                                     quantity: deductFromBatch,
                                     reference: `${refPrefix}${idempotencySuffix}`,
                                     batchId: batch.id,
-                                    createdById: userId
+                                    createdById: userId,
+                                    productionOrderId: productionOrderId // Add structured relation
                                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             } as any);
                             await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
@@ -239,7 +241,8 @@ export class ProductionMaterialService {
                             quantity: remainingToDeduct,
                             reference: `${refPrefix}${idempotencySuffix}`,
                             batchId: item.batchId,
-                            createdById: userId
+                            createdById: userId,
+                            productionOrderId: productionOrderId // Add structured relation
                         } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } as any);
                     await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
@@ -291,7 +294,8 @@ export class ProductionMaterialService {
                     cost: wacCost,
                     reference: `Production Consumption: ${order?.orderNumber || 'UNKNOWN'}`,
                     createdById: userId,
-                    batchId: batchId
+                    batchId: batchId,
+                    productionOrderId: productionOrderId // Add structured relation
                 }
             });
             await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
@@ -356,7 +360,8 @@ export class ProductionMaterialService {
                     toLocationId: refundLocationId,
                     quantity: issue.quantity,
                     reference: `VOID Issue: ${order?.orderNumber || 'UNKNOWN'}`,
-                    batchId: issue.batchId
+                    batchId: issue.batchId,
+                    productionOrderId: productionOrderId // Add structured relation
                 }
             });
             await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
@@ -393,7 +398,8 @@ export class ProductionMaterialService {
                     toLocationId: locationId,
                     quantity,
                     reference: `Production Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
-                    createdById: userId
+                    createdById: userId,
+                    productionOrderId: productionOrderId // Add structured relation
                 }
             });
             await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
@@ -460,7 +466,8 @@ export class ProductionMaterialService {
                     productVariantId: scrap.productVariantId,
                     fromLocationId: locationId,
                     quantity: scrap.quantity,
-                    reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`
+                    reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
+                    productionOrderId: productionOrderId // Add structured relation
                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
             await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);

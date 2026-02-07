@@ -13,10 +13,13 @@ export class ProductionCostService {
 
         // 1. Total Material Cost
         // Query StockMovements 'OUT' associated with this PO
-        // We use reference matching as established: "PO-{orderNumber}"
+        // Optimized: Use structured relation with fallback for legacy data
         const movements = await client.stockMovement.findMany({
             where: {
-                reference: { contains: `PO-${order.orderNumber}` },
+                OR: [
+                    { productionOrderId: order.id },
+                    { reference: { contains: `PO-${order.orderNumber}` } }
+                ],
                 type: MovementType.OUT
             }
         });
