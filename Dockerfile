@@ -32,6 +32,7 @@ RUN npx prisma generate
 # Compile seed script
 RUN npx tsc prisma/seed.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 RUN npx tsc prisma/seed-baseline.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc prisma/fix-coa.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 RUN npm run build
 
