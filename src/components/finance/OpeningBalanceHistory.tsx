@@ -4,6 +4,21 @@ import React from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
+import { Trash2, Loader2 } from 'lucide-react';
+import { deleteOpeningBalance } from '@/actions/finance/opening-balance';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
     Table,
     TableBody,
@@ -30,6 +45,26 @@ interface OpeningBalanceHistoryProps {
 }
 
 export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
+    const router = useRouter();
+    const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
+
+    const handleDelete = async (id: string, type: 'AR' | 'AP') => {
+        setIsDeleting(id);
+        try {
+            const res = await deleteOpeningBalance(id, type);
+            if (res.success) {
+                toast.success('Opening balance deleted');
+                router.refresh();
+            } else {
+                toast.error(res.error || 'Failed to delete');
+            }
+        } catch (error) {
+            toast.error('An unexpected error occurred');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
+
     if (data.length === 0) return null;
 
     return (
@@ -55,6 +90,7 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                     <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold text-center">Type</TableHead>
                                     <TableHead className="h-10 text-[10px] uppercase tracking-wider font-semibold">Entity & Inv #</TableHead>
                                     <TableHead className="h-10 text-right text-[10px] uppercase tracking-wider font-semibold">Amount</TableHead>
+                                    <TableHead className="h-10 w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -95,6 +131,39 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                             <span className="text-[14px] font-bold font-mono text-primary">
                                                 {formatRupiah(item.amount)}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="py-3 text-right">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <button
+                                                        disabled={isDeleting === item.id}
+                                                        className="p-1 hover:bg-rose-500/10 rounded transition-colors text-muted-foreground hover:text-rose-500 disabled:opacity-50"
+                                                    >
+                                                        {isDeleting === item.id ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                    </button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently delete the opening balance record for <strong>{item.entityName}</strong> ({item.invoiceNumber}) and its associated journal entries.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={() => handleDelete(item.id, item.type)}
+                                                            className="bg-rose-600 hover:bg-rose-700"
+                                                        >
+                                                            Delete
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </TableCell>
                                     </motion.tr>
                                 ))}

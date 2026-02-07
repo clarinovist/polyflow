@@ -8,6 +8,7 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { AccountingInput } from '../ui/accounting-input';
 import {
     Form,
     FormControl,
@@ -272,12 +273,10 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                                 <FormItem>
                                     <FormLabel>Outstanding Amount (IDR)</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            type="number"
-                                            step="100"
-                                            placeholder="0"
+                                        <AccountingInput
                                             value={field.value}
-                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                            onValueChange={field.onChange}
+                                            placeholder="0"
                                         />
                                     </FormControl>
                                     <FormDescription>

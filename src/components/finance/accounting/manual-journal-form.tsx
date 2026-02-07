@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AccountCombobox } from "./account-combobox";
 import { JOURNAL_TEMPLATES } from '@/lib/config/accounting-templates';
+import { AccountingInput } from '../../ui/accounting-input';
 
 interface Account {
     id: string;
@@ -268,15 +269,11 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                className="text-right"
-                                                                {...field}
-                                                                onChange={e => {
-                                                                    field.onChange(e);
-                                                                    // Auto-clear credit if debit entered? Optional UX
-                                                                    if (Number(e.target.value) > 0) {
+                                                            <AccountingInput
+                                                                value={Number(field.value)}
+                                                                onValueChange={(val: number) => {
+                                                                    field.onChange(val);
+                                                                    if (val > 0) {
                                                                         form.setValue(`lines.${index}.credit`, 0);
                                                                     }
                                                                 }}
@@ -293,14 +290,11 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormControl>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                className="text-right"
-                                                                {...field}
-                                                                onChange={e => {
-                                                                    field.onChange(e);
-                                                                    if (Number(e.target.value) > 0) {
+                                                            <AccountingInput
+                                                                value={Number(field.value)}
+                                                                onValueChange={(val: number) => {
+                                                                    field.onChange(val);
+                                                                    if (val > 0) {
                                                                         form.setValue(`lines.${index}.debit`, 0);
                                                                     }
                                                                 }}
