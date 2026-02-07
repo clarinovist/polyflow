@@ -52,6 +52,7 @@ export class ProductionMaterialService {
 
             // Handle plan changes (remove/add)
             if (removedPlannedMaterialIds && removedPlannedMaterialIds.length > 0) {
+                const idsToDelete: string[] = [];
                 for (const id of removedPlannedMaterialIds) {
                     const planItem = order.plannedMaterials.find(pm => pm.id === id);
                     if (planItem) {
@@ -62,8 +63,14 @@ export class ProductionMaterialService {
                         if (issued > 0.001) {
                             throw new Error(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
                         }
-                        await tx.productionMaterial.delete({ where: { id } });
+                        idsToDelete.push(id);
                     }
+                }
+
+                if (idsToDelete.length > 0) {
+                    await tx.productionMaterial.deleteMany({
+                        where: { id: { in: idsToDelete } }
+                    });
                 }
             }
 
