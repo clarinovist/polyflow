@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
-import { SalesOrderStatus } from '@prisma/client';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
+import { SalesOrderStatus, SalesOrderType } from '@prisma/client';
+import { endOfDay, format, startOfMonth } from 'date-fns';
 
 export interface SalesMetrics {
     totalRevenue: number;
@@ -27,20 +27,25 @@ export interface ProductionAnalyticsData {
 }
 
 export class AnalyticsService {
-    static async getSalesMetrics(days: number = 30): Promise<SalesMetrics> {
-        const endDate = endOfDay(new Date());
-        const startDate = startOfDay(subDays(new Date(), days));
+    static async getSalesMetrics(dateRange?: DateRange): Promise<SalesMetrics> {
+        const now = new Date();
+        const endDate = dateRange?.to || endOfDay(now);
+        const startDate = dateRange?.from || startOfMonth(now);
 
-        // 1. Fetch relevant orders
+        // Trend starts from Jan 1st of the current year to give context
+        const trendStartDate = new Date(now.getFullYear(), 0, 1);
+        const trendEndDate = endOfDay(now);
+        const monthsInTrend = (trendEndDate.getFullYear() - trendStartDate.getFullYear()) * 12 + trendEndDate.getMonth() + 1;
+
+        // 1. Fetch relevant orders (Expanded range for trend, but KPIs use filter logic)
         const orders = await prisma.salesOrder.findMany({
             where: {
                 orderDate: {
-                    gte: startDate,
-                    lte: endDate
+                    gte: trendStartDate < startDate ? trendStartDate : startDate,
+                    lte: trendEndDate > endDate ? trendEndDate : endDate
                 },
-                status: {
-                    in: [SalesOrderStatus.CONFIRMED, SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED]
-                }
+                status: { in: [SalesOrderStatus.CONFIRMED, SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED] },
+                orderType: SalesOrderType.MAKE_TO_ORDER
             },
             include: {
                 items: {
@@ -54,76 +59,75 @@ export class AnalyticsService {
             }
         });
 
-        // 2. Aggregate Key Metrics
+        // 2. Aggregate Metrics
         let totalRevenue = 0;
-        const totalOrders = orders.length;
+        let kpiOrderCount = 0;
 
         // Aggregation maps
-        const dailyRevenue: Record<string, number> = {};
+        const monthlyRevenue: Record<string, number> = {};
         const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
         const customerStats: Record<string, { name: string; salesCount: number; revenue: number }> = {};
 
-        // Initialize daily revenue map for the range to fill gaps
-        for (let i = 0; i <= days; i++) {
-            const dateStr = format(subDays(endDate, i), 'yyyy-MM-dd');
-            dailyRevenue[dateStr] = 0;
+        // Initialize monthly revenue map for the whole year (or up to now)
+        for (let i = 0; i < monthsInTrend; i++) {
+            const date = new Date(trendStartDate.getFullYear(), trendStartDate.getMonth() + i, 1);
+            const monthStr = format(date, 'yyyy-MM');
+            monthlyRevenue[monthStr] = 0;
         }
 
         // Process Orders
         for (const order of orders) {
             const orderTotal = Number(order.totalAmount || 0);
-            const orderDateStr = format(order.orderDate, 'yyyy-MM-dd');
+            const orderMonthStr = format(order.orderDate, 'yyyy-MM');
 
-            // Total Stats
-            totalRevenue += orderTotal;
+            // Is this order within the KPI date range?
+            const inKPIRange = order.orderDate >= startDate && order.orderDate <= endDate;
 
-            // Daily Stat
-            // If order date is within range (it should be due to query), add to map
-            // Use date string from orderDate which might be slightly off if timezone differs, but consistent for daily buckets based on UTC usually if raw Date.
-            // Let's rely on format() handling local/UTC consistent with app.
-            if (dailyRevenue[orderDateStr] !== undefined) {
-                dailyRevenue[orderDateStr] += orderTotal;
-            } else {
-                // Fallback if date is slightly out of generated range due to time boundary
-                dailyRevenue[orderDateStr] = (dailyRevenue[orderDateStr] || 0) + orderTotal;
+            // Trend is always updated if it fits a bucket
+            if (monthlyRevenue[orderMonthStr] !== undefined) {
+                monthlyRevenue[orderMonthStr] += orderTotal;
             }
 
-            // Customer Stat
-            if (order.customer) {
-                const custId = order.customerId!;
-                if (!customerStats[custId]) {
-                    customerStats[custId] = { name: order.customer.name, salesCount: 0, revenue: 0 };
+            if (inKPIRange) {
+                // Total Stats
+                totalRevenue += orderTotal;
+                kpiOrderCount++;
+
+                // Customer Stats (Monthly/Period based)
+                if (order.customer) {
+                    const custId = order.customerId!;
+                    if (!customerStats[custId]) {
+                        customerStats[custId] = { name: order.customer.name, salesCount: 0, revenue: 0 };
+                    }
+                    customerStats[custId].salesCount++;
+                    customerStats[custId].revenue += orderTotal;
                 }
-                customerStats[custId].salesCount++;
-                customerStats[custId].revenue += orderTotal;
-            }
 
-            // Product Stats
-            for (const item of order.items) {
-                const variantId = item.productVariantId;
-                const qty = Number(item.quantity);
-                // Simple revenue attribution per item strictly based on (Qty * Price) - Discount
-                // In SalesOrder, totalAmount is final. Here we estimate SKU contribution.
-                const gross = Number(item.quantity) * Number(item.unitPrice);
-                const discount = gross * (Number(item.discountPercent || 0) / 100);
-                const subtotal = gross - discount;
+                // Product Stats (Monthly/Period based)
+                for (const item of order.items) {
+                    const variantId = item.productVariantId;
+                    const qty = Number(item.quantity);
+                    const gross = Number(item.quantity) * Number(item.unitPrice);
+                    const discount = gross * (Number(item.discountPercent || 0) / 100);
+                    const subtotal = gross - discount;
 
-                if (!productStats[variantId]) {
-                    const pName = item.productVariant.product.name === item.productVariant.name
-                        ? item.productVariant.name
-                        : `${item.productVariant.product.name} - ${item.productVariant.name}`;
+                    if (!productStats[variantId]) {
+                        const pName = item.productVariant.product.name === item.productVariant.name
+                            ? item.productVariant.name
+                            : `${item.productVariant.product.name} - ${item.productVariant.name}`;
 
-                    productStats[variantId] = { name: pName, quantity: 0, revenue: 0 };
+                        productStats[variantId] = { name: pName, quantity: 0, revenue: 0 };
+                    }
+                    productStats[variantId].quantity += qty;
+                    productStats[variantId].revenue += subtotal;
                 }
-                productStats[variantId].quantity += qty;
-                productStats[variantId].revenue += subtotal;
             }
         }
 
         // 3. Format Output
-        const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const averageOrderValue = kpiOrderCount > 0 ? totalRevenue / kpiOrderCount : 0;
 
-        const revenueTrend = Object.entries(dailyRevenue)
+        const revenueTrend = Object.entries(monthlyRevenue)
             .map(([date, revenue]) => ({ date, revenue }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -137,7 +141,7 @@ export class AnalyticsService {
 
         return {
             totalRevenue,
-            totalOrders,
+            totalOrders: kpiOrderCount,
             averageOrderValue,
             revenueTrend,
             topProducts,
@@ -146,8 +150,9 @@ export class AnalyticsService {
     }
 
     static async getProductionAnalytics(dateRange?: DateRange): Promise<ProductionAnalyticsData> {
-        const endDate = dateRange?.to || endOfDay(new Date());
-        const startDate = dateRange?.from || startOfDay(subDays(new Date(), 30));
+        const now = new Date();
+        const endDate = dateRange?.to || endOfDay(now);
+        const startDate = dateRange?.from || startOfMonth(now);
 
         // 1. Fetch Production Orders for Realization
         const productionOrders = await prisma.productionOrder.findMany({

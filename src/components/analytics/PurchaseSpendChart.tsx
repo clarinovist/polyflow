@@ -38,9 +38,9 @@ export function PurchaseSpendChart({ data }: PurchaseSpendChartProps) {
                             <YAxis
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(value) => `Rp${(value / 1000000).toFixed(0)}M`}
+                                tickFormatter={(value) => `${value / 1000000}`}
                                 tick={{ fontSize: 12 }}
-                                width={80}
+                                width={50}
                             />
                             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
                             <Tooltip

@@ -127,6 +127,8 @@ export interface PurchaseSpendItem {
 export interface PurchaseSpendTrend {
   spendGrowth: number;
   orderCountGrowth: number;
+  periodSpend: number;
+  periodOrderCount: number;
   chartData: PurchaseSpendItem[];
 }
 

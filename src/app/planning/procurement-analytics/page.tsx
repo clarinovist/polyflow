@@ -21,7 +21,7 @@ export default async function PurchasingAnalyticsPage(props: { searchParams: Sea
     const data = await getPurchasingAnalytics(dateRange);
 
     // Calculate KPIs
-    const totalSpend = data.spendTrend.chartData.reduce((acc, curr) => acc + curr.spend, 0);
+    const totalSpend = data.spendTrend.periodSpend;
     const totalOpenOrders = data.statusBreakdown
         .filter(s => ['ISSUED', 'SENT', 'CONFIRMED', 'PARTIAL_RECEIVED'].includes(s.status))
         .reduce((acc, curr) => acc + curr.count, 0);

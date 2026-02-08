@@ -72,16 +72,16 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     value={formatRupiah(stats.sales.mtdRevenue)}
                     subtitle={`${stats.sales.activeOrders} active orders`}
                     icon={Wallet}
-                    trend="up"
-                    trendValue="+12% vs last month"
+                    trend={stats.sales.trend && stats.sales.trend >= 0 ? 'up' : 'down'}
+                    trendValue={`${stats.sales.trend ? Math.abs(stats.sales.trend).toFixed(1) : '0'}% vs last month`}
                 />
                 <KPICard
                     title="Spending (MTD)"
                     value={formatRupiah(stats.purchasing.mtdSpending)}
                     subtitle={`${stats.purchasing.pendingPOs} pending POs`}
                     icon={ShoppingCart}
-                    trend="down"
-                    trendValue="-5% vs last month"
+                    trend={stats.purchasing.trend && stats.purchasing.trend >= 0 ? 'up' : 'down'}
+                    trendValue={`${stats.purchasing.trend ? Math.abs(stats.purchasing.trend).toFixed(1) : '0'}% vs last month`}
                 />
                 <KPICard
                     title="Machine Utilization"

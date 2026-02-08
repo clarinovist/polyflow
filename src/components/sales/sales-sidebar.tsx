@@ -6,7 +6,6 @@ import {
     ShoppingCart,
     Truck,
     Users2,
-    BarChart3
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -39,12 +38,6 @@ const salesLinks = [
         heading: 'Customers',
         items: [
             { href: '/sales/customers', icon: Users2, label: 'Customer Management' },
-        ],
-    },
-    {
-        heading: 'Analytics',
-        items: [
-            { href: '/sales/analytics', icon: BarChart3, label: 'Sales Analytics' },
         ],
     },
 ];

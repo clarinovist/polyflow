@@ -11,12 +11,18 @@ function safePercentage(numerator: number, denominator: number): number {
 export async function getPurchaseSpendReport(
     dateRange: DateRange
 ): Promise<PurchaseSpendTrend> {
+    const now = new Date();
+    // Trend starts from Jan 1st of current year
+    const trendStartDate = new Date(now.getFullYear(), 0, 1);
+    const trendEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthsInTrend = (trendEndDate.getFullYear() - trendStartDate.getFullYear()) * 12 + trendEndDate.getMonth() + 1;
+
     // 1. Fetch Current Period Data
     const orders = await prisma.purchaseOrder.findMany({
         where: {
             orderDate: {
-                gte: dateRange.from,
-                lte: dateRange.to,
+                gte: trendStartDate < dateRange.from ? trendStartDate : dateRange.from,
+                lte: trendEndDate > dateRange.to ? trendEndDate : dateRange.to,
             },
             status: {
                 not: 'CANCELLED'
@@ -30,7 +36,7 @@ export async function getPurchaseSpendReport(
         orderBy: { orderDate: 'asc' }
     });
 
-    // 2. Fetch Previous Period Data for Trends
+    // 2. Fetch Previous Period Data for Trends (KPIs only)
     const duration = dateRange.to.getTime() - dateRange.from.getTime();
     const prevFrom = new Date(dateRange.from.getTime() - duration);
     const prevTo = dateRange.from;
@@ -48,46 +54,49 @@ export async function getPurchaseSpendReport(
         select: { totalAmount: true }
     });
 
+    // Filter orders for KPI calculations
+    const kpiOrders = orders.filter(o => o.orderDate >= dateRange.from && o.orderDate <= dateRange.to);
+
     // Calculate Totals
-    const currentSpend = orders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    const currentSpend = kpiOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     const prevSpend = prevOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
-    const currentCount = orders.length;
+    const currentCount = kpiOrders.length;
     const prevCount = prevOrders.length;
 
     // Calculate Growth
     const spendGrowth = safePercentage(currentSpend - prevSpend, prevSpend);
     const orderCountGrowth = safePercentage(currentCount - prevCount, prevCount);
 
-    const daysDiff = Math.ceil(duration / (1000 * 60 * 60 * 24));
-    const isMonthly = daysDiff > 32;
+    const chartMap: Record<string, number> = {};
 
-    const chartMap = new Map<string, { spend: number, count: number }>();
+    // Initialize monthly map for the whole year
+    for (let i = 0; i < monthsInTrend; i++) {
+        const date = new Date(trendStartDate.getFullYear(), trendStartDate.getMonth() + i, 1);
+        const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        chartMap[key] = 0;
+    }
 
     orders.forEach(order => {
         const date = new Date(order.orderDate);
-        let key = '';
-        if (isMonthly) {
-            key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-        } else {
-            key = date.toLocaleString('default', { day: 'numeric', month: 'short' });
-        }
+        const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
 
-        const current = chartMap.get(key) || { spend: 0, count: 0 };
-        current.spend += Number(order.totalAmount) || 0;
-        current.count += 1;
-        chartMap.set(key, current);
+        if (chartMap[key] !== undefined) {
+            chartMap[key] += Number(order.totalAmount) || 0;
+        }
     });
 
-    const chartData = Array.from(chartMap.entries()).map(([period, data]) => ({
+    const chartData = Object.entries(chartMap).map(([period, spend]) => ({
         period,
-        spend: data.spend,
-        orderCount: data.count
+        spend: spend as number,
+        orderCount: 0 // We aren't tracking monthly count in UI but keep type compatibility
     }));
 
     return {
         spendGrowth,
         orderCountGrowth,
+        periodSpend: currentSpend,
+        periodOrderCount: currentCount,
         chartData
     };
 }
@@ -213,13 +222,10 @@ export async function getAPAgingReport(): Promise<APAgingItem[]> {
 
 export async function getPurchasingAnalytics(dateRange?: DateRange) {
     const today = new Date();
-    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Default to last 6 months for trend
-    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-    const defaultTo = endOfCurrentMonth;
-
-    const queryRange = dateRange || { from: defaultFrom, to: defaultTo };
+    const queryRange = dateRange || { from: startOfCurrentMonth, to: endOfCurrentMonth };
 
     const [spendTrend, topSuppliers, statusBreakdown, apAging] = await Promise.all([
         getPurchaseSpendReport(queryRange),

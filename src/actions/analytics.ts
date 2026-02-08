@@ -4,8 +4,8 @@ import { AnalyticsService, SalesMetrics, ProductionAnalyticsData } from '@/servi
 import { DateRange } from '@/types/analytics';
 import { format } from 'date-fns';
 
-export async function getSalesMetrics(days: number = 30): Promise<SalesMetrics> {
-    return await AnalyticsService.getSalesMetrics(days);
+export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetrics> {
+    return await AnalyticsService.getSalesMetrics(dateRange);
 }
 
 export async function getProductionAnalytics(dateRange?: DateRange): Promise<ProductionAnalyticsData> {
@@ -14,7 +14,7 @@ export async function getProductionAnalytics(dateRange?: DateRange): Promise<Pro
 
 export async function exportSalesAnalytics(dateRange: DateRange) {
     try {
-        const metrics = await AnalyticsService.getSalesMetrics(30); // Simplified for now, or use range if service supports it
+        const metrics = await AnalyticsService.getSalesMetrics(dateRange);
 
         const data = [
             ['Sales Analytics Report', '', ''],

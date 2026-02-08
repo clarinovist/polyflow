@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
+import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus, SalesOrderType } from '@prisma/client';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 export interface ExecutiveStats {
@@ -9,10 +9,12 @@ export interface ExecutiveStats {
         mtdRevenue: number;
         activeOrders: number;
         pendingInvoices: number;
+        trend?: number;
     };
     purchasing: {
         mtdSpending: number;
         pendingPOs: number;
+        trend?: number;
     };
     production: {
         activeJobs: number;
@@ -24,11 +26,13 @@ export interface ExecutiveStats {
         downtimeHours: number;  // MachineDowntime duration
         runningMachines: number; // Count of machines with IN_PROGRESS orders
         totalMachines: number;   // Count of ACTIVE machines
+        trend?: number;
     };
     inventory: {
         totalValue: number;
         lowStockCount: number;
         totalItems: number;
+        trend?: number;
     };
     cashflow: {
         overdueReceivables: number;
@@ -70,8 +74,9 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         // 1. Sales Revenue MTD (Confirmed Orders)
         prisma.salesOrder.findMany({
             where: {
-                createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
-                status: { not: SalesOrderStatus.CANCELLED }
+                orderDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+                status: { not: SalesOrderStatus.CANCELLED },
+                orderType: SalesOrderType.MAKE_TO_ORDER
             },
             select: { totalAmount: true, status: true }
         }),
@@ -83,7 +88,7 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         // 3. Purchasing Spending MTD
         prisma.purchaseOrder.findMany({
             where: {
-                createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+                orderDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
                 status: { not: PurchaseOrderStatus.CANCELLED }
             },
             select: { totalAmount: true }
@@ -261,6 +266,39 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
     });
 
 
+    // --- Calculate Previous Month Metrics for Trends ---
+    const startOfPreviousMonth = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const endOfPreviousMonth = endOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+    const [
+        prevSalesOrders,
+        prevPurchaseOrders
+    ] = await prisma.$transaction([
+        prisma.salesOrder.findMany({
+            where: {
+                orderDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+                status: { not: SalesOrderStatus.CANCELLED },
+                orderType: SalesOrderType.MAKE_TO_ORDER
+            },
+            select: { totalAmount: true }
+        }),
+        prisma.purchaseOrder.findMany({
+            where: {
+                orderDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+                status: { not: PurchaseOrderStatus.CANCELLED }
+            },
+            select: { totalAmount: true }
+        })
+    ]);
+
+    // calculate totals
+    const prevRevenue = prevSalesOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
+    const prevSpending = prevPurchaseOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
+
+    // Calculate Trends
+    const revenueTrend = prevRevenue > 0 ? ((mtdRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+    const spendingTrend = prevSpending > 0 ? ((mtdSpending - prevSpending) / prevSpending) * 100 : 0;
+
     // --- Calculate Cashflow Metrics ---
     const overdueReceivables = (overdueReceivablesAgg._sum?.totalAmount?.toNumber() || 0) - (overdueReceivablesAgg._sum?.paidAmount?.toNumber() || 0);
     const overduePayables = (overduePayablesAgg._sum?.totalAmount?.toNumber() || 0) - (overduePayablesAgg._sum?.paidAmount?.toNumber() || 0);
@@ -269,11 +307,13 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         sales: {
             mtdRevenue,
             activeOrders: activeSalesOrders,
-            pendingInvoices
+            pendingInvoices,
+            trend: revenueTrend // New field
         },
         purchasing: {
             mtdSpending,
-            pendingPOs
+            pendingPOs,
+            trend: spendingTrend // New field
         },
         production: {
             activeJobs: activeProductionOrders,
@@ -283,12 +323,14 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
             totalScrapKg,
             downtimeHours,
             runningMachines,
-            totalMachines: activeMachinesCount
+            totalMachines: activeMachinesCount,
+            trend: 0 // Placeholder or calculate utilization trend if needed
         },
         inventory: {
             totalValue: totalInventoryValue,
             lowStockCount,
-            totalItems: inventoryStats._count.id || 0
+            totalItems: inventoryStats._count.id || 0,
+            trend: 0 // Placeholder
         },
         cashflow: {
             overdueReceivables,

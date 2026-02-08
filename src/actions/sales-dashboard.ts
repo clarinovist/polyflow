@@ -1,32 +1,17 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth } from 'date-fns';
 import { serializeData } from '@/lib/utils';
 
-export async function getSalesDashboardStats() {
-    const now = new Date();
-    const startOfCurrentMonth = startOfMonth(now);
-    const endOfCurrentMonth = endOfMonth(now);
+import { AnalyticsService } from '@/services/analytics-service';
+import { DateRange } from '@/types/analytics';
 
-    // 1. Revenue (Total Invoiced Amount this month)
-    const currentMonthRevenue = await prisma.invoice.aggregate({
-        _sum: {
-            totalAmount: true
-        },
-        where: {
-            invoiceDate: {
-                gte: startOfCurrentMonth,
-                lte: endOfCurrentMonth
-            },
-            status: {
-                not: 'CANCELLED'
-            }
-        }
-    });
-    const revenue = Number(currentMonthRevenue._sum?.totalAmount || 0);
+export async function getSalesDashboardStats(dateRange?: DateRange) {
+    // 1. Fetch Analytics Metrics (Revenue, Trend, Top Lists)
+    const analytics = await AnalyticsService.getSalesMetrics(dateRange);
 
-    // 2. Active Orders (Not Completed or Cancelled)
+    // 2. Fetch Operational Metrics (Current Snapshots)
+    // Active Orders (Not Completed or Cancelled) - Snapshot, not date bound
     const activeOrdersCount = await prisma.salesOrder.count({
         where: {
             status: {
@@ -35,21 +20,21 @@ export async function getSalesDashboardStats() {
         }
     });
 
-    // 3. Pending Deliveries
+    // Pending Deliveries - Snapshot
     const pendingDeliveriesCount = await prisma.deliveryOrder.count({
         where: {
             status: 'PENDING'
         }
     });
 
-    // 4. Active Customers
+    // Active Customers - Snapshot (Total active base)
     const activeCustomersCount = await prisma.customer.count({
         where: {
             isActive: true
         }
     });
 
-    // Recent 5 Orders
+    // Recent 5 Orders - Snapshot
     const recentOrders = await prisma.salesOrder.findMany({
         take: 5,
         orderBy: {
@@ -75,7 +60,7 @@ export async function getSalesDashboardStats() {
     });
 
     return serializeData({
-        revenue,
+        ...analytics, // revenue, totalOrders, averageOrderValue, revenueTrend, topProducts, topCustomers
         activeOrders: activeOrdersCount,
         pendingDeliveries: pendingDeliveriesCount,
         activeCustomers: activeCustomersCount,

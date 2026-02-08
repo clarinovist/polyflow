@@ -27,18 +27,18 @@ export function RevenueChart({ data }: RevenueChartProps) {
                                 fontSize={12}
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(value) => format(parseISO(value), 'd MMM')}
+                                tickFormatter={(value) => format(parseISO(value + '-01'), 'MMM yyyy')}
                             />
                             <YAxis
                                 stroke="#888888"
                                 fontSize={12}
                                 tickLine={false}
                                 axisLine={false}
-                                tickFormatter={(value) => `Rp ${value / 1000}k`}
+                                tickFormatter={(value) => `${value / 1000000}`}
                             />
                             <Tooltip
                                 formatter={(value: number | undefined) => [formatRupiah(value ?? 0), 'Revenue']}
-                                labelFormatter={(label) => format(parseISO(label as string), 'd MMMM yyyy')}
+                                labelFormatter={(label) => format(parseISO(label + '-01'), 'MMMM yyyy')}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                             />
                             <Line

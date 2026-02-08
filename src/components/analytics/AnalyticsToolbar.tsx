@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { DateRange } from 'react-day-picker';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker'; // Ensure this matches filename
+import { MonthPicker } from '@/components/ui/month-picker';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 export function AnalyticsToolbar() {
     const router = useRouter();
@@ -17,40 +16,23 @@ export function AnalyticsToolbar() {
 
     // Init dates from URL or defaults
     const fromParam = searchParams.get('from');
-    const toParam = searchParams.get('to');
 
     // Default: Last 6 months approx if not set? 
     // Wait, let's sync with default server logic or just set initial state empty and let server handle default.
     // Better to reflect current state.
 
-    const [date, setDate] = useState<DateRange | undefined>({
-        from: fromParam ? new Date(fromParam) : undefined,
-        to: toParam ? new Date(toParam) : undefined,
-    });
+    const [currentDate, setCurrentDate] = useState<Date>(fromParam ? new Date(fromParam) : new Date());
 
-    function handleDateChange(newDate: DateRange | undefined) {
-        setDate(newDate);
+    function handleMonthChange(range: { from: Date; to: Date }) {
+        setCurrentDate(range.from);
 
-        if (newDate?.from) {
-            const params = new URLSearchParams(searchParams);
-            params.set('from', newDate.from.toISOString());
-            if (newDate.to) {
-                params.set('to', newDate.to.toISOString());
-            } else {
-                params.delete('to');
-            }
+        const params = new URLSearchParams(searchParams);
+        params.set('from', range.from.toISOString());
+        params.set('to', range.to.toISOString());
 
-            startTransition(() => {
-                router.replace(`${pathname}?${params.toString()}`);
-            });
-        } else {
-            const params = new URLSearchParams(searchParams);
-            params.delete('from');
-            params.delete('to');
-            startTransition(() => {
-                router.replace(`${pathname}?${params.toString()}`);
-            });
-        }
+        startTransition(() => {
+            router.replace(`${pathname}?${params.toString()}`);
+        });
     }
 
     async function handleExport() {
@@ -58,9 +40,10 @@ export function AnalyticsToolbar() {
             const toastId = toast.loading('Generating report...');
 
             const exportRange = {
-                from: date?.from || subMonths(startOfMonth(new Date()), 5),
-                to: date?.to || endOfMonth(new Date()),
+                from: startOfMonth(currentDate),
+                to: endOfMonth(currentDate),
             };
+            // ... rest of handleExport logic stays same
 
             const isProduction = pathname.includes('/production');
             let result;
@@ -99,9 +82,9 @@ export function AnalyticsToolbar() {
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-2">
-                <DatePickerWithRange
-                    date={date}
-                    onDateChange={handleDateChange}
+                <MonthPicker
+                    currentDate={currentDate}
+                    onDateChange={handleMonthChange}
                 />
                 {isPending && <span className="text-xs text-muted-foreground animate-pulse">Updating...</span>}
             </div>
