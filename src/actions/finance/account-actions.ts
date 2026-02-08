@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { AccountType, AccountCategory } from '@prisma/client';
+import { AccountType, AccountCategory, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export async function getAccounts() {
@@ -29,22 +29,27 @@ export type UpsertAccountInput = {
 export async function upsertAccount(data: UpsertAccountInput) {
     const { id, ...rest } = data;
 
-    // TODO: Add strict validation for code uniqueness if creating new
-
-    if (id) {
-        await prisma.account.update({
-            where: { id },
-            data: rest
-        });
-    } else {
-        // Check if code exists
-        const existing = await prisma.account.findUnique({ where: { code: rest.code } });
-        if (existing) throw new Error(`Account code ${rest.code} already exists.`);
-
-        await prisma.account.create({
-            data: rest
-        });
+    try {
+        if (id) {
+            await prisma.account.update({
+                where: { id },
+                data: rest
+            });
+        } else {
+            await prisma.account.create({
+                data: rest
+            });
+        }
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // P2002 is the error code for unique constraint violation
+            if (error.code === 'P2002') {
+                throw new Error(`Account code ${rest.code} already exists.`);
+            }
+        }
+        throw error;
     }
+
     revalidatePath('/finance/coa');
     return { success: true };
 }
