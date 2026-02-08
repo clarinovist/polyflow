@@ -708,15 +708,13 @@ export async function createChildProductionOrder(
 
             const outputRatio = quantity / Number(bom.outputQuantity);
 
-            for (const bi of bomItems) {
-                await tx.productionMaterial.create({
-                    data: {
-                        productionOrderId: po.id,
-                        productVariantId: bi.productVariantId,
-                        quantity: Number(bi.quantity) * outputRatio
-                    }
-                });
-            }
+            await tx.productionMaterial.createMany({
+                data: bomItems.map(bi => ({
+                    productionOrderId: po.id,
+                    productVariantId: bi.productVariantId,
+                    quantity: Number(bi.quantity) * outputRatio
+                }))
+            });
 
             return po;
         });
