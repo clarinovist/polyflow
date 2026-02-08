@@ -99,10 +99,8 @@ export class ProductionOrderService {
         const sourceStockMap = new Map<string, number>();
         sourceInventoryRows.forEach(r => sourceStockMap.set(r.productVariantId, r.quantity.toNumber()));
 
-        const requestedSourceHasAny = variantIds.some(id => (sourceStockMap.get(id) || 0) > 0);
-
         let suggestedSourceLocation: { id: string; name: string } | null = null;
-        if (sourceLocationId && !requestedSourceHasAny) {
+        if (sourceLocationId && !sourceInventoryRows.some(r => r.quantity.toNumber() > 0)) {
             const rmLocation = await prisma.location.findUnique({
                 where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
                 select: { id: true, name: true }
