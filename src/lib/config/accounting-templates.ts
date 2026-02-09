@@ -1,59 +1,90 @@
-export const JOURNAL_TEMPLATES = [
+export interface JournalTemplate {
+    id: string;
+    name: string;
+    description: string;
+    lines: {
+        accountCode: string;
+        debit?: boolean;
+        credit?: boolean;
+        description?: string;
+    }[];
+}
+
+export const JOURNAL_TEMPLATES: JournalTemplate[] = [
     {
-        id: "salary-monthly",
-        label: "Monthly Salary Payment",
-        description: "Standard payroll entry: Salary Expense vs Cash/Bank",
+        id: 'salary-payment',
+        name: 'Gaji Karyawan',
+        description: 'Pembayaran gaji bulanan karyawan',
         lines: [
-            {
-                accountMatch: ["5101", "salary", "gaji"], // keywords/codes to find account
-                type: "expense",
-                defaultDescription: "Salary Payment for [Month]",
-                isDebit: true
-            },
-            {
-                accountMatch: ["1101", "cash", "bank"],
-                type: "asset",
-                defaultDescription: "Salary Payment for [Month]",
-                isDebit: false
-            }
+            { accountCode: '61100', debit: true, description: 'Beban Gaji' },
+            { accountCode: '11101', credit: true, description: 'Bayar Gaji' }
         ]
     },
     {
-        id: "office-rent",
-        label: "Office Rent",
-        description: "Monthly office rent payment",
+        id: 'office-rent',
+        name: 'Sewa Kantor',
+        description: 'Pembayaran sewa kantor/gudang',
         lines: [
-            {
-                accountMatch: ["5201", "rent", "sewa"],
-                type: "expense",
-                defaultDescription: "Office Rent for [Month]",
-                isDebit: true
-            },
-            {
-                accountMatch: ["1101", "cash", "bank"],
-                type: "asset",
-                defaultDescription: "Office Rent for [Month]",
-                isDebit: false
-            }
+            { accountCode: '61300', debit: true, description: 'Beban Sewa' },
+            { accountCode: '11101', credit: true, description: 'Bayar Sewa' }
         ]
     },
     {
-        id: "depreciation",
-        label: "Asset Depreciation",
-        description: "Monthly asset value depreciation",
+        id: 'purchase-raw-materials',
+        name: 'Beli Bahan Baku',
+        description: 'Pembelian bahan baku (Resin, Catalist, dll)',
         lines: [
-            {
-                accountMatch: ["5901", "depreciation", "penyusutan"],
-                type: "expense",
-                defaultDescription: "Monthly Depreciation",
-                isDebit: true
-            },
-            {
-                accountMatch: ["1299", "accumulated", "akumulasi"],
-                type: "asset",
-                defaultDescription: "Monthly Depreciation",
-                isDebit: false
-            }
+            { accountCode: '12100', debit: true, description: 'Persediaan Bahan Baku' },
+            { accountCode: '11101', credit: true, description: 'Bayar Bahan Baku' }
+        ]
+    },
+    {
+        id: 'purchase-packaging',
+        name: 'Beli Kemasan',
+        description: 'Pembelian botol, box, atau kemasan lain',
+        lines: [
+            { accountCode: '12200', debit: true, description: 'Persediaan Kemasan' },
+            { accountCode: '11101', credit: true, description: 'Bayar Kemasan' }
+        ]
+    },
+    {
+        id: 'purchase-consumables',
+        name: 'Beli Perlengkapan',
+        description: 'Pembelian sarung tangan, masker, dll',
+        lines: [
+            { accountCode: '12300', debit: true, description: 'Persediaan Perlengkapan' },
+            { accountCode: '11101', credit: true, description: 'Bayar Perlengkapan' }
+        ]
+    },
+    {
+        id: 'expense-electricity',
+        name: 'Biaya Listrik',
+        description: 'Tagihan listrik bulanan',
+        lines: [
+            { accountCode: '61401', debit: true, description: 'Beban Listrik' },
+            { accountCode: '11101', credit: true, description: 'Bayar Listrik' }
+        ]
+    },
+    {
+        id: 'expense-maintenance',
+        name: 'Biaya Perawatan',
+        description: 'Servis mesin atau perbaikan gedung',
+        lines: [
+            { accountCode: '61402', debit: true, description: 'Beban Pemeliharaan' },
+            { accountCode: '11101', credit: true, description: 'Bayar Pemeliharaan' }
+        ]
+    },
+    {
+        id: 'expense-transport',
+        name: 'Biaya Transportasi',
+        description: 'Bensin, tol, atau kirim barang',
+        lines: [
+            { accountCode: '61403', debit: true, description: 'Beban Transportasi' },
+            { accountCode: '11101', credit: true, description: 'Bayar Transportasi' }
         ]
     }
 ];
+
+export function findTemplate(id: string) {
+    return JOURNAL_TEMPLATES.find(t => t.id === id);
+}

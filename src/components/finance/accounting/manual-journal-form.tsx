@@ -67,24 +67,20 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
         if (!template) return;
 
         const newLines = template.lines.map((line) => {
-            // Fuzzy search for account
-            const matchedAccount = accounts.find((acc) => {
-                const searchStr = (acc.code + " " + acc.name).toLowerCase();
-                return line.accountMatch.some((keyword) => searchStr.includes(keyword));
-            });
+            const matchedAccount = accounts.find((acc) => acc.code === line.accountCode);
 
             return {
                 accountId: matchedAccount ? matchedAccount.id : "",
-                description: line.defaultDescription || "",
+                description: line.description || "",
                 debit: 0,
                 credit: 0
             };
         });
 
         replace(newLines);
-        form.setValue('description', template.label);
+        form.setValue('description', template.name);
         setTemplateOpen(false);
-        toast.success(`Template "${template.label}" applied`);
+        toast.success(`Template "${template.name}" applied`);
     };
 
     async function onSubmit(data: ManualJournalValues, post: boolean) {
@@ -198,7 +194,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                                                             className="w-full justify-start text-xs"
                                                             onClick={() => applyTemplate(t.id)}
                                                         >
-                                                            {t.label}
+                                                            {t.name}
                                                         </Button>
                                                     ))}
                                                 </div>

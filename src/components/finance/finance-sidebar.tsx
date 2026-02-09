@@ -9,7 +9,8 @@ import {
     Settings2,
     Calendar,
     Building2,
-    History as HistoryIcon
+    History as HistoryIcon,
+    Zap
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -28,6 +29,7 @@ const financeLinks = [
         heading: 'Overview',
         items: [
             { href: '/finance', icon: LayoutDashboard, label: 'Financial Dashboard' },
+            { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
         ],
     },
     {
