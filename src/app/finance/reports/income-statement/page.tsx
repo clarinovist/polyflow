@@ -10,6 +10,8 @@ import { DateRange } from "react-day-picker";
 import { RotateCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 
 interface IncomeStatementItem {
@@ -42,6 +44,7 @@ export default function IncomeStatementPage() {
         from: new Date(new Date().getFullYear(), 0, 1),
         to: new Date()
     });
+    const [hideZero, setHideZero] = useState(true);
 
     const fetchData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -101,6 +104,17 @@ export default function IncomeStatementPage() {
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
+            </div>
+
+            <div className="flex items-center space-x-2 bg-muted/20 p-3 rounded-lg border w-fit">
+                <Switch
+                    id="hide-zero"
+                    checked={hideZero}
+                    onCheckedChange={setHideZero}
+                />
+                <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
+                    Hide Zero Balances
+                </Label>
             </div>
 
             {/* Summary Cards - like COA Ledger */}
@@ -179,13 +193,15 @@ export default function IncomeStatementPage() {
                                                 I. PENDAPATAN (REVENUE)
                                             </TableCell>
                                         </TableRow>
-                                        {data.revenue.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
-                                                <TableCell className="text-right font-mono">{formatRupiah(item.netBalance)}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {data.revenue
+                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">{item.name}</TableCell>
+                                                    <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
+                                                    <TableCell className="text-right font-mono">{formatRupiah(item.netBalance)}</TableCell>
+                                                </TableRow>
+                                            ))}
                                         <TableRow className="font-semibold border-t">
                                             <TableCell colSpan={2}>Total Pendapatan</TableCell>
                                             <TableCell className="text-right font-mono">{formatRupiah(data.totalRevenue)}</TableCell>
@@ -278,16 +294,18 @@ export default function IncomeStatementPage() {
                                                 IV. PENDAPATAN/BEBAN LAINNYA
                                             </TableCell>
                                         </TableRow>
-                                        {data.other.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {formatRupiah(Math.abs(item.netBalance))}
-                                                    {item.netBalance < 0 ? ' (Beban)' : ''}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {data.other
+                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">{item.name}</TableCell>
+                                                    <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
+                                                    <TableCell className="text-right font-mono">
+                                                        {formatRupiah(Math.abs(item.netBalance))}
+                                                        {item.netBalance < 0 ? ' (Beban)' : ''}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
 
                                         {/* Net Income */}
                                         <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
@@ -338,6 +356,6 @@ export default function IncomeStatementPage() {
                     </CardContent>
                 </Card>
             </div>
-        </div >
+        </div>
     );
 }
