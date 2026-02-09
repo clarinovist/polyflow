@@ -7,6 +7,7 @@ import { AccountingService } from "@/services/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-checks";
 import { revalidatePath } from "next/cache";
+import { recordCustomerPayment, recordSupplierPayment } from "./finance";
 
 export async function createWizardTransaction(data: TransactionWizardValues) {
     const session = await requireAuth();
@@ -24,14 +25,51 @@ export async function createWizardTransaction(data: TransactionWizardValues) {
     }
 
     try {
-        // 3. Resolve Account IDs
+        // 3. Delegate to specialized actions if it's an invoice payment
+        if (config.requiresInvoice && data.invoiceId) {
+            // Determine payment method from custom accounts if possible, or use default
+            const targetAccountId = config.requiresInvoice === 'SALES' ? data.customDebitAccountId : data.customCreditAccountId;
+
+            let bankAcc;
+            if (targetAccountId) {
+                bankAcc = await prisma.account.findUnique({ where: { id: targetAccountId } });
+            } else {
+                bankAcc = await prisma.account.findUnique({ where: { code: config.requiresInvoice === 'SALES' ? config.debitAccountCode : config.creditAccountCode } });
+            }
+
+            const method = bankAcc?.code === '11110' ? 'Cash' : 'Bank Transfer';
+
+            if (config.requiresInvoice === 'SALES') {
+                const result = await recordCustomerPayment({
+                    invoiceId: data.invoiceId,
+                    amount: data.amount,
+                    paymentDate: data.entryDate,
+                    method,
+                    notes: data.description
+                });
+                if (!result.success) return { success: false, error: result.error };
+                return { success: true };
+            } else {
+                const result = await recordSupplierPayment({
+                    invoiceId: data.invoiceId,
+                    amount: data.amount,
+                    paymentDate: data.entryDate,
+                    method,
+                    notes: data.description
+                });
+                if (!result.success) return { success: false, error: result.error };
+                return { success: true };
+            }
+        }
+
+        // 4. Resolve Account IDs
         const debitAccountId = data.customDebitAccountId || (await getAccountIdByCode(config.debitAccountCode));
         const creditAccountId = data.customCreditAccountId || (await getAccountIdByCode(config.creditAccountCode));
 
-        // 4. Create Journal Entry
+        // 5. Create Journal Entry
         // Use ReferenceType based on category
         let referenceType = ReferenceType.MANUAL_ENTRY as ReferenceType;
-        if (config.category === 'PURCHASE') referenceType = ReferenceType.GOODS_RECEIPT as ReferenceType;
+        if (config.category === 'ASSET') referenceType = ReferenceType.GOODS_RECEIPT as ReferenceType;
         if (config.category === 'SALES') referenceType = ReferenceType.SALES_INVOICE as ReferenceType;
 
         const result = await AccountingService.createJournalEntry({

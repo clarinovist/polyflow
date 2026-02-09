@@ -228,7 +228,7 @@ export async function recordCustomerPayment(data: {
 
         // Create journal entry
         const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
-        await AutoJournalService.handleSalesPayment(data.invoiceId, data.amount);
+        await AutoJournalService.handleSalesPayment(data.invoiceId, data.amount, data.method);
 
         revalidatePath('/finance/payments/received');
         revalidatePath('/finance/invoices/sales');
@@ -307,7 +307,7 @@ export async function recordSupplierPayment(data: {
 
         // Create journal entry
         const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
-        await AutoJournalService.handlePurchasePayment(data.invoiceId, data.amount);
+        await AutoJournalService.handlePurchasePayment(data.invoiceId, data.amount, data.method);
 
         revalidatePath('/finance/payments/sent');
         revalidatePath('/finance/invoices/purchase');

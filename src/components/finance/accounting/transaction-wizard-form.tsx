@@ -10,16 +10,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, cn } from '@/lib/utils';
 import { Loader2, CalendarIcon, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { AccountCombobox } from "./account-combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AccountingInput } from '../../ui/accounting-input';
 
 interface Account {
@@ -28,7 +28,37 @@ interface Account {
     name: string;
 }
 
-export default function TransactionWizardForm({ accounts }: { accounts: Account[] }) {
+interface Invoice {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number | { toString(): string };
+    paidAmount: number | { toString(): string };
+    salesOrder: {
+        customer: { name: string } | null;
+    } | null;
+}
+
+interface PurchaseInvoice {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number | { toString(): string };
+    paidAmount: number | { toString(): string };
+    purchaseOrder: {
+        supplier: { name: string } | null;
+    } | null;
+}
+
+interface TransactionWizardFormProps {
+    accounts: Account[];
+    salesInvoices?: Invoice[];
+    purchaseInvoices?: PurchaseInvoice[];
+}
+
+export default function TransactionWizardForm({
+    accounts,
+    salesInvoices = [],
+    purchaseInvoices = []
+}: TransactionWizardFormProps) {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -43,7 +73,8 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
             entryDate: new Date(),
             description: '',
             reference: '',
-            customDebitAccountId: ''
+            customDebitAccountId: '',
+            invoiceId: '',
         }
     });
 
@@ -59,6 +90,7 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
         setValue('reference', '');
         setValue('customDebitAccountId', '');
         setValue('customCreditAccountId', '');
+        setValue('invoiceId', '');
         setStep(2);
     };
 
@@ -130,11 +162,18 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                 <CardDescription>Select the transaction type to proceed.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Tabs defaultValue="PURCHASE" className="w-full">
-                                    <TabsList className={cn("grid w-full mb-6", `grid-cols-${categories.length}`)}>
+                                <Tabs defaultValue="EXPENSE" className="w-full">
+                                    <TabsList className="flex w-full mb-6 overflow-x-auto bg-muted/30 p-1 h-auto">
                                         {categories.map(cat => (
-                                            <TabsTrigger key={cat} value={cat}>
-                                                {cat === 'PURCHASE' ? 'Purchase' : cat === 'EXPENSE' ? 'Expenses' : cat === 'FINANCING' ? 'Loans' : cat}
+                                            <TabsTrigger
+                                                key={cat}
+                                                value={cat}
+                                                className="flex-1 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                                            >
+                                                {cat === 'EXPENSE' ? 'Expenses' :
+                                                    cat === 'FINANCING' ? 'Loans' :
+                                                        cat === 'PAYMENT' ? 'Payments' :
+                                                            cat === 'ASSET' ? 'Assets' : cat}
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
@@ -185,8 +224,80 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-6">
+                                {selectedType.requiresInvoice && (
+                                    <FormField
+                                        control={form.control}
+                                        name="invoiceId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {selectedType.requiresInvoice === 'SALES' ? 'Pilih Invoice Customer' : 'Pilih Tagihan Supplier'}
+                                                </FormLabel>
+                                                <Select
+                                                    value={field.value}
+                                                    onValueChange={(val) => {
+                                                        field.onChange(val);
+                                                        // Automatically set amount based on selected invoice
+                                                        if (selectedType.requiresInvoice === 'SALES') {
+                                                            const inv = salesInvoices.find(i => i.id === val);
+                                                            if (inv) {
+                                                                const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                                                setValue('amount', balance);
+                                                                setValue('description', `Pelunasan ${inv.invoiceNumber} - ${inv.salesOrder?.customer?.name || 'Customer'}`);
+                                                            }
+                                                        } else {
+                                                            const inv = purchaseInvoices.find(i => i.id === val);
+                                                            if (inv) {
+                                                                const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                                                setValue('amount', balance);
+                                                                setValue('description', `Pembayaran ${inv.invoiceNumber} - ${inv.purchaseOrder?.supplier?.name || 'Supplier'}`);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Pilih invoice yang akan dibayar" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {(selectedType.requiresInvoice === 'SALES' ? salesInvoices : purchaseInvoices).map((inv) => {
+                                                            const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                                            const partyName = selectedType.requiresInvoice === 'SALES'
+                                                                ? (inv as Invoice).salesOrder?.customer?.name
+                                                                : (inv as PurchaseInvoice).purchaseOrder?.supplier?.name;
+                                                            return (
+                                                                <SelectItem key={inv.id} value={inv.id}>
+                                                                    {inv.invoiceNumber} - {partyName || 'Unknown'} ({formatRupiah(balance)})
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
+
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-4">
+                                        {values.invoiceId && (
+                                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-md text-sm">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-indigo-700 font-medium">Sisa Tagihan:</span>
+                                                    <span className="font-bold text-indigo-900">
+                                                        {(() => {
+                                                            const inv = selectedType.requiresInvoice === 'SALES'
+                                                                ? (salesInvoices as Invoice[]).find(i => i.id === values.invoiceId)
+                                                                : (purchaseInvoices as PurchaseInvoice[]).find(i => i.id === values.invoiceId);
+                                                            return inv ? formatRupiah(Number(inv.totalAmount) - Number(inv.paidAmount)) : '0';
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <FormField
                                             control={form.control}
                                             name="amount"
@@ -200,6 +311,11 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                             className="text-lg font-semibold"
                                                         />
                                                     </FormControl>
+                                                    {values.invoiceId && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Pstt! Anda bisa mengubah nominal ini jika ingin membayar cicilan/sebagian.
+                                                        </p>
+                                                    )}
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -283,7 +399,10 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                 name="customDebitAccountId"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>{selectedType.category === 'FINANCING' ? 'Uang Masuk ke Mana?' : 'Expense Account'}</FormLabel>
+                                                        <FormLabel>
+                                                            {selectedType.category === 'FINANCING' ? 'Uang Masuk ke Mana?' :
+                                                                selectedType.category === 'ASSET' ? 'Pilih Akun Aset' : 'Expense Account'}
+                                                        </FormLabel>
                                                         <FormControl>
                                                             <AccountCombobox
                                                                 accounts={accounts.filter(acc =>
@@ -341,79 +460,40 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                         <Card className="border-t-4 border-t-indigo-500 shadow-sm">
                             <CardHeader>
                                 <CardTitle className="text-xl">Confirm Transaction</CardTitle>
-                                <CardDescription>Review the details before recording.</CardDescription>
+                                <CardDescription>Please review the details before posting.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="bg-muted/50 rounded-lg p-6 border">
-                                    <div className="grid gap-6 md:grid-cols-2">
-                                        <div className="space-y-4">
-                                            <div>
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Type</p>
-                                                <div className="flex items-center gap-2">
-                                                    <selectedType.icon className="w-4 h-4 text-primary" />
-                                                    <p className="font-medium">{selectedType.label}</p>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Amount</p>
-                                                <p className="text-xl font-bold">{formatRupiah(values.amount)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Date</p>
-                                                <p className="font-medium">{format(values.entryDate, "PPP")}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Description</p>
-                                                <p className="font-medium">{values.description}</p>
-                                            </div>
-                                        </div>
+                                <div className="grid gap-4 p-4 rounded-lg bg-muted/50 border">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Type</span>
+                                        <span className="font-medium text-foreground">{selectedType.label}</span>
                                     </div>
-                                    {values.reference && (
-                                        <div className="mt-4 pt-4 border-t">
-                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Reference</p>
-                                            <p className="font-medium">{values.reference}</p>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between border-t pt-2">
+                                        <span className="text-muted-foreground">Amount</span>
+                                        <span className="font-bold text-indigo-600 text-lg">{formatRupiah(values.amount)}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t pt-2">
+                                        <span className="text-muted-foreground">Date</span>
+                                        <span className="text-foreground">{format(values.entryDate, "PPP")}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t pt-2">
+                                        <span className="text-muted-foreground">Description</span>
+                                        <span className="text-foreground text-right max-w-[200px]">{values.description}</span>
+                                    </div>
                                 </div>
 
-                                <div className="rounded-lg border border-dashed p-4">
-                                    <details className="group">
-                                        <summary className="text-sm font-medium text-muted-foreground cursor-pointer flex items-center justify-between hover:text-foreground">
-                                            View Journal Entry Simulation
-                                            <ChevronRight className="w-4 h-4 transition-transform group-open:rotate-90" />
-                                        </summary>
-                                        <div className="mt-4 space-y-2 text-sm font-mono bg-muted/30 p-3 rounded border">
-                                            <div className="flex justify-between text-green-600 font-semibold">
-                                                <span>DR {selectedType.showAccountPicker && values.customDebitAccountId ? accounts.find(a => a.id === values.customDebitAccountId)?.name : selectedType.debitAccountCode}</span>
-                                                <span>{formatRupiah(values.amount)}</span>
-                                            </div>
-                                            <div className="flex justify-between text-red-600 font-semibold pl-8">
-                                                <span>CR {values.customCreditAccountId ? accounts.find(a => a.id === values.customCreditAccountId)?.name : selectedType.creditAccountCode}</span>
-                                                <span>{formatRupiah(values.amount)}</span>
-                                            </div>
-                                        </div>
-                                    </details>
-                                </div>
-
-                                <div className="flex justify-between pt-6 border-t">
+                                <div className="flex justify-between pt-6">
                                     <Button variant="ghost" type="button" onClick={prevStep}>
                                         <ChevronLeft className="w-4 h-4 mr-2" /> Back
                                     </Button>
-                                    <Button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="min-w-[200px]"
-                                    >
+                                    <Button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
                                         {loading ? (
                                             <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Processing...
                                             </>
                                         ) : (
-                                            <>
-                                                Record Transaction <CheckCircle2 className="w-4 h-4 ml-2" />
-                                            </>
+                                            'Post Transaction'
                                         )}
                                     </Button>
                                 </div>
