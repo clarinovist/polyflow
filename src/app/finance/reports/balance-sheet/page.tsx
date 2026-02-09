@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { useCallback } from 'react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface BalanceSheetItem {
     id: string;
@@ -36,6 +38,7 @@ export default function BalanceSheetPage() {
     const [data, setData] = useState<BalanceSheetData | null>(null);
     const [loading, setLoading] = useState(true);
     const [date, setDate] = useState<Date>(new Date());
+    const [hideZero, setHideZero] = useState(true);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -97,6 +100,17 @@ export default function BalanceSheetPage() {
                 </div>
             </div>
 
+            <div className="flex items-center space-x-2 bg-muted/20 p-3 rounded-lg border w-fit">
+                <Switch
+                    id="hide-zero"
+                    checked={hideZero}
+                    onCheckedChange={setHideZero}
+                />
+                <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
+                    Hide Zero Balances
+                </Label>
+            </div>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Statement of Financial Position</CardTitle>
@@ -126,13 +140,15 @@ export default function BalanceSheetPage() {
                                         <TableRow className="bg-muted/50 font-bold">
                                             <TableCell colSpan={3}>ASSETS</TableCell>
                                         </TableRow>
-                                        {data.assets.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {data.assets
+                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">{item.name}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                                                </TableRow>
+                                            ))}
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL ASSETS</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalAssets)}</TableCell>
@@ -142,13 +158,15 @@ export default function BalanceSheetPage() {
                                         <TableRow className="bg-muted/50 font-bold mt-4">
                                             <TableCell colSpan={3}>LIABILITIES</TableCell>
                                         </TableRow>
-                                        {data.liabilities.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {data.liabilities
+                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">{item.name}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                                                </TableRow>
+                                            ))}
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL LIABILITIES</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalLiabilities)}</TableCell>
@@ -158,13 +176,15 @@ export default function BalanceSheetPage() {
                                         <TableRow className="bg-muted/50 font-bold mt-4">
                                             <TableCell colSpan={3}>EQUITY</TableCell>
                                         </TableRow>
-                                        {data.equity.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="pl-8">{item.name}</TableCell>
-                                                <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {data.equity
+                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+                                            .map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="pl-8">{item.name}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                                                </TableRow>
+                                            ))}
 
                                         {/* Calculated Net Income */}
                                         <TableRow>
