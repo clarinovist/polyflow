@@ -1,6 +1,6 @@
-import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator } from 'lucide-react';
+import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator, Landmark, HandCoins } from 'lucide-react';
 
-export type TransactionCategory = 'PURCHASE' | 'EXPENSE' | 'SALES' | 'PAYROLL';
+export type TransactionCategory = 'PURCHASE' | 'EXPENSE' | 'SALES' | 'PAYROLL' | 'FINANCING';
 
 export interface TransactionTypeConfig {
     id: string;
@@ -14,32 +14,12 @@ export interface TransactionTypeConfig {
     defaultDescription: string;
     showAccountPicker?: boolean; // For "Other" categories
     accountPickerFilter?: string[]; // Account codes to filter to
-    showPaymentPicker?: boolean; // To select Cash vs Bank
-    paymentPickerFilter?: string[]; // Filter for payment accounts (default: ['101', '102'])
+    showPaymentPicker?: boolean; // To select Cash vs Bank or Payable/Debt
+    paymentPickerFilter?: string[]; // Filter for payment accounts (default: ['111', '211', '212', '221'])
 }
 
 export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
     // Purchases
-    {
-        id: 'purchase-raw-material',
-        label: 'Beli Bahan Baku',
-        description: 'Pembelian biji plastik/resin (Virgin PE, PP, HD)',
-        icon: ShoppingCart,
-        category: 'PURCHASE',
-        debitAccountCode: '12100', // Inventory - Virgin Resin
-        creditAccountCode: '21110', // AP Accrual / GR-IR
-        defaultDescription: 'Pembelian Bahan Baku'
-    },
-    {
-        id: 'purchase-packaging',
-        label: 'Beli Bahan Kemasan',
-        description: 'Pembelian karung, sak, atau core roll',
-        icon: ShoppingCart,
-        category: 'PURCHASE',
-        debitAccountCode: '12600', // Inventory - Packaging
-        creditAccountCode: '21110', // AP Accrual
-        defaultDescription: 'Pembelian Bahan Kemasan'
-    },
     {
         id: 'purchase-consumables',
         label: 'Beli Consumable',
@@ -119,5 +99,54 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         showAccountPicker: true,
         accountPickerFilter: ['6'], // Show all expense accounts
         showPaymentPicker: true
+    },
+    // Financing
+    {
+        id: 'loan-bank-receive',
+        label: 'Terima Pinjaman Bank',
+        description: 'Pencairan dana pinjaman dari Bank',
+        icon: Landmark,
+        category: 'FINANCING',
+        debitAccountCode: '11130', // Bank Mandiri (Default Target)
+        creditAccountCode: '22100', // Bank Loans
+        defaultDescription: 'Pencairan Pinjaman Bank',
+        showAccountPicker: true,
+        accountPickerFilter: ['111'] // Pick which Bank/Cash receives the money
+    },
+    {
+        id: 'loan-owner-receive',
+        label: 'Terima Pinjaman Owner',
+        description: 'Pencairan dana talangan dari Owner/Pribadi',
+        icon: HandCoins,
+        category: 'FINANCING',
+        debitAccountCode: '11121', // Kas Kecil (Default Target)
+        creditAccountCode: '21112', // Hutang ke Nugroho Pramono
+        defaultDescription: 'Pinjaman Dana dari Owner',
+        showAccountPicker: true,
+        accountPickerFilter: ['111'] // Pick which Bank/Cash receives the money
+    },
+    {
+        id: 'loan-bank-repay',
+        label: 'Bayar Cicilan Bank',
+        description: 'Pembayaran angsuran pokok pinjaman bank',
+        icon: Wallet,
+        category: 'FINANCING',
+        debitAccountCode: '22100', // Bank Loans
+        creditAccountCode: '11130', // Bank Mandiri
+        defaultDescription: 'Pembayaran Cicilan Bank',
+        showPaymentPicker: true,
+        paymentPickerFilter: ['111'] // Pick which Bank/Cash is used to pay
+    },
+    {
+        id: 'loan-owner-repay',
+        label: 'Bayar Hutang Owner',
+        description: 'Pembayaran kembali dana talangan ke Owner/Pribadi',
+        icon: Wallet,
+        category: 'FINANCING',
+        debitAccountCode: '21112', // Hutang ke Nugroho Pramono
+        creditAccountCode: '11121', // Kas Kecil
+        defaultDescription: 'Pembayaran Hutang ke Owner',
+        showPaymentPicker: true,
+        paymentPickerFilter: ['111'] // Pick which Bank/Cash is used to pay
     }
 ];

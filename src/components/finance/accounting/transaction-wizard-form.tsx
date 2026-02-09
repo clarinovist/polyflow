@@ -54,6 +54,11 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
         setSelectedType(config);
         setValue('transactionTypeId', config.id);
         setValue('description', config.defaultDescription);
+        // Reset values for a clean start when type changes
+        setValue('amount', 0);
+        setValue('reference', '');
+        setValue('customDebitAccountId', '');
+        setValue('customCreditAccountId', '');
         setStep(2);
     };
 
@@ -126,9 +131,12 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                             </CardHeader>
                             <CardContent>
                                 <Tabs defaultValue="PURCHASE" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2 mb-6">
-                                        <TabsTrigger value="PURCHASE">Purchases</TabsTrigger>
-                                        <TabsTrigger value="EXPENSE">Expenses</TabsTrigger>
+                                    <TabsList className={cn("grid w-full mb-6", `grid-cols-${categories.length}`)}>
+                                        {categories.map(cat => (
+                                            <TabsTrigger key={cat} value={cat}>
+                                                {cat === 'PURCHASE' ? 'Purchase' : cat === 'EXPENSE' ? 'Expenses' : cat === 'FINANCING' ? 'Loans' : cat}
+                                            </TabsTrigger>
+                                        ))}
                                     </TabsList>
 
                                     {categories.map(category => (
@@ -275,7 +283,7 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                 name="customDebitAccountId"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Expense Account</FormLabel>
+                                                        <FormLabel>{selectedType.category === 'FINANCING' ? 'Uang Masuk ke Mana?' : 'Expense Account'}</FormLabel>
                                                         <FormControl>
                                                             <AccountCombobox
                                                                 accounts={accounts.filter(acc =>
@@ -297,11 +305,11 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                 name="customCreditAccountId"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Bayar Pakai Apa?</FormLabel>
+                                                        <FormLabel>{selectedType.category === 'FINANCING' ? 'Bayar Pakai Saldo Mana?' : 'Bayar Pakai Apa?'}</FormLabel>
                                                         <FormControl>
                                                             <AccountCombobox
                                                                 accounts={accounts.filter(acc =>
-                                                                    (selectedType.paymentPickerFilter || ['101', '102']).some(code => acc.code.startsWith(code))
+                                                                    (selectedType.paymentPickerFilter || ['111', '211', '212', '221']).some(code => acc.code.startsWith(code))
                                                                 )}
                                                                 value={field.value || ''}
                                                                 onValueChange={field.onChange}
