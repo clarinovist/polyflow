@@ -138,28 +138,43 @@ export default async function FinanceDashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900 text-white">
-                    <CardHeader>
+                <Card className="relative overflow-hidden border-none shadow-md bg-indigo-600 dark:bg-indigo-900 text-white flex flex-col h-full">
+                    {/* Decorative Background Element */}
+                    <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                    <div className="absolute bottom-0 left-0 -mb-8 -ml-8 h-32 w-32 rounded-full bg-indigo-400/20 blur-3xl text-white" />
+
+                    <CardHeader className="relative z-10 pb-2">
                         <CardTitle className="flex items-center gap-2 text-white">
                             <TrendingUp className="h-5 w-5" />
                             Financial Reports
                         </CardTitle>
-                        <CardDescription className="text-slate-400">Deep dive into your ledger</CardDescription>
+                        <CardDescription className="text-indigo-100/70">Analyze your financial performance</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                        <Link href="/finance/reports">
-                            <Button variant="secondary" className="w-full justify-start h-12 font-bold text-slate-900">
-                                Profit & Loss Statement
-                            </Button>
-                        </Link>
-                        <div className="grid grid-cols-2 gap-2">
+
+                    <CardContent className="relative z-10 space-y-3 flex-1">
+                        <div className="grid grid-cols-1 gap-2">
+                            <Link href="/finance/reports/income-statement">
+                                <Button variant="secondary" className="w-full justify-between h-11 font-semibold bg-white text-indigo-700 hover:bg-indigo-50 border-none transition-all group">
+                                    Profit & Loss
+                                    <ArrowUpRight className="h-4 w-4 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                </Button>
+                            </Link>
+                            <Link href="/finance/reports/balance-sheet">
+                                <Button variant="secondary" className="w-full justify-between h-11 font-semibold bg-white/20 hover:bg-white/30 text-white border-none transition-all group">
+                                    Balance Sheet
+                                    <ArrowUpRight className="h-4 w-4 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                </Button>
+                            </Link>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
                             <Link href="/finance/journals">
-                                <Button variant="outline" className="w-full border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white">
+                                <Button variant="ghost" className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium">
                                     Journals
                                 </Button>
                             </Link>
                             <Link href="/finance/costing">
-                                <Button variant="outline" className="w-full border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white">
+                                <Button variant="ghost" className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium">
                                     Costing
                                 </Button>
                             </Link>
