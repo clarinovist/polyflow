@@ -11,6 +11,7 @@ interface NavItemProps {
     icon: LucideIcon;
     label: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
+    exact?: boolean;
 }
 
 interface NavGroupProps {
@@ -20,9 +21,9 @@ interface NavGroupProps {
     defaultOpen?: boolean;
 }
 
-export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary' }: NavItemProps) {
+export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', exact }: NavItemProps) {
     const pathname = usePathname();
-    const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+    const isActive = exact ? pathname === href : (pathname === href || (href !== '/' && pathname.startsWith(href)));
 
     const activeClasses = {
         primary: 'bg-sidebar-accent text-sidebar-accent-foreground',

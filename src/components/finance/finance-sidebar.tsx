@@ -28,7 +28,7 @@ const financeLinks = [
     {
         heading: 'Overview',
         items: [
-            { href: '/finance', icon: LayoutDashboard, label: 'Financial Dashboard' },
+            { href: '/finance', icon: LayoutDashboard, label: 'Financial Dashboard', exact: true },
             { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
         ],
     },
