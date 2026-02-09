@@ -290,6 +290,29 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                 )}
                                             />
                                         )}
+
+                                        {selectedType.showPaymentPicker && (
+                                            <FormField
+                                                control={form.control}
+                                                name="customCreditAccountId"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Bayar Pakai Apa?</FormLabel>
+                                                        <FormControl>
+                                                            <AccountCombobox
+                                                                accounts={accounts.filter(acc =>
+                                                                    (selectedType.paymentPickerFilter || ['101', '102']).some(code => acc.code.startsWith(code))
+                                                                )}
+                                                                value={field.value || ''}
+                                                                onValueChange={field.onChange}
+                                                                placeholder="Pilih Kas atau Bank"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -359,7 +382,7 @@ export default function TransactionWizardForm({ accounts }: { accounts: Account[
                                                 <span>{formatRupiah(values.amount)}</span>
                                             </div>
                                             <div className="flex justify-between text-red-600 font-semibold pl-8">
-                                                <span>CR {selectedType.creditAccountCode}</span>
+                                                <span>CR {values.customCreditAccountId ? accounts.find(a => a.id === values.customCreditAccountId)?.name : selectedType.creditAccountCode}</span>
                                                 <span>{formatRupiah(values.amount)}</span>
                                             </div>
                                         </div>

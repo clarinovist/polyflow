@@ -14,6 +14,8 @@ export interface TransactionTypeConfig {
     defaultDescription: string;
     showAccountPicker?: boolean; // For "Other" categories
     accountPickerFilter?: string[]; // Account codes to filter to
+    showPaymentPicker?: boolean; // To select Cash vs Bank
+    paymentPickerFilter?: string[]; // Filter for payment accounts (default: ['101', '102'])
 }
 
 export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
@@ -46,7 +48,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'PURCHASE',
         debitAccountCode: '12900', // Inventory - Consumables
         creditAccountCode: '21110', // AP Accrual
-        defaultDescription: 'Pembelian Consumable/Spares'
+        defaultDescription: 'Pembelian Consumable/Spares',
+        showPaymentPicker: true
     },
     // Expenses
     {
@@ -57,7 +60,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'EXPENSE',
         debitAccountCode: '60100', // Factory Electricity (PLN)
         creditAccountCode: '10200', // Bank - Operating
-        defaultDescription: 'Bayar Listrik PLN'
+        defaultDescription: 'Bayar Listrik PLN',
+        showPaymentPicker: true
     },
     {
         id: 'expense-maintenance',
@@ -67,7 +71,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'EXPENSE',
         debitAccountCode: '60200', // Machine Maintenance
         creditAccountCode: '10200', // Bank
-        defaultDescription: 'Biaya Maintenance Mesin'
+        defaultDescription: 'Biaya Maintenance Mesin',
+        showPaymentPicker: true
     },
     {
         id: 'expense-rent',
@@ -77,7 +82,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'EXPENSE',
         debitAccountCode: '60400', // Factory Rent
         creditAccountCode: '10200', // Bank
-        defaultDescription: 'Sewa Gedung/Fasilitas'
+        defaultDescription: 'Sewa Gedung/Fasilitas',
+        showPaymentPicker: true
     },
     {
         id: 'expense-salary',
@@ -87,7 +93,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'EXPENSE',
         debitAccountCode: '61000', // Office Salaries
         creditAccountCode: '10200', // Bank
-        defaultDescription: 'Pembayaran Gaji'
+        defaultDescription: 'Pembayaran Gaji',
+        showPaymentPicker: true
     },
     {
         id: 'expense-transport',
@@ -97,7 +104,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         category: 'EXPENSE',
         debitAccountCode: '62100', // Logistics & Delivery
         creditAccountCode: '10200', // Bank
-        defaultDescription: 'Biaya Logistik & Pengiriman'
+        defaultDescription: 'Biaya Logistik & Pengiriman',
+        showPaymentPicker: true
     },
     {
         id: 'expense-other',
@@ -109,6 +117,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         creditAccountCode: '10200', // Bank
         defaultDescription: 'Pengeluaran Operasional',
         showAccountPicker: true,
-        accountPickerFilter: ['6'] // Show all expense accounts
+        accountPickerFilter: ['6'], // Show all expense accounts
+        showPaymentPicker: true
     }
 ];

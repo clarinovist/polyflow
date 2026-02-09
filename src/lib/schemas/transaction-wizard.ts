@@ -7,6 +7,7 @@ export const transactionWizardSchema = z.object({
     description: z.string().min(3, "Description must be at least 3 characters"),
     reference: z.string().optional(),
     customDebitAccountId: z.string().optional(),
+    customCreditAccountId: z.string().optional(),
 }).refine((data) => {
     // If showAccountPicker is true (like in expense-other), customDebitAccountId must be present
     // We handle this logic in the component but safety first

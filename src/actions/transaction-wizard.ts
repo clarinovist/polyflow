@@ -26,7 +26,7 @@ export async function createWizardTransaction(data: TransactionWizardValues) {
     try {
         // 3. Resolve Account IDs
         const debitAccountId = data.customDebitAccountId || (await getAccountIdByCode(config.debitAccountCode));
-        const creditAccountId = await getAccountIdByCode(config.creditAccountCode);
+        const creditAccountId = data.customCreditAccountId || (await getAccountIdByCode(config.creditAccountCode));
 
         // 4. Create Journal Entry
         // Use ReferenceType based on category
