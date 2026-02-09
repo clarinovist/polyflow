@@ -10,7 +10,8 @@ import {
     Calendar,
     Building2,
     History as HistoryIcon,
-    Zap
+    Zap,
+    TrendingUp
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -26,34 +27,27 @@ interface FinanceSidebarProps {
 
 const financeLinks = [
     {
-        heading: 'Overview',
+        heading: 'Insights',
         items: [
             { href: '/finance', icon: LayoutDashboard, label: 'Financial Dashboard', exact: true },
-            { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
+            { href: '/finance/costing', icon: TrendingUp, label: 'Costing Dashboard' },
         ],
     },
     {
-        heading: 'Receivables (AR)',
+        heading: 'Cash Flow',
         items: [
+            { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
             { href: '/finance/invoices/sales', icon: Receipt, label: 'Sales Invoices' },
             { href: '/finance/payments/received', icon: CreditCard, label: 'Customer Payments' },
-        ],
-    },
-    {
-        heading: 'Payables (AP)',
-        items: [
             { href: '/finance/invoices/purchase', icon: FileText, label: 'Purchase Invoices' },
             { href: '/finance/payments/sent', icon: CreditCard, label: 'Supplier Payments' },
         ],
     },
     {
-        heading: 'Accounting',
+        heading: 'Accounting Ledger',
         items: [
             { href: '/finance/journals', icon: BookOpen, label: 'Journal Entries' },
-            { href: '/finance/coa', icon: Settings2, label: 'Chart of Accounts' },
-            { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
             { href: '/finance/assets', icon: Building2, label: 'Fixed Assets' },
-            { href: '/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
         ],
     },
     {
@@ -63,6 +57,14 @@ const financeLinks = [
             { href: '/finance/reports/income-statement', icon: FileText, label: 'Income Statement' },
             { href: '/finance/reports/trial-balance', icon: FileText, label: 'Trial Balance' },
             { href: '/finance/reports/budget-variance', icon: FileText, label: 'Budget Variance' },
+        ],
+    },
+    {
+        heading: 'Configuration',
+        items: [
+            { href: '/finance/coa', icon: Settings2, label: 'Chart of Accounts' },
+            { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
+            { href: '/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
         ],
     },
 ];
