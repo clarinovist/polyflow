@@ -9,6 +9,11 @@ export const transactionWizardSchema = z.object({
     customDebitAccountId: z.string().optional(),
     customCreditAccountId: z.string().optional(),
     invoiceId: z.string().optional(),
+    // Asset-specific fields
+    assetCode: z.string().optional(),
+    usefulLifeMonths: z.coerce.number().int().min(1).optional(),
+    depreciationAccountId: z.string().optional(),
+    accumulatedDepreciationAccountId: z.string().optional(),
 }).refine((data) => {
     // If showAccountPicker is true (like in expense-other), customDebitAccountId must be present
     // We handle this logic in the component but safety first

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { transactionWizardSchema, TransactionWizardValues } from "@/lib/schemas/transaction-wizard";
 import { TRANSACTION_TYPES } from "@/lib/config/transaction-types";
 import { AccountingService } from "@/services/accounting-service";
+import { FixedAssetService } from "@/services/finance/fixed-asset-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-checks";
 import { revalidatePath } from "next/cache";
@@ -96,6 +97,22 @@ export async function createWizardTransaction(data: TransactionWizardValues) {
                 }
             ]
         });
+
+        // 6. If it's an asset, register it in Fixed Asset module
+        if (config.category === 'ASSET' && data.assetCode) {
+            await FixedAssetService.createAsset({
+                assetCode: data.assetCode,
+                name: data.description, // Use general description as name if not separate
+                category: config.label,
+                purchaseDate: data.entryDate,
+                purchaseValue: data.amount,
+                usefulLifeMonths: data.usefulLifeMonths || 48, // Default to 4 years if missing
+                assetAccountId: debitAccountId,
+                depreciationAccountId: data.depreciationAccountId || "",
+                accumulatedDepreciationAccountId: data.accumulatedDepreciationAccountId || ""
+            });
+            revalidatePath('/finance/assets');
+        }
 
         revalidatePath('/finance/journals');
         revalidatePath('/finance/reports/balance-sheet');

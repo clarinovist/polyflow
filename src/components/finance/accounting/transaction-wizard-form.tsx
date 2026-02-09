@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { formatRupiah, cn } from '@/lib/utils';
-import { Loader2, CalendarIcon, ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, CalendarIcon, ChevronRight, ChevronLeft, CheckCircle2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -439,6 +439,79 @@ export default function TransactionWizardForm({
                                                     </FormItem>
                                                 )}
                                             />
+                                        )}
+                                        {selectedType.category === 'ASSET' && (
+                                            <div className="p-4 bg-muted/30 border rounded-lg space-y-4">
+                                                <h3 className="text-sm font-semibold flex items-center gap-2">
+                                                    <Building2 className="w-4 h-4" /> Fixed Asset Registration
+                                                </h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="assetCode"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Asset Code</FormLabel>
+                                                                <FormControl>
+                                                                    <Input placeholder="e.g. MAC-001" {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="usefulLifeMonths"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Useful Life (Months)</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" placeholder="48" {...field} />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="depreciationAccountId"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Depreciation Expense Account</FormLabel>
+                                                                <FormControl>
+                                                                    <AccountCombobox
+                                                                        accounts={accounts.filter(acc => acc.code.startsWith('6'))}
+                                                                        value={field.value || ''}
+                                                                        onValueChange={field.onChange}
+                                                                        placeholder="Pilih Akun Beban Penyusutan"
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="accumulatedDepreciationAccountId"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Accumulated Depreciation Account</FormLabel>
+                                                                <FormControl>
+                                                                    <AccountCombobox
+                                                                        accounts={accounts.filter(acc => acc.code.startsWith('12') && acc.code.endsWith('9'))}
+                                                                        value={field.value || ''}
+                                                                        onValueChange={field.onChange}
+                                                                        placeholder="Pilih Akun Akumulasi Penyusutan"
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
