@@ -73,20 +73,30 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
 
     // Check for duplicates BEFORE transaction to give clear error
     for (const entry of data.arEntries) {
-        const existing = await prisma.invoice.findFirst({
-            where: { invoiceNumber: entry.invoiceNumber }
-        });
-        if (existing) {
-            return { success: false, error: `Customer Invoice #${entry.invoiceNumber} already exists.` };
+        const [existingInvoice, existingSO] = await Promise.all([
+            prisma.invoice.findFirst({ where: { invoiceNumber: entry.invoiceNumber } }),
+            prisma.salesOrder.findFirst({ where: { orderNumber: `SO-OPEN-${entry.invoiceNumber}` } })
+        ]);
+
+        if (existingInvoice || existingSO) {
+            return {
+                success: false,
+                error: `Customer Invoice #${entry.invoiceNumber} (or its placeholder SO) already exists. Please delete the previous entry or use a different number.`
+            };
         }
     }
 
     for (const entry of data.apEntries) {
-        const existing = await prisma.purchaseInvoice.findFirst({
-            where: { invoiceNumber: entry.invoiceNumber }
-        });
-        if (existing) {
-            return { success: false, error: `Supplier Bill #${entry.invoiceNumber} already exists.` };
+        const [existingBill, existingPO] = await Promise.all([
+            prisma.purchaseInvoice.findFirst({ where: { invoiceNumber: entry.invoiceNumber } }),
+            prisma.purchaseOrder.findFirst({ where: { orderNumber: `PO-OPEN-${entry.invoiceNumber}` } })
+        ]);
+
+        if (existingBill || existingPO) {
+            return {
+                success: false,
+                error: `Supplier Bill #${entry.invoiceNumber} (or its placeholder PO) already exists. Please delete the previous entry or use a different number.`
+            };
         }
     }
 
