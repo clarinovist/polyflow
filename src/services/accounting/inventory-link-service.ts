@@ -45,7 +45,7 @@ export async function recordInventoryMovement(
         const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         lines.push(
             { accountId: (await getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
-            { accountId: (await getAccountId('21110')), debit: 0, credit: totalAmount, description: `AP Accrual: ${productVariant.name}` }
+            { accountId: (await getAccountId('21120')), debit: 0, credit: totalAmount, description: `Accrued Payable: ${productVariant.name}` }
         );
     }
 
