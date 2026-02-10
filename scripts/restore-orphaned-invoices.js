@@ -22,7 +22,7 @@ async function run() {
 
             // Try to find a Sales Order ID in description or by ref
             let salesOrderId = null;
-            const soMatch = je.description.match(/SO-\d+/);
+            const soMatch = (je.description || '').match(/SO-\d+/);
             if (soMatch) {
                 const so = await prisma.salesOrder.findUnique({ where: { orderNumber: soMatch[0] } });
                 salesOrderId = so?.id;
@@ -30,6 +30,7 @@ async function run() {
 
             // Fallback: If it's an opening balance, find the dummy SO or just create without SO link
             const amount = je.lines.find(l => l.debit > 0)?.debit || 0;
+            const resolvedSalesOrderId = salesOrderId || await findOrCreateDummySO(je.reference, je.entryDate, amount);
 
             await prisma.invoice.create({
                 data: {
@@ -40,7 +41,7 @@ async function run() {
                     totalAmount: Number(amount),
                     paidAmount: 0,
                     status: 'UNPAID',
-                    salesOrderId: salesOrderId || (await findOrCreateDummySO(je.reference))
+                    salesOrderId: resolvedSalesOrderId
                 }
             });
             console.log(`  ✅ Restored Sales Invoice: ${je.reference}`);
@@ -64,19 +65,20 @@ async function run() {
 
             // Try to find a Purchase Order ID
             let purchaseOrderId = null;
-            const poMatch = je.description.match(/PO-\d+/);
+            const poMatch = (je.description || '').match(/PO-\d+/);
             if (poMatch) {
                 const po = await prisma.purchaseOrder.findUnique({ where: { orderNumber: poMatch[0] } });
                 purchaseOrderId = po?.id;
             }
 
             const amount = je.lines.find(l => l.credit > 0)?.credit || 0;
+            const resolvedPurchaseOrderId = purchaseOrderId || await findOrCreateDummyPO(je.reference, je.entryDate, amount);
 
             await prisma.purchaseInvoice.create({
                 data: {
                     id: je.id,
                     invoiceNumber: je.reference,
-                    purchaseOrderId: purchaseOrderId || (await findOrCreateDummyPO(je.reference)),
+                    purchaseOrderId: resolvedPurchaseOrderId,
                     invoiceDate: je.entryDate,
                     dueDate: je.entryDate,
                     totalAmount: Number(amount),
@@ -92,14 +94,69 @@ async function run() {
     await prisma.$disconnect();
 }
 
-async function findOrCreateDummySO(ref) {
-    // Basic fallback for orphaned records that need a parent
-    // In a real system, we'd want to find the true SO.
-    return null; // Or return a system-wide "Legacy SO" ID
+async function findOrCreateDummySO(ref, entryDate, amount) {
+    const legacyOrderNumber = buildLegacyOrderNumber('SO-LEGACY-', ref);
+    const existing = await prisma.salesOrder.findUnique({ where: { orderNumber: legacyOrderNumber } });
+    if (existing) {
+        return existing.id;
+    }
+
+    const created = await prisma.salesOrder.create({
+        data: {
+            orderNumber: legacyOrderNumber,
+            orderDate: entryDate,
+            status: 'DELIVERED',
+            totalAmount: Number(amount),
+            notes: `Legacy placeholder for restored invoice ${ref}`
+        }
+    });
+
+    return created.id;
 }
 
-async function findOrCreateDummyPO(ref) {
-    return null;
+async function findOrCreateDummyPO(ref, entryDate, amount) {
+    const legacyOrderNumber = buildLegacyOrderNumber('PO-LEGACY-', ref);
+    const existing = await prisma.purchaseOrder.findUnique({ where: { orderNumber: legacyOrderNumber } });
+    if (existing) {
+        return existing.id;
+    }
+
+    const supplierId = await findOrCreateLegacySupplier();
+    const created = await prisma.purchaseOrder.create({
+        data: {
+            orderNumber: legacyOrderNumber,
+            supplierId,
+            orderDate: entryDate,
+            status: 'RECEIVED',
+            totalAmount: Number(amount),
+            notes: `Legacy placeholder for restored invoice ${ref}`
+        }
+    });
+
+    return created.id;
+}
+
+async function findOrCreateLegacySupplier() {
+    const legacyCode = 'LEGACY-SUPPLIER';
+    const existing = await prisma.supplier.findUnique({ where: { code: legacyCode } });
+    if (existing) {
+        return existing.id;
+    }
+
+    const created = await prisma.supplier.create({
+        data: {
+            name: 'Legacy Supplier',
+            code: legacyCode,
+            notes: 'System placeholder for restored purchase invoices'
+        }
+    });
+
+    return created.id;
+}
+
+function buildLegacyOrderNumber(prefix, ref) {
+    const safeRef = String(ref || '').trim().replace(/[^A-Za-z0-9-]/g, '-');
+    return `${prefix}${safeRef || 'UNKNOWN'}`;
 }
 
 run().catch(err => {
