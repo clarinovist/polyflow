@@ -54,6 +54,7 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
         where: {
             type: { in: ['REVENUE', 'EXPENSE'] }
         },
+        orderBy: { code: 'asc' },
         include: {
             journalLines: {
                 where: {
@@ -171,6 +172,7 @@ export async function getBalanceSheet(asOfDate: Date) {
         where: {
             type: { in: ['ASSET', 'LIABILITY', 'EQUITY'] }
         },
+        orderBy: { code: 'asc' },
         include: {
             journalLines: {
                 where: {
