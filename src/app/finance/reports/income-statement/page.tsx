@@ -5,9 +5,9 @@ import { getIncomeStatement } from '@/actions/accounting';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from '@/lib/utils';
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { DateRange } from "react-day-picker";
-import { RotateCw, Download } from "lucide-react";
+import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
+import { id } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from '@/components/ui/switch';
@@ -40,25 +40,27 @@ interface IncomeStatementData {
 export default function IncomeStatementPage() {
     const [data, setData] = useState<IncomeStatementData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(new Date().getFullYear(), 0, 1),
-        to: new Date()
-    });
+    const [date, setDate] = useState<Date>(new Date());
     const [hideZero, setHideZero] = useState(true);
 
     const fetchData = useCallback(async () => {
-        if (!dateRange?.from || !dateRange?.to) return;
-
         setLoading(true);
         try {
-            const report = await getIncomeStatement(dateRange.from, dateRange.to);
+            const startDate = startOfMonth(date);
+            const endDate = endOfMonth(date);
+
+            const report = await getIncomeStatement(startDate, endDate);
             setData(report as unknown as IncomeStatementData);
         } catch (error) {
             console.error("Failed to load income statement", error);
         } finally {
             setLoading(false);
         }
-    }, [dateRange]);
+    }, [date]);
+
+    const handlePrevMonth = () => setDate(prev => subMonths(prev, 1));
+    const handleNextMonth = () => setDate(prev => addMonths(prev, 1));
+    const handleCurrentMonth = () => setDate(new Date());
 
     useEffect(() => {
         fetchData();
@@ -92,11 +94,21 @@ export default function IncomeStatementPage() {
                         Analisis profitabilitas bertahap untuk periode yang dipilih.
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <DatePickerWithRange
-                        date={dateRange}
-                        onDateChange={setDateRange}
-                    />
+                <div className="flex gap-2 items-center">
+                    <div className="flex items-center border rounded-md bg-background">
+                        <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="w-40 text-center font-medium">
+                            {format(date, "MMMM yyyy", { locale: id })}
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={handleNextMonth}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <Button variant="outline" onClick={handleCurrentMonth}>
+                        Bulan Ini
+                    </Button>
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
