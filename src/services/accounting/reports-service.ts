@@ -168,6 +168,10 @@ async function calculateInventoryChange(accounts: { id: string }[], startDate: D
 }
 
 export async function getBalanceSheet(asOfDate: Date) {
+    // Ensure we include everything up to the very end of the selected day
+    const endOfDay = new Date(asOfDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
     const accounts = await prisma.account.findMany({
         where: {
             type: { in: ['ASSET', 'LIABILITY', 'EQUITY'] }
@@ -177,7 +181,7 @@ export async function getBalanceSheet(asOfDate: Date) {
             journalLines: {
                 where: {
                     journalEntry: {
-                        entryDate: { lte: asOfDate },
+                        entryDate: { lte: endOfDay },
                         status: 'POSTED'
                     }
                 }
