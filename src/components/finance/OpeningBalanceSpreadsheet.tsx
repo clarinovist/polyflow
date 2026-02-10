@@ -142,7 +142,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             return;
         }
         setArEntries([...arEntries, { ...tempInvoice, type: 'AR' } as CreateOpeningBalanceInput]);
-        setTempInvoice({ date: new Date(), dueDate: new Date(), amount: 0 }); // Reset
+        setTempInvoice({ date: date, dueDate: date, amount: 0 }); // Reset with selected date
     };
 
     const addApEntry = () => {
@@ -151,7 +151,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             return;
         }
         setApEntries([...apEntries, { ...tempInvoice, type: 'AP' } as CreateOpeningBalanceInput]);
-        setTempInvoice({ date: new Date(), dueDate: new Date(), amount: 0 }); // Reset
+        setTempInvoice({ date: date, dueDate: date, amount: 0 }); // Reset with selected date
     };
 
     const removeArEntry = (index: number) => {
