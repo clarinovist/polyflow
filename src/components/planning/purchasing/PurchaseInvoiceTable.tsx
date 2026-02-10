@@ -12,11 +12,25 @@ import {
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Trash2, Loader2, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
+import { deleteInvoice } from '@/actions/invoices';
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from '@/components/ui/button';
 
 type InvoiceWithRelations = {
     id: string;
@@ -43,6 +57,24 @@ interface PurchaseInvoiceTableProps {
 
 export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-orders' }: PurchaseInvoiceTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+    const handleDelete = async (id: string) => {
+        setIsDeleting(id);
+        try {
+            const result = await deleteInvoice(id, 'AP');
+            if (result.success) {
+                toast.success('Purchase invoice deleted successfully');
+            } else {
+                toast.error(result.error || 'Failed to delete invoice');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('An unexpected error occurred');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
 
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv =>
@@ -91,6 +123,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                                 <TableHead className="text-right">Total Amount</TableHead>
                                 <TableHead className="text-right">Paid Amount</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -131,11 +164,45 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                                         <TableCell>
                                             {getStatusBadge(inv.status)}
                                         </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="ghost" size="sm" asChild title="View Details">
+                                                    <Link href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}>
+                                                        <ArrowRight className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isDeleting === inv.id} title="Delete/Void">
+                                                            {isDeleting === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This will permanently delete purchase invoice <strong>{inv.invoiceNumber}</strong> and its associated accounting journals from the ledger. This action cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={() => handleDelete(inv.id)}
+                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            >
+                                                                Delete Bill & Journals
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                                         No purchase invoices found.
                                     </TableCell>
                                 </TableRow>
