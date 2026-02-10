@@ -20,7 +20,20 @@ export async function recordInventoryMovement(
     if (!productVariant) return;
 
     const date = movement.createdAt || new Date();
-    const cost = Number(productVariant.standardCost || productVariant.price || 0);
+    let cost = Number(productVariant.standardCost || productVariant.price || 0);
+
+    // If this is a Goods Receipt, try to get the price from the Purchase Order
+    if (movement.goodsReceiptId) {
+        const gr = await db.goodsReceipt.findUnique({
+            where: { id: movement.goodsReceiptId },
+            include: { purchaseOrder: { include: { items: { where: { productVariantId: movement.productVariantId } } } } }
+        });
+        const poItem = gr?.purchaseOrder?.items[0];
+        if (poItem) {
+            cost = Number(poItem.unitPrice);
+        }
+    }
+
     const totalAmount = Number(movement.quantity) * cost;
 
     if (totalAmount === 0) return;
