@@ -10,12 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, startOfMonth, endOfMonth, subDays, startOfDay, endOfDay } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import { useDebounce } from '@/hooks/use-debounce';
-import { Loader2, Plus, Calendar as CalendarIcon, X } from 'lucide-react';
+import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
+import { id } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 // Fallback Simple Table if generic DataTable doesn't exist or is complex to integrate blindly
@@ -40,8 +37,7 @@ export function JournalListClient() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<JournalStatus | 'ALL'>('ALL');
-    const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
-    const [endDate, setEndDate] = useState<Date | undefined>(endOfMonth(new Date()));
+    const [date, setDate] = useState<Date>(new Date());
     const [rowSelection, setRowSelection] = useState({});
     const [batchLoading, setBatchLoading] = useState(false);
 
@@ -54,8 +50,8 @@ export function JournalListClient() {
             const res = await getJournalEntries({
                 search: debouncedSearch,
                 status: status !== 'ALL' ? status as JournalStatus : undefined,
-                startDate,
-                endDate,
+                startDate: startOfDay(date),
+                endDate: endOfDay(date),
                 page: 1, // TODO: Pagination
                 limit: 100 // Increased for verification
             });
@@ -66,11 +62,15 @@ export function JournalListClient() {
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status, startDate, endDate]);
+    }, [debouncedSearch, status, date]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const handlePrevDay = () => setDate(prev => subDays(prev, 1));
+    const handleNextDay = () => setDate(prev => addDays(prev, 1));
+    const handleToday = () => setDate(new Date());
 
     const cols = useMemo(() => columns, []);
 
@@ -112,24 +112,7 @@ export function JournalListClient() {
         }
     };
 
-    // Date Shortcuts
-    const setToday = () => {
-        const d = new Date();
-        setStartDate(startOfDay(d));
-        setEndDate(endOfDay(d));
-    };
-
-    const setYesterday = () => {
-        const d = subDays(new Date(), 1);
-        setStartDate(startOfDay(d));
-        setEndDate(endOfDay(d));
-    };
-
-    const setThisMonth = () => {
-        const d = new Date();
-        setStartDate(startOfMonth(d));
-        setEndDate(endOfMonth(d));
-    };
+    // Date Shortcuts removed as they are no longer relevant for daily view
 
     return (
         <div className="space-y-6 max-w-full overflow-hidden">
@@ -192,63 +175,22 @@ export function JournalListClient() {
                             </Select>
                         </div>
 
-                        {/* Date Range */}
-                        <div className="flex items-center gap-2 min-w-[320px]">
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">Date Range:</span>
-                            <div className="flex items-center gap-1.5 flex-1">
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "h-9 px-3 text-xs font-normal w-[120px] bg-background justify-start",
-                                                !startDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                                            {startDate ? format(startDate, 'dd/MM/yy') : 'From'}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                                <span className="text-xs text-muted-foreground">-</span>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "h-9 px-3 text-xs font-normal w-[120px] bg-background justify-start",
-                                                !endDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                                            {endDate ? format(endDate, 'dd/MM/yy') : 'To'}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                                {(startDate || endDate) && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 shrink-0 hover:text-destructive"
-                                        onClick={() => { setStartDate(undefined); setEndDate(undefined); }}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                )}
+                        {/* Date Navigation */}
+                        <div className="flex items-center gap-2 min-w-[320px] ml-auto">
+                            <div className="flex items-center border rounded-md bg-background">
+                                <Button variant="ghost" size="icon" onClick={handlePrevDay}>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <div className="w-48 text-center font-medium text-sm">
+                                    {format(date, "EEEE, dd MMMM yyyy", { locale: id })}
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={handleNextDay}>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
                             </div>
-                        </div>
-
-                        {/* Shortcuts */}
-                        <div className="flex items-center gap-3 border-l pl-6 ml-auto">
-                            <button onClick={setToday} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Today</button>
-                            <button onClick={setYesterday} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Yesterday</button>
-                            <button onClick={setThisMonth} className="text-xs text-primary hover:text-primary/80 font-medium transition-colors">Month</button>
+                            <Button variant="outline" onClick={handleToday}>
+                                Hari Ini
+                            </Button>
                         </div>
                     </div>
                 </CardContent>
