@@ -19,7 +19,7 @@ async function run() {
             where: {
                 status: 'POSTED',
                 description: { contains: 'Opening Balance' },
-                JournalLine: {
+                lines: {
                     some: {
                         accountId: { in: accounts.map(a => a.id) }
                     }
