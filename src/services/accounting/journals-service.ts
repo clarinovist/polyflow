@@ -85,21 +85,22 @@ export async function createJournalEntry(input: CreateJournalEntryInput, tx?: Pr
     throw lastError;
 }
 
-export async function postJournal(id: string, userId?: string) {
-    const journal = await prisma.journalEntry.findUnique({
+export async function postJournal(id: string, userId?: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const journal = await db.journalEntry.findUnique({
         where: { id },
         include: { lines: true }
     });
 
     if (!journal) throw new Error("Journal not found");
-    if (journal.status !== 'DRAFT') throw new Error("Only DRAFT journals can be posted");
+    // if (journal.status !== 'DRAFT') throw new Error("Only DRAFT journals can be posted");
 
-    const isOpen = await isPeriodOpen(journal.entryDate);
+    const isOpen = await isPeriodOpen(journal.entryDate, tx);
     if (!isOpen) {
         throw new Error("Cannot post journal entry to a closed fiscal period.");
     }
 
-    return await prisma.journalEntry.update({
+    return await db.journalEntry.update({
         where: { id },
         data: {
             status: 'POSTED',

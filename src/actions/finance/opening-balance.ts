@@ -50,8 +50,9 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
     const session = await requireAuth();
 
     // Calculate total equity offset needed
-    const generalDebit = data.generalLines.reduce((sum, l) => sum + l.debit, 0);
-    const generalCredit = data.generalLines.reduce((sum, l) => sum + l.credit, 0);
+    // Calculate total equity offset needed
+    // const generalDebit = data.generalLines.reduce((sum, l) => sum + l.debit, 0);
+    // const generalCredit = data.generalLines.reduce((sum, l) => sum + l.credit, 0);
 
     // AR entries debit AR, credit Equity
     // const arTotal = data.arEntries.reduce((sum, e) => sum + e.amount, 0);
@@ -165,7 +166,7 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
                     }, tx);
 
                     // Post it immediately
-                    await AccountingService.postJournal(journal.id, session.user.id);
+                    await AccountingService.postJournal(journal.id, session.user.id, tx);
                 }
             }
         }, { timeout: 20000 });

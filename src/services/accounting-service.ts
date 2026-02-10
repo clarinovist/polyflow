@@ -30,8 +30,9 @@ export class AccountingService {
     /**
      * Post a Journal Entry (DRAFT -> POSTED)
      */
-    static async postJournal(id: string, userId?: string) {
-        return postJournal(id, userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async postJournal(id: string, userId?: string, tx?: any) {
+        return postJournal(id, userId, tx);
     }
 
     /**

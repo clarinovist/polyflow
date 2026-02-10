@@ -34,12 +34,15 @@ export async function closeFiscalPeriod(id: string, userId: string) {
     });
 }
 
-export async function isPeriodOpen(date: Date): Promise<boolean> {
+import { Prisma } from '@prisma/client';
+
+export async function isPeriodOpen(date: Date, tx?: Prisma.TransactionClient): Promise<boolean> {
     const d = new Date(date);
     const year = d.getFullYear();
     const month = d.getMonth() + 1;
+    const db = tx || prisma;
 
-    const period = await prisma.fiscalPeriod.findUnique({
+    const period = await db.fiscalPeriod.findUnique({
         where: { year_month: { year, month } }
     });
 
