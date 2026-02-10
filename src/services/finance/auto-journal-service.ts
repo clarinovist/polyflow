@@ -64,7 +64,7 @@ export class AutoJournalService {
 
         if (!invoice) throw new Error(`Purchase Invoice ${invoiceId} not found`);
 
-        const INVENTORY_ACCOUNT = '12100'; // Raw Materials - Virgin Resin
+        const INVENTORY_ACCOUNT = '11310'; // Raw Materials - Virgin Resin
         const VAT_IN_ACCOUNT = '21320';
         const AP_ACCOUNT = '21110';
 

@@ -1,42 +1,48 @@
-import { Suspense } from 'react';
-import { getCustomers } from '@/actions/customer';
-import { getSuppliers } from '@/actions/supplier';
-import { OpeningBalanceForm } from '@/components/finance/OpeningBalanceForm';
-import { OpeningBalanceHistory, HistoryItem } from '@/components/finance/OpeningBalanceHistory';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { requireAuth } from '@/lib/auth-checks';
+import { prisma } from '@/lib/prisma';
+import { OpeningBalanceSpreadsheet } from '@/components/finance/OpeningBalanceSpreadsheet';
+import { getAccountsForOpeningBalance } from '@/actions/finance/opening-balance';
+import { Separator } from '@/components/ui/separator';
 import { serializeData } from '@/lib/utils';
-import { getRecentOpeningBalances } from '@/actions/finance/opening-balance';
 
 export default async function OpeningBalancePage() {
-    const [customersData, suppliersData, historyRes] = await Promise.all([
-        getCustomers(),
-        getSuppliers(),
-        getRecentOpeningBalances()
+    await requireAuth();
+
+    // Fetch data in parallel
+    const [accounts, customersData, suppliersData] = await Promise.all([
+        getAccountsForOpeningBalance(),
+        prisma.customer.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+        prisma.supplier.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
     ]);
 
-    // Serialize Decimal objects for Client Components
+    // Serialize Decimal objects if any (though these simple selects might not need it, it's safer)
     const customers = serializeData(customersData);
     const suppliers = serializeData(suppliersData);
-    const history = historyRes.success ? historyRes.data : [];
 
     return (
-        <div className="container mx-auto py-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Opening Balance Setup</h1>
-            <p className="text-muted-foreground mb-8">
-                Record your initial outstanding invoices for Accounts Receivable and Payable.
-            </p>
+        <div className="container mx-auto py-8 max-w-7xl">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight">Opening Balance Setup</h1>
+                <p className="text-muted-foreground mt-2">
+                    Set up your initial account balances and outstanding invoices for a complete migration.
+                </p>
+            </div>
 
-            <Suspense fallback={
-                <Card>
-                    <CardContent className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </CardContent>
-                </Card>
-            }>
-                <OpeningBalanceForm customers={customers} suppliers={suppliers} />
-                <OpeningBalanceHistory data={history as HistoryItem[]} />
-            </Suspense>
+            <OpeningBalanceSpreadsheet
+                accounts={accounts}
+                customers={customers}
+                suppliers={suppliers}
+            />
+
+            <Separator className="my-12" />
+
+            <div className="bg-muted/30 p-6 rounded-lg border border-dashed">
+                <h3 className="font-semibold mb-2">Need to see previous entries?</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                    The history view has been moved to the &quot;Journal Entries&quot; page for better auditability.
+                    Look for entries with reference &quot;OPENING-GEN&quot; or specific Invoice numbers.
+                </p>
+            </div>
         </div>
     );
 }

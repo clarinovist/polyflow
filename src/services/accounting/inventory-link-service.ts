@@ -29,13 +29,13 @@ export async function recordInventoryMovement(
 
     const getInventoryAccount = (pType: string) => {
         switch (pType) {
-            case 'RAW_MATERIAL': return '12100'; // Virgin Resin (Parent)
-            case 'FINISHED_GOOD': return '12500';
-            case 'WIP': return '12400';
-            case 'SCRAP': return '12300';
-            case 'INTERMEDIATE': return '12400';
-            case 'PACKAGING': return '12600';
-            default: return '12100';
+            case 'RAW_MATERIAL': return '11310';
+            case 'FINISHED_GOOD': return '11330';
+            case 'WIP': return '11320';
+            case 'SCRAP': return '11350';
+            case 'INTERMEDIATE': return '11320';
+            case 'PACKAGING': return '11340';
+            default: return '11300';
         }
     };
 

@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { AccountingService } from '@/services/accounting-service';
-import { InvoiceStatus, PurchaseInvoiceStatus, ReferenceType, AccountType, AccountCategory, SalesOrderType, SalesOrderStatus, PurchaseOrderStatus } from '@prisma/client';
+import { InvoiceStatus, PurchaseInvoiceStatus, ReferenceType, AccountType, AccountCategory, SalesOrderType, SalesOrderStatus, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 
@@ -11,7 +11,7 @@ const OPENING_BALANCE_ACCOUNT_CODE = '30000';
 const AR_ACCOUNT_CODE = '11210';
 const AP_ACCOUNT_CODE = '21110';
 
-interface CreateOpeningBalanceInput {
+export interface CreateOpeningBalanceInput {
     type: 'AR' | 'AP'; // AR = Piutang (Customer), AP = Hutang (Supplier)
     entityId: string; // CustomerId or SupplierId
     invoiceNumber: string;
@@ -20,6 +20,150 @@ interface CreateOpeningBalanceInput {
     amount: number;
     notes?: string;
 }
+
+export async function getAccountsForOpeningBalance() {
+    await requireAuth();
+    const accounts = await prisma.account.findMany({
+        where: {
+            code: { not: OPENING_BALANCE_ACCOUNT_CODE }
+        },
+        orderBy: [{ type: 'asc' }, { code: 'asc' }],
+        select: { id: true, code: true, name: true, type: true, category: true }
+    });
+    return accounts;
+}
+
+export interface GeneralOpeningBalanceLine {
+    accountId: string;
+    debit: number;
+    credit: number;
+}
+
+export interface UnifiedMakeOpeningBalanceInput {
+    date: Date;
+    generalLines: GeneralOpeningBalanceLine[];
+    arEntries: CreateOpeningBalanceInput[];
+    apEntries: CreateOpeningBalanceInput[];
+}
+
+export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceInput) {
+    const session = await requireAuth();
+
+    // Calculate total equity offset needed
+    const generalDebit = data.generalLines.reduce((sum, l) => sum + l.debit, 0);
+    const generalCredit = data.generalLines.reduce((sum, l) => sum + l.credit, 0);
+
+    // AR entries debit AR, credit Equity
+    // const arTotal = data.arEntries.reduce((sum, e) => sum + e.amount, 0);
+
+    // AP entries credit AP, debit Equity
+    // const apTotal = data.apEntries.reduce((sum, e) => sum + e.amount, 0);
+
+    // Total Debit from User = General Debit + AR Total
+    // Total Credit from User = General Credit + AP Total
+
+    // Total Debit from User = General Debit + AR Total
+    // Total Credit from User = General Credit + AP Total
+
+    // Equity Offset = User Debit - User Credit.
+    // If positive (Assets > Liabilities), we need to Credit Equity.
+    // If negative (Liabilities > Assets), we need to Debit Equity.
+    // const equityOffset = totalUserDebit - totalUserCredit; (Calculated inside transaction if needed, or we rely on generalOffset)
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Ensure "Opening Balance Equity" account exists
+            let equityAccount = await tx.account.findUnique({ where: { code: OPENING_BALANCE_ACCOUNT_CODE } });
+            if (!equityAccount) {
+                equityAccount = await tx.account.create({
+                    data: {
+                        code: OPENING_BALANCE_ACCOUNT_CODE,
+                        name: 'Opening Balance Equity',
+                        type: AccountType.EQUITY,
+                        category: AccountCategory.CAPITAL,
+                        description: 'System account for initial balance setup'
+                    }
+                });
+            }
+
+            // 2. Process AR Entries (Create Invoice + Journal)
+            if (data.arEntries.length > 0) {
+                const subLedgerAccount = await tx.account.findUnique({ where: { code: AR_ACCOUNT_CODE } });
+                if (!subLedgerAccount) throw new Error(`AR Account ${AR_ACCOUNT_CODE} not found.`);
+
+                for (const entry of data.arEntries) {
+                    await createAROpeningBalance(entry, session.user.id, equityAccount.id, subLedgerAccount.id, tx);
+                }
+            }
+
+            // 3. Process AP Entries (Create Invoice + Journal)
+            if (data.apEntries.length > 0) {
+                const subLedgerAccount = await tx.account.findUnique({ where: { code: AP_ACCOUNT_CODE } });
+                if (!subLedgerAccount) throw new Error(`AP Account ${AP_ACCOUNT_CODE} not found.`);
+
+                for (const entry of data.apEntries) {
+                    await createAPOpeningBalance(entry, session.user.id, equityAccount.id, subLedgerAccount.id, tx);
+                }
+            }
+
+            // 4. Process General Lines (One Big Journal Entry)
+            const nonZeroLines = data.generalLines.filter(l => l.debit > 0 || l.credit > 0);
+
+            // Should we include equity offset in this journal? 
+            // Yes, but ONLY the part related to general lines? 
+            // NO. The AR/AP logic ABOVE creating individual journals ALREADY hits the Equity account for each invoice.
+            // So the AR journals are: Dr AR, Cr Equity.
+            // The AP journals are: Dr Equity, Cr AP.
+
+            // So we only need to balance the GENERAL lines with Equity.
+            const generalOffset = generalDebit - generalCredit;
+
+            if (nonZeroLines.length > 0 || Math.abs(generalOffset) > 0.01) {
+                const journalLines = nonZeroLines.map(l => ({
+                    accountId: l.accountId,
+                    debit: l.debit,
+                    credit: l.credit,
+                    description: 'Opening Balance'
+                }));
+
+                // Add equity balancing line for GENERAL items
+                if (Math.abs(generalOffset) > 0.01) {
+                    journalLines.push({
+                        accountId: equityAccount.id,
+                        debit: generalOffset < 0 ? Math.abs(generalOffset) : 0,
+                        credit: generalOffset > 0 ? generalOffset : 0,
+                        description: 'Opening Balance Equity (General Offset)'
+                    });
+                }
+
+                if (journalLines.length > 0) {
+                    // Create Journal Entry
+                    const journal = await AccountingService.createJournalEntry({
+                        entryDate: data.date,
+                        description: `General Opening Balance - ${data.date.toISOString().split('T')[0]}`,
+                        reference: 'OPENING-GEN',
+                        referenceType: ReferenceType.MANUAL_ENTRY,
+                        isAutoGenerated: true,
+                        createdById: session.user.id,
+                        lines: journalLines,
+                    }, tx);
+
+                    // Post it immediately
+                    await AccountingService.postJournal(journal.id, session.user.id);
+                }
+            }
+        }, { timeout: 20000 }); // Increase timeout for large batch
+
+        revalidatePath('/finance');
+        revalidatePath('/finance/reports/balance-sheet');
+        revalidatePath('/finance/opening-balance');
+        return { success: true };
+    } catch (error) {
+        console.error('Unified Opening Balance Error:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to save opening balance' };
+    }
+}
+
 
 export async function createOpeningBalance(data: CreateOpeningBalanceInput) {
     const session = await requireAuth();
@@ -45,29 +189,14 @@ export async function createOpeningBalance(data: CreateOpeningBalanceInput) {
         if (!subLedgerAccount) throw new Error(`Sub-ledger account ${subLedgerAccountCode} not found.`);
 
         // 3. Create Record
-        let invoiceId = '';
-        if (data.type === 'AR') {
-            const res = await createAROpeningBalance(data, session.user.id, equityAccount.id, subLedgerAccount.id);
-            invoiceId = res.id;
-        } else {
-            const res = await createAPOpeningBalance(data, session.user.id, equityAccount.id, subLedgerAccount.id);
-            invoiceId = res.id;
-        }
-
-        // 4. Auto-Post the Journal Entry
-        // This ensures opening balances reflect on the Balance Sheet immediately.
-        // We find the journal entry associated with this invoice
-        const journal = await prisma.journalEntry.findFirst({
-            where: {
-                referenceId: invoiceId,
-                isAutoGenerated: true,
-                status: 'DRAFT'
+        // Wrapped in transaction to match signature, though for single item we could use prisma directly
+        await prisma.$transaction(async (tx) => {
+            if (data.type === 'AR') {
+                await createAROpeningBalance(data, session.user.id, equityAccount.id, subLedgerAccount.id, tx);
+            } else {
+                await createAPOpeningBalance(data, session.user.id, equityAccount.id, subLedgerAccount.id, tx);
             }
         });
-
-        if (journal) {
-            await AccountingService.postJournal(journal.id, session.user.id);
-        }
 
         revalidatePath('/finance');
         revalidatePath('/finance/reports/balance-sheet');
@@ -78,9 +207,11 @@ export async function createOpeningBalance(data: CreateOpeningBalanceInput) {
     }
 }
 
-async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: string, equityAccountId: string, arAccountId: string) {
+async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: string, equityAccountId: string, arAccountId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+
     // 3a. Create Dummy Sales Order (Use transaction to ensure atomicity if needed, but keeping simple for now)
-    const salesOrder = await prisma.salesOrder.create({
+    const salesOrder = await db.salesOrder.create({
         data: {
             orderNumber: `SO-OPEN-${data.invoiceNumber}`,
             customerId: data.entityId,
@@ -96,7 +227,7 @@ async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: s
     });
 
     // 3b. Create Invoice
-    const invoice = await prisma.invoice.create({
+    const invoice = await db.invoice.create({
         data: {
             invoiceNumber: data.invoiceNumber, // Keep original external invoice number
             salesOrderId: salesOrder.id,
@@ -133,14 +264,16 @@ async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: s
                 description: `Opening Equity Offset`
             }
         ]
-    });
+    }, db);
 
     return invoice;
 }
 
-async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: string, equityAccountId: string, apAccountId: string) {
+async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: string, equityAccountId: string, apAccountId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+
     // 3a. Create Dummy Purchase Order
-    const purchaseOrder = await prisma.purchaseOrder.create({
+    const purchaseOrder = await db.purchaseOrder.create({
         data: {
             orderNumber: `PO-OPEN-${data.invoiceNumber}`,
             supplierId: data.entityId,
@@ -153,7 +286,7 @@ async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: s
     });
 
     // 3b. Create Purchase Invoice
-    const invoice = await prisma.purchaseInvoice.create({
+    const invoice = await db.purchaseInvoice.create({
         data: {
             invoiceNumber: data.invoiceNumber,
             purchaseOrderId: purchaseOrder.id,
@@ -189,7 +322,7 @@ async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: s
                 description: `Opening Balance Payable`
             }
         ]
-    });
+    }, db);
 
     return invoice;
 }
