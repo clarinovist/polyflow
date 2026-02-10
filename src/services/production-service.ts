@@ -26,6 +26,7 @@ export class ProductionService {
     static addProductionOutput = ProductionExecutionService.addProductionOutput;
     static getActiveExecutions = ProductionExecutionService.getActiveExecutions;
     static recordDowntime = ProductionExecutionService.recordDowntime;
+    static voidExecution = ProductionExecutionService.voidExecution;
 
     // --- Materials & Quality ---
     static batchIssueMaterials = ProductionMaterialService.batchIssueMaterials;

@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { History, CheckCircle2, Package, Clock } from 'lucide-react';
+import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,7 @@ export default async function ProductionHistoryPage() {
                                 <TableHead>Machine</TableHead>
                                 <TableHead>Operator</TableHead>
                                 <TableHead className="text-right">Yield</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -91,11 +93,18 @@ export default async function ProductionHistoryPage() {
                                         </span>
                                         <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>
                                     </TableCell>
+                                    <TableCell>
+                                        <VoidExecutionButton
+                                            executionId={exec.id}
+                                            productionOrderId={exec.productionOrderId}
+                                            orderNumber={exec.productionOrder.orderNumber}
+                                        />
+                                    </TableCell>
                                 </TableRow>
                             ))}
                             {completions.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">
+                                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
                                         No historical production records found.
                                     </TableCell>
                                 </TableRow>

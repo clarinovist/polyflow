@@ -856,3 +856,22 @@ export async function deleteProductionIssue(issueId: string, productionOrderId: 
         return { success: false, error: 'Failed to delete issue' };
     }
 }
+
+/**
+ * Void a Production Output Execution
+ */
+export async function voidProductionOutput(executionId: string, productionOrderId: string) {
+    const session = await auth();
+    if (!session) return { success: false, error: 'Unauthorized' };
+
+    try {
+        await ProductionService.voidExecution(executionId, session.user?.id);
+
+        revalidatePath(`/production/orders/${productionOrderId}`);
+        revalidatePath('/production/history');
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+    }
+}

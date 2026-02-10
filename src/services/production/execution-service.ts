@@ -468,4 +468,90 @@ export class ProductionExecutionService {
             }
         });
     }
+
+    /**
+     * Void a Production Execution (Reverses stock movements and output totals)
+     */
+    static async voidExecution(executionId: string, _userId?: string) {
+        await prisma.$transaction(async (tx) => {
+            const execution = await tx.productionExecution.findUnique({
+                where: { id: executionId },
+                include: { productionOrder: true }
+            });
+
+            if (!execution) throw new Error("Execution record not found");
+
+            const { productionOrderId, quantityProduced, createdAt } = execution;
+
+            // 1. Find related Stock Movements by time window and Order ID
+            const marginMs = 30000; // 30 seconds to be safe
+            const startTime = new Date(createdAt.getTime() - marginMs);
+            const endTime = new Date(createdAt.getTime() + marginMs);
+
+            const movements = await tx.stockMovement.findMany({
+                where: {
+                    productionOrderId,
+                    createdAt: { gte: startTime, lte: endTime }
+                }
+            });
+
+            // 2. Reverse Stock Movements
+            for (const move of movements) {
+                // Prevent recursive voids
+                if (move.reference && move.reference.startsWith("VOID:")) continue;
+
+                if (move.type === MovementType.IN) {
+                    // Reversing Finished Goods IN -> OUT
+                    await InventoryService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
+                    const rev = await tx.stockMovement.create({
+                        data: {
+                            type: MovementType.OUT,
+                            productVariantId: move.productVariantId,
+                            fromLocationId: move.toLocationId,
+                            quantity: move.quantity,
+                            reference: `VOID: ${move.reference}`,
+                            productionOrderId
+                        }
+                    });
+                    await AccountingService.recordInventoryMovement(rev, tx).catch(console.error);
+                } else if (move.type === MovementType.OUT) {
+                    // Reversing Backflush OUT -> IN
+                    await InventoryService.incrementStock(tx, move.fromLocationId!, move.productVariantId, Number(move.quantity));
+                    const rev = await tx.stockMovement.create({
+                        data: {
+                            type: MovementType.IN,
+                            productVariantId: move.productVariantId,
+                            toLocationId: move.fromLocationId,
+                            quantity: move.quantity,
+                            reference: `VOID: ${move.reference}`,
+                            productionOrderId
+                        }
+                    });
+                    await AccountingService.recordInventoryMovement(rev, tx).catch(console.error);
+                }
+            }
+
+            // 3. Delete Material Issues (Consumption records)
+            await tx.materialIssue.deleteMany({
+                where: {
+                    productionOrderId,
+                    issuedAt: { gte: startTime, lte: endTime }
+                }
+            });
+
+            // 4. Update Production Order Totals
+            const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
+            const newTotal = Math.max(0, (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) - Number(quantityProduced));
+
+            await tx.productionOrder.update({
+                where: { id: productionOrderId },
+                data: { actualQuantity: newTotal }
+            });
+
+            // 5. Delete Execution record
+            await tx.productionExecution.delete({
+                where: { id: executionId }
+            });
+        });
+    }
 }
