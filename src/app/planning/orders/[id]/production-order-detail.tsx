@@ -363,12 +363,10 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                         const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
                                         const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
 
+                                        const hasExplicitIssues = (order.materialIssues || []).length > 0;
                                         let backflushedQty = 0;
-                                        // B. Backflushed Quantities (if applicable)
-                                        if (isBackflushCategory && actualQty > 0 && plannedQty > 0) {
-                                            // This block is intended to be outside the map function,
-                                            // to pre-calculate backflushed quantities for all items.
-                                            // However, given the current structure, we'll apply it per item.
+                                        // B. Backflushed Quantities (only if no explicit issues exist - fallback for legacy)
+                                        if (!hasExplicitIssues && isBackflushCategory && actualQty > 0 && plannedQty > 0) {
                                             backflushedQty = (actualQty / plannedQty) * Number(item.quantity);
                                         }
                                         const issued = manualIssued + backflushedQty;
