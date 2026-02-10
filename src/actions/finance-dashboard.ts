@@ -17,20 +17,20 @@ export async function getFinanceDashboardStats() {
         }
     });
 
-    // 2. Calculate Receivables (GL Account 11210 - Trade Receivables)
+    // 2. Calculate Receivables (All 112xx accounts - Trade Receivables)
     const arAgg = await prisma.journalLine.aggregate({
         where: {
-            account: { code: '11210' },
+            account: { code: { startsWith: '112' } },
             journalEntry: { status: 'POSTED' }
         },
         _sum: { debit: true, credit: true }
     });
     const totalReceivables = Number(arAgg._sum.debit || 0) - Number(arAgg._sum.credit || 0);
 
-    // 3. Calculate Payables (GL Account 21110 - Trade Payables)
+    // 3. Calculate Payables (All 211xx accounts - Trade Payables & Unbilled)
     const apAgg = await prisma.journalLine.aggregate({
         where: {
-            account: { code: '21110' },
+            account: { code: { startsWith: '211' } },
             journalEntry: { status: 'POSTED' }
         },
         _sum: { debit: true, credit: true }
