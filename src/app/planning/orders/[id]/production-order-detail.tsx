@@ -307,7 +307,12 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                             +{Number(exec.quantityProduced)}
                                                         </td>
                                                         <td className="p-3 text-right text-destructive">
-                                                            {Number(exec.scrapQuantity) > 0 ? Number(exec.scrapQuantity) : '-'}
+                                                            {(() => {
+                                                                const totalScrap = Number(exec.scrapQuantity || 0) +
+                                                                    Number(exec.scrapDaunQty || 0) +
+                                                                    Number(exec.scrapProngkolQty || 0);
+                                                                return totalScrap > 0 ? totalScrap : '-';
+                                                            })()}
                                                         </td>
                                                     </tr>
                                                 ))}
