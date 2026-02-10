@@ -117,8 +117,9 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             const result = await saveUnifiedOpeningBalance({
                 date,
                 generalLines: formattedGeneralLines,
-                arEntries,
-                apEntries
+                // Force all entries to use the global worksheet date
+                arEntries: arEntries.map(e => ({ ...e, date, dueDate: date })),
+                apEntries: apEntries.map(e => ({ ...e, date, dueDate: date }))
             });
 
             if (result.success) {
@@ -141,7 +142,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             toast.error("Please fill all required fields");
             return;
         }
-        setArEntries([...arEntries, { ...tempInvoice, type: 'AR' } as CreateOpeningBalanceInput]);
+        setArEntries([...arEntries, { ...tempInvoice, type: 'AR', date: date, dueDate: date } as CreateOpeningBalanceInput]);
         setTempInvoice({ date: date, dueDate: date, amount: 0 }); // Reset with selected date
     };
 
@@ -150,7 +151,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             toast.error("Please fill all required fields");
             return;
         }
-        setApEntries([...apEntries, { ...tempInvoice, type: 'AP' } as CreateOpeningBalanceInput]);
+        setApEntries([...apEntries, { ...tempInvoice, type: 'AP', date: date, dueDate: date } as CreateOpeningBalanceInput]);
         setTempInvoice({ date: date, dueDate: date, amount: 0 }); // Reset with selected date
     };
 
