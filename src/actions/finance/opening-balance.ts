@@ -70,13 +70,35 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
     // If negative (Liabilities > Assets), we need to Debit Equity.
     // const equityOffset = totalUserDebit - totalUserCredit; (Calculated inside transaction if needed, or we rely on generalOffset)
 
+    // Check for duplicates BEFORE transaction to give clear error
+    for (const entry of data.arEntries) {
+        const existing = await prisma.invoice.findFirst({
+            where: { invoiceNumber: entry.invoiceNumber }
+        });
+        if (existing) {
+            return { success: false, error: `Customer Invoice #${entry.invoiceNumber} already exists.` };
+        }
+    }
+
+    for (const entry of data.apEntries) {
+        const existing = await prisma.purchaseInvoice.findFirst({
+            where: { invoiceNumber: entry.invoiceNumber }
+        });
+        if (existing) {
+            return { success: false, error: `Supplier Bill #${entry.invoiceNumber} already exists.` };
+        }
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             // 1. Ensure "Opening Balance Equity" account exists
             let equityAccount = await tx.account.findUnique({ where: { code: OPENING_BALANCE_ACCOUNT_CODE } });
             if (!equityAccount) {
-                equityAccount = await tx.account.create({
-                    data: {
+                // Use upsert to be safe against race conditions
+                equityAccount = await tx.account.upsert({
+                    where: { code: OPENING_BALANCE_ACCOUNT_CODE },
+                    update: {},
+                    create: {
                         code: OPENING_BALANCE_ACCOUNT_CODE,
                         name: 'Opening Balance Equity',
                         type: AccountType.EQUITY,
@@ -108,14 +130,8 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
 
             // 4. Process General Lines (One Big Journal Entry)
             const nonZeroLines = data.generalLines.filter(l => l.debit > 0 || l.credit > 0);
-
-            // Should we include equity offset in this journal? 
-            // Yes, but ONLY the part related to general lines? 
-            // NO. The AR/AP logic ABOVE creating individual journals ALREADY hits the Equity account for each invoice.
-            // So the AR journals are: Dr AR, Cr Equity.
-            // The AP journals are: Dr Equity, Cr AP.
-
-            // So we only need to balance the GENERAL lines with Equity.
+            const generalDebit = data.generalLines.reduce((sum, l) => sum + l.debit, 0);
+            const generalCredit = data.generalLines.reduce((sum, l) => sum + l.credit, 0);
             const generalOffset = generalDebit - generalCredit;
 
             if (nonZeroLines.length > 0 || Math.abs(generalOffset) > 0.01) {
@@ -152,7 +168,7 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
                     await AccountingService.postJournal(journal.id, session.user.id);
                 }
             }
-        }, { timeout: 20000 }); // Increase timeout for large batch
+        }, { timeout: 20000 });
 
         revalidatePath('/finance');
         revalidatePath('/finance/reports/balance-sheet');
@@ -160,7 +176,8 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
         return { success: true };
     } catch (error) {
         console.error('Unified Opening Balance Error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to save opening balance' };
+        // Return clear error message to UI
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to save opening balance. Please check server logs.' };
     }
 }
 
