@@ -17,46 +17,25 @@ export async function getFinanceDashboardStats() {
         }
     });
 
-    // 2. Calculate Receivables (Unpaid + Overdue + Partial)
-    const receivablesAgg = await prisma.invoice.aggregate({
+    // 2. Calculate Receivables (GL Account 11210 - Trade Receivables)
+    const arAgg = await prisma.journalLine.aggregate({
         where: {
-            status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.OVERDUE, InvoiceStatus.PARTIAL] }
+            account: { code: '11210' },
+            journalEntry: { status: 'POSTED' }
         },
-        _sum: {
-            totalAmount: true
-        }
+        _sum: { debit: true, credit: true }
     });
-    // Subtract paid amount from total to get remaining receivable
-    const receivablesPaidAgg = await prisma.invoice.aggregate({
-        where: {
-            status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.OVERDUE, InvoiceStatus.PARTIAL] }
-        },
-        _sum: {
-            paidAmount: true
-        }
-    });
+    const totalReceivables = Number(arAgg._sum.debit || 0) - Number(arAgg._sum.credit || 0);
 
-    const totalReceivables = (receivablesAgg._sum.totalAmount?.toNumber() || 0) - (receivablesPaidAgg._sum.paidAmount?.toNumber() || 0);
-
-    // 3. Calculate Payables (Unpaid Purchase Invoices)
-    const payablesAgg = await prisma.purchaseInvoice.aggregate({
+    // 3. Calculate Payables (GL Account 21110 - Trade Payables)
+    const apAgg = await prisma.journalLine.aggregate({
         where: {
-            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.OVERDUE, PurchaseInvoiceStatus.PARTIAL] }
+            account: { code: '21110' },
+            journalEntry: { status: 'POSTED' }
         },
-        _sum: {
-            totalAmount: true
-        }
+        _sum: { debit: true, credit: true }
     });
-    const payablesPaidAgg = await prisma.purchaseInvoice.aggregate({
-        where: {
-            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.OVERDUE, PurchaseInvoiceStatus.PARTIAL] }
-        },
-        _sum: {
-            paidAmount: true
-        }
-    });
-
-    const totalPayables = (payablesAgg._sum.totalAmount?.toNumber() || 0) - (payablesPaidAgg._sum.paidAmount?.toNumber() || 0);
+    const totalPayables = Number(apAgg._sum.credit || 0) - Number(apAgg._sum.debit || 0);
 
     // 4. Counts
     const pendingInvoicesCount = await prisma.invoice.count({
