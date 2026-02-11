@@ -861,17 +861,21 @@ export async function deleteProductionIssue(issueId: string, productionOrderId: 
  * Void a Production Output Execution
  */
 export async function voidProductionOutput(executionId: string, productionOrderId: string) {
-    const session = await auth();
-    if (!session) return { success: false, error: 'Unauthorized' };
-
     try {
-        await ProductionService.voidExecution(executionId, session.user?.id);
+        const session = await auth();
+        // Allow ADMIN or PRODUCTION roles to void
+        if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'PRODUCTION')) {
+            return { success: false, error: 'Unauthorized: Only production leaders or admins can void output' };
+        }
+
+        await ProductionService.voidExecution(executionId, session.user.id);
 
         revalidatePath(`/production/orders/${productionOrderId}`);
         revalidatePath('/production/history');
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error) {
+        console.error('[voidProductionOutput]', error);
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
