@@ -48,6 +48,8 @@ import { updateProductionIssueStatus } from '@/actions/production';
 import { AlertTriangle } from 'lucide-react';
 
 
+import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
+
 interface PageProps {
     order: ExtendedProductionOrder;
     formData: {
@@ -288,31 +290,42 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                     <th className="p-3">Operator</th>
                                                     <th className="p-3 text-right">Output</th>
                                                     <th className="p-3 text-right">Scrap</th>
+                                                    <th className="p-3 text-right">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
                                                 {order.executions.map((exec) => (
-                                                    <tr key={exec.id}>
+                                                    <tr key={exec.id} className={cn(exec.status === 'VOIDED' && "opacity-50 line-through bg-muted/30")}>
                                                         <td className="p-3">
                                                             <div className="flex flex-col">
                                                                 <span>{format(new Date(exec.startTime), 'MMM d, yyyy')}</span>
                                                                 <span className="text-xs text-muted-foreground">
                                                                     {format(new Date(exec.startTime), 'HH:mm')} - {exec.endTime ? format(new Date(exec.endTime), 'HH:mm') : 'ongoing'}
                                                                 </span>
+                                                                {exec.status === 'VOIDED' && <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">Voided</span>}
                                                             </div>
                                                         </td>
                                                         <td className="p-3">{exec.shift?.name || '-'}</td>
                                                         <td className="p-3">{exec.operator?.name || '-'}</td>
                                                         <td className="p-3 text-right font-medium text-emerald-600">
-                                                            +{Number(exec.quantityProduced)}
+                                                            {exec.status === 'VOIDED' ? '-' : `+${Number(exec.quantityProduced)}`}
                                                         </td>
                                                         <td className="p-3 text-right text-destructive">
-                                                            {(() => {
+                                                            {exec.status === 'VOIDED' ? '-' : (() => {
                                                                 const totalScrap = Number(exec.scrapQuantity || 0) +
                                                                     Number(exec.scrapDaunQty || 0) +
                                                                     Number(exec.scrapProngkolQty || 0);
                                                                 return totalScrap > 0 ? totalScrap : '-';
                                                             })()}
+                                                        </td>
+                                                        <td className="p-3 text-right">
+                                                            {exec.status !== 'VOIDED' && (
+                                                                <VoidExecutionButton
+                                                                    executionId={exec.id}
+                                                                    productionOrderId={order.id}
+                                                                    orderNumber={order.orderNumber}
+                                                                />
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}

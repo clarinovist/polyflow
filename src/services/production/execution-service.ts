@@ -539,18 +539,38 @@ export class ProductionExecutionService {
                 }
             });
 
-            // 4. Update Production Order Totals
+            // 4. Update Production Order Totals & Status
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
             const newTotal = Math.max(0, (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) - Number(quantityProduced));
 
-            await tx.productionOrder.update({
-                where: { id: productionOrderId },
-                data: { actualQuantity: newTotal }
+            // Check remaining active executions
+            const activeExecutionsCount = await tx.productionExecution.count({
+                where: {
+                    productionOrderId,
+                    id: { not: executionId },
+                    status: 'COMPLETED'
+                }
             });
 
-            // 5. Delete Execution record
-            await tx.productionExecution.delete({
-                where: { id: executionId }
+            let newStatus: ProductionStatus = currentOrder.status;
+            if (activeExecutionsCount === 0) {
+                newStatus = ProductionStatus.DRAFT; // Back to before-release state
+            } else if (newTotal < Number(currentOrder.plannedQuantity)) {
+                newStatus = ProductionStatus.IN_PROGRESS;
+            }
+
+            await tx.productionOrder.update({
+                where: { id: productionOrderId },
+                data: {
+                    actualQuantity: newTotal,
+                    status: newStatus
+                }
+            });
+
+            // 5. Update Execution status to VOIDED
+            await tx.productionExecution.update({
+                where: { id: executionId },
+                data: { status: 'VOIDED' }
             });
         });
     }

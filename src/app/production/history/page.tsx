@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { History, CheckCircle2, Package, Clock } from 'lucide-react';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,10 +72,11 @@ export default async function ProductionHistoryPage() {
                         </TableHeader>
                         <TableBody>
                             {completions.map((exec) => (
-                                <TableRow key={exec.id}>
+                                <TableRow key={exec.id} className={cn(exec.status === 'VOIDED' && "opacity-50 line-through bg-muted/30")}>
                                     <TableCell className="text-xs whitespace-nowrap">
                                         <div className="font-medium">{exec.endTime ? format(new Date(exec.endTime), 'MMM dd, HH:mm') : '-'}</div>
                                         <div className="text-[10px] text-muted-foreground">{exec.startTime ? format(new Date(exec.startTime), 'HH:mm') : '-'} started</div>
+                                        {exec.status === 'VOIDED' && <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1 mt-1">Voided</Badge>}
                                     </TableCell>
                                     <TableCell className="font-mono text-xs font-bold">{exec.productionOrder.orderNumber}</TableCell>
                                     <TableCell>
@@ -89,16 +91,18 @@ export default async function ProductionHistoryPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                            {Number(exec.quantityProduced || 0).toLocaleString()}
+                                            {exec.status === 'VOIDED' ? '-' : Number(exec.quantityProduced || 0).toLocaleString()}
                                         </span>
-                                        <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>
+                                        {exec.status !== 'VOIDED' && <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>}
                                     </TableCell>
                                     <TableCell>
-                                        <VoidExecutionButton
-                                            executionId={exec.id}
-                                            productionOrderId={exec.productionOrderId}
-                                            orderNumber={exec.productionOrder.orderNumber}
-                                        />
+                                        {exec.status !== 'VOIDED' && (
+                                            <VoidExecutionButton
+                                                executionId={exec.id}
+                                                productionOrderId={exec.productionOrderId}
+                                                orderNumber={exec.productionOrder.orderNumber}
+                                            />
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}
