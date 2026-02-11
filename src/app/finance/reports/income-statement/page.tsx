@@ -248,20 +248,8 @@ export default function IncomeStatementPage() {
                                             <TableCell className="text-right font-mono text-muted-foreground">{formatRupiah(data.totalManufacturingCosts)}</TableCell>
                                         </TableRow>
 
-                                        {/* Inventory Adjustment */}
-                                        <TableRow>
-                                            <TableCell className="pl-8 flex items-center gap-2">
-                                                Inventory Adjustment
-                                                <Badge variant="outline" className="text-[10px] h-5">Begin - End</Badge>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm text-muted-foreground">11300</TableCell>
-                                            <TableCell className="text-right font-mono text-blue-500">
-                                                ({formatRupiah(data.inventoryChange)})
-                                            </TableCell>
-                                        </TableRow>
-
                                         <TableRow className="font-semibold border-t">
-                                            <TableCell colSpan={2}>Total HPP (Adjusted)</TableCell>
+                                            <TableCell colSpan={2}>Total HPP</TableCell>
                                             <TableCell className="text-right font-mono">({formatRupiah(data.totalCOGS)})</TableCell>
                                         </TableRow>
 
