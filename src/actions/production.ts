@@ -610,7 +610,10 @@ export async function getBomWithInventory(
 ) {
     try {
         const result = await ProductionService.getBomWithInventory(bomId, sourceLocationId, plannedQuantity);
-        return { success: true, ...result };
+        if (!result.ok) {
+            return { success: false, error: result.error.message };
+        }
+        return { success: true, ...result.value };
     } catch (error) {
         console.error("Error calculating BOM requirements:", error);
         return { success: false, error: error instanceof Error ? error.message : "Failed to calculate requirements" };

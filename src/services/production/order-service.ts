@@ -6,6 +6,7 @@ import {
 import { ProductionStatus, MachineType, BomCategory } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { Ok, Err, Result } from '@/lib/result';
 
 export class ProductionOrderService {
     /**
@@ -67,8 +68,15 @@ export class ProductionOrderService {
         bomId: string,
         sourceLocationId: string,
         plannedQuantity: number
-    ) {
-        if (!bomId || plannedQuantity <= 0) throw new Error("Invalid parameters");
+    ): Promise<Result<{
+        data: any[],
+        meta: {
+            requestedSourceLocationId: string;
+            suggestedSourceLocationId: string | null;
+            suggestedSourceLocationName: string | null;
+        }
+    }>> {
+        if (!bomId || plannedQuantity <= 0) return Err(new Error("Invalid parameters"));
 
         const bom = await prisma.bom.findUnique({
             where: { id: bomId },
@@ -81,7 +89,7 @@ export class ProductionOrderService {
             }
         });
 
-        if (!bom) throw new Error("Recipe not found");
+        if (!bom) return Err(new Error("Recipe not found"));
 
         const variantIds = bom.items.map(i => i.productVariantId);
 
@@ -130,19 +138,19 @@ export class ProductionOrderService {
                 unit: item.productVariant.primaryUnit,
                 stdQty: item.quantity.toNumber(),
                 bomOutput: bom.outputQuantity.toNumber(),
-                requiredQty, // Keep as number for frontend
+                requiredQty,
                 currentStock
             };
         });
 
-        return {
+        return Ok({
             data: materialRequirements,
             meta: {
                 requestedSourceLocationId: sourceLocationId,
                 suggestedSourceLocationId: suggestedSourceLocation?.id || null,
                 suggestedSourceLocationName: suggestedSourceLocation?.name || null,
             }
-        };
+        });
     }
 
     /**
