@@ -89,11 +89,15 @@ export async function deleteInvoice(id: string, type: 'AR' | 'AP') {
             if (type === 'AR') {
                 const invoice = await tx.invoice.findUnique({
                     where: { id },
+                    include: { payments: true }
                 });
 
                 if (!invoice) throw new Error("Sales Invoice not found");
 
-                // Delete associated Journal Entries
+                // Find all IDs for payments associated with this invoice
+                const paymentIds = invoice.payments.map(p => p.id);
+
+                // 1. Delete associated Invoice Journal Entries
                 await tx.journalLine.deleteMany({
                     where: { journalEntry: { referenceId: invoice.id, referenceType: ReferenceType.SALES_INVOICE } }
                 });
@@ -101,16 +105,40 @@ export async function deleteInvoice(id: string, type: 'AR' | 'AP') {
                     where: { referenceId: invoice.id, referenceType: ReferenceType.SALES_INVOICE }
                 });
 
-                // Delete Invoice
+                // 2. Delete associated Payment Journal Entries
+                if (paymentIds.length > 0) {
+                    await tx.journalLine.deleteMany({
+                        where: {
+                            journalEntry: {
+                                referenceId: { in: paymentIds },
+                                referenceType: ReferenceType.SALES_PAYMENT
+                            }
+                        }
+                    });
+                    await tx.journalEntry.deleteMany({
+                        where: {
+                            referenceId: { in: paymentIds },
+                            referenceType: ReferenceType.SALES_PAYMENT
+                        }
+                    });
+                }
+
+                // 3. Delete Payment records first (mandatory due to FK)
+                await tx.payment.deleteMany({ where: { invoiceId: id } });
+
+                // 4. Delete Invoice
                 await tx.invoice.delete({ where: { id } });
             } else {
                 const invoice = await tx.purchaseInvoice.findUnique({
                     where: { id },
+                    include: { payments: true }
                 });
 
                 if (!invoice) throw new Error("Purchase Invoice not found");
 
-                // Delete associated Journal Entries
+                const paymentIds = invoice.payments.map(p => p.id);
+
+                // 1. Delete associated Invoice Journal Entries
                 await tx.journalLine.deleteMany({
                     where: { journalEntry: { referenceId: invoice.id, referenceType: ReferenceType.PURCHASE_INVOICE } }
                 });
@@ -118,7 +146,28 @@ export async function deleteInvoice(id: string, type: 'AR' | 'AP') {
                     where: { referenceId: invoice.id, referenceType: ReferenceType.PURCHASE_INVOICE }
                 });
 
-                // Delete Invoice
+                // 2. Delete associated Payment Journal Entries
+                if (paymentIds.length > 0) {
+                    await tx.journalLine.deleteMany({
+                        where: {
+                            journalEntry: {
+                                referenceId: { in: paymentIds },
+                                referenceType: ReferenceType.PURCHASE_PAYMENT
+                            }
+                        }
+                    });
+                    await tx.journalEntry.deleteMany({
+                        where: {
+                            referenceId: { in: paymentIds },
+                            referenceType: ReferenceType.PURCHASE_PAYMENT
+                        }
+                    });
+                }
+
+                // 3. Delete Payment records
+                await tx.payment.deleteMany({ where: { purchaseInvoiceId: id } });
+
+                // 4. Delete Invoice
                 await tx.purchaseInvoice.delete({ where: { id } });
             }
         });

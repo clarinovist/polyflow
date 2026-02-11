@@ -12,7 +12,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CheckCircle2, CreditCard } from 'lucide-react';
+import { CheckCircle2, CreditCard, Trash2, Loader2 } from 'lucide-react';
+import { deletePayment } from '@/actions/finance';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from '@/components/ui/button';
 
 interface Payment {
     id: string;
@@ -35,6 +51,25 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
     const isReceived = type === 'received';
     const amountColor = isReceived ? 'text-emerald-600' : 'text-red-600';
     const amountPrefix = isReceived ? '+' : '-';
+    const router = useRouter();
+    const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+    const handleDelete = async (id: string) => {
+        setIsDeleting(id);
+        try {
+            const result = await deletePayment(id);
+            if (result.success) {
+                toast.success('Payment deleted and journals cleaned up');
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Failed to delete payment');
+            }
+        } catch (_error) {
+            toast.error('An unexpected error occurred');
+        } finally {
+            setIsDeleting(null);
+        }
+    };
 
     return (
         <Card>
@@ -55,12 +90,13 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                             <TableHead>Method</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
                             <TableHead className="text-right">Status</TableHead>
+                            <TableHead className="text-right w-10">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {payments.length > 0 ? (
                             payments.map((payment) => (
-                                <TableRow key={payment.id} className="hover:bg-muted/50">
+                                <TableRow key={payment.id} className="hover:bg-muted/50 group">
                                     <TableCell className="font-mono text-xs">{payment.referenceNumber}</TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
                                         {format(new Date(payment.date), 'dd MMM yyyy')}
@@ -76,11 +112,47 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                                             {payment.status}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="text-right whitespace-nowrap">
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    disabled={isDeleting === payment.id}
+                                                >
+                                                    {isDeleting === payment.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete Payment Record?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This will delete the payment and its associated General Ledger journal entries.
+                                                        The invoice status will be recalculated. This action cannot be undone.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={() => handleDelete(payment.id)}
+                                                        className="bg-red-600 hover:bg-red-700"
+                                                    >
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                                     No payment records found.
                                 </TableCell>
                             </TableRow>
@@ -88,6 +160,6 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                     </TableBody>
                 </Table>
             </CardContent>
-        </Card>
+        </ Card>
     );
 }

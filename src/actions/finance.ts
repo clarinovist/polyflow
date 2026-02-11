@@ -321,3 +321,98 @@ export async function recordSupplierPayment(data: {
         };
     }
 }
+
+/**
+ * Delete Payment Record and associated Journal Entries
+ */
+export async function deletePayment(id: string) {
+    const { requireAuth } = await import('@/lib/auth-checks');
+    const { revalidatePath } = await import('next/cache');
+    const { ReferenceType, InvoiceStatus, PurchaseInvoiceStatus } = await import('@prisma/client');
+
+    await requireAuth();
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            const payment = await tx.payment.findUnique({
+                where: { id },
+                include: {
+                    invoice: true,
+                    purchaseInvoice: true
+                }
+            });
+
+            if (!payment) throw new Error("Payment record not found");
+
+            // 1. Revert Invoice Paid Amount & Status
+            if (payment.invoiceId && payment.invoice) {
+                const newPaid = Number(payment.invoice.paidAmount) - Number(payment.amount);
+                const total = Number(payment.invoice.totalAmount);
+
+                let newStatus: InvoiceStatus = InvoiceStatus.PARTIAL;
+                if (newPaid <= 0) {
+                    newStatus = InvoiceStatus.UNPAID;
+                }
+
+                // Check if it should be overdue
+                if (newPaid < total && payment.invoice.dueDate && new Date(payment.invoice.dueDate) < new Date()) {
+                    newStatus = InvoiceStatus.OVERDUE;
+                }
+
+                await tx.invoice.update({
+                    where: { id: payment.invoiceId },
+                    data: {
+                        paidAmount: newPaid,
+                        status: newStatus
+                    }
+                });
+            } else if (payment.purchaseInvoiceId && payment.purchaseInvoice) {
+                const newPaid = Number(payment.purchaseInvoice.paidAmount) - Number(payment.amount);
+                const total = Number(payment.purchaseInvoice.totalAmount);
+
+                let newStatus: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
+                if (newPaid <= 0) {
+                    newStatus = PurchaseInvoiceStatus.UNPAID;
+                }
+
+                if (newPaid < total && payment.purchaseInvoice.dueDate && new Date(payment.purchaseInvoice.dueDate) < new Date()) {
+                    newStatus = PurchaseInvoiceStatus.OVERDUE;
+                }
+
+                await tx.purchaseInvoice.update({
+                    where: { id: payment.purchaseInvoiceId },
+                    data: {
+                        paidAmount: newPaid,
+                        status: newStatus
+                    }
+                });
+            }
+
+            // 2. Delete Journal Entries
+            const refType = payment.invoiceId ? ReferenceType.SALES_PAYMENT : ReferenceType.PURCHASE_PAYMENT;
+
+            await tx.journalLine.deleteMany({
+                where: { journalEntry: { referenceId: id, referenceType: refType } }
+            });
+            await tx.journalEntry.deleteMany({
+                where: { referenceId: id, referenceType: refType }
+            });
+
+            // 3. Delete Payment Record
+            await tx.payment.delete({ where: { id } });
+        });
+
+        revalidatePath('/finance/payments/received');
+        revalidatePath('/finance/payments/sent');
+        revalidatePath('/finance/invoices/sales');
+        revalidatePath('/finance/invoices/purchase');
+
+        return { success: true, message: "Payment deleted successfully" };
+    } catch (error) {
+        console.error('Error deleting payment:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}

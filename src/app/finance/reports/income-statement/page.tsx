@@ -9,7 +9,6 @@ import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns
 import { id } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
