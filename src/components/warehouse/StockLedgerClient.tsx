@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Calendar as CalendarIcon, FilterX } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -305,11 +306,23 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <div className="text-xs font-medium truncate max-w-[200px]" title={e.reference || ''}>
-                                                    {e.reference || '-'}
-                                                </div>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="text-xs font-medium truncate max-w-[300px] cursor-default">
+                                                                {e.reference || '-'}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        {e.reference && (
+                                                            <TooltipContent side="top" className="max-w-[400px] whitespace-normal text-xs">
+                                                                <p>{e.reference}</p>
+                                                                {e.batch && <p className="text-muted-foreground mt-1">Batch: {e.batch}</p>}
+                                                            </TooltipContent>
+                                                        )}
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                                 {e.batch && (
-                                                    <div className="text-[10px] text-muted-foreground font-mono">
+                                                    <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[300px]">
                                                         Batch: {e.batch}
                                                     </div>
                                                 )}
