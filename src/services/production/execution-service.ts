@@ -531,12 +531,13 @@ export class ProductionExecutionService {
                 }
             }
 
-            // 3. Delete Material Issues (Consumption records)
-            await tx.materialIssue.deleteMany({
+            // 3. Mark Material Issues as VOIDED (Consumption records)
+            await tx.materialIssue.updateMany({
                 where: {
                     productionOrderId,
                     issuedAt: { gte: startTime, lte: endTime }
-                }
+                },
+                data: { status: 'VOIDED' }
             });
 
             // 4. Update Production Order Totals & Status

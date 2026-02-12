@@ -69,7 +69,7 @@ export class ProductionOrderService {
         sourceLocationId: string,
         plannedQuantity: number
     ): Promise<Result<{
-        data: any[],
+        data: unknown[],
         meta: {
             requestedSourceLocationId: string;
             suggestedSourceLocationId: string | null;

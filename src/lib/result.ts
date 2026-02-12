@@ -15,7 +15,7 @@ export class ApplicationError extends Error {
         message: string,
         public code: string,
         public statusCode: number = 500,
-        public details?: Record<string, any>
+        public details?: Record<string, unknown>
     ) {
         super(message);
         this.name = this.constructor.name;

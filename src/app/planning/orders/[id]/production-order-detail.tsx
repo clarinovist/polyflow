@@ -37,7 +37,6 @@ import { ExtendedProductionOrder } from '@/components/production/order-detail/ty
 import { OrderWorkflowStepper } from '@/components/production/order-detail/OrderWorkflowStepper';
 import { AddOutputDialog } from '@/components/production/order-detail/AddOutputDialog';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
-import { DeleteIssueButton } from '@/components/production/order-detail/DeleteIssueButton';
 import { RecordScrapDialog } from '@/components/production/order-detail/RecordScrapDialog';
 import { DeleteScrapButton } from '@/components/production/order-detail/DeleteScrapButton';
 import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDialog';
@@ -500,20 +499,25 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {order.materialIssues.map((issue) => (
-                                    <div key={issue.id} className="flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm hover:border-border transition-colors">
+                                    <div key={issue.id} className={cn(
+                                        "flex justify-between items-center p-3 bg-card rounded-lg border shadow-sm hover:border-border transition-colors",
+                                        issue.status === 'VOIDED' && "opacity-50 line-through bg-muted/30"
+                                    )}>
                                         <div className="flex flex-col">
                                             <span className="font-medium text-foreground">{issue.productVariant.name}</span>
-                                            <span className="text-[11px] text-muted-foreground">
-                                                {format(new Date(issue.issuedAt), 'PP p')}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    {format(new Date(issue.issuedAt), 'PP p')}
+                                                </span>
+                                                {issue.status === 'VOIDED' && (
+                                                    <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">Voided</span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="font-mono bg-muted px-2 py-1 rounded text-xs font-semibold">
                                                 {Number(issue.quantity)} {issue.productVariant.primaryUnit}
                                             </span>
-                                            {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
-                                                <DeleteIssueButton issueId={issue.id} orderId={order.id} />
-                                            )}
                                         </div>
                                     </div>
                                 ))}

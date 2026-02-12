@@ -401,6 +401,7 @@ model MaterialIssue {
   productionOrderId String
   productVariantId  String
   quantity          Decimal         @db.Decimal(15, 4)
+  status            String          @default("ISSUED") // ISSUED, VOIDED
   issuedAt          DateTime        @default(now())
   createdById       String?
   batchId           String?
