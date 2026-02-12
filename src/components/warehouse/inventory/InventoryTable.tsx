@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -95,19 +96,33 @@ interface InventoryTableProps {
     showPrices?: boolean;
     abcMap?: Record<string, string>;
     topBadges?: React.ReactNode;
+    totalStock?: number;
+    totalValue?: number;
 }
 
-export function InventoryTable({ inventory, variantTotals, comparisonData, showComparison, initialDate, initialCompareDate: _initialCompareDate, showPrices = false, abcMap, topBadges }: InventoryTableProps) {
+export function InventoryTable({
+    inventory,
+    variantTotals,
+    comparisonData,
+    showComparison,
+    initialDate,
+    initialCompareDate: _initialCompareDate,
+    showPrices = false,
+    abcMap,
+    topBadges,
+    totalStock,
+    totalValue
+}: InventoryTableProps) {
 
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortField, setSortField] = useState<SortField>('name');
-    const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+    const [sortField, setSortField] = useState<SortField>('stock');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const [productTypeFilter, setProductTypeFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-    const ITEMS_PER_PAGE = 6;
+    const ITEMS_PER_PAGE = 20;
 
     // Check if we are filtering by a specific location
     const locationIdFilter = searchParams.get('locationId');
@@ -283,9 +298,9 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
     };
 
     return (
-        <div className="h-full flex flex-col pt-4">
+        <div className="h-full flex flex-col">
             {/* Filters Bar - Fixed at top */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-3 border-b border-border bg-background pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 px-4 pb-2 border-b border-border bg-background pt-2">
                 {/* Top Row: Date, Badges on mobile maybe keep simple or stack */}
                 <div className="flex items-center gap-2 flex-wrap">
                     {topBadges && (
@@ -397,6 +412,21 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>
+
+                <div className="flex items-center gap-4 ml-auto text-sm px-2">
+                    {totalStock !== undefined && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
+                            <span className="font-bold text-foreground">{totalStock.toLocaleString()}</span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">total stock</span>
+                        </div>
+                    )}
+                    {totalValue !== undefined && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap border-l border-border pl-4">
+                            <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">{formatRupiah(totalValue)}</span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">total value</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Table - Scrollable Area */}
@@ -407,7 +437,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                         <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur-sm shadow-sm">
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 {/* Checkbox Header */}
-                                <TableHead className="w-[40px] pl-4">
+                                <TableHead className="w-[40px] pl-4 py-2">
                                     <Checkbox
                                         checked={isAllSelected}
                                         onCheckedChange={toggleSelectAll}
@@ -487,14 +517,14 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 isSelected ? "bg-primary/20 hover:bg-primary/30" : ""
                                             )}
                                         >
-                                            <TableCell className="pl-4 py-1.5 align-middle">
+                                            <TableCell className="pl-4 py-1 align-middle">
                                                 <Checkbox
                                                     checked={isSelected}
                                                     onCheckedChange={() => toggleSelectItem(item.id)}
                                                 />
                                             </TableCell>
 
-                                            <TableCell className="py-1.5 align-middle">
+                                            <TableCell className="py-1 align-middle">
                                                 <div className="flex flex-col gap-0.5">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-medium text-sm text-foreground leading-tight">
@@ -512,9 +542,12 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                        <code className="bg-muted px-1 py-0.5 rounded border border-border text-foreground">
+                                                        <Link
+                                                            href={`/warehouse/inventory/${item.productVariantId}`}
+                                                            className="bg-muted px-1 py-0.5 rounded border border-border text-foreground hover:bg-primary/10 hover:text-primary transition-colors font-mono"
+                                                        >
                                                             {item.productVariant.skuCode}
-                                                        </code>
+                                                        </Link>
                                                         <span>•</span>
                                                         <span className="capitalize text-[10px]">
                                                             {item.productVariant.product.productType.toLowerCase().replace('_', ' ')}
@@ -534,7 +567,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 </TableCell>
                                             )}
 
-                                            <TableCell className="text-right py-1.5 align-middle">
+                                            <TableCell className="text-right py-1 align-middle">
                                                 <div className="flex flex-col items-end">
                                                     <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
                                                         <span>{currentStock.toLocaleString()}</span>
@@ -550,7 +583,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
+                                            <TableCell className="text-center py-1 align-middle hidden sm:table-cell">
                                                 <div className="flex flex-col items-center gap-1">
                                                     {item.reservedQuantity ? (
                                                         <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums">
@@ -568,7 +601,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                     ) : null}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-center py-1.5 align-middle hidden sm:table-cell">
+                                            <TableCell className="text-center py-1 align-middle hidden sm:table-cell">
                                                 <div className={cn(
                                                     "font-medium tabular-nums",
                                                     (item.availableQuantity || 0) <= 0 ? "text-red-500" : "text-green-500"
@@ -579,16 +612,16 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
 
                                             {showPrices && (
                                                 <>
-                                                    <TableCell className="text-right align-middle tabular-nums text-sm">
+                                                    <TableCell className="text-right py-1 align-middle tabular-nums text-sm">
                                                         {formatRupiah(item.productVariant.price)}
                                                     </TableCell>
-                                                    <TableCell className="text-right align-middle tabular-nums font-medium text-sm">
+                                                    <TableCell className="text-right py-1 align-middle tabular-nums font-medium text-sm">
                                                         {formatRupiah((item.productVariant.price || 0) * item.quantity)}
                                                     </TableCell>
                                                 </>
                                             )}
 
-                                            <TableCell className="align-middle">
+                                            <TableCell className="py-1 align-middle">
                                                 {isLowStock ? (
                                                     <div className="space-y-1">
                                                         <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
@@ -605,7 +638,7 @@ export function InventoryTable({ inventory, variantTotals, comparisonData, showC
                                                 )}
                                             </TableCell>
 
-                                            <TableCell className="pr-4 text-right align-middle">
+                                            <TableCell className="pr-4 py-1 text-right align-middle">
                                                 <ThresholdDialog
                                                     productVariantId={item.productVariantId}
                                                     productName={item.productVariant.name}

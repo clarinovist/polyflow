@@ -25,6 +25,7 @@ import {
     getDaysOfInventoryOnHand,
     getStockMovementTrends
 } from './inventory/analytics-service';
+import { getStockLedger } from './inventory/stock-ledger-service';
 
 export class InventoryService {
 
@@ -817,6 +818,10 @@ export class InventoryService {
 
     static async getStockHistory(productVariantId: string, startDate: Date, endDate: Date, locationId?: string) {
         return getStockHistory(productVariantId, startDate, endDate, locationId);
+    }
+
+    static async getStockLedger(productVariantId: string, startDate: Date, endDate: Date, locationId?: string) {
+        return getStockLedger(productVariantId, startDate, endDate, locationId);
     }
 
     static async createStockReservation(data: CreateReservationValues, tx?: Prisma.TransactionClient) {

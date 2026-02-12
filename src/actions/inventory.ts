@@ -152,6 +152,16 @@ export async function getStockHistory(
     return await InventoryService.getStockHistory(productVariantId, startDate, endDate, locationId);
 }
 
+export async function getStockLedgerAction(
+    productVariantId: string,
+    startDate: Date,
+    endDate: Date,
+    locationId?: string
+) {
+    await requireAuth();
+    return await InventoryService.getStockLedger(productVariantId, startDate, endDate, locationId);
+}
+
 export async function createStockReservation(data: CreateReservationValues) {
     await requireAuth();
     const result = createReservationSchema.safeParse(data);
