@@ -54,6 +54,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /root/polyflow
+            git fetch origin main
+            git reset --hard origin/main
             docker compose pull polyflow
             docker compose up -d polyflow
             docker image prune -f

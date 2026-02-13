@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run db:sync:prod && npx prisma generate && next dev",
+    "db:sync:prod": "chmod +x scripts/sync-db-prod.sh && ./scripts/sync-db-prod.sh",
     "dev:db": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db",
     "dev:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up",
     "dev:up:build": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
