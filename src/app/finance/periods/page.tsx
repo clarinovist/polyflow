@@ -5,11 +5,12 @@ import { auth } from "@/auth";
 export default async function PeriodsPage({
     searchParams
 }: {
-    searchParams: { year?: string }
+    searchParams: Promise<{ year?: string }>
 }) {
     const session = await auth();
+    const resolvedParams = await searchParams;
     const currentYear = new Date().getFullYear();
-    const selectedYear = searchParams.year ? parseInt(searchParams.year) : currentYear;
+    const selectedYear = resolvedParams.year ? parseInt(resolvedParams.year) : currentYear;
     const periods = await getFiscalPeriods(selectedYear);
 
     return (

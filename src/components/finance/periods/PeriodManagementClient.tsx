@@ -43,8 +43,12 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
 
     const handleYearChange = (newYear: string) => {
         setYear(newYear);
-        router.push(`/finance/periods?year=${newYear}`);
+        startTransition(() => {
+            router.push(`/finance/periods?year=${newYear}`);
+        });
     };
+
+    const isYearTransitioning = isPending && year !== currentYear.toString();
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState<{ id: string, name: string } | null>(null);
@@ -116,9 +120,13 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                     <p className="text-muted-foreground">Manage accounting periods and closing.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <Select value={year} onValueChange={handleYearChange}>
+                    <Select value={year} onValueChange={handleYearChange} disabled={isPending}>
                         <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Year" />
+                            {isPending && year !== currentYear.toString() ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <SelectValue placeholder="Year" />
+                            )}
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="2024">2024</SelectItem>
@@ -130,13 +138,22 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                 </div>
             </div>
 
-            <Card>
+            <Card className="relative overflow-hidden">
+                {isYearTransitioning && (
+                    <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                )}
                 <CardHeader>
                     <CardTitle className="flex justify-between items-center">
                         <span>Periods for {year}</span>
-                        {initialPeriods.length === 0 && (
+                        {(initialPeriods.length === 0 || isYearTransitioning) && (
                             <Button onClick={handleGenerate} disabled={isPending}>
-                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarPlus className="mr-2 h-4 w-4" />}
+                                {isPending && !isYearTransitioning ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <CalendarPlus className="mr-2 h-4 w-4" />
+                                )}
                                 Generate Periods
                             </Button>
                         )}
@@ -154,7 +171,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {initialPeriods.length === 0 ? (
+                            {initialPeriods.length === 0 && !isYearTransitioning ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                                         No periods found for {year}. Click generate to start.
