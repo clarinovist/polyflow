@@ -124,15 +124,15 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                 {showPrices && (
                     <Card className="flex flex-col justify-center">
                         <CardContent className="pt-6">
-                            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Total Formula Cost</div>
+                            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Cost per {bom.productVariant.primaryUnit}</div>
                             <div className="text-4xl font-bold tracking-tight">
-                                {formatCurrency(totalCost)}
+                                {formatCurrency(totalCost / Number(bom.outputQuantity || 1))}
                             </div>
                             <div className="mt-2 flex items-center gap-2">
                                 <Badge variant="outline" className="text-[11px] font-normal border-blue-500/20 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 dark:text-blue-400">
-                                    {formatCurrency(totalCost / Number(bom.outputQuantity || 1))} / {bom.productVariant.primaryUnit}
+                                    {formatCurrency(totalCost)} total
                                 </Badge>
-                                <span className="text-[10px] text-muted-foreground">Estimated Unit Cost</span>
+                                <span className="text-[10px] text-muted-foreground">for {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit} batch</span>
                             </div>
                             <div className="mt-4 pt-4 border-t border-dashed">
                                 <p className="text-[11px] text-muted-foreground italic">Calculated based on current standard costs of ingredients (including scrap).</p>

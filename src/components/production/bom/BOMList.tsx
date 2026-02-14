@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -37,16 +37,41 @@ const formatCurrency = (amount: number) => {
 export function BOMList({ boms, showPrices }: BOMListProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('ALL');
+    const [costSort, setCostSort] = useState<'none' | 'asc' | 'desc'>('none');
 
-    const filteredBoms = boms.filter((bom) => {
-        const matchesSearch = bom.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            bom.productVariant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            bom.productVariant.skuCode.toLowerCase().includes(searchTerm.toLowerCase());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getUnitCost = (bom: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalCost = bom.items.reduce((acc: number, item: any) => {
+            const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0);
+            const quantity = Number(item.quantity);
+            const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
+            return acc + (cost * quantity * scrap);
+        }, 0);
+        return totalCost / Number(bom.outputQuantity || 1);
+    };
 
-        const matchesCategory = activeTab === 'ALL' || (bom.category || 'STANDARD') === activeTab;
+    const filteredBoms = useMemo(() => {
+        const filtered = boms.filter((bom) => {
+            const matchesSearch = bom.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                bom.productVariant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                bom.productVariant.skuCode.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesSearch && matchesCategory;
-    });
+            const matchesCategory = activeTab === 'ALL' || (bom.category || 'STANDARD') === activeTab;
+
+            return matchesSearch && matchesCategory;
+        });
+
+        if (costSort !== 'none') {
+            filtered.sort((a, b) => {
+                const costA = getUnitCost(a);
+                const costB = getUnitCost(b);
+                return costSort === 'asc' ? costA - costB : costB - costA;
+            });
+        }
+
+        return filtered;
+    }, [boms, searchTerm, activeTab, costSort]);
 
     return (
         <div className="space-y-6">
@@ -88,7 +113,19 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                             <TableHead>Category</TableHead>
                                             <TableHead>Basis Quantity</TableHead>
                                             <TableHead>Ingredients</TableHead>
-                                            {showPrices && <TableHead className="text-right">Est. Cost</TableHead>}
+                                            {showPrices && (
+                                                <TableHead className="text-right">
+                                                    <button
+                                                        onClick={() => setCostSort(prev => prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none')}
+                                                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                                                    >
+                                                        Cost / Unit
+                                                        {costSort === 'none' && <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />}
+                                                        {costSort === 'asc' && <ArrowUp className="h-3 w-3 text-blue-500" />}
+                                                        {costSort === 'desc' && <ArrowDown className="h-3 w-3 text-blue-500" />}
+                                                    </button>
+                                                </TableHead>
+                                            )}
                                             <TableHead className="text-right w-[100px]">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -158,10 +195,10 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                             <TableCell className="text-right">
                                                                 <div className="flex flex-col items-end">
                                                                     <span className="font-medium text-sm">
-                                                                        {formatCurrency(totalCost)}
+                                                                        {formatCurrency(totalCost / Number(bom.outputQuantity || 1))} / {bom.productVariant.primaryUnit}
                                                                     </span>
                                                                     <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
-                                                                        {formatCurrency(totalCost / Number(bom.outputQuantity || 1))} / {bom.productVariant.primaryUnit}
+                                                                        {formatCurrency(totalCost)} total
                                                                     </span>
                                                                 </div>
                                                             </TableCell>
