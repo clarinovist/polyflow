@@ -2,6 +2,21 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.0.0] - 2026-02-15
+
+### Added
+- **Testing Foundation** — Vitest unit tests for InventoryService, ProductionCostService, and JournalsService
+- **CI Test Gate** — `npm run test:run` integrated into GitHub Actions (tests must pass before build)
+- **Automated Versioning** — `release-please` GitHub Action for automatic version bumps and changelog
+
+### Improved
+- **Error Handling** — `ApplicationError` hierarchy with `safeAction` wrapper and error boundaries
+- **Security & Config** — Parameterized Docker credentials, expanded `.env.example`, health check endpoint
+- **Monitoring** — Structured logger with severity levels and error serialization
+- **Database Stability** — Verified 43 migrations, automated backup script with 7-day retention
+
+---
+
 ## [0.9.0] - 2026-02-14
 
 ### Added
