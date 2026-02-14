@@ -94,22 +94,26 @@ export async function getAccountLedger(
     // Build date filter
     const dateFilter: {
         journalEntry?: {
+            status?: 'POSTED';
             entryDate?: {
                 gte?: Date;
                 lte?: Date;
             };
         };
-    } = {};
+    } = {
+        journalEntry: {
+            status: 'POSTED'
+        }
+    };
     if (startDate || endDate) {
-        dateFilter.journalEntry = {};
         if (startDate) {
-            dateFilter.journalEntry.entryDate = { gte: startDate };
+            dateFilter.journalEntry!.entryDate = { gte: startDate };
         }
         if (endDate) {
-            if (dateFilter.journalEntry.entryDate) {
-                dateFilter.journalEntry.entryDate.lte = endDate;
+            if (dateFilter.journalEntry!.entryDate) {
+                dateFilter.journalEntry!.entryDate.lte = endDate;
             } else {
-                dateFilter.journalEntry.entryDate = { lte: endDate };
+                dateFilter.journalEntry!.entryDate = { lte: endDate };
             }
         }
     }
@@ -118,7 +122,10 @@ export async function getAccountLedger(
     const lines = await prisma.journalLine.findMany({
         where: {
             accountId,
-            ...dateFilter
+            journalEntry: {
+                status: 'POSTED',
+                ...(dateFilter.journalEntry?.entryDate ? { entryDate: dateFilter.journalEntry.entryDate } : {})
+            }
         },
         include: {
             journalEntry: {
@@ -145,6 +152,7 @@ export async function getAccountLedger(
             where: {
                 accountId,
                 journalEntry: {
+                    status: 'POSTED',
                     entryDate: { lt: startDate }
                 }
             }

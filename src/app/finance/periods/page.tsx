@@ -2,15 +2,20 @@ import { PeriodManagementClient } from "@/components/finance/periods/PeriodManag
 import { getFiscalPeriods } from "@/actions/finance/period-actions";
 import { auth } from "@/auth";
 
-export default async function PeriodsPage() {
+export default async function PeriodsPage({
+    searchParams
+}: {
+    searchParams: { year?: string }
+}) {
     const session = await auth();
     const currentYear = new Date().getFullYear();
-    const periods = await getFiscalPeriods(currentYear);
+    const selectedYear = searchParams.year ? parseInt(searchParams.year) : currentYear;
+    const periods = await getFiscalPeriods(selectedYear);
 
     return (
         <PeriodManagementClient
             initialPeriods={periods}
-            currentYear={currentYear}
+            currentYear={selectedYear}
             userId={session?.user?.id || 'system'}
         />
     );

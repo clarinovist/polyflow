@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma';
 import { PeriodStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { createClosingJournalEntry } from '@/services/accounting/journals-service';
+import { getIncomeStatement } from '@/services/accounting/reports-service';
 
 export async function getFiscalPeriods(year?: number) {
     const currentYear = year || new Date().getFullYear();
@@ -11,6 +13,19 @@ export async function getFiscalPeriods(year?: number) {
         where: { year: currentYear },
         orderBy: { month: 'asc' }
     });
+}
+
+export async function getIncomeStatementSummary(id: string) {
+    const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
+    if (!period) throw new Error("Period not found");
+
+    const report = await getIncomeStatement(period.startDate, period.endDate);
+    return {
+        totalRevenue: report.totalRevenue,
+        totalOpEx: report.totalOpEx,
+        netIncome: report.netIncome,
+        periodName: period.name
+    };
 }
 
 export async function generatePeriodsForYear(year: number) {
@@ -44,15 +59,21 @@ export async function generatePeriodsForYear(year: number) {
 }
 
 export async function closePeriod(id: string, userId: string) {
-    // Validate if previous period is closed? Optional.
-    await prisma.fiscalPeriod.update({
-        where: { id },
-        data: {
-            status: PeriodStatus.CLOSED,
-            closedById: userId,
-            closedAt: new Date()
-        }
+    await prisma.$transaction(async (tx) => {
+        // 1. Generate Closing Journal Entry
+        await createClosingJournalEntry(id, userId, tx);
+
+        // 2. Mark period as CLOSED
+        await tx.fiscalPeriod.update({
+            where: { id },
+            data: {
+                status: PeriodStatus.CLOSED,
+                closedById: userId,
+                closedAt: new Date()
+            }
+        });
     });
+
     revalidatePath('/finance/periods');
 }
 

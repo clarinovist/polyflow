@@ -228,3 +228,35 @@ export async function getAccountBalance(accountId: string, startDate?: Date, end
 
     return balance;
 }
+
+export async function getClosingBalances(startDate: Date, endDate: Date) {
+    const accounts = await prisma.account.findMany({
+        where: {
+            type: { in: ['REVENUE', 'EXPENSE'] }
+        },
+        include: {
+            journalLines: {
+                where: {
+                    journalEntry: {
+                        entryDate: { gte: startDate, lte: endDate },
+                        status: 'POSTED'
+                    }
+                }
+            }
+        }
+    });
+
+    return accounts.map(a => {
+        const isRevenue = a.type === 'REVENUE';
+        const netBalance = a.journalLines.reduce((sum, l) => {
+            const val = Number(l.credit) - Number(l.debit);
+            return sum + (isRevenue ? val : -val);
+        }, 0);
+
+        return {
+            id: a.id,
+            type: a.type,
+            netBalance
+        };
+    }).filter(a => Math.abs(a.netBalance) > 0.01);
+}
