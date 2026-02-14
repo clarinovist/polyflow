@@ -24,9 +24,9 @@ services:
     container_name: polyflow-db
     restart: always
     environment:
-      - POSTGRES_USER=polyflow
-      - POSTGRES_PASSWORD=polyflow
-      - POSTGRES_DB=polyflow
+      - POSTGRES_USER=${POSTGRES_USER:-polyflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - POSTGRES_DB=${POSTGRES_DB:-polyflow}
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
