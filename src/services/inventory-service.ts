@@ -714,8 +714,23 @@ export class InventoryService {
         });
     }
 
-    static async getStockMovements(limit = 50) {
+    static async getStockMovements(filters?: { limit?: number; startDate?: Date; endDate?: Date }) {
+        const { limit = 50, startDate, endDate } = filters || {};
+        const where: Prisma.StockMovementWhereInput = {};
+
+        if (startDate && endDate) {
+            where.createdAt = {
+                gte: startDate,
+                lte: endDate
+            };
+        } else if (startDate) {
+            where.createdAt = { gte: startDate };
+        } else if (endDate) {
+            where.createdAt = { lte: endDate };
+        }
+
         return await prisma.stockMovement.findMany({
+            where,
             take: limit,
             orderBy: { createdAt: 'desc' },
             include: {

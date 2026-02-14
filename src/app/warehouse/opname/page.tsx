@@ -50,9 +50,12 @@ export default async function WarehouseOpnameListPage() {
                                     )}
                                 </CardHeader>
                                 <CardContent>
-                                    <CardTitle className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
-                                        {session.remarks || "No Remarks"}
+                                    <CardTitle className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">
+                                        {session.opnameNumber || <span className="text-muted-foreground italic">No Code</span>}
                                     </CardTitle>
+                                    <p className="text-muted-foreground text-sm mb-2 line-clamp-1">
+                                        {session.remarks || "No Remarks"}
+                                    </p>
 
                                     <div className="space-y-2 mt-4 text-sm text-muted-foreground">
                                         <div className="flex items-center gap-2">

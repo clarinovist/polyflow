@@ -40,6 +40,36 @@ export async function getOpnameSession(id: string) {
     });
 }
 
+
+async function generateOpnameNumber() {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+
+    // Format: OPN-YYYYMM-XXXX
+    const prefix = `OPN-${year}${month}-`;
+
+    const lastOpname = await prisma.stockOpname.findFirst({
+        where: { opnameNumber: { startsWith: prefix } },
+        orderBy: { opnameNumber: 'desc' },
+        select: { opnameNumber: true }
+    });
+
+    let nextSeq = 1;
+    if (lastOpname?.opnameNumber) {
+        // Extract sequence part (last part after dash)
+        const parts = lastOpname.opnameNumber.split('-');
+        const lastSeqStr = parts[parts.length - 1];
+        const lastSeq = parseInt(lastSeqStr, 10);
+
+        if (!isNaN(lastSeq)) {
+            nextSeq = lastSeq + 1;
+        }
+    }
+
+    return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+}
+
 export async function createOpnameSession(locationId: string, remarks?: string) {
     try {
         // 1. Get all inventories for this location to snapshot
@@ -49,9 +79,13 @@ export async function createOpnameSession(locationId: string, remarks?: string) 
             }
         });
 
-        // 2. Create Session
+        // 2. Generate Number
+        const opnameNumber = await generateOpnameNumber();
+
+        // 3. Create Session
         const session = await prisma.stockOpname.create({
             data: {
+                opnameNumber,
                 locationId,
                 remarks,
                 status: OpnameStatus.OPEN,
@@ -145,7 +179,7 @@ export async function completeOpname(opnameId: string) {
                             fromLocationId: variance < 0 ? opname.locationId : null,
                             toLocationId: variance > 0 ? opname.locationId : null,
                             quantity: Math.abs(variance),
-                            reference: `Stock Opname #${opname.id.slice(0, 8)}`,
+                            reference: opname.opnameNumber || `Stock Opname #${opname.id.slice(0, 8)}`,
                         }
                     });
                 }

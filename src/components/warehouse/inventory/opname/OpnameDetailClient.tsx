@@ -36,6 +36,7 @@ export interface OpnameSession {
     location: { name: string };
     createdBy?: { name: string | null } | null;
     items: OpnameItem[];
+    opnameNumber: string | null;
 }
 
 interface OpnameDetailClientProps {
@@ -86,14 +87,14 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     Back to Opname List
                 </Link>
                 <span>/</span>
-                <span className="text-foreground font-medium">Session {session.location.name}</span>
+                <span className="text-foreground font-medium">{session.opnameNumber || 'New Session'}</span>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-4 mb-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                            {session.location.name}
+                            {session.opnameNumber ? `${session.opnameNumber} - ` : ''}{session.location.name}
                         </h2>
                         <Badge
                             variant={isOpen ? "secondary" : "outline"}

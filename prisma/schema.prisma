@@ -337,6 +337,7 @@ model StockReservation {
 
 model StockOpname {
   id          String            @id @default(uuid())
+  opnameNumber String?          @unique
   locationId  String
   status      OpnameStatus      @default(OPEN)
   remarks     String?

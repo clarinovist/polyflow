@@ -117,9 +117,9 @@ export async function updateThreshold(productVariantId: string, minStockAlert: n
     }
 }
 
-export async function getStockMovements(limit = 50) {
+export async function getStockMovements(limit = 50, startDate?: Date, endDate?: Date) {
     await requireAuth();
-    return await InventoryService.getStockMovements(limit);
+    return await InventoryService.getStockMovements({ limit, startDate, endDate });
 }
 
 export async function getDashboardStats() {
