@@ -11,7 +11,7 @@ async function main() {
         },
         select: {
             id: true,
-            orderNumber: true,
+            invoiceNumber: true,
             status: true
         }
     });
@@ -34,7 +34,7 @@ async function main() {
                 where: { id: journal.id },
                 data: { status: 'POSTED' }
             });
-            console.log(`[UPDATED] Invoice ${invoice.orderNumber}: Journal Entry set to POSTED`);
+            console.log(`[UPDATED] Invoice ${invoice.invoiceNumber}: Journal Entry set to POSTED`);
             updatedCount++;
         }
     }
