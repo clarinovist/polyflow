@@ -155,14 +155,14 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                 </Button>
             </div>
 
-            <Card className="border-amber-100 bg-amber-50/10">
-                <CardHeader className="pb-3">
+            <Card className="border-amber-100 bg-amber-50/10 py-3 gap-3 shadow-none">
+                <CardHeader className="px-4 pb-0">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         Ledger Filters
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap items-center gap-6">
+                <CardContent className="px-4">
+                    <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Period:</span>
                             <TransactionDateFilter

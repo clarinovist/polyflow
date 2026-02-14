@@ -145,12 +145,12 @@ export function JournalListClient() {
             </div>
 
             {/* Filter Card */}
-            <Card>
-                <CardHeader className="pb-3">
+            <Card className="py-3 gap-3 shadow-sm">
+                <CardHeader className="px-4 pb-0">
                     <CardTitle className="text-sm font-medium">Filter Transaksi</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap items-center gap-6">
+                <CardContent className="px-4">
+                    <div className="flex flex-wrap items-center gap-4">
                         {/* Search */}
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground whitespace-nowrap">Search:</span>

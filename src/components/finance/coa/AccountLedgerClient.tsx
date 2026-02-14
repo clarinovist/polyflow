@@ -145,11 +145,11 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                 </Button>
             </div>
 
-            <Card>
-                <CardHeader className="pb-3">
+            <Card className="py-3 gap-3 shadow-sm">
+                <CardHeader className="px-4 pb-0">
                     <CardTitle className="text-sm font-medium">Filter by Date Range</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4">
                     <div className="flex items-center gap-4">
                         <TransactionDateFilter
                             date={dateRange}
