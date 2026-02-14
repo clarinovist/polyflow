@@ -15,6 +15,7 @@ export const productVariantSchema = z.object({
     salesUnit: z.nativeEnum(Unit).optional().nullable(),
     conversionFactor: z.coerce.number().positive("Conversion factor must be positive").default(1),
     price: z.coerce.number().nonnegative("Price must be non-negative").optional().nullable(),
+    buyPrice: z.coerce.number().nonnegative("Buy price must be non-negative").optional().nullable(),
     minStockAlert: z.coerce.number().nonnegative("Min stock alert must be non-negative").optional().nullable(),
 });
 

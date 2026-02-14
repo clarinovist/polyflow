@@ -1,2 +1,1 @@
--- AlterTable
-ALTER TABLE "MaterialIssue" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'ISSUED';
+-- Redundant migration, column already added in 20260212091817_sync_status_columns

@@ -34,7 +34,8 @@ model User {
   scrapRecords            ScrapRecord[]
   movements               StockMovement[]
   opnames                 StockOpname[]
-  reportedIssues          ProductionIssue[] @relation("IssueReporter")
+  reportedIssues          ProductionIssue[]   @relation("IssueReporter")
+  costHistory             CostHistory[]
 }
 
 model Employee {
@@ -183,6 +184,23 @@ model ProductVariant {
   opnameItems          StockOpnameItem[]
   StockReservation     StockReservation[]
   supplierProducts     SupplierProduct[]
+  costHistory          CostHistory[]
+}
+
+model CostHistory {
+  id               String         @id @default(uuid())
+  productVariantId String
+  previousCost     Decimal?       @db.Decimal(15, 4)
+  newCost          Decimal        @db.Decimal(15, 4)
+  changeReason     String         // MANUAL, PURCHASE_GR, STOCK_OPNAME, IMPORT
+  referenceId      String?        // GR ID, Opname ID, etc.
+  changePercent    Decimal?       @db.Decimal(10, 2)
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  createdBy        User?          @relation(fields: [createdById], references: [id])
+
+  @@index([productVariantId, createdAt])
 }
 
 model SupplierProduct {

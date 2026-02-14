@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState, useMemo } from 'react';
 import { ProductType, Unit, Prisma } from '@prisma/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -190,9 +192,12 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                 <TableRow key={variant.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
                                     <TableCell className="pl-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px]">
+                                            <Link
+                                                href={`/dashboard/products/${variant.productId}`}
+                                                className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px] hover:text-primary transition-colors"
+                                            >
                                                 {variant.productName}
-                                            </span>
+                                            </Link>
                                             {variant.name && variant.name !== variant.productName && (
                                                 <span className="text-[11px] text-muted-foreground font-medium">
                                                     {variant.name}
@@ -236,7 +241,7 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
                                                     </span>
                                                     {variant.standardCost && (
                                                         <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1 bg-primary/5 text-primary border-primary/20">
-                                                            FROM RECIPE
+                                                            VALUED AT
                                                         </Badge>
                                                     )}
                                                 </div>

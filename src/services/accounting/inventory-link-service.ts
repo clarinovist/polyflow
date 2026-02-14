@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, StockMovement, JournalStatus } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
+import { updateStandardCost } from '@/actions/cost-history';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } }
@@ -20,9 +21,11 @@ export async function recordInventoryMovement(
     if (!productVariant) return;
 
     const date = movement.createdAt || new Date();
-    let cost = Number(productVariant.standardCost || productVariant.price || 0);
+    // Priority: Standard Cost > Buy Price > Sell Price (Fallback)
+    const currentCost = Number(productVariant.standardCost || productVariant.buyPrice || productVariant.price || 0);
+    let cost = currentCost;
 
-    // If this is a Goods Receipt, try to get the price from the Purchase Order
+    // If this is a Goods Receipt, try to get the price from the Purchase Order and update Standard Cost
     if (movement.goodsReceiptId) {
         const gr = await db.goodsReceipt.findUnique({
             where: { id: movement.goodsReceiptId },
@@ -30,7 +33,32 @@ export async function recordInventoryMovement(
         });
         const poItem = gr?.purchaseOrder?.items[0];
         if (poItem) {
-            cost = Number(poItem.unitPrice);
+            const receiptPrice = Number(poItem.unitPrice);
+            cost = receiptPrice;
+
+            // AUTO-UPDATE Standard Cost (Weighted Average)
+            // 1. Get current stock across all locations
+            const inventorySum = await db.inventory.aggregate({
+                where: { productVariantId: movement.productVariantId },
+                _sum: { quantity: true }
+            });
+            const currentStock = inventorySum._sum.quantity ? inventorySum._sum.quantity.toNumber() : 0;
+            const receiptQty = Number(movement.quantity);
+
+            // 2. Calculate New Weighted Average
+            // Formula: ((currentCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty)
+            if (currentStock + receiptQty > 0) {
+                const newWeightedAvg = ((currentCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty);
+
+                // 3. Update Standard Cost & Log History
+                await updateStandardCost(
+                    movement.productVariantId,
+                    newWeightedAvg,
+                    'PURCHASE_GR',
+                    movement.goodsReceiptId,
+                    db as Prisma.TransactionClient // Use current transaction if available
+                );
+            }
         }
     }
 

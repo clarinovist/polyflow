@@ -5,6 +5,7 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
 import { calculateBomCost } from '@/lib/production-utils';
+import { updateStandardCost } from '@/actions/cost-history';
 
 export async function getBoms(category?: string) {
     try {
@@ -91,10 +92,7 @@ export async function createBom(data: CreateBomValues) {
             const totalCost = calculateBomCost(createdBom.items);
             const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
 
-            await prisma.productVariant.update({
-                where: { id: validated.productVariantId },
-                data: { standardCost: unitCost }
-            });
+            await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
         }
 
         revalidatePath('/dashboard/boms');
@@ -180,10 +178,7 @@ export async function updateBom(id: string, data: CreateBomValues) {
             const totalCost = calculateBomCost(newItemsWithCosts);
             const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
 
-            await tx.productVariant.update({
-                where: { id: validated.productVariantId },
-                data: { standardCost: unitCost }
-            });
+            await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
 
             return updatedBom;
         });

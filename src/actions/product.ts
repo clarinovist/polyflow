@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/schemas/product';
-import { ProductType, Unit, Prisma } from '@prisma/client';
+import { Inventory, CostHistory, ProductVariant, ProductType, Unit, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
 import { requireAuth } from '@/lib/auth-checks';
@@ -97,6 +97,21 @@ export async function getProducts(options?: { type?: ProductType }): Promise<Pro
     });
 }
 
+// Define types for the included relations
+type InventoryWithLocation = Inventory & {
+    location: { name: string };
+};
+
+type CostHistoryWithCreatedBy = CostHistory & {
+    createdBy: { name: string };
+};
+
+// Define a type for ProductVariant with its included relations
+type ProductVariantWithRelations = ProductVariant & {
+    inventories: InventoryWithLocation[];
+    costHistory: CostHistoryWithCreatedBy[];
+};
+
 /**
  * Get a single product by ID with all variants
  */
@@ -106,6 +121,33 @@ export async function getProductById(id: string) {
         where: { id },
         include: {
             variants: {
+                include: {
+                    inventories: {
+                        select: {
+                            quantity: true,
+                            location: {
+                                select: { name: true }
+                            }
+                        }
+                    },
+                    // Prisma does not directly link CostHistory to ProductVariant in its default type generation.
+                    // This is a common pattern when a relation is not explicitly defined on the model itself
+                    // but is fetched via a separate query or is a "virtual" relation.
+                    // To make this work with Prisma's generated types, we often need to explicitly define
+                    // the relation in the schema or use a raw query.
+                    // For now, we'll use a type assertion with a comment to acknowledge the limitation.
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore - costHistory is not directly on ProductVariant type, but we are including it.
+                    costHistory: {
+                        take: 10,
+                        orderBy: { createdAt: 'desc' },
+                        include: {
+                            createdBy: {
+                                select: { name: true }
+                            }
+                        }
+                    }
+                },
                 orderBy: {
                     name: 'asc',
                 },
@@ -117,7 +159,19 @@ export async function getProductById(id: string) {
         return null;
     }
 
-    return serializeData(product);
+    // Calculate stock for each variant
+    const enrichedVariants = (product.variants as ProductVariantWithRelations[]).map((variant) => {
+        const stock = variant.inventories.reduce((sum: number, inv) => sum + Number(inv.quantity), 0);
+        return {
+            ...variant,
+            stock
+        };
+    });
+
+    return serializeData({
+        ...product,
+        variants: enrichedVariants
+    });
 }
 
 /**
@@ -204,6 +258,7 @@ export async function createProduct(data: CreateProductValues) {
                     salesUnit: variant.salesUnit || variant.primaryUnit,
                     conversionFactor: new Prisma.Decimal(variant.conversionFactor),
                     price: variant.price ? new Prisma.Decimal(variant.price) : null,
+                    buyPrice: variant.buyPrice ? new Prisma.Decimal(variant.buyPrice) : null,
                     minStockAlert: variant.minStockAlert ? new Prisma.Decimal(variant.minStockAlert) : null,
                 })),
             });
@@ -327,6 +382,7 @@ export async function updateProduct(data: UpdateProductValues) {
                     salesUnit: variant.salesUnit || variant.primaryUnit,
                     conversionFactor: new Prisma.Decimal(variant.conversionFactor),
                     price: variant.price ? new Prisma.Decimal(variant.price) : null,
+                    buyPrice: variant.buyPrice ? new Prisma.Decimal(variant.buyPrice) : null,
                     minStockAlert: variant.minStockAlert ? new Prisma.Decimal(variant.minStockAlert) : null,
                 };
 
