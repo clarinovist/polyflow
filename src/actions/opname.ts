@@ -79,6 +79,10 @@ export async function createOpnameSession(locationId: string, remarks?: string) 
             }
         });
 
+        if (inventories.length === 0) {
+            throw new Error("No inventory found for this location to perform stock opname.");
+        }
+
         // 2. Generate Number
         const opnameNumber = await generateOpnameNumber();
 
@@ -211,3 +215,30 @@ export async function completeOpname(opnameId: string) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+
+export async function deleteOpnameSession(id: string) {
+    try {
+        const session = await prisma.stockOpname.findUnique({
+            where: { id },
+            select: { status: true }
+        });
+
+        if (!session) {
+            return { success: false, error: "Session not found" };
+        }
+
+        if (session.status !== 'OPEN') {
+            return { success: false, error: "Only OPEN sessions can be deleted" };
+        }
+
+        await prisma.stockOpname.delete({
+            where: { id }
+        });
+
+        revalidatePath('/warehouse/opname');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+    }
+}
+

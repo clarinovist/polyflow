@@ -11,8 +11,10 @@ import { CheckCircle2, AlertTriangle, Calculator, ArrowLeft } from 'lucide-react
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { completeOpname } from '@/actions/opname';
+import { completeOpname, deleteOpnameSession } from '@/actions/opname';
 import Link from 'next/link';
+import { Trash2 } from 'lucide-react';
+
 
 export interface OpnameItem {
     id: string;
@@ -116,6 +118,23 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 {isOpen && (
                     <div className="flex gap-2">
                         <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={async () => {
+                                if (confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
+                                    const result = await deleteOpnameSession(session.id);
+                                    if (result.success) {
+                                        toast.success("Session deleted");
+                                        router.push(basePath);
+                                    } else {
+                                        toast.error(result.error);
+                                    }
+                                }
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
                             variant="default"
                             className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-900/10"
                             onClick={handleFinalize}
@@ -172,6 +191,6 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     </Card>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     );
 }

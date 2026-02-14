@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { logActivity } from '@/lib/audit';
 import { InventoryService } from '@/services/inventory-service';
 import { AccountingService } from '@/services/accounting-service';
-import { MovementType, PurchaseOrderStatus } from '@prisma/client';
+import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 
@@ -177,8 +177,17 @@ export async function getGoodsReceiptById(id: string) {
     });
 }
 
-export async function getGoodsReceipts() {
+export async function getGoodsReceipts(dateRange?: { startDate?: Date, endDate?: Date }) {
+    const where: Prisma.GoodsReceiptWhereInput = {};
+
+    if (dateRange?.startDate || dateRange?.endDate) {
+        where.receivedDate = {};
+        if (dateRange.startDate) where.receivedDate.gte = dateRange.startDate;
+        if (dateRange.endDate) where.receivedDate.lte = dateRange.endDate;
+    }
+
     return await prisma.goodsReceipt.findMany({
+        where,
         include: {
             purchaseOrder: {
                 include: {
@@ -194,6 +203,6 @@ export async function getGoodsReceipts() {
             },
             _count: { select: { items: true } }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { receivedDate: 'desc' } // Changed to receivedDate for better filtering context
     });
 }
