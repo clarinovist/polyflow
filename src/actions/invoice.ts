@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/auth-checks';
 import { InvoiceService } from '@/services/invoice-service';
 import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
@@ -12,9 +12,18 @@ import { AutoJournalService } from '@/services/finance/auto-journal-service';
 /**
  * Get all invoices
  */
-export async function getInvoices() {
+export async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
+    const where: Prisma.InvoiceWhereInput = {};
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.invoiceDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     const invoices = await prisma.invoice.findMany({
+        where,
         include: {
             salesOrder: {
                 select: {

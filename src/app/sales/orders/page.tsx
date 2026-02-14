@@ -6,8 +6,20 @@ import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils';
 
-export default async function SalesPage() {
-    const orders = await getSalesOrders();
+import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+    const params = await searchParams;
+    const now = new Date();
+    const defaultStart = startOfMonth(now);
+    const defaultEnd = endOfMonth(now);
+
+    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+
+    // Pass date filter to fetch function
+    const orders = await getSalesOrders(false, { startDate: checkStart, endDate: checkEnd });
     const stats = await getSalesOrderStats();
 
     // Serialize all Prisma objects for Client Components
@@ -20,12 +32,15 @@ export default async function SalesPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
                     <p className="text-muted-foreground">Manage customer orders and shipments.</p>
                 </div>
-                <Button asChild>
-                    <Link href="/sales/orders/create">
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Sales Order
-                    </Link>
-                </Button>
+                <div className="flex items-center gap-2">
+                    <UrlTransactionDateFilter defaultPreset="this_month" />
+                    <Button asChild>
+                        <Link href="/sales/orders/create">
+                            <Plus className="mr-2 h-4 w-4" />
+                            New Sales Order
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             {/* Summary Cards */}

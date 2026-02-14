@@ -17,9 +17,13 @@ import { serializeData } from '@/lib/utils';
 /**
  * Get all sales orders
  */
-export async function getSalesOrders(includeItems = false) {
+export async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
-    const orders = await SalesService.getOrders({ includeItems });
+    const orders = await SalesService.getOrders({
+        includeItems,
+        startDate: dateRange?.startDate,
+        endDate: dateRange?.endDate
+    });
     return serializeData(orders);
 }
 

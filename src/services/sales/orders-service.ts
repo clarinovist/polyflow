@@ -6,9 +6,16 @@ import { InventoryService } from '@/services/inventory-service';
 import { ProductionService } from '@/services/production-service';
 import { checkCreditLimit } from './credit-service';
 
-export async function getOrders(filters?: { customerId?: string, includeItems?: boolean }) {
+export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date }) {
     const where: Prisma.SalesOrderWhereInput = {};
     if (filters?.customerId) where.customerId = filters.customerId;
+
+    if (filters?.startDate && filters?.endDate) {
+        where.orderDate = {
+            gte: filters.startDate,
+            lte: filters.endDate
+        };
+    }
 
     const include: Prisma.SalesOrderInclude = {
         customer: true,

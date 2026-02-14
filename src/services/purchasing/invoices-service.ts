@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { logActivity } from '@/lib/audit';
 import { addDays } from 'date-fns';
-import { PurchaseInvoiceStatus } from '@prisma/client';
+import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
 import { AutoJournalService } from '../finance/auto-journal-service';
 
@@ -69,7 +69,7 @@ export async function recordPayment(id: string, amount: number, userId: string) 
             action: 'PAYMENT_PURCHASE',
             entityType: 'PurchaseInvoice',
             entityId: id,
-            details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}. New Status: ${status}`,
+            details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}.New Status: ${status} `,
             tx
         });
 
@@ -99,8 +99,17 @@ export async function getPurchaseInvoiceById(id: string) {
     });
 }
 
-export async function getPurchaseInvoices() {
+export async function getPurchaseInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+    const where: Prisma.PurchaseInvoiceWhereInput = {};
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.invoiceDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     return await prisma.purchaseInvoice.findMany({
+        where,
         include: {
             purchaseOrder: {
                 select: {
@@ -115,7 +124,7 @@ export async function getPurchaseInvoices() {
 
 export async function generateBillNumber(): Promise<string> {
     const dateStr = new Date().getFullYear().toString();
-    const prefix = `BILL-${dateStr}-`;
+    const prefix = `BILL - ${dateStr} -`;
 
     const lastBill = await prisma.purchaseInvoice.findFirst({
         where: { invoiceNumber: { startsWith: prefix } },
@@ -131,7 +140,7 @@ export async function generateBillNumber(): Promise<string> {
         }
     }
 
-    return `${prefix}${nextSequence.toString().padStart(4, '0')}`;
+    return `${prefix}${nextSequence.toString().padStart(4, '0')} `;
 }
 
 export async function createDraftBillFromPo(purchaseOrderId: string, userId: string) {
@@ -174,7 +183,7 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
         action: 'AUTO_GENERATE_BILL',
         entityType: 'PurchaseInvoice',
         entityId: invoice.id,
-        details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status}`,
+        details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} `,
     });
 
     // Auto-Journaling Trigger

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from '@prisma/client';
 import { CreateSalesQuotationValues, UpdateSalesQuotationValues } from "@/lib/schemas/quotation";
 import { SalesQuotationStatus, SalesOrderStatus, SalesOrderType } from "@prisma/client";
 
@@ -21,8 +22,17 @@ export class QuotationService {
         return `SQ-${year}-${sequence}`;
     }
 
-    static async getQuotations() {
+    static async getQuotations(filters?: { startDate?: Date, endDate?: Date }) {
+        const where: Prisma.SalesQuotationWhereInput = {};
+        if (filters?.startDate && filters?.endDate) {
+            where.quotationDate = {
+                gte: filters.startDate,
+                lte: filters.endDate
+            };
+        }
+
         return await prisma.salesQuotation.findMany({
+            where,
             include: {
                 customer: true,
                 _count: {

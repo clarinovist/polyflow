@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CreateInvoiceValues, UpdateInvoiceStatusValues } from "@/lib/schemas/invoice";
-import { InvoiceStatus } from "@prisma/client";
+import { InvoiceStatus, JournalStatus } from "@prisma/client";
 import { format, addDays } from "date-fns";
 import { logActivity } from "@/lib/audit";
 import { AutoJournalService } from "./finance/auto-journal-service";
@@ -112,6 +112,40 @@ export class InvoiceService {
             entityId: id,
             details: `Invoice ${invoice.invoiceNumber} status updated to ${status}`
         });
+
+        // Sync Journal Entry Status
+        // If Invoice is finalized (UNPAID/PAID/OVERDUE), POST the journal.
+        // If Invoice is VOID/CANCELLED, VOID the journal.
+        // If Invoice is DRAFT, revert journal to DRAFT.
+
+        let journalStatus: JournalStatus | undefined;
+
+        switch (status) {
+            case 'UNPAID':
+            case 'PAID':
+            case 'PARTIAL':
+            case 'OVERDUE':
+                journalStatus = JournalStatus.POSTED;
+                break;
+            case 'CANCELLED':
+                journalStatus = JournalStatus.VOIDED;
+                break;
+            case 'DRAFT':
+                journalStatus = JournalStatus.DRAFT;
+                break;
+        }
+
+        if (journalStatus) {
+            await prisma.journalEntry.updateMany({
+                where: {
+                    referenceId: id,
+                    referenceType: 'SALES_INVOICE'
+                },
+                data: {
+                    status: journalStatus
+                }
+            });
+        }
     }
 
     /**

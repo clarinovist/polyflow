@@ -15,7 +15,7 @@ export class SalesService {
     /**
      * Get All Sales Orders (Optimized)
      */
-    static async getOrders(filters?: { customerId?: string, includeItems?: boolean }) {
+    static async getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date }) {
         return getOrders(filters);
     }
 

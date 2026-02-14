@@ -1,10 +1,19 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, Prisma } from '@prisma/client';
 
-export async function getSalesInvoices() {
+export async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+    const where: Prisma.InvoiceWhereInput = {};
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.invoiceDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     const invoices = await prisma.invoice.findMany({
+        where,
         orderBy: {
             createdAt: 'desc',
         },

@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { CostReportingService } from '@/services/finance/cost-reporting-service';
@@ -97,13 +98,22 @@ export async function getOrderCosting(orderId: string) {
 /**
  * Get Received Payments (Sales)
  */
-export async function getReceivedPayments() {
+export async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
 
+    const where: Prisma.PaymentWhereInput = {
+        invoiceId: { not: null }
+    };
+
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.paymentDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     const payments = await prisma.payment.findMany({
-        where: {
-            invoiceId: { not: null }
-        },
+        where,
         include: {
             invoice: {
                 include: {
@@ -133,13 +143,22 @@ export async function getReceivedPayments() {
 /**
  * Get Sent Payments (Purchasing)
  */
-export async function getSentPayments() {
+export async function getSentPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
 
+    const where: Prisma.PaymentWhereInput = {
+        purchaseInvoiceId: { not: null }
+    };
+
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.paymentDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     const payments = await prisma.payment.findMany({
-        where: {
-            purchaseInvoiceId: { not: null }
-        },
+        where,
         include: {
             purchaseInvoice: {
                 include: {

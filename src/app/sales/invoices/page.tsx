@@ -3,9 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { InvoiceTable } from '@/components/sales/InvoiceTable';
 import { formatRupiah, serializeData } from '@/lib/utils';
 import { BadgeDollarSign, AlertCircle } from 'lucide-react';
+import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-export default async function SalesInvoicesPage() {
-    const invoices = await getSalesInvoices();
+export default async function SalesInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+    const params = await searchParams;
+    const now = new Date();
+    const defaultStart = startOfMonth(now);
+    const defaultEnd = endOfMonth(now);
+
+    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+
+    const invoices = await getSalesInvoices({ startDate: checkStart, endDate: checkEnd });
     const stats = await getInvoiceStats();
     const serializedInvoices = serializeData(invoices);
 
@@ -15,6 +25,9 @@ export default async function SalesInvoicesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Sales Invoices</h1>
                     <p className="text-muted-foreground">Manage invoices and track payments.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
                 </div>
             </div>
 

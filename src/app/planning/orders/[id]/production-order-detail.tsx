@@ -162,21 +162,82 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </>
                     )}
                     {order.status === 'RELEASED' && (
-                        <Button onClick={() => updateProductionOrder({ id: order.id, status: 'IN_PROGRESS' })}>
-                            <Play className="w-4 h-4 mr-2" /> Start Production
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            {/* Cancellation Guard: No material issues AND no executions */}
+                            {order.materialIssues.length === 0 && order.executions.length === 0 && actualQty === 0 && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                            Cancel Order
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Cancel Work Order?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will move the order to CANCELLED status. Since no materials have been issued and no output recorded, this is a safe way to close a duplicate or unwanted order.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Go Back</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
+                                                className="bg-red-600 hover:bg-red-700"
+                                            >
+                                                Confirm Cancellation
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                            <Button onClick={() => updateProductionOrder({ id: order.id, status: 'IN_PROGRESS' })}>
+                                <Play className="w-4 h-4 mr-2" /> Start Production
+                            </Button>
+                        </div>
                     )}
                     {order.status === 'IN_PROGRESS' && (
-                        <>
+                        <div className="flex items-center gap-2">
+                            {/* Cancellation Guard: No material issues AND no executions */}
+                            {order.materialIssues.length === 0 && order.executions.length === 0 && actualQty === 0 && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                            Cancel Order
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Cancel Work Order?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will move the order to CANCELLED status. Since no materials have been issued and no output recorded, this is a safe way to close a duplicate or unwanted order.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Go Back</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
+                                                className="bg-red-600 hover:bg-red-700"
+                                            >
+                                                Confirm Cancellation
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                             <AddOutputDialog order={order} formData={formData} />
                             <Button variant="outline" onClick={() => updateProductionOrder({ id: order.id, status: 'COMPLETED' })}>
                                 <CheckCircle className="w-4 h-4 mr-2" /> Finish Order
                             </Button>
-                        </>
+                        </div>
                     )}
                     {order.status === 'COMPLETED' && (
                         <Button variant="outline" disabled>
                             <CheckCircle className="w-4 h-4 mr-2" /> Completed
+                        </Button>
+                    )}
+                    {order.status === 'CANCELLED' && (
+                        <Button variant="outline" disabled className="text-red-500 bg-red-50">
+                            Order Cancelled
                         </Button>
                     )}
                 </div>

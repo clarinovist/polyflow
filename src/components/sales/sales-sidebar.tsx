@@ -31,6 +31,7 @@ const salesLinks = [
         items: [
             { href: '/sales/quotations', icon: FileText, label: 'Quotations' },
             { href: '/sales/orders', icon: ShoppingCart, label: 'Sales Orders' },
+            { href: '/sales/invoices', icon: FileText, label: 'Sales Invoices' },
             { href: '/sales/deliveries', icon: Truck, label: 'Delivery Tracking' },
         ],
     },

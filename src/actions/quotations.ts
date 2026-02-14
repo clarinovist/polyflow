@@ -7,9 +7,9 @@ import { catchError } from '@/lib/error-handler';
 import { requireAuth } from '@/lib/auth-checks';
 
 
-export async function getQuotations() {
+export async function getQuotations(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
-    const quotations = await QuotationService.getQuotations();
+    const quotations = await QuotationService.getQuotations(dateRange);
     return serializeData(quotations);
 }
 

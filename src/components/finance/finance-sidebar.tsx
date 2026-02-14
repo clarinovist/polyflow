@@ -37,9 +37,9 @@ const financeLinks = [
         heading: 'Cash Flow',
         items: [
             { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
-            { href: '/finance/invoices/sales', icon: Receipt, label: 'Sales Invoices' },
+            { href: '/finance/invoices/sales', icon: Receipt, label: 'Receivables' },
             { href: '/finance/payments/received', icon: CreditCard, label: 'Customer Payments' },
-            { href: '/finance/invoices/purchase', icon: FileText, label: 'Purchase Invoices' },
+            { href: '/finance/invoices/purchase', icon: FileText, label: 'Payables' },
             { href: '/finance/payments/sent', icon: CreditCard, label: 'Supplier Payments' },
         ],
     },

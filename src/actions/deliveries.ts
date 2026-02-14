@@ -1,9 +1,19 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
-export async function getDeliveryOrders() {
+export async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date }) {
+    const where: Prisma.DeliveryOrderWhereInput = {};
+    if (dateRange?.startDate && dateRange?.endDate) {
+        where.deliveryDate = {
+            gte: dateRange.startDate,
+            lte: dateRange.endDate
+        };
+    }
+
     const deliveryOrders = await prisma.deliveryOrder.findMany({
+        where,
         orderBy: {
             createdAt: 'desc',
         },

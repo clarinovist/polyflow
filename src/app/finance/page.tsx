@@ -16,17 +16,31 @@ import { Badge } from '@/components/ui/badge';
 
 import { PageHeader } from '@/components/ui/page-header';
 
+import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { FinanceDateFilter } from '@/components/finance/finance-date-filter';
+
 export const dynamic = 'force-dynamic';
 
-export default async function FinanceDashboardPage() {
-    const stats = await getFinanceDashboardStats();
+export default async function FinanceDashboardPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+    const params = await searchParams;
+    const now = new Date();
+    const defaultStart = startOfMonth(now);
+    const defaultEnd = endOfMonth(now);
+
+    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+
+    const stats = await getFinanceDashboardStats({ startDate: checkStart, endDate: checkEnd });
 
     return (
         <div className="flex flex-col gap-8">
-            <PageHeader
-                title="Finance Overview"
-                description="Real-time financial snapshot and cash flow analysis."
-            />
+            <div className="flex items-center justify-between">
+                <PageHeader
+                    title="Finance Overview"
+                    description="Real-time financial snapshot and cash flow analysis."
+                />
+                <FinanceDateFilter />
+            </div>
 
             {/* Core Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

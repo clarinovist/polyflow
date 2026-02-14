@@ -76,8 +76,8 @@ export class PurchaseService {
         return getPurchaseInvoiceById(id);
     }
 
-    static async getPurchaseInvoices() {
-        return getPurchaseInvoices();
+    static async getPurchaseInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+        return getPurchaseInvoices(dateRange);
     }
 
     static async generateBillNumber(): Promise<string> {

@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { SalesOrderStatus, SalesOrderType } from '@prisma/client';
 import { endOfDay, format, startOfMonth } from 'date-fns';
 
 export interface SalesMetrics {
@@ -37,15 +36,21 @@ export class AnalyticsService {
         const trendEndDate = endOfDay(now);
         const monthsInTrend = (trendEndDate.getFullYear() - trendStartDate.getFullYear()) * 12 + trendEndDate.getMonth() + 1;
 
-        // 1. Fetch relevant orders (Expanded range for trend, but KPIs use filter logic)
+        // 1. Fetch relevant orders that contribute to Recognized Revenue
+        // Only orders with Invoices that are not in DRAFT or CANCELLED status
         const orders = await prisma.salesOrder.findMany({
             where: {
                 orderDate: {
                     gte: trendStartDate < startDate ? trendStartDate : startDate,
                     lte: trendEndDate > endDate ? trendEndDate : endDate
                 },
-                status: { in: [SalesOrderStatus.CONFIRMED, SalesOrderStatus.SHIPPED, SalesOrderStatus.DELIVERED] },
-                orderType: SalesOrderType.MAKE_TO_ORDER
+                invoices: {
+                    some: {
+                        status: {
+                            in: ['UNPAID', 'PARTIAL', 'PAID', 'OVERDUE']
+                        }
+                    }
+                }
             },
             include: {
                 items: {
@@ -55,12 +60,25 @@ export class AnalyticsService {
                         }
                     }
                 },
-                customer: true
+                customer: true,
+                invoices: true
             }
         });
 
         // 2. Aggregate Metrics
-        let totalRevenue = 0;
+        // Headline Revenue from GL (Journal Entries) - to match Finance Dashboard
+        const revenueAgg = await prisma.journalLine.aggregate({
+            where: {
+                account: { code: { startsWith: '4' } },
+                journalEntry: {
+                    status: 'POSTED',
+                    entryDate: { gte: startDate, lte: endDate }
+                }
+            },
+            _sum: { credit: true, debit: true }
+        });
+        const totalRevenue = (Number(revenueAgg._sum.credit) || 0) - (Number(revenueAgg._sum.debit) || 0);
+
         let kpiOrderCount = 0;
 
         // Aggregation maps
@@ -90,7 +108,7 @@ export class AnalyticsService {
 
             if (inKPIRange) {
                 // Total Stats
-                totalRevenue += orderTotal;
+                // Note: totalRevenue is now calculated from GL above
                 kpiOrderCount++;
 
                 // Customer Stats (Monthly/Period based)

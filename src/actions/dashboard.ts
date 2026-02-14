@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus, SalesOrderType } from '@prisma/client';
+import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 export interface ExecutiveStats {
@@ -46,296 +46,220 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
     const startOfCurrentMonth = startOfMonth(now);
     const endOfCurrentMonth = endOfMonth(now);
 
+    const startOfPreviousMonth = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const endOfPreviousMonth = endOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
     const [
-        // Sales
-        salesOrders,
-        pendingInvoices,
-        // Purchasing
-        purchaseOrders,
-        pendingPOs,
-        // Production
-        activeProductionOrders,
-        completedProductionOrdersMonth,
-        // New Production Metrics
-        activeMachinesCount,    // Total active machines
-        runningMachinesCount,   // Machines with IN_PROGRESS orders
-        downtimeRecords,        // Downtime in current month
-        scrapRecords,           // Ad-hoc scrap
-        executionScrap,         // ProductionExecution scrap
-        executionOutput,        // ProductionExecution good output (for yield)
-        materialIssues,         // Material Consumption (for yield)
-        // Inventory
-        inventoryStats,
-        // Cashflow
-        overdueReceivablesAgg,
-        overduePayablesAgg,
-        invoicesDueThisWeekCount
+        revenueAggMTD,          // 0
+        revenueAggPrevMonth,    // 1
+        spendingAggMTD,         // 2: NEW - Spending MTD (GL)
+        spendingAggPrevMonth,   // 3: NEW - Spending Prev Month (GL)
+        salesOrdersMTD,         // 4
+        pendingInvoicesCount,   // 5
+        pendingPOsCount,        // 6
+        activeProductionCount,  // 7
+        productionOrdersMonth,  // 8
+        activeMachinesCount,    // 9
+        runningMachinesOrders,  // 10
+        downtimeRecords,        // 11
+        scrapRecordsAgg,        // 12
+        executionScrapAgg,      // 13
+        executionOutputAgg,     // 14
+        materialIssuesAgg,      // 15
+        inventoryStatsAgg,      // 16
+        overdueReceivablesAgg,  // 17
+        overduePayablesAgg,     // 18
+        invoicesDueThisWeekCount // 19
     ] = await prisma.$transaction([
-        // 1. Sales Revenue MTD (Confirmed Orders)
+        // 0. Revenue MTD (GL: 4xxxx)
+        prisma.journalLine.aggregate({
+            where: {
+                account: { code: { startsWith: '4' } },
+                journalEntry: {
+                    status: 'POSTED',
+                    entryDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+                }
+            },
+            _sum: { credit: true, debit: true }
+        }),
+        // 1. Revenue Previous Month (GL: 4xxxx)
+        prisma.journalLine.aggregate({
+            where: {
+                account: { code: { startsWith: '4' } },
+                journalEntry: {
+                    status: 'POSTED',
+                    entryDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth }
+                }
+            },
+            _sum: { credit: true, debit: true }
+        }),
+        // 2. Spending MTD (GL: 5xxxx, 6xxxx)
+        prisma.journalLine.aggregate({
+            where: {
+                account: {
+                    OR: [
+                        { code: { startsWith: '5' } },
+                        { code: { startsWith: '6' } }
+                    ]
+                },
+                journalEntry: {
+                    status: 'POSTED',
+                    entryDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+                }
+            },
+            _sum: { credit: true, debit: true }
+        }),
+        // 3. Spending Previous Month (GL: 5xxxx, 6xxxx)
+        prisma.journalLine.aggregate({
+            where: {
+                account: {
+                    OR: [
+                        { code: { startsWith: '5' } },
+                        { code: { startsWith: '6' } }
+                    ]
+                },
+                journalEntry: {
+                    status: 'POSTED',
+                    entryDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth }
+                }
+            },
+            _sum: { credit: true, debit: true }
+        }),
+        // 4. Sales Orders MTD (for active count)
         prisma.salesOrder.findMany({
             where: {
                 orderDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
-                status: { not: SalesOrderStatus.CANCELLED },
-                orderType: SalesOrderType.MAKE_TO_ORDER
-            },
-            select: { totalAmount: true, status: true }
-        }),
-        // 2. Pending Sales Invoices (Count) - Model is "Invoice"
-        prisma.invoice.count({
-            where: { status: InvoiceStatus.UNPAID }
-        }),
-
-        // 3. Purchasing Spending MTD
-        prisma.purchaseOrder.findMany({
-            where: {
-                orderDate: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
-                status: { not: PurchaseOrderStatus.CANCELLED }
-            },
-            select: { totalAmount: true }
-        }),
-        // 4. Pending POs
-        prisma.purchaseOrder.count({
-            where: { status: { in: [PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.SENT] } }
-        }),
-
-        // 5. Active Production Jobs
-        prisma.productionOrder.count({
-            where: { status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] } }
-        }),
-        // 6. Production Completion Rate Source (Total this month)
-        prisma.productionOrder.findMany({
-            where: {
-                createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+                status: { notIn: [SalesOrderStatus.CANCELLED, SalesOrderStatus.DRAFT] }
             },
             select: { status: true }
         }),
-
-        // 7. Total Active Machines
-        prisma.machine.count({
-            where: { status: 'ACTIVE' }
+        // 5. Pending Sales Invoices
+        prisma.invoice.count({
+            where: { status: InvoiceStatus.UNPAID }
         }),
-        // 8. Running Machines (Orders IN_PROGRESS)
-        // Approximation: Count machines typically assigned to IN_PROGRESS orders
-        // A better way is counting distinct machineIds on IN_PROGRESS orders, but count() distinct is limited.
-        // We'll use groupBy or distinct count workaround if needed, but for now lets check active orders with machineId
+        // 6. Pending POs
+        prisma.purchaseOrder.count({
+            where: { status: { in: [PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.SENT] } }
+        }),
+        // 7. Active Production Jobs
+        prisma.productionOrder.count({
+            where: { status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] } }
+        }),
+        // 8. Production Orders this month (for completion rate)
         prisma.productionOrder.findMany({
-            where: {
-                status: ProductionStatus.IN_PROGRESS,
-                machineId: { not: null }
-            },
+            where: { createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
+            select: { status: true }
+        }),
+        // 9. Active Machines
+        prisma.machine.count({ where: { status: 'ACTIVE' } }),
+        // 10. Running Machines orders
+        prisma.productionOrder.findMany({
+            where: { status: ProductionStatus.IN_PROGRESS, machineId: { not: null } },
             select: { machineId: true },
             distinct: ['machineId']
         }),
-
-        // 9. Downtime Duration (Current Month)
+        // 11. Downtime (Current Month)
         prisma.machineDowntime.findMany({
-            where: {
-                startTime: { gte: startOfCurrentMonth },
-                // If checking overlap, logic is complex. Simplified: Starts in this month.
-            },
+            where: { startTime: { gte: startOfCurrentMonth } },
             select: { startTime: true, endTime: true }
         }),
-
-        // 10. Scrap Records (Ad-hoc)
+        // 12. Scrap Ad-hoc
         prisma.scrapRecord.aggregate({
-            where: {
-                recordedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
-            },
+            where: { recordedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
             _sum: { quantity: true }
         }),
-
-        // 11. Execution Scrap (Inline)
+        // 13. Execution Scrap
         prisma.productionExecution.aggregate({
-            where: {
-                endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
-            },
+            where: { endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
             _sum: { scrapQuantity: true }
         }),
-
-        // 12. Execution Output (For Yield)
+        // 14. Execution Output
         prisma.productionExecution.aggregate({
-            where: {
-                endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
-            },
+            where: { endTime: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
             _sum: { quantityProduced: true }
         }),
-
-        // 13. Material Issues (For Yield Input)
+        // 15. Material Issues
         prisma.materialIssue.aggregate({
-            where: {
-                issuedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
-            },
+            where: { issuedAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
             _sum: { quantity: true }
         }),
-
-        // 14. Inventory Stats
+        // 16. Inventory Stats
         prisma.productVariant.aggregate({
-            _sum: { price: true }, // Approximation of value using price, ideally uses cost * stock
+            _sum: { price: true },
             _count: { id: true }
         }),
-
-        // 15. Overdue Receivables (Sales Invoices)
+        // 17. Overdue Receivables
         prisma.invoice.aggregate({
-            where: {
-                status: 'OVERDUE' as InvoiceStatus
-            },
-            _sum: { totalAmount: true, paidAmount: true } // Need to subtract paidAmount
-        }),
-
-        // 16. Overdue Payables (Purchase Invoices)
-        prisma.purchaseInvoice.aggregate({
-            where: {
-                status: 'OVERDUE' as PurchaseInvoiceStatus // Using string literal or PurchaseInvoiceStatus enum if imported
-            },
+            where: { status: 'OVERDUE' as InvoiceStatus },
             _sum: { totalAmount: true, paidAmount: true }
         }),
-
-        // 17. Invoices Due This Week (Sales & Purchasing combined or just Sales?)
-        // Let's do Sales Invoices due in next 7 days
+        // 18. Overdue Payables
+        prisma.purchaseInvoice.aggregate({
+            where: { status: 'OVERDUE' as PurchaseInvoiceStatus },
+            _sum: { totalAmount: true, paidAmount: true }
+        }),
+        // 19. Invoices Due This Week
         prisma.invoice.count({
             where: {
-                dueDate: {
-                    gte: now,
-                    lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-                },
+                dueDate: { gte: now, lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
                 status: { not: InvoiceStatus.PAID }
             }
         })
     ]);
 
-    // --- Calculate Sales Metrics ---
-    // Note: totalAmount is Decimal, need to toNumber()
-    const mtdRevenue = salesOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
-    // SalesOrderStatus doesn't have COMPLETED, using DELIVERED as proxy for completed cycle
-    const activeSalesOrders = salesOrders.filter((o: { status: SalesOrderStatus }) => o.status !== SalesOrderStatus.DELIVERED && o.status !== SalesOrderStatus.CANCELLED).length;
-
-    // --- Calculate Purchasing Metrics ---
-    const mtdSpending = purchaseOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
-
-    // --- Calculate Production Metrics ---
-    const totalJobsMonth = completedProductionOrdersMonth.length;
-    const completedJobsMonth = completedProductionOrdersMonth.filter((o: { status: ProductionStatus }) => o.status === ProductionStatus.COMPLETED).length;
-    const completionRate = totalJobsMonth > 0 ? (completedJobsMonth / totalJobsMonth) * 100 : 0;
-
-    // Running Machines
-    const runningMachines = runningMachinesCount.length; // distinct machineIds
-
-    // Downtime Hours
-    const totalDowntimeMs = downtimeRecords.reduce((sum, record) => {
-        const start = record.startTime.getTime();
-        const end = record.endTime ? record.endTime.getTime() : now.getTime();
-        return sum + (end - start);
-    }, 0);
-    const downtimeHours = totalDowntimeMs / (1000 * 60 * 60);
-
-    // Scrap (kg)
-    const adhocScrap = scrapRecords._sum.quantity?.toNumber() || 0;
-    const inlineScrap = executionScrap._sum.scrapQuantity?.toNumber() || 0;
-    const totalScrapKg = adhocScrap + inlineScrap;
-
-    // Yield Rate
-    const totalOutput = executionOutput._sum.quantityProduced?.toNumber() || 0;
-    const totalInput = materialIssues._sum.quantity?.toNumber() || 0;
-    // Yield = Output / Input. Note: This is an approximation as Input might be for WIP not yet Output.
-    // For specific plastic batch yield, we usually compare Output vs Input per Order.
-    // Aggregate Level: Good enough for high level trend.
-    const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
-
-    // --- Calculate Inventory Metrics ---
-    // Accurate Inventory Value requires iterating all stock items * cost.
-    // For performance, we'll do a separate aggregate query or simplified estimation.
-    // Let's do a slightly better query for value: sum(quantity * cost)
-    // But since we can't easily do that in one prisma aggregate without raw query, let's fetch inventory items.
-    // Optimization: Fetch only quantity and cost fields.
-    const stockItems = await prisma.inventory.findMany({
-        select: { quantity: true, productVariant: { select: { price: true } } } // using price as proxy for value if cost missing
-    });
-
-    const totalInventoryValue = stockItems.reduce((sum: number, item: { quantity: unknown; productVariant: { price: unknown } }) => {
-        return sum + (Number(item.quantity) * Number(item.productVariant.price || 0));
-    }, 0);
-
-    // Low stock count (already implemented logic elsewhere, but let's re-count simply)
-    // Assuming low stock is < 10 for now, or need to fetch reorder points.
-    // Let's use the existing logic or simple count for speed.
-    // To match previous dashboard, we need reorderPoint from ProductVariant.
-    const lowStockCount = await prisma.inventory.count({
-        where: {
-            quantity: { lt: 10 } // Simplified threshold or fetch from variant
-        }
-    });
-
-
-    // --- Calculate Previous Month Metrics for Trends ---
-    const startOfPreviousMonth = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-    const endOfPreviousMonth = endOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-
-    const [
-        prevSalesOrders,
-        prevPurchaseOrders
-    ] = await prisma.$transaction([
-        prisma.salesOrder.findMany({
-            where: {
-                orderDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
-                status: { not: SalesOrderStatus.CANCELLED },
-                orderType: SalesOrderType.MAKE_TO_ORDER
-            },
-            select: { totalAmount: true }
-        }),
-        prisma.purchaseOrder.findMany({
-            where: {
-                orderDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
-                status: { not: PurchaseOrderStatus.CANCELLED }
-            },
-            select: { totalAmount: true }
-        })
-    ]);
-
-    // calculate totals
-    const prevRevenue = prevSalesOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
-    const prevSpending = prevPurchaseOrders.reduce((sum: number, order: { totalAmount: unknown }) => sum + Number(order.totalAmount || 0), 0);
-
-    // Calculate Trends
+    // --- Calculations ---
+    const mtdRevenue = (Number(revenueAggMTD._sum.credit) || 0) - (Number(revenueAggMTD._sum.debit) || 0);
+    const prevRevenue = (Number(revenueAggPrevMonth._sum.credit) || 0) - (Number(revenueAggPrevMonth._sum.debit) || 0);
     const revenueTrend = prevRevenue > 0 ? ((mtdRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+    const mtdSpending = (Number(spendingAggMTD._sum.debit) || 0) - (Number(spendingAggMTD._sum.credit) || 0);
+    const prevSpending = (Number(spendingAggPrevMonth._sum.debit) || 0) - (Number(spendingAggPrevMonth._sum.credit) || 0);
     const spendingTrend = prevSpending > 0 ? ((mtdSpending - prevSpending) / prevSpending) * 100 : 0;
 
-    // --- Calculate Cashflow Metrics ---
-    const overdueReceivables = (overdueReceivablesAgg._sum?.totalAmount?.toNumber() || 0) - (overdueReceivablesAgg._sum?.paidAmount?.toNumber() || 0);
-    const overduePayables = (overduePayablesAgg._sum?.totalAmount?.toNumber() || 0) - (overduePayablesAgg._sum?.paidAmount?.toNumber() || 0);
+    const activeOrders = salesOrdersMTD.filter(o => o.status !== SalesOrderStatus.DELIVERED).length;
+
+    const completedJobs = productionOrdersMonth.filter(o => o.status === ProductionStatus.COMPLETED).length;
+    const completionRate = productionOrdersMonth.length > 0 ? (completedJobs / productionOrdersMonth.length) * 100 : 0;
+
+    const runningMachines = runningMachinesOrders.length;
+    const totalDowntimeMs = downtimeRecords.reduce((sum, r) => sum + ((r.endTime?.getTime() || now.getTime()) - r.startTime.getTime()), 0);
+    const downtimeHours = totalDowntimeMs / (1000 * 60 * 60);
+
+    const totalScrapKg = (scrapRecordsAgg._sum.quantity?.toNumber() || 0) + (executionScrapAgg._sum.scrapQuantity?.toNumber() || 0);
+    const totalOutput = executionOutputAgg._sum.quantityProduced?.toNumber() || 0;
+    const totalInput = materialIssuesAgg._sum.quantity?.toNumber() || 0;
+    const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
+
+    // Inventory Value Estimation
+    const stockItems = await prisma.inventory.findMany({
+        select: { quantity: true, productVariant: { select: { price: true } } }
+    });
+    const totalInventoryValue = stockItems.reduce((s, i) => s + (Number(i.quantity) * Number(i.productVariant.price || 0)), 0);
+    const lowStockCount = await prisma.inventory.count({ where: { quantity: { lt: 10 } } });
+
+    const overdueReceivables = (overdueReceivablesAgg._sum.totalAmount?.toNumber() || 0) - (overdueReceivablesAgg._sum.paidAmount?.toNumber() || 0);
+    const overduePayables = (overduePayablesAgg._sum.totalAmount?.toNumber() || 0) - (overduePayablesAgg._sum.paidAmount?.toNumber() || 0);
 
     return {
-        sales: {
-            mtdRevenue,
-            activeOrders: activeSalesOrders,
-            pendingInvoices,
-            trend: revenueTrend // New field
-        },
-        purchasing: {
-            mtdSpending,
-            pendingPOs,
-            trend: spendingTrend // New field
-        },
+        sales: { mtdRevenue, activeOrders, pendingInvoices: pendingInvoicesCount, trend: revenueTrend },
+        purchasing: { mtdSpending, pendingPOs: pendingPOsCount, trend: spendingTrend },
         production: {
-            activeJobs: activeProductionOrders,
-            delayedJobs: 0, // Placeholder
+            activeJobs: activeProductionCount,
+            delayedJobs: 0,
             completionRate,
             yieldRate,
             totalScrapKg,
             downtimeHours,
             runningMachines,
             totalMachines: activeMachinesCount,
-            trend: 0 // Placeholder or calculate utilization trend if needed
+            trend: 0
         },
         inventory: {
             totalValue: totalInventoryValue,
             lowStockCount,
-            totalItems: inventoryStats._count.id || 0,
-            trend: 0 // Placeholder
+            totalItems: inventoryStatsAgg._count.id || 0,
+            trend: 0
         },
-        cashflow: {
-            overdueReceivables,
-            overduePayables,
-            invoicesDueThisWeek: invoicesDueThisWeekCount
-        }
+        cashflow: { overdueReceivables, overduePayables, invoicesDueThisWeek: invoicesDueThisWeekCount }
     };
 }

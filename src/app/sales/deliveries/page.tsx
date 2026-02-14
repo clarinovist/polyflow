@@ -4,8 +4,19 @@ import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { serializeData } from '@/lib/utils';
 import { Package } from 'lucide-react';
 
-export default async function SalesDeliveriesPage() {
-    const deliveryOrders = await getDeliveryOrders();
+import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+
+export default async function SalesDeliveriesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+    const params = await searchParams;
+    const now = new Date();
+    const defaultStart = startOfMonth(now);
+    const defaultEnd = endOfMonth(now);
+
+    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
+    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+
+    const deliveryOrders = await getDeliveryOrders({ startDate: checkStart, endDate: checkEnd });
     const serializedOrders = serializeData(deliveryOrders);
 
     return (
@@ -15,6 +26,7 @@ export default async function SalesDeliveriesPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Delivery Orders</h1>
                     <p className="text-muted-foreground">Manage outbound shipments and delivery status.</p>
                 </div>
+                <UrlTransactionDateFilter defaultPreset="this_month" />
             </div>
 
             <Card>
@@ -32,6 +44,6 @@ export default async function SalesDeliveriesPage() {
                     <DeliveryOrderTable initialData={serializedOrders as any} />
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 }
