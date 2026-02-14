@@ -4,15 +4,16 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { columns, JournalEntryWithDetails } from './JournalColumns';
 import { getJournalEntries, batchPostJournals } from '@/actions/finance/journal-actions';
 import { JournalStatus } from '@prisma/client';
+import { TransactionDateFilter } from '@/components/ui/transaction-date-filter';
+import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 // import { DataTable } from '@/components/ui/data-table'; 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
-import { id } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
+import { startOfDay, endOfDay } from 'date-fns';
+import { Loader2, Plus } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 
@@ -38,7 +39,10 @@ export function JournalListClient() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<JournalStatus | 'ALL'>('ALL');
-    const [date, setDate] = useState<Date>(new Date());
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: startOfDay(new Date()),
+        to: endOfDay(new Date())
+    });
     const [rowSelection, setRowSelection] = useState({});
     const [batchLoading, setBatchLoading] = useState(false);
 
@@ -51,8 +55,8 @@ export function JournalListClient() {
             const res = await getJournalEntries({
                 search: debouncedSearch,
                 status: status !== 'ALL' ? status as JournalStatus : undefined,
-                startDate: startOfDay(date),
-                endDate: endOfDay(date),
+                startDate: dateRange?.from ? startOfDay(dateRange.from) : undefined,
+                endDate: dateRange?.to ? endOfDay(dateRange.to) : undefined,
                 page: 1, // TODO: Pagination
                 limit: 100 // Increased for verification
             });
@@ -63,15 +67,13 @@ export function JournalListClient() {
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status, date]);
+    }, [debouncedSearch, status, dateRange]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    const handlePrevDay = () => setDate(prev => subDays(prev, 1));
-    const handleNextDay = () => setDate(prev => addDays(prev, 1));
-    const handleToday = () => setDate(new Date());
+
 
     const cols = useMemo(() => columns, []);
 
@@ -177,21 +179,13 @@ export function JournalListClient() {
                         </div>
 
                         {/* Date Navigation */}
-                        <div className="flex items-center gap-2 min-w-[320px] ml-auto">
-                            <div className="flex items-center border rounded-md bg-background">
-                                <Button variant="ghost" size="icon" onClick={handlePrevDay}>
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <div className="w-48 text-center font-medium text-sm">
-                                    {format(date, "EEEE, dd MMMM yyyy", { locale: id })}
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={handleNextDay}>
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <Button variant="outline" onClick={handleToday}>
-                                Hari Ini
-                            </Button>
+                        <div className="flex items-center gap-2 ml-auto">
+                            <TransactionDateFilter
+                                date={dateRange}
+                                onDateChange={setDateRange}
+                                defaultPreset="today"
+                                align="end"
+                            />
                         </div>
                     </div>
                 </CardContent>

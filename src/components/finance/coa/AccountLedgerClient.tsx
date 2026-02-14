@@ -5,12 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Download, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-
+import { TransactionDateFilter } from '@/components/ui/transaction-date-filter';
+import { DateRange } from 'react-day-picker';
 interface LedgerEntry {
     id: string;
     date: Date;
@@ -58,33 +56,29 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
     const defaultStartDate = startOfMonth(now);
     const defaultEndDate = endOfMonth(now);
 
-    const [startDate, setStartDate] = useState<Date | undefined>(
-        searchParams.get('startDate')
-            ? new Date(searchParams.get('startDate')!)
-            : defaultStartDate
-    );
-    const [endDate, setEndDate] = useState<Date | undefined>(
-        searchParams.get('endDate')
-            ? new Date(searchParams.get('endDate')!)
-            : defaultEndDate
-    );
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : defaultStartDate,
+        to: searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : defaultEndDate
+    });
 
-    const applyDateFilter = () => {
+    const applyDateFilter = (newRange: DateRange | undefined) => {
+        setDateRange(newRange);
+
+        // Immediate update on selection (or we can keep the Apply button, but TransactionDateFilter usually implies immediate effect or we can wrap it)
+        // The previous design had an "Apply Filter" button.
+        // Let's make it immediate for better UX as per the plan "onRangeChange calls router.push"
+
         const params = new URLSearchParams();
-        if (startDate) {
-            params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+        if (newRange?.from) {
+            params.set('startDate', format(newRange.from, 'yyyy-MM-dd'));
         }
-        if (endDate) {
-            params.set('endDate', format(endDate, 'yyyy-MM-dd'));
+        if (newRange?.to) {
+            params.set('endDate', format(newRange.to, 'yyyy-MM-dd'));
         }
         router.push(`/finance/coa/${account.id}?${params.toString()}`);
     };
 
-    const clearDateFilter = () => {
-        setStartDate(undefined);
-        setEndDate(undefined);
-        router.push(`/finance/coa/${account.id}`);
-    };
+
 
     const handleExport = () => {
         setIsExporting(true);
@@ -157,67 +151,12 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">From:</span>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-[200px] justify-start text-left font-normal",
-                                            !startDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {startDate ? format(startDate, 'dd MMM yyyy') : 'Pick a date'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={startDate}
-                                        onSelect={setStartDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">To:</span>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-[200px] justify-start text-left font-normal",
-                                            !endDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {endDate ? format(endDate, 'dd MMM yyyy') : 'Pick a date'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={endDate}
-                                        onSelect={setEndDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <Button onClick={applyDateFilter} disabled={!startDate && !endDate}>
-                            Apply Filter
-                        </Button>
-
-                        {(startDate || endDate) && (
-                            <Button variant="outline" onClick={clearDateFilter}>
-                                Clear
-                            </Button>
-                        )}
+                        <TransactionDateFilter
+                            date={dateRange}
+                            onDateChange={applyDateFilter}
+                            defaultPreset="this_month"
+                            className="w-[300px]"
+                        />
                     </div>
                 </CardContent>
             </Card>

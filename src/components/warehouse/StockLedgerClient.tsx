@@ -6,12 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, Calendar as CalendarIcon, FilterX } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TransactionDateFilter } from '@/components/ui/transaction-date-filter';
+import { DateRange } from 'react-day-picker';
 
 interface LedgerEntry {
     id: string;
@@ -67,28 +67,39 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
     const defaultStartDate = startOfMonth(now);
     const defaultEndDate = endOfMonth(now);
 
-    const [startDate, setStartDate] = useState<Date | undefined>(
-        searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : defaultStartDate
-    );
-    const [endDate, setEndDate] = useState<Date | undefined>(
-        searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : defaultEndDate
-    );
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : defaultStartDate,
+        to: searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : defaultEndDate
+    });
     const [locationId, setLocationId] = useState<string>(
         searchParams.get('locationId') || 'all'
     );
 
-    const applyFilters = () => {
+    const applyFilters = (newRange?: DateRange, newLocation?: string) => {
         const params = new URLSearchParams();
-        if (startDate) params.set('startDate', format(startDate, 'yyyy-MM-dd'));
-        if (endDate) params.set('endDate', format(endDate, 'yyyy-MM-dd'));
-        if (locationId && locationId !== 'all') params.set('locationId', locationId);
+        const r = newRange || dateRange;
+        const l = newLocation || locationId;
+
+        if (r?.from) params.set('startDate', format(r.from, 'yyyy-MM-dd'));
+        if (r?.to) params.set('endDate', format(r.to, 'yyyy-MM-dd'));
+        if (l && l !== 'all') params.set('locationId', l);
 
         router.push(`/warehouse/inventory/${product.id}?${params.toString()}`);
     };
 
+    // Handlers for immediate updates
+    const handleDateChange = (range: DateRange | undefined) => {
+        setDateRange(range);
+        applyFilters(range, undefined);
+    };
+
+    const handleLocationChange = (loc: string) => {
+        setLocationId(loc);
+        applyFilters(undefined, loc);
+    };
+
     const clearFilters = () => {
-        setStartDate(defaultStartDate);
-        setEndDate(defaultEndDate);
+        setDateRange({ from: defaultStartDate, to: defaultEndDate });
         setLocationId('all');
         router.push(`/warehouse/inventory/${product.id}`);
     };
@@ -147,7 +158,6 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
             <Card className="border-amber-100 bg-amber-50/10">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <FilterX className="h-4 w-4 text-amber-600" />
                         Ledger Filters
                     </CardTitle>
                 </CardHeader>
@@ -155,34 +165,17 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                     <div className="flex flex-wrap items-center gap-6">
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Period:</span>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {startDate ? format(startDate, 'dd MMM yyyy') : 'Start'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                            <span className="text-muted-foreground">-</span>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {endDate ? format(endDate, 'dd MMM yyyy') : 'End'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
-                                </PopoverContent>
-                            </Popover>
+                            <TransactionDateFilter
+                                date={dateRange}
+                                onDateChange={handleDateChange}
+                                defaultPreset="this_month"
+                                className="w-fit"
+                            />
                         </div>
 
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">Location:</span>
-                            <Select value={locationId} onValueChange={setLocationId}>
+                            <Select value={locationId} onValueChange={handleLocationChange}>
                                 <SelectTrigger className="w-[220px]">
                                     <SelectValue placeholder="All Locations" />
                                 </SelectTrigger>
@@ -196,7 +189,6 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <Button onClick={applyFilters}>Apply</Button>
                             <Button variant="ghost" onClick={clearFilters}>Reset</Button>
                         </div>
                     </div>
