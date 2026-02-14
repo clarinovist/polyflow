@@ -2,7 +2,7 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
-## [Unreleased]
+## [0.9.0] - 2026-02-14
 
 ### Added
 - **Standard Cost History** - `CostHistory` model tracking per-variant cost changes with trend charts
