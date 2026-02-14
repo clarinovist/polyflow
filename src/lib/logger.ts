@@ -45,7 +45,7 @@ function shouldLog(level: LogLevel): boolean {
 
 function formatEntry(entry: LogEntry): string {
     const prefix = `[${entry.timestamp}] [${entry.level.toUpperCase()}]`;
-    const module = entry.context?.module ? ` [${entry.context.module}]` : '';
+    const moduleTag = entry.context?.module ? ` [${entry.context.module}]` : '';
     const ctx = entry.context
         ? ` ${JSON.stringify(
             Object.fromEntries(
@@ -55,7 +55,7 @@ function formatEntry(entry: LogEntry): string {
         : '';
     const err = entry.error ? ` | ${entry.error.name}: ${entry.error.message}` : '';
 
-    return `${prefix}${module} ${entry.message}${ctx}${err}`;
+    return `${prefix}${moduleTag} ${entry.message}${ctx}${err}`;
 }
 
 function createEntry(
