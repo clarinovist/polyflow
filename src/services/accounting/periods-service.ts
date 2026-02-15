@@ -94,8 +94,8 @@ export async function generateClosingEntries(periodId: string, userId: string): 
 
     console.log(`Found ${balances.length} P&L accounts with activity in period ${period.id}`);
 
-    let totalRevenue = 0;
-    let totalExpense = 0;
+    let _totalRevenue = 0;
+    let _totalExpense = 0;
     const closingLines: { accountId: string; debit: number; credit: number; description: string }[] = [];
 
     // 2. Prepare Closing Lines
@@ -120,8 +120,8 @@ export async function generateClosingEntries(periodId: string, userId: string): 
                 credit: 0,
                 description: `Closing Entry for ${period.name}`
             });
-            if (isRevenue) totalRevenue += netCreditParams;
-            else totalExpense -= netCreditParams; // Expense having credit balance is unusual (contra expense)
+            if (isRevenue) _totalRevenue += netCreditParams;
+            else _totalExpense -= netCreditParams; // Expense having credit balance is unusual (contra expense)
         } else {
             // Account has Debit Balance (e.g. Expense) -> We Credit it to close
             const netDebit = Math.abs(netCreditParams);
@@ -131,8 +131,8 @@ export async function generateClosingEntries(periodId: string, userId: string): 
                 credit: netDebit,
                 description: `Closing Entry for ${period.name}`
             });
-            if (!isRevenue) totalExpense += netDebit;
-            else totalRevenue -= netDebit; // Revenue having debit balance (returns)
+            if (!isRevenue) _totalExpense += netDebit;
+            else _totalRevenue -= netDebit; // Revenue having debit balance (returns)
         }
     }
 
@@ -198,12 +198,12 @@ export async function generateClosingEntries(periodId: string, userId: string): 
 
         const journal = await tx.journalEntry.create({
             data: {
+                entryNumber: ref, // Use reference as entry number for closing
                 entryDate: period.endDate, // Last second of the month
                 reference: ref,
                 description: `Closing Entries for Fiscal Period ${period.name}`,
                 status: 'POSTED', // Auto-post
-                createdById: userId,
-                postedAt: new Date()
+                createdById: userId
             }
         });
 
