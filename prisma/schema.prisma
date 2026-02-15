@@ -36,6 +36,7 @@ model User {
   opnames                 StockOpname[]
   reportedIssues          ProductionIssue[]   @relation("IssueReporter")
   costHistory             CostHistory[]
+  apiKeys                 ApiKey[]
 }
 
 model Employee {
@@ -106,6 +107,18 @@ model Customer {
   updatedAt       DateTime         @updatedAt
   salesOrders     SalesOrder[]
   quotations      SalesQuotation[]
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  name        String
+  userId      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  user        User?     @relation(fields: [userId], references: [id])
 }
 
 model Location {
