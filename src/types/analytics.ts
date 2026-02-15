@@ -58,6 +58,11 @@ export interface QualityControlSummary {
     quantity: number;
     percentage: number; // % of total scrap
   }[];
+  scrapByProduct: {
+    productName: string;
+    quantity: number;
+    percentage: number;
+  }[];
 }
 
 // ============================================

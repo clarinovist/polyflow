@@ -18,7 +18,7 @@ export function OperatorLeaderboard({ data }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Top 3 Podium Cards - Only show if we have data */}
             {sortedData.length >= 1 && (
-                <Card className="lg:col-span-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+                <Card className="lg:col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-blue-800">
                             <Trophy className="h-5 w-5 text-yellow-500" />
@@ -96,7 +96,7 @@ export function OperatorLeaderboard({ data }: Props) {
             )}
 
             {/* Full List Table */}
-            <Card className="lg:col-span-3">
+            <Card className="lg:col-span-1">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-muted-foreground" />

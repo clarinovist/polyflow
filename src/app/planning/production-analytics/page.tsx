@@ -92,7 +92,9 @@ export default async function ProductionAnalyticsPage(props: { searchParams: Sea
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ScrapAnalysisChart data={data.quality} />
-                <OperatorLeaderboard data={data.operatorProductivity} />
+                <div className="col-span-1 md:col-span-2">
+                    <OperatorLeaderboard data={data.operatorProductivity} />
+                </div>
             </div>
         </div>
     );

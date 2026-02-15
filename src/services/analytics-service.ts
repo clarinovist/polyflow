@@ -246,6 +246,31 @@ export class AnalyticsService {
             percentage: totalScrap > 0 ? (quantity / totalScrap) * 100 : 0
         })).sort((a, b) => b.quantity - a.quantity);
 
+        // Aggregate Scrap by Product
+        const scrapByProductMap: Record<string, number> = {};
+        // We need to fetch product names for these, so let's get unique variant IDs first
+        const variantIds = [...new Set(scrapRecords.map(r => r.productVariantId))];
+        const variants = await prisma.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { id: true, name: true, product: { select: { name: true } } }
+        });
+        const variantNameMap = new Map(variants.map(v => [v.id, `${v.product.name} - ${v.name}`]));
+
+        scrapRecords.forEach(record => {
+            const variantId = record.productVariantId;
+            const name = variantNameMap.get(variantId) || 'Unknown Product';
+            const qty = Number(record.quantity);
+            scrapByProductMap[name] = (scrapByProductMap[name] || 0) + qty;
+        });
+
+        const scrapByProduct = Object.entries(scrapByProductMap).map(([productName, quantity]) => ({
+            productName,
+            quantity,
+            percentage: totalScrap > 0 ? (quantity / totalScrap) * 100 : 0
+        }))
+            .sort((a, b) => b.quantity - a.quantity)
+            .slice(0, 5); // Start with top 5
+
         // 3. Fetch Quality Inspections
         const inspections = await prisma.qualityInspection.findMany({
             where: {
@@ -267,7 +292,8 @@ export class AnalyticsService {
 
         const quality: QualityControlSummary = {
             inspections: { ...inspectionStats, passRate },
-            scrapByReason
+            scrapByReason,
+            scrapByProduct
         };
 
         // 4. Fetch Machine Performance & Operator Productivity via Executions
