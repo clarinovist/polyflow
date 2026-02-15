@@ -65,6 +65,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
             cd /root/polyflow
             git fetch origin main
             git reset --hard origin/main
