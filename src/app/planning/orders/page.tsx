@@ -10,22 +10,21 @@ import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ProductType } from '@prisma/client';
 
 export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
     const { category } = await searchParams;
 
-    let productTypes: ProductType[] | undefined;
+    let bomCategories: string[] | undefined;
 
     if (category === 'mixing') {
-        productTypes = ['INTERMEDIATE'];
+        bomCategories = ['MIXING'];
     } else if (category === 'extrusion') {
-        productTypes = ['WIP', 'FINISHED_GOOD'];
+        bomCategories = ['EXTRUSION'];
     } else if (category === 'packing') {
-        productTypes = ['PACKAGING'];
+        bomCategories = ['PACKING'];
     }
 
-    const orders = await getProductionOrders({ productTypes });
+    const orders = await getProductionOrders({ bomCategories });
     const stats = await getProductionOrderStats();
 
     return (

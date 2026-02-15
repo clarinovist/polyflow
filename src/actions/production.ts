@@ -80,7 +80,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 /**
  * Get Production Orders with filters and pagination
  */
-export async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[] }) {
+export async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: string[] }) {
     const where: Prisma.ProductionOrderWhereInput = {};
 
     if (filters?.status) {
@@ -91,12 +91,22 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
     }
     if (filters?.productTypes && filters.productTypes.length > 0) {
         where.bom = {
+            ...(where.bom || {}),
             productVariant: {
                 product: {
                     productType: {
                         in: filters.productTypes
                     }
                 }
+            }
+        };
+    }
+
+    if (filters?.bomCategories && filters.bomCategories.length > 0) {
+        where.bom = {
+            ...(where.bom || {}),
+            category: {
+                in: filters.bomCategories
             }
         };
     }
