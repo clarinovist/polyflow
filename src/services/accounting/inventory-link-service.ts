@@ -83,11 +83,44 @@ export async function recordInventoryMovement(
     const lines = [];
 
     if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
-        const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        lines.push(
-            { accountId: (await getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
-            { accountId: (await getAccountId('21120')), debit: 0, credit: totalAmount, description: `Accrued Payable: ${productVariant.name}` }
-        );
+        // Check if a Purchase Invoice (BILL) already journaled this purchase directly
+        // If BILL came first (no GR at that time), it debited inventory directly.
+        // In that case, skip the GR accrual journal to avoid double-counting.
+        let billAlreadyExists = false;
+        if (movement.goodsReceiptId) {
+            const gr = await db.goodsReceipt.findUnique({
+                where: { id: movement.goodsReceiptId },
+                select: { purchaseOrderId: true }
+            });
+            if (gr?.purchaseOrderId) {
+                const existingBill = await db.purchaseInvoice.findFirst({
+                    where: { purchaseOrderId: gr.purchaseOrderId }
+                });
+                if (existingBill) {
+                    // Check if the BILL's journal debited inventory directly (no GR at the time)
+                    const billJournal = await db.journalEntry.findFirst({
+                        where: { referenceId: existingBill.id, status: 'POSTED' },
+                        include: { lines: true }
+                    });
+                    const acc11310 = await db.account.findUnique({ where: { code: '11310' } });
+                    if (billJournal && acc11310) {
+                        const directDebit = billJournal.lines.some(
+                            l => l.accountId === acc11310.id && Number(l.debit) > 0
+                        );
+                        if (directDebit) billAlreadyExists = true;
+                    }
+                }
+            }
+        }
+
+        if (!billAlreadyExists) {
+            const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
+            lines.push(
+                { accountId: (await getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
+                { accountId: (await getAccountId('21120')), debit: 0, credit: totalAmount, description: `Accrued Payable: ${productVariant.name}` }
+            );
+        }
+        // If billAlreadyExists, skip journal — inventory was already recognized when BILL was created
     }
 
     else if (movement.type === 'OUT' && movement.salesOrderId) {
