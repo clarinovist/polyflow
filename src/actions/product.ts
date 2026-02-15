@@ -573,27 +573,25 @@ export async function getNextSKU(productType: ProductType, productName: string, 
 
     const skuPrefix = `${prefix}${category}`;
 
-    // Find all existing SKUs with this prefix in DB
-    const existingVariants = await prisma.productVariant.findMany({
-        where: {
-            skuCode: {
-                startsWith: skuPrefix,
-            },
-        },
-        select: {
-            skuCode: true,
-        },
-        orderBy: {
-            skuCode: 'desc',
-        },
-    });
+    // Find the latest SKU with this prefix in DB efficiently
+    // We use a raw query to correctly handle numeric sequences of varying lengths (e.g., FGAPP999 vs FGAPP1000)
+    // which lexicographical sorting alone cannot handle correctly.
+    const dbResult = await prisma.$queryRaw<Array<{ skuCode: string }>>`
+        SELECT "skuCode"
+        FROM "ProductVariant"
+        WHERE "skuCode" LIKE ${skuPrefix + '%'}
+        ORDER BY LENGTH("skuCode") DESC, "skuCode" DESC
+        LIMIT 1
+    `;
+
+    const latestVariant = dbResult[0];
 
     // Collect all sequence numbers from DB and current form
     const sequences = new Set<number>();
 
-    // From DB
-    for (const variant of existingVariants) {
-        const seqPart = variant.skuCode.substring(5);
+    // From DB (only need to check the latest one)
+    if (latestVariant) {
+        const seqPart = latestVariant.skuCode.substring(5);
         const seq = parseInt(seqPart, 10);
         if (!isNaN(seq)) {
             sequences.add(seq);
