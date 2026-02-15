@@ -11,7 +11,7 @@ import {
 } from './accounting/journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './accounting/coa-service';
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance } from './accounting/reports-service';
-import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen } from './accounting/periods-service';
+import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './accounting/periods-service';
 import { recordInventoryMovement } from './accounting/inventory-link-service';
 
 export type { CreateJournalEntryInput } from './accounting/types';
@@ -133,5 +133,12 @@ export class AccountingService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async recordInventoryMovement(movement: any, tx?: any) {
         return recordInventoryMovement(movement, tx);
+    }
+
+    /**
+     * Generate Closing Entries for a Period
+     */
+    static async generateClosingEntries(periodId: string, userId: string): Promise<void> {
+        return generateClosingEntries(periodId, userId);
     }
 }

@@ -11,7 +11,7 @@ import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/
 import { addProductionOutput } from '@/actions/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
-interface FormData {
+interface OutputFormData {
     locations: Location[];
     operators: Employee[];
     helpers: Employee[];
@@ -20,9 +20,10 @@ interface FormData {
     rawMaterials: ProductVariant[];
 }
 
-export function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, formData: FormData }) {
+export function AddOutputDialog({ order, formData }: { order: ExtendedProductionOrder, formData: OutputFormData }) {
     const [open, setOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showScrapWarning, setShowScrapWarning] = useState(false);
     const [rolls, setRolls] = useState<number[]>([]);
     const [currentRollWeight, setCurrentRollWeight] = useState("");
 
@@ -94,11 +95,8 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
     const totalGoodQty = rolls.reduce((sum, w) => sum + w, 0);
 
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        if (isSubmitting) return;
+    async function doSubmit(fd: FormData) {
         setIsSubmitting(true);
-        const fd = new FormData(e.currentTarget);
 
         let finalNotes = notes || "";
 
@@ -143,9 +141,27 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
             setNotes("");
             setCurrentRollWeight("");
             setSelectedHelpers([]);
+            setShowScrapWarning(false);
         } else {
             toast.error(result.error);
         }
+    }
+
+    function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        if (isSubmitting) return;
+        const fd = new FormData(e.currentTarget);
+
+        const prongkolNum = Number(scrapProngkol || 0);
+        const daunNum = Number(scrapDaun || 0);
+
+        // Soft warning if both scrap fields are 0
+        if (prongkolNum === 0 && daunNum === 0 && !showScrapWarning) {
+            setShowScrapWarning(true);
+            return;
+        }
+
+        doSubmit(fd);
     }
 
     return (
@@ -342,6 +358,42 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Scrap Warning Banner */}
+                                    {showScrapWarning && (
+                                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3 mt-4">
+                                            <div className="flex items-start gap-3">
+                                                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <p className="font-semibold text-amber-800">Scrap quantity is 0</p>
+                                                    <p className="text-sm text-amber-700 mt-1">
+                                                        Apakah Anda yakin tidak ada affal/scrap dari batch ini?
+                                                        Jika ada, silakan isi jumlah scrap terlebih dahulu.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                                                    onClick={() => setShowScrapWarning(false)}
+                                                >
+                                                    Isi Scrap
+                                                </Button>
+                                                <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    {isSubmitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                                                    Ya, Tidak Ada Scrap
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </BrandCardContent>
                             </BrandCard>
 

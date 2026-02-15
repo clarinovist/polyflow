@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { logRunningOutput } from "@/actions/production";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface KioskLogOutputDialogProps {
@@ -29,16 +29,10 @@ export function KioskLogOutputDialog({
     const [scrap, setScrap] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showScrapWarning, setShowScrapWarning] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
+    const submitOutput = async () => {
         const qtyNum = parseFloat(quantity);
-        if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
-            toast.error("Please enter a valid quantity produced");
-            return;
-        }
-
         setIsLoading(true);
         try {
             const result = await logRunningOutput({
@@ -53,6 +47,7 @@ export function KioskLogOutputDialog({
                 setQuantity('');
                 setScrap('');
                 setNotes('');
+                setShowScrapWarning(false);
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
             } else {
@@ -66,8 +61,35 @@ export function KioskLogOutputDialog({
         }
     };
 
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        const qtyNum = parseFloat(quantity);
+        if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
+            toast.error("Please enter a valid quantity produced");
+            return;
+        }
+
+        const scrapNum = parseFloat(scrap) || 0;
+
+        // Soft warning if scrap is 0
+        if (scrapNum === 0 && !showScrapWarning) {
+            setShowScrapWarning(true);
+            return;
+        }
+
+        await submitOutput();
+    };
+
+    const handleOpenChange = (open: boolean) => {
+        if (!open) {
+            setShowScrapWarning(false);
+        }
+        onOpenChange(open);
+    };
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="text-xl">Log Output: {productName}</DialogTitle>
@@ -98,12 +120,60 @@ export function KioskLogOutputDialog({
                                 type="number"
                                 step="0.01"
                                 placeholder="0.00"
-                                className="h-16 text-2xl font-bold bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500"
+                                className={`h-16 text-2xl font-bold ${showScrapWarning
+                                    ? 'bg-red-500/10 border-red-500/50 ring-2 ring-red-400 focus:border-red-500 focus:ring-red-500'
+                                    : 'bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500'
+                                    }`}
                                 value={scrap}
-                                onChange={(e) => setScrap(e.target.value)}
+                                onChange={(e) => {
+                                    setScrap(e.target.value);
+                                    if (showScrapWarning) setShowScrapWarning(false);
+                                }}
                             />
                         </div>
                     </div>
+
+                    {/* Scrap Warning Banner */}
+                    {showScrapWarning && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="font-semibold text-amber-800">Scrap quantity is 0</p>
+                                    <p className="text-sm text-amber-700 mt-1">
+                                        Apakah Anda yakin tidak ada affal/scrap dari batch ini?
+                                        Jika ada, silakan isi jumlah scrap terlebih dahulu.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                                    onClick={() => {
+                                        setShowScrapWarning(false);
+                                        // Focus on scrap input
+                                        document.getElementById('log-scrap')?.focus();
+                                    }}
+                                >
+                                    Isi Scrap
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    className="bg-amber-600 hover:bg-amber-700"
+                                    onClick={() => submitOutput()}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                                    Ya, Tidak Ada Scrap
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="log-notes">Notes (Optional)</Label>
@@ -117,7 +187,7 @@ export function KioskLogOutputDialog({
                     </div>
 
                     <DialogFooter className="gap-4 sm:gap-4">
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-12 text-lg">
+                        <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} className="h-12 text-lg">
                             Cancel
                         </Button>
                         <Button
