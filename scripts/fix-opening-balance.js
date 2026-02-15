@@ -12,7 +12,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const REFERENCE = 'OB-CORRECTION';
-const ENTRY_DATE = new Date('2026-01-31T12:00:00.000Z'); // 19:00 WIB — safely within Jan 31 for Jakarta timezone
+const ENTRY_DATE = new Date('2026-01-30T00:00:00.000Z'); // Same date as other OB entries — timezone-safe
 
 async function main() {
     console.log('=== Fix Opening Balance — Neraca Jan 2026 ===\n');
