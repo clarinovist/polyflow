@@ -60,7 +60,10 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
                 where: {
                     journalEntry: {
                         entryDate: { gte: startDate, lte: endDate },
-                        status: 'POSTED'
+                        status: 'POSTED',
+                        NOT: {
+                            reference: { startsWith: 'CLOSING-' }
+                        }
                     }
                 }
             }
@@ -184,7 +187,9 @@ export async function getBalanceSheet(asOfDate: Date) {
     const totalLiability = liabilities.reduce((sum, a) => sum + a.netBalance, 0);
     const totalEquity = equity.reduce((sum, a) => sum + a.netBalance, 0);
 
-    const calculatedNetIncome = totalAsset - (totalLiability + totalEquity);
+    // Unposted earnings = income that hasn't been closed to 33000 yet
+    // This is the gap between Assets and (Liabilities + Equity including 33000)
+    const unpostedEarnings = totalAsset - (totalLiability + totalEquity);
 
     return {
         assets,
@@ -193,8 +198,8 @@ export async function getBalanceSheet(asOfDate: Date) {
         totalAssets: totalAsset,
         totalLiabilities: totalLiability,
         totalEquity,
-        calculatedNetIncome,
-        totalLiabilitiesAndEquity: totalLiability + totalEquity + calculatedNetIncome
+        unpostedEarnings,
+        totalLiabilitiesAndEquity: totalLiability + totalEquity + unpostedEarnings
     };
 }
 
@@ -239,7 +244,10 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
                 where: {
                     journalEntry: {
                         entryDate: { gte: startDate, lte: endDate },
-                        status: 'POSTED'
+                        status: 'POSTED',
+                        NOT: {
+                            reference: { startsWith: 'CLOSING-' }
+                        }
                     }
                 }
             }

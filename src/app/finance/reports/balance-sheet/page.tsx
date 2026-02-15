@@ -29,7 +29,7 @@ interface BalanceSheetData {
     equity: BalanceSheetItem[];
     totalAssets: number;
     totalLiabilities: number;
-    calculatedNetIncome: number;
+    unpostedEarnings: number;
     totalEquity: number;
     totalLiabilitiesAndEquity: number;
 }
@@ -186,16 +186,18 @@ export default function BalanceSheetPage() {
                                                 </TableRow>
                                             ))}
 
-                                        {/* Calculated Net Income */}
-                                        <TableRow>
-                                            <TableCell className="pl-8 italic">Current Earnings (Calculated)</TableCell>
-                                            <TableCell className="font-mono text-xs">33000</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.calculatedNetIncome)}</TableCell>
-                                        </TableRow>
+                                        {/* Unposted Current Earnings (P&L not yet closed) */}
+                                        {Math.abs(data.unpostedEarnings) > 0.01 && (
+                                            <TableRow>
+                                                <TableCell className="pl-8 italic text-muted-foreground">Laba Periode Berjalan (Belum Diclose)</TableCell>
+                                                <TableCell className="font-mono text-xs text-muted-foreground">—</TableCell>
+                                                <TableCell className="text-right text-muted-foreground">{formatRupiah(data.unpostedEarnings)}</TableCell>
+                                            </TableRow>
+                                        )}
 
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL EQUITY</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.totalEquity + data.calculatedNetIncome)}</TableCell>
+                                            <TableCell className="text-right">{formatRupiah(data.totalEquity + data.unpostedEarnings)}</TableCell>
                                         </TableRow>
 
                                         <TableRow className="bg-primary/10 font-bold text-lg border-t-4 border-primary">

@@ -123,6 +123,19 @@ export async function closeFiscalPeriod(id: string) {
     }
 }
 
+export async function createYearEndClosingEntry(year: number) {
+    const session = await requireAuth();
+    try {
+        await AccountingService.createYearEndClosingEntry(year, session.user.id);
+        revalidatePath('/finance/journals');
+        revalidatePath('/finance/coa');
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 
 export async function getFixedAssets() {

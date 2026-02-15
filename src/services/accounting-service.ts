@@ -7,7 +7,8 @@ import {
     reverseJournal,
     createBulkJournalEntries,
     getJournals,
-    getJournalById
+    getJournalById,
+    createYearEndClosingEntry
 } from './accounting/journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './accounting/coa-service';
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance } from './accounting/reports-service';
@@ -140,5 +141,12 @@ export class AccountingService {
      */
     static async generateClosingEntries(periodId: string, userId: string): Promise<void> {
         return generateClosingEntries(periodId, userId);
+    }
+
+    /**
+     * Create Year-End Closing Entry
+     */
+    static async createYearEndClosingEntry(year: number, userId: string): Promise<void> {
+        await createYearEndClosingEntry(year, userId);
     }
 }
