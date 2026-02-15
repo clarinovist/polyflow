@@ -27,7 +27,7 @@ import {
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
 import { serializeData } from '@/lib/utils';
-import { ProductionStatus, Prisma, ProductType } from '@prisma/client';
+import { ProductionStatus, Prisma, ProductType, BomCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production-service';
 import { MrpService } from '@/services/mrp-service';
@@ -80,7 +80,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
 /**
  * Get Production Orders with filters and pagination
  */
-export async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: string[] }) {
+export async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: BomCategory[] }) {
     const where: Prisma.ProductionOrderWhereInput = {};
     const bomWhere: Prisma.BomWhereInput = {};
 

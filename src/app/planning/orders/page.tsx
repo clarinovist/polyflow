@@ -10,11 +10,12 @@ import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BomCategory } from '@prisma/client';
 
 export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
     const { category } = await searchParams;
 
-    let bomCategories: string[] | undefined;
+    let bomCategories: BomCategory[] | undefined;
 
     if (category === 'mixing') {
         bomCategories = ['MIXING'];
