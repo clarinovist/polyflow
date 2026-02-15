@@ -19,7 +19,7 @@ async function main() {
 
     // 1. Resolve all accounts by code
     const codes = [
-        '11300', '12310', '12400', '12500',   // Persediaan
+        '11310', '12310', '12400', '12500',   // Persediaan (11310 = Raw Materials)
         '21110', '21111',                       // Hutang reklasifikasi
         '31111', '31112', '32000', '30000'     // Modal koreksi
     ];
@@ -42,7 +42,7 @@ async function main() {
     // 2. Define correction lines (debit positive, credit negative)
     const lines = [
         // ASET — tambah persediaan yang belum ada
-        { code: '11300', debit: 121633987, credit: 0, note: 'Persediaan BB' },
+        { code: '11310', debit: 121633987, credit: 0, note: 'Persediaan BB (Raw Materials)' },
         { code: '12310', debit: 12107900, credit: 0, note: 'Persediaan BB Affal (Regrind)' },
         { code: '12400', debit: 9573115, credit: 0, note: 'Persediaan BSJ (WIP)' },
         { code: '12500', debit: 96018016, credit: 0, note: 'Persediaan BJ (Barang Jadi)' },

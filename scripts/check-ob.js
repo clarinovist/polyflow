@@ -38,7 +38,7 @@ async function check() {
 
     // Also get current balances for all neraca accounts as of Jan 31
     console.log('\n\n=== SALDO AKUN PER 31 JAN 2026 ===');
-    const codes = ['11100', '11130', '11200', '11211', '11212', '11300', '12100', '12310', '12400', '12500', '21110', '21111', '21112', '30000', '31000', '31110', '31111', '31112', '32000', '33000'];
+    const codes = ['11100', '11130', '11200', '11211', '11212', '11300', '11310', '12100', '12310', '12400', '12500', '21110', '21111', '21112', '30000', '31000', '31110', '31111', '31112', '32000', '33000'];
     const accounts = await prisma.account.findMany({
         where: { code: { in: codes } },
         include: {
