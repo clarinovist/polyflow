@@ -2,11 +2,13 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
 
 const DEFAULT_JOB_ROLES = ['OPERATOR', 'HELPER', 'PACKER', 'MANAGER'];
 
 export async function getJobRoles() {
     try {
+        await requireAuth();
         let roles = await prisma.jobRole.findMany({
             orderBy: { name: 'asc' },
         });
@@ -28,6 +30,7 @@ export async function getJobRoles() {
 
 export async function createJobRole(name: string) {
     try {
+        await requireAuth();
         const role = await prisma.jobRole.create({
             data: { name },
         });
