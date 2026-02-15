@@ -20,9 +20,9 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
     if (category === 'mixing') {
         productTypes = ['INTERMEDIATE'];
     } else if (category === 'extrusion') {
-        productTypes = ['WIP'];
+        productTypes = ['WIP', 'FINISHED_GOOD'];
     } else if (category === 'packing') {
-        productTypes = ['FINISHED_GOOD'];
+        productTypes = ['PACKAGING'];
     }
 
     const orders = await getProductionOrders({ productTypes });
