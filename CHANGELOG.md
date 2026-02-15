@@ -2,6 +2,23 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.1.0](https://github.com/clarinovist/polyflow/compare/v1.0.0...v1.1.0) (2026-02-15)
+
+
+### Features
+
+* enhance production analytics with top scrap products and improved leaderboard layout ([124efff](https://github.com/clarinovist/polyflow/commit/124efff3b5ad1f54c29b3d59285aa44b11df2561))
+* implement closing period journal entries and scrap warning in production ([04a1d41](https://github.com/clarinovist/polyflow/commit/04a1d410a008d069643794d5ab85d38884f3edef))
+
+
+### Bug Fixes
+
+* correct packaging product GL accounts, add debug/fix scripts ([b7fc023](https://github.com/clarinovist/polyflow/commit/b7fc0234b05a20c621ece8df4f8a911494ae0760))
+* correct production order filtering for packing and extrusion tabs ([0e61ff1](https://github.com/clarinovist/polyflow/commit/0e61ff12d16c5326c5b10d7eb843272ae190d53f))
+* **docker:** add compat-openssl11 for prisma on alpine ([f203e4c](https://github.com/clarinovist/polyflow/commit/f203e4c9fe6712550bec616216367569f243bfe7))
+* **docker:** remove compat-openssl11, use native openssl3 with prisma binary target, fix ENV format warnings ([a63c608](https://github.com/clarinovist/polyflow/commit/a63c608404403f11d72925a34a4e4fc031bdd500))
+* resolve negative packaging balance, fix closing period build error, add debug scripts ([b3b103d](https://github.com/clarinovist/polyflow/commit/b3b103d3a70e24a1211a8480dce24c2d224f9d60))
+
 ## [1.0.0] - 2026-02-15
 
 ### Added
