@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const REFERENCE = 'OB-OPNAME-ADJ';
-const ENTRY_DATE = new Date('2026-02-02T00:00:00.000Z'); // Same date as stock opname
+const ENTRY_DATE = new Date('2026-02-01T00:00:00.000Z'); // Feb 1 — before stock opname
 const CORRECTION_AMOUNT = 121633987; // OB-CORRECTION amount for 11310
 
 async function main() {
