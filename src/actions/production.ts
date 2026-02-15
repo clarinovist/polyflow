@@ -82,6 +82,7 @@ export async function createProductionOrder(data: CreateProductionOrderValues) {
  */
 export async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: string[] }) {
     const where: Prisma.ProductionOrderWhereInput = {};
+    const bomWhere: Prisma.BomWhereInput = {};
 
     if (filters?.status) {
         where.status = filters.status;
@@ -90,25 +91,23 @@ export async function getProductionOrders(filters?: { status?: ProductionStatus,
         where.machineId = filters.machineId;
     }
     if (filters?.productTypes && filters.productTypes.length > 0) {
-        where.bom = {
-            ...(where.bom || {}),
-            productVariant: {
-                product: {
-                    productType: {
-                        in: filters.productTypes
-                    }
+        bomWhere.productVariant = {
+            product: {
+                productType: {
+                    in: filters.productTypes
                 }
             }
         };
     }
 
     if (filters?.bomCategories && filters.bomCategories.length > 0) {
-        where.bom = {
-            ...(where.bom || {}),
-            category: {
-                in: filters.bomCategories
-            }
+        bomWhere.category = {
+            in: filters.bomCategories
         };
+    }
+
+    if (Object.keys(bomWhere).length > 0) {
+        where.bom = { is: bomWhere };
     }
 
     const orders = await prisma.productionOrder.findMany({
