@@ -11,6 +11,9 @@ vi.mock('@/lib/prisma', () => ({
         journalEntry: {
             create: vi.fn(),
         },
+        account: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         $transaction: vi.fn((callback) => callback(prisma)),
         systemSequence: {
             update: vi.fn(),
