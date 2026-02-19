@@ -347,12 +347,24 @@ export class ProductionExecutionService {
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                         await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+
+                        // Fetch unit cost from source inventory averageCost for accurate COGM
+                        const srcInv = await tx.inventory.findUnique({
+                            where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
+                            select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
+                        });
+                        const srcUnitCost =
+                            Number(srcInv?.averageCost ?? 0) ||
+                            Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                            Number(srcInv?.productVariant?.buyPrice ?? 0);
+
                         const moveOut = await tx.stockMovement.create({
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
                                 fromLocationId: consumptionLocationId,
                                 quantity: qtyToDeduct,
+                                cost: srcUnitCost > 0 ? srcUnitCost : undefined,
                                 reference: `Backflush (Batch): WO#${order.orderNumber}`,
                                 productionOrderId: productionOrderId
                             }
@@ -422,10 +434,6 @@ export class ProductionExecutionService {
                 }
             }
         });
-
-        // if (executionId && quantityProduced > 0) {
-        //     await AutoJournalService.handleProductionOutput(executionId);
-        // }
     }
 
     /**

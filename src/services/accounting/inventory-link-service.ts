@@ -134,7 +134,7 @@ export async function recordInventoryMovement(
 
     else if (movement.type === 'OUT' && !movement.salesOrderId) {
         const creditAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        const wipAccount = productVariant.product.wipAccountId || '12400';
+        const wipAccount = productVariant.product.wipAccountId || '11320';
         lines.push(
             { accountId: (await getAccountId(wipAccount)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
             { accountId: (await getAccountId(creditAccount)), debit: 0, credit: totalAmount, description: `Material Consumed` }
@@ -143,7 +143,7 @@ export async function recordInventoryMovement(
 
     else if (movement.type === 'IN' && !movement.goodsReceiptId) {
         const debitAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        const wipAccount = productVariant.product.wipAccountId || '12400';
+        const wipAccount = productVariant.product.wipAccountId || '11320';
         lines.push(
             { accountId: (await getAccountId(debitAccount)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
             { accountId: (await getAccountId(wipAccount)), debit: 0, credit: totalAmount, description: `WIP Relief` }
