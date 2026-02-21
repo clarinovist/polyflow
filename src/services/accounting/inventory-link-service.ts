@@ -154,7 +154,8 @@ export async function recordInventoryMovement(
         const invAccount = getInventoryAccount(productType);
         const absAmt = Math.abs(totalAmount);
 
-        if (Number(movement.quantity) > 0) {
+        // If toLocationId is present, stock went IN (Gain). If it's null, stock went OUT (Loss).
+        if (movement.toLocationId !== null) {
             lines.push(
                 { accountId: (await getAccountId(invAccount)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
                 { accountId: (await getAccountId('81100')), debit: 0, credit: absAmt, description: `Adj Gain` }

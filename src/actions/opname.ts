@@ -136,6 +136,7 @@ export async function saveOpnameCount(
 
 import { logActivity } from '@/lib/audit';
 import { auth } from '@/auth';
+import { AccountingService } from '@/services/accounting-service';
 
 export async function completeOpname(opnameId: string) {
     try {
@@ -176,7 +177,7 @@ export async function completeOpname(opnameId: string) {
                     });
 
                     // 3. Create Movement
-                    await tx.stockMovement.create({
+                    const movement = await tx.stockMovement.create({
                         data: {
                             type: MovementType.ADJUSTMENT,
                             productVariantId: item.productVariantId,
@@ -186,6 +187,9 @@ export async function completeOpname(opnameId: string) {
                             reference: opname.opnameNumber || `Stock Opname #${opname.id.slice(0, 8)}`,
                         }
                     });
+
+                    // 4. Record Journal Entry
+                    await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
                 }
             }
 

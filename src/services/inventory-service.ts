@@ -156,6 +156,7 @@ export class InventoryService {
                 locationId: true,
                 productVariantId: true,
                 quantity: true,
+                averageCost: true,
                 updatedAt: true,
                 productVariant: {
                     select: {

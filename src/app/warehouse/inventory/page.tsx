@@ -153,8 +153,8 @@ export default async function WarehouseInventoryPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const liveTotalValue = (displayInventory as any[]).reduce((acc, item) => {
         const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-        const price = item.productVariant.price ? (typeof item.productVariant.price === 'number' ? item.productVariant.price : item.productVariant.price.toNumber()) : 0;
-        return acc + (qty * price);
+        const cost = item.averageCost ? (typeof item.averageCost === 'number' ? item.averageCost : item.averageCost.toNumber()) : 0;
+        return acc + (qty * cost);
     }, 0);
 
     const serializedInventory = serializeData(displayInventory) as InventoryItem[];
