@@ -370,7 +370,7 @@ model StockOpnameItem {
   systemQuantity   Decimal        @db.Decimal(15, 4)
   countedQuantity  Decimal?       @db.Decimal(15, 4)
   notes            String?
-  opname           StockOpname    @relation(fields: [opnameId], references: [id])
+  opname           StockOpname    @relation(fields: [opnameId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 
   @@unique([opnameId, productVariantId])
