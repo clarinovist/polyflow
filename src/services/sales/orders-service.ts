@@ -217,25 +217,18 @@ export async function confirmOrder(id: string, userId: string) {
         await checkCreditLimit(order.customerId, Number(order.totalAmount || 0));
     }
 
-    const nextStatus = order.orderType === SalesOrderType.MAKE_TO_ORDER
+    let nextStatus = order.orderType === SalesOrderType.MAKE_TO_ORDER
         ? SalesOrderStatus.IN_PRODUCTION
         : SalesOrderStatus.CONFIRMED;
 
-    if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
-        for (const item of order.items) {
-            const bom = await prisma.bom.findFirst({
-                where: { productVariantId: item.productVariantId, isDefault: true }
-            });
-            if (!bom) {
-                const variant = await prisma.productVariant.findUnique({ where: { id: item.productVariantId }, select: { name: true } });
-                throw new Error(`Cannot confirm MTO order: Default BOM not found for product "${variant?.name || 'Unknown'}". Please create a BOM first.`);
-            }
-        }
-    }
+    const shortages: { productVariantId: string, quantity: number }[] = [];
 
     await prisma.$transaction(async (tx) => {
-        if (order.sourceLocationId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
-            for (const item of order.items) {
+        for (const item of order.items) {
+            let activeReservationAmount = 0;
+            let shortageAmount = item.quantity.toNumber();
+
+            if (order.sourceLocationId) {
                 const inventory = await tx.inventory.findUnique({
                     where: {
                         locationId_productVariantId: {
@@ -259,12 +252,12 @@ export async function confirmOrder(id: string, userId: string) {
                 const available = currentQty - reservedQty;
                 const demand = item.quantity.toNumber();
 
-                let activeReservationAmount = 0;
-
                 if (available >= demand) {
                     activeReservationAmount = demand;
+                    shortageAmount = 0;
                 } else {
                     activeReservationAmount = Math.max(0, available);
+                    shortageAmount = demand - activeReservationAmount;
                 }
 
                 if (activeReservationAmount > 0) {
@@ -278,6 +271,24 @@ export async function confirmOrder(id: string, userId: string) {
                     }, tx);
                 }
             }
+
+            if (shortageAmount > 0) {
+                shortages.push({ productVariantId: item.productVariantId, quantity: shortageAmount });
+            }
+        }
+
+        if (shortages.length > 0) {
+            nextStatus = SalesOrderStatus.IN_PRODUCTION;
+        }
+
+        for (const shortage of shortages) {
+            const bom = await tx.bom.findFirst({
+                where: { productVariantId: shortage.productVariantId, isDefault: true }
+            });
+            if (!bom) {
+                const variant = await tx.productVariant.findUnique({ where: { id: shortage.productVariantId }, select: { name: true } });
+                throw new Error(`Cannot confirm order: Default BOM not found for product "${variant?.name || 'Unknown'}" to cover shortage. Please create a BOM first.`);
+            }
         }
 
         await tx.salesOrder.update({
@@ -290,20 +301,20 @@ export async function confirmOrder(id: string, userId: string) {
             action: 'CONFIRM_SALES',
             entityType: 'SalesOrder',
             entityId: id,
-            details: `Sales Order ${order.orderNumber} confirmed. Status: ${nextStatus}`,
+            details: `Sales Order ${order.orderNumber} confirmed. Status: ${nextStatus}. Shortages matched: ${shortages.length}`,
             tx
         });
     });
 
-    if (order.orderType === SalesOrderType.MAKE_TO_ORDER) {
+    if (shortages.length > 0) {
         try {
-            const results = await Promise.allSettled(order.items.map(item =>
-                ProductionService.createOrderFromSales(order.id, item.productVariantId, Number(item.quantity))
+            const results = await Promise.allSettled(shortages.map(shortage =>
+                ProductionService.createOrderFromSales(order.id, shortage.productVariantId, shortage.quantity)
             ));
 
             results.forEach((res, idx) => {
                 if (res.status === 'rejected') {
-                    console.error(`Failed to auto-create WO for item ${order.items[idx].productVariantId}:`, res.reason);
+                    console.error(`Failed to auto-create WO for item ${shortages[idx].productVariantId}:`, res.reason);
                 }
             });
         } catch (error) {
