@@ -145,7 +145,20 @@ export async function checkSalesOrderFulfillment(id: string) {
                 }
             });
 
-            const available = stock ? Number(stock.quantity) : 0;
+            // Subtract reservations for OTHER orders
+            const reservations = await prisma.stockReservation.aggregate({
+                where: {
+                    locationId: order.sourceLocationId || '',
+                    productVariantId: item.productVariantId,
+                    status: 'ACTIVE',
+                    referenceId: { not: order.id }
+                },
+                _sum: { quantity: true }
+            });
+            const reservedQuantity = reservations._sum.quantity?.toNumber() || 0;
+
+            const rawAvailable = stock ? Number(stock.quantity) : 0;
+            const available = Math.max(0, rawAvailable - reservedQuantity);
             const required = Number(item.quantity);
 
             if (available < required) {

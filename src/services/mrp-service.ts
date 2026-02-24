@@ -62,6 +62,7 @@ export class MrpService {
             await this.explodeRecursively(
                 item.productVariantId,
                 Number(item.quantity),
+                salesOrderId,
                 requirementsMap,
                 missingBoms,
                 includeReserved
@@ -85,7 +86,8 @@ export class MrpService {
                 const reservations = await prisma.stockReservation.aggregate({
                     where: {
                         productVariantId: materialId,
-                        status: 'ACTIVE'
+                        status: 'ACTIVE',
+                        referenceId: { not: salesOrderId }
                     },
                     _sum: { quantity: true }
                 });
@@ -275,6 +277,7 @@ export class MrpService {
     private static async explodeRecursively(
         productVariantId: string,
         quantity: number,
+        salesOrderId: string,
         requirementsMap: Map<string, AggregatedRequirement>,
         missingBoms: { productName: string; productVariantId: string; }[],
         includeReserved: boolean
@@ -339,7 +342,11 @@ export class MrpService {
 
         if (includeReserved) {
             const reservations = await prisma.stockReservation.aggregate({
-                where: { productVariantId, status: 'ACTIVE' },
+                where: {
+                    productVariantId,
+                    status: 'ACTIVE',
+                    referenceId: { not: salesOrderId }
+                },
                 _sum: { quantity: true }
             });
             availableQty = Math.max(0, availableQty - (reservations._sum.quantity?.toNumber() || 0));
@@ -355,6 +362,7 @@ export class MrpService {
                 await this.explodeRecursively(
                     bomItem.productVariantId,
                     bomItem.quantity.toNumber() * (1 + (scrapPct / 100)) * outputRatio,
+                    salesOrderId,
                     requirementsMap,
                     missingBoms,
                     includeReserved
