@@ -253,7 +253,7 @@ export async function postJournal(id: string, userId?: string, tx?: Prisma.Trans
         throw new Error("Cannot post journal entry to a closed fiscal period.");
     }
 
-    return await db.journalEntry.update({
+    const updatedJournal = await db.journalEntry.update({
         where: { id },
         data: {
             status: 'POSTED',
@@ -261,10 +261,29 @@ export async function postJournal(id: string, userId?: string, tx?: Prisma.Trans
             approvedAt: new Date()
         }
     });
+
+    // Cascade status update to the source document if applicable
+    if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
+        await db.purchaseInvoice.updateMany({
+            where: { id: journal.referenceId, status: 'DRAFT' },
+            data: { status: 'UNPAID' }
+        });
+    } else if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
+        await db.invoice.updateMany({
+            where: { id: journal.referenceId, status: 'DRAFT' },
+            data: { status: 'UNPAID' }
+        });
+    }
+
+    return updatedJournal;
 }
 
 export async function postBulkJournals(ids: string[], userId?: string) {
-    return await prisma.journalEntry.updateMany({
+    const journals = await prisma.journalEntry.findMany({
+        where: { id: { in: ids }, status: 'DRAFT' }
+    });
+
+    const res = await prisma.journalEntry.updateMany({
         where: {
             id: { in: ids },
             status: 'DRAFT'
@@ -275,6 +294,22 @@ export async function postBulkJournals(ids: string[], userId?: string) {
             approvedAt: new Date()
         }
     });
+
+    for (const journal of journals) {
+        if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
+            await prisma.purchaseInvoice.updateMany({
+                where: { id: journal.referenceId, status: 'DRAFT' },
+                data: { status: 'UNPAID' }
+            });
+        } else if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
+            await prisma.invoice.updateMany({
+                where: { id: journal.referenceId, status: 'DRAFT' },
+                data: { status: 'UNPAID' }
+            });
+        }
+    }
+
+    return res;
 }
 
 export async function voidJournal(id: string, _userId?: string) {

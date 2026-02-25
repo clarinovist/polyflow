@@ -7,49 +7,49 @@ async function syncStatuses() {
 
     // 1. Purchase Invoices
     const purchaseInvoices = await prisma.purchaseInvoice.findMany({
-        select: { id: true, status: true, invoiceNumber: true }
+        where: { status: 'DRAFT' },
+        select: { id: true, invoiceNumber: true }
     });
 
     for (const pi of purchaseInvoices) {
-        if (pi.status === 'DRAFT') {
-            const jes = await prisma.journalEntry.findMany({
-                where: {
-                    referenceId: pi.id,
-                    referenceType: 'PURCHASE_INVOICE',
-                    status: 'POSTED'
-                }
-            });
-            for (const je of jes) {
-                console.log(`Updating JE ${je.entryNumber} to DRAFT because invoice ${pi.invoiceNumber} is DRAFT`);
-                await prisma.journalEntry.update({
-                    where: { id: je.id },
-                    data: { status: 'DRAFT' }
-                });
+        const postedJournal = await prisma.journalEntry.findFirst({
+            where: {
+                referenceId: pi.id,
+                referenceType: 'PURCHASE_INVOICE',
+                status: 'POSTED'
             }
+        });
+
+        if (postedJournal) {
+            console.log(`Updating Purchase Invoice ${pi.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`);
+            await prisma.purchaseInvoice.update({
+                where: { id: pi.id },
+                data: { status: 'UNPAID' }
+            });
         }
     }
 
     // 2. Sales Invoices
     const salesInvoices = await prisma.invoice.findMany({
-        select: { id: true, status: true, invoiceNumber: true }
+        where: { status: 'DRAFT' },
+        select: { id: true, invoiceNumber: true }
     });
 
     for (const si of salesInvoices) {
-        if (si.status === 'DRAFT') {
-            const jes = await prisma.journalEntry.findMany({
-                where: {
-                    referenceId: si.id,
-                    referenceType: 'SALES_INVOICE',
-                    status: 'POSTED'
-                }
-            });
-            for (const je of jes) {
-                console.log(`Updating JE ${je.entryNumber} to DRAFT because invoice ${si.invoiceNumber} is DRAFT`);
-                await prisma.journalEntry.update({
-                    where: { id: je.id },
-                    data: { status: 'DRAFT' }
-                });
+        const postedJournal = await prisma.journalEntry.findFirst({
+            where: {
+                referenceId: si.id,
+                referenceType: 'SALES_INVOICE',
+                status: 'POSTED'
             }
+        });
+
+        if (postedJournal) {
+            console.log(`Updating Sales Invoice ${si.invoiceNumber} to UNPAID because it has POSTED journal ${postedJournal.entryNumber}`);
+            await prisma.invoice.update({
+                where: { id: si.id },
+                data: { status: 'UNPAID' }
+            });
         }
     }
 
