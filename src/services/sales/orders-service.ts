@@ -224,56 +224,61 @@ export async function confirmOrder(id: string, userId: string) {
     const shortages: { productVariantId: string, quantity: number }[] = [];
 
     await prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
-            let activeReservationAmount = 0;
-            let shortageAmount = item.quantity.toNumber();
+        // Skip reservations if it's a MAKE_TO_STOCK order without a customer (Internal Production)
+        const isInternalMts = order.orderType === SalesOrderType.MAKE_TO_STOCK && !order.customerId;
 
-            if (order.sourceLocationId) {
-                const inventory = await tx.inventory.findUnique({
-                    where: {
-                        locationId_productVariantId: {
-                            locationId: order.sourceLocationId,
-                            productVariantId: item.productVariantId
+        if (!isInternalMts) {
+            for (const item of order.items) {
+                let activeReservationAmount = 0;
+                let shortageAmount = item.quantity.toNumber();
+
+                if (order.sourceLocationId) {
+                    const inventory = await tx.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId: order.sourceLocationId,
+                                productVariantId: item.productVariantId
+                            }
                         }
+                    });
+
+                    const reservations = await tx.stockReservation.aggregate({
+                        where: {
+                            locationId: order.sourceLocationId,
+                            productVariantId: item.productVariantId,
+                            status: ReservationStatus.ACTIVE
+                        },
+                        _sum: { quantity: true }
+                    });
+
+                    const currentQty = inventory?.quantity?.toNumber() || 0;
+                    const reservedQty = reservations._sum.quantity?.toNumber() || 0;
+                    const available = currentQty - reservedQty;
+                    const demand = item.quantity.toNumber();
+
+                    if (available >= demand) {
+                        activeReservationAmount = demand;
+                        shortageAmount = 0;
+                    } else {
+                        activeReservationAmount = Math.max(0, available);
+                        shortageAmount = demand - activeReservationAmount;
                     }
-                });
 
-                const reservations = await tx.stockReservation.aggregate({
-                    where: {
-                        locationId: order.sourceLocationId,
-                        productVariantId: item.productVariantId,
-                        status: ReservationStatus.ACTIVE
-                    },
-                    _sum: { quantity: true }
-                });
-
-                const currentQty = inventory?.quantity?.toNumber() || 0;
-                const reservedQty = reservations._sum.quantity?.toNumber() || 0;
-                const available = currentQty - reservedQty;
-                const demand = item.quantity.toNumber();
-
-                if (available >= demand) {
-                    activeReservationAmount = demand;
-                    shortageAmount = 0;
-                } else {
-                    activeReservationAmount = Math.max(0, available);
-                    shortageAmount = demand - activeReservationAmount;
+                    if (activeReservationAmount > 0) {
+                        await InventoryService.createStockReservation({
+                            productVariantId: item.productVariantId,
+                            locationId: order.sourceLocationId,
+                            quantity: activeReservationAmount,
+                            reservedFor: ReservationType.SALES_ORDER,
+                            referenceId: order.id,
+                            reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                        }, tx);
+                    }
                 }
 
-                if (activeReservationAmount > 0) {
-                    await InventoryService.createStockReservation({
-                        productVariantId: item.productVariantId,
-                        locationId: order.sourceLocationId,
-                        quantity: activeReservationAmount,
-                        reservedFor: ReservationType.SALES_ORDER,
-                        referenceId: order.id,
-                        reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                    }, tx);
+                if (shortageAmount > 0) {
+                    shortages.push({ productVariantId: item.productVariantId, quantity: shortageAmount });
                 }
-            }
-
-            if (shortageAmount > 0) {
-                shortages.push({ productVariantId: item.productVariantId, quantity: shortageAmount });
             }
         }
 

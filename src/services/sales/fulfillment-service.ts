@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { SalesOrderStatus, MovementType, ReservationStatus } from '@prisma/client';
+import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType } from '@prisma/client';
 import { logActivity } from '@/lib/audit';
 import { InventoryService } from '@/services/inventory-service';
 import { InvoiceService } from '@/services/invoice-service';
@@ -46,9 +46,11 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
             const reservations = await tx.stockReservation.findMany({
                 where: {
                     referenceId: order.id,
+                    reservedFor: ReservationType.SALES_ORDER,
                     productVariantId: item.productVariantId,
                     status: ReservationStatus.ACTIVE
-                }
+                },
+                orderBy: { createdAt: 'asc' }
             });
 
             let needed = qty;
@@ -63,7 +65,8 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
                     await tx.stockReservation.update({ where: { id: res.id }, data: { quantity: { decrement: consume } } });
                 }
 
-                needed -= consume;
+                // Avoid floating point precision issues
+                needed = Math.round((needed - consume) * 10000) / 10000;
             }
 
             await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qty);
@@ -124,6 +127,16 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
 
         await InvoiceService.createDraftInvoiceFromOrder(id, userId);
 
+        // Catch-all: ensure any remaining ACTIVE reservations for this SO are marked as FULFILLED
+        await tx.stockReservation.updateMany({
+            where: {
+                referenceId: order.id,
+                reservedFor: ReservationType.SALES_ORDER,
+                status: ReservationStatus.ACTIVE
+            },
+            data: { status: ReservationStatus.FULFILLED }
+        });
+
         await logActivity({
             userId,
             action: 'SHIP_SALES',
@@ -136,8 +149,20 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
 }
 
 export async function deliverOrder(orderId: string, _userId: string) {
-    await prisma.salesOrder.update({
-        where: { id: orderId },
-        data: { status: SalesOrderStatus.DELIVERED }
+    await prisma.$transaction(async (tx) => {
+        await tx.salesOrder.update({
+            where: { id: orderId },
+            data: { status: SalesOrderStatus.DELIVERED }
+        });
+
+        // Catch-all cleanup when delivered (in case it wasn't shipped but directly delivered somehow)
+        await tx.stockReservation.updateMany({
+            where: {
+                referenceId: orderId,
+                reservedFor: ReservationType.SALES_ORDER,
+                status: ReservationStatus.ACTIVE
+            },
+            data: { status: ReservationStatus.FULFILLED }
+        });
     });
 }
