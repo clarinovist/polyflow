@@ -34,6 +34,10 @@ RUN npx tsc prisma/seed.ts --module CommonJS --target ES2020 --esModuleInterop -
 RUN npx tsc prisma/seed-baseline.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 RUN npx tsc prisma/fix-coa.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
+# Compile new multi-tenant CLI scripts
+RUN npx tsc scripts/provision-tenant.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc scripts/migrate-all-tenants.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -64,8 +68,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema and migrations if needed for runtime migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Copy operational scripts (e.g. one-time purge)
-COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# Copy operational scripts (e.g. one-time purge, and multi-tenant scripts)
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/*.js ./scripts/
 
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs entrypoint.sh ./

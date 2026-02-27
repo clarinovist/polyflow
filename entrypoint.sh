@@ -6,6 +6,9 @@ if [ "${SKIP_MIGRATIONS}" = "1" ] || [ "${SKIP_MIGRATIONS}" = "true" ]; then
 else
 	echo "Running Prisma migrations..."
 	npx prisma@5.22.0 migrate deploy
+    
+	echo "Running Tenant migrations..."
+	node scripts/migrate-all-tenants.js
 fi
 
 # Start the application
