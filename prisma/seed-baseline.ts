@@ -4,14 +4,17 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function ensureDefaultAdmin() {
-  const email = process.env.DEFAULT_ADMIN_EMAIL ?? 'admin@polyflow.com'
-  const name = process.env.DEFAULT_ADMIN_NAME ?? 'Admin PolyFlow'
-  const passwordPlain = process.env.DEFAULT_ADMIN_PASSWORD ?? 'admin123'
+  const email = process.env.TENANT_ADMIN_EMAIL ?? process.env.DEFAULT_ADMIN_EMAIL ?? 'admin@polyflow.uk'
+  const name = process.env.TENANT_ADMIN_NAME ?? process.env.DEFAULT_ADMIN_NAME ?? 'Nugroho Pramono'
+
+  // Checking if we already got a hash from the action, else fallback to hashing plain
+  const passwordHash = process.env.TENANT_ADMIN_PASSWORD_HASH;
+  const passwordPlain = process.env.DEFAULT_ADMIN_PASSWORD ?? 'nugrohopramono'
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) return
 
-  const password = await bcrypt.hash(passwordPlain, 10)
+  const password = passwordHash ? passwordHash : await bcrypt.hash(passwordPlain, 10)
   await prisma.user.create({
     data: {
       email,

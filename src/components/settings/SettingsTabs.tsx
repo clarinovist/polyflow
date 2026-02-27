@@ -11,8 +11,11 @@ import { buttonVariants } from '@/components/ui/button';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 interface SettingsTabsProps {
-    shifts: WorkShift[];
+    shifts?: WorkShift[];
     currentUserRole: Role;
+    tenantName?: string;
+    currentUserName?: string;
+    currentUserEmail?: string;
 }
 
 type TabValue = 'general' | 'production' | 'users' | 'access' | 'system';
@@ -24,7 +27,7 @@ interface TabItem {
     description: string;
 }
 
-export function SettingsTabs({ currentUserRole }: Omit<SettingsTabsProps, 'shifts'>) {
+export function SettingsTabs({ currentUserRole, tenantName, currentUserName, currentUserEmail }: Omit<SettingsTabsProps, 'shifts'>) {
     const isAdmin = currentUserRole === 'ADMIN';
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -52,7 +55,7 @@ export function SettingsTabs({ currentUserRole }: Omit<SettingsTabsProps, 'shift
         switch (activeTab) {
             case 'general':
                 return (
-                    <GeneralSettings />
+                    <GeneralSettings tenantName={tenantName} userName={currentUserName} userEmail={currentUserEmail} />
                 );
             case 'users':
                 return isAdmin ? (

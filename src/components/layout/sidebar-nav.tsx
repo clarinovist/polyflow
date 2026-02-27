@@ -17,8 +17,9 @@ import {
     Calculator,
     Menu,
     X,
-    PackageSearch,
     Sparkles,
+    Shield,
+    PackageSearch,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -57,9 +58,6 @@ export const sidebarLinks: NavItemType[] = [
     { title: "BOMs", href: "/dashboard/boms", icon: Files },
     { title: "Machines", href: "/dashboard/machines", icon: Settings2 },
     { title: "Employees", href: "/dashboard/employees", icon: Users },
-
-    // Tools
-    { title: "AI Assistant (Beta)", href: "/admin/database-assistant", icon: Sparkles },
 ];
 
 export function SidebarNav({ user, permissions }: SidebarNavProps) {

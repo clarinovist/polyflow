@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { getMyPermissions } from '@/actions/permissions';
-import { SidebarNav } from '@/components/layout/sidebar-nav';
+import { AdminNav } from '@/components/layout/admin-nav';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLayout({
@@ -27,7 +27,7 @@ export default async function AdminLayout({
 
     return (
         <div className="min-h-screen bg-secondary/30">
-            <SidebarNav user={user} permissions={permissions} />
+            <AdminNav user={user} />
 
             {/* Main Content */}
             <main className="lg:ml-64 min-h-screen">

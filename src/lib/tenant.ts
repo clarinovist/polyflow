@@ -9,7 +9,17 @@ import { headers } from 'next/headers';
 export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T): T {
     return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
         const reqHeaders = await headers();
-        const subdomain = reqHeaders.get('x-tenant-subdomain');
+        let subdomain = reqHeaders.get('x-tenant-subdomain');
+
+        // Fallback: If Proxy Middleware doesn't fire, infer from host
+        if (!subdomain) {
+            let host = reqHeaders.get('host') || '';
+            host = host.split(':')[0]; // Remove port
+            const hostParts = host.split('.');
+            if (hostParts.length > 1 && !['localhost', '127', 'app', 'www'].includes(hostParts[0])) {
+                subdomain = hostParts[0];
+            }
+        }
 
         // If no subdomain is detected (e.g. running on main domain or localhost directly),
         // we can just run the action normally against the main database.
@@ -57,7 +67,16 @@ export function withTenantRoute(
     handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void
 ) {
     return async (req: NextRequest, ...args: any[]) => {
-        const subdomain = req.headers.get('x-tenant-subdomain');
+        let subdomain = req.headers.get('x-tenant-subdomain');
+
+        if (!subdomain) {
+            let host = req.headers.get('host') || '';
+            host = host.split(':')[0]; // Remove port
+            const hostParts = host.split('.');
+            if (hostParts.length > 1 && !['localhost', '127', 'app', 'www'].includes(hostParts[0])) {
+                subdomain = hostParts[0];
+            }
+        }
 
         if (!subdomain) {
             return handler(req, ...args);

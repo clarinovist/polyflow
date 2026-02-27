@@ -1,12 +1,11 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
 import { signIn, signOut } from '@/auth';
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
-export const authenticate = withTenant(
-async function authenticate(
+export async function authenticate(
     prevState: string | undefined,
     formData: FormData,
 ) {
@@ -22,6 +21,11 @@ async function authenticate(
         else if (roleStr === 'SALES') targetUrl = '/sales';
         else if (roleStr === 'FINANCE') targetUrl = '/finance';
         else if (roleStr === 'PLANNING' || roleStr === 'PROCUREMENT') targetUrl = '/planning';
+        else if (roleStr === 'ADMIN') {
+            const headersList = await headers();
+            const subdomain = headersList.get('x-tenant-subdomain');
+            targetUrl = subdomain ? '/dashboard' : '/admin/super-admin';
+        }
         else targetUrl = '/dashboard';
 
         const remember = formData.get('remember') === 'on';
@@ -54,10 +58,7 @@ async function authenticate(
         throw error;
     }
 }
-);
 
-export const logOut = withTenant(
-async function logOut() {
+export async function logOut() {
     await signOut();
 }
-);

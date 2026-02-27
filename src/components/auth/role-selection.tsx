@@ -6,7 +6,6 @@ import {
     Factory,
     ClipboardList,
     TrendingUp,
-    Monitor,
     Receipt,
     ArrowRight
 } from 'lucide-react';
@@ -106,40 +105,6 @@ export default function RoleSelection({ onSelectRole }: RoleSelectionProps) {
                 ))}
             </div>
 
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-sm uppercase">
-                    <span className="bg-background px-4 text-muted-foreground font-medium tracking-wider">
-                        Production Floor
-                    </span>
-                </div>
-            </div>
-
-            <div className="mt-8">
-                <button
-                    onClick={() => onSelectRole('KIOSK')}
-                    className="group w-full relative flex items-center justify-between p-6 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 text-left active:scale-[0.99]"
-                >
-                    <div className="flex items-center">
-                        <div className="p-4 rounded-2xl bg-primary text-primary-foreground mr-5 shadow-lg shadow-primary/20">
-                            <Monitor className="h-8 w-8" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-foreground">
-                                Kiosk / Operator Mode
-                            </h3>
-                            <p className="text-muted-foreground font-medium">
-                                Direct access for factory floor operations. No password required.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="h-12 w-12 rounded-full border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
-                        <ArrowRight className="h-6 w-6" />
-                    </div>
-                </button>
-            </div>
         </div>
     );
 }

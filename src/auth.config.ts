@@ -32,19 +32,39 @@ export const authConfig = {
                 const isOnFinance = pathname.startsWith('/finance');
                 const isOnSales = pathname.startsWith('/sales');
                 const isOnPlanning = pathname.startsWith('/planning');
+                const isOnAdmin = pathname.startsWith('/admin');
+                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
 
-                // Kiosk is public
-                if (isOnKiosk) return true;
+                // Kiosk and Public pages are accessible without auth
+                if (isOnKiosk || isPublicPage) return true;
 
-                if (isOnDashboard || isOnWarehouse || isOnProduction || isOnFinance || isOnSales || isOnPlanning) {
+                if (isOnAdmin || isOnDashboard || isOnWarehouse || isOnProduction || isOnFinance || isOnSales || isOnPlanning) {
                     if (isLoggedIn) {
                         // Allow access to logout page to break redirect loops
                         if (pathname === '/logout') return true;
 
                         const userRole = (auth?.user as { role?: string })?.role;
+                        const isSuperAdmin = (auth?.user as { isSuperAdmin?: boolean })?.isSuperAdmin;
 
-                        // ADMIN can go anywhere
-                        if (userRole === 'ADMIN') return true;
+                        // --- SUPER ADMIN ISOLATION ---
+                        if (userRole === 'ADMIN' && isSuperAdmin) {
+                            // If trying to access tenant pages, redirect to super admin
+                            if (!isOnAdmin) {
+                                return Response.redirect(new URL('/admin/super-admin', nextUrl));
+                            }
+                            return true; // Allowed in admin pages
+                        }
+
+                        // --- TENANT ROLE ISOLATION ---
+                        // Tenant users cannot access /admin
+                        if (isOnAdmin) {
+                            return Response.redirect(new URL('/dashboard', nextUrl));
+                        }
+
+                        // If they are a Tenant Admin (role ADMIN, but not SuperAdmin), let them access dashboard.
+                        if (userRole === 'ADMIN' && !isSuperAdmin) {
+                            return true;
+                        }
 
                         // Strict Workspace Isolation
                         if (userRole === 'WAREHOUSE') {
@@ -70,9 +90,8 @@ export const authConfig = {
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {
                     const isLoginPage = pathname === '/login';
-                    const isRootPage = pathname === '/';
 
-                    if (isLoginPage || isRootPage) {
+                    if (isLoginPage) {
                         const userRole = (auth?.user as { role?: string })?.role;
                         let targetPath = '/dashboard';
                         if (userRole === 'WAREHOUSE') targetPath = '/warehouse';
@@ -89,10 +108,11 @@ export const authConfig = {
         },
         jwt({ token, user }) {
             if (user) {
-                const u = user as { id?: string; role?: string; rememberMe?: boolean };
+                const u = user as { id?: string; role?: string; rememberMe?: boolean; isSuperAdmin?: boolean };
                 token.role = u.role;
                 token.id = u.id;
                 token.rememberMe = u.rememberMe;
+                token.isSuperAdmin = u.isSuperAdmin;
                 token.lastActive = Math.floor(Date.now() / 1000);
             }
 
@@ -114,6 +134,7 @@ export const authConfig = {
             if (session.user) {
                 (session.user as { role?: unknown }).role = token.role;
                 (session.user as { id?: unknown }).id = token.id;
+                (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
             }
             return session;
         },

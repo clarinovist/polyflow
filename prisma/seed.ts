@@ -12,6 +12,8 @@ async function main() {
     await prisma.invoice.deleteMany()
     await prisma.purchaseInvoice.deleteMany()
     await prisma.purchasePayment.deleteMany()
+    await prisma.deliveryOrderItem.deleteMany()
+    await prisma.deliveryOrder.deleteMany()
     await prisma.salesOrderItem.deleteMany()
     await prisma.salesOrder.deleteMany()
     await prisma.salesQuotationItem.deleteMany()
@@ -40,21 +42,31 @@ async function main() {
     await prisma.machine.deleteMany()
     await prisma.employee.deleteMany()
     await prisma.jobRole.deleteMany()
+    await prisma.costHistory.deleteMany()
     await prisma.productVariant.deleteMany()
     await prisma.product.deleteMany()
     await prisma.supplier.deleteMany()
     await prisma.customer.deleteMany()
     await prisma.location.deleteMany()
+    await prisma.fixedAsset.deleteMany()
+    await prisma.journalLine.deleteMany()
+    await prisma.journalEntry.deleteMany()
     await prisma.account.deleteMany()
     await prisma.user.deleteMany()
 
     // 0.5. Default Admin User
     console.log('Seeding users...')
+
+    const adminEmail = process.env.TENANT_ADMIN_EMAIL || 'admin@polyflow.uk';
+    const adminName = process.env.TENANT_ADMIN_NAME || 'Nugroho Pramono';
+    // Fallback to "nugrohopramono" password hash if not provided
+    const adminPasswordHash = process.env.TENANT_ADMIN_PASSWORD_HASH || '$2b$10$685SgQ9PlWgUVPVboe41IeSTp91HZbbUC1smuzHclY.Qdl4TglIaW';
+
     await prisma.user.create({
         data: {
-            email: 'admin@polyflow.com',
-            name: 'Admin PolyFlow',
-            password: '$2b$10$1TAWXOzHiTqlZQp6RdqQAONldCEoq0UcPuv8wk1N63juj0cmvPGoq', // admin123
+            email: adminEmail,
+            name: adminName,
+            password: adminPasswordHash,
             role: Role.ADMIN,
         }
     })

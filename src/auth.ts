@@ -37,7 +37,16 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     const { email, password, role, remember } = parsedCredentials.data;
 
                     // Extract Subdomain from headers in NextAuth 5
-                    const subdomain = request?.headers?.get('x-tenant-subdomain');
+                    let subdomain = request?.headers?.get('x-tenant-subdomain');
+
+                    if (!subdomain && request) {
+                        let host = request.headers.get('host') || '';
+                        host = host.split(':')[0]; // Remove port
+                        const hostParts = host.split('.');
+                        if (hostParts.length > 1 && !['localhost', '127', 'app', 'www'].includes(hostParts[0])) {
+                            subdomain = hostParts[0];
+                        }
+                    }
 
                     let user;
 
@@ -82,6 +91,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             email: user.email,
                             role: user.role,
                             rememberMe: remember,
+                            isSuperAdmin: !subdomain,
                         };
                     }
                 }

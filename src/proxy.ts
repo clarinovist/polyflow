@@ -1,20 +1,37 @@
 import NextAuth from 'next-auth';
 import { authConfig } from './auth.config';
+import { NextResponse } from 'next/server';
 
-// Keep Proxy compatible with runtime constraints by using `authConfig` only.
-// Do not import `@/auth` here (it pulls Prisma/bcrypt).
 const { auth } = NextAuth(authConfig);
 
 const handler = auth((req) => {
-	console.log(`[PROXY] ----------------------------------------------------------------`);
-	console.log(`[PROXY] Incoming request: ${req.nextUrl.pathname}`);
-	console.log(`[PROXY] Auth status: ${!!req.auth ? 'Authenticated' : 'Not Authenticated'}`);
-	if (req.auth?.user) {
-		console.log(`[PROXY] User Role: ${req.auth.user.role}`);
+	// Extract subdomain for Multi-Tenant routing
+	const host = req.headers.get('host') || '';
+	const hostname = host.split(':')[0]; // Remove port if present
+	const subdomain = hostname.split('.')[0];
+
+	const requestHeaders = new Headers(req.headers);
+
+	// Skip inserting for localhost/127.0.0.1 directly, or standard prefixes like 'app'/'www'
+	// Also skip if subdomain is 'polyflow' (main domain) or not present
+	if (
+		subdomain &&
+		subdomain !== 'localhost' &&
+		subdomain !== '127' &&
+		subdomain !== 'app' &&
+		subdomain !== 'www' &&
+		subdomain !== 'polyflow' &&
+		!(hostname === 'polyflow.uk' || hostname === 'www.polyflow.uk')
+	) {
+		requestHeaders.set('x-tenant-subdomain', subdomain);
 	}
 
-	// i18n removed - pass through
-	return;
+	// Pass original request with modified headers to the downstream components
+	return NextResponse.next({
+		request: {
+			headers: requestHeaders,
+		}
+	});
 });
 
 export default function proxy(...args: Parameters<typeof handler>) {

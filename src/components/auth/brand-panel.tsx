@@ -2,7 +2,7 @@
 
 import PolyFlowLogo from './polyflow-logo';
 
-export default function BrandPanel() {
+export default function BrandPanel({ subdomain }: { subdomain?: string | null }) {
 
     return (
         <div className="hidden lg:flex lg:w-1/2 bg-zinc-950 relative overflow-hidden flex-col justify-between p-10">
@@ -82,13 +82,16 @@ export default function BrandPanel() {
 
                 {/* Welcome Text */}
                 <h1 className="text-4xl font-bold text-white mb-4">
-                    Welcome to PolyFlow
+                    {subdomain ? `Welcome to ${subdomain.toUpperCase()}` : 'Welcome to PolyFlow'}
                 </h1>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-                    PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.
+                    {subdomain ?
+                        `Sign in to access your ERP dashboard, manage production workflows, and track your inventory seamlessly.` :
+                        `PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.`
+                    }
                 </p>
                 <p className="text-zinc-500 text-sm">
-                    More than 1K people joined us, it&apos;s your turn
+                    {subdomain ? `Enterprise portal powered by PolyFlow` : `More than 1K people joined us, it's your turn`}
                 </p>
 
                 {/* Feature Card */}
