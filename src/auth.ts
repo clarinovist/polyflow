@@ -43,7 +43,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         let host = request.headers.get('host') || '';
                         host = host.split(':')[0]; // Remove port
                         const hostParts = host.split('.');
-                        if (hostParts.length > 1 && !['localhost', '127', 'app', 'www'].includes(hostParts[0])) {
+                        if (hostParts.length > 2 && !['localhost', '127', 'app', 'www', 'polyflow'].includes(hostParts[0])) {
                             subdomain = hostParts[0];
                         }
                     }
