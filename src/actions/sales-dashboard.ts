@@ -1,12 +1,14 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { serializeData } from '@/lib/utils';
 
 import { AnalyticsService } from '@/services/analytics-service';
 import { DateRange } from '@/types/analytics';
 
-export async function getSalesDashboardStats(dateRange?: DateRange) {
+export const getSalesDashboardStats = withTenant(
+async function getSalesDashboardStats(dateRange?: DateRange) {
     // 1. Fetch Analytics Metrics (Revenue, Trend, Top Lists)
     const analytics = await AnalyticsService.getSalesMetrics(dateRange);
 
@@ -67,3 +69,4 @@ export async function getSalesDashboardStats(dateRange?: DateRange) {
         recentOrders
     });
 }
+);

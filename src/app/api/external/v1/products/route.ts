@@ -1,8 +1,10 @@
+import { withTenantRoute } from "@/lib/tenant";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateExternalRequest } from "@/lib/external-api-helper";
 
-export async function GET(req: NextRequest) {
+export const GET = withTenantRoute(
+async function GET(req: NextRequest) {
     // 1. Validate API Key
     const { isValid, response } = await validateExternalRequest(req);
     if (!isValid) {
@@ -70,3 +72,4 @@ export async function GET(req: NextRequest) {
         );
     }
 }
+);

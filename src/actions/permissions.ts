@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
@@ -18,7 +19,8 @@ async function checkAdmin() {
     return session;
 }
 
-export async function getRolePermissions(targetRole: Role) {
+export const getRolePermissions = withTenant(
+async function getRolePermissions(targetRole: Role) {
     try {
         await checkAdmin();
         const permissions = await prisma.rolePermission.findMany({
@@ -30,8 +32,10 @@ export async function getRolePermissions(targetRole: Role) {
         return { success: false, error: 'Failed to fetch permissions' };
     }
 }
+);
 
-export async function updatePermission(targetRole: Role, resource: string, canAccess: boolean) {
+export const updatePermission = withTenant(
+async function updatePermission(targetRole: Role, resource: string, canAccess: boolean) {
     try {
         await checkAdmin();
 
@@ -58,6 +62,7 @@ export async function updatePermission(targetRole: Role, resource: string, canAc
         return { success: false, error: 'Failed to update permission' };
     }
 }
+);
 
 // Helper to seed without admin check (internal use only)
 async function seedDefaultPermissionsInternal(targetRole: Role, defaultResources: string[]) {
@@ -84,7 +89,8 @@ async function seedDefaultPermissionsInternal(targetRole: Role, defaultResources
 }
 
 // Public action to seed default permissions (only for ADMIN)
-export async function seedDefaultPermissions(targetRole: Role, defaultResources: string[]) {
+export const seedDefaultPermissions = withTenant(
+async function seedDefaultPermissions(targetRole: Role, defaultResources: string[]) {
     try {
         const session = await auth();
         if (session?.user?.role !== 'ADMIN') return { success: false, error: 'Unauthorized' };
@@ -96,6 +102,7 @@ export async function seedDefaultPermissions(targetRole: Role, defaultResources:
         return { success: false, error: 'Failed to seed' };
     }
 }
+);
 
 // Default permissions to seed if none exist
 const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
@@ -170,7 +177,8 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
 };
 
 // Client-side helper (but executed on server for initial load) to get user's own permissions
-export async function getMyPermissions() {
+export const getMyPermissions = withTenant(
+async function getMyPermissions() {
     const session = await auth();
     if (!session?.user) return [];
 
@@ -202,9 +210,11 @@ export async function getMyPermissions() {
 
     return permissions.map((p: { resource: string }) => p.resource);
 }
+);
 
 // Check if current user can view prices
-export async function canViewPrices() {
+export const canViewPrices = withTenant(
+async function canViewPrices() {
     const session = await auth();
     if (!session?.user) return false;
 
@@ -222,3 +232,4 @@ export async function canViewPrices() {
 
     return !!permission?.canAccess;
 }
+);

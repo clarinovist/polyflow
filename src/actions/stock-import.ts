@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { InventoryService } from '@/services/inventory-service';
@@ -17,11 +18,8 @@ export type ImportStockResult = {
     errors?: string[];
 }
 
-/**
- * Get lookup data for client-side validation
- * Returns arrays that can be easily converted to Maps on the client
- */
-export async function getStockImportLookups() {
+export const getStockImportLookups = withTenant(
+async function getStockImportLookups() {
     await requireAuth();
 
     const [products, locations] = await Promise.all([
@@ -38,12 +36,10 @@ export async function getStockImportLookups() {
         locations: locations.map(l => ({ id: l.id, name: l.name }))
     };
 }
+);
 
-/**
- * Execution of stock import
- * Groups items by location because adjustStockBulk requires locationId
- */
-export async function importInitialStock(
+export const importInitialStock = withTenant(
+async function importInitialStock(
     items: ValidatedStockItem[],
     reason: string = "Stock Import"
 ): Promise<ImportStockResult> {
@@ -99,3 +95,4 @@ export async function importInitialStock(
         };
     }
 }
+);

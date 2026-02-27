@@ -1,9 +1,11 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
-export async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getDeliveryOrders = withTenant(
+async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date }) {
     const where: Prisma.DeliveryOrderWhereInput = {};
     if (dateRange?.startDate && dateRange?.endDate) {
         where.deliveryDate = {
@@ -38,7 +40,9 @@ export async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?
 
     return deliveryOrders;
 }
-export async function getDeliveryOrderById(id: string) {
+);
+export const getDeliveryOrderById = withTenant(
+async function getDeliveryOrderById(id: string) {
     const deliveryOrder = await prisma.deliveryOrder.findUnique({
         where: { id },
         include: {
@@ -67,3 +71,4 @@ export async function getDeliveryOrderById(id: string) {
 
     return deliveryOrder;
 }
+);

@@ -1,16 +1,9 @@
+import { withTenantRoute } from "@/lib/tenant";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-/**
- * Health check endpoint for monitoring and Docker healthcheck.
- * 
- * GET /api/health
- * 
- * Returns:
- * - 200: { status: "healthy", db: "connected", version, uptime }
- * - 503: { status: "unhealthy", db: "disconnected", error }
- */
-export async function GET() {
+export const GET = withTenantRoute(
+async function GET() {
     const startTime = Date.now();
 
     try {
@@ -46,3 +39,4 @@ export async function GET() {
         );
     }
 }
+);

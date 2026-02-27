@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { AccountingService } from '@/services/accounting-service';
@@ -21,7 +22,8 @@ export interface CreateOpeningBalanceInput {
     notes?: string;
 }
 
-export async function getAccountsForOpeningBalance() {
+export const getAccountsForOpeningBalance = withTenant(
+async function getAccountsForOpeningBalance() {
     await requireAuth();
     const accounts = await prisma.account.findMany({
         where: {
@@ -32,6 +34,7 @@ export async function getAccountsForOpeningBalance() {
     });
     return accounts;
 }
+);
 
 export interface GeneralOpeningBalanceLine {
     accountId: string;
@@ -46,7 +49,8 @@ export interface UnifiedMakeOpeningBalanceInput {
     apEntries: CreateOpeningBalanceInput[];
 }
 
-export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceInput) {
+export const saveUnifiedOpeningBalance = withTenant(
+async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceInput) {
     const session = await requireAuth();
 
     // Calculate total equity offset needed
@@ -191,9 +195,11 @@ export async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceI
         return { success: false, error: error instanceof Error ? error.message : 'Failed to save opening balance. Please check server logs.' };
     }
 }
+);
 
 
-export async function createOpeningBalance(data: CreateOpeningBalanceInput) {
+export const createOpeningBalance = withTenant(
+async function createOpeningBalance(data: CreateOpeningBalanceInput) {
     const session = await requireAuth();
 
     try {
@@ -234,6 +240,7 @@ export async function createOpeningBalance(data: CreateOpeningBalanceInput) {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to create opening balance' };
     }
 }
+);
 
 async function createAROpeningBalance(data: CreateOpeningBalanceInput, userId: string, equityAccountId: string, arAccountId: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
@@ -357,7 +364,8 @@ async function createAPOpeningBalance(data: CreateOpeningBalanceInput, userId: s
     return invoice;
 }
 
-export async function getRecentOpeningBalances() {
+export const getRecentOpeningBalances = withTenant(
+async function getRecentOpeningBalances() {
     await requireAuth();
 
     try {
@@ -419,8 +427,10 @@ export async function getRecentOpeningBalances() {
         return { success: false, error: 'Failed to fetch history' };
     }
 }
+);
 
-export async function deleteOpeningBalance(id: string, type: 'AR' | 'AP') {
+export const deleteOpeningBalance = withTenant(
+async function deleteOpeningBalance(id: string, type: 'AR' | 'AP') {
     await requireAuth();
 
     try {
@@ -482,3 +492,4 @@ export async function deleteOpeningBalance(id: string, type: 'AR' | 'AP') {
         return { success: false, error: error instanceof Error ? error.message : 'Deletion failed' };
     }
 }
+);

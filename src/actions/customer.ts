@@ -1,14 +1,13 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { createCustomerSchema, updateCustomerSchema, CreateCustomerValues, UpdateCustomerValues } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 
-/**
- * Get all customers
- */
-export async function getCustomers() {
+export const getCustomers = withTenant(
+async function getCustomers() {
     await requireAuth();
     return prisma.customer.findMany({
         orderBy: {
@@ -16,21 +15,19 @@ export async function getCustomers() {
         },
     });
 }
+);
 
-/**
- * Get a single customer by ID
- */
-export async function getCustomerById(id: string) {
+export const getCustomerById = withTenant(
+async function getCustomerById(id: string) {
     await requireAuth();
     return prisma.customer.findUnique({
         where: { id },
     });
 }
+);
 
-/**
- * Generate the next available customer code (CUS-XXX format)
- */
-export async function getNextCustomerCode(): Promise<string> {
+export const getNextCustomerCode = withTenant(
+async function getNextCustomerCode(): Promise<string> {
     await requireAuth();
     const prefix = 'CUS-';
 
@@ -61,11 +58,10 @@ export async function getNextCustomerCode(): Promise<string> {
 
     return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 }
+);
 
-/**
- * Create a new customer
- */
-export async function createCustomer(data: CreateCustomerValues) {
+export const createCustomer = withTenant(
+async function createCustomer(data: CreateCustomerValues) {
     await requireAuth();
     const result = createCustomerSchema.safeParse(data);
 
@@ -114,11 +110,10 @@ export async function createCustomer(data: CreateCustomerValues) {
         return { success: false, error: 'Failed to create customer' };
     }
 }
+);
 
-/**
- * Update an existing customer
- */
-export async function updateCustomer(data: UpdateCustomerValues) {
+export const updateCustomer = withTenant(
+async function updateCustomer(data: UpdateCustomerValues) {
     await requireAuth();
     const result = updateCustomerSchema.safeParse(data);
 
@@ -140,11 +135,10 @@ export async function updateCustomer(data: UpdateCustomerValues) {
         return { success: false, error: 'Failed to update customer' };
     }
 }
+);
 
-/**
- * Delete a customer
- */
-export async function deleteCustomer(id: string) {
+export const deleteCustomer = withTenant(
+async function deleteCustomer(id: string) {
     await requireAuth();
     try {
         // Future: Check for references (e.g. Sales Orders)
@@ -161,3 +155,4 @@ export async function deleteCustomer(id: string) {
         return { success: false, error: 'Failed to delete customer' };
     }
 }
+);

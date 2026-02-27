@@ -1,9 +1,11 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { ProductionStatus, PurchaseOrderStatus } from '@prisma/client';
 
-export async function getPlanningDashboardStats() {
+export const getPlanningDashboardStats = withTenant(
+async function getPlanningDashboardStats() {
     // 1. Production Stats
     const activeJobsCount = await prisma.productionOrder.count({
         where: {
@@ -78,3 +80,4 @@ export async function getPlanningDashboardStats() {
         recentOrders
     };
 }
+);

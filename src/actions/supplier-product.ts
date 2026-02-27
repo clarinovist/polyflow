@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
@@ -18,10 +19,8 @@ const linkSupplierSchema = z.object({
 
 export type LinkSupplierValues = z.infer<typeof linkSupplierSchema>;
 
-/**
- * Link a supplier to a product variant
- */
-export async function linkSupplierToProduct(data: LinkSupplierValues) {
+export const linkSupplierToProduct = withTenant(
+async function linkSupplierToProduct(data: LinkSupplierValues) {
     const result = linkSupplierSchema.safeParse(data);
 
     if (!result.success) {
@@ -78,11 +77,10 @@ export async function linkSupplierToProduct(data: LinkSupplierValues) {
         return { success: false, error: 'Failed to link supplier to product' };
     }
 }
+);
 
-/**
- * Unlink a supplier from a product variant
- */
-export async function unlinkSupplierFromProduct(id: string) {
+export const unlinkSupplierFromProduct = withTenant(
+async function unlinkSupplierFromProduct(id: string) {
     try {
         const item = await prisma.supplierProduct.findUnique({
             where: { id },
@@ -114,11 +112,10 @@ export async function unlinkSupplierFromProduct(id: string) {
         return { success: false, error: 'Failed to unlink supplier' };
     }
 }
+);
 
-/**
- * Get all products for a specific supplier
- */
-export async function getSupplierProducts(supplierId: string) {
+export const getSupplierProducts = withTenant(
+async function getSupplierProducts(supplierId: string) {
     try {
         const products = await prisma.supplierProduct.findMany({
             where: { supplierId },
@@ -141,11 +138,10 @@ export async function getSupplierProducts(supplierId: string) {
         return [];
     }
 }
+);
 
-/**
- * Get all suppliers for a specific product variant
- */
-export async function getProductSuppliers(productVariantId: string) {
+export const getProductSuppliers = withTenant(
+async function getProductSuppliers(productVariantId: string) {
     try {
         const suppliers = await prisma.supplierProduct.findMany({
             where: { productVariantId },
@@ -162,11 +158,10 @@ export async function getProductSuppliers(productVariantId: string) {
         return [];
     }
 }
+);
 
-/**
- * Set a preferred supplier for a product variant
- */
-export async function setPreferredSupplier(id: string) {
+export const setPreferredSupplier = withTenant(
+async function setPreferredSupplier(id: string) {
     try {
         const item = await prisma.supplierProduct.findUnique({
             where: { id },
@@ -204,3 +199,4 @@ export async function setPreferredSupplier(id: string) {
         return { success: false, error: 'Failed to set preferred supplier' };
     }
 }
+);

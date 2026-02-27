@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { AccountingService, CreateJournalEntryInput } from '@/services/accounting-service';
 import { requireAuth } from '@/lib/auth-checks';
 import { serializeData } from '@/lib/utils';
@@ -7,13 +8,16 @@ import { revalidatePath } from 'next/cache';
 
 import { AccountType, AccountCategory } from '@prisma/client';
 
-export async function getChartOfAccounts() {
+export const getChartOfAccounts = withTenant(
+async function getChartOfAccounts() {
     await requireAuth();
     const accounts = await AccountingService.getChartOfAccounts();
     return serializeData(accounts);
 }
+);
 
-export async function createAccount(data: { code: string; name: string; type: AccountType; category: AccountCategory; description?: string }) {
+export const createAccount = withTenant(
+async function createAccount(data: { code: string; name: string; type: AccountType; category: AccountCategory; description?: string }) {
     await requireAuth();
     try {
         const account = await AccountingService.createAccount(data);
@@ -23,8 +27,10 @@ export async function createAccount(data: { code: string; name: string; type: Ac
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function updateAccount(id: string, data: { code?: string; name?: string; type?: AccountType; category?: AccountCategory; description?: string }) {
+export const updateAccount = withTenant(
+async function updateAccount(id: string, data: { code?: string; name?: string; type?: AccountType; category?: AccountCategory; description?: string }) {
     await requireAuth();
     try {
         const account = await AccountingService.updateAccount(id, data);
@@ -35,8 +41,10 @@ export async function updateAccount(id: string, data: { code?: string; name?: st
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function deleteAccount(id: string) {
+export const deleteAccount = withTenant(
+async function deleteAccount(id: string) {
     await requireAuth();
     try {
         await AccountingService.deleteAccount(id);
@@ -46,8 +54,10 @@ export async function deleteAccount(id: string) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function createManualJournalEntry(data: CreateJournalEntryInput) {
+export const createManualJournalEntry = withTenant(
+async function createManualJournalEntry(data: CreateJournalEntryInput) {
     const session = await requireAuth();
 
     try {
@@ -63,20 +73,26 @@ export async function createManualJournalEntry(data: CreateJournalEntryInput) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
+export const getAccountBalance = withTenant(
+async function getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
     await requireAuth();
     const balance = await AccountingService.getAccountBalance(accountId, startDate, endDate);
     return balance;
 }
+);
 
-export async function getTrialBalance(startDate?: Date, endDate?: Date) {
+export const getTrialBalance = withTenant(
+async function getTrialBalance(startDate?: Date, endDate?: Date) {
     await requireAuth();
     const data = await AccountingService.getTrialBalance(startDate, endDate);
     return serializeData(data);
 }
+);
 
-export async function getIncomeStatement(startDate: Date, endDate: Date) {
+export const getIncomeStatement = withTenant(
+async function getIncomeStatement(startDate: Date, endDate: Date) {
     await requireAuth();
     // Ensure dates are dates (serialization might make them strings if passed from client directly differently)
     const start = new Date(startDate);
@@ -84,23 +100,29 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
     const data = await AccountingService.getIncomeStatement(start, end);
     return serializeData(data);
 }
+);
 
-export async function getBalanceSheet(asOfDate: Date) {
+export const getBalanceSheet = withTenant(
+async function getBalanceSheet(asOfDate: Date) {
     await requireAuth();
     const date = new Date(asOfDate);
     const data = await AccountingService.getBalanceSheet(date);
     return serializeData(data);
 }
+);
 
 
 
-export async function getFiscalPeriods() {
+export const getFiscalPeriods = withTenant(
+async function getFiscalPeriods() {
     await requireAuth();
     const periods = await AccountingService.getFiscalPeriods();
     return serializeData(periods);
 }
+);
 
-export async function createFiscalPeriod(year: number, month: number) {
+export const createFiscalPeriod = withTenant(
+async function createFiscalPeriod(year: number, month: number) {
     await requireAuth();
     try {
         const period = await AccountingService.createFiscalPeriod(year, month);
@@ -110,8 +132,10 @@ export async function createFiscalPeriod(year: number, month: number) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function closeFiscalPeriod(id: string) {
+export const closeFiscalPeriod = withTenant(
+async function closeFiscalPeriod(id: string) {
     const session = await requireAuth();
     try {
         const period = await AccountingService.closeFiscalPeriod(id, session.user.id);
@@ -122,8 +146,10 @@ export async function closeFiscalPeriod(id: string) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function createYearEndClosingEntry(year: number) {
+export const createYearEndClosingEntry = withTenant(
+async function createYearEndClosingEntry(year: number) {
     const session = await requireAuth();
     try {
         await AccountingService.createYearEndClosingEntry(year, session.user.id);
@@ -134,17 +160,21 @@ export async function createYearEndClosingEntry(year: number) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
 
 import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 
-export async function getFixedAssets() {
+export const getFixedAssets = withTenant(
+async function getFixedAssets() {
     await requireAuth();
     const assets = await FixedAssetService.getAssets();
     return serializeData(assets);
 }
+);
 
-export async function createFixedAsset(data: {
+export const createFixedAsset = withTenant(
+async function createFixedAsset(data: {
     assetCode: string;
     name: string;
     category: string;
@@ -164,8 +194,10 @@ export async function createFixedAsset(data: {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function runDepreciation(year: number, month: number) {
+export const runDepreciation = withTenant(
+async function runDepreciation(year: number, month: number) {
     const session = await requireAuth();
     try {
         const results = await FixedAssetService.runDepreciation(year, month, session.user.id);
@@ -176,16 +208,20 @@ export async function runDepreciation(year: number, month: number) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
 import { BudgetService } from '@/services/finance/budget-service';
 
-export async function getBudgets(year: number, month: number) {
+export const getBudgets = withTenant(
+async function getBudgets(year: number, month: number) {
     await requireAuth();
     const data = await BudgetService.getBudgets(year, month);
     return serializeData(data);
 }
+);
 
-export async function setBudget(data: { accountId: string, year: number, month: number, amount: number }) {
+export const setBudget = withTenant(
+async function setBudget(data: { accountId: string, year: number, month: number, amount: number }) {
     await requireAuth();
     try {
         const budget = await BudgetService.setBudget(data);
@@ -195,14 +231,18 @@ export async function setBudget(data: { accountId: string, year: number, month: 
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+);
 
-export async function getBudgetVariance(year: number, month: number) {
+export const getBudgetVariance = withTenant(
+async function getBudgetVariance(year: number, month: number) {
     await requireAuth();
     const data = await BudgetService.getVarianceReport(year, month);
     return serializeData(data);
 }
+);
 
-export async function getAccountingDashboardData() {
+export const getAccountingDashboardData = withTenant(
+async function getAccountingDashboardData() {
     await requireAuth();
 
     // 1. Get today, start of month, etc.
@@ -253,3 +293,4 @@ export async function getAccountingDashboardData() {
         recentJournals: recentJournals.slice(0, 5)
     });
 }
+);

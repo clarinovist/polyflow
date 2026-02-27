@@ -1217,3 +1217,23 @@ model Payment {
   @@index([invoiceId])
   @@index([purchaseInvoiceId])
 }
+
+// ==========================================
+// TENANT REGISTRY (Multi-Company)
+// ==========================================
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  subdomain String       @unique // e.g., 'pt-abc'
+  dbUrl     String       // PostgreSQL connection string
+  status    TenantStatus @default(ACTIVE)
+  plan      String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}

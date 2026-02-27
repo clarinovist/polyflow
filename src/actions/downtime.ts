@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { MachineStatus } from '@prisma/client';
 
-export async function logMachineDowntime(
+export const logMachineDowntime = withTenant(
+async function logMachineDowntime(
     machineId: string,
     reason: string,
     createdById?: string
@@ -40,3 +42,4 @@ export async function logMachineDowntime(
         return { success: false, error: error instanceof Error ? error.message : "Failed to log downtime" };
     }
 }
+);

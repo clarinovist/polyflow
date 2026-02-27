@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { fireworks, SQL_MODEL_ID } from "@/lib/fireworks";
 import { PrismaClient } from "@prisma/client";
 import { auth } from "@/auth";
@@ -35,7 +36,8 @@ RELATIONSHIPS:
 - Product stock is in Inventory table, NOT in ProductVariant.
 `;
 
-export async function generateAndRunQuery(question: string) {
+export const generateAndRunQuery = withTenant(
+async function generateAndRunQuery(question: string) {
     const session = await auth();
     if (!session || !['ADMIN', 'FINANCE', 'PLANNING'].includes(session.user.role)) {
         throw new Error("Unauthorized");
@@ -105,3 +107,4 @@ export async function generateAndRunQuery(question: string) {
         return { success: false, error: errorMessage };
     }
 }
+);

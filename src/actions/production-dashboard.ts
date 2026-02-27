@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { ProductionStatus, MachineStatus } from '@prisma/client';
 
-export async function getProductionDashboardStats() {
+export const getProductionDashboardStats = withTenant(
+async function getProductionDashboardStats() {
     await requireAuth();
 
     // 1. Active Jobs
@@ -45,3 +47,4 @@ export async function getProductionDashboardStats() {
         draftJobs: draftJobsCount
     };
 }
+);

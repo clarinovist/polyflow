@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
@@ -8,12 +9,8 @@ import { CostReportingService } from '@/services/finance/cost-reporting-service'
 import { requireAuth } from '@/lib/auth-checks';
 import { serializeData } from '@/lib/utils';
 
-/**
- * Checks for overdue invoices and updates their status.
- * Criteria: Due Date < Now AND Status is UNPAID or PARTIAL.
- * This simulates a cron job.
- */
-export async function updateOverdueStatuses() {
+export const updateOverdueStatuses = withTenant(
+async function updateOverdueStatuses() {
     const now = new Date();
 
     try {
@@ -63,11 +60,10 @@ export async function updateOverdueStatuses() {
         };
     }
 }
+);
 
-/**
- * Get Production Cost Report (COGM) for Completed Orders
- */
-export async function getProductionCostReport(startDate?: Date | string, endDate?: Date | string) {
+export const getProductionCostReport = withTenant(
+async function getProductionCostReport(startDate?: Date | string, endDate?: Date | string) {
     await requireAuth();
 
     // Normalize dates if passed as strings (from JSON/Client)
@@ -77,28 +73,25 @@ export async function getProductionCostReport(startDate?: Date | string, endDate
     const data = await CostReportingService.getFinishedGoodsCosting(start, end);
     return serializeData(data);
 }
+);
 
-/**
- * Get WIP Valuation
- */
-export async function getWipValuation() {
+export const getWipValuation = withTenant(
+async function getWipValuation() {
     await requireAuth();
     const data = await CostReportingService.getWipValuation();
     return serializeData(data);
 }
+);
 
-/**
- * Get Costing for a Specific Order
- */
-export async function getOrderCosting(orderId: string) {
+export const getOrderCosting = withTenant(
+async function getOrderCosting(orderId: string) {
     await requireAuth();
     const data = await CostReportingService.getOrderCosting(orderId);
     return serializeData(data);
 }
-/**
- * Get Received Payments (Sales)
- */
-export async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
+);
+export const getReceivedPayments = withTenant(
+async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
 
     const where: Prisma.PaymentWhereInput = {
@@ -139,11 +132,10 @@ export async function getReceivedPayments(dateRange?: { startDate?: Date, endDat
         status: 'COMPLETED'
     })));
 }
+);
 
-/**
- * Get Sent Payments (Purchasing)
- */
-export async function getSentPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getSentPayments = withTenant(
+async function getSentPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
 
     const where: Prisma.PaymentWhereInput = {
@@ -182,11 +174,10 @@ export async function getSentPayments(dateRange?: { startDate?: Date, endDate?: 
         status: 'COMPLETED'
     })));
 }
+);
 
-/**
- * Record Customer Payment (AR)
- */
-export async function recordCustomerPayment(data: {
+export const recordCustomerPayment = withTenant(
+async function recordCustomerPayment(data: {
     invoiceId: string;
     amount: number;
     paymentDate: Date | string;
@@ -261,11 +252,10 @@ export async function recordCustomerPayment(data: {
         };
     }
 }
+);
 
-/**
- * Record Supplier Payment (AP)
- */
-export async function recordSupplierPayment(data: {
+export const recordSupplierPayment = withTenant(
+async function recordSupplierPayment(data: {
     invoiceId: string;
     amount: number;
     paymentDate: Date | string;
@@ -340,11 +330,10 @@ export async function recordSupplierPayment(data: {
         };
     }
 }
+);
 
-/**
- * Delete Payment Record and associated Journal Entries
- */
-export async function deletePayment(id: string) {
+export const deletePayment = withTenant(
+async function deletePayment(id: string) {
     const { requireAuth } = await import('@/lib/auth-checks');
     const { revalidatePath } = await import('next/cache');
     const { ReferenceType, InvoiceStatus, PurchaseInvoiceStatus } = await import('@prisma/client');
@@ -435,3 +424,4 @@ export async function deletePayment(id: string) {
         };
     }
 }
+);

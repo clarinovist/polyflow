@@ -1,4 +1,6 @@
 'use server';
+
+import { withTenant } from "@/lib/tenant";
 import { QuotationService } from '@/services/quotation-service';
 import { CreateSalesQuotationValues, UpdateSalesQuotationValues } from '@/lib/schemas/quotation';
 import { revalidatePath } from 'next/cache';
@@ -7,19 +9,24 @@ import { catchError } from '@/lib/error-handler';
 import { requireAuth } from '@/lib/auth-checks';
 
 
-export async function getQuotations(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getQuotations = withTenant(
+async function getQuotations(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
     const quotations = await QuotationService.getQuotations(dateRange);
     return serializeData(quotations);
 }
+);
 
-export async function getQuotationById(id: string) {
+export const getQuotationById = withTenant(
+async function getQuotationById(id: string) {
     await requireAuth();
     const quotation = await QuotationService.getQuotationById(id);
     return serializeData(quotation);
 }
+);
 
-export async function createQuotation(data: CreateSalesQuotationValues) {
+export const createQuotation = withTenant(
+async function createQuotation(data: CreateSalesQuotationValues) {
     const session = await requireAuth();
     return catchError(async () => {
         const quotation = await QuotationService.createQuotation(data, session.user.id);
@@ -27,8 +34,10 @@ export async function createQuotation(data: CreateSalesQuotationValues) {
         return quotation;
     });
 }
+);
 
-export async function updateQuotation(data: UpdateSalesQuotationValues) {
+export const updateQuotation = withTenant(
+async function updateQuotation(data: UpdateSalesQuotationValues) {
     await requireAuth();
     return catchError(async () => {
         await QuotationService.updateQuotation(data);
@@ -37,8 +46,10 @@ export async function updateQuotation(data: UpdateSalesQuotationValues) {
         return { id: data.id };
     });
 }
+);
 
-export async function deleteQuotation(id: string) {
+export const deleteQuotation = withTenant(
+async function deleteQuotation(id: string) {
     await requireAuth();
     return catchError(async () => {
         await QuotationService.deleteQuotation(id);
@@ -46,8 +57,10 @@ export async function deleteQuotation(id: string) {
         return true;
     });
 }
+);
 
-export async function convertToOrder(quotationId: string, sourceLocationId: string) {
+export const convertToOrder = withTenant(
+async function convertToOrder(quotationId: string, sourceLocationId: string) {
     const session = await requireAuth();
     return catchError(async () => {
         const order = await QuotationService.convertToOrder(quotationId, session.user.id, sourceLocationId);
@@ -56,3 +69,4 @@ export async function convertToOrder(quotationId: string, sourceLocationId: stri
         return order;
     });
 }
+);

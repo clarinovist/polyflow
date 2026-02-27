@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { ProductionStatus, PurchaseOrderStatus } from '@prisma/client';
 
-export async function getWarehouseDashboardStats() {
+export const getWarehouseDashboardStats = withTenant(
+async function getWarehouseDashboardStats() {
     await requireAuth();
 
     // 1. Pending Material Issues (For Work Order)
@@ -50,3 +52,4 @@ export async function getWarehouseDashboardStats() {
         activeLocations: locationCount
     };
 }
+);

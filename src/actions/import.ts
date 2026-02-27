@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { ProductType, Unit, Prisma } from '@prisma/client';
@@ -31,10 +32,8 @@ export interface ImportResult {
     errors?: string[];
 }
 
-/**
- * Get all existing SKU codes from database
- */
-export async function getExistingSKUs(): Promise<Set<string>> {
+export const getExistingSKUs = withTenant(
+async function getExistingSKUs(): Promise<Set<string>> {
     const variants = await prisma.productVariant.findMany({
         select: {
             skuCode: true
@@ -43,11 +42,10 @@ export async function getExistingSKUs(): Promise<Set<string>> {
 
     return new Set(variants.map(v => v.skuCode));
 }
+);
 
-/**
- * Import products in batch
- */
-export async function importProducts(products: ImportProduct[]): Promise<ImportResult> {
+export const importProducts = withTenant(
+async function importProducts(products: ImportProduct[]): Promise<ImportResult> {
     try {
         let productCount = 0;
         let variantCount = 0;
@@ -160,3 +158,4 @@ export async function importProducts(products: ImportProduct[]): Promise<ImportR
         };
     }
 }
+);

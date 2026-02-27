@@ -1,11 +1,13 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 const DEFAULT_JOB_ROLES = ['OPERATOR', 'HELPER', 'PACKER', 'MANAGER'];
 
-export async function getJobRoles() {
+export const getJobRoles = withTenant(
+async function getJobRoles() {
     try {
         let roles = await prisma.jobRole.findMany({
             orderBy: { name: 'asc' },
@@ -25,8 +27,10 @@ export async function getJobRoles() {
         return { success: false, error: 'Failed to fetch job roles' };
     }
 }
+);
 
-export async function createJobRole(name: string) {
+export const createJobRole = withTenant(
+async function createJobRole(name: string) {
     try {
         const role = await prisma.jobRole.create({
             data: { name },
@@ -39,3 +43,4 @@ export async function createJobRole(name: string) {
         return { success: false, error: 'Failed to create job role' };
     }
 }
+);

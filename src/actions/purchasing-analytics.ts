@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { PurchaseSpendTrend, TopSupplierItem, PurchaseByStatusItem, APAgingItem, DateRange } from '@/types/analytics';
 
@@ -8,7 +9,8 @@ function safePercentage(numerator: number, denominator: number): number {
     return (numerator / denominator) * 100;
 }
 
-export async function getPurchaseSpendReport(
+export const getPurchaseSpendReport = withTenant(
+async function getPurchaseSpendReport(
     dateRange: DateRange
 ): Promise<PurchaseSpendTrend> {
     const now = new Date();
@@ -100,8 +102,10 @@ export async function getPurchaseSpendReport(
         chartData
     };
 }
+);
 
-export async function getTopSuppliers(
+export const getTopSuppliers = withTenant(
+async function getTopSuppliers(
     dateRange: DateRange,
     limit: number = 5
 ): Promise<TopSupplierItem[]> {
@@ -149,8 +153,10 @@ export async function getTopSuppliers(
         };
     });
 }
+);
 
-export async function getPurchaseStatusSummary(
+export const getPurchaseStatusSummary = withTenant(
+async function getPurchaseStatusSummary(
     dateRange: DateRange
 ): Promise<PurchaseByStatusItem[]> {
     const groups = await prisma.purchaseOrder.groupBy({
@@ -174,8 +180,10 @@ export async function getPurchaseStatusSummary(
         percentage: safePercentage(Number(g._sum.totalAmount) || 0, totalValue)
     })).sort((a, b) => b.value - a.value);
 }
+);
 
-export async function getAPAgingReport(): Promise<APAgingItem[]> {
+export const getAPAgingReport = withTenant(
+async function getAPAgingReport(): Promise<APAgingItem[]> {
     const unpaidInvoices = await prisma.purchaseInvoice.findMany({
         where: {
             status: { notIn: ['PAID', 'CANCELLED'] }
@@ -219,8 +227,10 @@ export async function getAPAgingReport(): Promise<APAgingItem[]> {
 
     return Object.values(categories);
 }
+);
 
-export async function getPurchasingAnalytics(dateRange?: DateRange) {
+export const getPurchasingAnalytics = withTenant(
+async function getPurchasingAnalytics(dateRange?: DateRange) {
     const today = new Date();
     const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -241,3 +251,4 @@ export async function getPurchasingAnalytics(dateRange?: DateRange) {
         apAging
     };
 }
+);

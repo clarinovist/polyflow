@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/schemas/product';
 import { Inventory, CostHistory, ProductVariant, ProductType, Unit, Prisma } from '@prisma/client';
@@ -32,10 +33,8 @@ export type ProductWithVariantsAndStock = {
     totalStock?: number; // Calculated field for entire product
 };
 
-/**
- * Get all products with their variants and inventory totals
- */
-export async function getProducts(options?: { type?: ProductType }): Promise<ProductWithVariantsAndStock[]> {
+export const getProducts = withTenant(
+async function getProducts(options?: { type?: ProductType }): Promise<ProductWithVariantsAndStock[]> {
     await requireAuth();
     const where: Prisma.ProductWhereInput = {};
 
@@ -96,6 +95,7 @@ export async function getProducts(options?: { type?: ProductType }): Promise<Pro
         };
     });
 }
+);
 
 // Define types for the included relations
 type InventoryWithLocation = Inventory & {
@@ -112,10 +112,8 @@ type ProductVariantWithRelations = ProductVariant & {
     costHistory: CostHistoryWithCreatedBy[];
 };
 
-/**
- * Get a single product by ID with all variants
- */
-export async function getProductById(id: string) {
+export const getProductById = withTenant(
+async function getProductById(id: string) {
     await requireAuth();
     const product = await prisma.product.findUnique({
         where: { id },
@@ -173,27 +171,24 @@ export async function getProductById(id: string) {
         variants: enrichedVariants
     });
 }
+);
 
-/**
- * Get all available units from the enum
- */
-export async function getUnits(): Promise<Unit[]> {
+export const getUnits = withTenant(
+async function getUnits(): Promise<Unit[]> {
     await requireAuth();
     return Object.values(Unit);
 }
+);
 
-/**
- * Get all available product types from the enum
- */
-export async function getProductTypes(): Promise<ProductType[]> {
+export const getProductTypes = withTenant(
+async function getProductTypes(): Promise<ProductType[]> {
     await requireAuth();
     return Object.values(ProductType);
 }
+);
 
-/**
- * Get all product variants for selection
- */
-export async function getVariants() {
+export const getVariants = withTenant(
+async function getVariants() {
     await requireAuth();
     const variants = await prisma.productVariant.findMany({
         include: {
@@ -205,11 +200,10 @@ export async function getVariants() {
     });
     return serializeData(variants);
 }
+);
 
-/**
- * Create a new product with variants using a transaction
- */
-export async function createProduct(data: CreateProductValues) {
+export const createProduct = withTenant(
+async function createProduct(data: CreateProductValues) {
     await requireAuth();
     const result = createProductSchema.safeParse(data);
 
@@ -271,11 +265,10 @@ export async function createProduct(data: CreateProductValues) {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to create product' };
     }
 }
+);
 
-/**
- * Update an existing product and sync its variants
- */
-export async function updateProduct(data: UpdateProductValues) {
+export const updateProduct = withTenant(
+async function updateProduct(data: UpdateProductValues) {
     await requireAuth();
     const result = updateProductSchema.safeParse(data);
 
@@ -410,11 +403,10 @@ export async function updateProduct(data: UpdateProductValues) {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to update product' };
     }
 }
+);
 
-/**
- * Delete a product (cascades to variants)
- */
-export async function deleteProduct(id: string) {
+export const deleteProduct = withTenant(
+async function deleteProduct(id: string) {
     await requireAuth();
     try {
         // Get all variants for this product
@@ -493,11 +485,10 @@ export async function deleteProduct(id: string) {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to delete product' };
     }
 }
+);
 
-/**
- * Delete a single variant (with inventory check)
- */
-export async function deleteVariant(id: string) {
+export const deleteVariant = withTenant(
+async function deleteVariant(id: string) {
     await requireAuth();
     try {
         // Check for references in related tables before deleting
@@ -544,11 +535,10 @@ export async function deleteVariant(id: string) {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to delete variant' };
     }
 }
+);
 
-/**
- * Auto-generate a unique SKU code based on product type and name
- */
-export async function getNextSKU(productType: ProductType, productName: string, currentSkus: string[] = []): Promise<string> {
+export const getNextSKU = withTenant(
+async function getNextSKU(productType: ProductType, productName: string, currentSkus: string[] = []): Promise<string> {
     await requireAuth();
     const prefixes: Record<string, string> = {
         [ProductType.RAW_MATERIAL]: 'RM',
@@ -619,3 +609,4 @@ export async function getNextSKU(productType: ProductType, productName: string, 
 
     return `${skuPrefix}${nextSeq.toString().padStart(3, '0')}`;
 }
+);

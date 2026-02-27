@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { Role, Prisma } from '@prisma/client';
@@ -37,7 +38,8 @@ async function checkAdmin() {
     return session;
 }
 
-export async function getUsers() {
+export const getUsers = withTenant(
+async function getUsers() {
     try {
         await checkAdmin();
         const users = await prisma.user.findMany({
@@ -56,8 +58,10 @@ export async function getUsers() {
         return { success: false, error: 'Failed to fetch users' };
     }
 }
+);
 
-export async function createUser(data: CreateUserInput) {
+export const createUser = withTenant(
+async function createUser(data: CreateUserInput) {
     try {
         await checkAdmin();
         const validated = CreateUserSchema.parse(data);
@@ -92,8 +96,10 @@ export async function createUser(data: CreateUserInput) {
         return { success: false, error: (error as Error).message };
     }
 }
+);
 
-export async function updateUserRole(userId: string, newRole: Role) {
+export const updateUserRole = withTenant(
+async function updateUserRole(userId: string, newRole: Role) {
     try {
         await checkAdmin();
 
@@ -109,8 +115,10 @@ export async function updateUserRole(userId: string, newRole: Role) {
         return { success: false, error: 'Failed to update role' };
     }
 }
+);
 
-export async function updateUser(data: UpdateUserInput) {
+export const updateUser = withTenant(
+async function updateUser(data: UpdateUserInput) {
     try {
         await checkAdmin();
         const validated = UpdateUserSchema.parse(data);
@@ -148,8 +156,10 @@ export async function updateUser(data: UpdateUserInput) {
         return { success: false, error: (error as Error).message };
     }
 }
+);
 
-export async function deleteUser(userId: string) {
+export const deleteUser = withTenant(
+async function deleteUser(userId: string) {
     try {
         const session = await checkAdmin();
 
@@ -169,3 +179,4 @@ export async function deleteUser(userId: string) {
         return { success: false, error: 'Failed to delete user' };
     }
 }
+);

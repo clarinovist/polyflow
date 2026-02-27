@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { ProductionStatus, SalesOrderStatus, PurchaseOrderStatus, InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { startOfMonth, endOfMonth } from 'date-fns';
@@ -41,7 +42,8 @@ export interface ExecutiveStats {
     };
 }
 
-export async function getExecutiveStats(): Promise<ExecutiveStats> {
+export const getExecutiveStats = withTenant(
+async function getExecutiveStats(): Promise<ExecutiveStats> {
     const now = new Date();
     const startOfCurrentMonth = startOfMonth(now);
     const endOfCurrentMonth = endOfMonth(now);
@@ -263,3 +265,4 @@ export async function getExecutiveStats(): Promise<ExecutiveStats> {
         cashflow: { overdueReceivables, overduePayables, invoicesDueThisWeek: invoicesDueThisWeekCount }
     };
 }
+);

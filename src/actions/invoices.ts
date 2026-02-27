@@ -1,9 +1,11 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 
-export async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getSalesInvoices = withTenant(
+async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
     const where: Prisma.InvoiceWhereInput = {};
     if (dateRange?.startDate && dateRange?.endDate) {
         where.invoiceDate = {
@@ -33,8 +35,10 @@ export async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?:
 
     return invoices;
 }
+);
 
-export async function getPurchaseInvoices() {
+export const getPurchaseInvoices = withTenant(
+async function getPurchaseInvoices() {
     const invoices = await prisma.purchaseInvoice.findMany({
         orderBy: {
             createdAt: 'desc',
@@ -55,8 +59,10 @@ export async function getPurchaseInvoices() {
 
     return invoices;
 }
+);
 
-export async function getInvoiceStats() {
+export const getInvoiceStats = withTenant(
+async function getInvoiceStats() {
     // 1. Unpaid Amount
     const unpaid = await prisma.invoice.aggregate({
         _sum: {
@@ -85,8 +91,10 @@ export async function getInvoiceStats() {
         overdueCount
     };
 }
+);
 
-export async function deleteInvoice(id: string, type: 'AR' | 'AP') {
+export const deleteInvoice = withTenant(
+async function deleteInvoice(id: string, type: 'AR' | 'AP') {
     const { requireAuth } = await import('@/lib/auth-checks');
     const { revalidatePath } = await import('next/cache');
     const { ReferenceType } = await import('@prisma/client');
@@ -190,3 +198,4 @@ export async function deleteInvoice(id: string, type: 'AR' | 'AP') {
         return { success: false, error: error instanceof Error ? error.message : 'Deletion failed' };
     }
 }
+);

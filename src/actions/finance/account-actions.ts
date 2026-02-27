@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { AccountType, AccountCategory, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getAccounts() {
+export const getAccounts = withTenant(
+async function getAccounts() {
     return await prisma.account.findMany({
         orderBy: { code: 'asc' },
         include: {
@@ -14,6 +16,7 @@ export async function getAccounts() {
         }
     });
 }
+);
 
 export type UpsertAccountInput = {
     id?: string;
@@ -26,7 +29,8 @@ export type UpsertAccountInput = {
     isCashAccount?: boolean;
 };
 
-export async function upsertAccount(data: UpsertAccountInput) {
+export const upsertAccount = withTenant(
+async function upsertAccount(data: UpsertAccountInput) {
     const { id, ...rest } = data;
 
     try {
@@ -53,8 +57,10 @@ export async function upsertAccount(data: UpsertAccountInput) {
     revalidatePath('/finance/coa');
     return { success: true };
 }
+);
 
-export async function deleteAccount(id: string) {
+export const deleteAccount = withTenant(
+async function deleteAccount(id: string) {
     // Check for journal entries
     const usageCount = await prisma.journalLine.count({ where: { accountId: id } });
     if (usageCount > 0) {
@@ -71,8 +77,10 @@ export async function deleteAccount(id: string) {
     revalidatePath('/finance/coa');
     return { success: true };
 }
+);
 
-export async function getAccountLedger(
+export const getAccountLedger = withTenant(
+async function getAccountLedger(
     accountId: string,
     startDate?: Date,
     endDate?: Date
@@ -214,3 +222,4 @@ export async function getAccountLedger(
         }
     };
 }
+);

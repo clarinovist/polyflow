@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma as db } from '@/lib/prisma';
 import { AssetFormValues, assetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
 
-export async function getAssets() {
+export const getAssets = withTenant(
+async function getAssets() {
     try {
         const assets = await db.fixedAsset.findMany({
             include: {
@@ -27,8 +29,10 @@ export async function getAssets() {
         return { success: false, error: 'Failed to fetch assets' };
     }
 }
+);
 
-export async function createAsset(data: AssetFormValues) {
+export const createAsset = withTenant(
+async function createAsset(data: AssetFormValues) {
     try {
         const validated = assetSchema.parse(data);
 
@@ -46,8 +50,10 @@ export async function createAsset(data: AssetFormValues) {
         return { success: false, error: 'Failed to create asset' };
     }
 }
+);
 
-export async function updateAsset(id: string, data: Partial<AssetFormValues>) {
+export const updateAsset = withTenant(
+async function updateAsset(id: string, data: Partial<AssetFormValues>) {
     try {
 
         await db.fixedAsset.update({
@@ -65,8 +71,10 @@ export async function updateAsset(id: string, data: Partial<AssetFormValues>) {
         return { success: false, error: 'Failed to update asset' };
     }
 }
+);
 
-export async function deleteAsset(id: string) {
+export const deleteAsset = withTenant(
+async function deleteAsset(id: string) {
     try {
         await db.fixedAsset.delete({
             where: { id }
@@ -79,3 +87,4 @@ export async function deleteAsset(id: string) {
         return { success: false, error: 'Failed to delete asset' };
     }
 }
+);

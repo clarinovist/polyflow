@@ -1,6 +1,7 @@
 
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { serializeData } from '@/lib/utils';
@@ -12,7 +13,8 @@ export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPO
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ExtendedClient = Prisma.TransactionClient & { costHistory: any };
 
-export async function getCostHistory(variantId: string) {
+export const getCostHistory = withTenant(
+async function getCostHistory(variantId: string) {
     await requireAuth();
 
     const db = prisma as unknown as ExtendedClient;
@@ -28,8 +30,10 @@ export async function getCostHistory(variantId: string) {
 
     return serializeData(history);
 }
+);
 
-export async function updateStandardCost(
+export const updateStandardCost = withTenant(
+async function updateStandardCost(
     variantId: string,
     newCost: number,
     reason: CostChangeReason,
@@ -87,3 +91,4 @@ export async function updateStandardCost(
         });
     }
 }
+);

@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { OpnameStatus, MovementType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getOpnameSessions() {
+export const getOpnameSessions = withTenant(
+async function getOpnameSessions() {
     return await prisma.stockOpname.findMany({
         orderBy: {
             createdAt: 'desc',
@@ -15,8 +17,10 @@ export async function getOpnameSessions() {
         },
     });
 }
+);
 
-export async function getOpnameSession(id: string) {
+export const getOpnameSession = withTenant(
+async function getOpnameSession(id: string) {
     return await prisma.stockOpname.findUnique({
         where: { id },
         include: {
@@ -39,6 +43,7 @@ export async function getOpnameSession(id: string) {
         }
     });
 }
+);
 
 
 async function generateOpnameNumber() {
@@ -70,7 +75,8 @@ async function generateOpnameNumber() {
     return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
 }
 
-export async function createOpnameSession(locationId: string, remarks?: string) {
+export const createOpnameSession = withTenant(
+async function createOpnameSession(locationId: string, remarks?: string) {
     try {
         // 1. Get all inventories for this location to snapshot
         const inventories = await prisma.inventory.findMany({
@@ -109,8 +115,10 @@ export async function createOpnameSession(locationId: string, remarks?: string) 
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function saveOpnameCount(
+export const saveOpnameCount = withTenant(
+async function saveOpnameCount(
     opnameId: string,
     items: { id: string; countedQuantity: number; notes?: string }[]
 ) {
@@ -133,12 +141,14 @@ export async function saveOpnameCount(
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
 import { logActivity } from '@/lib/audit';
 import { auth } from '@/auth';
 import { AccountingService } from '@/services/accounting-service';
 
-export async function completeOpname(opnameId: string) {
+export const completeOpname = withTenant(
+async function completeOpname(opnameId: string) {
     try {
         const session = await auth();
         if (!session?.user?.id) {
@@ -219,8 +229,10 @@ export async function completeOpname(opnameId: string) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function deleteOpnameSession(id: string) {
+export const deleteOpnameSession = withTenant(
+async function deleteOpnameSession(id: string) {
     try {
         const session = await prisma.stockOpname.findUnique({
             where: { id },
@@ -245,4 +257,5 @@ export async function deleteOpnameSession(id: string) {
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 

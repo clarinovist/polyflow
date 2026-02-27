@@ -1,8 +1,10 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 
-export async function getLocations() {
+export const getLocations = withTenant(
+async function getLocations() {
     try {
         const locations = await prisma.location.findMany({
             orderBy: { name: 'asc' },
@@ -13,3 +15,4 @@ export async function getLocations() {
         throw new Error('Failed to fetch locations');
     }
 }
+);

@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import {
     createPurchaseOrderSchema,
     updatePurchaseOrderSchema,
@@ -21,7 +22,8 @@ import { PurchaseOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
-export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
+export const createPurchaseOrder = withTenant(
+async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const session = await requireAuth();
     const validated = createPurchaseOrderSchema.parse(formData);
 
@@ -30,8 +32,10 @@ export async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     revalidatePath('/planning/purchase-orders');
     return serializeData(order);
 }
+);
 
-export async function createManualPurchaseRequest(data: CreatePurchaseRequestValues) {
+export const createManualPurchaseRequest = withTenant(
+async function createManualPurchaseRequest(data: CreatePurchaseRequestValues) {
     const session = await requireAuth();
     const validated = createPurchaseRequestSchema.parse(data);
 
@@ -40,8 +44,10 @@ export async function createManualPurchaseRequest(data: CreatePurchaseRequestVal
     revalidatePath('/planning/purchase-requests');
     return serializeData(pr);
 }
+);
 
-export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
+export const updatePurchaseOrder = withTenant(
+async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
     await requireAuth();
     const validated = updatePurchaseOrderSchema.parse(formData);
 
@@ -51,8 +57,10 @@ export async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
     revalidatePath(`/planning/purchase-orders/${validated.id}`);
     return serializeData(order);
 }
+);
 
-export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
+export const createGoodsReceipt = withTenant(
+async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
     const session = await requireAuth();
     const validated = createGoodsReceiptSchema.parse(formData);
 
@@ -65,8 +73,10 @@ export async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
     revalidatePath('/warehouse/inventory');
     return serializeData(receipt);
 }
+);
 
-export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
+export const createPurchaseInvoice = withTenant(
+async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
     await requireAuth();
     const validated = createPurchaseInvoiceSchema.parse(formData);
 
@@ -81,8 +91,10 @@ export async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValue
 
     return serializeData(invoice);
 }
+);
 
-export async function recordPurchasePayment(id: string, amount: number) {
+export const recordPurchasePayment = withTenant(
+async function recordPurchasePayment(id: string, amount: number) {
     const session = await requireAuth();
     const updated = await PurchaseService.recordPayment(id, amount, session.user.id);
 
@@ -95,8 +107,10 @@ export async function recordPurchasePayment(id: string, amount: number) {
 
     return serializeData(updated);
 }
+);
 
-export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus) {
+export const updatePurchaseOrderStatus = withTenant(
+async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus) {
     const session = await requireAuth();
     const order = await PurchaseService.updateOrderStatus(id, status, session.user.id);
 
@@ -104,8 +118,10 @@ export async function updatePurchaseOrderStatus(id: string, status: PurchaseOrde
     revalidatePath(`/planning/purchase-orders/${id}`);
     return serializeData(order);
 }
+);
 
-export async function deletePurchaseOrder(id: string) {
+export const deletePurchaseOrder = withTenant(
+async function deletePurchaseOrder(id: string) {
     const session = await requireAuth();
 
     try {
@@ -120,44 +136,58 @@ export async function deletePurchaseOrder(id: string) {
         };
     }
 }
+);
 
-export async function getPurchaseOrders(filters?: { supplierId?: string, status?: PurchaseOrderStatus }) {
+export const getPurchaseOrders = withTenant(
+async function getPurchaseOrders(filters?: { supplierId?: string, status?: PurchaseOrderStatus }) {
     await requireAuth();
     const orders = await PurchaseService.getPurchaseOrders(filters);
     return serializeData(orders);
 }
+);
 
-export async function getPurchaseOrderById(id: string) {
+export const getPurchaseOrderById = withTenant(
+async function getPurchaseOrderById(id: string) {
     await requireAuth();
     const order = await PurchaseService.getPurchaseOrderById(id);
     return serializeData(order);
 }
+);
 
-export async function getGoodsReceiptById(id: string) {
+export const getGoodsReceiptById = withTenant(
+async function getGoodsReceiptById(id: string) {
     await requireAuth();
     const receipt = await PurchaseService.getGoodsReceiptById(id);
     return serializeData(receipt);
 }
+);
 
-export async function getGoodsReceipts() {
+export const getGoodsReceipts = withTenant(
+async function getGoodsReceipts() {
     await requireAuth();
     const receipts = await PurchaseService.getGoodsReceipts();
     return serializeData(receipts);
 }
+);
 
-export async function getPurchaseInvoiceById(id: string) {
+export const getPurchaseInvoiceById = withTenant(
+async function getPurchaseInvoiceById(id: string) {
     await requireAuth();
     const invoice = await PurchaseService.getPurchaseInvoiceById(id);
     return serializeData(invoice);
 }
+);
 
-export async function getPurchaseInvoices() {
+export const getPurchaseInvoices = withTenant(
+async function getPurchaseInvoices() {
     await requireAuth();
     const invoices = await PurchaseService.getPurchaseInvoices();
     return serializeData(invoices);
 }
+);
 
-export async function consolidatePurchaseRequests(requestIds: string[], supplierId: string) {
+export const consolidatePurchaseRequests = withTenant(
+async function consolidatePurchaseRequests(requestIds: string[], supplierId: string) {
     const session = await requireAuth();
     try {
         const po = await PurchaseService.consolidateRequestsToOrder(requestIds, supplierId, session.user.id);
@@ -171,3 +201,4 @@ export async function consolidatePurchaseRequests(requestIds: string[], supplier
         };
     }
 }
+);

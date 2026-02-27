@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { manualJournalSchema, ManualJournalValues } from "@/lib/schemas/journal";
 import { AccountingService } from "@/services/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
@@ -7,7 +8,8 @@ import { requireAuth } from "@/lib/auth-checks";
 import { revalidatePath } from "next/cache";
 // ... (rest is same)
 
-export async function createBulkJournals(entries: {
+export const createBulkJournals = withTenant(
+async function createBulkJournals(entries: {
     entryDate: Date;
     description: string;
     reference: string;
@@ -29,8 +31,10 @@ export async function createBulkJournals(entries: {
         return { success: false, error: error instanceof Error ? error.message : "Bulk import failed" };
     }
 }
+);
 
-export async function createManualJournal(data: ManualJournalValues, post: boolean = false) {
+export const createManualJournal = withTenant(
+async function createManualJournal(data: ManualJournalValues, post: boolean = false) {
     const session = await requireAuth();
 
     // Validate Input
@@ -68,22 +72,28 @@ export async function createManualJournal(data: ManualJournalValues, post: boole
         return { success: false, error: error instanceof Error ? error.message : "Failed to create journal" };
     }
 }
+);
 
 
-export async function getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string }) {
+export const getJournals = withTenant(
+async function getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string }) {
     await requireAuth();
     // Pass plain objects if needed, but Date is fine in Server Components usually,
     // though passing from Client might need conversion.
     // For now assuming Server Component usage mostly.
     return await AccountingService.getJournals(params);
 }
+);
 
-export async function getJournalById(id: string) {
+export const getJournalById = withTenant(
+async function getJournalById(id: string) {
     await requireAuth();
     return await AccountingService.getJournalById(id);
 }
+);
 
-export async function postJournal(id: string) {
+export const postJournal = withTenant(
+async function postJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.postJournal(id, session.user.id);
@@ -94,8 +104,10 @@ export async function postJournal(id: string) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to post journal" };
     }
 }
+);
 
-export async function voidJournal(id: string) {
+export const voidJournal = withTenant(
+async function voidJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.voidJournal(id, session.user.id);
@@ -106,8 +118,10 @@ export async function voidJournal(id: string) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to void journal" };
     }
 }
+);
 
-export async function reverseJournal(id: string) {
+export const reverseJournal = withTenant(
+async function reverseJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.reverseJournal(id, session.user.id);
@@ -117,3 +131,4 @@ export async function reverseJournal(id: string) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to reverse journal" };
     }
 }
+);

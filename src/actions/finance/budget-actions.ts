@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma as db } from '@/lib/prisma'; // Ensure consistent import
 import { BudgetFormValues, budgetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
 
-export async function getBudgets(year: number) {
+export const getBudgets = withTenant(
+async function getBudgets(year: number) {
     try {
         const budgets = await db.budget.findMany({
             where: { year },
@@ -24,8 +26,10 @@ export async function getBudgets(year: number) {
         return { success: false, error: 'Failed to fetch budgets' };
     }
 }
+);
 
-export async function upsertBudget(data: BudgetFormValues) {
+export const upsertBudget = withTenant(
+async function upsertBudget(data: BudgetFormValues) {
     try {
         const validated = budgetSchema.parse(data);
 
@@ -63,3 +67,4 @@ export async function upsertBudget(data: BudgetFormValues) {
         return { success: false, error: 'Failed to save budget' };
     }
 }
+);

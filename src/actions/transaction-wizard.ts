@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { transactionWizardSchema, TransactionWizardValues } from "@/lib/schemas/transaction-wizard";
 import { TRANSACTION_TYPES } from "@/lib/config/transaction-types";
@@ -10,7 +11,8 @@ import { requireAuth } from "@/lib/auth-checks";
 import { revalidatePath } from "next/cache";
 import { recordCustomerPayment, recordSupplierPayment } from "./finance";
 
-export async function createWizardTransaction(data: TransactionWizardValues) {
+export const createWizardTransaction = withTenant(
+async function createWizardTransaction(data: TransactionWizardValues) {
     const session = await requireAuth();
 
     // 1. Validate Input
@@ -125,6 +127,7 @@ export async function createWizardTransaction(data: TransactionWizardValues) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to record transaction" };
     }
 }
+);
 
 const accountCache = new Map<string, string>();
 

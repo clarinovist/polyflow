@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { MachineType, MachineStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getMachines() {
+export const getMachines = withTenant(
+async function getMachines() {
     try {
         const machines = await prisma.machine.findMany({
             include: { location: true },
@@ -16,8 +18,10 @@ export async function getMachines() {
         return { success: false, error: 'Failed to retrieve production fleet' };
     }
 }
+);
 
-export async function getMachineById(id: string) {
+export const getMachineById = withTenant(
+async function getMachineById(id: string) {
     try {
         const machine = await prisma.machine.findUnique({
             where: { id },
@@ -32,8 +36,10 @@ export async function getMachineById(id: string) {
         return { success: false, error: 'Database error occurred while fetching machine' };
     }
 }
+);
 
-export async function createMachine(data: {
+export const createMachine = withTenant(
+async function createMachine(data: {
     name: string;
     code: string;
     type: MachineType;
@@ -60,8 +66,10 @@ export async function createMachine(data: {
         return { success: false, error: 'Failed to register machine' };
     }
 }
+);
 
-export async function updateMachine(
+export const updateMachine = withTenant(
+async function updateMachine(
     id: string,
     data: {
         name?: string;
@@ -85,8 +93,10 @@ export async function updateMachine(
         return { success: false, error: 'Failed to update machine configuration' };
     }
 }
+);
 
-export async function deleteMachine(id: string) {
+export const deleteMachine = withTenant(
+async function deleteMachine(id: string) {
     try {
         await prisma.machine.delete({
             where: { id },
@@ -99,8 +109,10 @@ export async function deleteMachine(id: string) {
         return { success: false, error: 'Cannot delete machine. It may have linked production history.' };
     }
 }
+);
 
-export async function setMachineStatus(id: string, status: MachineStatus) {
+export const setMachineStatus = withTenant(
+async function setMachineStatus(id: string, status: MachineStatus) {
     try {
         const machine = await prisma.machine.update({
             where: { id },
@@ -114,3 +126,4 @@ export async function setMachineStatus(id: string, status: MachineStatus) {
         return { success: false, error: `Failed to transition machine to ${status}` };
     }
 }
+);

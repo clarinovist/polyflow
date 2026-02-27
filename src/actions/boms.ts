@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
@@ -7,7 +8,8 @@ import { serializeData } from '@/lib/utils';
 import { calculateBomCost } from '@/lib/production-utils';
 import { updateStandardCost } from '@/actions/cost-history';
 
-export async function getBoms(category?: string) {
+export const getBoms = withTenant(
+async function getBoms(category?: string) {
     try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
@@ -43,8 +45,10 @@ export async function getBoms(category?: string) {
         return { success: false, error: "Failed to fetch BOMs" };
     }
 }
+);
 
-export async function getProductVariants() {
+export const getProductVariants = withTenant(
+async function getProductVariants() {
     try {
         const variants = await prisma.productVariant.findMany({
             include: {
@@ -60,8 +64,10 @@ export async function getProductVariants() {
         return { success: false, error: "Failed to fetch variants" };
     }
 }
+);
 
-export async function createBom(data: CreateBomValues) {
+export const createBom = withTenant(
+async function createBom(data: CreateBomValues) {
     try {
         const validated = createBomSchema.parse(data);
 
@@ -102,8 +108,10 @@ export async function createBom(data: CreateBomValues) {
         return { success: false, error: "Failed to create BOM" };
     }
 }
+);
 
-export async function getBom(id: string) {
+export const getBom = withTenant(
+async function getBom(id: string) {
     try {
         const bom = await prisma.bom.findUnique({
             where: { id },
@@ -135,8 +143,10 @@ export async function getBom(id: string) {
         return { success: false, error: "Failed to fetch BOM" };
     }
 }
+);
 
-export async function updateBom(id: string, data: CreateBomValues) {
+export const updateBom = withTenant(
+async function updateBom(id: string, data: CreateBomValues) {
     try {
         const validated = createBomSchema.parse(data);
 
@@ -190,8 +200,10 @@ export async function updateBom(id: string, data: CreateBomValues) {
         return { success: false, error: "Failed to update BOM" };
     }
 }
+);
 
-export async function deleteBom(id: string) {
+export const deleteBom = withTenant(
+async function deleteBom(id: string) {
     try {
         await prisma.bom.delete({
             where: { id }
@@ -203,5 +215,6 @@ export async function deleteBom(id: string) {
         return { success: false, error: "Failed to delete BOM. It might be in use by a production order." };
     }
 }
+);
 
 

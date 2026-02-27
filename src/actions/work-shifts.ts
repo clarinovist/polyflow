@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma as db } from '@/lib/prisma';
 import { WorkShiftStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getWorkShifts() {
+export const getWorkShifts = withTenant(
+async function getWorkShifts() {
     try {
         const shifts = await db.workShift.findMany({
             orderBy: {
@@ -17,8 +19,10 @@ export async function getWorkShifts() {
         return { success: false, error: 'Failed to fetch work shifts' };
     }
 }
+);
 
-export async function createWorkShift(data: {
+export const createWorkShift = withTenant(
+async function createWorkShift(data: {
     name: string;
     startTime: string;
     endTime: string;
@@ -40,8 +44,10 @@ export async function createWorkShift(data: {
         return { success: false, error: 'Failed to create work shift' };
     }
 }
+);
 
-export async function updateWorkShift(
+export const updateWorkShift = withTenant(
+async function updateWorkShift(
     id: string,
     data: {
         name: string;
@@ -67,8 +73,10 @@ export async function updateWorkShift(
         return { success: false, error: 'Failed to update work shift' };
     }
 }
+);
 
-export async function deleteWorkShift(id: string) {
+export const deleteWorkShift = withTenant(
+async function deleteWorkShift(id: string) {
     try {
         // Check if there are any dependencies if needed (e.g. if we link production shifts to work shifts later)
         // For now, simple delete
@@ -82,3 +90,4 @@ export async function deleteWorkShift(id: string) {
         return { success: false, error: 'Failed to delete work shift' };
     }
 }
+);

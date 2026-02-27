@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { EmployeeStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getEmployees() {
+export const getEmployees = withTenant(
+async function getEmployees() {
     try {
         const employees = await prisma.employee.findMany({
             orderBy: { createdAt: 'desc' },
@@ -15,8 +17,10 @@ export async function getEmployees() {
         return { success: false, error: 'Failed to retrieve personnel directory' };
     }
 }
+);
 
-export async function getEmployeeById(id: string) {
+export const getEmployeeById = withTenant(
+async function getEmployeeById(id: string) {
     try {
         const employee = await prisma.employee.findUnique({
             where: { id },
@@ -30,8 +34,10 @@ export async function getEmployeeById(id: string) {
         return { success: false, error: 'Database error occurred while fetching employee' };
     }
 }
+);
 
-export async function createEmployee(data: {
+export const createEmployee = withTenant(
+async function createEmployee(data: {
     name: string;
     code: string;
     role: string;
@@ -56,8 +62,10 @@ export async function createEmployee(data: {
         return { success: false, error: 'Failed to onboard personnel' };
     }
 }
+);
 
-export async function updateEmployee(
+export const updateEmployee = withTenant(
+async function updateEmployee(
     id: string,
     data: {
         name?: string;
@@ -80,8 +88,10 @@ export async function updateEmployee(
         return { success: false, error: 'Failed to update personnel records' };
     }
 }
+);
 
-export async function deleteEmployee(id: string) {
+export const deleteEmployee = withTenant(
+async function deleteEmployee(id: string) {
     try {
         // Check if employee has associated records (e.g. executions) before deleting
         // This is a safety check usually handled by foreign key constraints but managed here for clarity
@@ -96,8 +106,10 @@ export async function deleteEmployee(id: string) {
         return { success: false, error: 'Cannot delete personnel. They may be linked to production history or active shifts.' };
     }
 }
+);
 
-export async function generateNextEmployeeCode() {
+export const generateNextEmployeeCode = withTenant(
+async function generateNextEmployeeCode() {
     try {
         const lastEmployee = await prisma.employee.findFirst({
             orderBy: {
@@ -121,3 +133,4 @@ export async function generateNextEmployeeCode() {
         return 'EMP-Unknown';
     }
 }
+);

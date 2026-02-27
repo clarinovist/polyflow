@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { Prisma, JournalStatus } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
@@ -16,7 +17,8 @@ export interface JournalFilterParams {
     referenceType?: string;
 }
 
-export async function getJournalEntries(params: JournalFilterParams) {
+export const getJournalEntries = withTenant(
+async function getJournalEntries(params: JournalFilterParams) {
     const {
         page = 1,
         limit = 10,
@@ -82,8 +84,10 @@ export async function getJournalEntries(params: JournalFilterParams) {
         }
     };
 }
+);
 
-export async function batchPostJournals(ids: string[]) {
+export const batchPostJournals = withTenant(
+async function batchPostJournals(ids: string[]) {
     const session = await requireAuth();
     try {
         await postBulkJournals(ids, session.user.id);
@@ -94,3 +98,4 @@ export async function batchPostJournals(ids: string[]) {
         return { success: false, error: error instanceof Error ? error.message : "Batch posting failed" };
     }
 }
+);

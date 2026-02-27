@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/auth-checks';
@@ -9,10 +10,8 @@ import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 
-/**
- * Get all invoices
- */
-export async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getInvoices = withTenant(
+async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
     const where: Prisma.InvoiceWhereInput = {};
     if (dateRange?.startDate && dateRange?.endDate) {
@@ -36,11 +35,10 @@ export async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date
     });
     return serializeData(invoices);
 }
+);
 
-/**
- * Get invoice by ID
- */
-export async function getInvoiceById(id: string) {
+export const getInvoiceById = withTenant(
+async function getInvoiceById(id: string) {
     await requireAuth();
     const invoice = await prisma.invoice.findUnique({
         where: { id },
@@ -61,11 +59,10 @@ export async function getInvoiceById(id: string) {
     });
     return serializeData(invoice);
 }
+);
 
-/**
- * Create a new invoice
- */
-export async function createInvoice(data: CreateInvoiceValues) {
+export const createInvoice = withTenant(
+async function createInvoice(data: CreateInvoiceValues) {
     const session = await requireAuth();
     const result = createInvoiceSchema.safeParse(data);
 
@@ -88,11 +85,10 @@ export async function createInvoice(data: CreateInvoiceValues) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create invoice" };
     }
 }
+);
 
-/**
- * Update invoice status
- */
-export async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, paidAmount?: number }) {
+export const updateInvoiceStatus = withTenant(
+async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, paidAmount?: number }) {
     const session = await requireAuth();
     const result = updateInvoiceStatusSchema.safeParse(data);
 
@@ -118,3 +114,4 @@ export async function updateInvoiceStatus(data: { id: string, status: InvoiceSta
         return { success: false, error: error instanceof Error ? error.message : "Failed to update invoice" };
     }
 }
+);

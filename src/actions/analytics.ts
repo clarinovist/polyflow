@@ -1,18 +1,24 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { AnalyticsService, SalesMetrics, ProductionAnalyticsData } from '@/services/analytics-service';
 import { DateRange } from '@/types/analytics';
 import { format } from 'date-fns';
 
-export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetrics> {
+export const getSalesMetrics = withTenant(
+async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetrics> {
     return await AnalyticsService.getSalesMetrics(dateRange);
 }
+);
 
-export async function getProductionAnalytics(dateRange?: DateRange): Promise<ProductionAnalyticsData> {
+export const getProductionAnalytics = withTenant(
+async function getProductionAnalytics(dateRange?: DateRange): Promise<ProductionAnalyticsData> {
     return await AnalyticsService.getProductionAnalytics(dateRange);
 }
+);
 
-export async function exportSalesAnalytics(dateRange: DateRange) {
+export const exportSalesAnalytics = withTenant(
+async function exportSalesAnalytics(dateRange: DateRange) {
     try {
         const metrics = await AnalyticsService.getSalesMetrics(dateRange);
 
@@ -42,8 +48,10 @@ export async function exportSalesAnalytics(dateRange: DateRange) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
+);
 
-export async function exportProductionAnalytics(dateRange: DateRange) {
+export const exportProductionAnalytics = withTenant(
+async function exportProductionAnalytics(dateRange: DateRange) {
     try {
         const data = await AnalyticsService.getProductionAnalytics(dateRange);
 
@@ -86,6 +94,7 @@ export async function exportProductionAnalytics(dateRange: DateRange) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
+);
 
 // Export types for UI usage if needed
 export type { SalesMetrics } from '@/services/analytics-service';

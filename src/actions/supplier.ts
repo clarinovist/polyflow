@@ -1,14 +1,13 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, UpdateSupplierValues } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 
-/**
- * Get all suppliers
- */
-export async function getSuppliers() {
+export const getSuppliers = withTenant(
+async function getSuppliers() {
     await requireAuth();
     return prisma.supplier.findMany({
         orderBy: {
@@ -16,11 +15,10 @@ export async function getSuppliers() {
         },
     });
 }
+);
 
-/**
- * Get a single supplier by ID
- */
-export async function getSupplierById(id: string) {
+export const getSupplierById = withTenant(
+async function getSupplierById(id: string) {
     await requireAuth();
     return prisma.supplier.findUnique({
         where: { id },
@@ -34,11 +32,10 @@ export async function getSupplierById(id: string) {
         }
     });
 }
+);
 
-/**
- * Generate the next available supplier code (SUP-XXX format)
- */
-export async function getNextSupplierCode(): Promise<string> {
+export const getNextSupplierCode = withTenant(
+async function getNextSupplierCode(): Promise<string> {
     await requireAuth();
     const prefix = 'SUP-';
 
@@ -69,11 +66,10 @@ export async function getNextSupplierCode(): Promise<string> {
 
     return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 }
+);
 
-/**
- * Create a new supplier
- */
-export async function createSupplier(data: CreateSupplierValues) {
+export const createSupplier = withTenant(
+async function createSupplier(data: CreateSupplierValues) {
     await requireAuth();
     const result = createSupplierSchema.safeParse(data);
 
@@ -122,11 +118,10 @@ export async function createSupplier(data: CreateSupplierValues) {
         return { success: false, error: 'Failed to create supplier' };
     }
 }
+);
 
-/**
- * Update an existing supplier
- */
-export async function updateSupplier(data: UpdateSupplierValues) {
+export const updateSupplier = withTenant(
+async function updateSupplier(data: UpdateSupplierValues) {
     await requireAuth();
     const result = updateSupplierSchema.safeParse(data);
 
@@ -148,11 +143,10 @@ export async function updateSupplier(data: UpdateSupplierValues) {
         return { success: false, error: 'Failed to update supplier' };
     }
 }
+);
 
-/**
- * Delete a supplier
- */
-export async function deleteSupplier(id: string) {
+export const deleteSupplier = withTenant(
+async function deleteSupplier(id: string) {
     await requireAuth();
     try {
         // Check for references before deleting
@@ -181,3 +175,4 @@ export async function deleteSupplier(id: string) {
         return { success: false, error: 'Failed to delete supplier' };
     }
 }
+);

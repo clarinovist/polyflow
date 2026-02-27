@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { AccountType, AccountCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
@@ -29,10 +30,8 @@ const REQUIRED_ACCOUNTS: RequiredAccount[] = [
     { code: '54000', name: 'Scrap Cost Recovery', type: 'REVENUE', category: 'OTHER_REVENUE', description: 'Revenue from recycling or selling scrap' },
 ];
 
-/**
- * Audit current accounts and identify missing required ones.
- */
-export async function auditRequiredAccounts() {
+export const auditRequiredAccounts = withTenant(
+async function auditRequiredAccounts() {
     await requireAuth();
 
     const existingAccounts = await prisma.account.findMany({
@@ -52,11 +51,10 @@ export async function auditRequiredAccounts() {
         isPerfect: missing.length === 0
     };
 }
+);
 
-/**
- * Initialize all missing required accounts.
- */
-export async function fixMissingAccounts() {
+export const fixMissingAccounts = withTenant(
+async function fixMissingAccounts() {
     await requireAuth();
 
     const audit = await auditRequiredAccounts();
@@ -79,3 +77,4 @@ export async function fixMissingAccounts() {
     revalidatePath('/finance/settings'); // Assuming this is where it will be managed
     return { success: true, count: created.length };
 }
+);

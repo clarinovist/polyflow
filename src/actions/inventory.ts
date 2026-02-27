@@ -1,31 +1,41 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { InventoryService } from '@/services/inventory-service';
 import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 
-export async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
+export const getInventoryStats = withTenant(
+async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
     await requireAuth();
     return await InventoryService.getStats(searchParams);
 }
+);
 
-export async function getLocations() {
+export const getLocations = withTenant(
+async function getLocations() {
     await requireAuth();
     return await InventoryService.getLocations();
 }
+);
 
-export async function getProductVariants() {
+export const getProductVariants = withTenant(
+async function getProductVariants() {
     await requireAuth();
     return await InventoryService.getProductVariants();
 }
+);
 
-export async function getAvailableBatches(productVariantId: string, locationId: string) {
+export const getAvailableBatches = withTenant(
+async function getAvailableBatches(productVariantId: string, locationId: string) {
     await requireAuth();
     return await InventoryService.getAvailableBatches(productVariantId, locationId);
 }
+);
 
-export async function transferStock(data: TransferStockValues, _userId?: string) {
+export const transferStock = withTenant(
+async function transferStock(data: TransferStockValues, _userId?: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
@@ -46,8 +56,10 @@ export async function transferStock(data: TransferStockValues, _userId?: string)
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function transferStockBulk(data: BulkTransferStockValues, _userId?: string) {
+export const transferStockBulk = withTenant(
+async function transferStockBulk(data: BulkTransferStockValues, _userId?: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
@@ -66,8 +78,10 @@ export async function transferStockBulk(data: BulkTransferStockValues, _userId?:
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function adjustStock(data: AdjustStockWithBatchValues, _userId?: string) {
+export const adjustStock = withTenant(
+async function adjustStock(data: AdjustStockWithBatchValues, _userId?: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
@@ -85,8 +99,10 @@ export async function adjustStock(data: AdjustStockWithBatchValues, _userId?: st
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: string) {
+export const adjustStockBulk = withTenant(
+async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
@@ -104,8 +120,10 @@ export async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: str
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function updateThreshold(productVariantId: string, minStockAlert: number) {
+export const updateThreshold = withTenant(
+async function updateThreshold(productVariantId: string, minStockAlert: number) {
     await requireAuth();
     try {
         await InventoryService.updateThreshold(productVariantId, minStockAlert);
@@ -116,33 +134,45 @@ export async function updateThreshold(productVariantId: string, minStockAlert: n
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
+);
 
-export async function getStockMovements(limit = 50, startDate?: Date, endDate?: Date) {
+export const getStockMovements = withTenant(
+async function getStockMovements(limit = 50, startDate?: Date, endDate?: Date) {
     await requireAuth();
     return await InventoryService.getStockMovements({ limit, startDate, endDate });
 }
+);
 
-export async function getDashboardStats() {
+export const getDashboardStats = withTenant(
+async function getDashboardStats() {
     await requireAuth();
     return await InventoryService.getDashboardStats();
 }
+);
 
-export async function getSuggestedPurchases() {
+export const getSuggestedPurchases = withTenant(
+async function getSuggestedPurchases() {
     await requireAuth();
     return await InventoryService.getSuggestedPurchases();
 }
+);
 
-export async function getInventoryValuation() {
+export const getInventoryValuation = withTenant(
+async function getInventoryValuation() {
     await requireAuth();
     return await InventoryService.getInventoryValuation();
 }
+);
 
-export async function getInventoryAsOf(targetDate: Date, locationId?: string) {
+export const getInventoryAsOf = withTenant(
+async function getInventoryAsOf(targetDate: Date, locationId?: string) {
     await requireAuth();
     return await InventoryService.getInventoryAsOf(targetDate, locationId);
 }
+);
 
-export async function getStockHistory(
+export const getStockHistory = withTenant(
+async function getStockHistory(
     productVariantId: string,
     startDate: Date,
     endDate: Date,
@@ -151,8 +181,10 @@ export async function getStockHistory(
     await requireAuth();
     return await InventoryService.getStockHistory(productVariantId, startDate, endDate, locationId);
 }
+);
 
-export async function getStockLedgerAction(
+export const getStockLedgerAction = withTenant(
+async function getStockLedgerAction(
     productVariantId: string,
     startDate: Date,
     endDate: Date,
@@ -161,8 +193,10 @@ export async function getStockLedgerAction(
     await requireAuth();
     return await InventoryService.getStockLedger(productVariantId, startDate, endDate, locationId);
 }
+);
 
-export async function createStockReservation(data: CreateReservationValues) {
+export const createStockReservation = withTenant(
+async function createStockReservation(data: CreateReservationValues) {
     await requireAuth();
     const result = createReservationSchema.safeParse(data);
     if (!result.success) {
@@ -177,8 +211,10 @@ export async function createStockReservation(data: CreateReservationValues) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to create reservation" };
     }
 }
+);
 
-export async function cancelStockReservation(data: CancelReservationValues) {
+export const cancelStockReservation = withTenant(
+async function cancelStockReservation(data: CancelReservationValues) {
     await requireAuth();
     const result = cancelReservationSchema.safeParse(data);
     if (!result.success) {
@@ -193,32 +229,42 @@ export async function cancelStockReservation(data: CancelReservationValues) {
         return { success: false, error: "Failed to cancel reservation" };
     }
 }
+);
 
-export async function getActiveReservations(locationId?: string, productVariantId?: string) {
+export const getActiveReservations = withTenant(
+async function getActiveReservations(locationId?: string, productVariantId?: string) {
     await requireAuth();
     return await InventoryService.getActiveReservations(locationId, productVariantId);
 }
+);
 
 // ============================================
 // ANALYTICS & INSIGHTS (Phase 4)
 // ============================================
 
-export async function getInventoryTurnover(periodDays = 30) {
+export const getInventoryTurnover = withTenant(
+async function getInventoryTurnover(periodDays = 30) {
     await requireAuth();
     return await InventoryService.getInventoryTurnover(periodDays);
 }
+);
 
-export async function getDaysOfInventoryOnHand(periodDays = 30) {
+export const getDaysOfInventoryOnHand = withTenant(
+async function getDaysOfInventoryOnHand(periodDays = 30) {
     await requireAuth();
     return await InventoryService.getDaysOfInventoryOnHand(periodDays);
 }
+);
 
-export async function getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
+export const getStockMovementTrends = withTenant(
+async function getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
     await requireAuth();
     return await InventoryService.getStockMovementTrends(period);
 }
+);
 
-export async function acknowledgeHandover(movementId: string) {
+export const acknowledgeHandover = withTenant(
+async function acknowledgeHandover(movementId: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
@@ -251,8 +297,10 @@ export async function acknowledgeHandover(movementId: string) {
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
+);
 
-export async function getRealtimeStock(locationId: string, productVariantId: string) {
+export const getRealtimeStock = withTenant(
+async function getRealtimeStock(locationId: string, productVariantId: string) {
     await requireAuth();
     const inventory = await (await import('@/lib/prisma')).prisma.inventory.findUnique({
         where: { locationId_productVariantId: { locationId, productVariantId } },
@@ -260,3 +308,4 @@ export async function getRealtimeStock(locationId: string, productVariantId: str
     });
     return inventory?.quantity.toNumber() || 0;
 }
+);

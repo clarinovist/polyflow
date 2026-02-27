@@ -1,10 +1,12 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-checks';
 import { InvoiceStatus, PurchaseInvoiceStatus, Prisma } from '@prisma/client';
 
-export async function getFinanceDashboardStats(dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getFinanceDashboardStats = withTenant(
+async function getFinanceDashboardStats(dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
 
     // Base filter for Journal Entries
@@ -79,3 +81,4 @@ export async function getFinanceDashboardStats(dateRange?: { startDate?: Date, e
         }
     };
 }
+);

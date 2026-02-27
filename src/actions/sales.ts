@@ -1,5 +1,6 @@
 'use server';
 
+import { withTenant } from "@/lib/tenant";
 import { prisma } from '@/lib/prisma';
 import {
     createSalesOrderSchema,
@@ -14,10 +15,8 @@ import { requireAuth } from '@/lib/auth-checks';
 import { catchError } from '@/lib/error-handler';
 import { serializeData } from '@/lib/utils';
 
-/**
- * Get all sales orders
- */
-export async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Date, endDate?: Date }) {
+export const getSalesOrders = withTenant(
+async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Date, endDate?: Date }) {
     await requireAuth();
     const orders = await SalesService.getOrders({
         includeItems,
@@ -26,31 +25,28 @@ export async function getSalesOrders(includeItems = false, dateRange?: { startDa
     });
     return serializeData(orders);
 }
+);
 
-/**
- * Get sales orders by customer ID
- */
-export async function getSalesOrdersByCustomerId(customerId: string) {
+export const getSalesOrdersByCustomerId = withTenant(
+async function getSalesOrdersByCustomerId(customerId: string) {
     await requireAuth();
     const orders = await SalesService.getOrders({ customerId });
     return serializeData(orders);
 }
+);
 
 
-/**
- * Get sales order by ID with details
- */
-export async function getSalesOrderById(id: string) {
+export const getSalesOrderById = withTenant(
+async function getSalesOrderById(id: string) {
     await requireAuth();
     const order = await SalesService.getOrderById(id);
     if (!order) return null;
     return serializeData(order);
 }
+);
 
-/**
- * Create a new sales order
- */
-export async function createSalesOrder(data: CreateSalesOrderValues) {
+export const createSalesOrder = withTenant(
+async function createSalesOrder(data: CreateSalesOrderValues) {
     const session = await requireAuth();
     return catchError(async () => {
         const result = createSalesOrderSchema.parse(data);
@@ -59,11 +55,10 @@ export async function createSalesOrder(data: CreateSalesOrderValues) {
         return order;
     });
 }
+);
 
-/**
- * Update a sales order
- */
-export async function updateSalesOrder(data: UpdateSalesOrderValues) {
+export const updateSalesOrder = withTenant(
+async function updateSalesOrder(data: UpdateSalesOrderValues) {
     const session = await requireAuth();
     return catchError(async () => {
         const result = updateSalesOrderSchema.parse(data);
@@ -73,11 +68,10 @@ export async function updateSalesOrder(data: UpdateSalesOrderValues) {
         return { id: data.id };
     });
 }
+);
 
-/**
- * Confirm a sales order
- */
-export async function confirmSalesOrder(id: string) {
+export const confirmSalesOrder = withTenant(
+async function confirmSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.confirmOrder(id, session.user.id);
@@ -86,8 +80,10 @@ export async function confirmSalesOrder(id: string) {
         return true;
     });
 }
+);
 
-export async function markReadyToShip(id: string) {
+export const markReadyToShip = withTenant(
+async function markReadyToShip(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.markReadyToShip(id, session.user.id);
@@ -96,11 +92,10 @@ export async function markReadyToShip(id: string) {
         return true;
     });
 }
+);
 
-/**
- * Ship a sales order (Deduct Stock)
- */
-export async function shipSalesOrder(data: { id: string, trackingNumber?: string, carrier?: string }) {
+export const shipSalesOrder = withTenant(
+async function shipSalesOrder(data: { id: string, trackingNumber?: string, carrier?: string }) {
     const session = await requireAuth();
     return catchError(async () => {
         const validatedData = shipSalesOrderSchema.parse(data);
@@ -114,11 +109,10 @@ export async function shipSalesOrder(data: { id: string, trackingNumber?: string
         return true;
     });
 }
+);
 
-/**
- * Check if a sales order can be fulfilled with current stock
- */
-export async function checkSalesOrderFulfillment(id: string) {
+export const checkSalesOrderFulfillment = withTenant(
+async function checkSalesOrderFulfillment(id: string) {
     await requireAuth();
     try {
         const order = await prisma.salesOrder.findUnique({
@@ -183,12 +177,11 @@ export async function checkSalesOrderFulfillment(id: string) {
         return { success: false, error: error instanceof Error ? error.message : "Failed to check stock" };
     }
 }
+);
 
 
-/**
- * Deliver a sales order
- */
-export async function deliverSalesOrder(id: string) {
+export const deliverSalesOrder = withTenant(
+async function deliverSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.deliverOrder(id, session.user.id);
@@ -199,11 +192,10 @@ export async function deliverSalesOrder(id: string) {
         return true;
     });
 }
+);
 
-/**
- * Cancel a sales order
- */
-export async function cancelSalesOrder(id: string) {
+export const cancelSalesOrder = withTenant(
+async function cancelSalesOrder(id: string) {
     const session = await requireAuth();
     return catchError(async () => {
         await SalesService.cancelOrder(id, session.user.id);
@@ -212,11 +204,10 @@ export async function cancelSalesOrder(id: string) {
         return true;
     });
 }
+);
 
-/**
- * Delete a sales order (Draft only)
- */
-export async function deleteSalesOrder(id: string) {
+export const deleteSalesOrder = withTenant(
+async function deleteSalesOrder(id: string) {
     await requireAuth();
     return catchError(async () => {
         await SalesService.deleteOrder(id);
@@ -224,11 +215,10 @@ export async function deleteSalesOrder(id: string) {
         return true;
     });
 }
+);
 
-/**
- * Get sales order statistics
- */
-export async function getSalesOrderStats() {
+export const getSalesOrderStats = withTenant(
+async function getSalesOrderStats() {
     await requireAuth();
 
     const stats = await prisma.salesOrder.groupBy({
@@ -259,3 +249,4 @@ export async function getSalesOrderStats() {
         cancelledCount
     };
 }
+);

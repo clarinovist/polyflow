@@ -23,7 +23,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     },
     providers: [
         Credentials({
-            async authorize(credentials) {
+            async authorize(credentials, request) {
                 const parsedCredentials = z
                     .object({
                         email: z.string().email(),
@@ -35,7 +35,33 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                 if (parsedCredentials.success) {
                     const { email, password, role, remember } = parsedCredentials.data;
-                    const user = await getUser(email);
+
+                    // Extract Subdomain from headers in NextAuth 5
+                    const subdomain = request?.headers?.get('x-tenant-subdomain');
+
+                    let user;
+
+                    if (subdomain) {
+                        try {
+                            const { getTenantDb, tenantContext } = await import('@/lib/prisma');
+                            const tenant = await prisma.tenant.findUnique({
+                                where: { subdomain }
+                            });
+
+                            if (tenant?.dbUrl) {
+                                const tenantDb = getTenantDb(tenant.dbUrl);
+                                user = await tenantContext.run(tenantDb, () => getUser(email));
+                            } else {
+                                throw new Error('TenantNotFound');
+                            }
+                        } catch (error) {
+                            console.error('[NEXTAUTH] Tenant resolution error:', error);
+                            throw new Error('TenantResolutionFailed');
+                        }
+                    } else {
+                        // Fallback to default DB (e.g. localhost direct)
+                        user = await getUser(email);
+                    }
 
                     if (!user) {
                         throw new Error('UserNotFound');
