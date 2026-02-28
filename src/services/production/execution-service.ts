@@ -196,7 +196,8 @@ export class ProductionExecutionService {
                     } else {
                         ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
                     }
-                    const qtyToDeduct = quantityProduced * ratio;
+                    const totalConsumed = quantityProduced + scrapQuantity;
+                    const qtyToDeduct = totalConsumed * ratio;
 
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
@@ -342,7 +343,8 @@ export class ProductionExecutionService {
                     } else {
                         ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
                     }
-                    const qtyToDeduct = quantityProduced * ratio;
+                    const totalConsumed = quantityProduced + Number(scrapQuantity);
+                    const qtyToDeduct = totalConsumed * ratio;
 
                     if (qtyToDeduct > 0.0001) {
                         await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
