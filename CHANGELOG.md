@@ -2,6 +2,41 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.2.0](https://github.com/clarinovist/polyflow/compare/v1.1.0...v1.2.0) (2026-02-28)
+
+
+### Features
+
+* add external api for products and inventory with api key auth ([8e2c33c](https://github.com/clarinovist/polyflow/commit/8e2c33c7ece338c2a1eebf79545f7d1f6b049e7c))
+* add migration script for employee receivables and manual journal test ([a74e2f9](https://github.com/clarinovist/polyflow/commit/a74e2f9107272206fc71e4d722c4ece952a0a67b))
+* **finance:** refactor closing entry system, fix report inconsistencies, and add opening balance correction ([e4a43a8](https://github.com/clarinovist/polyflow/commit/e4a43a8d51adf7c891e409b0123d006dfb65df7c))
+* fix tenant authentication routing, dummy data seeding, and profile data mapping ([a0af056](https://github.com/clarinovist/polyflow/commit/a0af0564541886db7c1f36a61c89afa2e7c7c21a))
+* **multi-tenant:** Implementation of Independent Tenant Context routing with AsyncLocalStorage and Server Action proxy ([d7063b0](https://github.com/clarinovist/polyflow/commit/d7063b04e9f458c492beca9f9bb0dbf30febc6d4))
+* **sales:** implement smart stock allocation and auto-split MTO/MTS on SO confirm ([fa0f309](https://github.com/clarinovist/polyflow/commit/fa0f309b2dbdb23b3783c60092bfdf5ab0530ae5))
+* simplify tenant subdomain middleware ([bfabf7f](https://github.com/clarinovist/polyflow/commit/bfabf7f4f2f33bbf1298f59b97fa3b2fa28f02d3))
+* use 11310 Raw Materials for opening balance of Persediaan BB ([d727610](https://github.com/clarinovist/polyflow/commit/d7276105e25ad99fc4f89a66dd2be97c4ad14f41))
+
+
+### Bug Fixes
+
+* add stock opname double-count correction script (OB-OPNAME-ADJ) ([9bb3f65](https://github.com/clarinovist/polyflow/commit/9bb3f65431da00dfbc653e5c531c4842d96e0230))
+* backflush includes scrap quantity in material consumption ([882a359](https://github.com/clarinovist/polyflow/commit/882a3594a7b9b64b92714e4f5ab361016dc0771c))
+* **build:** correct BomCategory type in production actions ([cc71f81](https://github.com/clarinovist/polyflow/commit/cc71f81abf7562aae86746f3328e0acff1edc2c4))
+* **ci:** add set -e to deploy script for better error handling ([06ed983](https://github.com/clarinovist/polyflow/commit/06ed983da9ef44770577c9416676b81d5f0503c7))
+* correct OB-CORRECTION entry date timezone issue (UTC vs WIB) ([a409cd4](https://github.com/clarinovist/polyflow/commit/a409cd4c538d878f8cd0e861b5498665e6aefea5))
+* **db:** add cascade delete to StockOpnameItem relation ([de9fd2a](https://github.com/clarinovist/polyflow/commit/de9fd2a4788964a4f76954d1d120e778ec674e2d))
+* exclude base domain from subdomain detection in auth.ts ([cc345b6](https://github.com/clarinovist/polyflow/commit/cc345b6521483d2574b990b55f8cb143b784fc34))
+* exclude base domain from subdomain detection in settings page ([f169468](https://github.com/clarinovist/polyflow/commit/f1694688022ca5fe2d18b00f6d653bac0713554d))
+* exclude base domain from subdomain detection in tenant.ts ([47ad1ef](https://github.com/clarinovist/polyflow/commit/47ad1ef1ff726f131ff7f4316f6eb0b7e25d9998))
+* make fix-30000-zero script more comprehensive ([900032e](https://github.com/clarinovist/polyflow/commit/900032ea8b09dcf4b5030e0fdca0a7b222e2d62d))
+* prevent unbilled payables (21120) negative balance ([d66d3bc](https://github.com/clarinovist/polyflow/commit/d66d3bc9d8a080a34dbccd5ba06ce26597bb314b))
+* production cost flow & inventory GL reclassification ([3b31f64](https://github.com/clarinovist/polyflow/commit/3b31f641003dec26be82061667a5eea5e2042e80))
+* recovery script — restore voided OB entries, targeted void only ([2df0799](https://github.com/clarinovist/polyflow/commit/2df079973964f8e32f2dc8609b910307fd3e5c6c))
+* **sales:** prevent MTS stock reservations and clean up active reservations upon delivery ([e8de903](https://github.com/clarinovist/polyflow/commit/e8de903dff312745a1e59f15247622c9027140e6))
+* sync invoice status when journal is posted ([59f437d](https://github.com/clarinovist/polyflow/commit/59f437d02dab1c1bc5c8b3eb7b385a6b884f288e))
+* update OB-OPNAME-ADJ date to Feb 1, add fix-30000-zero script ([b998301](https://github.com/clarinovist/polyflow/commit/b9983014b94e7ff703bbfd73908e17ba2c3f2ad9))
+* use Jan 30 date for OB-CORRECTION to match other OB entries and avoid timezone issues ([1630c4b](https://github.com/clarinovist/polyflow/commit/1630c4b313e00115f3b97e36aea8084a89a24476))
+
 ## [1.1.0](https://github.com/clarinovist/polyflow/compare/v1.0.0...v1.1.0) (2026-02-15)
 
 
