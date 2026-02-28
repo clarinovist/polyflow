@@ -93,8 +93,6 @@ The application will be accessible via your domain through the ceritakita nginx 
 
 To populate the database with initial data (users, products, etc.):
 
-To populate the database with initial data (users, products, etc.):
-
 ```bash
 docker compose exec polyflow node prisma/seed.js
 ```
@@ -102,6 +100,9 @@ docker compose exec polyflow node prisma/seed.js
 **Note**: The seed script is now built into the Docker image, so no manual copying is required.
 
 ## One-time production cutover: purge SO/PO/WO history
+
+> [!WARNING]
+> The `scripts/purge-transaction-history.js` script referenced in this section **has not been created yet**. Do not run these commands until the script exists in the Docker image. The section below documents the intended runbook for when it is available.
 
 This repo includes a safety-gated purge script that removes transactional history for:
 - Sales Orders (SO) and dependent docs (delivery orders, invoices, related stock movements/reservations)
@@ -293,7 +294,18 @@ docker compose up -d
 
 - **Reset Demo Catalog & Production Data (Keep Users)**:
   Use this if you want to start fresh (clear products, BOMs, inventory, production orders, etc.) but keep the admin user and master records.
+
+  > [!NOTE]
+  > The command below uses port `5434` which is the **local dev** host port (mapped from container port `5432` in `docker-compose.dev.yml`). For production, use `5432` directly inside the container via `docker compose exec -T db psql -U polyflow -d polyflow`.
+
+  **Local dev:**
   ```bash
   docker exec -t polyflow-db psql -U polyflow -d polyflow -h localhost -p 5434 -v ON_ERROR_STOP=1 -c \
+    'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
+  ```
+
+  **Production (via container exec):**
+  ```bash
+  docker compose exec -T db psql -U polyflow -d polyflow -v ON_ERROR_STOP=1 -c \
     'TRUNCATE TABLE "QualityInspection", "ScrapRecord", "MaterialIssue", "ProductionShift", "ProductionOrder", "ProductionExecution", "ProductionMaterial", "StockReservation", "StockOpnameItem", "StockOpname", "Batch", "BomItem", "Bom", "StockMovement", "Inventory", "SupplierProduct", "ProductVariant", "Product" CASCADE;'
   ```

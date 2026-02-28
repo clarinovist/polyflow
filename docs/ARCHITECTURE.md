@@ -373,37 +373,38 @@ PolyFlow intentionally avoids Redux/Zustand/Recoil because:
 **Development**:
 - Local PostgreSQL database
 - `npm run dev` on port 3000
+- DB accessible at `localhost:5434` (via `docker-compose.dev.yml`)
 
-**Recommended Production Setup**:
+**Production Setup (VPS + Docker)**:
 
 ```mermaid
 graph LR
-    Vercel[Vercel Edge Network]
-    NextApp[Next.js App]
-    PostgreSQL[(PostgreSQL - Neon/Supabase)]
-    Redis[(Redis - Upstash)]
-    S3[S3 - File Storage]
-    
-    Vercel --> NextApp
+    CF[Cloudflare DNS]
+    Nginx[Nginx Reverse Proxy]
+    NextApp[Next.js App Container]
+    PostgreSQL[(PostgreSQL Container)]
+    GHCR[GitHub Container Registry]
+
+    CF --> Nginx
+    Nginx --> NextApp
     NextApp --> PostgreSQL
-    NextApp --> Redis
-    NextApp --> S3
+    GHCR --> NextApp
 ```
 
-**Provider Recommendations**:
-- **Hosting**: Vercel (optimized for Next.js)
-- **Database**: Neon, Supabase, or AWS RDS
-- **Caching**: Upstash Redis or AWS ElastiCache
-- **File Storage**: AWS S3 or Cloudflare R2
-- **CDN**: Cloudflare or built-in Vercel CDN
+**Production Stack**:
+- **Hosting**: Self-hosted VPS (Docker Compose)
+- **Container Registry**: GitHub Container Registry (GHCR)
+- **Reverse Proxy**: Nginx (`ceritakita-network`)
+- **Database**: PostgreSQL 15 (containerized, no external exposure)
+- **CI/CD**: GitHub Actions → GHCR → SSH deploy to VPS
+- **Environment**: Variables set via `.env` on VPS
 
 **Environment Variables**:
 ```env
-DATABASE_URL=postgresql://...
-REDIS_URL=redis://...
-AWS_S3_BUCKET=...
-NEXTAUTH_SECRET=...
-NEXTAUTH_URL=https://polyflow.app
+DATABASE_URL=postgresql://polyflow:password@polyflow-db:5432/polyflow
+AUTH_SECRET=...
+NEXTAUTH_URL=https://your-domain.com
+POSTGRES_PASSWORD=...
 ```
 
 ---
@@ -607,4 +608,4 @@ export async function startExecution(orderId: string) {
 
 ---
 
-**Last Updated**: January 25, 2026
+**Last Updated**: February 28, 2026

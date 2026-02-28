@@ -123,15 +123,18 @@ The system handles:
 polyflow/
 ├── prisma/
 │   ├── schema.prisma          # Database schema with 55+ models
-│   ├── migrations/            # 42+ migration files
+│   ├── migrations/            # 44+ migration files
 │   └── seed.ts                # Production cycle seed data
 ├── scripts/
 │   ├── sync-db-prod.sh        # Pull production DB to local
 │   ├── push-db-to-prod.sh     # Push local DB to production
-│   ├── purge-transaction-history.js  # Data cleanup utility
-│   └── setup-manufacturing-coa.ts    # Chart of Accounts setup
+│   ├── migrate-all-tenants.ts # Run migrations for all tenants
+│   ├── provision-tenant.ts    # Provision a new tenant
+│   ├── backup-db.sh           # Automated DB backup (cron)
+│   ├── setup-manufacturing-coa.ts  # Chart of Accounts setup
+│   └── archive/               # One-time fix & debug scripts
 ├── src/
-│   ├── actions/               # Server Actions (Auth -> Validation -> Service)
+│   ├── actions/               # Server Actions (Auth → Validation → Service)
 │   │   ├── inventory.ts       # Inventory operations
 │   │   ├── production.ts      # Production workflow
 │   │   ├── finance.ts         # Finance & Costing
@@ -169,6 +172,11 @@ polyflow/
 │       ├── prisma.ts          # Prisma client singleton
 │       ├── schemas/           # Domain-specific Zod schemas
 │       └── design-tokens.ts   # UI Design Tokens
+├── docs/                      # Project documentation
+│   ├── ARCHITECTURE.md
+│   ├── DESIGN_SYSTEM.md
+│   ├── FEATURES.md
+│   └── plans/                 # Feature planning docs
 ├── .github/workflows/         # CI/CD pipeline
 ├── docker-compose.yml         # Container orchestration
 ├── package.json
@@ -457,9 +465,10 @@ polyflow/
 |--------|--------|
 | `scripts/sync-db-prod.sh` | Pull production database to local dev environment |
 | `scripts/push-db-to-prod.sh` | Push local database to production VPS |
-| `scripts/purge-transaction-history.js` | Clean up old transaction data (with `--execute` flag) |
+| `scripts/migrate-all-tenants.ts` | Run Prisma migrations across all tenant databases |
+| `scripts/provision-tenant.ts` | Provision a new tenant database and seed it |
+| `scripts/backup-db.sh` | Automated daily DB backup (runs via cron on VPS) |
 | `scripts/setup-manufacturing-coa.ts` | Initialize Chart of Accounts for manufacturing |
-| `scripts/migrate-prod-finance.js` | Migrate financial data to production |
 
 ---
 
@@ -480,7 +489,9 @@ Building modern ERP solutions for manufacturing operations.
 
 - [Manufacturing Guide](./docs/manual-manufaktur-v1.md)
 - [Production Logic & Rules](./docs/production-logic.md)
-- [Design System Guide](./DESIGN_SYSTEM.md)
+- [Architecture Overview](./docs/ARCHITECTURE.md)
+- [Design System Guide](./docs/DESIGN_SYSTEM.md)
+- [Features Reference](./docs/FEATURES.md)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
 - [TailwindCSS Documentation](https://tailwindcss.com/docs)
@@ -488,4 +499,4 @@ Building modern ERP solutions for manufacturing operations.
 
 ---
 
-**Last Updated**: February 14, 2026
+**Last Updated**: February 28, 2026
