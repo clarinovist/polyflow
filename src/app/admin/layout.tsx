@@ -23,7 +23,7 @@ export default async function AdminLayout({
     // Fetch permissions for the sidebar
     // Admin gets 'ALL' by default from the action logic, but let's be explicit if needed
     // The getMyPermissions action handles the 'ALL' logic for admins.
-    const permissions = await getMyPermissions();
+    await getMyPermissions();
 
     return (
         <div className="min-h-screen bg-secondary/30">

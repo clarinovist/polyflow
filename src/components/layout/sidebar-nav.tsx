@@ -17,8 +17,6 @@ import {
     Calculator,
     Menu,
     X,
-    Sparkles,
-    Shield,
     PackageSearch,
 } from 'lucide-react';
 import Link from 'next/link';

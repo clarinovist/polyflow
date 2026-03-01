@@ -6,7 +6,7 @@ export const authConfig = {
     },
     session: {
         strategy: 'jwt',
-        maxAge: 24 * 60 * 60, // 24 hours
+        // maxAge is controlled by the NextAuth instance in auth.ts now (30 days for remember me)
     },
     cookies: {
         sessionToken: {
@@ -35,7 +35,7 @@ export const authConfig = {
                 const isOnSales = pathname.startsWith('/sales');
                 const isOnPlanning = pathname.startsWith('/planning');
                 const isOnAdmin = pathname.startsWith('/admin');
-                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
+                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register' || pathname === '/admin-login';
 
                 // Kiosk and Public pages are accessible without auth
                 if (isOnKiosk || isPublicPage) return true;
@@ -91,13 +91,16 @@ export const authConfig = {
                     }
                     return false; // Redirect unauthenticated users to login page
                 } else if (isLoggedIn) {
-                    const isLoginPage = pathname === '/login';
+                    const isLoginPage = pathname === '/login' || pathname === '/admin-login';
 
                     if (isLoginPage) {
                         const userRole = (auth?.user as { role?: string })?.role;
+                        const isSuperAdmin = (auth?.user as { isSuperAdmin?: boolean })?.isSuperAdmin;
+
                         let targetPath = '/dashboard';
-                        if (userRole === 'WAREHOUSE') targetPath = '/warehouse';
-                        if (userRole === 'PRODUCTION') targetPath = '/production';
+                        if (isSuperAdmin) targetPath = '/admin/super-admin';
+                        else if (userRole === 'WAREHOUSE') targetPath = '/warehouse';
+                        else if (userRole === 'PRODUCTION') targetPath = '/production';
 
                         return Response.redirect(new URL(targetPath, nextUrl));
                     }

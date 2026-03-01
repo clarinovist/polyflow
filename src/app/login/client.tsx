@@ -65,31 +65,14 @@ export default function LoginClient({ subdomain }: { subdomain: string | null })
                         </>
                     ) : (
                         <AnimatePresence mode="wait">
-                            {selectedRole === 'ADMIN' ? (
-                                <motion.div
-                                    key="super-admin-login"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                                >
-                                    <div className="mb-6 text-center">
-                                        <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 font-medium text-red-800 text-xs border border-red-200 shadow-sm">
-                                            SUPER ADMIN ACCESS
-                                        </span>
-                                    </div>
-                                    <LoginForm selectedRole="ADMIN" onBack={handleBack} />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    key="workspace-discovery"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                >
-                                    <WorkspaceDiscovery onSuperAdminLogin={() => setSelectedRole('ADMIN')} />
-                                </motion.div>
-                            )}
+                            <motion.div
+                                key="workspace-discovery"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, ease: 'easeOut' }}
+                            >
+                                <WorkspaceDiscovery />
+                            </motion.div>
                         </AnimatePresence>
                     )}
                 </div>

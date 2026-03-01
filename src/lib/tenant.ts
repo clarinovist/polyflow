@@ -6,6 +6,7 @@ import { headers } from 'next/headers';
  * It extracts the `x-tenant-subdomain` header (set by our Proxy Middleware),
  * fetches the corresponding Tenant DB URL, and runs the action within an `AsyncLocalStorage` context.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T): T {
     return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
         const reqHeaders = await headers();
@@ -64,8 +65,10 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
 import { NextRequest, NextResponse } from 'next/server';
 
 export function withTenantRoute(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void
 ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return async (req: NextRequest, ...args: any[]) => {
         let subdomain = req.headers.get('x-tenant-subdomain');
 

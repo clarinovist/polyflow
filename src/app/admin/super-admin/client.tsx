@@ -142,14 +142,13 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
 }
 
 export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] }) {
-    const [tenants, setTenants] = useState(initialTenants);
+    const [tenants] = useState(initialTenants);
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     async function onSubmit(formData: FormData) {
         setIsSubmitting(true);
         const name = formData.get("name") as string;
-        const subdomain = formData.get("subdomain") as string;
 
         toast.promise(createAndProvisionTenant(formData), {
             loading: `Provisioning ${name}... Please wait, this takes about 30 seconds...`,

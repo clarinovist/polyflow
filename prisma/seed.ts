@@ -57,10 +57,20 @@ async function main() {
     // 0.5. Default Admin User
     console.log('Seeding users...')
 
-    const adminEmail = process.env.TENANT_ADMIN_EMAIL || 'admin@polyflow.uk';
+    const adminEmail = process.env.TENANT_ADMIN_EMAIL || 'admin@polyflow.com';
     const adminName = process.env.TENANT_ADMIN_NAME || 'Nugroho Pramono';
     // Fallback to "nugrohopramono" password hash if not provided
     const adminPasswordHash = process.env.TENANT_ADMIN_PASSWORD_HASH || '$2b$10$685SgQ9PlWgUVPVboe41IeSTp91HZbbUC1smuzHclY.Qdl4TglIaW';
+
+    await prisma.user.create({
+        data: {
+            email: 'superadmin@polyflow.uk',
+            name: 'Super Admin',
+            password: adminPasswordHash,
+            role: Role.ADMIN,
+            isSuperAdmin: true,
+        }
+    })
 
     await prisma.user.create({
         data: {

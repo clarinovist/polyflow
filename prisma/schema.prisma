@@ -17,6 +17,7 @@ model User {
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
   locale                  String              @default("en")
+  isSuperAdmin            Boolean             @default(false)
   auditLogs               AuditLog[]
   deliveryOrders          DeliveryOrder[]     @relation("DeliveryCreator")
   goodsReceipts           GoodsReceipt[]      @relation("GoodsReceiptCreator")

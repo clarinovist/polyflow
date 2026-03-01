@@ -39,144 +39,160 @@ async function checkAdmin() {
 }
 
 export const getUsers = withTenant(
-async function getUsers() {
-    try {
-        await checkAdmin();
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        return { success: true, data: users };
-    } catch (error) {
-        console.error('Failed to fetch users:', error);
-        return { success: false, error: 'Failed to fetch users' };
+    async function getUsers() {
+        try {
+            await checkAdmin();
+            const users = await prisma.user.findMany({
+                where: { isSuperAdmin: false },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            return { success: true, data: users };
+        } catch (error) {
+            console.error('Failed to fetch users:', error);
+            return { success: false, error: 'Failed to fetch users' };
+        }
     }
-}
 );
 
 export const createUser = withTenant(
-async function createUser(data: CreateUserInput) {
-    try {
-        await checkAdmin();
-        const validated = CreateUserSchema.parse(data);
+    async function createUser(data: CreateUserInput) {
+        try {
+            await checkAdmin();
+            const validated = CreateUserSchema.parse(data);
 
-        const existingUser = await prisma.user.findUnique({
-            where: { email: validated.email },
-        });
+            const existingUser = await prisma.user.findUnique({
+                where: { email: validated.email },
+            });
 
-        if (existingUser) {
-            return { success: false, error: 'Email already registered' };
+            if (existingUser) {
+                return { success: false, error: 'Email already registered' };
+            }
+
+            const hashedPassword = await bcrypt.hash(validated.password, 10);
+
+            await prisma.user.create({
+                data: {
+                    name: validated.name,
+                    email: validated.email,
+                    password: hashedPassword,
+                    role: validated.role,
+                },
+            });
+
+            revalidatePath('/dashboard/settings');
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to create user:', error);
+            if (error instanceof z.ZodError) {
+                // Return the first error message
+                return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
+            }
+            return { success: false, error: (error as Error).message };
         }
-
-        const hashedPassword = await bcrypt.hash(validated.password, 10);
-
-        await prisma.user.create({
-            data: {
-                name: validated.name,
-                email: validated.email,
-                password: hashedPassword,
-                role: validated.role,
-            },
-        });
-
-        revalidatePath('/dashboard/settings');
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to create user:', error);
-        if (error instanceof z.ZodError) {
-            // Return the first error message
-            return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
-        }
-        return { success: false, error: (error as Error).message };
     }
-}
 );
 
 export const updateUserRole = withTenant(
-async function updateUserRole(userId: string, newRole: Role) {
-    try {
-        await checkAdmin();
+    async function updateUserRole(userId: string, newRole: Role) {
+        try {
+            await checkAdmin();
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { role: newRole },
-        });
+            const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+            if (!targetUser || targetUser.isSuperAdmin) {
+                return { success: false, error: 'Cannot modify Super Admin role' };
+            }
 
-        revalidatePath('/dashboard/settings');
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to update user role:', error);
-        return { success: false, error: 'Failed to update role' };
+            await prisma.user.update({
+                where: { id: userId },
+                data: { role: newRole },
+            });
+
+            revalidatePath('/dashboard/settings');
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update user role:', error);
+            return { success: false, error: 'Failed to update role' };
+        }
     }
-}
 );
 
 export const updateUser = withTenant(
-async function updateUser(data: UpdateUserInput) {
-    try {
-        await checkAdmin();
-        const validated = UpdateUserSchema.parse(data);
+    async function updateUser(data: UpdateUserInput) {
+        try {
+            await checkAdmin();
+            const validated = UpdateUserSchema.parse(data);
 
-        const updateData: Prisma.UserUpdateInput = {};
-        if (validated.name) updateData.name = validated.name;
-        if (validated.email) {
-            // Check if email taken by someone else
-            const existing = await prisma.user.findFirst({
-                where: {
-                    email: validated.email,
-                    NOT: { id: validated.id }
-                }
+            const updateData: Prisma.UserUpdateInput = {};
+            if (validated.name) updateData.name = validated.name;
+            if (validated.email) {
+                // Check if email taken by someone else
+                const existing = await prisma.user.findFirst({
+                    where: {
+                        email: validated.email,
+                        NOT: { id: validated.id }
+                    }
+                });
+                if (existing) return { success: false, error: 'Email already taken' };
+                updateData.email = validated.email;
+            }
+            if (validated.password) {
+                updateData.password = await bcrypt.hash(validated.password, 10);
+            }
+            if (validated.role) updateData.role = validated.role;
+
+            const targetUser = await prisma.user.findUnique({ where: { id: validated.id } });
+            if (!targetUser || targetUser.isSuperAdmin) {
+                return { success: false, error: 'Cannot modify Super Admin accounts' };
+            }
+
+            await prisma.user.update({
+                where: { id: validated.id },
+                data: updateData,
             });
-            if (existing) return { success: false, error: 'Email already taken' };
-            updateData.email = validated.email;
-        }
-        if (validated.password) {
-            updateData.password = await bcrypt.hash(validated.password, 10);
-        }
-        if (validated.role) updateData.role = validated.role;
 
-        await prisma.user.update({
-            where: { id: validated.id },
-            data: updateData,
-        });
-
-        revalidatePath('/dashboard/settings');
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to update user:', error);
-        if (error instanceof z.ZodError) {
-            return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
+            revalidatePath('/dashboard/settings');
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update user:', error);
+            if (error instanceof z.ZodError) {
+                return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
+            }
+            return { success: false, error: (error as Error).message };
         }
-        return { success: false, error: (error as Error).message };
     }
-}
 );
 
 export const deleteUser = withTenant(
-async function deleteUser(userId: string) {
-    try {
-        const session = await checkAdmin();
+    async function deleteUser(userId: string) {
+        try {
+            const session = await checkAdmin();
 
-        // Prevent deleting self
-        if (session.user?.id === userId) {
-            return { success: false, error: 'Cannot delete your own account' };
+            // Prevent deleting self
+            if (session.user?.id === userId) {
+                return { success: false, error: 'Cannot delete your own account' };
+            }
+
+            const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+            if (!targetUser || targetUser.isSuperAdmin) {
+                return { success: false, error: 'Cannot delete Super Admin accounts' };
+            }
+
+            await prisma.user.delete({
+                where: { id: userId },
+            });
+
+            revalidatePath('/dashboard/settings');
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            return { success: false, error: 'Failed to delete user' };
         }
-
-        await prisma.user.delete({
-            where: { id: userId },
-        });
-
-        revalidatePath('/dashboard/settings');
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to delete user:', error);
-        return { success: false, error: 'Failed to delete user' };
     }
-}
 );

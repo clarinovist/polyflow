@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertCircle, Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { toast } from 'sonner';
 import PolyFlowLogo from './polyflow-logo';
 import { RoleType } from './role-selection';
 
@@ -131,26 +130,6 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 </Button>
             </form>
 
-            {/* Sign Up & Forgot Password Links */}
-            <div className="mt-6 space-y-2 text-sm">
-                <p className="text-muted-foreground">
-                    Don&apos;t have an account?{' '}
-                    <button
-                        type="button"
-                        onClick={() => toast.info('Coming soon!', { description: 'Registration will be available in a future update.' })}
-                        className="text-foreground font-medium hover:underline"
-                    >
-                        Sign up
-                    </button>
-                </p>
-                <button
-                    type="button"
-                    onClick={() => toast.info('Coming soon!', { description: 'Password reset will be available in a future update.' })}
-                    className="text-muted-foreground hover:text-foreground hover:underline"
-                >
-                    Forgot Password
-                </button>
-            </div>
         </div>
     );
 }

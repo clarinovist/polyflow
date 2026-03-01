@@ -4,7 +4,6 @@ import {
     Building2,
     Sparkles,
     Shield,
-    Settings,
     LogOut,
     Moon,
     Sun,

@@ -84,6 +84,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         if (role && user.role !== role && user.role !== 'ADMIN') {
                             throw new Error('RoleMismatch');
                         }
+                        // Strictly enforce that if role isn't provided, we only allow access to root if they are SuperAdmin
+                        // For tenant logins, the role is always provided by the form.
+                        if (!role && !user.isSuperAdmin) {
+                            throw new Error('RoleMismatch');
+                        }
 
                         return {
                             id: user.id,
@@ -91,7 +96,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             email: user.email,
                             role: user.role,
                             rememberMe: remember,
-                            isSuperAdmin: !subdomain,
+                            isSuperAdmin: user.isSuperAdmin,
                         };
                     }
                 }

@@ -72,6 +72,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         await client.query(`CREATE DATABASE ${dbName};`);
         await client.end();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (dbError: any) {
         console.error("Failed to create database:", dbError);
         return { error: `Failed to create database: ${dbError.message}` };
@@ -111,6 +112,7 @@ export async function createAndProvisionTenant(formData: FormData) {
 
         return { success: true };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (provisionError: any) {
         // Rollback: try to drop the database if provisioning failed
         console.error("Provisioning failed, rolling back...", provisionError);
@@ -165,12 +167,14 @@ export async function updateTenant(tenantId: string, formData: FormData) {
             data: {
                 name,
                 subdomain,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 status: status as any,
                 dbUrl: dbUrl || undefined, // Don't wipe it out if empty accidentally
             }
         });
 
         return { success: true };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error("Failed to update tenant:", error);
         return { error: `Failed to update tenant: ${error.message}` };
@@ -225,6 +229,7 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
 
         return result;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
         console.error("Failed to reset tenant admin password:", e);
         return { error: `Failed to reset password: ${e.message}` };

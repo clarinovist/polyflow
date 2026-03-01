@@ -5,7 +5,7 @@ import { ArrowRight, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default function WorkspaceDiscovery({ onSuperAdminLogin }: { onSuperAdminLogin?: () => void }) {
+export default function WorkspaceDiscovery() {
     const [workspace, setWorkspace] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -101,16 +101,6 @@ export default function WorkspaceDiscovery({ onSuperAdminLogin }: { onSuperAdmin
                 </Button>
             </div>
 
-            {onSuperAdminLogin && (
-                <div className="mt-8 text-center">
-                    <button
-                        onClick={onSuperAdminLogin}
-                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
-                    >
-                        Login as Super Admin
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
