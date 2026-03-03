@@ -343,7 +343,7 @@ export class ProductionExecutionService {
                     } else {
                         ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
                     }
-                    const totalConsumed = quantityProduced + Number(scrapQuantity);
+                    const totalConsumed = quantityProduced + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0);
                     const qtyToDeduct = totalConsumed * ratio;
 
                     if (qtyToDeduct > 0.0001) {
