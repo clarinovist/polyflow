@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from './auth.config';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { extractSubdomain } from '@/lib/tenant';
 import * as bcrypt from 'bcryptjs';
 
 async function getUser(email: string) {
@@ -40,12 +41,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     let subdomain = request?.headers?.get('x-tenant-subdomain');
 
                     if (!subdomain && request) {
-                        let host = request.headers.get('host') || '';
-                        host = host.split(':')[0]; // Remove port
-                        const hostParts = host.split('.');
-                        if (hostParts.length > 2 && !['localhost', '127', 'app', 'www', 'polyflow'].includes(hostParts[0])) {
-                            subdomain = hostParts[0];
-                        }
+                        const host = request.headers.get('host') || '';
+                        subdomain = extractSubdomain(host);
                     }
 
                     let user;

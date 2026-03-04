@@ -1,6 +1,7 @@
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { auth } from '@/auth';
 import { headers } from 'next/headers';
+import { extractSubdomain } from '@/lib/tenant';
 
 export default async function SettingsPage() {
     const session = await auth();
@@ -8,12 +9,8 @@ export default async function SettingsPage() {
 
     let subdomain = reqHeaders.get('x-tenant-subdomain');
     if (!subdomain) {
-        let host = reqHeaders.get('host') || '';
-        host = host.split(':')[0]; // Remove port
-        const hostParts = host.split('.');
-        if (hostParts.length > 2 && !['localhost', '127', 'app', 'www', 'polyflow'].includes(hostParts[0])) {
-            subdomain = hostParts[0];
-        }
+        const host = reqHeaders.get('host') || '';
+        subdomain = extractSubdomain(host);
     }
 
     const tenantName = subdomain ? `Tenant: ${subdomain.toUpperCase()}` : 'Main Database (Production Replica)';

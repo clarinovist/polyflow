@@ -2,6 +2,31 @@ import { getTenantDb, tenantContext } from '@/lib/prisma';
 import { headers } from 'next/headers';
 
 /**
+ * Robust utility to extract tenant subdomain from a host string.
+ * Supports both standard PROD domains (e.g., tenant.polyflow.uk) 
+ * and local dev environments (e.g., tenant.localhost:3000)
+ */
+export function extractSubdomain(host: string): string | null {
+    if (!host) return null;
+
+    // Remove port if present
+    const hostname = host.split(':')[0];
+
+    // Check local dev mode first
+    if (hostname.endsWith('.localhost')) {
+        return hostname.replace('.localhost', '');
+    }
+
+    // Production/Staging base domain extraction
+    const baseDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
+    if (hostname.endsWith(`.${baseDomain}`)) {
+        return hostname.replace(`.${baseDomain}`, '');
+    }
+
+    return null;
+}
+
+/**
  * Higher Order Function to wrap Next.js Server Actions.
  * It extracts the `x-tenant-subdomain` header (set by our Proxy Middleware),
  * fetches the corresponding Tenant DB URL, and runs the action within an `AsyncLocalStorage` context.
@@ -12,14 +37,10 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
         const reqHeaders = await headers();
         let subdomain = reqHeaders.get('x-tenant-subdomain');
 
-        // Fallback: If Proxy Middleware doesn't fire, infer from host
+        // Fallback: If Proxy Middleware doesn't fire, infer from host using centralized logic
         if (!subdomain) {
-            let host = reqHeaders.get('host') || '';
-            host = host.split(':')[0]; // Remove port
-            const hostParts = host.split('.');
-            if (hostParts.length > 2 && !['localhost', '127', 'app', 'www', 'polyflow'].includes(hostParts[0])) {
-                subdomain = hostParts[0];
-            }
+            const host = reqHeaders.get('host') || '';
+            subdomain = extractSubdomain(host);
         }
 
         // If no subdomain is detected (e.g. running on main domain or localhost directly),
@@ -73,12 +94,8 @@ export function withTenantRoute(
         let subdomain = req.headers.get('x-tenant-subdomain');
 
         if (!subdomain) {
-            let host = req.headers.get('host') || '';
-            host = host.split(':')[0]; // Remove port
-            const hostParts = host.split('.');
-            if (hostParts.length > 2 && !['localhost', '127', 'app', 'www', 'polyflow'].includes(hostParts[0])) {
-                subdomain = hostParts[0];
-            }
+            const host = req.headers.get('host') || '';
+            subdomain = extractSubdomain(host);
         }
 
         if (!subdomain) {

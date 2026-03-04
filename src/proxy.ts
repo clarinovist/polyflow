@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 const { auth } = NextAuth(authConfig);
 
-const BASE_DOMAIN = 'polyflow.uk';
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
 const handler = auth((req) => {
 	const host = req.headers.get('host') || '';
@@ -14,12 +14,19 @@ const handler = auth((req) => {
 	// SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
 	requestHeaders.delete('x-tenant-subdomain');
 
-	// Extract tenant subdomain (e.g. "acme" from "acme.polyflow.uk")
-	if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
-		const tenant = hostname.replace(`.${BASE_DOMAIN}`, '');
-		if (tenant && tenant !== 'www') {
-			requestHeaders.set('x-tenant-subdomain', tenant);
-		}
+	// Extract tenant subdomain
+	// Handle specific localhost format (e.g. tenant.localhost) or staging/prod domains
+	let tenant = null;
+
+	// Check if it's a localhost testing environment like `kiyowo.localhost`
+	if (hostname.endsWith('.localhost')) {
+		tenant = hostname.replace('.localhost', '');
+	} else if (hostname.endsWith(`.${BASE_DOMAIN}`)) {
+		tenant = hostname.replace(`.${BASE_DOMAIN}`, '');
+	}
+
+	if (tenant && tenant !== 'www' && tenant !== 'app') {
+		requestHeaders.set('x-tenant-subdomain', tenant);
 	}
 
 	const response = NextResponse.next({
