@@ -2,6 +2,22 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.3.0](https://github.com/clarinovist/polyflow/compare/v1.2.0...v1.3.0) (2026-03-04)
+
+
+### Features
+
+* add repair script to reverse missed affal backflush WO#WO-260303-EXT17 ([1a64b3a](https://github.com/clarinovist/polyflow/commit/1a64b3a555a5370580bd4dfafbcc2a951d6e5afc))
+* **auth:** secure multi-tenant login flow with dedicated super admin route and DB-backed role validation ([97380a5](https://github.com/clarinovist/polyflow/commit/97380a5bdb881b5daf83d7524a9b7b4121d0f72c))
+
+
+### Bug Fixes
+
+* **accounting:** support uuid product account mapping in auto-journal ([dd40cc5](https://github.com/clarinovist/polyflow/commit/dd40cc5f9818a2baa3b1dd2b660b5b28d518189f))
+* include affal (prongkol+daun) in backflush totalConsumed for EXTRUSION orders ([9a8573a](https://github.com/clarinovist/polyflow/commit/9a8573a7062bc904731177d53b96dcad26363d83))
+* **prisma:** lock migrate deploy to v5.22.0 to prevent v7 config error ([dd40cc5](https://github.com/clarinovist/polyflow/commit/dd40cc5f9818a2baa3b1dd2b660b5b28d518189f))
+* **tenant:** resolve wildcard localhost redirection and centralize subdomain extraction ([866f93f](https://github.com/clarinovist/polyflow/commit/866f93f12c1fa521c4771c62e6c7c02b2b140129))
+
 ## [1.2.0](https://github.com/clarinovist/polyflow/compare/v1.1.0...v1.2.0) (2026-02-28)
 
 
