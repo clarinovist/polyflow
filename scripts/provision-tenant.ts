@@ -34,7 +34,7 @@ async function provisionTenant() {
 
         // 2. Run Database Migrations for the new tenant DB
         console.log(`\n🔄 Running Prisma Migrations on the new database...`);
-        const { stdout, stderr } = await execPromise(`DATABASE_URL="${dbUrl}" npx prisma migrate deploy`);
+        const { stdout, stderr } = await execPromise(`DATABASE_URL="${dbUrl}" npx prisma@5.22.0 migrate deploy`);
 
         if (stdout) console.log(stdout);
         if (stderr) console.error(stderr);

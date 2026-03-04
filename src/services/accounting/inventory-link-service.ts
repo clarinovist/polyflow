@@ -186,6 +186,11 @@ export async function recordInventoryMovement(
 const accountCache = new Map<string, string>();
 
 async function getAccountId(code: string): Promise<string> {
+    // If code is already a UUID (e.g. from Product account mappings), return it directly
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)) {
+        return code;
+    }
+
     if (accountCache.has(code)) return accountCache.get(code)!;
 
     const acc = await prisma.account.findUnique({ where: { code } });

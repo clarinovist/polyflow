@@ -27,7 +27,7 @@ async function migrateAllTenants() {
             console.log(`[${tenant.subdomain}] Running migration...`);
             try {
                 // Ensure we pass the exact DB URL to the Prisma CLI for this specific iteration
-                const { stdout, stderr } = await execPromise(`DATABASE_URL="${tenant.dbUrl}" npx prisma migrate deploy`);
+                const { stdout, stderr } = await execPromise(`DATABASE_URL="${tenant.dbUrl}" npx prisma@5.22.0 migrate deploy`);
 
                 // Keep output concise
                 const updatedLines = stdout.split('\n').filter(line => line.includes('migration') || line.includes('Applied'));

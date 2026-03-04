@@ -81,7 +81,7 @@ export async function createAndProvisionTenant(formData: FormData) {
     try {
         // 3. Migrate the new database via Prisma
         console.log(`[SuperAdmin] Migrating database: ${dbName}`);
-        await execPromise(`npx prisma migrate deploy`, {
+        await execPromise(`npx prisma@5.22.0 migrate deploy`, {
             env: { ...process.env, DATABASE_URL: newDbUrl },
         });
 
