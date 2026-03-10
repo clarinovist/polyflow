@@ -274,7 +274,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                             <FormItem>
                                                 <FormLabel>Qty *</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" min="0.01" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                                                    <Input type="number" min="0.01" step="0.01" className="no-stepper" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
