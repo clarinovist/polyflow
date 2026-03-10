@@ -266,7 +266,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-1">
+                                <div className="col-span-6 md:col-span-2">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.returnedQty`}
@@ -296,7 +296,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-3">
+                                <div className="col-span-6 md:col-span-2">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.condition`}

@@ -264,7 +264,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-1">
+                                <div className="col-span-6 md:col-span-2">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.returnedQty`}
@@ -295,7 +295,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                     />
                                 </div>
 
-                                <div className="col-span-5 md:col-span-4">
+                                <div className="col-span-5 md:col-span-3">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.reason`}
