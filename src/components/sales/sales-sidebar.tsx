@@ -6,6 +6,7 @@ import {
     ShoppingCart,
     Truck,
     Users2,
+    RotateCcw,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -33,6 +34,7 @@ const salesLinks = [
             { href: '/sales/orders', icon: ShoppingCart, label: 'Sales Orders' },
             { href: '/sales/invoices', icon: FileText, label: 'Sales Invoices' },
             { href: '/sales/deliveries', icon: Truck, label: 'Delivery Tracking' },
+            { href: '/sales/returns', icon: RotateCcw, label: 'Sales Returns' },
         ],
     },
     {

@@ -38,6 +38,8 @@ model User {
   reportedIssues          ProductionIssue[]   @relation("IssueReporter")
   costHistory             CostHistory[]
   apiKeys                 ApiKey[]
+  salesReturns            SalesReturn[]       @relation("SalesReturnCreator")
+  purchaseReturns         PurchaseReturn[]    @relation("PurchaseReturnCreator")
 }
 
 model Employee {
@@ -88,6 +90,7 @@ model Supplier {
   productVariants  ProductVariant[]  @relation("PreferredSupplier")
   purchaseOrders   PurchaseOrder[]
   supplierProducts SupplierProduct[]
+  purchaseReturns  PurchaseReturn[]
 }
 
 model Customer {
@@ -108,6 +111,7 @@ model Customer {
   updatedAt       DateTime         @updatedAt
   salesOrders     SalesOrder[]
   quotations      SalesQuotation[]
+  salesReturns    SalesReturn[]
 }
 
 model ApiKey {
@@ -143,6 +147,8 @@ model Location {
   movementsTo      StockMovement[]    @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
+  salesReturns     SalesReturn[]      @relation("ReturnLocation")
+  purchaseReturns  PurchaseReturn[]   @relation("PurchaseReturnLocation")
 }
 
 model Product {
@@ -199,6 +205,8 @@ model ProductVariant {
   StockReservation     StockReservation[]
   supplierProducts     SupplierProduct[]
   costHistory          CostHistory[]
+  salesReturnItems     SalesReturnItem[]
+  purchaseReturnItems  PurchaseReturnItem[]
 }
 
 model CostHistory {
@@ -597,6 +605,7 @@ model SalesOrder {
   sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
   items            SalesOrderItem[]
   movements        StockMovement[]   @relation("SalesMovement")
+  salesReturns     SalesReturn[]
 }
 
 model SalesQuotation {
@@ -691,6 +700,7 @@ model PurchaseOrder {
   supplier         Supplier            @relation(fields: [supplierId], references: [id])
   items            PurchaseOrderItem[]
   purchaseRequests PurchaseRequest[]   @relation("PrToPo")
+  purchaseReturns  PurchaseReturn[]
 }
 
 model PurchaseOrderItem {
@@ -719,6 +729,7 @@ model GoodsReceipt {
   purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
   items           GoodsReceiptItem[]
   movements       StockMovement[]    @relation("GoodsReceiptMovement")
+  purchaseReturns PurchaseReturn[]
 }
 
 model GoodsReceiptItem {
@@ -898,6 +909,7 @@ model DeliveryOrder {
   salesOrder       SalesOrder          @relation(fields: [salesOrderId], references: [id])
   sourceLocation   Location            @relation(fields: [sourceLocationId], references: [id])
   items            DeliveryOrderItem[]
+  salesReturns     SalesReturn[]
 
   @@index([salesOrderId])
 }
@@ -1006,6 +1018,8 @@ enum MovementType {
   TRANSFER
   ADJUSTMENT
   PURCHASE
+  RETURN_IN
+  RETURN_OUT
 }
 
 enum MachineType {
@@ -1162,6 +1176,8 @@ enum ReferenceType {
   PRODUCTION_OUTPUT
   MATERIAL_ISSUE
   MANUAL_ENTRY
+  SALES_RETURN
+  PURCHASE_RETURN
 }
 
 enum JournalStatus {
@@ -1215,8 +1231,123 @@ model Payment {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+
   @@index([invoiceId])
   @@index([purchaseInvoiceId])
+}
+
+enum SalesReturnStatus {
+  DRAFT
+  CONFIRMED
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+enum PurchaseReturnStatus {
+  DRAFT
+  CONFIRMED
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DEFECT
+  WRONG_ITEM
+  OVER_SHIPMENT
+  DAMAGED
+  EXPIRED
+  QUALITY_ISSUE
+  OTHER
+}
+
+enum ItemCondition {
+  GOOD
+  DAMAGED
+}
+
+model SalesReturn {
+  id               String            @id @default(uuid())
+  returnNumber     String            @unique
+  salesOrderId     String
+  deliveryOrderId  String?
+  customerId       String?
+  returnDate       DateTime          @default(now())
+  status           SalesReturnStatus @default(DRAFT)
+  returnLocationId String
+  reason           String?
+  notes            String?
+  totalAmount      Decimal?          @db.Decimal(15, 2)
+  createdById      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  items            SalesReturnItem[]
+  salesOrder       SalesOrder        @relation(fields: [salesOrderId], references: [id])
+  deliveryOrder    DeliveryOrder?    @relation(fields: [deliveryOrderId], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  returnLocation   Location          @relation("ReturnLocation", fields: [returnLocationId], references: [id])
+  createdBy        User?             @relation("SalesReturnCreator", fields: [createdById], references: [id])
+
+  @@index([salesOrderId])
+}
+
+model SalesReturnItem {
+  id               String         @id @default(uuid())
+  salesReturnId    String
+  productVariantId String
+  returnedQty      Decimal        @db.Decimal(15, 4)
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  reason           ReturnReason   @default(OTHER)
+  condition        ItemCondition  @default(GOOD)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  salesReturn      SalesReturn    @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model PurchaseReturn {
+  id               String              @id @default(uuid())
+  returnNumber     String              @unique
+  purchaseOrderId  String
+  goodsReceiptId   String?
+  supplierId       String
+  returnDate       DateTime            @default(now())
+  status           PurchaseReturnStatus @default(DRAFT)
+  sourceLocationId String
+  reason           String?
+  notes            String?
+  totalAmount      Decimal?            @db.Decimal(15, 2)
+  createdById      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  items            PurchaseReturnItem[]
+  purchaseOrder    PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id])
+  goodsReceipt     GoodsReceipt?       @relation(fields: [goodsReceiptId], references: [id])
+  supplier         Supplier            @relation(fields: [supplierId], references: [id])
+  sourceLocation   Location            @relation("PurchaseReturnLocation", fields: [sourceLocationId], references: [id])
+  createdBy        User?               @relation("PurchaseReturnCreator", fields: [createdById], references: [id])
+
+  @@index([purchaseOrderId])
+}
+
+model PurchaseReturnItem {
+  id               String         @id @default(uuid())
+  purchaseReturnId String
+  productVariantId String
+  returnedQty      Decimal        @db.Decimal(15, 4)
+  unitCost         Decimal        @db.Decimal(15, 4)
+  reason           ReturnReason   @default(OTHER)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 // ==========================================

@@ -9,7 +9,8 @@ import {
     Truck,
     BarChart3,
     ClipboardCheck,
-    ClipboardList
+    ClipboardList,
+    RotateCcw
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -44,6 +45,7 @@ const planningLinks = [
         items: [
             { href: '/planning/purchase-requests', icon: ClipboardList, label: 'Purchase Requests' },
             { href: '/planning/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
+            { href: '/planning/purchase-returns', icon: RotateCcw, label: 'Purchase Returns' },
             { href: '/planning/suppliers', icon: Truck, label: 'Supplier Management' },
         ],
     },
