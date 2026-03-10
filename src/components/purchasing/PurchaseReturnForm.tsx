@@ -230,7 +230,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                     <CardContent className="space-y-4">
                         {fields.map((field, index) => (
                             <div key={field.id} className="grid grid-cols-12 gap-4 items-end border p-4 rounded-md">
-                                <div className="col-span-12 md:col-span-3">
+                                <div className="col-span-12 md:col-span-4">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.productVariantId`}
@@ -264,7 +264,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-2">
+                                <div className="col-span-6 md:col-span-1">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.returnedQty`}
@@ -285,7 +285,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         name={`items.${index}.unitCost`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Debit Unit Price *</FormLabel>
+                                                <FormLabel>Unit Cost *</FormLabel>
                                                 <FormControl>
                                                     <Input type="number" min="0" step="100" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                                                 </FormControl>
@@ -295,7 +295,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                     />
                                 </div>
 
-                                <div className="col-span-5 md:col-span-2">
+                                <div className="col-span-5 md:col-span-4">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.reason`}

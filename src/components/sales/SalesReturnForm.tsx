@@ -266,7 +266,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-2">
+                                <div className="col-span-6 md:col-span-1">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.returnedQty`}
@@ -287,7 +287,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                         name={`items.${index}.unitPrice`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Credit Unit Price *</FormLabel>
+                                                <FormLabel>Unit Price *</FormLabel>
                                                 <FormControl>
                                                     <Input type="number" min="0" step="100" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                                                 </FormControl>
@@ -296,7 +296,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                                         )}
                                     />
                                 </div>
-                                <div className="col-span-6 md:col-span-2">
+                                <div className="col-span-6 md:col-span-3">
                                     <FormField
                                         control={form.control}
                                         name={`items.${index}.condition`}

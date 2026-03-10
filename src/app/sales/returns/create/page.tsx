@@ -36,7 +36,15 @@ export default async function CreateSalesReturnPage() {
                             price: p.price ? Number(p.price) : null,
                             buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
                             sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
-                            conversionFactor: Number(p.conversionFactor),
+                            conversionFactor: p.conversionFactor ? Number(p.conversionFactor) : 1,
+                            standardCost: p.standardCost ? Number(p.standardCost) : null,
+                            minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
+                            reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
+                            reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
+                            inventories: p.inventories?.map((inv: any) => ({
+                                ...inv,
+                                quantity: inv.quantity ? Number(inv.quantity) : 0
+                            })) || []
                         }))}
                         mode="create"
                     />
