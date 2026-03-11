@@ -23,8 +23,8 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
     }
     const receiptNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
-    return await prisma.$transaction(async (tx) => {
-        const receipt = await tx.goodsReceipt.create({
+    const receipt = await prisma.$transaction(async (tx) => {
+        const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,
                 purchaseOrderId: data.purchaseOrderId,
@@ -85,7 +85,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                     toLocationId: data.locationId,
                     quantity: item.receivedQty,
                     cost: item.unitCost,
-                    goodsReceiptId: receipt.id,
+                    goodsReceiptId: receiptTx.id,
                     createdById: userId,
                     reference: `GR: ${receiptNumber} for PO`
                 }
@@ -142,15 +142,20 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
             userId,
             action: 'RECEIVE_PURCHASE',
             entityType: 'GoodsReceipt',
-            entityId: receipt.id,
+            entityId: receiptTx.id,
             details: `Received items for PO ${po?.orderNumber || ''} via GR ${receiptNumber}`,
             tx
         });
 
-        await createDraftBillFromPo(data.purchaseOrderId, userId);
-
-        return receipt;
+        return receiptTx;
     });
+
+    // Auto-generate draft bill after GR transaction commits
+    await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
+        console.error("Failed to auto-generate draft bill after GR:", err);
+    });
+
+    return receipt;
 }
 
 export async function getGoodsReceiptById(id: string) {
