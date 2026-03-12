@@ -2,6 +2,31 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.4.0](https://github.com/clarinovist/polyflow/compare/v1.3.0...v1.4.0) (2026-03-12)
+
+
+### Features
+
+* complete sales and purchase returns module ([efcaeb1](https://github.com/clarinovist/polyflow/commit/efcaeb158156d5400184e8d2043192769d8536ca))
+* **core:** implement consolidated master plan (P1-P5) ([68a6099](https://github.com/clarinovist/polyflow/commit/68a6099911fc5609b39de5951234cc15a248ad12))
+
+
+### Bug Fixes
+
+* **accounting:** bypass unbilled payables and directly accrue trade payables on GR ([c5cb483](https://github.com/clarinovist/polyflow/commit/c5cb4839991866c54756c45cc1ecc0f94030cdf4))
+* bundle Sentry in standalone build and remove deleted costHistory from seed script ([c8fb4fe](https://github.com/clarinovist/polyflow/commit/c8fb4feb199e9587f8ddde3e1c69febdf54a7977))
+* **ci:** add @vitest/coverage-v8 for test coverage reporting ([4d96fb3](https://github.com/clarinovist/polyflow/commit/4d96fb326af78021306a5eee51d1a25ed1e89d9b))
+* **ci:** generate dummy SSL certs for Nginx syntax validation ([7b24c59](https://github.com/clarinovist/polyflow/commit/7b24c59fd6d077661eafad29ca1cf8b37b857f8a))
+* disable strict ip rate limiting in middleware to prevent false 429 errors on client navigation ([9ec68d8](https://github.com/clarinovist/polyflow/commit/9ec68d814fa5638895dad55bd690a6eea0b57a97))
+* handle permission denied for /app/backups in entrypoint - fallback to /tmp/backups ([bfade36](https://github.com/clarinovist/polyflow/commit/bfade3606367f6efe2e948d8fe029a938312acea))
+* **nginx:** update domain to polyflow.uk and mock upstream host for CI ([288c654](https://github.com/clarinovist/polyflow/commit/288c6542921289ebc544b07396223f4fe9854259))
+* **production:** prevent duplicate planned materials on transfer edit ([7a76086](https://github.com/clarinovist/polyflow/commit/7a76086f4826c0fcfe646b1ef179e7cd9047b2d4))
+* Recharts tooltip TS build errors ([eb898b4](https://github.com/clarinovist/polyflow/commit/eb898b470f7db316c65bc05f7375f0a06c211bd7))
+* **ui:** adjust grid column spans in Sales and Purchase Return Forms to resolve label overlap ([8759d00](https://github.com/clarinovist/polyflow/commit/8759d00a96491784d16e4f49a9a9dcc58bab5793))
+* **ui:** correct typescript mutation inferences in notification bell && update migration docs to polyflow.uk ([aacb078](https://github.com/clarinovist/polyflow/commit/aacb0780320e29f075bf5f82d94f58a8919b5f88))
+* **ui:** hide stepper arrows on Qty input in return forms ([9d0f46f](https://github.com/clarinovist/polyflow/commit/9d0f46fb2b9cb66567c0de6cba78f122cb99ae16))
+* **ui:** widen Qty column in purchase and sales return forms ([7e22c07](https://github.com/clarinovist/polyflow/commit/7e22c075e2d15c8e986efa0483c8e61098ffe053))
+
 ## [1.3.0](https://github.com/clarinovist/polyflow/compare/v1.2.0...v1.3.0) (2026-03-04)
 
 
