@@ -23,8 +23,10 @@ jobs:
       - name: Validate Nginx configuration
         run: |
           mkdir -p certs/live/polyflow.uk
-          touch certs/live/polyflow.uk/fullchain.pem
-          touch certs/live/polyflow.uk/privkey.pem
+          openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+            -keyout certs/live/polyflow.uk/privkey.pem \
+            -out certs/live/polyflow.uk/fullchain.pem \
+            -subj "/CN=polyflow.uk"
           echo "events {} http { include /etc/nginx/conf.d/*.conf; }" > nginx.conf
           docker run --rm \
             --add-host polyflow-app:127.0.0.1 \
