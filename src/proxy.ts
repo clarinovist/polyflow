@@ -31,17 +31,18 @@ const handler = auth((req) => {
 		requestHeaders.set('x-tenant-subdomain', tenant);
 	}
 
-	// Rate Limiting Logic
-	const forwardedFor = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
-	const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
-	const { success } = rateLimit(ip);
+	// Rate Limiting Logic - Temporarily disabled for standard navigation
+	// Next.js middleware fires for prefetching, images, and API calls. 100 req/min is easily exceeded.
+	// const forwardedFor = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
+	// const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : '127.0.0.1';
+	// const { success } = rateLimit(ip);
 
-	if (!success) {
-		return new NextResponse(
-			JSON.stringify({ error: "Too Many Requests. Please try again later." }),
-			{ status: 429, headers: { 'Content-Type': 'application/json' } }
-		);
-	}
+	// if (!success) {
+	// 	return new NextResponse(
+	// 		JSON.stringify({ error: "Too Many Requests. Please try again later." }),
+	// 		{ status: 429, headers: { 'Content-Type': 'application/json' } }
+	// 	);
+	// }
 
 	const response = NextResponse.next({
 		request: { headers: requestHeaders },
