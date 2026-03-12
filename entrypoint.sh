@@ -7,12 +7,12 @@ else
 	echo "Creating Database Snapshot before migrations..."
 	if [ -n "$DATABASE_URL" ]; then
 		BACKUP_DIR="/app/backups"
-		mkdir -p $BACKUP_DIR
+		mkdir -p "$BACKUP_DIR" 2>/dev/null || BACKUP_DIR="/tmp/backups" && mkdir -p "$BACKUP_DIR" 2>/dev/null || true
 		TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-		pg_dump "$DATABASE_URL" -F c -f "$BACKUP_DIR/db_snapshot_$TIMESTAMP.dump" || echo "Backup failed, continuing anyway..."
+		pg_dump "$DATABASE_URL" -F c -f "$BACKUP_DIR/db_snapshot_$TIMESTAMP.dump" 2>/dev/null || echo "Backup failed, continuing anyway..."
 		
 		# Keep only 5 latest backups
-		ls -t $BACKUP_DIR/db_snapshot_*.dump | tail -n +6 | xargs rm -f 2>/dev/null || true
+		ls -t "$BACKUP_DIR"/db_snapshot_*.dump 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
 	else
 		echo "DATABASE_URL not found, skipping pre-migration snapshot"
 	fi
