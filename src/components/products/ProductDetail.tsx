@@ -197,7 +197,7 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                         tickFormatter={(value) => `Rp${value.toLocaleString()}`}
                                     />
                                     <RechartsTooltip
-                                        formatter={(value: number | undefined) => [formatIDR(value), 'Cost']}
+                                        formatter={(value: any) => [formatIDR(value), 'Cost']}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                     />
                                     <Line
