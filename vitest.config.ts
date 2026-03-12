@@ -15,13 +15,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      // Temporary bypass: Action runner enforces ghost config
-      // thresholds: {
-      //   lines: 20,
-      //   functions: 40,
-      //   branches: 15,
-      //   statements: 20
-      // }
+      thresholds: {
+        lines: 20,
+        functions: 40,
+        branches: 15,
+        statements: 20
+      }
     },
   },
 });
