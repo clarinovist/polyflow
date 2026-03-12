@@ -74,8 +74,18 @@ export class ProductionMaterialService {
                 }
             }
 
-            if (addedPlannedMaterials && addedPlannedMaterials.length > 0) {
-                for (const newItem of addedPlannedMaterials) {
+        if (addedPlannedMaterials && addedPlannedMaterials.length > 0) {
+            for (const newItem of addedPlannedMaterials) {
+                const existing = order.plannedMaterials.find(
+                    pm => pm.productVariantId === newItem.productVariantId
+                );
+                
+                if (existing) {
+                    await tx.productionMaterial.update({
+                        where: { id: existing.id },
+                        data: { quantity: newItem.quantity }
+                    });
+                } else {
                     await tx.productionMaterial.create({
                         data: {
                             productionOrderId,
@@ -85,6 +95,7 @@ export class ProductionMaterialService {
                     });
                 }
             }
+        }
 
             // Standardize Prefix
             const refPrefix = `PROD-ISSUE-${order.orderNumber}`;
