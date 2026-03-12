@@ -17,7 +17,7 @@
     ```
   **Critical**: Set `NEXTAUTH_URL` to your canonical public domain (especially for VPS):
     ```bash
-  NEXTAUTH_URL=https://your-domain.com # e.g. https://erp.nugrohopramono.my.id
+  NEXTAUTH_URL=https://your-domain.com # e.g. https://polyflow.uk
     ```
     
     Update `DATABASE_URL` if you are using an external database. If using the included Postgres service, use the internal container port 5432:
@@ -81,7 +81,7 @@ If you made changes directly on the server or want to build from source:
 docker compose up -d --build
 ```
 
-The application will be accessible via your domain through the ceritakita nginx reverse proxy, e.g. `https://erp.nugrohopramono.my.id`.
+The application will be accessible via your domain through the ceritakita nginx reverse proxy, e.g. `https://polyflow.uk`.
 
 > [!NOTE]
 > This compose setup does not publish an app port on the host by default (safer). If you need direct access for debugging, temporarily publish `3002:3000` in `docker-compose.yml`.

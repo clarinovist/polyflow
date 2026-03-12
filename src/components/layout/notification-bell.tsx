@@ -38,7 +38,7 @@ export function NotificationBell() {
         // Optimistic UI updates
         mutateCount((prev: any) => Math.max(0, (prev || 0) - 1), false);
         mutateNotifications(
-            (prev: any[]) => prev?.map((n: any) => n.id === id ? { ...n, isRead: true } : n),
+            (prev: any) => prev?.map((n: any) => n.id === id ? { ...n, isRead: true } : n),
             false
         );
 
@@ -55,7 +55,7 @@ export function NotificationBell() {
         // Optimistic
         mutateCount(0, false);
         mutateNotifications(
-            (prev: any[]) => prev?.map((n: any) => ({ ...n, isRead: true })),
+            (prev: any) => prev?.map((n: any) => ({ ...n, isRead: true })),
             false
         );
 
