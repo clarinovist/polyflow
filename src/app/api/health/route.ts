@@ -2,6 +2,8 @@ import { withTenantRoute } from "@/lib/tenant";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+import os from 'os';
+
 export const GET = withTenantRoute(
 async function GET() {
     const startTime = Date.now();
@@ -10,6 +12,10 @@ async function GET() {
         // Test database connectivity
         await prisma.$queryRaw`SELECT 1`;
         const dbLatency = Date.now() - startTime;
+
+        const memoryUsage = process.memoryUsage();
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
 
         return NextResponse.json(
             {
@@ -20,7 +26,17 @@ async function GET() {
                     status: 'connected',
                     latencyMs: dbLatency,
                 },
-                uptime: process.uptime(),
+                system: {
+                    uptime: process.uptime(),
+                    memory: {
+                        rss: Math.round(memoryUsage.rss / 1024 / 1024) + ' MB',
+                        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB',
+                        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
+                        osTotal: Math.round(totalMem / 1024 / 1024) + ' MB',
+                        osFree: Math.round(freeMem / 1024 / 1024) + ' MB'
+                    },
+                    loadAverage: os.loadavg()
+                }
             },
             { status: 200 }
         );

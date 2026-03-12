@@ -21,6 +21,7 @@ import {
 import { PurchaseOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
+import { logActivity } from '@/lib/audit';
 
 export const createPurchaseOrder = withTenant(
 async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
@@ -28,6 +29,14 @@ async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
     const validated = createPurchaseOrderSchema.parse(formData);
 
     const order = await PurchaseService.createOrder(validated, session.user.id);
+
+    await logActivity({
+        userId: session.user.id,
+        action: 'CREATE_PURCHASE_ORDER',
+        entityType: 'PurchaseOrder',
+        entityId: order.id,
+        details: `Created Purchase Order ${order.orderNumber}`
+    });
 
     revalidatePath('/planning/purchase-orders');
     return serializeData(order);
@@ -48,10 +57,18 @@ async function createManualPurchaseRequest(data: CreatePurchaseRequestValues) {
 
 export const updatePurchaseOrder = withTenant(
 async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
-    await requireAuth();
+    const session = await requireAuth();
     const validated = updatePurchaseOrderSchema.parse(formData);
 
     const order = await PurchaseService.updateOrder(validated);
+
+    await logActivity({
+        userId: session.user.id,
+        action: 'UPDATE_PURCHASE_ORDER',
+        entityType: 'PurchaseOrder',
+        entityId: order.id,
+        details: `Updated Purchase Order ${order.orderNumber}`
+    });
 
     revalidatePath('/planning/purchase-orders');
     revalidatePath(`/planning/purchase-orders/${validated.id}`);
@@ -113,6 +130,14 @@ export const updatePurchaseOrderStatus = withTenant(
 async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus) {
     const session = await requireAuth();
     const order = await PurchaseService.updateOrderStatus(id, status, session.user.id);
+
+    await logActivity({
+        userId: session.user.id,
+        action: `UPDATE_PO_STATUS`,
+        entityType: 'PurchaseOrder',
+        entityId: order.id,
+        details: `Status changed to ${status}`
+    });
 
     revalidatePath('/planning/purchase-orders');
     revalidatePath(`/planning/purchase-orders/${id}`);

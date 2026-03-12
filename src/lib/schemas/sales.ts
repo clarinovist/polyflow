@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SalesOrderType } from '@prisma/client';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export const salesOrderItemSchema = z.object({
     id: z.string().optional(),
@@ -16,7 +17,7 @@ export const createSalesOrderSchema = z.object({
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),
     orderType: z.nativeEnum(SalesOrderType).default(SalesOrderType.MAKE_TO_STOCK),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(salesOrderItemSchema).min(1, "At least one item is required"),
 }).superRefine((data, ctx) => {
     if (data.orderType === SalesOrderType.MAKE_TO_ORDER && !data.customerId) {
@@ -34,7 +35,7 @@ export const updateSalesOrderSchema = z.object({
     sourceLocationId: z.string().min(1, "Source location is required"),
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(salesOrderItemSchema).min(1, "At least one item is required"),
 });
 
@@ -44,13 +45,13 @@ export const confirmSalesOrderSchema = z.object({
 
 export const shipSalesOrderSchema = z.object({
     id: z.string(),
-    trackingNumber: z.string().optional(),
-    carrier: z.string().optional(),
+    trackingNumber: z.string().optional().transform(sanitizeHtml),
+    carrier: z.string().optional().transform(sanitizeHtml),
 });
 
 export const cancelSalesOrderSchema = z.object({
     id: z.string(),
-    reason: z.string().optional(), // For audit log?
+    reason: z.string().optional().transform(sanitizeHtml), // For audit log
 });
 
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;

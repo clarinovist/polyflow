@@ -36,7 +36,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         orderDate: order.orderDate,
         expectedDate: order.expectedDate || undefined,
         orderType: order.orderType,
-        notes: order.notes || undefined,
+        notes: order.notes || '',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items: items.map((item: any) => ({
             id: item.id,

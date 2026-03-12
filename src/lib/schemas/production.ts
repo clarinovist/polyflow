@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // Production Schemas
 export const createProductionOrderSchema = z.object({
@@ -8,7 +9,7 @@ export const createProductionOrderSchema = z.object({
     plannedStartDate: z.date(),
     plannedEndDate: z.date().optional(),
     locationId: z.string().min(1, "Output location is required"),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     salesOrderId: z.string().optional(),
     machineId: z.string().optional(),
 
@@ -42,13 +43,13 @@ export const scrapRecordSchema = z.object({
     productVariantId: z.string().min(1, "Scrap variant is required"), // Likely a specific Scrap variant
     locationId: z.string().min(1, "Location is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
-    reason: z.string().optional(),
+    reason: z.string().optional().transform(sanitizeHtml),
 });
 
 export const qualityInspectionSchema = z.object({
     productionOrderId: z.string().min(1, "Order ID is required"),
     result: z.enum(['PASS', 'FAIL', 'QUARANTINE']),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 export const batchMaterialIssueSchema = z.object({
@@ -76,7 +77,7 @@ export type QualityInspectionValues = z.infer<typeof qualityInspectionSchema>;
 
 // BOM Management Schemas
 export const createBomSchema = z.object({
-    name: z.string().min(1, "Recipe name is required"),
+    name: z.string().min(1, "Recipe name is required").transform(sanitizeHtml),
     productVariantId: z.string().min(1, "Output product is required"),
     outputQuantity: z.coerce.number().positive("Output quantity must be positive"),
     isDefault: z.boolean().default(false),
@@ -102,7 +103,7 @@ export const productionOutputSchema = z.object({
     scrapDaunQty: z.coerce.number().nonnegative().default(0),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 // Production Execution Controls
@@ -117,7 +118,7 @@ export const stopExecutionSchema = z.object({
     executionId: z.string().min(1, "Execution ID is required"),
     quantityProduced: z.coerce.number().nonnegative(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     completed: z.boolean().optional(),
 });
 
@@ -128,7 +129,7 @@ export const logRunningOutputSchema = z.object({
     executionId: z.string().min(1, "Execution ID is required"),
     quantityProduced: z.coerce.number().positive("Quantity must be positive"),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;
@@ -137,7 +138,7 @@ export type ProductionOutputValues = z.infer<typeof productionOutputSchema>;
 
 export const logMachineDowntimeSchema = z.object({
     machineId: z.string().min(1, "Machine is required"),
-    reason: z.string().min(1, "Reason is required"),
+    reason: z.string().min(1, "Reason is required").transform(sanitizeHtml),
     startTime: z.coerce.date(),
     endTime: z.coerce.date().optional(),
 });

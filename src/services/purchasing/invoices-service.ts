@@ -193,3 +193,37 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
 
     return invoice;
 }
+
+export async function checkOverduePurchasingInvoices() {
+    const { NotificationService } = await import('@/services/notification-service');
+    const overdueInvoices = await prisma.purchaseInvoice.findMany({
+        where: {
+            dueDate: { lt: new Date() },
+            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL] }
+        },
+        include: { purchaseOrder: { select: { orderNumber: true } } }
+    });
+
+    if (overdueInvoices.length === 0) return;
+
+    const targetUsers = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true }
+    });
+
+    if (targetUsers.length > 0) {
+        const inputs = overdueInvoices.map(inv => {
+            return targetUsers.map(u => ({
+                userId: u.id,
+                type: 'OVERDUE_AP' as any,
+                title: 'Overdue Purchase Invoice',
+                message: `Invoice ${inv.invoiceNumber} (PO ${inv.purchaseOrder.orderNumber}) is overdue since ${inv.dueDate?.toLocaleDateString() || 'Unknown'}. amount due: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
+                link: `/admin/purchasing/invoices/${inv.id}`,
+                entityType: 'PurchaseInvoice',
+                entityId: inv.id
+            }));
+        }).flat();
+
+        await NotificationService.createBulkNotifications(inputs);
+    }
+}

@@ -879,4 +879,59 @@ export class InventoryService {
         return getStockMovementTrends(period);
     }
 
+    /**
+     * Verify thresholds and trigger notifications for LOW STOCK.
+     * Can be hooked into daily maintenance schedules.
+     */
+    static async checkLowStockTriggers() {
+        const { NotificationService } = await import('@/services/notification-service');
+        const lowStockVariants = await prisma.productVariant.findMany({
+            where: { minStockAlert: { not: null } },
+            select: {
+                id: true,
+                minStockAlert: true,
+                name: true,
+                inventories: {
+                    include: {
+                        location: { select: { slug: true } }
+                    }
+                }
+            }
+        });
+
+        // Only consider Raw Material and Finished Goods
+        const allowedLocationSlugs = new Set<string>([WAREHOUSE_SLUGS.RAW_MATERIAL, WAREHOUSE_SLUGS.FINISHING]);
+        
+        for(const variant of lowStockVariants) {
+            let totalForAlert = 0;
+            for(const inv of variant.inventories) {
+                if(inv.location?.slug && allowedLocationSlugs.has(inv.location.slug)) {
+                    totalForAlert += inv.quantity.toNumber();
+                }
+            }
+
+            const threshold = variant.minStockAlert?.toNumber() || 0;
+            if(totalForAlert > 0 && totalForAlert < threshold) {
+                // Find users that should be notified about inventory
+                const targetUsers = await prisma.user.findMany({
+                    where: { role: 'ADMIN' },
+                    select: { id: true }
+                });
+
+                if(targetUsers.length > 0) {
+                    const inputs = targetUsers.map(u => ({
+                        userId: u.id,
+                        type: 'LOW_STOCK' as any,
+                        title: 'Low Stock Alert',
+                        message: `Product "${variant.name}" has fallen below threshold (${threshold}). Current stock: ${totalForAlert}.`,
+                        link: `/admin/inventory?variantId=${variant.id}`,
+                        entityType: 'ProductVariant',
+                        entityId: variant.id
+                    }));
+                    await NotificationService.createBulkNotifications(inputs);
+                }
+            }
+        }
+    }
+
 }

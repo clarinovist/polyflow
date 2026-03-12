@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { getUserFriendlyError } from '@/lib/error-map';
 
 export default function Error({
     error,
@@ -17,6 +18,8 @@ export default function Error({
         console.error('[ErrorBoundary]', error);
     }, [error]);
 
+    const uiMessage = getUserFriendlyError(error.message) || getUserFriendlyError('UNKNOWN_ERROR');
+
     return (
         <div className="flex min-h-[60vh] items-center justify-center p-6">
             <div className="mx-auto max-w-md text-center">
@@ -25,11 +28,11 @@ export default function Error({
                 </div>
 
                 <h2 className="mb-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-                    Something went wrong
+                    Perhatian
                 </h2>
 
                 <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-                    An unexpected error occurred. Our team has been notified.
+                    {uiMessage}
                     {error.digest && (
                         <span className="mt-1 block font-mono text-xs text-zinc-400">
                             Error ID: {error.digest}

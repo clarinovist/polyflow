@@ -7,14 +7,20 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    setupFiles: [],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./tests/setup.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'tests/**/*.test.ts'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 60,
+        statements: 60
+      }
     },
   },
 });

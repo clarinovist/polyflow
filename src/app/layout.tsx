@@ -31,6 +31,9 @@ export const metadata: Metadata = {
 
 import { SessionProvider } from "@/components/auth/SessionProvider";
 import SessionTimeoutHandler from "@/components/auth/SessionTimeoutHandler";
+import { AutoChangelogBanner } from "@/components/layout/auto-changelog-banner";
+
+import * as Sentry from "@sentry/nextjs";
 
 export default function RootLayout({
     children,
@@ -43,13 +46,16 @@ export default function RootLayout({
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
                 suppressHydrationWarning
             >
-                <SessionProvider>
-                    <ThemeProvider>
-                        {children}
-                        <Toaster position="bottom-right" richColors />
-                        <SessionTimeoutHandler />
-                    </ThemeProvider>
-                </SessionProvider>
+                <Sentry.ErrorBoundary fallback={({ error }) => <div>An error has occurred: {error instanceof Error ? error.message : "Unknown error"}</div>}>
+                    <SessionProvider>
+                        <ThemeProvider>
+                            {children}
+                            <AutoChangelogBanner />
+                            <Toaster position="bottom-right" richColors />
+                            <SessionTimeoutHandler />
+                        </ThemeProvider>
+                    </SessionProvider>
+                </Sentry.ErrorBoundary>
             </body>
         </html>
     );

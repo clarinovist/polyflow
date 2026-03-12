@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ReservationType } from '@prisma/client';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // Stock Reservation Schemas
 export const createReservationSchema = z.object({
@@ -7,7 +8,7 @@ export const createReservationSchema = z.object({
     locationId: z.string().min(1, "Location is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
     reservedFor: z.nativeEnum(ReservationType, { message: "Reservation type is required" }),
-    referenceId: z.string().min(1, "Reference ID is required"),
+    referenceId: z.string().min(1, "Reference ID is required").transform(sanitizeHtml),
     reservedUntil: z.date().optional(),
 });
 
@@ -17,7 +18,7 @@ export const cancelReservationSchema = z.object({
 
 // Batch Creation Schema
 export const createBatchSchema = z.object({
-    batchNumber: z.string().min(1, "Batch number is required"),
+    batchNumber: z.string().min(1, "Batch number is required").transform(sanitizeHtml),
     productVariantId: z.string().min(1, "Product variant is required"),
     locationId: z.string().min(1, "Location is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
@@ -34,7 +35,7 @@ export const transferStockSchema = z.object({
     destinationLocationId: z.string().min(1, "Destination location is required"),
     productVariantId: z.string().min(1, "Product is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     date: z.date().default(() => new Date()),
 }).refine((data) => data.sourceLocationId !== data.destinationLocationId, {
     message: "Source and destination cannot be the same",
@@ -46,14 +47,14 @@ export const adjustStockSchema = z.object({
     productVariantId: z.string().min(1, "Product is required"),
     type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] as const),
     quantity: z.coerce.number().positive("Quantity must be positive"),
-    reason: z.string().min(3, "Reason is required"),
+    reason: z.string().min(3, "Reason is required").transform(sanitizeHtml),
 });
 
 // Extended Adjust Stock (with batch)
 export const adjustStockWithBatchSchema = adjustStockSchema.extend({
     unitCost: z.coerce.number().positive().optional(),
     batchData: z.object({
-        batchNumber: z.string().min(1, "Batch number is required"),
+        batchNumber: z.string().min(1, "Batch number is required").transform(sanitizeHtml),
         manufacturingDate: z.date(),
         expiryDate: z.date().optional(),
     }).optional(),
@@ -71,7 +72,7 @@ export const bulkTransferStockSchema = z.object({
         productVariantId: z.string().min(1, "Product is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
     })).min(1, "At least one item is required"),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     date: z.date().default(() => new Date()),
 }).refine((data) => data.sourceLocationId !== data.destinationLocationId, {
     message: "Source and destination cannot be the same",
@@ -84,7 +85,7 @@ export const bulkAdjustStockSchema = z.object({
         productVariantId: z.string().min(1, "Product is required"),
         type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] as const),
         quantity: z.coerce.number().positive("Quantity must be positive"),
-        reason: z.string().min(3, "Reason is required"),
+        reason: z.string().min(3, "Reason is required").transform(sanitizeHtml),
         unitCost: z.coerce.number().positive().optional(),
     })).min(1, "At least one item is required"),
 });

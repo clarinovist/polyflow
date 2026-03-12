@@ -200,4 +200,42 @@ export class InvoiceService {
 
         return invoice;
     }
+
+    /**
+     * Check for Overdue AR (Accounts Receivable)
+     * To be triggered by daily cron jobs
+     */
+    static async checkOverdueSalesInvoices() {
+        const { NotificationService } = await import('@/services/notification-service');
+        const overdueInvoices = await prisma.invoice.findMany({
+            where: {
+                dueDate: { lt: new Date() },
+                status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL] }
+            },
+            include: { salesOrder: { select: { orderNumber: true } } }
+        });
+
+        if (overdueInvoices.length === 0) return;
+
+        const targetUsers = await prisma.user.findMany({
+            where: { role: 'ADMIN' },
+            select: { id: true }
+        });
+
+        if (targetUsers.length > 0) {
+            const inputs = overdueInvoices.map(inv => {
+                return targetUsers.map(u => ({
+                    userId: u.id,
+                    type: 'OVERDUE_AR' as any,
+                    title: 'Overdue Sales Invoice',
+                    message: `Customer Invoice ${inv.invoiceNumber} is overdue since ${inv.dueDate?.toLocaleDateString() || 'Unknown'}. Outstanding: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
+                    link: `/admin/sales/invoices/${inv.id}`,
+                    entityType: 'Invoice',
+                    entityId: inv.id
+                }));
+            }).flat();
+
+            await NotificationService.createBulkNotifications(inputs);
+        }
+    }
 }

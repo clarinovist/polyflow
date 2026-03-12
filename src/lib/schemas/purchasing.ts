@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export const purchaseOrderItemSchema = z.object({
     id: z.string().optional(),
@@ -11,7 +12,7 @@ export const createPurchaseOrderSchema = z.object({
     supplierId: z.string().min(1, "Supplier is required"),
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required"),
 });
 
@@ -20,7 +21,7 @@ export const updatePurchaseOrderSchema = z.object({
     supplierId: z.string().min(1, "Supplier is required"),
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required"),
 });
 
@@ -34,30 +35,30 @@ export const createGoodsReceiptSchema = z.object({
     purchaseOrderId: z.string().min(1, "PO ID is required"),
     receivedDate: z.coerce.date(),
     locationId: z.string().min(1, "Location is required"),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(goodsReceiptItemSchema).min(1, "At least one item is required"),
 });
 
 export const createPurchaseInvoiceSchema = z.object({
     purchaseOrderId: z.string().min(1, "PO ID is required"),
-    invoiceNumber: z.string().min(1, "Invoice number is required"),
+    invoiceNumber: z.string().min(1, "Invoice number is required").transform(sanitizeHtml),
     invoiceDate: z.coerce.date(),
     dueDate: z.coerce.date().optional().nullable(),
     termOfPaymentDays: z.coerce.number().min(0).default(0),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 
 export const purchaseRequestItemSchema = z.object({
     productVariantId: z.string().min(1, "Product is required"),
     quantity: z.coerce.number().positive("Quantity must be positive"),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
 });
 
 export const createPurchaseRequestSchema = z.object({
     salesOrderId: z.string().optional(),
     priority: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
-    notes: z.string().optional(),
+    notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(purchaseRequestItemSchema).min(1, "At least one item is required"),
 });
 

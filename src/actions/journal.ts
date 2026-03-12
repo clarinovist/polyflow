@@ -6,6 +6,7 @@ import { AccountingService } from "@/services/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-checks";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/audit";
 // ... (rest is same)
 
 export const createBulkJournals = withTenant(
@@ -63,6 +64,14 @@ async function createManualJournal(data: ManualJournalValues, post: boolean = fa
             await AccountingService.postJournal(result.id, session.user.id);
         }
 
+        await logActivity({
+            userId: session.user.id,
+            action: post ? 'CREATE_AND_POST_JOURNAL' : 'CREATE_JOURNAL',
+            entityType: 'JournalEntry',
+            entityId: result.id,
+            details: `Created manual journal ${result.entryNumber}`
+        });
+
         revalidatePath('/finance/journals');
         revalidatePath('/finance/reports/balance-sheet');
         revalidatePath('/finance/reports/trial-balance');
@@ -97,6 +106,15 @@ async function postJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.postJournal(id, session.user.id);
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'POST_JOURNAL',
+            entityType: 'JournalEntry',
+            entityId: id,
+            details: `Posted journal entry`
+        });
+
         revalidatePath('/finance/journals');
         revalidatePath(`/finance/journals/${id}`);
         return { success: true };
@@ -111,6 +129,15 @@ async function voidJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.voidJournal(id, session.user.id);
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'VOID_JOURNAL',
+            entityType: 'JournalEntry',
+            entityId: id,
+            details: `Voided journal entry`
+        });
+
         revalidatePath('/finance/journals');
         revalidatePath(`/finance/journals/${id}`);
         return { success: true };
@@ -125,6 +152,15 @@ async function reverseJournal(id: string) {
     const session = await requireAuth();
     try {
         await AccountingService.reverseJournal(id, session.user.id);
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'REVERSE_JOURNAL',
+            entityType: 'JournalEntry',
+            entityId: id,
+            details: `Reversed journal entry`
+        });
+
         revalidatePath('/finance/journals');
         return { success: true };
     } catch (error) {

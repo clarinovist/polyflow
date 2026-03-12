@@ -40,6 +40,7 @@ model User {
   apiKeys                 ApiKey[]
   salesReturns            SalesReturn[]       @relation("SalesReturnCreator")
   purchaseReturns         PurchaseReturn[]    @relation("PurchaseReturnCreator")
+  notifications           Notification[]
 }
 
 model Employee {
@@ -1368,4 +1369,33 @@ enum TenantStatus {
   ACTIVE
   SUSPENDED
   TRIAL
+}
+
+enum NotificationType {
+  LOW_STOCK
+  OVERDUE_AR
+  OVERDUE_AP
+  PO_APPROVAL
+  PRODUCTION_COMPLETE
+  DELIVERY_READY
+  SYSTEM
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  type       NotificationType
+  title      String
+  message    String           @db.Text
+  link       String?
+  isRead     Boolean          @default(false)
+  entityType String?
+  entityId   String?
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
 }

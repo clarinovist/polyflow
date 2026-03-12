@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { CostReportingService } from '@/services/finance/cost-reporting-service';
 import { requireAuth } from '@/lib/auth-checks';
 import { serializeData } from '@/lib/utils';
+import { logActivity } from '@/lib/audit';
 
 export const updateOverdueStatuses = withTenant(
 async function updateOverdueStatuses() {
@@ -184,7 +185,7 @@ async function recordCustomerPayment(data: {
     method: string;
     notes?: string;
 }) {
-    await requireAuth();
+    const session = await requireAuth();
 
     try {
         const invoice = await prisma.invoice.findUnique({
@@ -240,6 +241,14 @@ async function recordCustomerPayment(data: {
         const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
         await AutoJournalService.handleSalesPayment(data.invoiceId, data.amount, data.method);
 
+        await logActivity({
+            userId: session.user.id,
+            action: 'RECORD_CUSTOMER_PAYMENT',
+            entityType: 'Invoice',
+            entityId: data.invoiceId,
+            details: `Recorded payment of ${data.amount} for Sales Invoice ${data.invoiceId}`
+        });
+
         revalidatePath('/finance/payments/received');
         revalidatePath('/finance/invoices/sales');
 
@@ -262,7 +271,7 @@ async function recordSupplierPayment(data: {
     method: string;
     notes?: string;
 }) {
-    await requireAuth();
+    const session = await requireAuth();
 
     try {
         const invoice = await prisma.purchaseInvoice.findUnique({
@@ -317,6 +326,14 @@ async function recordSupplierPayment(data: {
         // Create journal entry
         const { AutoJournalService } = await import('@/services/finance/auto-journal-service');
         await AutoJournalService.handlePurchasePayment(data.invoiceId, data.amount, data.method);
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'RECORD_SUPPLIER_PAYMENT',
+            entityType: 'PurchaseInvoice',
+            entityId: data.invoiceId,
+            details: `Recorded payment of ${data.amount} for Purchase Invoice ${data.invoiceId}`
+        });
 
         revalidatePath('/finance/payments/sent');
         revalidatePath('/finance/invoices/purchase');

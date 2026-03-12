@@ -39,7 +39,7 @@ export function KioskLogOutputDialog({
                 executionId,
                 quantityProduced: qtyNum,
                 scrapQuantity: parseFloat(scrap) || 0,
-                notes: notes || undefined
+                notes: notes || ''
             });
 
             if (result.success) {

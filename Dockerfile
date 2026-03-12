@@ -38,6 +38,10 @@ RUN npx tsc prisma/fix-coa.ts --module CommonJS --target ES2020 --esModuleIntero
 RUN npx tsc scripts/provision-tenant.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 RUN npx tsc scripts/migrate-all-tenants.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
+# Pass Sentry auth token
+ARG SENTRY_AUTH_TOKEN
+ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
+
 RUN npm run build
 
 # Production image, copy all the files and run next

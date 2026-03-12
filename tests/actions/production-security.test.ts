@@ -59,6 +59,7 @@ describe('Production Actions Security', () => {
                 executionId: 'exec-123',
                 quantityProduced: 10,
                 scrapQuantity: 0,
+                notes: '',
                 completed: true,
             });
             expect(result.success).toBe(false);
@@ -88,7 +89,8 @@ describe('Production Actions Security', () => {
             const result = await productionActions.logRunningOutput({
                 executionId: 'exec-123',
                 quantityProduced: 5,
-                scrapQuantity: 0
+                scrapQuantity: 0,
+                notes: ''
             });
             expect(result.success).toBe(false);
             expect(result.error).toMatch(/Unauthorized/i);
@@ -188,7 +190,8 @@ describe('Production Actions Security', () => {
                 productionOrderId: 'po-1',
                 productVariantId: 'pv-1',
                 locationId: 'loc-1',
-                quantity: 5
+                quantity: 5,
+                reason: ''
             });
             expect(result.success).toBe(false);
             expect(ProductionService.recordScrap).not.toHaveBeenCalled();
@@ -200,7 +203,8 @@ describe('Production Actions Security', () => {
             (auth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(null);
             const result = await productionActions.recordQualityInspection({
                 productionOrderId: 'po-1',
-                result: 'PASS'
+                result: 'PASS',
+                notes: ''
             });
             expect(result.success).toBe(false);
             expect(ProductionService.recordQualityInspection).not.toHaveBeenCalled();
