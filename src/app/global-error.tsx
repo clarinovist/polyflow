@@ -2,6 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
 
 export default function GlobalError({
     error,
@@ -10,6 +12,10 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    useEffect(() => {
+        Sentry.captureException(error);
+    }, [error]);
+
     return (
         <html>
             <body className="bg-zinc-50 dark:bg-zinc-950">
