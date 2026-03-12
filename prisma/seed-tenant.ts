@@ -42,7 +42,6 @@ async function main() {
     await prisma.machine.deleteMany()
     await prisma.employee.deleteMany()
     await prisma.jobRole.deleteMany()
-    await prisma.costHistory.deleteMany()
     await prisma.productVariant.deleteMany()
     await prisma.product.deleteMany()
     await prisma.supplier.deleteMany()

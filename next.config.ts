@@ -3,6 +3,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/@sentry/nextjs/**/*", "./node_modules/@sentry/core/**/*"],
+  },
   /* config options here */
 };
 
