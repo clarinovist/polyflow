@@ -244,7 +244,7 @@ export function BatchIssueMaterialDialog({
                             addedPlannedMaterials: [
                                 ...addedPlannedMaterials,
                                 // Also update existing planned items if their quantity changed
-                                ...items.filter(i => i.isPlanned && !i.isDeletedPlan && i.quantity !== i.originalQuantity).map(i => ({
+                                ...items.filter(i => i.isPlanned && !i.isDeletedPlan && i.quantity !== i.originalQuantity && !removedPlannedMaterialIds.includes(i.id)).map(i => ({
                                     productVariantId: i.productVariantId,
                                     quantity: i.quantity
                                 }))

@@ -78,6 +78,7 @@ export class ProductionMaterialService {
             for (const newItem of addedPlannedMaterials) {
                 const existing = order.plannedMaterials.find(
                     pm => pm.productVariantId === newItem.productVariantId
+                        && !(removedPlannedMaterialIds || []).includes(pm.id)
                 );
                 
                 if (existing) {
