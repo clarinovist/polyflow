@@ -2,6 +2,21 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.5.0](https://github.com/clarinovist/polyflow/compare/v1.4.0...v1.5.0) (2026-03-14)
+
+
+### Features
+
+* standardise quantity decimal formatting and update Unit from PCS to PACK ([2022f5d](https://github.com/clarinovist/polyflow/commit/2022f5d9e52915f0e4596500d5edbec7c7dffd84))
+
+
+### Bug Fixes
+
+* **ci:** handle ValueType string to number conversion in StockHistoryChart ([be51200](https://github.com/clarinovist/polyflow/commit/be5120015e63b47e2f04b44f6f9957b1fb84137b))
+* **ci:** update recharts formatter types to satisfy strict compilation ([b0ca020](https://github.com/clarinovist/polyflow/commit/b0ca020dffdf381d5dec064c1bcbb1f6695667bd))
+* prevent P2025 crash during material substitution in batch issue ([fc83d6f](https://github.com/clarinovist/polyflow/commit/fc83d6f3a0660eb8ce0c939e27ae84dd56db375d))
+* Resolve all TypeScript linting errors across the codebase ([71e5ab5](https://github.com/clarinovist/polyflow/commit/71e5ab5cd4883aa7ef5673857f738dc8c291dbe5))
+
 ## [1.4.0](https://github.com/clarinovist/polyflow/compare/v1.3.0...v1.4.0) (2026-03-12)
 
 
