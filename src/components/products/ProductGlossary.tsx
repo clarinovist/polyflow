@@ -105,7 +105,7 @@ export function ProductGlossary() {
                                 description="Bale - Bundled/packed products (e.g., 1 bale = 5kg or 10kg)"
                             />
                             <GlossaryItem
-                                term="PCS"
+                                term="PACK"
                                 description="Pieces - For discrete countable items"
                             />
                             <GlossaryItem

@@ -15,6 +15,14 @@ export function formatRupiah(value: number | null | undefined): string {
   }).format(value);
 }
 
+export function formatQuantity(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '-';
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  }).format(value);
+}
+
 /**
  * Helper to serialize Prisma objects (especially Decimals) for Client Components
  * converting them to plain numbers/strings to match Next.js serialization requirements.

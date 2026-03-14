@@ -213,6 +213,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                                             <Input
                                                                 type="number"
                                                                 min="0"
+                                                                step="any"
                                                                 max={item.availableQuantity ?? item.quantity}
                                                                 className="h-8 text-right"
                                                                 {...field}

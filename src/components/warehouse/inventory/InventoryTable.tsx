@@ -6,7 +6,7 @@ import Link from 'next/link';
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
-import { cn, formatRupiah } from '@/lib/utils';
+import { cn, formatRupiah, formatQuantity } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -416,7 +416,7 @@ export function InventoryTable({
                 <div className="flex items-center gap-4 ml-auto text-sm px-2">
                     {totalStock !== undefined && (
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
-                            <span className="font-bold text-foreground">{totalStock.toLocaleString()}</span>
+                            <span className="font-bold text-foreground">{formatQuantity(totalStock)}</span>
                             <span className="text-[11px] uppercase tracking-wider opacity-70">total stock</span>
                         </div>
                     )}
@@ -570,7 +570,7 @@ export function InventoryTable({
                                             <TableCell className="text-right py-1 align-middle">
                                                 <div className="flex flex-col items-end">
                                                     <div className="font-semibold text-sm text-foreground tabular-nums inline-flex items-baseline">
-                                                        <span>{currentStock.toLocaleString()}</span>
+                                                        <span>{formatQuantity(currentStock)}</span>
                                                         <span className="ml-1 text-xs font-normal text-muted-foreground">
                                                             {item.productVariant.primaryUnit}
                                                         </span>
@@ -578,7 +578,7 @@ export function InventoryTable({
                                                     {showComparison && delta !== 0 && (
                                                         <div className={`text-[10px] font-medium flex items-center gap-0.5 tabular-nums ${delta > 0 ? 'text-green-600' : 'text-red-500'}`}>
                                                             {delta > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
-                                                            {Math.abs(delta).toLocaleString()}
+                                                            {formatQuantity(Math.abs(delta))}
                                                         </div>
                                                     )}
                                                 </div>
@@ -587,7 +587,7 @@ export function InventoryTable({
                                                 <div className="flex flex-col items-center gap-1">
                                                     {item.reservedQuantity ? (
                                                         <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/10 tabular-nums">
-                                                            {item.reservedQuantity.toLocaleString()} {item.productVariant.primaryUnit}
+                                                            {formatQuantity(item.reservedQuantity)} {item.productVariant.primaryUnit}
                                                         </Badge>
                                                     ) : !item.waitingQuantity ? (
                                                         <span className="text-muted-foreground">-</span>
@@ -596,7 +596,7 @@ export function InventoryTable({
                                                     {item.waitingQuantity && item.waitingQuantity > 0 ? (
                                                         <Badge variant="outline" className="text-slate-500 dark:text-slate-400 border-slate-500/20 bg-slate-500/10 tabular-nums flex items-center gap-1">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
-                                                            {item.waitingQuantity.toLocaleString()} Waiting
+                                                            {formatQuantity(item.waitingQuantity)} Waiting
                                                         </Badge>
                                                     ) : null}
                                                 </div>
@@ -606,7 +606,7 @@ export function InventoryTable({
                                                     "font-medium tabular-nums",
                                                     (item.availableQuantity || 0) <= 0 ? "text-red-500" : "text-green-500"
                                                 )}>
-                                                    {(item.availableQuantity ?? item.quantity).toLocaleString()} {item.productVariant.primaryUnit}
+                                                    {formatQuantity(item.availableQuantity ?? item.quantity)} {item.productVariant.primaryUnit}
                                                 </div>
                                             </TableCell>
 
@@ -711,20 +711,20 @@ export function InventoryTable({
                                         <div className="bg-background rounded p-2 border">
                                             <p className="text-[10px] text-muted-foreground uppercase">Stock</p>
                                             <p className="font-semibold text-sm">
-                                                {item.quantity.toLocaleString()}
+                                                {formatQuantity(item.quantity)}
                                                 <span className="text-[10px] font-normal text-muted-foreground ml-0.5">{item.productVariant.primaryUnit}</span>
                                             </p>
                                         </div>
                                         <div className="bg-amber-500/5 rounded p-2 border border-amber-500/10">
                                             <p className="text-[10px] text-amber-600/80 uppercase">Reserved</p>
                                             <p className="font-semibold text-sm text-amber-700 dark:text-amber-500">
-                                                {(item.reservedQuantity || 0).toLocaleString()}
+                                                {formatQuantity(item.reservedQuantity || 0)}
                                             </p>
                                         </div>
                                         <div className="bg-emerald-500/5 rounded p-2 border border-emerald-500/10">
                                             <p className="text-[10px] text-emerald-600/80 uppercase">Avail</p>
                                             <p className="font-semibold text-sm text-emerald-700 dark:text-emerald-500">
-                                                {(item.availableQuantity || item.quantity).toLocaleString()}
+                                                {formatQuantity(item.availableQuantity || item.quantity)}
                                             </p>
                                         </div>
                                     </div>

@@ -271,8 +271,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                         </div>
                                         <Input
                                             type="number"
-                                            step="1"
-                                            min="1"
+                                            step="any"
+                                            min="0"
                                             value={newItem.quantity}
                                             onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
                                             className="h-11 bg-background"
@@ -288,6 +288,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                     <FormLabel className="text-xs text-muted-foreground">Unit Cost (Rp)</FormLabel>
                                     <Input
                                         type="number"
+                                        step="any"
                                         min="0"
                                         placeholder="Optional"
                                         value={newItem.unitCost}

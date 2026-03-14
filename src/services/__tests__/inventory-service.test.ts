@@ -98,7 +98,7 @@ describe('InventoryService', () => {
             vi.mocked(prisma.$queryRaw).mockResolvedValue([{ quantity: '5' }]);
 
             // Mock details for error message
-            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PCS' } as any);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as any);
             vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as any);
 
             await expect(
@@ -116,7 +116,7 @@ describe('InventoryService', () => {
             } as any);
 
             // Mock details for error message
-            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PCS' } as any);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as any);
             vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as any);
 
             await expect(

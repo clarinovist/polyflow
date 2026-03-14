@@ -164,6 +164,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                                 </Button>
                                                 <Input
                                                     type="number"
+                                                    step="any"
                                                     value={item.procureQty}
                                                     onChange={(e) => handleQtyChange(index, Number(e.target.value))}
                                                     className="h-7 text-center text-xs"

@@ -248,6 +248,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                                                             <Input
                                                                 type="number"
                                                                 min="0"
+                                                                step="any"
                                                                 className="h-8 text-right"
                                                                 {...field}
                                                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}

@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
+import { formatQuantity } from '@/lib/utils';
 
 interface StockHistoryChartProps {
     data: { date: string; stock: number }[];
@@ -74,7 +75,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                                     tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                     axisLine={false}
                                     tickLine={false}
-                                    tickFormatter={(val) => val.toLocaleString()}
+                                    tickFormatter={(val) => formatQuantity(val)}
                                 />
                                 <Tooltip
                                     content={({ active, payload, label }) => {
@@ -87,7 +88,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-blue-600" />
                                                         <p className="text-sm font-semibold text-blue-600">
-                                                            Stock: {payload[0].value?.toLocaleString()}
+                                                            Stock: {formatQuantity(payload[0].value)}
                                                         </p>
                                                     </div>
                                                 </div>

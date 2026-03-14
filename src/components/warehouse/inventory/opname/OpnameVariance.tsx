@@ -1,5 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { formatQuantity } from '@/lib/utils';
 
 interface OpnameItem {
     id: string;
@@ -66,13 +67,13 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                                         {item.productVariant.skuCode}
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-right">{item.sys.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">{formatQuantity(item.sys)}</TableCell>
                                 <TableCell className="text-right">
-                                    {item.countedQuantity !== null ? item.count.toLocaleString() : '-'}
+                                    {item.countedQuantity !== null ? formatQuantity(item.count) : '-'}
                                 </TableCell>
                                 <TableCell className={`text-right font-bold ${item.delta > 0 ? 'text-green-600' : item.delta < 0 ? 'text-red-600' : 'text-slate-400'
                                     }`}>
-                                    {item.delta > 0 ? '+' : ''}{item.delta.toLocaleString()}
+                                    {item.delta > 0 ? '+' : ''}{formatQuantity(item.delta)}
                                 </TableCell>
                                 <TableCell className="text-center">
                                     {item.status === 'MATCH' && <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">Match</Badge>}

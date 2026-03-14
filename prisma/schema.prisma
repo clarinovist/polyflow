@@ -1009,7 +1009,7 @@ enum Unit {
   KG
   ROLL
   BAL
-  PCS
+  PACK @map("PCS")
   ZAK
 }
 

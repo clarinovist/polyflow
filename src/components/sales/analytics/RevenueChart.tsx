@@ -37,7 +37,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                                 tickFormatter={(value) => `${value / 1000000}`}
                             />
                             <Tooltip
-                                formatter={(value: any) => [formatRupiah(value ?? 0), 'Revenue']}
+                                formatter={(value: number | undefined) => [formatRupiah(value ?? 0), 'Revenue']}
                                 labelFormatter={(label) => format(parseISO(label + '-01'), 'MMMM yyyy')}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                             />

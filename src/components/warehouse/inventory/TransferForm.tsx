@@ -226,8 +226,8 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                                 <div className="relative">
                                                     <Input
                                                         type="number"
-                                                        step="1"
-                                                        min="1"
+                                                        step="any"
+                                                        min="0"
                                                         value={newItem.quantity}
                                                         onChange={(e) => setNewItem(prev => ({ ...prev, quantity: e.target.value }))}
                                                         placeholder="Qty"

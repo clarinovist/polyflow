@@ -6,8 +6,6 @@ const { auth } = NextAuth(authConfig);
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
-import { rateLimit } from '@/lib/rate-limit';
-
 const handler = auth((req) => {
 	const host = req.headers.get('host') || '';
 	const hostname = host.split(':')[0];

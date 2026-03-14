@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { saveOpnameCount } from '@/actions/opname';
+import { formatQuantity } from '@/lib/utils';
 
 interface OpnameItem {
     id: string;
@@ -141,12 +142,13 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                     {blindMode ? (
                                         <span className="opacity-20 select-none">••••</span>
                                     ) : (
-                                        Number(item.systemQuantity).toLocaleString()
+                                        formatQuantity(Number(item.systemQuantity))
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <Input
                                         type="number"
+                                        step="any"
                                         className="text-right h-9 font-mono"
                                         placeholder="0"
                                         value={counts[item.id] || ''}
