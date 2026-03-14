@@ -88,7 +88,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-2 h-2 rounded-full bg-blue-600" />
                                                         <p className="text-sm font-semibold text-blue-600">
-                                                            Stock: {formatQuantity(payload[0].value)}
+                                                            Stock: {formatQuantity(Number(payload[0].value) || 0)}
                                                         </p>
                                                     </div>
                                                 </div>
