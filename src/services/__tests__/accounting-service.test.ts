@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AccountingService } from '../accounting-service';
 import { prisma } from '@/lib/prisma';
 import * as periodsService from '../accounting/periods-service';
@@ -126,7 +127,7 @@ describe('AccountingService', () => {
             // Actually it delegates to createJournalEntry which uses transaction
             // Let's inspect the payload that was sent if possible. 
             // In our Prisma Mock, we can just intercept journalEntry.create
-            const createCall = ((prisma as any).$transaction as any).mock.calls[0]?.[0];
+            const _createCall = ((prisma as any).$transaction as any).mock.calls[0]?.[0];
             // The create call is actually inside the transaction callback, which is evaluated directly by our mock!
             expect(prisma.journalEntry.create).toHaveBeenCalled();
             

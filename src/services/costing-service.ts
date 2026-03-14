@@ -38,6 +38,7 @@ export class CostingService {
         // 2. Material Cost
         let materialCost = 0;
         for (const issue of order.materialIssues) {
+            if (issue.status === 'VOIDED') continue;
             // Priority: Average Cost -> Standard Cost -> Buy Price -> Reference Price -> 0
             if (!issue.productVariant) {
                 console.warn(`Missing product variant for issue ${issue.id} in order ${order.orderNumber}`);
@@ -55,6 +56,7 @@ export class CostingService {
         let laborCost = 0;
 
         for (const exec of order.executions) {
+            if (exec.status === 'VOIDED') continue;
             const endTime = exec.endTime ? new Date(exec.endTime) : new Date();
             const startTime = new Date(exec.startTime);
             const durationMilliseconds = endTime.getTime() - startTime.getTime();

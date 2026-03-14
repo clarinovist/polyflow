@@ -70,7 +70,7 @@ export function BatchIssueMaterialDialog({
     const initialItems = useMemo(() => {
         const plannedItems = (order.plannedMaterials || []).map((pm) => {
             const issued = order.materialIssues
-                .filter((mi) => mi.productVariantId === pm.productVariantId)
+                .filter((mi) => mi.productVariantId === pm.productVariantId && mi.status !== 'VOIDED')
                 .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
             const remaining = Math.max(0, Number(pm.quantity) - issued);

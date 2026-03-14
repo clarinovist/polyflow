@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ProductionCostService } from '../production/cost-service';
 import { prisma } from '@/lib/prisma';
 import { MovementType } from '@prisma/client';

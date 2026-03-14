@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { CreateInvoiceValues, UpdateInvoiceStatusValues } from "@/lib/schemas/invoice";
-import { InvoiceStatus, JournalStatus } from "@prisma/client";
+import { InvoiceStatus, JournalStatus, NotificationType } from "@prisma/client";
 import { format, addDays } from "date-fns";
 import { logActivity } from "@/lib/audit";
 import { AutoJournalService } from "./finance/auto-journal-service";
@@ -226,7 +226,7 @@ export class InvoiceService {
             const inputs = overdueInvoices.map(inv => {
                 return targetUsers.map(u => ({
                     userId: u.id,
-                    type: 'OVERDUE_AR' as any,
+                    type: 'OVERDUE_AR' as NotificationType,
                     title: 'Overdue Sales Invoice',
                     message: `Customer Invoice ${inv.invoiceNumber} is overdue since ${inv.dueDate?.toLocaleDateString() || 'Unknown'}. Outstanding: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
                     link: `/admin/sales/invoices/${inv.id}`,

@@ -41,7 +41,7 @@ export default async function CreateSalesReturnPage() {
                             minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
                             reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
                             reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
-                            inventories: p.inventories?.map((inv: any) => ({
+                            inventories: p.inventories?.map((inv) => ({
                                 ...inv,
                                 quantity: inv.quantity ? Number(inv.quantity) : 0
                             })) || []

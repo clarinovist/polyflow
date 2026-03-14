@@ -51,7 +51,6 @@ export async function withRetry<T>(
             const jitter = Math.random() * 200; // ± 200ms
             const waitTime = backoff + jitter;
 
-            // eslint-disable-next-line no-console
             console.warn(`[RetryUtil] Operation failed. Retrying attempt ${attempt}/${config.maxRetries} in ${Math.round(waitTime)}ms...`, error);
 
             await new Promise((resolve) => setTimeout(resolve, waitTime));

@@ -16,6 +16,7 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
     useEffect(() => {
         const dismissed = localStorage.getItem(`dismissed_changelog_${version}`);
         if (!dismissed) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsVisible(true);
         }
     }, [version]);
@@ -33,7 +34,7 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
                 <div className="bg-primary/10 px-4 py-2.5 flex items-center justify-between border-b border-primary/10">
                     <div className="flex items-center gap-2 text-primary font-semibold text-sm">
                         <Sparkles className="h-4 w-4" />
-                        <span>What's New in {version}</span>
+                        <span>What&apos;s New in {version}</span>
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10" onClick={handleDismiss}>
                         <X className="h-3 w-3" />

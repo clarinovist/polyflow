@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { Bell, Check, Trash } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +10,24 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     getMyNotifications,
     getUnreadNotificationCount,
-    markNotificationAsRead,
-    markAllMyNotificationsAsRead
+    markAllMyNotificationsAsRead,
+    markNotificationAsRead
 } from '@/actions/notifications';
 import Link from 'next/link';
+import { NotificationType } from '@prisma/client';
+
+interface NotificationItem {
+    id: string;
+    userId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    isRead: boolean;
+    entityType: string | null;
+    entityId: string | null;
+    createdAt: Date;
+    link: string | null;
+}
 
 export function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
@@ -36,9 +50,9 @@ export function NotificationBell() {
         if (!currentlyUnread) return;
         
         // Optimistic UI updates
-        mutateCount((prev: any) => Math.max(0, (prev || 0) - 1), false);
+        mutateCount((prev: number | undefined) => Math.max(0, (prev || 0) - 1), false);
         mutateNotifications(
-            (prev: any) => prev?.map((n: any) => n.id === id ? { ...n, isRead: true } : n),
+            (prev: NotificationItem[] | undefined) => prev?.map((n) => n.id === id ? { ...n, isRead: true } : n),
             false
         );
 
@@ -55,7 +69,7 @@ export function NotificationBell() {
         // Optimistic
         mutateCount(0, false);
         mutateNotifications(
-            (prev: any) => prev?.map((n: any) => ({ ...n, isRead: true })),
+            (prev: NotificationItem[] | undefined) => prev?.map((n) => ({ ...n, isRead: true })),
             false
         );
 
@@ -103,7 +117,7 @@ export function NotificationBell() {
                         </div>
                     ) : notifications && notifications.length > 0 ? (
                         <div className="flex flex-col">
-                            {notifications.map((notif: any) => (
+                            {notifications.map((notif: NotificationItem) => (
                                 <div 
                                     key={notif.id}
                                     onClick={() => handleMarkAsRead(notif.id, !notif.isRead)}

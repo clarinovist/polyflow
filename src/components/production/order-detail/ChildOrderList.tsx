@@ -48,7 +48,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
     const issuedMap = new Map<string, number>();
 
     // A. Manual Issues
-    order.materialIssues?.forEach(mi => {
+    order.materialIssues?.filter(mi => mi.status !== 'VOIDED').forEach(mi => {
         const current = issuedMap.get(mi.productVariantId) || 0;
         issuedMap.set(mi.productVariantId, current + Number(mi.quantity));
     });

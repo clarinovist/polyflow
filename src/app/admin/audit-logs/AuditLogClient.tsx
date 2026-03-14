@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldAlert, Activity, Database } from 'lucide-react';
-import AuditLogTable from '@/components/admin/AuditLogTable';
+import AuditLogTable, { AuditLogClientData } from '@/components/admin/AuditLogTable';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -13,9 +13,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 
+interface AuditLogStats {
+    actions: { action: string; count: number }[];
+    entities: { entityType: string; count: number }[];
+}
+
 interface AuditLogClientProps {
-    initialData: any;
-    stats: any;
+    initialData: { logs: AuditLogClientData[]; pagination: { total: number } };
+    stats: AuditLogStats;
     currentPage: number;
     limit: number;
 }
@@ -104,7 +109,7 @@ export default function AuditLogClient({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Actions</SelectItem>
-                        {stats.actions.map((s: any) => (
+                        {stats.actions.map((s) => (
                             <SelectItem key={s.action} value={s.action}>
                                 {s.action} ({s.count})
                             </SelectItem>
@@ -118,7 +123,7 @@ export default function AuditLogClient({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Entities</SelectItem>
-                        {stats.entities.map((s: any) => (
+                        {stats.entities.map((s) => (
                             <SelectItem key={s.entityType} value={s.entityType}>
                                 {s.entityType} ({s.count})
                             </SelectItem>

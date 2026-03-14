@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { logActivity } from '@/lib/audit';
 import { addDays } from 'date-fns';
-import { PurchaseInvoiceStatus, Prisma } from '@prisma/client';
+import { PurchaseInvoiceStatus, Prisma, NotificationType } from '@prisma/client';
 import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
 import { AutoJournalService } from '../finance/auto-journal-service';
 
@@ -215,7 +215,7 @@ export async function checkOverduePurchasingInvoices() {
         const inputs = overdueInvoices.map(inv => {
             return targetUsers.map(u => ({
                 userId: u.id,
-                type: 'OVERDUE_AP' as any,
+                type: 'OVERDUE_AP' as NotificationType,
                 title: 'Overdue Purchase Invoice',
                 message: `Invoice ${inv.invoiceNumber} (PO ${inv.purchaseOrder.orderNumber}) is overdue since ${inv.dueDate?.toLocaleDateString() || 'Unknown'}. amount due: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
                 link: `/admin/purchasing/invoices/${inv.id}`,

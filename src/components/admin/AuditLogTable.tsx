@@ -15,7 +15,7 @@ import {
 import { Eye, Clock } from 'lucide-react';
 import AuditLogDetailDialog from './AuditLogDetailDialog';
 
-interface AuditLogClientData {
+export interface AuditLogClientData {
     id: string;
     userId: string;
     action: string;

@@ -18,7 +18,7 @@ export async function getUnreadNotificationCount() {
 }
 
 export async function markNotificationAsRead(id: string) {
-    const session = await requireAuth();
+    await requireAuth();
     
     // We optionally fetch the notification to ensure the user owns it
     // In strict mode, we should verify ownership here

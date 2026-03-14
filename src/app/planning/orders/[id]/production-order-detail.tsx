@@ -435,13 +435,13 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 <tbody className="divide-y">
                                     {(order.plannedMaterials || []).map((item) => {
                                         const manualIssued = (order.materialIssues || [])
-                                            .filter((mi) => mi.productVariantId === item.productVariantId)
+                                            .filter((mi) => mi.productVariantId === item.productVariantId && mi.status !== 'VOIDED')
                                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                                         const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
                                         const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
 
-                                        const hasExplicitIssues = (order.materialIssues || []).length > 0;
+                                        const hasExplicitIssues = (order.materialIssues || []).filter(mi => mi.status !== 'VOIDED').length > 0;
                                         let backflushedQty = 0;
                                         // B. Backflushed Quantities (only if no explicit issues exist - fallback for legacy)
                                         if (!hasExplicitIssues && isBackflushCategory && actualQty > 0 && plannedQty > 0) {
@@ -509,7 +509,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
                                     {/* Handle Substitute Materials */}
                                     {(order.materialIssues || [])
-                                        .filter((mi) => !(order.plannedMaterials || []).some((pm) => pm.productVariantId === mi.productVariantId))
+                                        .filter((mi) => mi.status !== 'VOIDED' && !(order.plannedMaterials || []).some((pm) => pm.productVariantId === mi.productVariantId))
                                         .reduce((acc: { productVariantId: string; productVariant: { name: string; skuCode?: string; primaryUnit: string }; quantity: number }[], mi) => {
                                             const existing = acc.find(a => a.productVariantId === mi.productVariantId);
                                             if (existing) {

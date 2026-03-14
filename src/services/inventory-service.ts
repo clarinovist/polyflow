@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { MovementType, Prisma, BatchStatus, ProductType } from '@prisma/client';
+import { MovementType, Prisma, BatchStatus, ProductType, NotificationType } from '@prisma/client';
 import { logActivity } from '@/lib/audit';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import {
@@ -921,7 +921,7 @@ export class InventoryService {
                 if(targetUsers.length > 0) {
                     const inputs = targetUsers.map(u => ({
                         userId: u.id,
-                        type: 'LOW_STOCK' as any,
+                        type: 'LOW_STOCK' as NotificationType,
                         title: 'Low Stock Alert',
                         message: `Product "${variant.name}" has fallen below threshold (${threshold}). Current stock: ${totalForAlert}.`,
                         link: `/admin/inventory?variantId=${variant.id}`,

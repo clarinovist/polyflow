@@ -20,21 +20,34 @@ interface AuditLogDetailDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+interface AuditLogData {
+    id: string;
+    action: string;
+    createdAt: Date | string;
+    user?: { name: string | null; email: string | null } | null;
+    userId: string;
+    entityType: string;
+    entityId: string;
+    details?: string | null;
+    changes?: unknown;
+}
+
 export default function AuditLogDetailDialog({
     logId,
     open,
     onOpenChange
 }: AuditLogDetailDialogProps) {
-    const [log, setLog] = useState<any | null>(null);
+    const [log, setLog] = useState<AuditLogData | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         let mounted = true;
         if (logId && open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(true);
             getAuditLogDetail(logId).then(data => {
                 if (mounted) {
-                    setLog(data);
+                    setLog(data as AuditLogData | null);
                     setLoading(false);
                 }
             }).catch(err => {
@@ -118,7 +131,7 @@ export default function AuditLogDetailDialog({
                                         <pre className="text-xs text-emerald-400 font-mono">
                                             {typeof log.changes === 'object' 
                                                 ? JSON.stringify(log.changes, null, 2)
-                                                : log.changes}
+                                                : String(log.changes)}
                                         </pre>
                                     </ScrollArea>
                                 </div>

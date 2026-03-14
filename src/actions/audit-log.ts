@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { Prisma } from '@prisma/client';
 
 interface GetAuditLogsParams {
     page?: number;
@@ -27,7 +28,7 @@ export async function getAuditLogs({
         throw new Error('Unauthorized. Only ADMIN can view audit logs.');
     }
 
-    const where: any = {};
+    const where: Prisma.AuditLogWhereInput = {};
     if (userId) where.userId = userId;
     if (entityType) where.entityType = entityType;
     if (action) where.action = action;

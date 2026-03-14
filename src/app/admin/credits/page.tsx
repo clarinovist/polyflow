@@ -13,7 +13,13 @@ import { toast } from 'sonner';
 
 export default function CreditsManagementPage() {
     const [emailSearch, setEmailSearch] = useState('');
-    const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [selectedUser, setSelectedUser] = useState<{
+        id: string;
+        name: string;
+        email: string;
+        currentBalance: number;
+        lastTopup: string;
+    } | null>(null);
     const [amount, setAmount] = useState<number | ''>('');
 
     // Mock search function

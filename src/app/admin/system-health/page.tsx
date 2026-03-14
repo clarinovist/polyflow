@@ -7,8 +7,17 @@ import { Activity, Database, Server, Settings, AlertCircle, CheckCircle2 } from 
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 
+interface SystemDiagnostics {
+    status: string;
+    db: { status: string; latencyMs: number };
+    system: { platform: string; arch: string; cpus: number; uptimeSeconds: number; osUptimeSeconds: number };
+    memory: { osTotalBytes: number; osFreeBytes: number; heapUsedBytes: number; heapTotalBytes: number; rssBytes: number };
+    environment: { key: string; isSet: boolean }[];
+    timestamp: string;
+}
+
 export default function SystemHealthPage() {
-    const [diagnostics, setDiagnostics] = useState<any>(null);
+    const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -49,13 +58,13 @@ export default function SystemHealthPage() {
         );
     }
 
-    if (error) {
+    if (!diagnostics || error) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <h2 className="text-3xl font-bold tracking-tight mb-4">System Health</h2>
                 <div className="bg-red-50 text-red-600 p-4 rounded-md border border-red-200 flex items-center gap-3">
                     <AlertCircle className="h-5 w-5" />
-                    <p>{error}</p>
+                    <p>{error || 'Diagnostics unavailable at this time.'}</p>
                 </div>
             </div>
         );
@@ -144,7 +153,7 @@ export default function SystemHealthPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {environment.map((env: any) => (
+                            {environment.map((env) => (
                                 <div key={env.key} className="flex items-center justify-between">
                                     <span className="font-mono text-sm">{env.key}</span>
                                     {env.isSet ? (

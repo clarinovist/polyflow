@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { InventoryService } from '../inventory-service';
 import { ProductionCostService } from '../production/cost-service';
 import { AccountingService } from '../accounting-service';
-import { AutoJournalService } from '../finance/auto-journal-service';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 vi.mock('../inventory-service');
 vi.mock('../production/cost-service');
