@@ -66,25 +66,33 @@ async function updatePermission(targetRole: Role, resource: string, canAccess: b
 
 // Helper to seed without admin check (internal use only)
 async function seedDefaultPermissionsInternal(targetRole: Role, defaultResources: string[]) {
-    for (const resource of defaultResources) {
-        const exists = await prisma.rolePermission.findUnique({
-            where: {
-                role_resource: {
-                    role: targetRole,
-                    resource: resource,
-                },
-            },
-        });
+    if (defaultResources.length === 0) return;
 
-        if (!exists) {
-            await prisma.rolePermission.create({
-                data: {
-                    role: targetRole,
-                    resource,
-                    canAccess: true, // Default to accessible if we are seeding
-                },
-            });
-        }
+    const existingPermissions = await prisma.rolePermission.findMany({
+        where: {
+            role: targetRole,
+            resource: {
+                in: defaultResources,
+            },
+        },
+        select: {
+            resource: true,
+        },
+    });
+
+    const existingResourcesSet = new Set(existingPermissions.map((p: { resource: string }) => p.resource));
+
+    const missingResources = defaultResources.filter(r => !existingResourcesSet.has(r));
+
+    if (missingResources.length > 0) {
+        await prisma.rolePermission.createMany({
+            data: missingResources.map(resource => ({
+                role: targetRole,
+                resource,
+                canAccess: true, // Default to accessible if we are seeding
+            })),
+            skipDuplicates: true,
+        });
     }
 }
 
