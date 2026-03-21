@@ -1,7 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '../route';
 
-
+// Mock next/server for this specific test to support `new NextResponse()`
+vi.mock('next/server', () => {
+    class MockNextResponse {
+        status: number;
+        _body: any;
+        constructor(body?: any, init?: { status?: number }) {
+            this._body = body;
+            this.status = init?.status || 200;
+        }
+        async text() {
+            return String(this._body);
+        }
+        async json() {
+            return typeof this._body === 'string' ? JSON.parse(this._body) : this._body;
+        }
+        static json(body: any, init?: { status?: number }) {
+            return new MockNextResponse(body, init);
+        }
+    }
+    return { NextResponse: MockNextResponse, NextRequest: class {} };
+});
 // Mock prisma
 vi.mock('@/lib/prisma', () => ({
     prisma: {
