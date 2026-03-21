@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 
@@ -46,6 +46,12 @@ export function JournalListClient() {
     const [rowSelection, setRowSelection] = useState({});
     const [batchLoading, setBatchLoading] = useState(false);
 
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
     const debouncedSearch = useDebounce(search, 500);
 
     // Fetch Data
@@ -57,22 +63,28 @@ export function JournalListClient() {
                 status: status !== 'ALL' ? status as JournalStatus : undefined,
                 startDate: dateRange?.from ? startOfDay(dateRange.from) : undefined,
                 endDate: dateRange?.to ? endOfDay(dateRange.to) : undefined,
-                page: 1, // TODO: Pagination
-                limit: 100 // Increased for verification
+                page,
+                limit: pageSize
             });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setData(res.data as any);
+            setTotal(res.meta.total);
+            setTotalPages(res.meta.totalPages);
         } catch (error) {
             console.error("Failed to fetch journals", error);
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status, dateRange]);
+    }, [debouncedSearch, status, dateRange, page, pageSize]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
+    // Reset page on filter change
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, status, dateRange]);
 
 
     const cols = useMemo(() => columns, []);
@@ -255,6 +267,58 @@ export function JournalListClient() {
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+
+                    {/* Pagination Footer */}
+                    <div className="flex items-center justify-between px-2 shrink-0 py-4 border-t mt-4">
+                        <div className="flex items-center gap-4">
+                            <div className="text-xs text-muted-foreground">
+                                Showing {data.length > 0 ? (page - 1) * pageSize + 1 : 0} to {Math.min(page * pageSize, total)} of {total} entries
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">Rows per page:</span>
+                                <Select 
+                                    value={pageSize.toString()} 
+                                    onValueChange={(val) => {
+                                        setPageSize(parseInt(val));
+                                        setPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px] bg-background">
+                                        <SelectValue placeholder={pageSize.toString()} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                        <SelectItem value="100">100</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                                disabled={page === 1 || loading}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="text-xs font-medium min-w-[3rem] text-center">
+                                Page {page} of {Math.max(totalPages, 1)}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={page === totalPages || totalPages === 0 || loading}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
