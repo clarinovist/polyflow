@@ -60,21 +60,17 @@ async function fixMissingAccounts() {
     const audit = await auditRequiredAccounts();
     if (audit.isPerfect) return { success: true, count: 0 };
 
-    const created = [];
-    for (const account of audit.missing) {
-        const newAccount = await prisma.account.create({
-            data: {
-                code: account.code,
-                name: account.name,
-                type: account.type,
-                category: account.category,
-                description: account.description
-            }
-        });
-        created.push(newAccount);
-    }
+    const result = await prisma.account.createMany({
+        data: audit.missing.map(account => ({
+            code: account.code,
+            name: account.name,
+            type: account.type,
+            category: account.category,
+            description: account.description
+        }))
+    });
 
     revalidatePath('/finance/settings'); // Assuming this is where it will be managed
-    return { success: true, count: created.length };
+    return { success: true, count: result.count };
 }
 );
