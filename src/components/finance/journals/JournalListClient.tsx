@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { startOfDay, endOfDay } from 'date-fns';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 
@@ -46,7 +46,17 @@ export function JournalListClient() {
     const [rowSelection, setRowSelection] = useState({});
     const [batchLoading, setBatchLoading] = useState(false);
 
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
+    const [total, setTotal] = useState(0);
+
     const debouncedSearch = useDebounce(search, 500);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, status, dateRange]);
 
     // Fetch Data
     const fetchData = useCallback(async () => {
@@ -57,17 +67,18 @@ export function JournalListClient() {
                 status: status !== 'ALL' ? status as JournalStatus : undefined,
                 startDate: dateRange?.from ? startOfDay(dateRange.from) : undefined,
                 endDate: dateRange?.to ? endOfDay(dateRange.to) : undefined,
-                page: 1, // TODO: Pagination
-                limit: 100 // Increased for verification
+                page,
+                limit
             });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setData(res.data as any);
+            setTotal(res.meta.total);
         } catch (error) {
             console.error("Failed to fetch journals", error);
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, status, dateRange]);
+    }, [debouncedSearch, status, dateRange, page, limit]);
 
     useEffect(() => {
         fetchData();
@@ -255,6 +266,71 @@ export function JournalListClient() {
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+
+                    {/* Pagination Footer */}
+                    <div className="flex items-center justify-between px-2 pt-4">
+                        <div className="flex-1 text-sm text-muted-foreground">
+                            Showing {data.length > 0 ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, total)} of {total} entries
+                        </div>
+                        <div className="flex items-center space-x-6 lg:space-x-8">
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium">Rows per page</p>
+                                <Select value={limit.toString()} onValueChange={(val) => { setLimit(Number(val)); setPage(1); }}>
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={limit} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((pageSize) => (
+                                            <SelectItem key={pageSize} value={pageSize.toString()}>
+                                                {pageSize}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                Page {page} of {Math.max(1, Math.ceil(total / limit))}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    className="hidden h-8 w-8 p-0 lg:flex"
+                                    onClick={() => setPage(1)}
+                                    disabled={page === 1}
+                                >
+                                    <span className="sr-only">Go to first page</span>
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    <span className="sr-only">Go to previous page</span>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                    disabled={page >= Math.ceil(total / limit) || total === 0}
+                                >
+                                    <span className="sr-only">Go to next page</span>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="hidden h-8 w-8 p-0 lg:flex"
+                                    onClick={() => setPage(Math.max(1, Math.ceil(total / limit)))}
+                                    disabled={page >= Math.ceil(total / limit) || total === 0}
+                                >
+                                    <span className="sr-only">Go to last page</span>
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
