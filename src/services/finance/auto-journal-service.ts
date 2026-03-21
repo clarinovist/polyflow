@@ -60,7 +60,7 @@ export class AutoJournalService {
      * - If GR exists: Debit 21120 (clear unbilled accrual)
      * - If no GR: Debit 11310 (direct inventory purchase) to prevent 21120 going negative
      */
-    static async handlePurchaseInvoiceCreated(_invoiceId: string) {
+    static async handlePurchaseInvoiceCreated() {
         // Since Goods Receipts now directly hit Trade Payables (21110), 
         // we no longer accrue to Unbilled Payables (21120).
         // Therefore, Purchase Invoices do not need to generate a journal entry
