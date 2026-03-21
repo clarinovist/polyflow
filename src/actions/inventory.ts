@@ -5,6 +5,7 @@ import { InventoryService } from '@/services/inventory-service';
 import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
+import { logger } from '@/lib/logger';
 
 export const getInventoryStats = withTenant(
 async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
@@ -39,10 +40,10 @@ async function transferStock(data: TransferStockValues, _userId?: string) {
     const session = await requireAuth();
     const currentUserId = session.user.id;
 
-    console.log("Transfer Action Started", data);
+    logger.info("Transfer Action Started", { data, module: 'inventory' });
     const result = transferStockSchema.safeParse(data);
     if (!result.success) {
-        console.error("Validation Failed", result.error);
+        logger.error("Validation Failed", { error: result.error, module: 'inventory' });
         return { success: false, error: result.error.issues[0].message };
     }
 
@@ -52,7 +53,7 @@ async function transferStock(data: TransferStockValues, _userId?: string) {
         revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
-        console.error("Transfer Error", error);
+        logger.error("Transfer Error", { error, module: 'inventory' });
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
@@ -74,7 +75,7 @@ async function transferStockBulk(data: BulkTransferStockValues, _userId?: string
         revalidatePath('/warehouse/inventory/history');
         return { success: true };
     } catch (error) {
-        console.error("Bulk Transfer Error", error);
+        logger.error("Bulk Transfer Error", { error, module: 'inventory' });
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
     }
 }
@@ -293,7 +294,7 @@ async function acknowledgeHandover(movementId: string) {
         revalidatePath('/production/inventory');
         return { success: true };
     } catch (error) {
-        console.error('Acknowledge handover error:', error);
+        logger.error('Acknowledge handover error', { error, module: 'inventory' });
         return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
     }
 }
