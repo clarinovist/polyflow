@@ -295,18 +295,26 @@ export async function postBulkJournals(ids: string[], userId?: string) {
         }
     });
 
-    for (const journal of journals) {
-        if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
-            await prisma.purchaseInvoice.updateMany({
-                where: { id: journal.referenceId, status: 'DRAFT' },
-                data: { status: 'UNPAID' }
-            });
-        } else if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
-            await prisma.invoice.updateMany({
-                where: { id: journal.referenceId, status: 'DRAFT' },
-                data: { status: 'UNPAID' }
-            });
-        }
+    const purchaseInvoiceIds = journals
+        .filter(j => j.referenceType === 'PURCHASE_INVOICE' && j.referenceId)
+        .map(j => j.referenceId as string);
+
+    const salesInvoiceIds = journals
+        .filter(j => j.referenceType === 'SALES_INVOICE' && j.referenceId)
+        .map(j => j.referenceId as string);
+
+    if (purchaseInvoiceIds.length > 0) {
+        await prisma.purchaseInvoice.updateMany({
+            where: { id: { in: purchaseInvoiceIds }, status: 'DRAFT' },
+            data: { status: 'UNPAID' }
+        });
+    }
+
+    if (salesInvoiceIds.length > 0) {
+        await prisma.invoice.updateMany({
+            where: { id: { in: salesInvoiceIds }, status: 'DRAFT' },
+            data: { status: 'UNPAID' }
+        });
     }
 
     return res;
