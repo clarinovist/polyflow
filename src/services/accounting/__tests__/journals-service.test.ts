@@ -3,13 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createJournalEntry } from '../journals-service';
 import { prisma } from '@/lib/prisma';
 import { isPeriodOpen } from '../periods-service';
-import { ReferenceType } from '@prisma/client';
+import { ReferenceType, Prisma } from '@prisma/client';
 
-// Mock dependencies
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         journalEntry: {
             create: vi.fn(),
+            findFirst: vi.fn(),
         },
         account: {
             findMany: vi.fn().mockResolvedValue([]),
@@ -76,6 +76,42 @@ describe('JournalsService', () => {
 
             await expect(createJournalEntry(validEntry)).rejects.toThrow(/closed fiscal period/);
             expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing sequence (P2025) and fallback to upsert', async () => {
+            vi.mocked(isPeriodOpen).mockResolvedValue(true);
+
+            // Mock sequence generation to throw P2025
+            vi.mocked(prisma.systemSequence.update).mockRejectedValue(
+                new Prisma.PrismaClientKnownRequestError('Record to update not found', {
+                    code: 'P2025',
+                    clientVersion: '5.22.0'
+                })
+            );
+
+            // Mock findFirst for latest entry to return null (no previous entries this year)
+            vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
+
+            // Mock upsert to create the new sequence
+            vi.mocked(prisma.systemSequence.upsert).mockResolvedValue({ value: BigInt(2) } as any);
+
+            // Mock create
+            vi.mocked(prisma.journalEntry.create).mockResolvedValue({ id: 'je-1', ...validEntry } as any);
+
+            await expect(createJournalEntry(validEntry)).resolves.not.toThrow();
+
+            // Verify that upsert was called
+            expect(prisma.systemSequence.upsert).toHaveBeenCalled();
+
+            // Verify create was called with correctly generated entry number based on upsert
+            const year = validEntry.entryDate.getFullYear();
+            expect(prisma.journalEntry.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        entryNumber: `JE - ${year} -00001`
+                    })
+                })
+            );
         });
     });
 });
