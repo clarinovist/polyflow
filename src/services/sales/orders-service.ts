@@ -323,7 +323,7 @@ export async function confirmOrder(id: string, userId: string) {
                 }
             });
         } catch (error) {
-            console.error("Auto-creation of WO failed:", error);
+            console.error("Unexpected error in WO auto-creation:", error);
         }
     }
 }
