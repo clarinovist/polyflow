@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import crypto from 'node:crypto';
 
 // This endpoint should be triggered by an external cron service (like Vercel Cron or GitHub Actions)
 // or an internal scheduler, passing a secret token to verify authorization.
@@ -7,8 +8,16 @@ export async function GET(req: Request) {
     try {
         const authHeader = req.headers.get('authorization');
         // A simple bearer token check to prevent unauthorized execution.
-        if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return new NextResponse('Unauthorized', { status: 401 });
+        if (process.env.CRON_SECRET) {
+            const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+            const providedToken = authHeader || '';
+
+            const expectedHash = crypto.createHash('sha256').update(expectedToken).digest();
+            const providedHash = crypto.createHash('sha256').update(providedToken).digest();
+
+            if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
+                return new NextResponse('Unauthorized', { status: 401 });
+            }
         }
 
         const now = new Date();
