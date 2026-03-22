@@ -70,7 +70,7 @@ describe('SalesReturnService', () => {
       expect(AutoJournalService.handleSalesReturnReceived).toHaveBeenCalledWith(mockReturnId);
       expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for Sales Return:", expectedError);
       expect(result).toBeDefined();
-      expect(result.status).toBe('RECEIVED');
+      expect(result!.status).toBe('RECEIVED');
     });
   });
 });

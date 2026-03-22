@@ -277,7 +277,7 @@ async function getAccountingDashboardData() {
     ]);
 
     // 4. Recent Journals
-    const recentJournals = await AccountingService.getJournals({ status: 'POSTED' });
+    const recentJournalsRes = await AccountingService.getJournals({ status: 'POSTED', limit: 5 });
 
     return serializeData({
         performance: {
@@ -290,7 +290,7 @@ async function getAccountingDashboardData() {
             ar: arBalance,
             ap: apBalance
         },
-        recentJournals: recentJournals.slice(0, 5)
+        recentJournals: recentJournalsRes.data
     });
 }
 );

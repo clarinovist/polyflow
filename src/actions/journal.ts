@@ -85,7 +85,7 @@ async function createManualJournal(data: ManualJournalValues, post: boolean = fa
 
 
 export const getJournals = withTenant(
-async function getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string }) {
+async function getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
     await requireAuth();
     // Pass plain objects if needed, but Date is fine in Server Components usually,
     // though passing from Client might need conversion.

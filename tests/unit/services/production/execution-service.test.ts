@@ -182,8 +182,12 @@ describe('ProductionExecutionService', () => {
         await ProductionExecutionService.addProductionOutput({
             productionOrderId: 'po-2',
             quantityProduced: 200,
+            scrapQuantity: 0,
             scrapProngkolQty: 0,
             scrapDaunQty: 0,
+            startTime: new Date(),
+            endTime: new Date(),
+            notes: 'Test',
             userId: 'user-2'
         });
 
