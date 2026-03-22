@@ -79,7 +79,7 @@ export class InvoiceService {
 
         // Trigger Auto-Journaling
         await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
-            console.error("Auto-Journal failed for manual invoice:", err);
+            console.error("Failed to generate auto-journal for invoice:", err);
         });
 
         return invoice;
@@ -195,7 +195,7 @@ export class InvoiceService {
 
         // Auto-Journaling Trigger
         await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
-            console.error("Auto-Journal failed for automated invoice:", err);
+            console.error("Failed to generate auto-journal for invoice:", err);
         });
 
         return invoice;
