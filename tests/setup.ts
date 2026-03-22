@@ -36,7 +36,7 @@ vi.mock('next/server', () => ({
 // Mock next/headers
 vi.mock('next/headers', () => ({
     headers: vi.fn(() => Promise.resolve({
-        get: (_key: string) => null
+        get: () => null
     })),
     cookies: vi.fn(() => Promise.resolve({
         get: vi.fn()
