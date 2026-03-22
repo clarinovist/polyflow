@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import DOMPurify from 'dompurify';
 
 interface ChangelogBannerClientProps {
     version: string;
@@ -41,7 +42,7 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
                     </Button>
                 </div>
                 <div className="p-4 text-xs text-muted-foreground max-h-64 overflow-y-auto">
-                    <div className="space-y-1" dangerouslySetInnerHTML={{ __html: notesHtml }} />
+                    <div className="space-y-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml) }} />
                 </div>
             </Card>
         </div>
