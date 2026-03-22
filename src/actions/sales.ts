@@ -127,31 +127,39 @@ async function checkSalesOrderFulfillment(id: string) {
 
         if (!order) return { success: false, error: "Sales Order not found" };
 
+        const productVariantIds = order.items.map(item => item.productVariantId);
+        const sourceLocationId = order.sourceLocationId || '';
+
+        // Batch fetch inventory
+        const stocks = await prisma.inventory.findMany({
+            where: {
+                locationId: sourceLocationId,
+                productVariantId: { in: productVariantIds }
+            }
+        });
+
+        const stockMap = new Map(stocks.map(s => [s.productVariantId, Number(s.quantity)]));
+
+        // Batch fetch reservations
+        const reservations = await prisma.stockReservation.groupBy({
+            by: ['productVariantId'],
+            where: {
+                locationId: sourceLocationId,
+                productVariantId: { in: productVariantIds },
+                status: 'ACTIVE',
+                referenceId: { not: order.id }
+            },
+            _sum: { quantity: true }
+        });
+
+        const reservationMap = new Map(
+            reservations.map(r => [r.productVariantId, r._sum.quantity?.toNumber() || 0])
+        );
+
         const shortages = [];
         for (const item of order.items) {
-            // Check inventory in the designated location
-            const stock = await prisma.inventory.findUnique({
-                where: {
-                    locationId_productVariantId: {
-                        locationId: order.sourceLocationId || '',
-                        productVariantId: item.productVariantId
-                    }
-                }
-            });
-
-            // Subtract reservations for OTHER orders
-            const reservations = await prisma.stockReservation.aggregate({
-                where: {
-                    locationId: order.sourceLocationId || '',
-                    productVariantId: item.productVariantId,
-                    status: 'ACTIVE',
-                    referenceId: { not: order.id }
-                },
-                _sum: { quantity: true }
-            });
-            const reservedQuantity = reservations._sum.quantity?.toNumber() || 0;
-
-            const rawAvailable = stock ? Number(stock.quantity) : 0;
+            const reservedQuantity = reservationMap.get(item.productVariantId) || 0;
+            const rawAvailable = stockMap.get(item.productVariantId) || 0;
             const available = Math.max(0, rawAvailable - reservedQuantity);
             const required = Number(item.quantity);
 
