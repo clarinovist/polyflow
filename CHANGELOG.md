@@ -2,6 +2,31 @@
 
 All notable changes to PolyFlow ERP are documented here.
 
+## [1.5.0](https://github.com/clarinovist/polyflow/compare/v1.4.0...v1.5.0) (2026-03-22)
+
+
+### Features
+
+* standardise quantity decimal formatting and update Unit from PCS to PACK ([2022f5d](https://github.com/clarinovist/polyflow/commit/2022f5d9e52915f0e4596500d5edbec7c7dffd84))
+
+
+### Bug Fixes
+
+* add pagination to journal entries list ([1c944f9](https://github.com/clarinovist/polyflow/commit/1c944f98da9445d603a9e85f54a9d495b88bcc46))
+* **backend:** support pagination in getJournals ([c8bb1c4](https://github.com/clarinovist/polyflow/commit/c8bb1c4a6e2de2f57a71e1e28dd6d59b44877a17))
+* **ci:** handle ValueType string to number conversion in StockHistoryChart ([be51200](https://github.com/clarinovist/polyflow/commit/be5120015e63b47e2f04b44f6f9957b1fb84137b))
+* **ci:** update recharts formatter types to satisfy strict compilation ([b0ca020](https://github.com/clarinovist/polyflow/commit/b0ca020dffdf381d5dec064c1bcbb1f6695667bd))
+* prevent P2025 crash during material substitution in batch issue ([fc83d6f](https://github.com/clarinovist/polyflow/commit/fc83d6f3a0660eb8ce0c939e27ae84dd56db375d))
+* Resolve all TypeScript linting errors across the codebase ([71e5ab5](https://github.com/clarinovist/polyflow/commit/71e5ab5cd4883aa7ef5673857f738dc8c291dbe5))
+* **test:** configure NextResponse mock for vitest execution ([141df99](https://github.com/clarinovist/polyflow/commit/141df9989d1a00b8f2e0d2becbe21500589149cc))
+* **test:** remove unused imports in route.test.ts ([4a28c5b](https://github.com/clarinovist/polyflow/commit/4a28c5b79866936eb7ac5c62aaaac13fa3d68039))
+
+
+### Performance Improvements
+
+* **coa-audit:** optimize account creation with createMany ([48a1d84](https://github.com/clarinovist/polyflow/commit/48a1d84a23d3f076478a823e236727b1bb2542bc))
+* optimize permissions seeding query execution\n\nReplaces O(N) database queries with a single bulk fetch and a single bulk insert using Prisma's `findMany` and `createMany` with `skipDuplicates`, drastically reducing DB load. ([aeee41a](https://github.com/clarinovist/polyflow/commit/aeee41a4d133ceeeeeab4caaff9f4bc466868546))
+
 ## [1.4.0](https://github.com/clarinovist/polyflow/compare/v1.3.0...v1.4.0) (2026-03-12)
 
 
