@@ -27,10 +27,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────
-  # 2. Tests
+  # 2. Tests (Node.js)
   # ─────────────────────────────────────────────
-  test:
-    name: Test & Validate
+  test-node:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +44,15 @@ jobs:
 
       - name: Run Tests with Coverage
         run: npx vitest run --coverage
+
+  # ─────────────────────────────────────────────
+  # 3. Validate Nginx Config
+  # ─────────────────────────────────────────────
+  validate-nginx:
+    name: Validate Nginx Config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Validate Nginx configuration
         run: |
@@ -61,11 +70,11 @@ jobs:
             nginx:alpine nginx -t
 
   # ─────────────────────────────────────────────
-  # 3. Build & Push Docker Image
+  # 4. Build & Push Docker Image
   # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
-    needs: test
+    needs: [test-node, validate-nginx]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -96,7 +105,7 @@ jobs:
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:buildcache,mode=max
 
   # ─────────────────────────────────────────────
-  # 4. Deploy to VPS
+  # 5. Deploy to VPS
   # ─────────────────────────────────────────────
   deploy:
     name: Deploy to VPS
