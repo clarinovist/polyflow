@@ -55,7 +55,7 @@ export class AccountingService {
         return createBulkJournalEntries(data);
     }
 
-    static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string }) {
+    static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
         return getJournals(params);
     }
 
