@@ -104,7 +104,7 @@ async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
 
     // Auto-Journal: Purchase Invoice
-    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(console.error);
+    await AutoJournalService.handlePurchaseInvoiceCreated().catch(console.error);
 
     return serializeData(invoice);
 }

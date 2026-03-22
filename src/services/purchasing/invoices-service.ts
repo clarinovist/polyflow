@@ -28,7 +28,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
     });
 
     // Auto-Journaling Trigger
-    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(err => {
+    await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
         console.error("Auto-Journal failed for purchase invoice:", err);
     });
 
@@ -187,7 +187,7 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
     });
 
     // Auto-Journaling Trigger
-    await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(err => {
+    await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
         console.error("Auto-Journal failed for automated bill:", err);
     });
 
