@@ -1,4 +1,4 @@
-import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator, Landmark, HandCoins, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator, Landmark, HandCoins, ArrowDownCircle, ArrowUpCircle, LucideIcon } from 'lucide-react';
 
 export type TransactionCategory = 'EXPENSE' | 'SALES' | 'PAYROLL' | 'FINANCING' | 'PAYMENT' | 'ASSET';
 
@@ -6,8 +6,7 @@ export interface TransactionTypeConfig {
     id: string;
     label: string;
     description: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    icon: React.ComponentType<any>;
+    icon: LucideIcon;
     category: TransactionCategory;
     debitAccountCode: string; // From existing COA
     creditAccountCode: string; // From existing COA
