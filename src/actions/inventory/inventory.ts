@@ -50,6 +50,14 @@ async function transferStock(data: TransferStockValues, _userId?: string) {
 
     try {
         await InventoryService.transferStock(result.data, currentUserId);
+        const { logActivity } = await import('@/lib/tools/audit');
+        await logActivity({
+            userId: currentUserId,
+            action: 'TRANSFER_STOCK',
+            entityType: 'Inventory',
+            entityId: result.data.productVariantId,
+            details: `Transferred ${result.data.quantity} units from ${result.data.sourceLocationId} to ${result.data.destinationLocationId}`
+        });
         revalidatePath('/warehouse/inventory');
         revalidatePath('/warehouse/inventory/history');
         return { success: true };
@@ -72,6 +80,14 @@ async function transferStockBulk(data: BulkTransferStockValues, _userId?: string
 
     try {
         await InventoryService.transferStockBulk(result.data, currentUserId);
+        const { logActivity } = await import('@/lib/tools/audit');
+        await logActivity({
+            userId: currentUserId,
+            action: 'TRANSFER_STOCK_BULK',
+            entityType: 'Inventory',
+            entityId: 'BULK',
+            details: `Bulk transferred ${result.data.items.length} items from ${result.data.sourceLocationId} to ${result.data.destinationLocationId}`
+        });
         revalidatePath('/warehouse/inventory');
         revalidatePath('/warehouse/inventory/history');
         return { success: true };
@@ -94,6 +110,14 @@ async function adjustStock(data: AdjustStockWithBatchValues, _userId?: string) {
 
     try {
         await InventoryService.adjustStock(result.data, currentUserId);
+        const { logActivity } = await import('@/lib/tools/audit');
+        await logActivity({
+            userId: currentUserId,
+            action: 'ADJUST_STOCK',
+            entityType: 'Inventory',
+            entityId: result.data.productVariantId,
+            details: `Adjusted stock by ${result.data.quantity} (${result.data.type}) at ${result.data.locationId}`
+        });
         revalidatePath('/warehouse/inventory');
         revalidatePath('/warehouse/inventory/history');
         return { success: true };
@@ -115,6 +139,14 @@ async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: string) {
 
     try {
         await InventoryService.adjustStockBulk(result.data, currentUserId);
+        const { logActivity } = await import('@/lib/tools/audit');
+        await logActivity({
+            userId: currentUserId,
+            action: 'ADJUST_STOCK_BULK',
+            entityType: 'Inventory',
+            entityId: 'BULK',
+            details: `Bulk adjusted stock for ${result.data.items.length} items at ${result.data.locationId}`
+        });
         revalidatePath('/warehouse/inventory');
         revalidatePath('/warehouse/inventory/history');
         return { success: true };

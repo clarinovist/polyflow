@@ -8,6 +8,8 @@ import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
 import { updateStandardCost } from '@/actions/finance/cost-history';
 import { logger } from '@/lib/config/logger';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { logActivity } from "@/lib/tools/audit";
 
 export const getBoms = withTenant(
 async function getBoms(category?: string) {
@@ -69,6 +71,7 @@ async function getProductVariants() {
 
 export const createBom = withTenant(
 async function createBom(data: CreateBomValues) {
+    const session = await requireAuth();
     try {
         const validated = createBomSchema.parse(data);
 
@@ -101,6 +104,14 @@ async function createBom(data: CreateBomValues) {
 
             await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
         }
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'CREATE_BOM',
+            entityType: 'Bom',
+            entityId: bom.id,
+            details: `Created Recipe (BOM) ${bom.name}`
+        });
 
         revalidatePath('/dashboard/boms');
         return { success: true, data: serializeData(bom) };
@@ -148,6 +159,7 @@ async function getBom(id: string) {
 
 export const updateBom = withTenant(
 async function updateBom(id: string, data: CreateBomValues) {
+    const session = await requireAuth();
     try {
         const validated = createBomSchema.parse(data);
 
@@ -194,6 +206,14 @@ async function updateBom(id: string, data: CreateBomValues) {
             return updatedBom;
         });
 
+        await logActivity({
+            userId: session.user.id,
+            action: 'UPDATE_BOM',
+            entityType: 'Bom',
+            entityId: id,
+            details: `Updated Recipe (BOM) ${validated.name}`
+        });
+
         revalidatePath('/dashboard/boms');
         return { success: true, data: serializeData(result) };
     } catch (error) {
@@ -205,10 +225,20 @@ async function updateBom(id: string, data: CreateBomValues) {
 
 export const deleteBom = withTenant(
 async function deleteBom(id: string) {
+    const session = await requireAuth();
     try {
         await prisma.bom.delete({
             where: { id }
         });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'DELETE_BOM',
+            entityType: 'Bom',
+            entityId: id,
+            details: `Deleted Recipe (BOM) ${id}`
+        });
+
         revalidatePath('/dashboard/boms');
         return { success: true };
     } catch (error) {

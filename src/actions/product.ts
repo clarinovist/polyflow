@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
+import { logActivity } from "@/lib/tools/audit";
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -205,7 +206,7 @@ async function getVariants() {
 
 export const createProduct = withTenant(
 async function createProduct(data: CreateProductValues) {
-    await requireAuth();
+    const session = await requireAuth();
     const result = createProductSchema.safeParse(data);
 
     if (!result.success) {
@@ -234,7 +235,7 @@ async function createProduct(data: CreateProductValues) {
             };
         }
 
-        await prisma.$transaction(async (tx) => {
+        const createdProduct = await prisma.$transaction(async (tx) => {
             // Create product
             const product = await tx.product.create({
                 data: {
@@ -257,6 +258,15 @@ async function createProduct(data: CreateProductValues) {
                     minStockAlert: variant.minStockAlert ? new Prisma.Decimal(variant.minStockAlert) : null,
                 })),
             });
+            return product;
+        });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'CREATE_PRODUCT',
+            entityType: 'Product',
+            entityId: createdProduct.id,
+            details: `Created product ${createdProduct.name}`
         });
 
         revalidatePath('/dashboard/products');
@@ -270,7 +280,7 @@ async function createProduct(data: CreateProductValues) {
 
 export const updateProduct = withTenant(
 async function updateProduct(data: UpdateProductValues) {
-    await requireAuth();
+    const session = await requireAuth();
     const result = updateProductSchema.safeParse(data);
 
     if (!result.success) {
@@ -395,6 +405,14 @@ async function updateProduct(data: UpdateProductValues) {
             }
         });
 
+        await logActivity({
+            userId: session.user.id,
+            action: 'UPDATE_PRODUCT',
+            entityType: 'Product',
+            entityId: id,
+            details: `Updated product ${name}`
+        });
+
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/products');
         revalidatePath(`/dashboard/products/${id}/edit`);
@@ -408,7 +426,7 @@ async function updateProduct(data: UpdateProductValues) {
 
 export const deleteProduct = withTenant(
 async function deleteProduct(id: string) {
-    await requireAuth();
+    const session = await requireAuth();
     try {
         // Get all variants for this product
         const variants = await prisma.productVariant.findMany({
@@ -479,6 +497,14 @@ async function deleteProduct(id: string) {
             });
         });
 
+        await logActivity({
+            userId: session.user.id,
+            action: 'DELETE_PRODUCT',
+            entityType: 'Product',
+            entityId: id,
+            details: `Deleted product ${id}`
+        });
+
         revalidatePath('/dashboard/products');
         return { success: true };
     } catch (error) {
@@ -490,7 +516,7 @@ async function deleteProduct(id: string) {
 
 export const deleteVariant = withTenant(
 async function deleteVariant(id: string) {
-    await requireAuth();
+    const session = await requireAuth();
     try {
         // Check for references in related tables before deleting
         const checks = await Promise.all([
@@ -528,6 +554,14 @@ async function deleteVariant(id: string) {
         }
 
         await prisma.productVariant.delete({ where: { id } });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'DELETE_PRODUCT_VARIANT',
+            entityType: 'ProductVariant',
+            entityId: id,
+            details: `Deleted product variant ${id}`
+        });
 
         revalidatePath('/dashboard/products');
         return { success: true };
