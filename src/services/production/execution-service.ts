@@ -60,6 +60,7 @@ export class ProductionExecutionService {
     static async stopExecution(data: StopExecutionValues & { userId?: string }) {
         const { executionId, quantityProduced, scrapQuantity, notes, userId } = data;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let finalExecution: any;
         await prisma.$transaction(async (tx) => {
             finalExecution = await tx.productionExecution.update({
