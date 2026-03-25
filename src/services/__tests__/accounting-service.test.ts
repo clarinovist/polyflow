@@ -2,6 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AccountingService } from '../accounting/accounting-service';
 import { prisma } from '@/lib/core/prisma';
+
+vi.mock('@/lib/core/prisma', () => {
+    const mockPrisma = {
+        $transaction: vi.fn(async (queries) => {
+            if (Array.isArray(queries)) return Promise.all(queries);
+            if (typeof queries === 'function') {
+                return queries(mockPrisma);
+            }
+            return [];
+        }),
+        systemSequence: {
+            upsert: vi.fn(),
+            update: vi.fn(),
+        },
+        journalEntry: {
+            create: vi.fn(),
+            update: vi.fn(),
+            findUnique: vi.fn(),
+        },
+        account: {
+            findUnique: vi.fn(),
+            findMany: vi.fn(),
+        }
+    };
+    return { prisma: mockPrisma };
+});
 import * as periodsService from '../accounting/periods-service';
 
 vi.mock('../accounting/periods-service', async (importOriginal) => {
@@ -12,19 +38,14 @@ vi.mock('../accounting/periods-service', async (importOriginal) => {
     };
 });
 
-// Since systemSequence.upsert is used for entry number generation, let's make sure it's mocked
-if (!(prisma as any).systemSequence) {
-    (prisma as any).systemSequence = {
-        upsert: vi.fn().mockResolvedValue({ value: BigInt(2) }),
-        update: vi.fn().mockResolvedValue({ value: BigInt(2) }),
-    };
-}
 
-describe.skip('AccountingService', () => {
+
+describe('AccountingService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         (periodsService.isPeriodOpen as any).mockResolvedValue(true);
         ((prisma as any).systemSequence.upsert as any).mockResolvedValue({ value: BigInt(2) });
+        ((prisma as any).systemSequence.update as any).mockResolvedValue({ value: BigInt(2) });
         ((prisma as any).journalEntry.create as any).mockResolvedValue({ id: 'je-1', status: 'DRAFT' });
         ((prisma as any).journalEntry.update as any).mockResolvedValue({ id: 'je-1', status: 'VOIDED' });
         ((prisma as any).journalEntry.findUnique as any).mockResolvedValue({

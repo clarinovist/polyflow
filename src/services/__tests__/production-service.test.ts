@@ -1,17 +1,60 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProductionService } from '../production/production-service';
 import { prisma } from '@/lib/core/prisma';
+
+vi.mock('@/lib/core/prisma', () => {
+    const mockPrisma = {
+        $transaction: vi.fn(async (queries) => {
+            if (Array.isArray(queries)) return Promise.all(queries);
+            if (typeof queries === 'function') {
+                return queries(mockPrisma);
+            }
+            return [];
+        }),
+        productionOrder: {
+            findUnique: vi.fn(),
+            findUniqueOrThrow: vi.fn(),
+            update: vi.fn(),
+        },
+        productionExecution: {
+            create: vi.fn(),
+            update: vi.fn(),
+        },
+        inventory: {
+            upsert: vi.fn(),
+            findUnique: vi.fn(),
+            update: vi.fn(),
+            findMany: vi.fn(),
+        },
+        stockMovement: {
+            create: vi.fn(),
+        },
+        materialIssue: {
+            create: vi.fn(),
+        },
+        scrapRecord: {
+            create: vi.fn(),
+        },
+        location: {
+            findUnique: vi.fn(),
+        },
+        productVariant: {
+            findUnique: vi.fn(),
+        }
+    };
+    return { prisma: mockPrisma };
+});
 import { InventoryService } from '../inventory/inventory-service';
 import { ProductionCostService } from '../production/cost-service';
 import { AccountingService } from '../accounting/accounting-service';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-vi.mock('../inventory-service');
+vi.mock('../inventory/inventory-service');
 vi.mock('../production/cost-service');
-vi.mock('../accounting-service');
+vi.mock('../accounting/accounting-service');
 vi.mock('../finance/auto-journal-service');
 
-describe.skip('ProductionService', () => {
+describe('ProductionService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
