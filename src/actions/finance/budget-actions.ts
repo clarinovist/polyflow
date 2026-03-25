@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma as db } from '@/lib/core/prisma'; // Ensure consistent import
 import { BudgetFormValues, budgetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getBudgets = withTenant(
 async function getBudgets(year: number) {
@@ -22,8 +23,8 @@ async function getBudgets(year: number) {
             }))
         };
     } catch (error) {
-        console.error('Error fetching budgets:', error);
-        return { success: false, error: 'Failed to fetch budgets' };
+        logger.error('Failed to fetch budgets', { error, year, module: 'BudgetActions' });
+        return { success: false, error: 'Failed to fetch budgets. Please try again later.' };
     }
 }
 );
@@ -63,8 +64,8 @@ async function upsertBudget(data: BudgetFormValues) {
         revalidatePath('/finance/budget');
         return { success: true };
     } catch (error) {
-        console.error('Error saving budget:', error);
-        return { success: false, error: 'Failed to save budget' };
+        logger.error('Failed to save budget', { error, module: 'BudgetActions' });
+        return { success: false, error: 'Failed to save budget. Please check input.' };
     }
 }
 );

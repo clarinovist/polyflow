@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { fireworks, SQL_MODEL_ID } from "@/lib/tools/fireworks";
 import { PrismaClient } from "@prisma/client";
 import { auth } from "@/auth";
+import { logger } from "@/lib/config/logger";
 
 // Dedicated client for read-only operations (fallback to standard if env not set)
 // Ideally, this should connect with a user that has only SELECT permissions.
@@ -44,7 +45,7 @@ async function generateAndRunQuery(question: string) {
     }
 
     try {
-        console.log(`Generating SQL for: "${question}" using model ${SQL_MODEL_ID}`);
+        logger.info(`Generating SQL for: "${question}"`, { model: SQL_MODEL_ID, module: 'AnalyticsAssistant' });
 
         const response = await fireworks.chat.completions.create({
             model: SQL_MODEL_ID,
@@ -75,7 +76,7 @@ async function generateAndRunQuery(question: string) {
         // Remove markdown code blocks if present
         sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
 
-        console.log(`Generated SQL: ${sql}`);
+        logger.debug('Generated SQL', { sql, module: 'AnalyticsAssistant' });
 
         // Basic Safety Validation
         const forbiddenKeywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE'];
@@ -102,7 +103,7 @@ async function generateAndRunQuery(question: string) {
         return { success: true, sql, data: serializedResult };
 
     } catch (error: unknown) {
-        console.error("AI Query Error:", error);
+        logger.error("AI Query Error", { error, question, module: 'AnalyticsAssistant' });
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return { success: false, error: errorMessage };
     }

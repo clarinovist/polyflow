@@ -8,27 +8,39 @@ export class ProductionCostService {
      */
     static async calculateBatchCOGM(productionOrderId: string, tx?: Prisma.TransactionClient) {
         const client = tx || prisma;
-        const order = await client.productionOrder.findUnique({ where: { id: productionOrderId } });
+        const order = await client.productionOrder.findUnique({ 
+            where: { id: productionOrderId },
+            include: { bom: { select: { productVariantId: true } } }
+        });
         if (!order) return 0;
 
+        const fgVariantId = order.bom?.productVariantId;
+
         // 1. Total Material Cost
-        // Query StockMovements 'OUT' associated with this PO
+        // Query ALL StockMovements (IN and OUT) associated with this PO
         // Optimized: Use structured relation with fallback for legacy data
         const movements = await client.stockMovement.findMany({
             where: {
                 OR: [
                     { productionOrderId: order.id },
                     { reference: { contains: `PO-${order.orderNumber}` } }
-                ],
-                type: MovementType.OUT
+                ]
             }
         });
 
         let totalMaterialCost = 0;
         movements.forEach(m => {
+            // Exclude movements of the finished good itself (e.g. FG output IN, or voided FG OUT)
+            if (fgVariantId && m.productVariantId === fgVariantId) return;
+
             const c = Number(m.cost || 0);
             const q = Number(m.quantity);
-            totalMaterialCost += c * q;
+            
+            if (m.type === MovementType.OUT) {
+                totalMaterialCost += c * q;
+            } else if (m.type === MovementType.IN) {
+                totalMaterialCost -= c * q;
+            }
         });
 
         // 2. Conversion Cost

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { NotificationType, Notification } from '@prisma/client';
 import { Resend } from 'resend';
+import { logger } from '@/lib/config/logger';
 
 // Configure the external email provider
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
@@ -50,7 +51,7 @@ export class NotificationService {
         // 3. Dispatch external email alert asynchronously (don't block the caller)
         if (user?.email && process.env.RESEND_API_KEY) {
             this.sendEmailAlert(user.email, title, message, link).catch((err) => {
-                console.error(`[NotificationService] Failed to dispatch email to ${user.email}: `, err);
+                logger.error(`Failed to dispatch email to ${user.email}`, { error: err, email: user.email, module: 'NotificationService' });
             });
         }
 

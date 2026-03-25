@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
 import { updateStandardCost } from '@/actions/finance/cost-history';
+import { logger } from '@/lib/config/logger';
 
 export const getBoms = withTenant(
 async function getBoms(category?: string) {
@@ -41,8 +42,8 @@ async function getBoms(category?: string) {
         });
         return { success: true, data: serializeData(boms) };
     } catch (error) {
-        console.error("Error fetching BOMs:", error);
-        return { success: false, error: "Failed to fetch BOMs" };
+        logger.error("Failed to fetch BOMs", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to fetch Recipes (BOMs). Please refresh the page." };
     }
 }
 );
@@ -60,8 +61,8 @@ async function getProductVariants() {
         });
         return { success: true, data: serializeData(variants) };
     } catch (error) {
-        console.error("Error fetching variants:", error);
-        return { success: false, error: "Failed to fetch variants" };
+        logger.error("Failed to fetch product variants", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to fetch product variants. Please try again." };
     }
 }
 );
@@ -104,8 +105,8 @@ async function createBom(data: CreateBomValues) {
         revalidatePath('/dashboard/boms');
         return { success: true, data: serializeData(bom) };
     } catch (error) {
-        console.error("Error creating BOM:", error);
-        return { success: false, error: "Failed to create BOM" };
+        logger.error("Failed to create BOM", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to create Recipe (BOM). Please verify the details." };
     }
 }
 );
@@ -139,8 +140,8 @@ async function getBom(id: string) {
 
         return { success: true, data: serializeData(bom) };
     } catch (error) {
-        console.error("Error fetching BOM:", error);
-        return { success: false, error: "Failed to fetch BOM" };
+        logger.error("Failed to fetch BOM details", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to fetch Recipe (BOM) details." };
     }
 }
 );
@@ -196,8 +197,8 @@ async function updateBom(id: string, data: CreateBomValues) {
         revalidatePath('/dashboard/boms');
         return { success: true, data: serializeData(result) };
     } catch (error) {
-        console.error("Error updating BOM:", error);
-        return { success: false, error: "Failed to update BOM" };
+        logger.error("Failed to update BOM", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to update Recipe (BOM). Please try again." };
     }
 }
 );
@@ -211,8 +212,8 @@ async function deleteBom(id: string) {
         revalidatePath('/dashboard/boms');
         return { success: true };
     } catch (error) {
-        console.error("Error deleting BOM:", error);
-        return { success: false, error: "Failed to delete BOM. It might be in use by a production order." };
+        logger.error("Failed to delete BOM", { error, module: 'BomActions' });
+        return { success: false, error: "Failed to delete Recipe. It might be in use by a production order." };
     }
 }
 );

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, UpdateSupplierValues } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { logger } from '@/lib/config/logger';
 
 export const getSuppliers = withTenant(
 async function getSuppliers() {
@@ -110,7 +111,7 @@ async function createSupplier(data: CreateSupplierValues) {
         revalidatePath('/planning/suppliers');
         return { success: true };
     } catch (error) {
-        console.error('Create supplier error:', error);
+        logger.error('Failed to create supplier', { error, module: 'SupplierActions' });
         // Check for unique constraint violation
         if (error instanceof Error && error.message.includes('Unique constraint')) {
             return { success: false, error: 'Supplier code already exists' };
@@ -139,7 +140,7 @@ async function updateSupplier(data: UpdateSupplierValues) {
         revalidatePath(`/planning/suppliers/${data.id}`);
         return { success: true };
     } catch (error) {
-        console.error('Update supplier error:', error);
+        logger.error('Failed to update supplier', { error, supplierId: data.id, module: 'SupplierActions' });
         return { success: false, error: 'Failed to update supplier' };
     }
 }
@@ -171,7 +172,7 @@ async function deleteSupplier(id: string) {
         revalidatePath('/planning/suppliers');
         return { success: true };
     } catch (error) {
-        console.error('Delete supplier error:', error);
+        logger.error('Failed to delete supplier', { error, supplierId: id, module: 'SupplierActions' });
         return { success: false, error: 'Failed to delete supplier' };
     }
 }

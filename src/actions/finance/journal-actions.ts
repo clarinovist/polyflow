@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, JournalStatus } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
 
 export interface JournalFilterParams {
@@ -94,8 +95,8 @@ async function batchPostJournals(ids: string[]) {
         revalidatePath('/finance/journals');
         return { success: true };
     } catch (error) {
-        console.error("Batch posting failed:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Batch posting failed" };
+        logger.error('Failed to batch post journals', { error, module: 'JournalActions' });
+        return { success: false, error: 'Batch posting failed. Please review selected journals.' };
     }
 }
 );

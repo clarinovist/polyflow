@@ -3,6 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, Prisma } from '@prisma/client';
+import { logger } from '@/lib/config/logger';
 
 export const getSalesInvoices = withTenant(
 async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
@@ -194,8 +195,8 @@ async function deleteInvoice(id: string, type: 'AR' | 'AP') {
         revalidatePath('/finance/reports/balance-sheet');
         return { success: true };
     } catch (error) {
-        console.error('Failed to delete invoice:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Deletion failed' };
+        logger.error('Failed to delete invoice', { error, invoiceId: id, invoiceType: type, module: 'InvoicesActions' });
+        return { success: false, error: 'Failed to delete invoice. Ensure no dependencies exist.' };
     }
 }
 );

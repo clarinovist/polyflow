@@ -10,6 +10,7 @@ import { ReferenceType, JournalStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { revalidatePath } from "next/cache";
 import { recordCustomerPayment, recordSupplierPayment } from "../finance/finance";
+import { logger } from "@/lib/config/logger";
 
 export const createWizardTransaction = withTenant(
 async function createWizardTransaction(data: TransactionWizardValues) {
@@ -123,8 +124,8 @@ async function createWizardTransaction(data: TransactionWizardValues) {
 
         return { success: true, id: result.id };
     } catch (error) {
-        console.error("Wizard Transaction Error:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Failed to record transaction" };
+        logger.error("Wizard Transaction Error", { error, data, module: 'TransactionWizard' });
+        return { success: false, error: "Failed to record transaction" };
     }
 }
 );

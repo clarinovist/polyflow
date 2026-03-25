@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma as db } from '@/lib/core/prisma';
 import { WorkShiftStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getWorkShifts = withTenant(
 async function getWorkShifts() {
@@ -15,7 +16,7 @@ async function getWorkShifts() {
         });
         return { success: true, data: shifts };
     } catch (error) {
-        console.error('Error fetching work shifts:', error);
+        logger.error('Failed to fetch work shifts', { error, module: 'WorkShiftActions' });
         return { success: false, error: 'Failed to fetch work shifts' };
     }
 }
@@ -40,7 +41,7 @@ async function createWorkShift(data: {
         revalidatePath('/dashboard/settings/shifts');
         return { success: true, data: shift };
     } catch (error) {
-        console.error('Error creating work shift:', error);
+        logger.error('Failed to create work shift', { error, module: 'WorkShiftActions' });
         return { success: false, error: 'Failed to create work shift' };
     }
 }
@@ -69,7 +70,7 @@ async function updateWorkShift(
         revalidatePath('/dashboard/settings/shifts');
         return { success: true, data: shift };
     } catch (error) {
-        console.error('Error updating work shift:', error);
+        logger.error('Failed to update work shift', { error, shiftId: id, module: 'WorkShiftActions' });
         return { success: false, error: 'Failed to update work shift' };
     }
 }
@@ -86,7 +87,7 @@ async function deleteWorkShift(id: string) {
         revalidatePath('/dashboard/settings/shifts');
         return { success: true };
     } catch (error) {
-        console.error('Error deleting work shift:', error);
+        logger.error('Failed to delete work shift', { error, shiftId: id, module: 'WorkShiftActions' });
         return { success: false, error: 'Failed to delete work shift' };
     }
 }

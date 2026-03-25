@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SalesReturnService } from '../returns-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../../finance/auto-journal-service';
+import { logger } from '@/lib/config/logger';
 
 vi.mock('@/lib/core/prisma', () => ({
   prisma: {
@@ -58,7 +59,7 @@ describe('SalesReturnService', () => {
       const expectedError = new Error('Auto-journal failed');
       (AutoJournalService.handleSalesReturnReceived as any).mockRejectedValueOnce(expectedError);
 
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
       // Mock getReturnById which is called at the end
       vi.spyOn(SalesReturnService, 'getReturnById').mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as any);
@@ -68,7 +69,7 @@ describe('SalesReturnService', () => {
 
       // Assert
       expect(AutoJournalService.handleSalesReturnReceived).toHaveBeenCalledWith(mockReturnId);
-      expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for Sales Return:", expectedError);
+      expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for Sales Return", expect.objectContaining({ error: expectedError }));
       expect(result).toBeDefined();
       expect(result!.status).toBe('RECEIVED');
     });

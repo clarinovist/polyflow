@@ -7,6 +7,7 @@ import { AccountingService } from '@/services/accounting/accounting-service';
 import { InvoiceStatus, PurchaseInvoiceStatus, ReferenceType, AccountType, AccountCategory, SalesOrderType, SalesOrderStatus, PurchaseOrderStatus, Prisma, JournalStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 const OPENING_BALANCE_ACCOUNT_CODE = '30000';
 const AR_ACCOUNT_CODE = '11210';
@@ -190,9 +191,8 @@ async function saveUnifiedOpeningBalance(data: UnifiedMakeOpeningBalanceInput) {
         revalidatePath('/finance/opening-balance');
         return { success: true };
     } catch (error) {
-        console.error('Unified Opening Balance Error:', error);
-        // Return clear error message to UI
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to save opening balance. Please check server logs.' };
+        logger.error('Failed to save unified opening balance', { error, module: 'OpeningBalanceActions' });
+        return { success: false, error: 'Failed to save opening balance. Please verify entries.' };
     }
 }
 );
@@ -236,8 +236,8 @@ async function createOpeningBalance(data: CreateOpeningBalanceInput) {
         revalidatePath('/finance/reports/balance-sheet');
         return { success: true };
     } catch (error) {
-        console.error('Opening Balance Error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to create opening balance' };
+        logger.error('Failed to create opening balance', { error, module: 'OpeningBalanceActions' });
+        return { success: false, error: 'Failed to create opening balance. Please try again.' };
     }
 }
 );
@@ -423,8 +423,8 @@ async function getRecentOpeningBalances() {
 
         return { success: true, data: serializeData(history) };
     } catch (error) {
-        console.error('Failed to fetch opening balance history:', error);
-        return { success: false, error: 'Failed to fetch history' };
+        logger.error('Failed to fetch opening balance history', { error, module: 'OpeningBalanceActions' });
+        return { success: false, error: 'Failed to fetch opening balance history.' };
     }
 }
 );
@@ -488,8 +488,8 @@ async function deleteOpeningBalance(id: string, type: 'AR' | 'AP') {
         revalidatePath('/finance/reports/balance-sheet');
         return { success: true };
     } catch (error) {
-        console.error('Failed to delete opening balance:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Deletion failed' };
+        logger.error('Failed to delete opening balance', { error, id, type, module: 'OpeningBalanceActions' });
+        return { success: false, error: 'Failed to delete opening balance.' };
     }
 }
 );

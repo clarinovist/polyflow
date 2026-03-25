@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/tools/audit';
 import { InventoryService } from '@/services/inventory/inventory-service';
 import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
+import { logger } from '@/lib/config/logger';
 
 export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date }) {
     const where: Prisma.SalesOrderWhereInput = {};
@@ -329,11 +330,11 @@ export async function confirmOrder(id: string, userId: string) {
 
             results.forEach((res, idx) => {
                 if (res.status === 'rejected') {
-                    console.error(`Failed to auto-create WO for item ${shortages[idx].productVariantId}:`, res.reason);
+                    logger.error(`Failed to auto-create WO for item ${shortages[idx].productVariantId}`, { error: res.reason, module: 'SalesOrderService' });
                 }
             });
         } catch (error) {
-            console.error("Unexpected error in WO auto-creation:", error);
+            logger.error("Unexpected error in WO auto-creation", { error, orderId: id, module: 'SalesOrderService' });
         }
     }
 }

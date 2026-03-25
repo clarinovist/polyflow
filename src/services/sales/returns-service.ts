@@ -4,6 +4,7 @@ import { SalesReturnStatus, MovementType } from "@prisma/client";
 import { format } from "date-fns";
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../finance/auto-journal-service";
+import { logger } from "@/lib/config/logger";
 
 export class SalesReturnService {
 
@@ -216,7 +217,7 @@ export class SalesReturnService {
     try {
       await AutoJournalService.handleSalesReturnReceived(id);
     } catch (error) {
-      console.error("Failed to generate auto-journal for Sales Return:", error);
+      logger.error("Failed to generate auto-journal for Sales Return", { error, returnId: id, module: 'SalesReturnService' });
     }
 
     return this.getReturnById(id);

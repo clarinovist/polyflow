@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { logger } from '@/lib/config/logger';
 
 const linkSupplierSchema = z.object({
     supplierId: z.string().min(1, "Supplier is required"),
@@ -73,7 +74,7 @@ async function linkSupplierToProduct(data: LinkSupplierValues) {
         revalidatePath(`/dashboard/products`);
         return { success: true };
     } catch (error) {
-        console.error('Link supplier error:', error);
+        logger.error('Failed to link supplier', { error, supplierId, productVariantId, module: 'SupplierProductActions' });
         return { success: false, error: 'Failed to link supplier to product' };
     }
 }
@@ -108,7 +109,7 @@ async function unlinkSupplierFromProduct(id: string) {
         revalidatePath(`/dashboard/products`);
         return { success: true };
     } catch (error) {
-        console.error('Unlink supplier error:', error);
+        logger.error('Failed to unlink supplier', { error, linkId: id, module: 'SupplierProductActions' });
         return { success: false, error: 'Failed to unlink supplier' };
     }
 }
@@ -134,7 +135,7 @@ async function getSupplierProducts(supplierId: string) {
         });
         return serializeData(products);
     } catch (error) {
-        console.error('Get supplier products error:', error);
+        logger.error('Failed to get supplier products', { error, supplierId, module: 'SupplierProductActions' });
         return [];
     }
 }
@@ -154,7 +155,7 @@ async function getProductSuppliers(productVariantId: string) {
         });
         return serializeData(suppliers);
     } catch (error) {
-        console.error('Get product suppliers error:', error);
+        logger.error('Failed to get product suppliers', { error, productVariantId, module: 'SupplierProductActions' });
         return [];
     }
 }
@@ -195,7 +196,7 @@ async function setPreferredSupplier(id: string) {
         revalidatePath(`/dashboard/products`);
         return { success: true };
     } catch (error) {
-        console.error('Set preferred supplier error:', error);
+        logger.error('Failed to set preferred supplier', { error, linkId: id, module: 'SupplierProductActions' });
         return { success: false, error: 'Failed to set preferred supplier' };
     }
 }

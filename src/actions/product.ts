@@ -7,6 +7,7 @@ import { Inventory, CostHistory, ProductVariant, ProductType, Unit, Prisma } fro
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { logger } from '@/lib/config/logger';
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -261,8 +262,8 @@ async function createProduct(data: CreateProductValues) {
         revalidatePath('/dashboard/products');
         return { success: true };
     } catch (error) {
-        console.error('Create product error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to create product' };
+        logger.error('Failed to create product', { error, module: 'ProductActions' });
+        return { success: false, error: 'Failed to create product. Please check the inputs.' };
     }
 }
 );
@@ -399,8 +400,8 @@ async function updateProduct(data: UpdateProductValues) {
         revalidatePath(`/dashboard/products/${id}/edit`);
         return { success: true };
     } catch (error) {
-        console.error('Update product error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to update product' };
+        logger.error('Failed to update product', { error, productId: id, module: 'ProductActions' });
+        return { success: false, error: 'Failed to update product. Please check the inputs.' };
     }
 }
 );
@@ -481,8 +482,8 @@ async function deleteProduct(id: string) {
         revalidatePath('/dashboard/products');
         return { success: true };
     } catch (error) {
-        console.error('Delete product error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to delete product' };
+        logger.error('Failed to delete product', { error, productId: id, module: 'ProductActions' });
+        return { success: false, error: 'Failed to delete product. Ensure it has no dependencies.' };
     }
 }
 );
@@ -531,8 +532,8 @@ async function deleteVariant(id: string) {
         revalidatePath('/dashboard/products');
         return { success: true };
     } catch (error) {
-        console.error('Delete variant error:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to delete variant' };
+        logger.error('Failed to delete variant', { error, variantId: id, module: 'ProductActions' });
+        return { success: false, error: 'Failed to delete variant. Ensure it has no dependencies.' };
     }
 }
 );

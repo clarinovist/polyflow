@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InvoiceService } from '../finance/invoice-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { logger } from '@/lib/config/logger';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
@@ -58,7 +59,7 @@ describe('InvoiceService', () => {
                 invoiceNumber: 'INV-20231010-0001',
             });
 
-            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
             (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
@@ -71,9 +72,9 @@ describe('InvoiceService', () => {
             }, 'user-1');
 
             expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-1');
-            expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice:", mockError);
+            expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice", expect.objectContaining({ error: mockError }));
 
-            consoleErrorSpy.mockRestore();
+            loggerErrorSpy.mockRestore();
         });
     });
 
@@ -96,7 +97,7 @@ describe('InvoiceService', () => {
                 invoiceNumber: 'INV-20231010-0002',
             });
 
-            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
             (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
@@ -104,9 +105,9 @@ describe('InvoiceService', () => {
             await InvoiceService.createDraftInvoiceFromOrder('so-1', 'user-1');
 
             expect(AutoJournalService.handleSalesInvoiceCreated).toHaveBeenCalledWith('inv-2');
-            expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice:", mockError);
+            expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice", expect.objectContaining({ error: mockError }));
 
-            consoleErrorSpy.mockRestore();
+            loggerErrorSpy.mockRestore();
         });
     });
 });

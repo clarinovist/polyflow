@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from '../credit-service';
 import { SalesOrderStatus, SalesOrderType } from '@prisma/client';
+import { logger } from '@/lib/config/logger';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
@@ -85,7 +86,7 @@ describe('confirmOrder', () => {
 
     it('should catch and log an error if ProductionService.createOrderFromSales throws synchronously', async () => {
         // Mock ProductionService to throw synchronously
-        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
         const mockError = new Error('Catastrophic failure in WO creation');
 
         vi.mocked(ProductionService.createOrderFromSales).mockImplementation(() => {
@@ -96,9 +97,9 @@ describe('confirmOrder', () => {
         await confirmOrder('so-1', 'user-1');
 
         // Assert
-        expect(consoleErrorSpy).toHaveBeenCalledWith("Unexpected error in WO auto-creation:", mockError);
+        expect(loggerErrorSpy).toHaveBeenCalledWith("Unexpected error in WO auto-creation", expect.objectContaining({ error: mockError }));
 
         // Cleanup
-        consoleErrorSpy.mockRestore();
+        loggerErrorSpy.mockRestore();
     });
 });

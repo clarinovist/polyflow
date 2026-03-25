@@ -22,6 +22,7 @@ import { PurchaseOrderStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { logActivity } from '@/lib/tools/audit';
+import { logger } from '@/lib/config/logger';
 
 export const createPurchaseOrder = withTenant(
 async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
@@ -104,7 +105,9 @@ async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
     revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
 
     // Auto-Journal: Purchase Invoice
-    await AutoJournalService.handlePurchaseInvoiceCreated().catch(console.error);
+    await AutoJournalService.handlePurchaseInvoiceCreated().catch(error => {
+        logger.error('Auto-Journal failed for purchase invoice', { error, module: 'AutoJournalService' });
+    });
 
     return serializeData(invoice);
 }
@@ -120,7 +123,9 @@ async function recordPurchasePayment(id: string, amount: number) {
     revalidatePath(`/finance/invoices/${id}`);
 
     // Auto-Journal: Purchase Payment
-    await AutoJournalService.handlePurchasePayment(id, amount).catch(console.error);
+    await AutoJournalService.handlePurchasePayment(id, amount).catch(error => {
+        logger.error('Auto-Journal failed for purchase payment', { error, invoiceId: id, module: 'AutoJournalService' });
+    });
 
     return serializeData(updated);
 }

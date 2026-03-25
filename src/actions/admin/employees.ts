@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { EmployeeStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getEmployees = withTenant(
 async function getEmployees() {
@@ -13,7 +14,7 @@ async function getEmployees() {
         });
         return { success: true, data: employees };
     } catch (error) {
-        console.error('[GET_EMPLOYEES_ERROR]', error);
+        logger.error('Failed to get employees', { error, module: 'EmployeeActions' });
         return { success: false, error: 'Failed to retrieve personnel directory' };
     }
 }
@@ -30,7 +31,7 @@ async function getEmployeeById(id: string) {
         }
         return { success: true, data: employee };
     } catch (error) {
-        console.error(`[GET_EMPLOYEE_BY_ID_ERROR] ID: ${id}`, error);
+        logger.error('Failed to get employee', { error, employeeId: id, module: 'EmployeeActions' });
         return { success: false, error: 'Database error occurred while fetching employee' };
     }
 }
@@ -58,7 +59,7 @@ async function createEmployee(data: {
         revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
-        console.error('[CREATE_EMPLOYEE_ERROR]', error);
+        logger.error('Failed to create employee', { error, module: 'EmployeeActions' });
         return { success: false, error: 'Failed to onboard personnel' };
     }
 }
@@ -84,7 +85,7 @@ async function updateEmployee(
         revalidatePath('/production/resources');
         return { success: true, data: employee };
     } catch (error) {
-        console.error(`[UPDATE_EMPLOYEE_ERROR] ID: ${id}`, error);
+        logger.error('Failed to update employee', { error, employeeId: id, module: 'EmployeeActions' });
         return { success: false, error: 'Failed to update personnel records' };
     }
 }
@@ -102,7 +103,7 @@ async function deleteEmployee(id: string) {
         revalidatePath('/production/resources');
         return { success: true };
     } catch (error) {
-        console.error(`[DELETE_EMPLOYEE_ERROR] ID: ${id}`, error);
+        logger.error('Failed to delete employee', { error, employeeId: id, module: 'EmployeeActions' });
         return { success: false, error: 'Cannot delete personnel. They may be linked to production history or active shifts.' };
     }
 }
@@ -129,7 +130,7 @@ async function generateNextEmployeeCode() {
 
         return `EMP-${Date.now().toString().slice(-3)}`;
     } catch (error) {
-        console.error('[GENERATE_EMPLOYEE_CODE_ERROR]', error);
+        logger.error('Failed to generate next employee code', { error, module: 'EmployeeActions' });
         return 'EMP-Unknown';
     }
 }

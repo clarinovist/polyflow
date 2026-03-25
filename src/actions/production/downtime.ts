@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { MachineStatus } from '@prisma/client';
+import { logger } from '@/lib/config/logger';
 
 export const logMachineDowntime = withTenant(
 async function logMachineDowntime(
@@ -38,8 +39,8 @@ async function logMachineDowntime(
         revalidatePath('/production');
         return { success: true };
     } catch (error) {
-        console.error("Downtime Log Error:", error);
-        return { success: false, error: error instanceof Error ? error.message : "Failed to log downtime" };
+        logger.error("Failed to log downtime", { error, module: 'ProductionActions' });
+        return { success: false, error: "Failed to log downtime. Please check system constraints." };
     }
 }
 );

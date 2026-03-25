@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { MachineType, MachineStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getMachines = withTenant(
 async function getMachines() {
@@ -14,8 +15,8 @@ async function getMachines() {
         });
         return { success: true, data: machines };
     } catch (error) {
-        console.error('[GET_MACHINES_ERROR]', error);
-        return { success: false, error: 'Failed to retrieve production fleet' };
+        logger.error('Failed to get machines', { error, module: 'MachineActions' });
+        return { success: false, error: 'Failed to retrieve production fleet. Please try again later.' };
     }
 }
 );
@@ -32,8 +33,8 @@ async function getMachineById(id: string) {
         }
         return { success: true, data: machine };
     } catch (error) {
-        console.error(`[GET_MACHINE_BY_ID_ERROR] ID: ${id}`, error);
-        return { success: false, error: 'Database error occurred while fetching machine' };
+        logger.error('Failed to get machine by ID', { machineId: id, error, module: 'MachineActions' });
+        return { success: false, error: 'Database error occurred while fetching machine details.' };
     }
 }
 );
@@ -62,8 +63,8 @@ async function createMachine(data: {
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error('[CREATE_MACHINE_ERROR]', error);
-        return { success: false, error: 'Failed to register machine' };
+        logger.error('Failed to create machine', { error, module: 'MachineActions' });
+        return { success: false, error: 'Failed to register machine. Please verify the input data.' };
     }
 }
 );
@@ -89,8 +90,8 @@ async function updateMachine(
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error(`[UPDATE_MACHINE_ERROR] ID: ${id}`, error);
-        return { success: false, error: 'Failed to update machine configuration' };
+        logger.error('Failed to update machine', { machineId: id, error, module: 'MachineActions' });
+        return { success: false, error: 'Failed to update machine configuration. Please try again.' };
     }
 }
 );
@@ -105,7 +106,7 @@ async function deleteMachine(id: string) {
         revalidatePath('/production/machines');
         return { success: true };
     } catch (error) {
-        console.error(`[DELETE_MACHINE_ERROR] ID: ${id}`, error);
+        logger.error('Failed to delete machine', { machineId: id, error, module: 'MachineActions' });
         return { success: false, error: 'Cannot delete machine. It may have linked production history.' };
     }
 }
@@ -122,8 +123,8 @@ async function setMachineStatus(id: string, status: MachineStatus) {
         revalidatePath('/production/machines');
         return { success: true, data: machine };
     } catch (error) {
-        console.error(`[SET_MACHINE_STATUS_ERROR] ID: ${id} Status: ${status}`, error);
-        return { success: false, error: `Failed to transition machine to ${status}` };
+        logger.error('Failed to set machine status', { machineId: id, status, error, module: 'MachineActions' });
+        return { success: false, error: `Failed to transition machine to ${status}. Please try again.` };
     }
 }
 );

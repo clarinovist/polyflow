@@ -3,6 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
+import { logger } from '@/lib/config/logger';
 import {
     createProductionOrderSchema,
     CreateProductionOrderValues,
@@ -40,7 +41,7 @@ export const getInitData = withTenant(
             const data = await ProductionService.getInitData();
             return serializeData(data);
         } catch (error) {
-            console.error("Get Init Data Error:", error);
+            logger.error("Failed to get init data", { error, module: 'ProductionActions' });
             return {
                 boms: [], machines: [], locations: [],
                 operators: [], helpers: [], workShifts: [], rawMaterials: []
@@ -71,8 +72,8 @@ export const createProductionOrder = withTenant(
             revalidatePath('/sales');
             return { success: true, data: serializeData(order) };
         } catch (error) {
-            console.error("Create Production Order Error:", error);
-            return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+            logger.error("Failed to create production order", { error, module: 'ProductionActions' });
+            return { success: false, error: 'Failed to create work order. Please verify input and try again.' };
         }
     }
 );
@@ -396,8 +397,8 @@ export const startExecution = withTenant(
             revalidatePath('/production/kiosk');
             return { success: true, data: serializeData(execution) };
         } catch (error) {
-            console.error('Error starting execution:', error);
-            return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+            logger.error('Failed to start execution', { error, module: 'ProductionActions' });
+            return { success: false, error: 'Failed to start execution. Please ensure the machine is available.' };
         }
     }
 );
@@ -415,14 +416,14 @@ export const stopExecution = withTenant(
                 return { success: false, error: 'Unauthorized' };
             }
 
-            const execution = await ProductionService.stopExecution(result.data);
+            const execution = await ProductionService.stopExecution({ ...result.data, userId: session.user.id });
 
             revalidatePath('/production');
             revalidatePath('/production/kiosk');
             return { success: true, data: serializeData(execution) };
         } catch (error) {
-            console.error('Error stopping execution:', error);
-            return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+            logger.error('Failed to stop execution', { error, module: 'ProductionActions' });
+            return { success: false, error: 'Failed to stop execution. Please try again.' };
         }
     }
 );
@@ -482,7 +483,7 @@ export const getActiveExecutions = withTenant(
             const executions = await ProductionService.getActiveExecutions();
             return serializeData(executions);
         } catch (error) {
-            console.error("Get Active Executions Error:", error);
+            logger.error("Failed to get active executions", { error, module: 'ProductionActions' });
             return [];
         }
     }
@@ -506,8 +507,8 @@ export const batchIssueMaterials = withTenant(
             revalidatePath(`/production/orders/${result.data.productionOrderId}`);
             return { success: true };
         } catch (error) {
-            console.error("Batch Issue Error:", error);
-            return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+            logger.error("Failed to batch issue materials", { error, module: 'ProductionActions' });
+            return { success: false, error: 'Failed to issue materials. Please try again.' };
         }
     }
 );
@@ -605,8 +606,8 @@ export const getBomWithInventory = withTenant(
             }
             return { success: true, ...result.value };
         } catch (error) {
-            console.error("Error calculating BOM requirements:", error);
-            return { success: false, error: error instanceof Error ? error.message : "Failed to calculate requirements" };
+            logger.error("Failed to calculate BOM requirements", { error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to calculate material requirements. Please try again." };
         }
     }
 );
@@ -624,14 +625,14 @@ export const logRunningOutput = withTenant(
                 return { success: false, error: 'Unauthorized' };
             }
 
-            await ProductionService.logRunningOutput(result.data);
+            await ProductionService.logRunningOutput({ ...result.data, userId: session.user.id });
 
             revalidatePath('/production');
             revalidatePath('/production/kiosk');
             return { success: true };
         } catch (error) {
-            console.error('Error logging output:', error);
-            return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+            logger.error("Failed to log production output", { error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to log production output. Please verify input." };
         }
     }
 );
@@ -659,8 +660,8 @@ export const createProductionFromSalesOrder = withTenant(
             revalidatePath('/sales');
             return serializeData(result);
         } catch (error) {
-            console.error("Create WO from SO Error:", error);
-            return { success: false, error: error instanceof Error ? error.message : "Failed to trigger production" };
+            logger.error("Failed to create WO from SO", { salesOrderId, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to automatically trigger production order from Sales Order." };
         }
     }
 );
@@ -772,8 +773,8 @@ export const createChildProductionOrder = withTenant(
             revalidatePath('/production'); // Refresh list as well
             return { success: true, data: serializeData(result) };
         } catch (error) {
-            console.error("Create Child WO Error:", error);
-            return { success: false, error: error instanceof Error ? error.message : "Failed to create sub-order" };
+            logger.error("Failed to create child PO", { parentOrderId, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to create sub-order. Please try again." };
         }
     }
 );
@@ -800,8 +801,8 @@ export const createProductionIssue = withTenant(
             revalidatePath(`/planning/orders/${data.productionOrderId}`);
             return { success: true, data: serializeData(issue) };
         } catch (error) {
-            console.error('[createProductionIssue]', error);
-            return { success: false, error: 'Failed to create issue' };
+            logger.error("Failed to create production issue", { productionOrderId: data.productionOrderId, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to create production issue." };
         }
     }
 );
@@ -827,8 +828,8 @@ export const updateProductionIssueStatus = withTenant(
 
             return { success: true, data: serializeData(issue) };
         } catch (error) {
-            console.error('[updateProductionIssueStatus]', error);
-            return { success: false, error: 'Failed to update issue' };
+            logger.error("Failed to update production issue status", { issueId, status, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to update issue status." };
         }
     }
 );
@@ -846,8 +847,8 @@ export const deleteProductionIssue = withTenant(
             revalidatePath(`/planning/orders/${productionOrderId}`);
             return { success: true };
         } catch (error) {
-            console.error('[deleteProductionIssue]', error);
-            return { success: false, error: 'Failed to delete issue' };
+            logger.error("Failed to delete production issue", { issueId, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to delete issue." };
         }
     }
 );
@@ -868,8 +869,8 @@ export const voidProductionOutput = withTenant(
             revalidatePath('/dashboard');
             return { success: true };
         } catch (error) {
-            console.error('[voidProductionOutput]', error);
-            return { success: false, error: error instanceof Error ? error.message : 'An unknown error occurred' };
+            logger.error("Failed to void production output", { executionId, error, module: 'ProductionActions' });
+            return { success: false, error: "Failed to void production output. Please ensure you have sufficient permissions." };
         }
     }
 );

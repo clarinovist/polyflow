@@ -9,6 +9,7 @@ import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } f
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { AutoJournalService } from '@/services/finance/auto-journal-service';
+import { logger } from '@/lib/config/logger';
 
 export const getInvoices = withTenant(
 async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
@@ -74,15 +75,16 @@ async function createInvoice(data: CreateInvoiceValues) {
         const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
 
         // Auto-Journaling Trigger
-        await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
-            console.error("Auto-Journal failed:", err);
+        await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(error => {
+            logger.error('Auto-Journal failed for sales invoice', { error, invoiceId: invoice.id, module: 'AutoJournalService' });
         });
 
         revalidatePath('/sales'); // Refresh sales to update invoice status if any
         revalidatePath(`/sales/orders/${data.salesOrderId}`);
         return { success: true, data: serializeData(invoice) };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to create invoice" };
+        logger.error('Failed to create invoice', { error, module: 'InvoiceActions' });
+        return { success: false, error: 'Failed to create invoice. Please try again.' };
     }
 }
 );
@@ -106,12 +108,15 @@ async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, pa
 
         // Auto-Journal: Sales Payment
         if (data.paidAmount && data.paidAmount > 0) {
-            await AutoJournalService.handleSalesPayment(data.id, data.paidAmount).catch(console.error);
+            await AutoJournalService.handleSalesPayment(data.id, data.paidAmount).catch(error => {
+                logger.error('Auto-Journal failed for sales payment', { error, invoiceId: data.id, module: 'AutoJournalService' });
+            });
         }
 
         return { success: true };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Failed to update invoice" };
+        logger.error('Failed to update invoice status', { error, invoiceId: data.id, module: 'InvoiceActions' });
+        return { success: false, error: 'Failed to update invoice. Please try again.' };
     }
 }
 );

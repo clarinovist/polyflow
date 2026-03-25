@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
 import { Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 // Using href as the unique resource identifier
 // These must match sidebar-nav.tsx
@@ -28,7 +29,7 @@ async function getRolePermissions(targetRole: Role) {
         });
         return { success: true, data: permissions };
     } catch (error) {
-        console.error('Failed to fetch permissions:', error);
+        logger.error('Failed to fetch permissions', { error, targetRole, module: 'PermissionActions' });
         return { success: false, error: 'Failed to fetch permissions' };
     }
 }
@@ -58,7 +59,7 @@ async function updatePermission(targetRole: Role, resource: string, canAccess: b
         revalidatePath('/dashboard'); // May affect sidebar visibility
         return { success: true };
     } catch (error) {
-        console.error('Failed to update permission:', error);
+        logger.error('Failed to update permission', { error, targetRole, resource, module: 'PermissionActions' });
         return { success: false, error: 'Failed to update permission' };
     }
 }
@@ -106,7 +107,7 @@ async function seedDefaultPermissions(targetRole: Role, defaultResources: string
         await seedDefaultPermissionsInternal(targetRole, defaultResources);
         return { success: true };
     } catch (error) {
-        console.error('Failed to seed permissions:', error);
+        logger.error('Failed to seed permissions', { error, targetRole, module: 'PermissionActions' });
         return { success: false, error: 'Failed to seed' };
     }
 }

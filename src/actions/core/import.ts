@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
 import { ProductType, Unit, Prisma } from '@prisma/client';
 import { getNextSKU } from '../product';
+import { logger } from '@/lib/config/logger';
 
 export interface ImportVariant {
     name: string;
@@ -148,7 +149,7 @@ async function importProducts(products: ImportProduct[]): Promise<ImportResult> 
             variants: variantCount
         };
     } catch (error) {
-        console.error('Import error:', error);
+        logger.error('Failed to import products', { error, module: 'ImportActions' });
         return {
             success: false,
             imported: 0,

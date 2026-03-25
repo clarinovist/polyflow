@@ -5,6 +5,7 @@ import { AccountingService } from '@/services/accounting/accounting-service';
 import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
+import { logger } from '@/lib/config/logger';
 
 export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
     const year = new Date().getFullYear();
@@ -91,7 +92,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                 }
             });
 
-            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+            await AccountingService.recordInventoryMovement(movement, tx);
 
             const poItem = await tx.purchaseOrderItem.findFirst({
                 where: {
@@ -152,7 +153,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
 
     // Auto-generate draft bill after GR transaction commits
     await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
-        console.error("Failed to auto-generate draft bill after GR:", err);
+        logger.error("Failed to auto-generate draft bill after GR", { error: err, module: 'ReceiptsService' });
     });
 
     return receipt;

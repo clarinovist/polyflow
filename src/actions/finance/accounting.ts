@@ -5,6 +5,7 @@ import { AccountingService, CreateJournalEntryInput } from '@/services/accountin
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 import { AccountType, AccountCategory } from '@prisma/client';
 
@@ -69,8 +70,8 @@ async function createManualJournalEntry(data: CreateJournalEntryInput) {
         revalidatePath('/finance/journals');
         return { success: true, data: serializeData(entry) };
     } catch (error) {
-        console.error('Failed to create journal entry:', error);
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        logger.error('Failed to create manual journal entry', { error, module: 'AccountingActions' });
+        return { success: false, error: 'Failed to create journal entry. Please check input data.' };
     }
 }
 );

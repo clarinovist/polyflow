@@ -116,15 +116,15 @@ model Customer {
 }
 
 model ApiKey {
-  id          String    @id @default(uuid())
-  key         String    @unique
-  name        String
-  userId      String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  expiresAt   DateTime?
-  isActive    Boolean   @default(true)
-  user        User?     @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid())
+  key       String    @unique
+  name      String
+  userId    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  user      User?     @relation(fields: [userId], references: [id])
 }
 
 model Location {
@@ -215,8 +215,8 @@ model CostHistory {
   productVariantId String
   previousCost     Decimal?       @db.Decimal(15, 4)
   newCost          Decimal        @db.Decimal(15, 4)
-  changeReason     String         // MANUAL, PURCHASE_GR, STOCK_OPNAME, IMPORT
-  referenceId      String?        // GR ID, Opname ID, etc.
+  changeReason     String // MANUAL, PURCHASE_GR, STOCK_OPNAME, IMPORT
+  referenceId      String? // GR ID, Opname ID, etc.
   changePercent    Decimal?       @db.Decimal(10, 2)
   createdById      String?
   createdAt        DateTime       @default(now())
@@ -271,26 +271,26 @@ model BomItem {
 }
 
 model StockMovement {
-  id               String         @id @default(uuid())
-  type             MovementType
-  productVariantId String
-  fromLocationId   String?
-  toLocationId     String?
-  quantity         Decimal        @db.Decimal(15, 4)
-  reference        String?
-  createdById      String?
-  createdAt        DateTime       @default(now())
-  batchId          String?
-  cost             Decimal?       @db.Decimal(15, 4)
-  salesOrderId     String?
-  goodsReceiptId   String?
-  batch            Batch?         @relation(fields: [batchId], references: [id])
-  createdBy        User?          @relation(fields: [createdById], references: [id])
-  fromLocation     Location?      @relation("FromLocation", fields: [fromLocationId], references: [id])
-  goodsReceipt     GoodsReceipt?  @relation("GoodsReceiptMovement", fields: [goodsReceiptId], references: [id])
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-  salesOrder       SalesOrder?    @relation("SalesMovement", fields: [salesOrderId], references: [id])
-  toLocation       Location?      @relation("ToLocation", fields: [toLocationId], references: [id])
+  id                String           @id @default(uuid())
+  type              MovementType
+  productVariantId  String
+  fromLocationId    String?
+  toLocationId      String?
+  quantity          Decimal          @db.Decimal(15, 4)
+  reference         String?
+  createdById       String?
+  createdAt         DateTime         @default(now())
+  batchId           String?
+  cost              Decimal?         @db.Decimal(15, 4)
+  salesOrderId      String?
+  goodsReceiptId    String?
+  batch             Batch?           @relation(fields: [batchId], references: [id])
+  createdBy         User?            @relation(fields: [createdById], references: [id])
+  fromLocation      Location?        @relation("FromLocation", fields: [fromLocationId], references: [id])
+  goodsReceipt      GoodsReceipt?    @relation("GoodsReceiptMovement", fields: [goodsReceiptId], references: [id])
+  productVariant    ProductVariant   @relation(fields: [productVariantId], references: [id])
+  salesOrder        SalesOrder?      @relation("SalesMovement", fields: [salesOrderId], references: [id])
+  toLocation        Location?        @relation("ToLocation", fields: [toLocationId], references: [id])
   productionOrderId String?
   productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
 
@@ -363,18 +363,18 @@ model StockReservation {
 }
 
 model StockOpname {
-  id          String            @id @default(uuid())
-  opnameNumber String?          @unique
-  locationId  String
-  status      OpnameStatus      @default(OPEN)
-  remarks     String?
-  createdById String?
-  createdAt   DateTime          @default(now())
-  completedAt DateTime?
-  updatedAt   DateTime          @updatedAt
-  createdBy   User?             @relation(fields: [createdById], references: [id])
-  location    Location          @relation(fields: [locationId], references: [id])
-  items       StockOpnameItem[]
+  id           String            @id @default(uuid())
+  opnameNumber String?           @unique
+  locationId   String
+  status       OpnameStatus      @default(OPEN)
+  remarks      String?
+  createdById  String?
+  createdAt    DateTime          @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime          @updatedAt
+  createdBy    User?             @relation(fields: [createdById], references: [id])
+  location     Location          @relation(fields: [locationId], references: [id])
+  items        StockOpnameItem[]
 }
 
 model StockOpnameItem {
@@ -425,6 +425,9 @@ model ProductionOrder {
   scrapRecords            ScrapRecord[]
   issues                  ProductionIssue[]
   stockMovements          StockMovement[]
+
+  @@index([actualEndDate])
+  @@index([updatedAt, status])
 }
 
 model MachineDowntime {
@@ -472,8 +475,8 @@ model ProductionIssue {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  productionOrder   ProductionOrder     @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  reportedBy        User?               @relation("IssueReporter", fields: [reportedById], references: [id])
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  reportedBy      User?           @relation("IssueReporter", fields: [reportedById], references: [id])
 
   @@index([productionOrderId])
 }
@@ -491,6 +494,8 @@ model ScrapRecord {
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+
+  @@index([recordedAt])
 }
 
 model QualityInspection {
@@ -502,6 +507,8 @@ model QualityInspection {
   inspectedAt       DateTime         @default(now())
   inspector         User?            @relation(fields: [inspectorId], references: [id])
   productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id])
+
+  @@index([inspectedAt])
 }
 
 model ProductionMaterial {
@@ -540,6 +547,7 @@ model ProductionExecution {
   shift             WorkShift?      @relation(fields: [shiftId], references: [id])
 
   @@index([productionOrderId])
+  @@index([startTime])
 }
 
 model WorkShift {
@@ -611,6 +619,8 @@ model SalesOrder {
   items            SalesOrderItem[]
   movements        StockMovement[]   @relation("SalesMovement")
   salesReturns     SalesReturn[]
+
+  @@index([orderDate])
 }
 
 model SalesQuotation {
@@ -804,6 +814,7 @@ model Account {
 
   @@index([code])
   @@index([parentId])
+  @@index([type])
 }
 
 model JournalEntry {
@@ -827,6 +838,7 @@ model JournalEntry {
 
   @@index([entryDate])
   @@index([referenceType, referenceId])
+  @@index([status, entryDate])
 }
 
 model JournalLine {
@@ -979,8 +991,6 @@ enum IssueStatus {
   IN_PROGRESS
   RESOLVED
 }
-
-
 
 enum DeliveryStatus {
   PENDING
@@ -1219,23 +1229,22 @@ model SystemSequence {
 }
 
 model Payment {
-  id                String   @id @default(uuid())
-  paymentNumber     String   @unique
-  paymentDate       DateTime
-  amount            Decimal  @db.Decimal(15, 2)
-  method            String   // Bank Transfer, Cash, Check, Credit Card
-  notes             String?  @db.Text
-  
+  id            String   @id @default(uuid())
+  paymentNumber String   @unique
+  paymentDate   DateTime
+  amount        Decimal  @db.Decimal(15, 2)
+  method        String // Bank Transfer, Cash, Check, Credit Card
+  notes         String?  @db.Text
+
   // Relations - either invoiceId OR purchaseInvoiceId should be set
-  invoiceId         String?
-  invoice           Invoice? @relation(fields: [invoiceId], references: [id])
-  
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+
   purchaseInvoiceId String?
   purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([invoiceId])
   @@index([purchaseInvoiceId])
@@ -1288,71 +1297,71 @@ model SalesReturn {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  items            SalesReturnItem[]
-  salesOrder       SalesOrder        @relation(fields: [salesOrderId], references: [id])
-  deliveryOrder    DeliveryOrder?    @relation(fields: [deliveryOrderId], references: [id])
-  customer         Customer?         @relation(fields: [customerId], references: [id])
-  returnLocation   Location          @relation("ReturnLocation", fields: [returnLocationId], references: [id])
-  createdBy        User?             @relation("SalesReturnCreator", fields: [createdById], references: [id])
+  items          SalesReturnItem[]
+  salesOrder     SalesOrder        @relation(fields: [salesOrderId], references: [id])
+  deliveryOrder  DeliveryOrder?    @relation(fields: [deliveryOrderId], references: [id])
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  returnLocation Location          @relation("ReturnLocation", fields: [returnLocationId], references: [id])
+  createdBy      User?             @relation("SalesReturnCreator", fields: [createdById], references: [id])
 
   @@index([salesOrderId])
 }
 
 model SalesReturnItem {
-  id               String         @id @default(uuid())
+  id               String        @id @default(uuid())
   salesReturnId    String
   productVariantId String
-  returnedQty      Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 2)
-  reason           ReturnReason   @default(OTHER)
-  condition        ItemCondition  @default(GOOD)
+  returnedQty      Decimal       @db.Decimal(15, 4)
+  unitPrice        Decimal       @db.Decimal(15, 2)
+  reason           ReturnReason  @default(OTHER)
+  condition        ItemCondition @default(GOOD)
   notes            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  salesReturn      SalesReturn    @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesReturn    SalesReturn    @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 model PurchaseReturn {
-  id               String              @id @default(uuid())
-  returnNumber     String              @unique
+  id               String               @id @default(uuid())
+  returnNumber     String               @unique
   purchaseOrderId  String
   goodsReceiptId   String?
   supplierId       String
-  returnDate       DateTime            @default(now())
+  returnDate       DateTime             @default(now())
   status           PurchaseReturnStatus @default(DRAFT)
   sourceLocationId String
   reason           String?
   notes            String?
-  totalAmount      Decimal?            @db.Decimal(15, 2)
+  totalAmount      Decimal?             @db.Decimal(15, 2)
   createdById      String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
-  items            PurchaseReturnItem[]
-  purchaseOrder    PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id])
-  goodsReceipt     GoodsReceipt?       @relation(fields: [goodsReceiptId], references: [id])
-  supplier         Supplier            @relation(fields: [supplierId], references: [id])
-  sourceLocation   Location            @relation("PurchaseReturnLocation", fields: [sourceLocationId], references: [id])
-  createdBy        User?               @relation("PurchaseReturnCreator", fields: [createdById], references: [id])
+  items          PurchaseReturnItem[]
+  purchaseOrder  PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  goodsReceipt   GoodsReceipt?        @relation(fields: [goodsReceiptId], references: [id])
+  supplier       Supplier             @relation(fields: [supplierId], references: [id])
+  sourceLocation Location             @relation("PurchaseReturnLocation", fields: [sourceLocationId], references: [id])
+  createdBy      User?                @relation("PurchaseReturnCreator", fields: [createdById], references: [id])
 
   @@index([purchaseOrderId])
 }
 
 model PurchaseReturnItem {
-  id               String         @id @default(uuid())
+  id               String       @id @default(uuid())
   purchaseReturnId String
   productVariantId String
-  returnedQty      Decimal        @db.Decimal(15, 4)
-  unitCost         Decimal        @db.Decimal(15, 4)
-  reason           ReturnReason   @default(OTHER)
+  returnedQty      Decimal      @db.Decimal(15, 4)
+  unitCost         Decimal      @db.Decimal(15, 4)
+  reason           ReturnReason @default(OTHER)
   notes            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  purchaseReturn PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 // ==========================================
@@ -1362,7 +1371,7 @@ model Tenant {
   id        String       @id @default(cuid())
   name      String
   subdomain String       @unique // e.g., 'pt-abc'
-  dbUrl     String       // PostgreSQL connection string
+  dbUrl     String // PostgreSQL connection string
   status    TenantStatus @default(ACTIVE)
   plan      String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
   createdAt DateTime     @default(now())
@@ -1397,7 +1406,7 @@ model Notification {
   entityId   String?
   createdAt  DateTime         @default(now())
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, isRead])

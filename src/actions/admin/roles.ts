@@ -3,6 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 const DEFAULT_JOB_ROLES = ['OPERATOR', 'HELPER', 'PACKER', 'MANAGER'];
 
@@ -23,7 +24,7 @@ async function getJobRoles() {
 
         return { success: true, data: roles };
     } catch (error) {
-        console.error('Error fetching job roles:', error);
+        logger.error('Failed to fetch job roles', { error, module: 'RoleActions' });
         return { success: false, error: 'Failed to fetch job roles' };
     }
 }
@@ -39,7 +40,7 @@ async function createJobRole(name: string) {
         revalidatePath('/production/resources');
         return { success: true, data: role };
     } catch (error) {
-        console.error('Error creating job role:', error);
+        logger.error('Failed to create job role', { error, roleName: name, module: 'RoleActions' });
         return { success: false, error: 'Failed to create job role' };
     }
 }

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { InventoryService } from '@/services/inventory/inventory-service';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export interface ValidatedStockItem {
     productVariantId: string;
@@ -87,7 +88,7 @@ async function importInitialStock(
         };
 
     } catch (error) {
-        console.error("Stock Import Error:", error);
+        logger.error('Failed to import stock', { error, module: 'StockImportActions' });
         return {
             success: false,
             imported: 0,

@@ -162,7 +162,7 @@ export class ProductionMaterialService {
                                 productionOrderId: productionOrderId // Add structured relation
                             } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         } as any);
-                        await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
+                        await AccountingService.recordInventoryMovement(moveOut, tx);
                     } else {
                         for (const batch of batches) {
                             if (remainingToDeduct <= 0) break;
@@ -206,7 +206,7 @@ export class ProductionMaterialService {
                                     productionOrderId: productionOrderId // Add structured relation
                                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             } as any);
-                            await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
+                            await AccountingService.recordInventoryMovement(moveOut, tx);
 
                             remainingToDeduct -= deductFromBatch;
                         }
@@ -257,7 +257,7 @@ export class ProductionMaterialService {
                             productionOrderId: productionOrderId // Add structured relation
                         } // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } as any);
-                    await AccountingService.recordInventoryMovement(moveOut, tx).catch(console.error);
+                    await AccountingService.recordInventoryMovement(moveOut, tx);
                 }
             }
         });
@@ -310,7 +310,7 @@ export class ProductionMaterialService {
                     productionOrderId: productionOrderId // Add structured relation
                 }
             });
-            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+            await AccountingService.recordInventoryMovement(movement, tx);
 
             await tx.materialIssue.create({
                 data: {
@@ -376,7 +376,7 @@ export class ProductionMaterialService {
                     productionOrderId: productionOrderId // Add structured relation
                 }
             });
-            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+            await AccountingService.recordInventoryMovement(movement, tx);
 
             await tx.materialIssue.delete({ where: { id: issueId } });
         });
@@ -414,7 +414,7 @@ export class ProductionMaterialService {
                     productionOrderId: productionOrderId // Add structured relation
                 }
             });
-            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+            await AccountingService.recordInventoryMovement(movement, tx);
 
             await tx.scrapRecord.create({
                 data: { productionOrderId, productVariantId, quantity, reason, createdById: userId, locationId }
@@ -482,7 +482,7 @@ export class ProductionMaterialService {
                     productionOrderId: productionOrderId // Add structured relation
                 } // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
-            await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+            await AccountingService.recordInventoryMovement(movement, tx);
 
             // Delete record
             await tx.scrapRecord.delete({ where: { id: scrapId } });

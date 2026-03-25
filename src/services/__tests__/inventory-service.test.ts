@@ -164,4 +164,25 @@ describe('InventoryService', () => {
             }));
         });
     });
+
+    describe('Edge Cases - Negative Stock', () => {
+        it('should throw an error and prevent transaction if deducting stock exceeds available physical quantity', async () => {
+            // Mock stock at exactly 10
+            vi.mocked(prisma.$queryRaw).mockResolvedValue([{ quantity: '10' }]);
+            
+            // Assume 0 reserved
+            vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({
+                _sum: { quantity: { toNumber: () => 0 } }
+            } as any);
+
+            // Item info
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Battery', primaryUnit: 'PCS' } as any);
+            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Main Warehouse' } as any);
+
+            // Try to lock/deduct 11
+            await expect(
+                InventoryService.validateAndLockStock(mockTx, locationId, productVariantId, 11)
+            ).rejects.toThrow(/Insufficient physical stock at location "Main Warehouse"/i);
+        });
+    });
 });

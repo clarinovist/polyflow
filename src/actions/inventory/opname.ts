@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { OpnameStatus, MovementType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getOpnameSessions = withTenant(
 async function getOpnameSessions() {
@@ -112,7 +113,8 @@ async function createOpnameSession(locationId: string, remarks?: string) {
         revalidatePath('/warehouse/opname');
         return { success: true, id: session.id };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+        logger.error('Failed to create opname session', { error, locationId, module: 'OpnameActions' });
+        return { success: false, error: 'Failed to create opname session. Please try again.' };
     }
 }
 );
@@ -138,7 +140,8 @@ async function saveOpnameCount(
         revalidatePath(`/warehouse/opname/${opnameId}`);
         return { success: true };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+        logger.error('Failed to save opname count', { error, opnameId, module: 'OpnameActions' });
+        return { success: false, error: 'Failed to save opname count. Please verify inputs.' };
     }
 }
 );
@@ -199,7 +202,7 @@ async function completeOpname(opnameId: string) {
                     });
 
                     // 4. Record Journal Entry
-                    await AccountingService.recordInventoryMovement(movement, tx).catch(console.error);
+                    await AccountingService.recordInventoryMovement(movement, tx);
                 }
             }
 
@@ -226,7 +229,8 @@ async function completeOpname(opnameId: string) {
         revalidatePath(`/warehouse/opname/${opnameId}`);
         return { success: true };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+        logger.error('Failed to complete opname session', { error, opnameId, module: 'OpnameActions' });
+        return { success: false, error: 'Failed to complete opname session.' };
     }
 }
 );
@@ -254,7 +258,8 @@ async function deleteOpnameSession(id: string) {
         revalidatePath('/warehouse/opname');
         return { success: true };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred" };
+        logger.error('Failed to delete opname session', { error, sessionId: id, module: 'OpnameActions' });
+        return { success: false, error: 'Failed to delete opname session.' };
     }
 }
 );

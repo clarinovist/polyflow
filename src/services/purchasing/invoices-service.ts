@@ -4,6 +4,7 @@ import { addDays } from 'date-fns';
 import { PurchaseInvoiceStatus, Prisma, NotificationType } from '@prisma/client';
 import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { logger } from '@/lib/config/logger';
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
     const finalDueDate = data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
@@ -29,7 +30,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
 
     // Auto-Journaling Trigger
     await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
-        console.error("Auto-Journal failed for purchase invoice:", err);
+        logger.error("Auto-Journal failed for purchase invoice", { error: err, module: 'PurchasingInvoicesService' });
     });
 
     return invoice;
@@ -188,7 +189,7 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
 
     // Auto-Journaling Trigger
     await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
-        console.error("Auto-Journal failed for automated bill:", err);
+        logger.error("Auto-Journal failed for automated bill", { error: err, module: 'PurchasingInvoicesService' });
     });
 
     return invoice;

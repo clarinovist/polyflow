@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { createCustomerSchema, updateCustomerSchema, CreateCustomerValues, UpdateCustomerValues } from '@/lib/schemas/partner';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { logger } from '@/lib/config/logger';
 
 export const getCustomers = withTenant(
 async function getCustomers() {
@@ -102,7 +103,7 @@ async function createCustomer(data: CreateCustomerValues) {
         revalidatePath('/sales/customers');
         return { success: true };
     } catch (error) {
-        console.error('Create customer error:', error);
+        logger.error('Failed to create customer', { error, module: 'CustomerActions' });
         // Check for unique constraint violation
         if (error instanceof Error && error.message.includes('Unique constraint')) {
             return { success: false, error: 'Customer code already exists' };
@@ -131,7 +132,7 @@ async function updateCustomer(data: UpdateCustomerValues) {
         revalidatePath(`/sales/customers/${data.id}`);
         return { success: true };
     } catch (error) {
-        console.error('Update customer error:', error);
+        logger.error('Failed to update customer', { error, customerId: data.id, module: 'CustomerActions' });
         return { success: false, error: 'Failed to update customer' };
     }
 }
@@ -151,7 +152,7 @@ async function deleteCustomer(id: string) {
         revalidatePath('/sales/customers');
         return { success: true };
     } catch (error) {
-        console.error('Delete customer error:', error);
+        logger.error('Failed to delete customer', { error, customerId: id, module: 'CustomerActions' });
         return { success: false, error: 'Failed to delete customer' };
     }
 }

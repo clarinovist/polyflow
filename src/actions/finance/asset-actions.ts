@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma as db } from '@/lib/core/prisma';
 import { AssetFormValues, assetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
+import { logger } from '@/lib/config/logger';
 
 export const getAssets = withTenant(
 async function getAssets() {
@@ -25,8 +26,8 @@ async function getAssets() {
             }))
         };
     } catch (error) {
-        console.error('Error fetching assets:', error);
-        return { success: false, error: 'Failed to fetch assets' };
+        logger.error('Failed to fetch assets', { error, module: 'AssetActions' });
+        return { success: false, error: 'Failed to fetch assets. Please try again later.' };
     }
 }
 );
@@ -46,8 +47,8 @@ async function createAsset(data: AssetFormValues) {
         revalidatePath('/finance/assets');
         return { success: true };
     } catch (error) {
-        console.error('Error creating asset:', error);
-        return { success: false, error: 'Failed to create asset' };
+        logger.error('Failed to create asset', { error, module: 'AssetActions' });
+        return { success: false, error: 'Failed to create asset. Please verify details.' };
     }
 }
 );
@@ -67,8 +68,8 @@ async function updateAsset(id: string, data: Partial<AssetFormValues>) {
         revalidatePath('/finance/assets');
         return { success: true };
     } catch (error) {
-        console.error('Error updating asset:', error);
-        return { success: false, error: 'Failed to update asset' };
+        logger.error('Failed to update asset', { error, assetId: id, module: 'AssetActions' });
+        return { success: false, error: 'Failed to update asset. Please check input.' };
     }
 }
 );
@@ -83,8 +84,8 @@ async function deleteAsset(id: string) {
         revalidatePath('/finance/assets');
         return { success: true };
     } catch (error) {
-        console.error('Error deleting asset:', error);
-        return { success: false, error: 'Failed to delete asset' };
+        logger.error('Failed to delete asset', { error, assetId: id, module: 'AssetActions' });
+        return { success: false, error: 'Failed to delete asset.' };
     }
 }
 );

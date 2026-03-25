@@ -62,6 +62,29 @@ describe('AccountingService', () => {
         ((prisma as any).account.findMany as any).mockResolvedValue([]);
     });
 
+    describe('Edge Cases', () => {
+        it('should throw error if attempting to create journal in a closed period', async () => {
+            (periodsService.isPeriodOpen as any).mockResolvedValueOnce(false);
+
+            const input = {
+                entryDate: new Date('2023-01-15'),
+                description: 'Late Entry',
+                reference: 'REF-CLOSED',
+                referenceType: 'MANUAL_ENTRY' as any,
+                createdById: 'user-1',
+                lines: [
+                    { accountId: 'acc-1', debit: 100, credit: 0, description: 'Bank' },
+                    { accountId: 'acc-2', debit: 0, credit: 100, description: 'Revenue' }
+                ]
+            };
+
+            await expect(AccountingService.createJournalEntry(input))
+                .rejects.toThrow(/Cannot create journal entry in a closed fiscal period/);
+            
+            expect(prisma.$transaction).not.toHaveBeenCalled();
+        });
+    });
+
     describe('Balance Validation', () => {
         it('should create a grouped journal entry if debits equal credits', async () => {
             const input = {

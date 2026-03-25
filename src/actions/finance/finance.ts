@@ -9,6 +9,7 @@ import { CostReportingService } from '@/services/finance/cost-reporting-service'
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { logActivity } from '@/lib/tools/audit';
+import { logger } from '@/lib/config/logger';
 
 export const updateOverdueStatuses = withTenant(
 async function updateOverdueStatuses() {
@@ -54,10 +55,10 @@ async function updateOverdueStatuses() {
             message: `Updated ${salesResult.count} sales invoices and ${purchaseResult.count} purchase invoices to OVERDUE.`
         };
     } catch (error) {
-        console.error("Failed to update overdue statuses:", error);
+        logger.error("Failed to update overdue statuses", { error, module: 'FinanceActions' });
         return {
             success: false,
-            error: error instanceof Error ? error.message : "Unknown error occurred"
+            error: "Failed to update overdue statuses. Please check system constraints."
         };
     }
 }
@@ -254,10 +255,10 @@ async function recordCustomerPayment(data: {
 
         return { success: true, message: 'Payment recorded successfully' };
     } catch (error) {
-        console.error('Error recording customer payment:', error);
+        logger.error('Failed to record customer payment', { error, invoiceId: data.invoiceId, module: 'FinanceActions' });
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: "Failed to record customer payment. Please ensure input is valid."
         };
     }
 }
@@ -340,10 +341,10 @@ async function recordSupplierPayment(data: {
 
         return { success: true, message: 'Payment recorded successfully' };
     } catch (error) {
-        console.error('Error recording supplier payment:', error);
+        logger.error('Failed to record supplier payment', { error, invoiceId: data.invoiceId, module: 'FinanceActions' });
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: "Failed to record supplier payment. Please ensure input is valid."
         };
     }
 }
@@ -434,10 +435,10 @@ async function deletePayment(id: string) {
 
         return { success: true, message: "Payment deleted successfully" };
     } catch (error) {
-        console.error('Error deleting payment:', error);
+        logger.error('Failed to delete payment', { error, paymentId: id, module: 'FinanceActions' });
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: "Failed to delete payment. Ensure no dependent records exist."
         };
     }
 }

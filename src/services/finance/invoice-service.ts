@@ -4,6 +4,7 @@ import { InvoiceStatus, JournalStatus, NotificationType } from "@prisma/client";
 import { format, addDays } from "date-fns";
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "./auto-journal-service";
+import { logger } from "@/lib/config/logger";
 
 export class InvoiceService {
 
@@ -79,7 +80,7 @@ export class InvoiceService {
 
         // Trigger Auto-Journaling
         await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
-            console.error("Failed to generate auto-journal for invoice:", err);
+            logger.error("Failed to generate auto-journal for invoice", { error: err, invoiceId: invoice.id, module: 'FinanceInvoiceService' });
         });
 
         return invoice;
@@ -195,7 +196,7 @@ export class InvoiceService {
 
         // Auto-Journaling Trigger
         await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch(err => {
-            console.error("Failed to generate auto-journal for invoice:", err);
+            logger.error("Failed to generate auto-journal for invoice", { error: err, invoiceId: invoice.id, module: 'FinanceInvoiceService' });
         });
 
         return invoice;

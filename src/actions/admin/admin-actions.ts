@@ -7,6 +7,7 @@ import { Role } from "@prisma/client";
 import { Client } from "pg";
 import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
+import { logger } from "@/lib/config/logger";
 
 const execPromise = util.promisify(exec);
 
@@ -74,7 +75,7 @@ export async function createAndProvisionTenant(formData: FormData) {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (dbError: any) {
-        console.error("Failed to create database:", dbError);
+        logger.error("Failed to create database", { error: dbError, dbName, module: 'AdminActions' });
         return { error: `Failed to create database: ${dbError.message}` };
     }
 
@@ -115,7 +116,7 @@ export async function createAndProvisionTenant(formData: FormData) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (provisionError: any) {
         // Rollback: try to drop the database if provisioning failed
-        console.error("Provisioning failed, rolling back...", provisionError);
+        logger.error("Provisioning failed, rolling back...", { error: provisionError, dbName, tenantName: name, module: 'AdminActions' });
         try {
             const client = new Client({
                 host: urlObj.hostname,
@@ -128,7 +129,7 @@ export async function createAndProvisionTenant(formData: FormData) {
             await client.query(`DROP DATABASE ${dbName};`);
             await client.end();
         } catch (e) {
-            console.error("Rollback DROP DATABASE failed:", e);
+            logger.error("Rollback DROP DATABASE failed", { error: e, dbName, module: 'AdminActions' });
         }
         return { error: `Provisioning failed: ${provisionError.message}` };
     }
@@ -176,7 +177,7 @@ export async function updateTenant(tenantId: string, formData: FormData) {
         return { success: true };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-        console.error("Failed to update tenant:", error);
+        logger.error("Failed to update tenant", { error, tenantId, module: 'AdminActions' });
         return { error: `Failed to update tenant: ${error.message}` };
     }
 }
@@ -231,7 +232,7 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-        console.error("Failed to reset tenant admin password:", e);
+        logger.error("Failed to reset tenant admin password", { error: e, tenantId, module: 'AdminActions' });
         return { error: `Failed to reset password: ${e.message}` };
     }
 }
