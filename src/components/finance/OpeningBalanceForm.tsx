@@ -8,7 +8,7 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
-import { AccountingInput } from '../ui/accounting-input';
+import { AccountingInput } from './accounting/accounting-input';
 import {
     Form,
     FormControl,

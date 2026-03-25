@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ProductCombobox } from '@/components/ui/product-combobox';
+import { ProductCombobox } from '@/components/products/product-combobox';
 import { Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/utils';

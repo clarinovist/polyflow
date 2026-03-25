@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 // Global mocks for essential application services and database
-vi.mock('@/lib/prisma', async () => {
+vi.mock('@/lib/core/prisma', async () => {
     const { createMockPrisma } = await import('./helpers/createMockPrisma');
     return {
         prisma: createMockPrisma()
@@ -13,7 +13,7 @@ vi.mock('next/cache', () => ({
     revalidateTag: vi.fn(),
 }));
 
-vi.mock('@/lib/audit', () => ({
+vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 

@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import { PackageSearch } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export const metadata: Metadata = {

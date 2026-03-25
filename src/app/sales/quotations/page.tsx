@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { SalesQuotationTable } from '@/components/sales/quotations/SalesQuotationTable';
 import { serializeData } from '@/lib/utils/utils';
 
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export default async function SalesQuotationsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {

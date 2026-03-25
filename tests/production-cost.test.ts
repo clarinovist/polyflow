@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProductionCostService } from '../src/services/production/cost-service';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { MovementType } from '@prisma/client';
 
 // Mock the prisma client
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         productionOrder: {
             findUnique: vi.fn(),

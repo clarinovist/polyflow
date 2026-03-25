@@ -31,14 +31,14 @@ const mockTx: any = {
 };
 
 // Mock prisma
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         $transaction: vi.fn((callback) => callback(mockTx))
     }
 }));
 
 // Mock InventoryService
-vi.mock('@/services/inventory-service', () => ({
+vi.mock('@/services/inventory/inventory-service', () => ({
     InventoryService: {
         validateAndLockStock: vi.fn(),
         deductStock: vi.fn(),
@@ -47,7 +47,7 @@ vi.mock('@/services/inventory-service', () => ({
 }));
 
 // Mock AccountingService
-vi.mock('@/services/accounting-service', () => ({
+vi.mock('@/services/accounting/accounting-service', () => ({
     AccountingService: {
         recordInventoryMovement: vi.fn()
     }

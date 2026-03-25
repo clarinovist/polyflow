@@ -15,7 +15,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/components/layout/theme-provider';
 import { useState } from 'react';
 
 interface AdminNavProps {

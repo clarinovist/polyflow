@@ -5,7 +5,7 @@ import { Receipt } from "lucide-react";
 import { serializeData } from "@/lib/utils/utils";
 
 import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;

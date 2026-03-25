@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Plus, Trash2, ShoppingBag, Calculator } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
-import { ProductCombobox } from '@/components/ui/product-combobox';
+import { ProductCombobox } from '@/components/products/product-combobox';
 import { Badge } from '@/components/ui/badge';
 
 interface PurchaseOrderFormProps {

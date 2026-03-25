@@ -15,7 +15,7 @@ import { useMemo, useEffect, useState } from 'react';
 import { Plus, Trash2, ArrowRight, Package, ClipboardList } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProductCombobox } from '@/components/ui/product-combobox';
+import { ProductCombobox } from '@/components/products/product-combobox';
 
 interface TransferFormProps {
     locations: { id: string; name: string }[];

@@ -7,6 +7,8 @@ import { Role, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
+import { catchError } from '@/lib/errors/error-handler';
+import { AuthorizationError, ConflictError, BusinessRuleError } from '@/lib/errors/errors';
 
 // Schema for creating a user
 const CreateUserSchema = z.object({
@@ -33,14 +35,14 @@ export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 async function checkAdmin() {
     const session = await auth();
     if (!session?.user || session.user.role !== 'ADMIN') {
-        throw new Error('Unauthorized: Admin access required');
+        throw new AuthorizationError('Unauthorized: Admin access required');
     }
     return session;
 }
 
 export const getUsers = withTenant(
     async function getUsers() {
-        try {
+        return catchError(async () => {
             await checkAdmin();
             const users = await prisma.user.findMany({
                 where: { isSuperAdmin: false },
@@ -53,17 +55,14 @@ export const getUsers = withTenant(
                 },
                 orderBy: { createdAt: 'desc' },
             });
-            return { success: true, data: users };
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
-            return { success: false, error: 'Failed to fetch users' };
-        }
+            return users;
+        });
     }
 );
 
 export const createUser = withTenant(
     async function createUser(data: CreateUserInput) {
-        try {
+        return catchError(async () => {
             await checkAdmin();
             const validated = CreateUserSchema.parse(data);
 
@@ -72,7 +71,7 @@ export const createUser = withTenant(
             });
 
             if (existingUser) {
-                return { success: false, error: 'Email already registered' };
+                throw new ConflictError('Email already registered');
             }
 
             const hashedPassword = await bcrypt.hash(validated.password, 10);
@@ -87,26 +86,19 @@ export const createUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to create user:', error);
-            if (error instanceof z.ZodError) {
-                // Return the first error message
-                return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
-            }
-            return { success: false, error: (error as Error).message };
-        }
+            return true;
+        });
     }
 );
 
 export const updateUserRole = withTenant(
     async function updateUserRole(userId: string, newRole: Role) {
-        try {
+        return catchError(async () => {
             await checkAdmin();
 
             const targetUser = await prisma.user.findUnique({ where: { id: userId } });
             if (!targetUser || targetUser.isSuperAdmin) {
-                return { success: false, error: 'Cannot modify Super Admin role' };
+                throw new BusinessRuleError('Cannot modify Super Admin role');
             }
 
             await prisma.user.update({
@@ -115,17 +107,14 @@ export const updateUserRole = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to update user role:', error);
-            return { success: false, error: 'Failed to update role' };
-        }
+            return true;
+        });
     }
 );
 
 export const updateUser = withTenant(
     async function updateUser(data: UpdateUserInput) {
-        try {
+        return catchError(async () => {
             await checkAdmin();
             const validated = UpdateUserSchema.parse(data);
 
@@ -139,7 +128,7 @@ export const updateUser = withTenant(
                         NOT: { id: validated.id }
                     }
                 });
-                if (existing) return { success: false, error: 'Email already taken' };
+                if (existing) throw new ConflictError('Email already taken');
                 updateData.email = validated.email;
             }
             if (validated.password) {
@@ -149,7 +138,7 @@ export const updateUser = withTenant(
 
             const targetUser = await prisma.user.findUnique({ where: { id: validated.id } });
             if (!targetUser || targetUser.isSuperAdmin) {
-                return { success: false, error: 'Cannot modify Super Admin accounts' };
+                throw new BusinessRuleError('Cannot modify Super Admin accounts');
             }
 
             await prisma.user.update({
@@ -158,30 +147,24 @@ export const updateUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to update user:', error);
-            if (error instanceof z.ZodError) {
-                return { success: false, error: error.issues?.[0]?.message || 'Validation error' };
-            }
-            return { success: false, error: (error as Error).message };
-        }
+            return true;
+        });
     }
 );
 
 export const deleteUser = withTenant(
     async function deleteUser(userId: string) {
-        try {
+        return catchError(async () => {
             const session = await checkAdmin();
 
             // Prevent deleting self
             if (session.user?.id === userId) {
-                return { success: false, error: 'Cannot delete your own account' };
+                throw new BusinessRuleError('Cannot delete your own account');
             }
 
             const targetUser = await prisma.user.findUnique({ where: { id: userId } });
             if (!targetUser || targetUser.isSuperAdmin) {
-                return { success: false, error: 'Cannot delete Super Admin accounts' };
+                throw new BusinessRuleError('Cannot delete Super Admin accounts');
             }
 
             await prisma.user.delete({
@@ -189,10 +172,7 @@ export const deleteUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to delete user:', error);
-            return { success: false, error: 'Failed to delete user' };
-        }
+            return true;
+        });
     }
 );

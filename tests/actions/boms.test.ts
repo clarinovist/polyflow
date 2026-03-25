@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateBomCost } from '../../src/lib/production-utils';
+import { calculateBomCost } from '../../src/lib/utils/production-utils';
 
 interface MockBomItem {
     productVariant: { standardCost?: number | null; buyPrice?: number | null } | null;

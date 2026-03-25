@@ -30,7 +30,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AccountingInput, formatAccounting } from '@/components/ui/accounting-input';
+import { AccountingInput, formatAccounting } from '@/components/finance/accounting/accounting-input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { saveUnifiedOpeningBalance, CreateOpeningBalanceInput } from '@/actions/finance/opening-balance';

@@ -4,6 +4,13 @@ import { ProductionCostService } from '../production/cost-service';
 import { prisma } from '@/lib/core/prisma';
 import { MovementType } from '@prisma/client';
 
+vi.mock('@/lib/core/prisma', () => ({
+    prisma: {
+        productionOrder: { findUnique: vi.fn() },
+        stockMovement: { findMany: vi.fn() },
+    }
+}));
+
 describe('ProductionCostService', () => {
     beforeEach(() => {
         vi.clearAllMocks();

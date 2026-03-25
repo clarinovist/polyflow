@@ -7,7 +7,7 @@ import { PurchaseInvoiceStatus } from '@prisma/client';
 export const dynamic = 'force-dynamic';
 
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 export default async function SentPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;

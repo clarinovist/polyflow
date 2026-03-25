@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as productionActions from '@/actions/production';
-import { ProductionService } from '@/services/production-service';
-import { MrpService } from '@/services/mrp-service';
+import * as productionActions from '@/actions/production/production';
+import { ProductionService } from '@/services/production/production-service';
+import { MrpService } from '@/services/production/mrp-service';
 import { auth } from '@/auth';
 
 // Mock auth
@@ -10,7 +10,7 @@ vi.mock('@/auth', () => ({
 }));
 
 // Mock ProductionService
-vi.mock('@/services/production-service', () => ({
+vi.mock('@/services/production/production-service', () => ({
     ProductionService: {
         stopExecution: vi.fn(),
         startExecution: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock('@/services/production-service', () => ({
 }));
 
 // Mock MrpService
-vi.mock('@/services/mrp-service', () => ({
+vi.mock('@/services/production/mrp-service', () => ({
     MrpService: {
         simulateMaterialRequirements: vi.fn(),
     },
@@ -42,7 +42,7 @@ vi.mock('next/cache', () => ({
 }));
 
 // Mock serializeData
-vi.mock('@/lib/utils', () => ({
+vi.mock('@/lib/utils/utils', () => ({
     serializeData: (data: unknown) => data,
 }));
 

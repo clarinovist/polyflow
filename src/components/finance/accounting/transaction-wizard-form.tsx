@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { AccountCombobox } from "./account-combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AccountingInput } from '../../ui/accounting-input';
+import { AccountingInput } from './accounting-input';
 
 interface Account {
     id: string;

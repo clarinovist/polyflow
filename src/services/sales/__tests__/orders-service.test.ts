@@ -14,12 +14,18 @@ vi.mock('@/lib/core/prisma', () => ({
         },
         inventory: {
             findUnique: vi.fn(),
+            findMany: vi.fn(),
         },
         stockReservation: {
             aggregate: vi.fn(),
+            groupBy: vi.fn(),
         },
         bom: {
             findFirst: vi.fn(),
+            findMany: vi.fn(),
+        },
+        productVariant: {
+            findMany: vi.fn(),
         },
         $transaction: vi.fn((callback) => callback(prisma)),
     }
@@ -68,8 +74,12 @@ describe('confirmOrder', () => {
         } as any);
 
         vi.mocked(prisma.inventory.findUnique).mockResolvedValue(null);
+        vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
         vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({ _sum: { quantity: null } } as any);
+        vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as any);
         vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: 'bom-1' } as any);
+        vi.mocked(prisma.bom.findMany).mockResolvedValue([{ productVariantId: 'pv-1' }] as any);
+        vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as any);
         vi.mocked(checkCreditLimit).mockResolvedValue(undefined);
     });
 

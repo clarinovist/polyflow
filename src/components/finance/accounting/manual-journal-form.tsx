@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils/utils";
 import { AccountCombobox } from "./account-combobox";
 import { JOURNAL_TEMPLATES } from '@/lib/config/accounting-templates';
-import { AccountingInput } from '../../ui/accounting-input';
+import { AccountingInput } from './accounting-input';
 
 interface Account {
     id: string;

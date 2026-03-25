@@ -4,7 +4,7 @@ import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 import { Package } from 'lucide-react';
 
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export default async function SalesDeliveriesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {

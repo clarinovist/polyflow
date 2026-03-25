@@ -295,6 +295,10 @@ model StockMovement {
   productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
 
   @@index([productionOrderId])
+  @@index([productVariantId])
+  @@index([createdAt])
+  @@index([fromLocationId])
+  @@index([toLocationId])
 }
 
 model Inventory {

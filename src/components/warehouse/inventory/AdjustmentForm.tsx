@@ -15,7 +15,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Plus, Trash2, Package, ClipboardList, AlertCircle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProductCombobox } from '@/components/ui/product-combobox';
+import { ProductCombobox } from '@/components/products/product-combobox';
 
 interface SerializedInventory {
     locationId: string;

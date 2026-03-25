@@ -10,6 +10,9 @@ export type ActionResponse<T = unknown> = {
     code?: string;
 };
 
+import { ApplicationError } from './errors';
+import { AppError } from './error-map';
+
 /**
  * Normalizes various error types into a consistent ActionResponse format.
  */
@@ -57,6 +60,24 @@ export function handleError(error: unknown): ActionResponse {
         }
     }
 
+    // Custom Application Errors from errors.ts
+    if (error instanceof ApplicationError) {
+        return {
+            success: false,
+            error: error.message,
+            code: error.code,
+        };
+    }
+
+    // Custom AppError from error-map.ts
+    if (error instanceof AppError) {
+        return {
+            success: false,
+            error: error.message,
+            code: error.code,
+        };
+    }
+
     // Generic Error with message
     if (error instanceof Error) {
         return {
@@ -83,7 +104,13 @@ export async function catchError<T>(
     try {
         const data = await action();
         return { success: true, data: serializeData(data) };
-    } catch (error) {
+    } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'message' in error) {
+            const err = error as { message: string, digest?: string };
+            if (err.message === 'NEXT_REDIRECT' || err.message === 'NEXT_NOT_FOUND' || err.digest?.startsWith('NEXT_REDIRECT')) {
+                throw error;
+            }
+        }
         return handleError(error) as ActionResponse<T>;
     }
 }

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { InvoiceTable } from '@/components/sales/InvoiceTable';
 import { formatRupiah, serializeData } from '@/lib/utils/utils';
 import { BadgeDollarSign, AlertCircle } from 'lucide-react';
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export default async function SalesInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {

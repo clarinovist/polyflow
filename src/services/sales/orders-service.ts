@@ -227,53 +227,56 @@ export async function confirmOrder(id: string, userId: string) {
         // Skip reservations if it's a MAKE_TO_STOCK order without a customer (Internal Production)
         const isInternalMts = order.orderType === SalesOrderType.MAKE_TO_STOCK && !order.customerId;
 
-        if (!isInternalMts) {
+        if (!isInternalMts && order.sourceLocationId) {
+            const variantIds = order.items.map(item => item.productVariantId);
+            
+            // Bulk fetch inventory for all items
+            const inventories = await tx.inventory.findMany({
+                where: {
+                    locationId: order.sourceLocationId,
+                    productVariantId: { in: variantIds }
+                }
+            });
+            const inventoryMap = new Map(inventories.map(inv => [inv.productVariantId, inv.quantity.toNumber()]));
+
+            // Bulk fetch active reservations for all items
+            const activeReservations = await tx.stockReservation.groupBy({
+                by: ['productVariantId'],
+                where: {
+                    locationId: order.sourceLocationId,
+                    productVariantId: { in: variantIds },
+                    status: ReservationStatus.ACTIVE
+                },
+                _sum: { quantity: true }
+            });
+            const reservationMap = new Map(activeReservations.map(res => [res.productVariantId, res._sum.quantity?.toNumber() || 0]));
+
             for (const item of order.items) {
                 let activeReservationAmount = 0;
                 let shortageAmount = item.quantity.toNumber();
 
-                if (order.sourceLocationId) {
-                    const inventory = await tx.inventory.findUnique({
-                        where: {
-                            locationId_productVariantId: {
-                                locationId: order.sourceLocationId,
-                                productVariantId: item.productVariantId
-                            }
-                        }
-                    });
+                const currentQty = inventoryMap.get(item.productVariantId) || 0;
+                const reservedQty = reservationMap.get(item.productVariantId) || 0;
+                const available = currentQty - reservedQty;
+                const demand = item.quantity.toNumber();
 
-                    const reservations = await tx.stockReservation.aggregate({
-                        where: {
-                            locationId: order.sourceLocationId,
-                            productVariantId: item.productVariantId,
-                            status: ReservationStatus.ACTIVE
-                        },
-                        _sum: { quantity: true }
-                    });
+                if (available >= demand) {
+                    activeReservationAmount = demand;
+                    shortageAmount = 0;
+                } else {
+                    activeReservationAmount = Math.max(0, available);
+                    shortageAmount = demand - activeReservationAmount;
+                }
 
-                    const currentQty = inventory?.quantity?.toNumber() || 0;
-                    const reservedQty = reservations._sum.quantity?.toNumber() || 0;
-                    const available = currentQty - reservedQty;
-                    const demand = item.quantity.toNumber();
-
-                    if (available >= demand) {
-                        activeReservationAmount = demand;
-                        shortageAmount = 0;
-                    } else {
-                        activeReservationAmount = Math.max(0, available);
-                        shortageAmount = demand - activeReservationAmount;
-                    }
-
-                    if (activeReservationAmount > 0) {
-                        await InventoryService.createStockReservation({
-                            productVariantId: item.productVariantId,
-                            locationId: order.sourceLocationId,
-                            quantity: activeReservationAmount,
-                            reservedFor: ReservationType.SALES_ORDER,
-                            referenceId: order.id,
-                            reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                        }, tx);
-                    }
+                if (activeReservationAmount > 0) {
+                    await InventoryService.createStockReservation({
+                        productVariantId: item.productVariantId,
+                        locationId: order.sourceLocationId,
+                        quantity: activeReservationAmount,
+                        reservedFor: ReservationType.SALES_ORDER,
+                        referenceId: order.id,
+                        reservedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    }, tx);
                 }
 
                 if (shortageAmount > 0) {
@@ -284,15 +287,22 @@ export async function confirmOrder(id: string, userId: string) {
 
         if (shortages.length > 0) {
             nextStatus = SalesOrderStatus.IN_PRODUCTION;
-        }
-
-        for (const shortage of shortages) {
-            const bom = await tx.bom.findFirst({
-                where: { productVariantId: shortage.productVariantId, isDefault: true }
+            const shortageVariantIds = shortages.map(s => s.productVariantId);
+            
+            const boms = await tx.bom.findMany({
+                where: { productVariantId: { in: shortageVariantIds }, isDefault: true },
+                select: { productVariantId: true }
             });
-            if (!bom) {
-                const variant = await tx.productVariant.findUnique({ where: { id: shortage.productVariantId }, select: { name: true } });
-                throw new Error(`Cannot confirm order: Default BOM not found for product "${variant?.name || 'Unknown'}" to cover shortage. Please create a BOM first.`);
+            const bomVariantIds = new Set(boms.map(b => b.productVariantId));
+            
+            const missingBoms = shortageVariantIds.filter(id => !bomVariantIds.has(id));
+            if (missingBoms.length > 0) {
+                const variants = await tx.productVariant.findMany({
+                    where: { id: { in: missingBoms } },
+                    select: { name: true }
+                });
+                const names = variants.map(v => v.name).join(', ');
+                throw new Error(`Cannot confirm order: Default BOM not found for products: ${names}. Please create a BOM first.`);
             }
         }
 

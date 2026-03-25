@@ -36,7 +36,7 @@ import {
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
-import { ProductCombobox } from '@/components/ui/product-combobox';
+import { ProductCombobox } from '@/components/products/product-combobox';
 
 interface BOMFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

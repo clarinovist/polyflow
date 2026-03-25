@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProductionExecutionService } from '@/services/production/execution-service';
 import { ProductionCostService } from '@/services/production/cost-service';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { ProductionStatus } from '@prisma/client';
-import { AccountingService } from '@/services/accounting-service';
+import { AccountingService } from '@/services/accounting/accounting-service';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         $transaction: vi.fn(),
     },
@@ -17,7 +17,7 @@ vi.mock('@/services/production/cost-service', () => ({
     },
 }));
 
-vi.mock('@/services/accounting-service', () => ({
+vi.mock('@/services/accounting/accounting-service', () => ({
     AccountingService: {
         recordInventoryMovement: vi.fn(),
     },

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export default async function WarehouseOutgoingPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {

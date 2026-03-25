@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 
-import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
+import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
 export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {

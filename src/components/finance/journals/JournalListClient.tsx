@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { columns, JournalEntryWithDetails } from './JournalColumns';
 import { getJournalEntries, batchPostJournals } from '@/actions/finance/journal-actions';
 import { JournalStatus } from '@prisma/client';
-import { TransactionDateFilter } from '@/components/ui/transaction-date-filter';
+import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
 import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 // import { DataTable } from '@/components/ui/data-table'; 

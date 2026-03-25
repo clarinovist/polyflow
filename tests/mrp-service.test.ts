@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MrpService } from '../src/services/mrp-service';
+import { MrpService } from '../src/services/production/mrp-service';
 
 // Mock the entire prisma module
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
   prisma: {
     salesOrder: {
       findUnique: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 
 describe('MrpService - BOM Requirement Logic', () => {
   beforeEach(() => {

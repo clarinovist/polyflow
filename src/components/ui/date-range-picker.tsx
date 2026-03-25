@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { DateRange } from "react-day-picker"
-import { TransactionDateFilter } from "@/components/ui/transaction-date-filter"
+import { TransactionDateFilter } from "@/components/common/transaction-date-filter"
 
 interface DatePickerWithRangeProps {
     className?: string
