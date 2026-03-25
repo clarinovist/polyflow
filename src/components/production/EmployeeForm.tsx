@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Employee, EmployeeStatus } from '@prisma/client';
-import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/employees';
-import { getJobRoles, createJobRole } from '@/actions/roles';
+import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/admin/employees';
+import { getJobRoles, createJobRole } from '@/actions/admin/roles';
 import { useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 

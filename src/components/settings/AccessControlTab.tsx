@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getRolePermissions, updatePermission } from '@/actions/permissions';
+import { getRolePermissions, updatePermission } from '@/actions/admin/permissions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,

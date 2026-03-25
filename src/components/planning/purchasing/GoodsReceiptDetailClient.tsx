@@ -4,7 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, Package, MapPin, Calendar, User, FileText } from 'lucide-react';
 import Link from 'next/link';

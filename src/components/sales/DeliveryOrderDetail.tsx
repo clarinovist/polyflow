@@ -8,7 +8,7 @@ import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check } 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { deliverSalesOrder } from '@/actions/sales';
+import { deliverSalesOrder } from '@/actions/sales/sales';
 import { toast } from 'sonner';
 
 

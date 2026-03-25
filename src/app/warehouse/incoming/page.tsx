@@ -1,9 +1,9 @@
 import React from 'react';
-import { PurchaseService } from '@/services/purchase-service';
+import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { GoodsReceiptTable } from '@/components/planning/purchasing/GoodsReceiptTable';
 import { Metadata } from 'next';
 import { PackageSearch } from 'lucide-react';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';

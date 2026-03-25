@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AccountingService } from '../accounting-service';
-import { prisma } from '@/lib/prisma';
+import { AccountingService } from '../accounting/accounting-service';
+import { prisma } from '@/lib/core/prisma';
 import * as periodsService from '../accounting/periods-service';
 
 vi.mock('../accounting/periods-service', async (importOriginal) => {

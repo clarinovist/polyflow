@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LabelList } from 'recharts';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { SalesPipelineSummary } from '@/types/analytics';
 
 interface SalesPipelineChartProps {

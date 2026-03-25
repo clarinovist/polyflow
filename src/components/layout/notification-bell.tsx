@@ -12,7 +12,7 @@ import {
     getUnreadNotificationCount,
     markAllMyNotificationsAsRead,
     markNotificationAsRead
-} from '@/actions/notifications';
+} from '@/actions/core/notifications';
 import Link from 'next/link';
 import { NotificationType } from '@prisma/client';
 

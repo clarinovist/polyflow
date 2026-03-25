@@ -1,8 +1,8 @@
-import { getOpnameSession } from '@/actions/opname';
+import { getOpnameSession } from '@/actions/inventory/opname';
 import { auth } from '@/auth';
 import { notFound } from 'next/navigation';
 import { OpnameDetailClient, OpnameSession } from '@/components/warehouse/inventory/opname/OpnameDetailClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 interface PageProps {
     params: Promise<{ id: string }>;

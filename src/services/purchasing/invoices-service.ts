@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import { logActivity } from '@/lib/audit';
+import { prisma } from '@/lib/core/prisma';
+import { logActivity } from '@/lib/tools/audit';
 import { addDays } from 'date-fns';
 import { PurchaseInvoiceStatus, Prisma, NotificationType } from '@prisma/client';
 import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
@@ -195,7 +195,7 @@ export async function createDraftBillFromPo(purchaseOrderId: string, userId: str
 }
 
 export async function checkOverduePurchasingInvoices() {
-    const { NotificationService } = await import('@/services/notification-service');
+    const { NotificationService } = await import('@/services/core/notification-service');
     const overdueInvoices = await prisma.purchaseInvoice.findMany({
         where: {
             dueDate: { lt: new Date() },

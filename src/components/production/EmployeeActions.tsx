@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteEmployee } from '@/actions/employees';
+import { deleteEmployee } from '@/actions/admin/employees';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {

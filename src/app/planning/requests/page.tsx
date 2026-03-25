@@ -1,4 +1,4 @@
-import { getSalesOrders } from '@/actions/sales';
+import { getSalesOrders } from '@/actions/sales/sales';
 import { ProductionRequestsClient } from '@/components/production/ProductionRequestsClient';
 
 export const dynamic = 'force-dynamic';

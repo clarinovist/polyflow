@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { unlinkSupplierFromProduct } from '@/actions/supplier-product';
+import { unlinkSupplierFromProduct } from '@/actions/purchasing/supplier-product';
 
 interface UnlinkProductButtonProps {
     id: string;

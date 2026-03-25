@@ -7,14 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { updateProductionOrder, deleteProductionOrder } from '@/actions/production';
+import { updateProductionOrder, deleteProductionOrder } from '@/actions/production/production';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon, Factory } from 'lucide-react';
-import { cn, formatRupiah } from '@/lib/utils';
-import { getOrderCosting } from '@/actions/finance';
+import { cn, formatRupiah } from '@/lib/utils/utils';
+import { getOrderCosting } from '@/actions/finance/finance';
 import { useEffect } from 'react';
 import {
     AlertDialog,
@@ -43,7 +43,7 @@ import { RecordQCDialog } from '@/components/production/order-detail/RecordQCDia
 import { ManualProcurementDialog } from '@/components/production/order-detail/ManualProcurementDialog';
 import { ChildOrderList } from '@/components/production/order-detail/ChildOrderList';
 import { AddIssueDialog } from '@/components/production/order-detail/AddIssueDialog';
-import { updateProductionIssueStatus } from '@/actions/production';
+import { updateProductionIssueStatus } from '@/actions/production/production';
 import { AlertTriangle } from 'lucide-react';
 
 

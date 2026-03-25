@@ -8,8 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { saveOpnameCount } from '@/actions/opname';
-import { formatQuantity } from '@/lib/utils';
+import { saveOpnameCount } from '@/actions/inventory/opname';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface OpnameItem {
     id: string;

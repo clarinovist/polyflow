@@ -1,14 +1,14 @@
-import { getSalesDashboardStats } from '@/actions/sales-dashboard';
+import { getSalesDashboardStats } from '@/actions/dashboard/sales-dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { serializeData, formatRupiah } from '@/lib/utils';
+import { serializeData, formatRupiah } from '@/lib/utils/utils';
 import { Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { RevenueChart } from '@/components/sales/analytics/RevenueChart';
 import { TopProductsList, TopCustomersList } from '@/components/sales/analytics/TopLists';
 
-import { SalesMetrics } from '@/services/analytics-service';
+import { SalesMetrics } from '@/services/analytics/analytics-service';
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 

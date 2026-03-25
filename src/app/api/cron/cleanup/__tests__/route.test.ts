@@ -5,7 +5,9 @@ import { GET } from '../route';
 vi.mock('next/server', () => {
     class MockNextResponse {
         status: number;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         _body: any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         constructor(body?: any, init?: { status?: number }) {
             this._body = body;
             this.status = init?.status || 200;
@@ -16,6 +18,7 @@ vi.mock('next/server', () => {
         async json() {
             return typeof this._body === 'string' ? JSON.parse(this._body) : this._body;
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         static json(body: any, init?: { status?: number }) {
             return new MockNextResponse(body, init);
         }
@@ -23,7 +26,7 @@ vi.mock('next/server', () => {
     return { NextResponse: MockNextResponse, NextRequest: class {} };
 });
 // Mock prisma
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         auditLog: {
             deleteMany: vi.fn().mockResolvedValue({ count: 5 })
@@ -35,7 +38,7 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 // Mock services that are dynamically imported
-vi.mock('@/services/inventory-service', () => ({
+vi.mock('@/services/inventory/inventory-service', () => ({
     InventoryService: {
         checkLowStockTriggers: vi.fn().mockResolvedValue(undefined)
     }
@@ -43,7 +46,7 @@ vi.mock('@/services/inventory-service', () => ({
 vi.mock('@/services/purchasing/invoices-service', () => ({
     checkOverduePurchasingInvoices: vi.fn().mockResolvedValue(undefined)
 }));
-vi.mock('@/services/invoice-service', () => ({
+vi.mock('@/services/finance/invoice-service', () => ({
     InvoiceService: {
         checkOverdueSalesInvoices: vi.fn().mockResolvedValue(undefined)
     }

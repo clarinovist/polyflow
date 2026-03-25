@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { voidProductionOutput } from '@/actions/production';
+import { voidProductionOutput } from '@/actions/production/production';
 import {
     AlertDialog,
     AlertDialogAction,

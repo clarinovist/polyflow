@@ -1,5 +1,5 @@
-import { getBom } from '@/actions/boms';
-import { canViewPrices } from '@/actions/permissions';
+import { getBom } from '@/actions/production/boms';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { BOMDetails } from '@/components/production/bom/BOMDetails';
 import { notFound } from 'next/navigation';
 

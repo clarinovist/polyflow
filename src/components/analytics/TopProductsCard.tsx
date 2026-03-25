@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TopProductItem } from '@/types/analytics';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { Progress } from '@/components/ui/progress';
 
 interface TopProductsCardProps {

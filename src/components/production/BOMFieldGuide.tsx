@@ -1,7 +1,7 @@
 'use client';
 
 import { HelpCircle, Info, FlaskConical, ListChecks, Calculator, TrendingUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
     Dialog,
     DialogContent,

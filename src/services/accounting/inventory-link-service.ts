@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Prisma, StockMovement, JournalStatus } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
-import { updateStandardCost } from '@/actions/cost-history';
+import { updateStandardCost } from '@/actions/finance/cost-history';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } }
@@ -85,8 +85,8 @@ export async function recordInventoryMovement(
     if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
         const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         lines.push(
-            { accountId: (await getAccountId(invAccount)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
-            { accountId: (await getAccountId('21110')), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
+            { accountId: (await getAccountId(invAccount, db)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
+            { accountId: (await getAccountId('21110', db)), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
         );
     }
 
@@ -94,8 +94,8 @@ export async function recordInventoryMovement(
         const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         const cogsAccount = productVariant.product.cogsAccountId || '50000';
         lines.push(
-            { accountId: (await getAccountId(cogsAccount)), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
-            { accountId: (await getAccountId(invAccount)), debit: 0, credit: totalAmount, description: `Shipment: ${productVariant.name}` }
+            { accountId: (await getAccountId(cogsAccount, db)), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
+            { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: totalAmount, description: `Shipment: ${productVariant.name}` }
         );
     }
 
@@ -103,8 +103,8 @@ export async function recordInventoryMovement(
         const creditAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         const wipAccount = productVariant.product.wipAccountId || '11320';
         lines.push(
-            { accountId: (await getAccountId(wipAccount)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
-            { accountId: (await getAccountId(creditAccount)), debit: 0, credit: totalAmount, description: `Material Consumed` }
+            { accountId: (await getAccountId(wipAccount, db)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
+            { accountId: (await getAccountId(creditAccount, db)), debit: 0, credit: totalAmount, description: `Material Consumed` }
         );
     }
 
@@ -112,8 +112,8 @@ export async function recordInventoryMovement(
         const debitAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
         const wipAccount = productVariant.product.wipAccountId || '11320';
         lines.push(
-            { accountId: (await getAccountId(debitAccount)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
-            { accountId: (await getAccountId(wipAccount)), debit: 0, credit: totalAmount, description: `WIP Relief` }
+            { accountId: (await getAccountId(debitAccount, db)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
+            { accountId: (await getAccountId(wipAccount, db)), debit: 0, credit: totalAmount, description: `WIP Relief` }
         );
     }
 
@@ -124,13 +124,13 @@ export async function recordInventoryMovement(
         // If toLocationId is present, stock went IN (Gain). If it's null, stock went OUT (Loss).
         if (movement.toLocationId !== null) {
             lines.push(
-                { accountId: (await getAccountId(invAccount)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
-                { accountId: (await getAccountId('81100')), debit: 0, credit: absAmt, description: `Adj Gain` }
+                { accountId: (await getAccountId(invAccount, db)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
+                { accountId: (await getAccountId('81100', db)), debit: 0, credit: absAmt, description: `Adj Gain` }
             );
         } else {
             lines.push(
-                { accountId: (await getAccountId('91100')), debit: absAmt, credit: 0, description: `Adj Loss` },
-                { accountId: (await getAccountId(invAccount)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
+                { accountId: (await getAccountId('91100', db)), debit: absAmt, credit: 0, description: `Adj Loss` },
+                { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
             );
         }
     }
@@ -152,7 +152,8 @@ export async function recordInventoryMovement(
 
 const accountCache = new Map<string, string>();
 
-async function getAccountId(code: string): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getAccountId(code: string, db: any): Promise<string> {
     // If code is already a UUID (e.g. from Product account mappings), return it directly
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)) {
         return code;
@@ -160,7 +161,7 @@ async function getAccountId(code: string): Promise<string> {
 
     if (accountCache.has(code)) return accountCache.get(code)!;
 
-    const acc = await prisma.account.findUnique({ where: { code } });
+    const acc = await db.account.findUnique({ where: { code } });
     if (!acc) throw new Error(`GL Account code ${code} not found during auto-journal.`);
 
     accountCache.set(code, acc.id);

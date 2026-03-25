@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 
 import { Loader2, AlertTriangle, Hammer, CheckCircle2, ArrowRight } from 'lucide-react';
-import { checkSalesOrderFulfillment } from '@/actions/sales';
+import { checkSalesOrderFulfillment } from '@/actions/sales/sales';
 
 import Link from 'next/link';
 import { ProductionOrder } from '@prisma/client';

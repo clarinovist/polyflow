@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword } from "@/actions/admin-actions";
+import { createAndProvisionTenant, updateTenant, resetTenantAdminPassword } from "@/actions/admin/admin-actions";
 import { Edit, KeyRound } from "lucide-react";
 
 function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: () => void }) {

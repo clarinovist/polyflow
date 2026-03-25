@@ -1,6 +1,6 @@
 import { MachineForm } from '@/components/production/MachineForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 
 export default async function CreateMachinePage() {
     const locations = await prisma.location.findMany({

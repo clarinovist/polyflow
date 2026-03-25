@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Search, ChevronRight, Activity, Clock, AlertCircle, Layers } from 'lucide-react';
 import Link from 'next/link';
-import { getProductionOrders, getProductionOrderStats } from '@/actions/production';
+import { getProductionOrders, getProductionOrderStats } from '@/actions/production/production';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';

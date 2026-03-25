@@ -1,10 +1,10 @@
-import { StockAgingService } from '@/services/stock-aging-service';
+import { StockAgingService } from '@/services/inventory/stock-aging-service';
 import { StockAgingTable } from '@/components/warehouse/inventory/StockAgingTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, RefreshCw, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {

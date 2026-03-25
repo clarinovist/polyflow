@@ -22,9 +22,9 @@ import {
     Loader2,
     FileDown
 } from 'lucide-react';
-import { parseImportFile, downloadCSVTemplate, downloadExcelTemplate, downloadErrorReport, rowsToProducts } from '@/lib/csv-parser';
-import { validateImportRows, ValidationResult, getValidationSummary } from '@/lib/import-validator';
-import { importProducts, getExistingSKUs } from '@/actions/import';
+import { parseImportFile, downloadCSVTemplate, downloadExcelTemplate, downloadErrorReport, rowsToProducts } from '@/lib/utils/csv-parser';
+import { validateImportRows, ValidationResult, getValidationSummary } from '@/lib/utils/import-validator';
+import { importProducts, getExistingSKUs } from '@/actions/core/import';
 import { ImportPreviewTable } from './ImportPreviewTable';
 
 type ImportStep = 'upload' | 'preview' | 'result';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { SalesOrderType } from '@prisma/client';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 export const salesOrderItemSchema = z.object({
     id: z.string().optional(),

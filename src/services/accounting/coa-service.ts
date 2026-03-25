@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { AccountType, AccountCategory } from '@prisma/client';
 
 export async function getChartOfAccounts() {

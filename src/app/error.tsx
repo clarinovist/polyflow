@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
-import { getUserFriendlyError } from '@/lib/error-map';
+import { getUserFriendlyError } from '@/lib/errors/error-map';
 
 export default function Error({
     error,

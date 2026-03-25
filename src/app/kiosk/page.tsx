@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { serializeData } from "@/lib/utils";
+import { prisma } from "@/lib/core/prisma";
+import { serializeData } from "@/lib/utils/utils";
 import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search } from "lucide-react";

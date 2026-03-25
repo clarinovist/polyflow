@@ -1,6 +1,6 @@
-import { withTenantRoute } from "@/lib/tenant";
+import { withTenantRoute } from "@/lib/core/tenant";
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 
 import os from 'os';
 

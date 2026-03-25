@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import {
     BatchMaterialIssueValues,
     MaterialIssueValues,
@@ -6,9 +6,9 @@ import {
     QualityInspectionValues
 } from '@/lib/schemas/production';
 import { MovementType, ReferenceType } from '@prisma/client';
-import { InventoryService } from '../inventory-service';
+import { InventoryService } from '../inventory/inventory-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
-import { AccountingService } from '../accounting-service';
+import { AccountingService } from '../accounting/accounting-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export class ProductionMaterialService {

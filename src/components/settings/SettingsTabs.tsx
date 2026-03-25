@@ -6,7 +6,7 @@ import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings as SettingsIcon, User, Users, Lock, Monitor, LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 

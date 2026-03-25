@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Plus, Users, Package, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { ExtendedProductionOrder } from './types';
 import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
-import { addProductionOutput } from '@/actions/production';
+import { addProductionOutput } from '@/actions/production/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
 interface OutputFormData {

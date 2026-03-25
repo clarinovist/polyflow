@@ -1,8 +1,8 @@
-import { getMachineById } from '@/actions/machines';
+import { getMachineById } from '@/actions/production/machines';
 import { MachineForm } from '@/components/production/MachineForm';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 
 interface EditMachinePageProps {
     params: Promise<{ id: string }>;

@@ -1,5 +1,5 @@
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import {
     StartExecutionValues,
     StopExecutionValues,
@@ -8,10 +8,10 @@ import {
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
 import { ProductionStatus, MovementType, ProductionMaterial, BomItem } from '@prisma/client';
-import { InventoryService } from '../inventory-service';
+import { InventoryService } from '../inventory/inventory-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
-import { AccountingService } from '../accounting-service';
+import { AccountingService } from '../accounting/accounting-service';
 import { ProductionMaterialService } from './material-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 

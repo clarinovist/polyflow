@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { deleteScrap } from '@/actions/production';
+import { deleteScrap } from '@/actions/production/production';
 import {
     AlertDialog,
     AlertDialogAction,

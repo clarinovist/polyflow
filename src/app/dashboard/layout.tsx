@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { getMyPermissions } from '@/actions/permissions';
+import { getMyPermissions } from '@/actions/admin/permissions';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
 

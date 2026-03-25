@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExtendedProductionOrder } from './types';
 import { Location } from '@prisma/client';
-import { recordScrap } from '@/actions/production';
+import { recordScrap } from '@/actions/production/production';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Trash2 } from 'lucide-react';

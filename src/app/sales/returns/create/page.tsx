@@ -1,6 +1,6 @@
-import { getCustomers } from '@/actions/customer';
-import { getLocations, getProductVariants } from '@/actions/inventory';
-import { getSalesOrders } from '@/actions/sales';
+import { getCustomers } from '@/actions/sales/customer';
+import { getLocations, getProductVariants } from '@/actions/inventory/inventory';
+import { getSalesOrders } from '@/actions/sales/sales';
 import { SalesReturnForm } from '@/components/sales/SalesReturnForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 

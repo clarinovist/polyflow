@@ -1,4 +1,4 @@
-import { getActiveExecutions } from "@/actions/production";
+import { getActiveExecutions } from "@/actions/production/production";
 import { ActiveExecutionBanner } from "@/components/production/kiosk/ActiveExecutionBanner";
 import PolyFlowLogo from "@/components/auth/polyflow-logo";
 import { Clock } from "lucide-react";

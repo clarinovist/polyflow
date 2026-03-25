@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SalesMetrics } from '@/actions/analytics';
-import { formatRupiah } from '@/lib/utils';
+import { SalesMetrics } from '@/actions/core/analytics';
+import { formatRupiah } from '@/lib/utils/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface TopListProps {

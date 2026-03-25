@@ -1,5 +1,5 @@
-import { getCustomerById } from '@/actions/customer';
-import { getSalesOrdersByCustomerId } from '@/actions/sales';
+import { getCustomerById } from '@/actions/sales/customer';
+import { getSalesOrdersByCustomerId } from '@/actions/sales/sales';
 import { notFound } from 'next/navigation';
 import { CustomerDetailClient } from '@/components/customers/CustomerDetailClient';
 

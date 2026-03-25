@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShoppingCart, AlertCircle, Plus, Minus } from 'lucide-react';
 import { toast } from 'sonner';
-import { createManualPurchaseRequest } from '@/actions/purchasing';
+import { createManualPurchaseRequest } from '@/actions/purchasing/purchasing';
 import { ExtendedProductionOrder } from './types';
 
 interface ManualProcurementDialogProps {

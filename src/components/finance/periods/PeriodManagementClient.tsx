@@ -23,7 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle
 } from '@/components/ui/alert-dialog';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 
 interface PeriodManagementClientProps {
     initialPeriods: FiscalPeriod[];

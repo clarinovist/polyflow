@@ -9,7 +9,7 @@ import {
     TableRow
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { SalesQuotation, SalesQuotationStatus, Customer } from '@prisma/client';
 import { FileText } from 'lucide-react';

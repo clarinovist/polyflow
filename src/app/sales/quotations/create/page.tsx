@@ -1,5 +1,5 @@
-import { getCustomers } from '@/actions/customer';
-import { getProductVariants } from '@/actions/inventory';
+import { getCustomers } from '@/actions/sales/customer';
+import { getProductVariants } from '@/actions/inventory/inventory';
 import { SalesQuotationForm } from '@/components/sales/quotations/SalesQuotationForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 

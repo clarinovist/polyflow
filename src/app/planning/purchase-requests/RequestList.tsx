@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
-import { consolidatePurchaseRequests } from '@/actions/purchasing';
+import { consolidatePurchaseRequests } from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
 import { Loader2, Merge } from 'lucide-react';
 

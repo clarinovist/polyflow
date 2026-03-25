@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { shipSalesOrderSchema, ShipSalesOrderValues } from '@/lib/schemas/sales';
-import { shipSalesOrder } from '@/actions/sales';
+import { shipSalesOrder } from '@/actions/sales/sales';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {

@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { RequestList } from './RequestList';
 import { Metadata } from 'next';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export const metadata: Metadata = {
     title: "Purchase Requests",

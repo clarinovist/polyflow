@@ -1,7 +1,7 @@
-import { getSalesOrders } from '@/actions/sales';
+import { getSalesOrders } from '@/actions/sales/sales';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { History, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import type { getStockMovements } from '@/actions/inventory';
+import type { getStockMovements } from '@/actions/inventory/inventory';
 
 // Infer type from action return type
 export type StockMovement = Awaited<ReturnType<typeof getStockMovements>>[number];

@@ -1,8 +1,8 @@
 
-import { getInvoices } from "@/actions/invoice";
+import { getInvoices } from "@/actions/finance/invoice";
 import { InvoiceTable } from "@/components/sales/InvoiceTable";
 import { Receipt } from "lucide-react";
-import { serializeData } from "@/lib/utils";
+import { serializeData } from "@/lib/utils/utils";
 
 import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';

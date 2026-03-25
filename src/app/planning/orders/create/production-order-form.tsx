@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState, useMemo, useEffect } from 'react';
-import { createProductionOrder, getBomWithInventory } from '@/actions/production';
+import { createProductionOrder, getBomWithInventory } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 

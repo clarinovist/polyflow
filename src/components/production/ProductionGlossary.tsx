@@ -1,7 +1,7 @@
 'use client';
 
 import { HelpCircle, Info, Factory, FlaskConical, Package2, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import {
     Dialog,
     DialogContent,

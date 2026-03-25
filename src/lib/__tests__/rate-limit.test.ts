@@ -1,4 +1,4 @@
-import { rateLimit } from '../rate-limit';
+import { rateLimit } from '../api/rate-limit';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 describe('rate-limit utility', () => {

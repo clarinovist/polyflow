@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from "@/auth";
-import { PurchaseService } from "@/services/purchase-service";
+import { PurchaseService } from "@/services/purchasing/purchase-service";
 import { revalidatePath } from "next/cache";
 
 export async function convertToPo(requestId: string, supplierId: string) {

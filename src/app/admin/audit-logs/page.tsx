@@ -1,4 +1,4 @@
-import { getAuditLogs, getAuditLogStats } from '@/actions/audit-log';
+import { getAuditLogs, getAuditLogStats } from '@/actions/admin/audit-log';
 import AuditLogClient from './AuditLogClient';
 
 export const metadata = {

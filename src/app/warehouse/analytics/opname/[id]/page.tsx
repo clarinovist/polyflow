@@ -1,4 +1,4 @@
-import { getOpnameSession } from '@/actions/opname';
+import { getOpnameSession } from '@/actions/inventory/opname';
 import { auth } from '@/auth';
 import { notFound } from 'next/navigation';
 import { OpnameDetailClient } from '@/components/warehouse/inventory/opname/OpnameDetailClient';

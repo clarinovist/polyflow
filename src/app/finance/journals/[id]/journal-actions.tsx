@@ -13,7 +13,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { postJournal, voidJournal, reverseJournal } from '@/actions/journal';
+import { postJournal, voidJournal, reverseJournal } from '@/actions/finance/journal';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle, Ban, RotateCcw } from 'lucide-react';
 

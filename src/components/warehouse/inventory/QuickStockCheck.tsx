@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ProductCombobox } from '@/components/ui/product-combobox';
 import { Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { getRealtimeStock } from '@/actions/inventory';
+import { cn } from '@/lib/utils/utils';
+import { getRealtimeStock } from '@/actions/inventory/inventory';
 
 interface QuickStockCheckProps {
     products: { id: string; name: string; skuCode: string }[];

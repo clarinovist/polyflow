@@ -13,7 +13,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { MachineType, MachineStatus, Machine } from '@prisma/client';
-import { createMachine, updateMachine } from '@/actions/machines';
+import { createMachine, updateMachine } from '@/actions/production/machines';
 import { toast } from 'sonner';
 
 interface MachineFormProps {

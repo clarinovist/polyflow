@@ -1,7 +1,7 @@
-import { getSalesOrderById } from '@/actions/sales';
+import { getSalesOrderById } from '@/actions/sales/sales';
 import { notFound } from 'next/navigation';
 import { SalesOrderDetailClient } from '@/components/sales/SalesOrderDetailClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 interface PageProps {
     params: Promise<{

@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/core/prisma";
 import { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { SuperAdminClient } from "./client";

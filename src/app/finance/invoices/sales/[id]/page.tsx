@@ -1,4 +1,4 @@
-import { getInvoiceById } from "@/actions/invoice";
+import { getInvoiceById } from "@/actions/finance/invoice";
 import { FinancialInvoiceDetail } from "@/components/finance/invoices/FinancialInvoiceDetail";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";

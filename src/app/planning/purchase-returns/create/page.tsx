@@ -1,6 +1,6 @@
-import { getSuppliers } from '@/actions/supplier';
-import { getLocations, getProductVariants } from '@/actions/inventory';
-import { getPurchaseOrders } from '@/actions/purchasing';
+import { getSuppliers } from '@/actions/purchasing/supplier';
+import { getLocations, getProductVariants } from '@/actions/inventory/inventory';
+import { getPurchaseOrders } from '@/actions/purchasing/purchasing';
 import { PurchaseReturnForm } from '@/components/purchasing/PurchaseReturnForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 

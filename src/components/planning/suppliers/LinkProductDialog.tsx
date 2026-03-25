@@ -35,7 +35,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
-import { linkSupplierToProduct } from '@/actions/supplier-product';
+import { linkSupplierToProduct } from '@/actions/purchasing/supplier-product';
 import { getVariants } from '@/actions/product';
 
 const formSchema = z.object({

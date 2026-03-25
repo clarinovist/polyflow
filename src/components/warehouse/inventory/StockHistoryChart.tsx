@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
-import { formatQuantity } from '@/lib/utils';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface StockHistoryChartProps {
     data: { date: string; stock: number }[];

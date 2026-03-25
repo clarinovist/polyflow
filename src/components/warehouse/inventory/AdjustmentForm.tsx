@@ -3,7 +3,7 @@
 import { useForm, useFieldArray, useWatch, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkAdjustStockSchema, BulkAdjustStockValues } from '@/lib/schemas/inventory';
-import { adjustStockBulk } from '@/actions/inventory';
+import { adjustStockBulk } from '@/actions/inventory/inventory';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

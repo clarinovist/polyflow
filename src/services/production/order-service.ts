@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import {
     CreateProductionOrderValues,
     UpdateProductionOrderValues
@@ -6,7 +6,7 @@ import {
 import { ProductionStatus, MachineType, BomCategory } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
-import { Ok, Err, Result } from '@/lib/result';
+import { Ok, Err, Result } from '@/lib/utils/result';
 
 export class ProductionOrderService {
     /**

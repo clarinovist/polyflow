@@ -11,8 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { ValidationResult } from "@/lib/stock-import-validator";
-import { cn } from "@/lib/utils";
+import { ValidationResult } from "@/lib/utils/stock-import-validator";
+import { cn } from "@/lib/utils/utils";
 
 interface ImportStockPreviewTableProps {
     results: ValidationResult[];

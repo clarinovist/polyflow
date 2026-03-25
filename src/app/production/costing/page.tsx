@@ -1,6 +1,6 @@
 
-import { CostingService } from '@/services/costing-service';
-import { formatRupiah } from '@/lib/utils';
+import { CostingService } from '@/services/accounting/costing-service';
+import { formatRupiah } from '@/lib/utils/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { createWorkShift, updateWorkShift } from '@/actions/work-shifts';
+import { createWorkShift, updateWorkShift } from '@/actions/admin/work-shifts';
 import { toast } from 'sonner';
 import { WorkShift, WorkShiftStatus } from '@prisma/client';
 

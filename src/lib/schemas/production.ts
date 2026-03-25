@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 // Production Schemas
 export const createProductionOrderSchema = z.object({

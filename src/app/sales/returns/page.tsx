@@ -1,10 +1,10 @@
-import { getSalesReturns } from '@/actions/sales-returns';
+import { getSalesReturns } from '@/actions/sales/sales-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, RotateCcw, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { SalesReturnTable } from '@/components/sales/SalesReturnTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { SalesReturnStatus } from '@prisma/client';
 
 export default async function SalesReturnsPage({ searchParams }: { searchParams: Promise<{ search?: string, status?: SalesReturnStatus }> }) {

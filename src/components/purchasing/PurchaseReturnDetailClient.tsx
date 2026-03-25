@@ -5,7 +5,7 @@ import { PurchaseReturn, Supplier, Location } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, CheckCircle, PackageCheck, Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,7 @@ import {
     shipPurchaseReturnAction, 
     completePurchaseReturnAction, 
     cancelPurchaseReturnAction 
-} from '@/actions/purchase-returns';
+} from '@/actions/purchasing/purchase-returns';
 import Link from 'next/link';
 
 // Detailed type including relations

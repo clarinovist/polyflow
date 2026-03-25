@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Calculator } from 'lucide-react';
-import { runDepreciation } from '@/actions/accounting';
+import { runDepreciation } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
 
 export function DepreciationDialog() {

@@ -25,9 +25,9 @@ import {
     FileDown,
     ArrowRight
 } from 'lucide-react';
-import { parseStockCSVFile, downloadStockCSVTemplate, downloadStockErrorReport } from '@/lib/stock-csv-parser';
-import { validateStockImportRows, ValidationResult, getStockValidationSummary } from '@/lib/stock-import-validator';
-import { getStockImportLookups, importInitialStock, ImportStockResult } from '@/actions/stock-import';
+import { parseStockCSVFile, downloadStockCSVTemplate, downloadStockErrorReport } from '@/lib/utils/stock-csv-parser';
+import { validateStockImportRows, ValidationResult, getStockValidationSummary } from '@/lib/utils/stock-import-validator';
+import { getStockImportLookups, importInitialStock, ImportStockResult } from '@/actions/inventory/stock-import';
 import { ImportStockPreviewTable } from './ImportStockPreviewTable';
 import { toast } from 'sonner';
 

@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertCircle, FileUp } from 'lucide-react';
-import { parseJournalCSV, ImportJournalRow } from '@/lib/journal-csv-parser';
-import { createBulkJournals } from '@/actions/journal';
-import { formatRupiah } from '@/lib/utils';
+import { parseJournalCSV, ImportJournalRow } from '@/lib/utils/journal-csv-parser';
+import { createBulkJournals } from '@/actions/finance/journal';
+import { formatRupiah } from '@/lib/utils/utils';
 
 interface Account {
     id: string;

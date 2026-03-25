@@ -1,5 +1,5 @@
-import { getProductVariants } from '@/actions/boms';
-import { canViewPrices } from '@/actions/permissions';
+import { getProductVariants } from '@/actions/production/boms';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { BOMForm } from '@/components/production/bom/BOMForm';
 import { redirect } from 'next/navigation';
 

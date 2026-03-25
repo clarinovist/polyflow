@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { CheckCircle2, CreditCard, Trash2, Loader2 } from 'lucide-react';
-import { deletePayment } from '@/actions/finance';
+import { deletePayment } from '@/actions/finance/finance';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

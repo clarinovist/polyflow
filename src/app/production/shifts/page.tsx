@@ -1,4 +1,4 @@
-import { getWorkShifts } from '@/actions/work-shifts';
+import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { ShiftList } from '@/components/settings/ShiftList';
 import { ShiftPageHeader } from '@/components/settings/ShiftPageHeader';
 

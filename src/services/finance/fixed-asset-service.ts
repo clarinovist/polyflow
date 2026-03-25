@@ -1,6 +1,6 @@
 
-import { prisma } from '@/lib/prisma';
-import { AccountingService } from '../accounting-service';
+import { prisma } from '@/lib/core/prisma';
+import { AccountingService } from '../accounting/accounting-service';
 import { ReferenceType } from '@prisma/client';
 
 export class FixedAssetService {

@@ -1,4 +1,4 @@
-import { getCustomers, deleteCustomer } from '@/actions/customer';
+import { getCustomers, deleteCustomer } from '@/actions/sales/customer';
 import { CustomerDialog } from '@/components/customers/CustomerDialog';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

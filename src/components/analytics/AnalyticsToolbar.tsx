@@ -49,10 +49,10 @@ export function AnalyticsToolbar() {
             let result;
 
             if (isProduction) {
-                const { exportProductionAnalytics } = await import('@/actions/analytics');
+                const { exportProductionAnalytics } = await import('@/actions/core/analytics');
                 result = await exportProductionAnalytics(exportRange);
             } else {
-                const { exportSalesAnalytics } = await import('@/actions/analytics');
+                const { exportSalesAnalytics } = await import('@/actions/core/analytics');
                 result = await exportSalesAnalytics(exportRange);
             }
 

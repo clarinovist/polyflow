@@ -1,0 +1,47 @@
+import { ProductionOrderService } from './order-service';
+import { ProductionExecutionService } from './execution-service';
+import { ProductionMaterialService } from './material-service';
+import { ProductionCostService } from './cost-service';
+import { ProductionIssueService } from './issue-service';
+
+/**
+ * Facade for Production sub-services.
+ * Refactored into src/services/production/*.ts
+ */
+export class ProductionService {
+    // --- Order Management ---
+    static getInitData = ProductionOrderService.getInitData;
+    static getBomWithInventory = ProductionOrderService.getBomWithInventory;
+    static createOrder = ProductionOrderService.createOrder;
+    static createOrderFromSales = ProductionOrderService.createOrderFromSales;
+    static updateOrder = ProductionOrderService.updateOrder;
+    static deleteOrder = ProductionOrderService.deleteOrder;
+    static addShift = ProductionOrderService.addShift;
+    static deleteShift = ProductionOrderService.deleteShift;
+
+    // --- Execution & Monitoring ---
+    static startExecution = ProductionExecutionService.startExecution;
+    static stopExecution = ProductionExecutionService.stopExecution;
+    static logRunningOutput = ProductionExecutionService.logRunningOutput;
+    static addProductionOutput = ProductionExecutionService.addProductionOutput;
+    static getActiveExecutions = ProductionExecutionService.getActiveExecutions;
+    static recordDowntime = ProductionExecutionService.recordDowntime;
+    static voidExecution = ProductionExecutionService.voidExecution;
+
+    // --- Materials & Quality ---
+    static batchIssueMaterials = ProductionMaterialService.batchIssueMaterials;
+    static recordMaterialIssue = ProductionMaterialService.recordMaterialIssue;
+    static deleteMaterialIssue = ProductionMaterialService.deleteMaterialIssue;
+    static recordScrap = ProductionMaterialService.recordScrap;
+    static deleteScrap = ProductionMaterialService.deleteScrap;
+    static recordQualityInspection = ProductionMaterialService.recordQualityInspection;
+
+    // --- Costing ---
+    static calculateBatchCOGM = ProductionCostService.calculateBatchCOGM;
+
+    // --- Issues ---
+    static getIssuesByOrder = ProductionIssueService.getIssuesByOrder;
+    static createIssue = ProductionIssueService.createIssue;
+    static updateIssueStatus = ProductionIssueService.updateIssueStatus;
+    static deleteIssue = ProductionIssueService.deleteIssue;
+}

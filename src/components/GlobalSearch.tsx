@@ -15,7 +15,7 @@ import {
     CommandShortcut,
 } from '@/components/ui/command';
 import { Button, ButtonProps } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 // import { DialogProps } from '@radix-ui/react-dialog'; // Removing DialogProps to avoid confusion
 
 export type GlobalSearchProps = ButtonProps;

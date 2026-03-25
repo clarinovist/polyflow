@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 export const purchaseOrderItemSchema = z.object({
     id: z.string().optional(),

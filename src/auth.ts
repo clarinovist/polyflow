@@ -2,8 +2,8 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from './auth.config';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
-import { extractSubdomain } from '@/lib/tenant';
+import { prisma } from '@/lib/core/prisma';
+import { extractSubdomain } from '@/lib/core/tenant';
 import * as bcrypt from 'bcryptjs';
 
 async function getUser(email: string) {
@@ -49,7 +49,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                     if (subdomain) {
                         try {
-                            const { getTenantDb, tenantContext } = await import('@/lib/prisma');
+                            const { getTenantDb, tenantContext } = await import('@/lib/core/prisma');
                             const tenant = await prisma.tenant.findUnique({
                                 where: { subdomain }
                             });

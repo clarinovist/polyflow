@@ -1,15 +1,15 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
 import { ShiftManagerDialog } from '@/components/production/ShiftManagerDialog';
 import { AssignJobButton } from '@/components/production/AssignJobButton';
 import { MachineActions } from '@/components/production/MachineActions';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { ProductionStatus } from '@prisma/client';
 import {
     Machine,

@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import { logActivity } from '@/lib/audit';
+import { prisma } from '@/lib/core/prisma';
+import { logActivity } from '@/lib/tools/audit';
 import { PurchaseOrderStatus, PurchaseRequestStatus, Prisma } from '@prisma/client';
 import { CreatePurchaseRequestValues } from '@/lib/schemas/purchasing';
 

@@ -1,7 +1,7 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma as db } from '@/lib/prisma';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma as db } from '@/lib/core/prisma';
 import { AssetFormValues, assetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
 

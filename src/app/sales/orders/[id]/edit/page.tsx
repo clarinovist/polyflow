@@ -1,7 +1,7 @@
-import { getSalesOrderById } from '@/actions/sales';
-import { getCustomers } from '@/actions/customer';
-import { getLocations } from '@/actions/inventory';
-import { getProductVariants } from '@/actions/inventory';
+import { getSalesOrderById } from '@/actions/sales/sales';
+import { getCustomers } from '@/actions/sales/customer';
+import { getLocations } from '@/actions/inventory/inventory';
+import { getProductVariants } from '@/actions/inventory/inventory';
 import { SalesOrderForm } from '@/components/sales/SalesOrderForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';

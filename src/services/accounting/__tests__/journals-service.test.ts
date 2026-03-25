@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createJournalEntry } from '../journals-service';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { isPeriodOpen } from '../periods-service';
 import { ReferenceType, Prisma } from '@prisma/client';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         journalEntry: {
             create: vi.fn(),

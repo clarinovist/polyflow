@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ExtendedProductionOrder } from './types';
-import { recordQualityInspection } from '@/actions/production';
+import { recordQualityInspection } from '@/actions/production/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 import { ClipboardCheck } from 'lucide-react';
 

@@ -1,11 +1,11 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth-checks';
-import { AccountingService } from '@/services/accounting-service';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma } from '@/lib/core/prisma';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { AccountingService } from '@/services/accounting/accounting-service';
 import { InvoiceStatus, PurchaseInvoiceStatus, ReferenceType, AccountType, AccountCategory, SalesOrderType, SalesOrderStatus, PurchaseOrderStatus, Prisma, JournalStatus } from '@prisma/client';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { revalidatePath } from 'next/cache';
 
 const OPENING_BALANCE_ACCOUNT_CODE = '30000';

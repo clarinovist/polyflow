@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatRupiah } from "@/lib/utils";
+import { formatRupiah } from "@/lib/utils/utils";
 import { PurchaseInvoiceStatus } from "@prisma/client";
 import { format } from "date-fns";
 import { AlertCircle } from "lucide-react";

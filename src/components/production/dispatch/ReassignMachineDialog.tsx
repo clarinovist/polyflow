@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { updateProductionOrder } from '@/actions/production';
+import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 

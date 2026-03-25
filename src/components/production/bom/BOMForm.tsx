@@ -34,7 +34,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
-import { createBom, updateBom } from '@/actions/boms';
+import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { ProductCombobox } from '@/components/ui/product-combobox';
 

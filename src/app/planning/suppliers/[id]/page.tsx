@@ -1,5 +1,5 @@
-import { getSupplierById } from '@/actions/supplier';
-import { getSupplierProducts } from '@/actions/supplier-product';
+import { getSupplierById } from '@/actions/purchasing/supplier';
+import { getSupplierProducts } from '@/actions/purchasing/supplier-product';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {

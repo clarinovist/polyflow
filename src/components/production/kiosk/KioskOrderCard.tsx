@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Square, AlertTriangle, PlusCircle } from "lucide-react";
-import { startExecution } from "@/actions/production";
+import { startExecution } from "@/actions/production/production";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";

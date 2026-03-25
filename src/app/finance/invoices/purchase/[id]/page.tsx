@@ -1,4 +1,4 @@
-import { PurchaseService } from '@/services/purchase-service';
+import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { notFound } from 'next/navigation';
 import { FinancialPurchaseInvoiceDetail } from '@/components/finance/invoices/FinancialPurchaseInvoiceDetail';
 import { Button } from '@/components/ui/button';

@@ -1,7 +1,7 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma as db } from '@/lib/prisma'; // Ensure consistent import
+import { withTenant } from "@/lib/core/tenant";
+import { prisma as db } from '@/lib/core/prisma'; // Ensure consistent import
 import { BudgetFormValues, budgetSchema } from '@/lib/schemas/finance';
 import { revalidatePath } from 'next/cache';
 

@@ -1,7 +1,7 @@
-import { getSalesReturnById } from '@/actions/sales-returns';
+import { getSalesReturnById } from '@/actions/sales/sales-returns';
 import { notFound } from 'next/navigation';
 import { SalesReturnDetailClient } from '@/components/sales/SalesReturnDetailClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { auth } from '@/auth';
 
 interface PageProps {

@@ -1,5 +1,5 @@
-import { getOpnameSessions } from '@/actions/opname';
-import { requireRole } from '@/lib/auth-checks';
+import { getOpnameSessions } from '@/actions/inventory/opname';
+import { requireRole } from '@/lib/tools/auth-checks';
 import { Role } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

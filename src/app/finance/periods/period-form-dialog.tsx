@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { CalendarPlus } from 'lucide-react';
-import { createFiscalPeriod } from '@/actions/accounting';
+import { createFiscalPeriod } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
 
 export function PeriodFormDialog() {

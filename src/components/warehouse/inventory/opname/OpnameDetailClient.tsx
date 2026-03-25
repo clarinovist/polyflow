@@ -11,7 +11,7 @@ import { CheckCircle2, AlertTriangle, Calculator, ArrowLeft } from 'lucide-react
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { completeOpname, deleteOpnameSession } from '@/actions/opname';
+import { completeOpname, deleteOpnameSession } from '@/actions/inventory/opname';
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
 

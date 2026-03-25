@@ -1,8 +1,8 @@
-import { getChartOfAccounts } from '@/actions/accounting';
+import { getChartOfAccounts } from '@/actions/finance/accounting';
 import TransactionWizardForm from '@/components/finance/accounting/transaction-wizard-form';
 import { PageHeader } from '@/components/ui/page-header';
-import { prisma } from '@/lib/prisma';
-import { serializeData } from '@/lib/utils';
+import { prisma } from '@/lib/core/prisma';
+import { serializeData } from '@/lib/utils/utils';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { Metadata } from 'next';
 

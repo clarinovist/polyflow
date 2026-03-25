@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import crypto from 'node:crypto';
 
 // This endpoint should be triggered by an external cron service (like Vercel Cron or GitHub Actions)
@@ -48,9 +48,9 @@ export async function GET(req: Request) {
         // Execute Subsystem Notification Triggers
         // These methods will verify states against thresholds and dispatch alerts
         try {
-            const { InventoryService } = await import('@/services/inventory-service');
+            const { InventoryService } = await import('@/services/inventory/inventory-service');
             const { checkOverduePurchasingInvoices } = await import('@/services/purchasing/invoices-service');
-            const { InvoiceService } = await import('@/services/invoice-service');
+            const { InvoiceService } = await import('@/services/finance/invoice-service');
             
             // 1. Trigger Low Stock
             await InventoryService.checkLowStockTriggers();

@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { createProductionIssue } from '@/actions/production';
+import { createProductionIssue } from '@/actions/production/production';
 
 interface AddIssueDialogProps {
     orderId: string;

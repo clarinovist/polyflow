@@ -1,7 +1,7 @@
-import { getPurchaseReturnById } from '@/actions/purchase-returns';
+import { getPurchaseReturnById } from '@/actions/purchasing/purchase-returns';
 import { notFound } from 'next/navigation';
 import { PurchaseReturnDetailClient } from '@/components/purchasing/PurchaseReturnDetailClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { auth } from '@/auth';
 
 interface PageProps {

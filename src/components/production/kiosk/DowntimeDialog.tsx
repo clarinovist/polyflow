@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { logMachineDowntime } from '@/actions/downtime';
+import { logMachineDowntime } from '@/actions/production/downtime';
 
 interface DowntimeDialogProps {
     machineId: string;

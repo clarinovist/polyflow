@@ -14,7 +14,7 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Trash2 } from 'lucide-react';
-import { deleteAccount } from '@/actions/accounting';
+import { deleteAccount } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
 
 interface DeleteAccountDialogProps {

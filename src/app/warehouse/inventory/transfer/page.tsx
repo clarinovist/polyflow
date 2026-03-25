@@ -1,4 +1,4 @@
-import { getInventoryStats, getLocations, getProductVariants, getStockMovements } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getProductVariants, getStockMovements } from '@/actions/inventory/inventory';
 import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 import { QuickStockCheck } from '@/components/warehouse/inventory/QuickStockCheck';
 import { RecentTransfers, StockMovement } from '@/components/warehouse/inventory/RecentTransfers';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { Metadata } from 'next';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export const metadata: Metadata = {
     title: 'Stock Transfer | PolyFlow Warehouse',

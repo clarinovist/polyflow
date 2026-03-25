@@ -1,5 +1,5 @@
 import { getProducts } from '@/actions/product';
-import { canViewPrices } from '@/actions/permissions';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { ProductTable } from '@/components/products/ProductTable';
 import { ProductGlossary } from '@/components/products/ProductGlossary';
 import { ImportDialog } from '@/components/products/ImportDialog';

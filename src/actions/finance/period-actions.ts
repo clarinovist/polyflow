@@ -1,7 +1,7 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma } from '@/lib/prisma';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma } from '@/lib/core/prisma';
 import { PeriodStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { createClosingJournalEntry } from '@/services/accounting/journals-service';

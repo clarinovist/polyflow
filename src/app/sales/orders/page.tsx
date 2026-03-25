@@ -1,10 +1,10 @@
-import { getSalesOrders, getSalesOrderStats } from '@/actions/sales';
+import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, ShoppingCart, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';

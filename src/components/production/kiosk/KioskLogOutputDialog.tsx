@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { logRunningOutput } from "@/actions/production";
+import { logRunningOutput } from "@/actions/production/production";
 import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 

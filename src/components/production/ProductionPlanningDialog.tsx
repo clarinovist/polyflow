@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Factory, ShoppingCart, AlertCircle, CheckCircle } from 'lucide-react';
-import { simulateMrp, createProductionFromSalesOrder } from '@/actions/production';
+import { simulateMrp, createProductionFromSalesOrder } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 

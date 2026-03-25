@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {

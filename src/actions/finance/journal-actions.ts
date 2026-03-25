@@ -1,11 +1,11 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma } from '@/lib/prisma';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma } from '@/lib/core/prisma';
 import { Prisma, JournalStatus } from '@prisma/client';
 import { postBulkJournals } from '@/services/accounting/journals-service';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/auth-checks';
+import { requireAuth } from '@/lib/tools/auth-checks';
 
 export interface JournalFilterParams {
     page?: number;

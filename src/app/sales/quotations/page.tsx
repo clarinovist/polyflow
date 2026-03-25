@@ -1,10 +1,10 @@
-import { getQuotations } from '@/actions/quotations';
+import { getQuotations } from '@/actions/sales/quotations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { SalesQuotationTable } from '@/components/sales/quotations/SalesQuotationTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';

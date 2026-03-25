@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductionStatus } from '@prisma/client';
@@ -6,7 +6,7 @@ import { format, startOfDay, addDays, isSameDay } from 'date-fns';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, List, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export const dynamic = 'force-dynamic';
 

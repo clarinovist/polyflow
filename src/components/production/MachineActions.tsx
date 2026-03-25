@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteMachine, setMachineStatus } from '@/actions/machines';
+import { deleteMachine, setMachineStatus } from '@/actions/production/machines';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {

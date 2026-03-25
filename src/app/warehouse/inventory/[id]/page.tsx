@@ -1,6 +1,6 @@
-import { getStockLedgerAction, getLocations } from '@/actions/inventory';
+import { getStockLedgerAction, getLocations } from '@/actions/inventory/inventory';
 import { StockLedgerClient } from '@/components/warehouse/StockLedgerClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { startOfMonth, endOfMonth } from 'date-fns';
 

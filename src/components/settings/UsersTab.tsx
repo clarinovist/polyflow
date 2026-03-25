@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getUsers, createUser, updateUser, deleteUser, CreateUserInput, UpdateUserInput } from '@/actions/users';
+import { getUsers, createUser, updateUser, deleteUser, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {

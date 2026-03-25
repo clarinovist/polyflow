@@ -1,10 +1,10 @@
 
 'use client';
 
-import { StockAgingResult } from '@/services/stock-aging-service';
+import { StockAgingResult } from '@/services/inventory/stock-aging-service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';

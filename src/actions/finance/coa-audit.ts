@@ -1,10 +1,10 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma } from '@/lib/prisma';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma } from '@/lib/core/prisma';
 import { AccountType, AccountCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/auth-checks';
+import { requireAuth } from '@/lib/tools/auth-checks';
 
 export interface RequiredAccount {
     code: string;

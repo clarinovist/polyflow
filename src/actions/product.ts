@@ -1,12 +1,12 @@
 'use server';
 
-import { withTenant } from "@/lib/tenant";
-import { prisma } from '@/lib/prisma';
+import { withTenant } from "@/lib/core/tenant";
+import { prisma } from '@/lib/core/prisma';
 import { createProductSchema, updateProductSchema, CreateProductValues, UpdateProductValues } from '@/lib/schemas/product';
 import { Inventory, CostHistory, ProductVariant, ProductType, Unit, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { serializeData } from '@/lib/utils';
-import { requireAuth } from '@/lib/auth-checks';
+import { serializeData } from '@/lib/utils/utils';
+import { requireAuth } from '@/lib/tools/auth-checks';
 
 export type ProductWithVariantsAndStock = {
     id: string;

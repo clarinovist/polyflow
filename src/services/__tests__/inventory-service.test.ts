@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InventoryService } from '../inventory-service';
-import { prisma } from '@/lib/prisma';
+import { InventoryService } from '../inventory/inventory-service';
+import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 
 // Mock next-auth to prevent "destructure property of undefined" error
@@ -21,7 +21,7 @@ vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
 vi.mock('next-auth/react', () => ({ useSession: vi.fn(), signIn: vi.fn(), signOut: vi.fn() }));
 
 // Mock Prisma
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         $queryRaw: vi.fn(),
         productVariant: { findUnique: vi.fn() },
@@ -39,7 +39,7 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 // Mock Audit
-vi.mock('@/lib/audit', () => ({
+vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 

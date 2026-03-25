@@ -1,4 +1,4 @@
-import { getSuppliers, deleteSupplier } from '@/actions/supplier';
+import { getSuppliers, deleteSupplier } from '@/actions/purchasing/supplier';
 import { SupplierDialog } from '@/components/planning/suppliers/SupplierDialog';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

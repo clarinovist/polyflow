@@ -1,4 +1,4 @@
-import { getEmployees } from '@/actions/employees';
+import { getEmployees } from '@/actions/admin/employees';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserCheck, Plus, Search, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';

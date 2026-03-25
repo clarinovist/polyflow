@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getIncomeStatement } from '@/actions/accounting';
+import { getIncomeStatement } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";

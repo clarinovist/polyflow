@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { format } from 'date-fns';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
 import { ResponsiveTable } from '@/components/ui/responsive-table';

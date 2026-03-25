@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftRight, ClipboardCheck, History, PackagePlus, Clock } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 
 interface InventoryInsightsPanelProps {
     activeLocationId?: string;

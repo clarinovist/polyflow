@@ -1,9 +1,9 @@
-import { requireAuth } from '@/lib/auth-checks';
-import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { prisma } from '@/lib/core/prisma';
 import { OpeningBalanceSpreadsheet } from '@/components/finance/OpeningBalanceSpreadsheet';
 import { getAccountsForOpeningBalance } from '@/actions/finance/opening-balance';
 import { Separator } from '@/components/ui/separator';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export default async function OpeningBalancePage() {
     await requireAuth();

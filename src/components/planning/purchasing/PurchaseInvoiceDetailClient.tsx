@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, FileText, Calendar, Building2, CreditCard, CheckCircle, AlertCircle, History, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { recordPurchasePayment } from '@/actions/purchasing';
+import { recordPurchasePayment } from '@/actions/purchasing/purchasing';
 
 interface PurchaseInvoiceDetailProps {
     invoice: {

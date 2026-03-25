@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ActionResponse } from "@/lib/error-handler";
+import { ActionResponse } from "@/lib/errors/error-handler";
 import { UseFormReturn, Path, FieldValues } from "react-hook-form";
 
 interface UseActionOptions<T, V extends FieldValues> {

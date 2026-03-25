@@ -1,4 +1,4 @@
-import { getMachines } from '@/actions/machines';
+import { getMachines } from '@/actions/production/machines';
 import { Card, CardContent } from '@/components/ui/card';
 import { Settings2, Plus, Search, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';

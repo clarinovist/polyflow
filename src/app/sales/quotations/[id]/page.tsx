@@ -1,8 +1,8 @@
-import { getQuotationById } from '@/actions/quotations';
-import { getLocations } from '@/actions/inventory';
+import { getQuotationById } from '@/actions/sales/quotations';
+import { getLocations } from '@/actions/inventory/inventory';
 import { SalesQuotationDetailClient } from '@/components/sales/quotations/SalesQuotationDetailClient';
 import { notFound } from 'next/navigation';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export default async function SalesQuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;

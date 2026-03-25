@@ -11,12 +11,12 @@ import {
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowRight, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { InvoiceStatus } from '@prisma/client';
-import { deleteInvoice } from '@/actions/invoices';
+import { deleteInvoice } from '@/actions/finance/invoices';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {

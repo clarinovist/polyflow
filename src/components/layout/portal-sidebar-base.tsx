@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { Menu, X, LogOut, Moon, Sun } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/theme-provider';

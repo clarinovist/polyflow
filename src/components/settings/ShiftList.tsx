@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2 } from 'lucide-react';
-import { deleteWorkShift } from '@/actions/work-shifts';
+import { deleteWorkShift } from '@/actions/admin/work-shifts';
 import { toast } from 'sonner';
 import { ShiftDialog } from './ShiftDialog';
 

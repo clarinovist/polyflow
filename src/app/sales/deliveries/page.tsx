@@ -1,7 +1,7 @@
-import { getDeliveryOrders } from '@/actions/deliveries';
+import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { Package } from 'lucide-react';
 
 import { UrlTransactionDateFilter } from '@/components/ui/url-transaction-date-filter';

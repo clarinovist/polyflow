@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { formatQuantity } from '@/lib/utils';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface OpnameItem {
     id: string;

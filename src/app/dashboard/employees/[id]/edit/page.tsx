@@ -1,4 +1,4 @@
-import { getEmployeeById } from '@/actions/employees';
+import { getEmployeeById } from '@/actions/admin/employees';
 import { EmployeeForm } from '@/components/production/EmployeeForm';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';

@@ -1,4 +1,4 @@
-import { getPlanningDashboardStats } from '@/actions/planning-dashboard';
+import { getPlanningDashboardStats } from '@/actions/dashboard/planning-dashboard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Activity, AlertTriangle, CheckCircle2, Factory, Hammer, Settings2, Truck, ClipboardCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

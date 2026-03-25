@@ -1,9 +1,9 @@
 import React from 'react';
-import { PurchaseService } from '@/services/purchase-service';
+import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseInvoiceTable } from '@/components/planning/purchasing/PurchaseInvoiceTable';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export const metadata: Metadata = {
     title: 'Purchase Invoices | PolyFlow',

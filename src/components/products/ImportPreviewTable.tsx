@@ -3,7 +3,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
-import { ValidationResult } from '@/lib/import-validator';
+import { ValidationResult } from '@/lib/utils/import-validator';
 
 interface ImportPreviewTableProps {
     results: ValidationResult[];

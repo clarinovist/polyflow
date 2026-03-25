@@ -1,7 +1,7 @@
-import { getSentPayments } from '@/actions/finance';
+import { getSentPayments } from '@/actions/finance/finance';
 import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsClient';
-import { prisma } from '@/lib/prisma';
-import { serializeData } from '@/lib/utils';
+import { prisma } from '@/lib/core/prisma';
+import { serializeData } from '@/lib/utils/utils';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';

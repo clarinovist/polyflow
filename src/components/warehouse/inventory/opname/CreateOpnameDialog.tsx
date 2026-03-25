@@ -22,8 +22,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { createOpnameSession } from '@/actions/opname';
-import { getLocations } from '@/actions/inventory';
+import { createOpnameSession } from '@/actions/inventory/opname';
+import { getLocations } from '@/actions/inventory/inventory';
 import { useRouter } from 'next/navigation';
 
 export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }: { basePath?: string }) {

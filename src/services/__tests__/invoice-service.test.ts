@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InvoiceService } from '../invoice-service';
-import { prisma } from '@/lib/prisma';
+import { InvoiceService } from '../finance/invoice-service';
+import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         invoice: {
             findFirst: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock('@/lib/prisma', () => ({
     }
 }));
 
-vi.mock('@/lib/audit', () => ({
+vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 

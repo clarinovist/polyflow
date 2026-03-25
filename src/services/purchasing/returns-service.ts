@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/core/prisma";
 import { CreatePurchaseReturnValues, UpdatePurchaseReturnValues } from "@/lib/schemas/returns";
 import { PurchaseReturnStatus, MovementType } from "@prisma/client";
 import { format } from "date-fns";
-import { logActivity } from "@/lib/audit";
+import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../finance/auto-journal-service";
 
 export class PurchaseReturnService {

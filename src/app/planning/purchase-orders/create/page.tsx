@@ -1,5 +1,5 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { PurchaseOrderForm } from '@/components/planning/purchasing/PurchaseOrderForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';

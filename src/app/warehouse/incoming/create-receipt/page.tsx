@@ -1,11 +1,11 @@
 import React from 'react';
-import { PurchaseService } from '@/services/purchase-service';
-import { getLocations } from '@/actions/inventory';
+import { PurchaseService } from '@/services/purchasing/purchase-service';
+import { getLocations } from '@/actions/inventory/inventory';
 import { notFound } from 'next/navigation';
 import { GoodsReceiptForm } from '@/components/planning/purchasing/GoodsReceiptForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 export const metadata: Metadata = {
     title: 'Post Goods Receipt | PolyFlow Warehouse',

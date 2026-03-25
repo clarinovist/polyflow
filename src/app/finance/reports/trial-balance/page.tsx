@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getTrialBalance } from '@/actions/accounting';
+import { getTrialBalance } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';

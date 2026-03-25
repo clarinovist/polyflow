@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { JournalStatus, Prisma, ReferenceType } from '@prisma/client';
 import type { CreateJournalEntryInput } from './types';
 import { isPeriodOpen } from '@/services/accounting/periods-service';

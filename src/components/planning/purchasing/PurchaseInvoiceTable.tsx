@@ -14,10 +14,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Search, Calendar, Trash2, Loader2, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
-import { deleteInvoice } from '@/actions/invoices';
+import { deleteInvoice } from '@/actions/finance/invoices';
 import { toast } from 'sonner';
 import {
     AlertDialog,

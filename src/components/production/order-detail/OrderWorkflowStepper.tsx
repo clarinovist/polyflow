@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export function OrderWorkflowStepper({ status }: { status: string }) {
     const steps = [

@@ -1,10 +1,10 @@
-import { getPurchaseReturns } from '@/actions/purchase-returns';
+import { getPurchaseReturns } from '@/actions/purchasing/purchase-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, RotateCcw, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { PurchaseReturnTable } from '@/components/purchasing/PurchaseReturnTable';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { PurchaseReturnStatus } from '@prisma/client';
 
 export default async function PurchaseReturnsPage({ searchParams }: { searchParams: Promise<{ search?: string, status?: PurchaseReturnStatus }> }) {

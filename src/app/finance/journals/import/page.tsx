@@ -1,4 +1,4 @@
-import { getChartOfAccounts } from '@/actions/accounting';
+import { getChartOfAccounts } from '@/actions/finance/accounting';
 import ImportJournalForm from '@/components/finance/accounting/import-journal-form';
 
 export default async function ImportJournalPage() {

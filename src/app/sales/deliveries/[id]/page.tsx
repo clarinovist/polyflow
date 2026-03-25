@@ -1,7 +1,7 @@
-import { getDeliveryOrderById } from '@/actions/deliveries';
+import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
 import { DeliveryOrderDetail } from '@/components/sales/DeliveryOrderDetail';
 import { notFound } from 'next/navigation';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 interface DeliveryOrderPageProps {
     params: Promise<{ id: string }>;

@@ -1,4 +1,4 @@
-import { getProductionAnalytics } from '@/actions/analytics';
+import { getProductionAnalytics } from '@/actions/core/analytics';
 import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { ProductionRealizationChart } from '@/components/analytics/ProductionRealizationChart';
 import { MachinePerformanceCard } from '@/components/analytics/MachinePerformanceCard';

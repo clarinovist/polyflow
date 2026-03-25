@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { createSalesReturnAction } from '@/actions/sales-returns';
+import { createSalesReturnAction } from '@/actions/sales/sales-returns';
 import Link from 'next/link';
 
 // Using partial types for props

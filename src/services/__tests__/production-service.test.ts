@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ProductionService } from '../production-service';
-import { prisma } from '@/lib/prisma';
-import { InventoryService } from '../inventory-service';
+import { ProductionService } from '../production/production-service';
+import { prisma } from '@/lib/core/prisma';
+import { InventoryService } from '../inventory/inventory-service';
 import { ProductionCostService } from '../production/cost-service';
-import { AccountingService } from '../accounting-service';
+import { AccountingService } from '../accounting/accounting-service';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 vi.mock('../inventory-service');

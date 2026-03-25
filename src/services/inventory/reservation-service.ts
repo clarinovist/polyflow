@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { CreateReservationValues, CancelReservationValues } from '@/lib/schemas/inventory';
 import { STATUS_ACTIVE, STATUS_CANCELLED, STATUS_WAITING } from './constants';

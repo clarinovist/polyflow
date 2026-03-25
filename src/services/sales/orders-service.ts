@@ -1,9 +1,9 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
-import { logActivity } from '@/lib/audit';
-import { InventoryService } from '@/services/inventory-service';
-import { ProductionService } from '@/services/production-service';
+import { logActivity } from '@/lib/tools/audit';
+import { InventoryService } from '@/services/inventory/inventory-service';
+import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 
 export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date }) {

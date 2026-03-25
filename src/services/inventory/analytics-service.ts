@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { MovementType, Prisma } from '@prisma/client';
 import { subDays, format } from 'date-fns';
 

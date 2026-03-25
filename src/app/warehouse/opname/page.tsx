@@ -1,4 +1,4 @@
-import { getOpnameSessions } from '@/actions/opname';
+import { getOpnameSessions } from '@/actions/inventory/opname';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';

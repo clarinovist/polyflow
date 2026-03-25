@@ -1,4 +1,4 @@
-import { getProductionDashboardStats } from '@/actions/production-dashboard';
+import { getProductionDashboardStats } from '@/actions/dashboard/production-dashboard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Factory, Cog, CheckCircle2, FileClock, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';

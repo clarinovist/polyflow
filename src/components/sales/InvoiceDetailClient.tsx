@@ -15,10 +15,10 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatRupiah, cn } from '@/lib/utils';
+import { formatRupiah, cn } from '@/lib/utils/utils';
 import { InvoiceStatus } from '@prisma/client';
 import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
-import { updateInvoiceStatus } from '@/actions/invoice';
+import { updateInvoiceStatus } from '@/actions/finance/invoice';
 import { toast } from 'sonner';
 import {
     Dialog,

@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma';
-import { logActivity } from '@/lib/audit';
-import { InventoryService } from '@/services/inventory-service';
-import { AccountingService } from '@/services/accounting-service';
+import { prisma } from '@/lib/core/prisma';
+import { logActivity } from '@/lib/tools/audit';
+import { InventoryService } from '@/services/inventory/inventory-service';
+import { AccountingService } from '@/services/accounting/accounting-service';
 import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';

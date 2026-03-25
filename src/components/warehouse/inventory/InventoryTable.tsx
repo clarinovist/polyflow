@@ -6,7 +6,7 @@ import Link from 'next/link';
 import React, { useState, useMemo, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
-import { cn, formatRupiah, formatQuantity } from '@/lib/utils';
+import { cn, formatRupiah, formatQuantity } from '@/lib/utils/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ClipboardCheck } from 'lucide-react';
-import { acknowledgeHandover } from '@/actions/inventory';
+import { acknowledgeHandover } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 
 export function AcknowledgeHandoverButton({ movementId }: { movementId: string }) {

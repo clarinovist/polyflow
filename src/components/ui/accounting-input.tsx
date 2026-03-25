@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Input } from './input';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 interface AccountingInputProps extends Omit<React.ComponentProps<typeof Input>, 'onChange' | 'value'> {
     value: number;

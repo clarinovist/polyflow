@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { SalesOrder, SalesOrderStatus, Customer, Location } from '@prisma/client';
 import { FileText, ChevronRight } from 'lucide-react';

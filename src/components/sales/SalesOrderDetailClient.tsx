@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt } from 'lucide-react';
 import Link from 'next/link';
@@ -25,8 +25,8 @@ import {
     cancelSalesOrder,
     deleteSalesOrder,
     markReadyToShip
-} from '@/actions/sales';
-import { createInvoice } from '@/actions/invoice';
+} from '@/actions/sales/sales';
+import { createInvoice } from '@/actions/finance/invoice';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bulkTransferStockSchema, BulkTransferStockValues } from '@/lib/schemas/inventory';
-import { transferStockBulk } from '@/actions/inventory';
+import { transferStockBulk } from '@/actions/inventory/inventory';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { getLocations } from '@/actions/locations';
+import { getLocations } from '@/actions/inventory/locations';
 
 // Type definition for the items passed to the dialog
 interface InventoryItem {

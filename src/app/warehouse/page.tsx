@@ -1,9 +1,9 @@
-import { prisma } from '@/lib/prisma';
-import { getProductionFormData } from '@/actions/production';
+import { prisma } from '@/lib/core/prisma';
+import { getProductionFormData } from '@/actions/production/production';
 import WarehouseRefreshWrapper from './WarehouseRefreshWrapper';
 import { revalidatePath } from 'next/cache';
 import { ProductionStatus } from '@prisma/client';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 
 export const dynamic = 'force-dynamic';

@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2, Users } from 'lucide-react';
-import { addProductionShift, deleteProductionShift } from '@/actions/production';
+import { addProductionShift, deleteProductionShift } from '@/actions/production/production';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';

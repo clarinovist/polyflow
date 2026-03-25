@@ -1,8 +1,8 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType } from '@prisma/client';
-import { logActivity } from '@/lib/audit';
-import { InventoryService } from '@/services/inventory-service';
-import { InvoiceService } from '@/services/invoice-service';
+import { logActivity } from '@/lib/tools/audit';
+import { InventoryService } from '@/services/inventory/inventory-service';
+import { InvoiceService } from '@/services/finance/invoice-service';
 
 export async function markReadyToShip(id: string, userId: string) {
     const order = await prisma.salesOrder.findUnique({ where: { id } });

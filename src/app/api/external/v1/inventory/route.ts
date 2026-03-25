@@ -1,7 +1,7 @@
-import { withTenantRoute } from "@/lib/tenant";
+import { withTenantRoute } from "@/lib/core/tenant";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { validateExternalRequest } from "@/lib/external-api-helper";
+import { prisma } from "@/lib/core/prisma";
+import { validateExternalRequest } from "@/lib/api/external-api-helper";
 
 export const GET = withTenantRoute(
 async function GET(req: NextRequest) {

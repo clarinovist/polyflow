@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import { formatRupiah } from '@/lib/utils';
+import { prisma } from '@/lib/core/prisma';
+import { formatRupiah } from '@/lib/utils/utils';
 
 export async function checkCreditLimit(customerId: string, newAmount: number) {
     const customer = await prisma.customer.findUnique({

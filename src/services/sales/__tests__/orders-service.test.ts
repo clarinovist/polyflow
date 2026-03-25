@@ -1,12 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { confirmOrder } from '../orders-service';
-import { prisma } from '@/lib/prisma';
-import { ProductionService } from '@/services/production-service';
-import { InventoryService } from '@/services/inventory-service';
+import { prisma } from '@/lib/core/prisma';
+import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from '../credit-service';
 import { SalesOrderStatus, SalesOrderType } from '@prisma/client';
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         salesOrder: {
             findUnique: vi.fn(),
@@ -25,13 +25,13 @@ vi.mock('@/lib/prisma', () => ({
     }
 }));
 
-vi.mock('@/services/production-service', () => ({
+vi.mock('@/services/production/production-service', () => ({
     ProductionService: {
         createOrderFromSales: vi.fn(),
     }
 }));
 
-vi.mock('@/services/inventory-service', () => ({
+vi.mock('@/services/inventory/inventory-service', () => ({
     InventoryService: {
         createStockReservation: vi.fn(),
     }
@@ -41,7 +41,7 @@ vi.mock('../credit-service', () => ({
     checkCreditLimit: vi.fn(),
 }));
 
-vi.mock('@/lib/audit', () => ({
+vi.mock('@/lib/tools/audit', () => ({
     logActivity: vi.fn(),
 }));
 

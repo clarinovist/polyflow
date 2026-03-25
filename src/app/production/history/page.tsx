@@ -1,11 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { History, CheckCircle2, Package, Clock } from 'lucide-react';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export const dynamic = 'force-dynamic';
 

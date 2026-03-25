@@ -9,7 +9,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { getAuditLogDetail } from '@/actions/audit-log';
+import { getAuditLogDetail } from '@/actions/admin/audit-log';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';

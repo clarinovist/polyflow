@@ -1,6 +1,6 @@
 import { getAccountLedger } from '@/actions/finance/account-actions';
 import { AccountLedgerClient } from '@/components/finance/coa/AccountLedgerClient';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { startOfMonth, endOfMonth } from 'date-fns';
 

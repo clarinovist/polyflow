@@ -9,7 +9,7 @@ import {
     Receipt,
     ArrowRight
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 
 export type RoleType = 'ADMIN' | 'WAREHOUSE' | 'PRODUCTION' | 'PLANNING' | 'SALES' | 'FINANCE' | 'KIOSK';
 

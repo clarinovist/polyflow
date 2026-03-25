@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
-import { createFixedAsset } from '@/actions/accounting';
+import { createFixedAsset } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
 
 interface Account {

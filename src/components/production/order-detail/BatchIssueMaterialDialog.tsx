@@ -7,11 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExtendedProductionOrder } from './types';
 import { Location, ProductVariant } from '@prisma/client';
-import { batchIssueMaterials } from '@/actions/production';
-import { transferStockBulk, getRealtimeStock, adjustStock } from '@/actions/inventory';
+import { batchIssueMaterials } from '@/actions/production/production';
+import { transferStockBulk, getRealtimeStock, adjustStock } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft, RefreshCw, Wrench } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 interface BatchItem {

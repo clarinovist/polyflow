@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/core/prisma';
 import { MovementType, ProductionStatus } from '@prisma/client';
 
 export interface PoCostResult {

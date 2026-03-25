@@ -15,7 +15,7 @@ import { Account, FixedAsset } from '@prisma/client';
 import { Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 

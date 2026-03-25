@@ -1,4 +1,4 @@
-import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory';
+import { getInventoryStats, getLocations, getProductVariants } from '@/actions/inventory/inventory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TransferForm } from '@/components/warehouse/inventory/TransferForm';
 

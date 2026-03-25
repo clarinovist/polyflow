@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { recordSupplierPayment } from '@/actions/finance';
-import { formatRupiah } from '@/lib/utils';
+import { recordSupplierPayment } from '@/actions/finance/finance';
+import { formatRupiah } from '@/lib/utils/utils';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 

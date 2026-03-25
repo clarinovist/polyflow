@@ -6,9 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, ArrowRight, Printer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { convertToOrder } from '@/actions/quotations'; // We need updateQuotation to change status?
+import { convertToOrder } from '@/actions/sales/quotations'; // We need updateQuotation to change status?
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {

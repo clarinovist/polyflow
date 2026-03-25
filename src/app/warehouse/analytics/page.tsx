@@ -4,16 +4,16 @@ import {
     getDashboardStats,
     getInventoryTurnover,
     getDaysOfInventoryOnHand,
-} from '@/actions/inventory';
-import { ABCAnalysisService } from '@/services/abc-analysis-service';
-import { canViewPrices } from '@/actions/permissions';
+} from '@/actions/inventory/inventory';
+import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { CardContent } from '@/components/ui/card';
 import { InventoryTable, InventoryItem } from '@/components/warehouse/inventory/InventoryTable';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Box, Activity, CalendarClock } from 'lucide-react';
-import { serializeData, formatRupiah, cn } from '@/lib/utils';
+import { serializeData, formatRupiah, cn } from '@/lib/utils/utils';
 
 
 interface SimplifiedInventory {

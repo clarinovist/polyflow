@@ -23,7 +23,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Edit2 } from 'lucide-react';
 import { AccountType, AccountCategory } from '@prisma/client';
-import { createAccount, updateAccount } from '@/actions/accounting';
+import { createAccount, updateAccount } from '@/actions/finance/accounting';
 import { toast } from 'sonner';
 
 const CATEGORIES: Record<string, string[]> = {

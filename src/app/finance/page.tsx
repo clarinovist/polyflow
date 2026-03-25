@@ -1,6 +1,6 @@
-import { getFinanceDashboardStats } from '@/actions/finance-dashboard';
+import { getFinanceDashboardStats } from '@/actions/dashboard/finance-dashboard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah } from '@/lib/utils/utils';
 import {
     Wallet,
     ArrowUpRight,

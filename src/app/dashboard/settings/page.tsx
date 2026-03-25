@@ -1,7 +1,7 @@
 import { SettingsTabs } from '@/components/settings/SettingsTabs';
 import { auth } from '@/auth';
 import { headers } from 'next/headers';
-import { extractSubdomain } from '@/lib/tenant';
+import { extractSubdomain } from '@/lib/core/tenant';
 
 export default async function SettingsPage() {
     const session = await auth();

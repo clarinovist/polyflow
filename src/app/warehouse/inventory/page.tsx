@@ -3,15 +3,15 @@ import {
     getLocations,
     getDashboardStats,
     getInventoryAsOf,
-} from '@/actions/inventory';
-import { ABCAnalysisService } from '@/services/abc-analysis-service';
-import { canViewPrices } from '@/actions/permissions';
+} from '@/actions/inventory/inventory';
+import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
+import { canViewPrices } from '@/actions/admin/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { Card, CardContent } from '@/components/ui/card';
 import { InventoryTable, InventoryItem } from '@/components/warehouse/inventory/InventoryTable';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 import { Warehouse } from 'lucide-react';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 
 interface SimplifiedInventory {
     productVariantId: string;

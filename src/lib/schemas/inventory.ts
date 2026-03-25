@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ReservationType } from '@prisma/client';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 // Stock Reservation Schemas
 export const createReservationSchema = z.object({

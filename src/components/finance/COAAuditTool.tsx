@@ -146,4 +146,4 @@ export function COAAuditTool() {
 }
 
 // Helper for cn in this file if needed, or import from lib/utils
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/utils';

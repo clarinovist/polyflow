@@ -1,10 +1,10 @@
-import { getProductionOrder, getProductionFormData } from '@/actions/production';
-import { getWorkShifts } from '@/actions/work-shifts';
+import { getProductionOrder, getProductionFormData } from '@/actions/production/production';
+import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { ProductionOrderDetail } from './production-order-detail';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { serializeData } from '@/lib/utils';
+import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { ProductVariant } from '@prisma/client';
 

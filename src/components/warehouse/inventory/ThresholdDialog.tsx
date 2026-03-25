@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { updateThreshold } from '@/actions/inventory';
+import { updateThreshold } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
