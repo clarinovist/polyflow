@@ -31,10 +31,16 @@ export default function TrialBalancePage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const report = await getTrialBalance(dateRange?.from, dateRange?.to);
-            setData(report as unknown as TrialBalanceItem[]);
+            const result = await getTrialBalance(dateRange?.from, dateRange?.to);
+            if (result && 'success' in result && result.success) {
+                setData(result.data as unknown as TrialBalanceItem[]);
+            } else {
+                console.error("Failed to load trial balance:", result && 'error' in result ? result.error : 'Unknown error');
+                setData([]);
+            }
         } catch (error) {
             console.error("Failed to load trial balance", error);
+            setData([]);
         } finally {
             setLoading(false);
         }

@@ -43,10 +43,16 @@ export default function BalanceSheetPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const report = await getBalanceSheet(date);
-            setData(report as unknown as BalanceSheetData);
+            const result = await getBalanceSheet(date);
+            if (result && 'success' in result && result.success) {
+                setData(result.data as unknown as BalanceSheetData);
+            } else {
+                console.error("Failed to load balance sheet:", result && 'error' in result ? result.error : 'Unknown error');
+                setData(null);
+            }
         } catch (error) {
             console.error("Failed to load balance sheet", error);
+            setData(null);
         } finally {
             setLoading(false);
         }

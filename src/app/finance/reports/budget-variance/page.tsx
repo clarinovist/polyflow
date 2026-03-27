@@ -28,10 +28,16 @@ export default function BudgetVariancePage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const report = await getBudgetVariance(parseInt(year), parseInt(month));
-            setData(report as unknown as VarianceItem[]);
+            const result = await getBudgetVariance(parseInt(year), parseInt(month));
+            if (result && 'success' in result && result.success) {
+                setData(result.data as unknown as VarianceItem[]);
+            } else {
+                console.error("Failed to load variance report:", result && 'error' in result ? result.error : 'Unknown error');
+                setData([]);
+            }
         } catch (error) {
             console.error("Failed to load variance report", error);
+            setData([]);
         } finally {
             setLoading(false);
         }

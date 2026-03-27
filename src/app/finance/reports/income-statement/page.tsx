@@ -48,10 +48,16 @@ export default function IncomeStatementPage() {
             const startDate = startOfMonth(date);
             const endDate = endOfMonth(date);
 
-            const report = await getIncomeStatement(startDate, endDate);
-            setData(report as unknown as IncomeStatementData);
+            const result = await getIncomeStatement(startDate, endDate);
+            if (result && 'success' in result && result.success) {
+                setData(result.data as unknown as IncomeStatementData);
+            } else {
+                console.error("Failed to load income statement:", result && 'error' in result ? result.error : 'Unknown error');
+                setData(null);
+            }
         } catch (error) {
             console.error("Failed to load income statement", error);
+            setData(null);
         } finally {
             setLoading(false);
         }
