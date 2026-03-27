@@ -40,7 +40,6 @@ export default async function PurchasingAnalyticsPage(props: { searchParams: Sea
         .filter(i => i.range !== 'Current')
         .reduce((acc, curr) => acc + curr.amount, 0);
     const topSupplier = topSuppliers[0];
-    const topSupplierSpend = topSupplier ? topSupplier.totalSpend : 0;
 
     return (
         <div className="p-6 space-y-6">
