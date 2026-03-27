@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { ProductionService } from '../production/production-service';
 import { prisma } from '@/lib/core/prisma';
 
@@ -63,7 +63,8 @@ describe('ProductionService', () => {
         vi.clearAllMocks();
 
         // Standard Prisma mocks for finding and updating orders
-        (prisma.productionOrder.findUnique as Mock).mockResolvedValue({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionOrder.findUnique as any).mockResolvedValue({
             id: 'po-1',
             status: 'RELEASED',
             plannedQuantity: 100,
@@ -81,7 +82,8 @@ describe('ProductionService', () => {
             plannedMaterials: []
         });
 
-        (prisma.productionOrder.findUniqueOrThrow as Mock).mockResolvedValue({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionOrder.findUniqueOrThrow as any).mockResolvedValue({
             id: 'po-1',
             status: 'RELEASED',
             plannedQuantity: 100,
@@ -100,7 +102,8 @@ describe('ProductionService', () => {
             plannedMaterials: []
         });
 
-        (prisma.productionOrder.update as Mock).mockImplementation(({ data }: Record<string, unknown>) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionOrder.update as any).mockImplementation(({ data }: any) => {
             return Promise.resolve({
                 id: 'po-1',
                 orderNumber: 'WO-001',
@@ -111,27 +114,39 @@ describe('ProductionService', () => {
             });
         });
 
-        (prisma.productionExecution.create as Mock).mockResolvedValue({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionExecution.create as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1'
         });
 
-        (prisma.productionExecution.update as Mock).mockResolvedValue({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionExecution.update as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1'
         });
 
-        (prisma.inventory.upsert as Mock).mockResolvedValue({ id: 'inv-1', quantity: 10 });
-        (prisma.inventory.findUnique as Mock).mockResolvedValue({ id: 'inv-1', quantity: { toNumber: () => 10 }, averageCost: { toNumber: () => 100 } });
-        (prisma.inventory.update as Mock).mockResolvedValue({});
-        (prisma.stockMovement.create as Mock).mockResolvedValue({ id: 'sm-1' });
-        (prisma.materialIssue.create as Mock).mockResolvedValue({ id: 'mi-1' });
-        (prisma.scrapRecord.create as Mock).mockResolvedValue({ id: 'scrap-1' });
-        (prisma.location.findUnique as Mock).mockResolvedValue({ id: 'loc-scrap' });
-        (prisma.productVariant.findUnique as Mock).mockResolvedValue({ id: 'pv-scrap', skuCode: 'SCRAP-PRONGKOL' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.inventory.upsert as any).mockResolvedValue({ id: 'inv-1', quantity: 10 });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.inventory.findUnique as any).mockResolvedValue({ id: 'inv-1', quantity: { toNumber: () => 10 }, averageCost: { toNumber: () => 100 } });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.inventory.update as any).mockResolvedValue({});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.stockMovement.create as any).mockResolvedValue({ id: 'sm-1' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.materialIssue.create as any).mockResolvedValue({ id: 'mi-1' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.scrapRecord.create as any).mockResolvedValue({ id: 'scrap-1' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.location.findUnique as any).mockResolvedValue({ id: 'loc-scrap' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productVariant.findUnique as any).mockResolvedValue({ id: 'pv-scrap', skuCode: 'SCRAP-PRONGKOL' });
 
-        (ProductionCostService.calculateBatchCOGM as Mock).mockResolvedValue(500);
-        (AccountingService.recordInventoryMovement as Mock).mockResolvedValue(undefined);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ProductionCostService.calculateBatchCOGM as any).mockResolvedValue(500);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (AccountingService.recordInventoryMovement as any).mockResolvedValue(undefined);
     });
 
     describe('State Transitions', () => {
@@ -159,7 +174,8 @@ describe('ProductionService', () => {
                 notes: 'Finished early'
             });
 
-            const updateOrderCall = (prisma.productionOrder.update as Mock).mock.calls.find((call: unknown[]) => call[0].where.id === 'po-1');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const updateOrderCall = (prisma.productionOrder.update as any).mock.calls.find((call: any[]) => call[0].where.id === 'po-1');
             expect(updateOrderCall).toBeDefined();
             expect(updateOrderCall[0].data.status).toBe('COMPLETED');
             expect(updateOrderCall[0].data.actualQuantity).toBe(20);
@@ -181,7 +197,8 @@ describe('ProductionService', () => {
 
             // For an output of 10, ratio = 10 / 100 = 0.1
             // BOM Item 1 quantity = 50 -> 50 * 0.1 = 5
-            expect((InventoryCoreService.deductStock as Mock)).toHaveBeenCalledWith(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
                 'pv-mat1',
@@ -189,8 +206,10 @@ describe('ProductionService', () => {
             );
             
             // Should create stock movement IN for FG
-            const stockMovementCalls = (prisma.stockMovement.create as Mock).mock.calls;
-            const fgMovementIn = stockMovementCalls.find((call: unknown[]) => call[0].data.productVariantId === 'pv-fg' && call[0].data.type === 'IN');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const stockMovementCalls = (prisma.stockMovement.create as any).mock.calls;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fgMovementIn = stockMovementCalls.find((call: any[]) => call[0].data.productVariantId === 'pv-fg' && call[0].data.type === 'IN');
             
             expect(fgMovementIn).toBeDefined();
             expect(fgMovementIn[0].data.quantity).toBe(10);
@@ -216,7 +235,8 @@ describe('ProductionService', () => {
             // Scrap consumes materials too. Total consumed = 10 (produced) + 5 (scrap) + 2 (prongkol) + 3 (daun) = 20
             // Ratio = 20 / 100 = 0.2
             // BOM Item 1 quantity = 50 -> 50 * 0.2 = 10
-            expect((InventoryCoreService.deductStock as Mock)).toHaveBeenCalledWith(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
                 'pv-mat1',
@@ -225,12 +245,15 @@ describe('ProductionService', () => {
 
             // Expect scrapRecord to be created since prongkol and daun qty is > 0
             expect(prisma.scrapRecord.create).toHaveBeenCalled();
-            const scrapCalls = (prisma.scrapRecord.create as Mock).mock.calls;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const scrapCalls = (prisma.scrapRecord.create as any).mock.calls;
             expect(scrapCalls).toHaveLength(2); // One for prongkol, one for daun
 
             // Make sure the system recorded stock movement for scrap IN
-            const smCalls = (prisma.stockMovement.create as Mock).mock.calls;
-            const scrapMovementCreated = smCalls.find((c: Record<string, unknown>) => 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const smCalls = (prisma.stockMovement.create as any).mock.calls;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const scrapMovementCreated = smCalls.find((c: any) => 
                 c[0].data.reference?.includes('Production Scrap')
             );
             expect(scrapMovementCreated).toBeDefined();

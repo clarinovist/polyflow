@@ -194,7 +194,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                             key={customer.id}
                                                             value={customer.name}
                                                             onSelect={() => {
-                                                                form.setValue("customerId", customer.id);
+                                                                form.setValue("customerId", customer.id, { shouldValidate: true, shouldDirty: true });
                                                                 setOpenCustomer(false);
                                                             }}
                                                         >
@@ -298,9 +298,12 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             mode="single"
                                             selected={field.value as Date}
                                             onSelect={field.onChange}
-                                            disabled={(date) =>
-                                                date < new Date("1900-01-01")
-                                            }
+                                            disabled={(date) => {
+                                                const qDate = form.watch("quotationDate") || new Date();
+                                                const normalizedQDate = new Date(qDate);
+                                                normalizedQDate.setHours(0, 0, 0, 0);
+                                                return date.getTime() < normalizedQDate.getTime();
+                                            }}
                                             captionLayout="dropdown"
                                             fromYear={2000}
                                             toYear={new Date().getFullYear() + 5}
@@ -366,7 +369,20 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                 name={`items.${index}.productVariantId`}
                                                 render={({ field, fieldState }) => (
                                                     <div className="flex items-center gap-2">
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <Select 
+                                                            onValueChange={(val) => {
+                                                                field.onChange(val);
+                                                                const selectedPrd = products.find(p => p.id === val);
+                                                                if (selectedPrd) {
+                                                                    form.setValue(
+                                                                        `items.${index}.unitPrice`, 
+                                                                        selectedPrd.sellPrice || selectedPrd.price || 0,
+                                                                        { shouldValidate: true, shouldDirty: true }
+                                                                    );
+                                                                }
+                                                            }} 
+                                                            defaultValue={field.value}
+                                                        >
                                                             <SelectTrigger className="border-0 shadow-none bg-transparent h-auto p-2 w-[300px]">
                                                                 <div className="truncate text-left font-medium">
                                                                     <SelectValue placeholder="Select Product" />
@@ -471,10 +487,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                         </td>
                                         <td className="p-4 text-right tabular-nums">
                                             {(() => {
-                                                const qty = form.watch(`items.${index}.quantity`) || 0;
-                                                const price = form.watch(`items.${index}.unitPrice`) || 0;
-                                                const disc = form.watch(`items.${index}.discountPercent`) || 0;
-                                                const tax = form.watch(`items.${index}.taxPercent`) || 0;
+                                                const itemData = watchItems?.[index] || field;
+                                                const qty = itemData.quantity || 0;
+                                                const price = itemData.unitPrice || 0;
+                                                const disc = itemData.discountPercent || 0;
+                                                const tax = itemData.taxPercent || 0;
 
                                                 const sub = qty * price;
                                                 const afterDisc = sub - (sub * (disc / 100));

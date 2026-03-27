@@ -28,9 +28,11 @@ describe('StockLedgerService', () => {
             id: 'pv-1',
             name: 'Test Product',
             skuCode: 'SKU-01',
-            primaryUnit: 'PCS',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            primaryUnit: 'PCS' as any,
             product: { productType: 'RAW_MATERIAL' }
-        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
 
         // Mock prior movements (Opening Stock)
         // 10 IN, 2 OUT = 8 opening stock
@@ -39,7 +41,8 @@ describe('StockLedgerService', () => {
         vi.mocked(prisma.stockMovement.findMany).mockImplementation(async (args: Parameters<typeof prisma.stockMovement.findMany>[0]) => {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            if (args?.where?.createdAt?.lt) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((args?.where?.createdAt as any)?.lt) {
                 return [
                     { id: 'm1', quantity: { toNumber: () => 10 }, toLocationId: 'loc-1', fromLocationId: null }, // IN +10
                     { id: 'm2', quantity: { toNumber: () => 2 }, toLocationId: null, fromLocationId: 'loc-1' },  // OUT -2
@@ -84,15 +87,18 @@ describe('StockLedgerService', () => {
             id: 'pv-1',
             name: 'Test Product',
             skuCode: 'SKU-01',
-            primaryUnit: 'PCS',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            primaryUnit: 'PCS' as any,
             product: { productType: 'RAW_MATERIAL' }
-        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
 
         // For location loc-1:
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         vi.mocked(prisma.stockMovement.findMany).mockImplementation(async (args: Parameters<typeof prisma.stockMovement.findMany>[0]) => {
-            if (args?.where?.createdAt?.lt) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((args?.where?.createdAt as any)?.lt) {
                 return [
                     { id: 'm1', quantity: { toNumber: () => 10 }, toLocationId: 'loc-1', fromLocationId: null }, // IN to loc-1 +10
                     { id: 'm2', quantity: { toNumber: () => 5 }, toLocationId: 'loc-2', fromLocationId: 'loc-1' }  // TRANSFER from loc-1 to loc-2 -5

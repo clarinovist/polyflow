@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { createOrder, updateOrderStatus, deleteOrder } from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
 import { PurchaseOrderStatus } from '@prisma/client';
@@ -41,7 +41,8 @@ describe('OrdersService (Purchasing)', () => {
             } as never);
 
             const mockCreatedOrder = { id: 'po-1', orderNumber: `PO-${year}-0006`, totalAmount: 500 };
-            vi.mocked(prisma.purchaseOrder.create).mockResolvedValue(mockCreatedOrder as Mock);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            vi.mocked(prisma.purchaseOrder.create).mockResolvedValue(mockCreatedOrder as any);
 
             const input = {
                 supplierId: 'sup-1',

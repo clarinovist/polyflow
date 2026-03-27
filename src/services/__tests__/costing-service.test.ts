@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 
 import { ProductionCostService } from '../production/cost-service';
 import { prisma } from '@/lib/core/prisma';
@@ -18,25 +18,29 @@ describe('ProductionCostService', () => {
 
     describe('calculateBatchCOGM', () => {
         it('should return 0 if order does not exist', async () => {
-            (prisma.productionOrder.findUnique as Mock).mockResolvedValue(null);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUnique as any).mockResolvedValue(null);
             const result = await ProductionCostService.calculateBatchCOGM('invalid-id');
             expect(result).toBe(0);
         });
 
         it('should return 0 if actual quantity is zero or less', async () => {
-            (prisma.productionOrder.findUnique as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUnique as any).mockResolvedValue({
                 id: 'po-1',
                 orderNumber: 'WO-001',
                 actualQuantity: 0,
                 estimatedConversionCost: 100
             });
-            (prisma.stockMovement.findMany as Mock).mockResolvedValue([]);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.stockMovement.findMany as any).mockResolvedValue([]);
             const result = await ProductionCostService.calculateBatchCOGM('po-1');
             expect(result).toBe(0);
         });
 
         it('should correctly calculate COGM based on material movements and conversion costs', async () => {
-            (prisma.productionOrder.findUnique as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUnique as any).mockResolvedValue({
                 id: 'po-1',
                 orderNumber: 'WO-001',
                 actualQuantity: 10,
@@ -44,7 +48,8 @@ describe('ProductionCostService', () => {
             });
 
             // Material cost: = (5 * 10) + (10 * 5) = 50 + 50 = 100
-            (prisma.stockMovement.findMany as Mock).mockResolvedValue([
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.stockMovement.findMany as any).mockResolvedValue([
                 { cost: 10, quantity: 5, type: MovementType.OUT },
                 { cost: 5, quantity: 10, type: MovementType.OUT }
             ]);
@@ -58,7 +63,8 @@ describe('ProductionCostService', () => {
         });
 
         it('should gracefully handle missing conversion cost or missing component costs', async () => {
-            (prisma.productionOrder.findUnique as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUnique as any).mockResolvedValue({
                 id: 'po-1',
                 orderNumber: 'WO-001',
                 actualQuantity: 20,
@@ -66,7 +72,8 @@ describe('ProductionCostService', () => {
             });
 
             // Material cost: = (0 * 10) + (10 * 2) = 0 + 20 = 20
-            (prisma.stockMovement.findMany as Mock).mockResolvedValue([
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.stockMovement.findMany as any).mockResolvedValue([
                 { cost: null, quantity: 10, type: MovementType.OUT },
                 { cost: 10, quantity: 2, type: MovementType.OUT }
             ]);

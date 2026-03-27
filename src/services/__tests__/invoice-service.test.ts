@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { InvoiceService } from '../finance/invoice-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
@@ -44,17 +44,20 @@ describe('InvoiceService', () => {
     describe('createInvoice', () => {
         it('should handle AutoJournalService.handleSalesInvoiceCreated failure gracefully', async () => {
             // Mock generateInvoiceNumber internal logic
-            (prisma.invoice.findFirst as Mock).mockResolvedValue(null);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.invoice.findFirst as any).mockResolvedValue(null);
 
             // Mock sales order
-            (prisma.salesOrder.findUnique as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.salesOrder.findUnique as any).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001'
             });
 
             // Mock created invoice
-            (prisma.invoice.create as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.invoice.create as any).mockResolvedValue({
                 id: 'inv-1',
                 invoiceNumber: 'INV-20231010-0001',
             });
@@ -62,7 +65,8 @@ describe('InvoiceService', () => {
             const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
-            (AutoJournalService.handleSalesInvoiceCreated as Mock).mockRejectedValue(mockError);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
 
             await InvoiceService.createInvoice({
                 salesOrderId: 'so-1',
@@ -81,18 +85,22 @@ describe('InvoiceService', () => {
     describe('createDraftInvoiceFromOrder', () => {
         it('should handle AutoJournalService.handleSalesInvoiceCreated failure gracefully', async () => {
             // Mock generateInvoiceNumber internal logic
-            (prisma.invoice.findFirst as Mock).mockResolvedValueOnce(null); // existing check
-            (prisma.invoice.findFirst as Mock).mockResolvedValueOnce(null); // generateInvoiceNumber check
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.invoice.findFirst as any).mockResolvedValueOnce(null); // existing check
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.invoice.findFirst as any).mockResolvedValueOnce(null); // generateInvoiceNumber check
 
             // Mock sales order
-            (prisma.salesOrder.findUnique as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.salesOrder.findUnique as any).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001'
             });
 
             // Mock created invoice
-            (prisma.invoice.create as Mock).mockResolvedValue({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.invoice.create as any).mockResolvedValue({
                 id: 'inv-2',
                 invoiceNumber: 'INV-20231010-0002',
             });
@@ -100,7 +108,8 @@ describe('InvoiceService', () => {
             const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
-            (AutoJournalService.handleSalesInvoiceCreated as Mock).mockRejectedValue(mockError);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
 
             await InvoiceService.createDraftInvoiceFromOrder('so-1', 'user-1');
 

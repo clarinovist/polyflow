@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { SalesReturnService } from '../returns-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../../finance/auto-journal-service';
@@ -52,11 +52,14 @@ describe('SalesReturnService', () => {
         salesOrder: { id: 'so-1' }
       };
 
-      (prisma.salesReturn.findUnique as Mock).mockResolvedValueOnce(mockSalesReturn as Mock);
-      (prisma.salesReturn.update as Mock).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.salesReturn.findUnique as any).mockResolvedValueOnce(mockSalesReturn as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.salesReturn.update as any).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
 
       const expectedError = new Error('Auto-journal failed');
-      (AutoJournalService.handleSalesReturnReceived as Mock).mockRejectedValueOnce(expectedError);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (AutoJournalService.handleSalesReturnReceived as any).mockRejectedValueOnce(expectedError);
 
       const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 

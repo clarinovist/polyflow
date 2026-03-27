@@ -63,7 +63,8 @@ describe('Production Actions Security', () => {
                 completed: true,
             });
             expect(result.success).toBe(false);
-            expect(result.error).toMatch(/Unauthorized/i);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((result as any).error).toMatch(/Unauthorized/i);
             expect(ProductionService.stopExecution).not.toHaveBeenCalled();
         });
     });
@@ -78,7 +79,8 @@ describe('Production Actions Security', () => {
                 shiftId: 'shift-123'
             });
             expect(result.success).toBe(false);
-            expect(result.error).toMatch(/Unauthorized/i);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((result as any).error).toMatch(/Unauthorized/i);
             expect(ProductionService.startExecution).not.toHaveBeenCalled();
         });
     });
@@ -93,7 +95,8 @@ describe('Production Actions Security', () => {
                 notes: ''
             });
             expect(result.success).toBe(false);
-            expect(result.error).toMatch(/Unauthorized/i);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((result as any).error).toMatch(/Unauthorized/i);
             expect(ProductionService.logRunningOutput).not.toHaveBeenCalled();
         });
     });

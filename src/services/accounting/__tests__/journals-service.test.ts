@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach  } from 'vitest';
 import { createJournalEntry } from '../journals-service';
 import { prisma } from '@/lib/core/prisma';
 import { isPeriodOpen } from '../periods-service';
@@ -66,7 +66,8 @@ describe('JournalsService', () => {
                 ]
             };
 
-            await expect(createJournalEntry(unbalancedEntry as Mock)).rejects.toThrow(/Journal Entry is not balanced/);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await expect(createJournalEntry(unbalancedEntry as any)).rejects.toThrow(/Journal Entry is not balanced/);
             expect(prisma.journalEntry.create).not.toHaveBeenCalled();
         });
 
