@@ -48,12 +48,12 @@ export async function GET(req: Request) {
         // Execute Subsystem Notification Triggers
         // These methods will verify states against thresholds and dispatch alerts
         try {
-            const { InventoryService } = await import('@/services/inventory/inventory-service');
+            const { InventoryCoreService } = await import('@/services/inventory/core-service');
             const { checkOverduePurchasingInvoices } = await import('@/services/purchasing/invoices-service');
             const { InvoiceService } = await import('@/services/finance/invoice-service');
             
             // 1. Trigger Low Stock
-            await InventoryService.checkLowStockTriggers();
+            await InventoryCoreService.checkLowStockTriggers();
 
             // 2. Trigger Overdue AP (Purchasing Invoices)
             await checkOverduePurchasingInvoices();

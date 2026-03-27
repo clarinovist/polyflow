@@ -120,6 +120,18 @@ async function getIncomeStatement(startDate: Date, endDate: Date) {
 }
 );
 
+export const getCashFlowStatement = withTenant(
+async function getCashFlowStatement(startDate: Date, endDate: Date) {
+    return safeAction(async () => {
+        await requireAuth();
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const data = await AccountingService.getCashFlowStatement(start, end);
+        return serializeData(data);
+    });
+}
+);
+
 export const getBalanceSheet = withTenant(
 async function getBalanceSheet(asOfDate: Date) {
     return safeAction(async () => {

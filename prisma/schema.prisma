@@ -9,38 +9,39 @@ datasource db {
 }
 
 model User {
-  id                      String              @id @default(uuid())
-  email                   String              @unique
+  id                      String                 @id @default(uuid())
+  email                   String                 @unique
   name                    String?
   password                String
-  role                    Role                @default(WAREHOUSE)
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-  locale                  String              @default("en")
-  isSuperAdmin            Boolean             @default(false)
+  role                    Role                   @default(WAREHOUSE)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  locale                  String                 @default("en")
+  isSuperAdmin            Boolean                @default(false)
   auditLogs               AuditLog[]
-  deliveryOrders          DeliveryOrder[]     @relation("DeliveryCreator")
-  goodsReceipts           GoodsReceipt[]      @relation("GoodsReceiptCreator")
-  approvedJournals        JournalEntry[]      @relation("JournalApprover")
-  createdJournals         JournalEntry[]      @relation("JournalCreator")
+  deliveryOrders          DeliveryOrder[]        @relation("DeliveryCreator")
+  goodsReceipts           GoodsReceipt[]         @relation("GoodsReceiptCreator")
+  approvedJournals        JournalEntry[]         @relation("JournalApprover")
+  createdJournals         JournalEntry[]         @relation("JournalCreator")
   downtimeLogs            MachineDowntime[]
   materialIssues          MaterialIssue[]
-  productionCreator       ProductionOrder[]   @relation("ProductionCreator")
-  purchaseOrders          PurchaseOrder[]     @relation("PurchaseCreator")
-  purchasePayments        PurchasePayment[]   @relation("PaymentCreator")
+  productionCreator       ProductionOrder[]      @relation("ProductionCreator")
+  purchaseOrders          PurchaseOrder[]        @relation("PurchaseCreator")
+  purchasePayments        PurchasePayment[]      @relation("PaymentCreator")
   createdPurchaseRequests PurchaseRequest[]
   inspections             QualityInspection[]
-  salesOrders             SalesOrder[]        @relation("SalesCreator")
-  quotations              SalesQuotation[]    @relation("QuotationCreator")
+  salesOrders             SalesOrder[]           @relation("SalesCreator")
+  quotations              SalesQuotation[]       @relation("QuotationCreator")
   scrapRecords            ScrapRecord[]
   movements               StockMovement[]
   opnames                 StockOpname[]
-  reportedIssues          ProductionIssue[]   @relation("IssueReporter")
+  reportedIssues          ProductionIssue[]      @relation("IssueReporter")
   costHistory             CostHistory[]
   apiKeys                 ApiKey[]
-  salesReturns            SalesReturn[]       @relation("SalesReturnCreator")
-  purchaseReturns         PurchaseReturn[]    @relation("PurchaseReturnCreator")
+  salesReturns            SalesReturn[]          @relation("SalesReturnCreator")
+  purchaseReturns         PurchaseReturn[]       @relation("PurchaseReturnCreator")
   notifications           Notification[]
+  pettyCashTransactions   PettyCashTransaction[] @relation("PettyCashCreator")
 }
 
 model Employee {
@@ -792,25 +793,26 @@ model PurchasePayment {
 }
 
 model Account {
-  id                  String          @id @default(uuid())
-  code                String          @unique
-  name                String
-  description         String?
-  type                AccountType
-  category            AccountCategory
-  parentId            String?
-  isActive            Boolean         @default(true)
-  isCashAccount       Boolean         @default(false)
-  currency            String          @default("IDR")
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  parent              Account?        @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children            Account[]       @relation("AccountHierarchy")
-  budgets             Budget[]
-  accumDepreciation   FixedAsset[]    @relation("AccumDeprAccount")
-  fixedAssets         FixedAsset[]    @relation("AssetAccount")
-  depreciationExpense FixedAsset[]    @relation("DeprExpenseAccount")
-  journalLines        JournalLine[]
+  id                    String                 @id @default(uuid())
+  code                  String                 @unique
+  name                  String
+  description           String?
+  type                  AccountType
+  category              AccountCategory
+  parentId              String?
+  isActive              Boolean                @default(true)
+  isCashAccount         Boolean                @default(false)
+  currency              String                 @default("IDR")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  parent                Account?               @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children              Account[]              @relation("AccountHierarchy")
+  budgets               Budget[]
+  accumDepreciation     FixedAsset[]           @relation("AccumDeprAccount")
+  fixedAssets           FixedAsset[]           @relation("AssetAccount")
+  depreciationExpense   FixedAsset[]           @relation("DeprExpenseAccount")
+  journalLines          JournalLine[]
+  pettyCashTransactions PettyCashTransaction[]
 
   @@index([code])
   @@index([parentId])
@@ -818,23 +820,24 @@ model Account {
 }
 
 model JournalEntry {
-  id              String         @id @default(uuid())
-  entryNumber     String         @unique
-  entryDate       DateTime
-  description     String
-  reference       String?
-  referenceType   ReferenceType?
-  referenceId     String?
-  status          JournalStatus  @default(DRAFT)
-  isAutoGenerated Boolean        @default(false)
-  createdById     String?
-  approvedById    String?
-  approvedAt      DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  approvedBy      User?          @relation("JournalApprover", fields: [approvedById], references: [id])
-  createdBy       User?          @relation("JournalCreator", fields: [createdById], references: [id])
-  lines           JournalLine[]
+  id                   String                @id @default(uuid())
+  entryNumber          String                @unique
+  entryDate            DateTime
+  description          String
+  reference            String?
+  referenceType        ReferenceType?
+  referenceId          String?
+  status               JournalStatus         @default(DRAFT)
+  isAutoGenerated      Boolean               @default(false)
+  createdById          String?
+  approvedById         String?
+  approvedAt           DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  approvedBy           User?                 @relation("JournalApprover", fields: [approvedById], references: [id])
+  createdBy            User?                 @relation("JournalCreator", fields: [createdById], references: [id])
+  lines                JournalLine[]
+  pettyCashTransaction PettyCashTransaction?
 
   @@index([entryDate])
   @@index([referenceType, referenceId])
@@ -1193,6 +1196,7 @@ enum ReferenceType {
   MANUAL_ENTRY
   SALES_RETURN
   PURCHASE_RETURN
+  PETTY_CASH
 }
 
 enum JournalStatus {
@@ -1411,4 +1415,30 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@index([createdAt])
+}
+
+model PettyCashTransaction {
+  id               String   @id @default(uuid())
+  voucherNumber    String   @unique
+  date             DateTime
+  description      String
+  amount           Decimal  @db.Decimal(15, 2)
+  type             String   @default("EXPENSE") // EXPENSE, REPLENISHMENT
+  expenseAccountId String?
+  status           String   @default("APPROVED") // DRAFT, APPROVED, POSTED, REPLENISHED
+
+  journalEntryId String? @unique
+  receiptUrl     String?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenseAccount Account?      @relation(fields: [expenseAccountId], references: [id])
+  createdBy      User          @relation("PettyCashCreator", fields: [createdById], references: [id])
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  @@index([createdById])
+  @@index([status, date])
 }

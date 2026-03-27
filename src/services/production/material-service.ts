@@ -6,7 +6,7 @@ import {
     QualityInspectionValues
 } from '@/lib/schemas/production';
 import { MovementType, ReferenceType, Prisma } from '@prisma/client';
-import { InventoryService } from '../inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
@@ -136,8 +136,8 @@ export class ProductionMaterialService {
 
                     if (batches.length === 0) {
                         // Fallback: Check if there's stock without batch record
-                        await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, remainingToDeduct);
-                        await InventoryService.deductStock(tx, locationId, item.productVariantId, remainingToDeduct);
+                        await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, remainingToDeduct);
+                        await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, remainingToDeduct);
 
                         const newIssue = await tx.materialIssue.create({
                             data: {
@@ -271,14 +271,14 @@ export class ProductionMaterialService {
         const { productionOrderId, productVariantId, locationId, quantity, userId, batchId } = data;
 
         await prisma.$transaction(async (tx) => {
-            await InventoryService.validateAndLockStock(
+            await InventoryCoreService.validateAndLockStock(
                 tx,
                 locationId,
                 productVariantId,
                 quantity
             );
 
-            await InventoryService.deductStock(
+            await InventoryCoreService.deductStock(
                 tx,
                 locationId,
                 productVariantId,
@@ -344,7 +344,7 @@ export class ProductionMaterialService {
                 refundLocationId = legacyLoc.id;
             }
 
-            await InventoryService.incrementStock(
+            await InventoryCoreService.incrementStock(
                 tx,
                 refundLocationId,
                 issue.productVariantId,
@@ -388,7 +388,7 @@ export class ProductionMaterialService {
         const { productionOrderId, productVariantId, locationId, quantity, reason, userId } = data;
 
         const recordLogic = async (tx: Prisma.TransactionClient) => {
-            await InventoryService.incrementStock(
+            await InventoryCoreService.incrementStock(
                 tx,
                 locationId,
                 productVariantId,
@@ -463,7 +463,7 @@ export class ProductionMaterialService {
                 locationId = scrapLoc.id;
             }
 
-            await InventoryService.deductStock(tx, locationId, scrap.productVariantId, scrap.quantity.toNumber());
+            await InventoryCoreService.deductStock(tx, locationId, scrap.productVariantId, scrap.quantity.toNumber());
 
             const order = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
-import { InventoryService } from '@/services/inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
@@ -72,7 +72,7 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                 });
             }
 
-            await InventoryService.incrementStock(
+            await InventoryCoreService.incrementStock(
                 tx,
                 data.locationId,
                 item.productVariantId,

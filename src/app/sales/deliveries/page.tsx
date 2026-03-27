@@ -17,7 +17,7 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
     const deliveryOrders = await getDeliveryOrders({ startDate: checkStart, endDate: checkEnd });
-    const serializedOrders = serializeData(deliveryOrders);
+    const serializedOrders = deliveryOrders.success && deliveryOrders.data ? serializeData(deliveryOrders.data) : [];
 
     return (
         <div className="flex flex-col space-y-6 p-6">

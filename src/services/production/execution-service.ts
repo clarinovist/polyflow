@@ -8,7 +8,7 @@ import {
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
 import { ProductionStatus, MovementType, ProductionMaterial, BomItem, ProductionExecution } from '@prisma/client';
-import { InventoryService } from '../inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
@@ -167,8 +167,8 @@ export class ProductionExecutionService {
                         const qtyToDeduct = totalConsumed * ratio;
 
                         if (qtyToDeduct > 0.0001) {
-                            await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                            await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                            await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                            await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                             
                             // Fetch unit cost from source inventory averageCost for accurate COGM
                             const srcInv = await tx.inventory.findUnique({
@@ -326,8 +326,8 @@ export class ProductionExecutionService {
                     const qtyToDeduct = totalConsumed * ratio;
 
                     if (qtyToDeduct > 0.0001) {
-                        await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                        await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
                         // Fetch unit cost from source inventory averageCost for accurate COGM
                         const srcInv = await tx.inventory.findUnique({
                             where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
@@ -484,8 +484,8 @@ export class ProductionExecutionService {
                     const qtyToDeduct = totalConsumed * ratio;
 
                     if (qtyToDeduct > 0.0001) {
-                        await InventoryService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                        await InventoryService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
+                        await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
 
                         // Fetch unit cost from source inventory averageCost for accurate COGM
                         const srcInv = await tx.inventory.findUnique({
@@ -648,7 +648,7 @@ export class ProductionExecutionService {
 
                 if (move.type === MovementType.IN) {
                     // Reversing Finished Goods IN -> OUT
-                    await InventoryService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
+                    await InventoryCoreService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
                     const rev = await tx.stockMovement.create({
                         data: {
                             type: MovementType.OUT,
@@ -662,7 +662,7 @@ export class ProductionExecutionService {
                     await AccountingService.recordInventoryMovement(rev, tx);
                 } else if (move.type === MovementType.OUT) {
                     // Reversing Backflush OUT -> IN
-                    await InventoryService.incrementStock(tx, move.fromLocationId!, move.productVariantId, Number(move.quantity));
+                    await InventoryCoreService.incrementStock(tx, move.fromLocationId!, move.productVariantId, Number(move.quantity));
                     const rev = await tx.stockMovement.create({
                         data: {
                             type: MovementType.IN,

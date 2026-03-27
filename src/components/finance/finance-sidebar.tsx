@@ -11,7 +11,10 @@ import {
     Building2,
     History as HistoryIcon,
     Zap,
-    TrendingUp
+    TrendingUp,
+    Wallet,
+    Landmark,
+    Box
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -29,7 +32,13 @@ const financeLinks = [
     {
         heading: 'Insights',
         items: [
-            { href: '/finance', icon: LayoutDashboard, label: 'Financial Dashboard', exact: true },
+            { href: '/finance', icon: LayoutDashboard, label: 'Dashboard', exact: true },
+            { href: '/finance/petty-cash', icon: Wallet, label: 'Petty Cash' },
+            { href: '/finance/bank-reconciliation', icon: Landmark, label: 'Bank Reconciliation' },
+            { href: '/finance/fixed-assets', icon: Box, label: 'Fixed Assets' },
+            { href: '/finance/budgeting', icon: TrendingUp, label: 'Budgeting vs Actuals' },
+            { href: '/finance/aging', icon: HistoryIcon, label: 'AR/AP Aging Summary' },
+            { href: '/finance/foh-allocation', icon: TrendingUp, label: 'FOH Allocation' },
             { href: '/finance/costing', icon: TrendingUp, label: 'Costing Dashboard' },
         ],
     },
@@ -55,8 +64,10 @@ const financeLinks = [
         items: [
             { href: '/finance/reports/balance-sheet', icon: FileText, label: 'Balance Sheet' },
             { href: '/finance/reports/income-statement', icon: FileText, label: 'Income Statement' },
+            { href: '/finance/reports/cash-flow', icon: FileText, label: 'Cash Flow Statement' },
             { href: '/finance/reports/trial-balance', icon: FileText, label: 'Trial Balance' },
             { href: '/finance/reports/budget-variance', icon: FileText, label: 'Budget Variance' },
+            { href: '/finance/reports/tax', icon: FileText, label: 'Tax Report' },
         ],
     },
     {

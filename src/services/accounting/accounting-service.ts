@@ -11,7 +11,7 @@ import {
     createYearEndClosingEntry
 } from './journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
-import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance } from './reports-service';
+import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement } from './reports-service';
 import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './periods-service';
 import { recordInventoryMovement } from './inventory-link-service';
 
@@ -96,6 +96,13 @@ export class AccountingService {
      */
     static async getBalanceSheet(asOfDate: Date) {
         return getBalanceSheet(asOfDate);
+    }
+
+    /**
+     * Get Cash Flow Statement (POSTED ONLY)
+     */
+    static async getCashFlowStatement(startDate: Date, endDate: Date) {
+        return getCashFlowStatement(startDate, endDate);
     }
 
     static async getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {

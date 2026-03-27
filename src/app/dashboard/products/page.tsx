@@ -31,7 +31,7 @@ export default async function ProductsPage({
 
     // Serialize Decimal fields for client component
     const serializedProducts = JSON.parse(
-        JSON.stringify(products, (key, value) => {
+        JSON.stringify(products.success && products.data ? products.data : [], (key, value) => {
             // Convert Decimal to number
             if (value && typeof value === 'object' && value.constructor?.name === 'Decimal') {
                 return parseFloat(value.toString());

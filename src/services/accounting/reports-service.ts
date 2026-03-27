@@ -268,3 +268,126 @@ export async function getClosingBalances(startDate: Date, endDate: Date) {
         };
     }).filter(a => Math.abs(a.netBalance) > 0.01);
 }
+
+export async function getCashFlowStatement(startDate: Date, endDate: Date) {
+    const cashAccounts = await prisma.account.findMany({
+        where: { isCashAccount: true }
+    });
+    
+    if (cashAccounts.length === 0) {
+        return {
+            operatingActivities: [],
+            investingActivities: [],
+            financingActivities: [],
+            netOperating: 0,
+            netInvesting: 0,
+            netFinancing: 0,
+            netCashFlow: 0,
+            beginningBalance: 0,
+            endingBalance: 0
+        };
+    }
+    
+    const cashAccountIds = cashAccounts.map(a => a.id);
+
+    // Calculate beginning balance (all entries BEFORE startDate)
+    const beginningBalanceRaw = await prisma.journalLine.aggregate({
+        where: {
+            accountId: { in: cashAccountIds },
+            journalEntry: {
+                status: 'POSTED',
+                entryDate: { lt: startDate }
+            }
+        },
+        _sum: {
+            debit: true,
+            credit: true
+        }
+    });
+
+    const beginningBalance = Number(beginningBalanceRaw._sum.debit || 0) - Number(beginningBalanceRaw._sum.credit || 0);
+
+    // Get all posted journal entries within the period that involve a cash account
+    const entries = await prisma.journalEntry.findMany({
+        where: {
+            status: 'POSTED',
+            entryDate: { gte: startDate, lte: endDate },
+            lines: {
+                some: {
+                    accountId: { in: cashAccountIds }
+                }
+            }
+        },
+        include: {
+            lines: {
+                include: {
+                    account: true
+                }
+            }
+        }
+    });
+
+    const operatingActivities: Map<string, { accountName: string, amount: number }> = new Map();
+    const investingActivities: Map<string, { accountName: string, amount: number }> = new Map();
+    const financingActivities: Map<string, { accountName: string, amount: number }> = new Map();
+
+    entries.forEach(entry => {
+        const nonCashLines = entry.lines.filter(line => !line.account.isCashAccount);
+
+        for (const line of nonCashLines) {
+            const cashImpact = Number(line.credit) - Number(line.debit);
+            
+            if (cashImpact === 0) continue;
+
+            let targetGroup;
+            switch (line.account.category) {
+                case 'FIXED_ASSET':
+                case 'OTHER_ASSET':
+                    targetGroup = investingActivities;
+                    break;
+                case 'LONG_TERM_LIABILITY':
+                case 'CAPITAL':
+                case 'RETAINED_EARNINGS':
+                    targetGroup = financingActivities;
+                    break;
+                default:
+                    // Current Assets, Current Liab, Revenue, Expense, COGS
+                    targetGroup = operatingActivities;
+                    break;
+            }
+
+            const existing = targetGroup.get(line.account.id) || { accountName: line.account.name, amount: 0 };
+            existing.amount += cashImpact;
+            targetGroup.set(line.account.id, existing);
+        }
+    });
+
+    const mapToArray = (map: Map<string, { accountName: string, amount: number }>) => 
+        Array.from(map.values())
+            .filter(v => Math.abs(v.amount) > 0.01)
+            .map(v => ({ name: v.accountName, amount: v.amount }))
+            .sort((a, b) => b.amount - a.amount);
+
+    const operatingParams = mapToArray(operatingActivities);
+    const investingParams = mapToArray(investingActivities);
+    const financingParams = mapToArray(financingActivities);
+
+    const netOperating = operatingParams.reduce((sum, item) => sum + item.amount, 0);
+    const netInvesting = investingParams.reduce((sum, item) => sum + item.amount, 0);
+    const netFinancing = financingParams.reduce((sum, item) => sum + item.amount, 0);
+
+    const netCashFlow = netOperating + netInvesting + netFinancing;
+    const endingBalance = beginningBalance + netCashFlow;
+
+    return {
+        operatingActivities: operatingParams,
+        investingActivities: investingParams,
+        financingActivities: financingParams,
+        netOperating,
+        netInvesting,
+        netFinancing,
+        netCashFlow,
+        beginningBalance,
+        endingBalance
+    };
+}

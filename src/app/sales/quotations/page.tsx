@@ -21,7 +21,7 @@ export default async function SalesQuotationsPage({ searchParams }: { searchPara
     const quotations = await getQuotations({ startDate: checkStart, endDate: checkEnd });
 
     // Serialize all Prisma objects for Client Components
-    const serializedQuotations = serializeData(quotations);
+    const serializedQuotations = quotations.success && quotations.data ? serializeData(quotations.data) : [];
 
     return (
         <div className="flex flex-col space-y-6 p-6 max-w-7xl mx-auto">

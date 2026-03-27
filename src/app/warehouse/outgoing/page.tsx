@@ -18,7 +18,7 @@ export default async function WarehouseOutgoingPage({ searchParams }: { searchPa
     const orders = await getSalesOrders(false, { startDate: checkStart, endDate: checkEnd });
 
     // Serialize all Prisma objects for Client Components
-    const serializedOrders = serializeData(orders);
+    const serializedOrders = orders.success && orders.data ? serializeData(orders.data) : [];
 
     return (
         <div className="flex flex-col space-y-6 p-6">

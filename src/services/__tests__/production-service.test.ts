@@ -44,7 +44,7 @@ vi.mock('@/lib/core/prisma', () => {
     };
     return { prisma: mockPrisma };
 });
-import { InventoryService } from '../inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
 import { ProductionCostService } from '../production/cost-service';
 import { AccountingService } from '../accounting/accounting-service';
 
@@ -176,7 +176,7 @@ describe('ProductionService', () => {
 
             // For an output of 10, ratio = 10 / 100 = 0.1
             // BOM Item 1 quantity = 50 -> 50 * 0.1 = 5
-            expect((InventoryService.deductStock as Mock)).toHaveBeenCalledWith(
+            expect((InventoryCoreService.deductStock as Mock)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
                 'pv-mat1',
@@ -211,7 +211,7 @@ describe('ProductionService', () => {
             // Scrap consumes materials too. Total consumed = 10 (produced) + 5 (scrap) + 2 (prongkol) + 3 (daun) = 20
             // Ratio = 20 / 100 = 0.2
             // BOM Item 1 quantity = 50 -> 50 * 0.2 = 10
-            expect((InventoryService.deductStock as Mock)).toHaveBeenCalledWith(
+            expect((InventoryCoreService.deductStock as Mock)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
                 'pv-mat1',

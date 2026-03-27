@@ -19,7 +19,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
     const invoices = await getInvoices({ startDate: checkStart, endDate: checkEnd });
 
     // Serialize all Prisma objects for Client Components
-    const serializedInvoices = serializeData(invoices);
+    const serializedInvoices = invoices.success && invoices.data ? serializeData(invoices.data) : [];
 
     return (
         <div className="p-6 space-y-6">

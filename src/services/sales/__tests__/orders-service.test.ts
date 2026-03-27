@@ -37,10 +37,8 @@ vi.mock('@/services/production/production-service', () => ({
     }
 }));
 
-vi.mock('@/services/inventory/inventory-service', () => ({
-    InventoryService: {
-        createStockReservation: vi.fn(),
-    }
+vi.mock('@/services/inventory/reservation-service', () => ({
+    createStockReservation: vi.fn(),
 }));
 
 vi.mock('../credit-service', () => ({

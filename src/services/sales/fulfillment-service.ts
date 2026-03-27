@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
-import { InventoryService } from '@/services/inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
 import { InvoiceService } from '@/services/finance/invoice-service';
 
 export async function markReadyToShip(id: string, userId: string) {
@@ -69,8 +69,8 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
                 needed = Math.round((needed - consume) * 10000) / 10000;
             }
 
-            await InventoryService.validateAndLockStock(tx, locationId, item.productVariantId, qty);
-            await InventoryService.deductStock(tx, locationId, item.productVariantId, qty);
+            await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, qty);
+            await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, qty);
 
             await tx.stockMovement.create({
                 data: {

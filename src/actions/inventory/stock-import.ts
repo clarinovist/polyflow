@@ -3,7 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { InventoryService } from '@/services/inventory/inventory-service';
+import { InventoryMovementService } from '@/services/inventory/movement-service';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
@@ -49,7 +49,7 @@ async function importInitialStock(
             return { imported: 0 };
         }
 
-        // Group by location because InventoryService.adjustStockBulk takes one locationId per call
+        // Group by location because InventoryMovementService.adjustStockBulk takes one locationId per call
         const itemsByLocation = new Map<string, ValidatedStockItem[]>();
         for (const item of items) {
             const existing = itemsByLocation.get(item.locationId) || [];
@@ -71,7 +71,7 @@ async function importInitialStock(
                     }))
                 };
 
-                await InventoryService.adjustStockBulk(bulkData, userId);
+                await InventoryMovementService.adjustStockBulk(bulkData, userId);
                 totalImported += locationItems.length;
             }
 

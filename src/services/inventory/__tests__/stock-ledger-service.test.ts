@@ -34,6 +34,8 @@ describe('StockLedgerService', () => {
 
         // Mock prior movements (Opening Stock)
         // 10 IN, 2 OUT = 8 opening stock
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         vi.mocked(prisma.stockMovement.findMany).mockImplementation(async (args: Parameters<typeof prisma.stockMovement.findMany>[0]) => {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
@@ -87,9 +89,9 @@ describe('StockLedgerService', () => {
         });
 
         // For location loc-1:
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         vi.mocked(prisma.stockMovement.findMany).mockImplementation(async (args: Parameters<typeof prisma.stockMovement.findMany>[0]) => {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
             if (args?.where?.createdAt?.lt) {
                 return [
                     { id: 'm1', quantity: { toNumber: () => 10 }, toLocationId: 'loc-1', fromLocationId: null }, // IN to loc-1 +10

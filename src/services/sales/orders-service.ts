@@ -2,7 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
-import { InventoryService } from '@/services/inventory/inventory-service';
+import { createStockReservation } from '@/services/inventory/reservation-service';
 import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
@@ -117,6 +117,10 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
         };
     });
 
+    if (data.customerId) {
+        await checkCreditLimit(data.customerId, totalAmount);
+    }
+
     return await prisma.salesOrder.create({
         data: {
             orderNumber,
@@ -171,6 +175,10 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
             subtotal: flowSubtotal
         };
     });
+
+    if (data.customerId) {
+        await checkCreditLimit(data.customerId, totalAmount);
+    }
 
     return await prisma.$transaction(async (tx) => {
         await tx.salesOrderItem.deleteMany({
@@ -270,7 +278,7 @@ export async function confirmOrder(id: string, userId: string) {
                 }
 
                 if (activeReservationAmount > 0) {
-                    await InventoryService.createStockReservation({
+                    await createStockReservation({
                         productVariantId: item.productVariantId,
                         locationId: order.sourceLocationId,
                         quantity: activeReservationAmount,

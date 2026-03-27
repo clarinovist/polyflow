@@ -1,7 +1,12 @@
 'use server';
 
 import { withTenant } from "@/lib/core/tenant";
-import { InventoryService } from '@/services/inventory/inventory-service';
+import { InventoryCoreService } from '@/services/inventory/core-service';
+import { InventoryMovementService } from '@/services/inventory/movement-service';
+import { InventoryQueryService } from '@/services/inventory/query-service';
+import * as ReservationService from '@/services/inventory/reservation-service';
+import * as AnalyticsService from '@/services/inventory/analytics-service';
+import { getStockLedger } from '@/services/inventory/stock-ledger-service';
 import { transferStockSchema, TransferStockValues, bulkAdjustStockSchema, BulkAdjustStockValues, bulkTransferStockSchema, BulkTransferStockValues, createReservationSchema, CreateReservationValues, cancelReservationSchema, CancelReservationValues, adjustStockWithBatchSchema, AdjustStockWithBatchValues } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
@@ -12,7 +17,7 @@ export const getInventoryStats = withTenant(
 async function getInventoryStats(searchParams?: { locationId?: string; type?: string }) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getStats(searchParams);
+        return await InventoryQueryService.getStats(searchParams);
     });
 }
 );
@@ -21,7 +26,7 @@ export const getLocations = withTenant(
 async function getLocations() {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getLocations();
+        return await InventoryQueryService.getLocations();
     });
 }
 );
@@ -30,7 +35,7 @@ export const getProductVariants = withTenant(
 async function getProductVariants() {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getProductVariants();
+        return await InventoryQueryService.getProductVariants();
     });
 }
 );
@@ -39,7 +44,7 @@ export const getAvailableBatches = withTenant(
 async function getAvailableBatches(productVariantId: string, locationId: string) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getAvailableBatches(productVariantId, locationId);
+        return await InventoryQueryService.getAvailableBatches(productVariantId, locationId);
     });
 }
 );
@@ -57,7 +62,7 @@ async function transferStock(data: TransferStockValues, _userId?: string) {
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.transferStock(result.data, currentUserId);
+        await InventoryMovementService.transferStock(result.data, currentUserId);
         const { logActivity } = await import('@/lib/tools/audit');
         await logActivity({
             userId: currentUserId,
@@ -83,7 +88,7 @@ async function transferStockBulk(data: BulkTransferStockValues, _userId?: string
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.transferStockBulk(result.data, currentUserId);
+        await InventoryMovementService.transferStockBulk(result.data, currentUserId);
         const { logActivity } = await import('@/lib/tools/audit');
         await logActivity({
             userId: currentUserId,
@@ -109,7 +114,7 @@ async function adjustStock(data: AdjustStockWithBatchValues, _userId?: string) {
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.adjustStock(result.data, currentUserId);
+        await InventoryMovementService.adjustStock(result.data, currentUserId);
         const { logActivity } = await import('@/lib/tools/audit');
         await logActivity({
             userId: currentUserId,
@@ -135,7 +140,7 @@ async function adjustStockBulk(data: BulkAdjustStockValues, _userId?: string) {
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.adjustStockBulk(result.data, currentUserId);
+        await InventoryMovementService.adjustStockBulk(result.data, currentUserId);
         const { logActivity } = await import('@/lib/tools/audit');
         await logActivity({
             userId: currentUserId,
@@ -154,7 +159,7 @@ export const updateThreshold = withTenant(
 async function updateThreshold(productVariantId: string, minStockAlert: number) {
     return safeAction(async () => {
         await requireAuth();
-        await InventoryService.updateThreshold(productVariantId, minStockAlert);
+        await InventoryCoreService.updateThreshold(productVariantId, minStockAlert);
         revalidatePath('/dashboard');
         revalidatePath('/warehouse/inventory');
     });
@@ -165,7 +170,7 @@ export const getStockMovements = withTenant(
 async function getStockMovements(limit = 50, startDate?: Date, endDate?: Date) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getStockMovements({ limit, startDate, endDate });
+        return await InventoryQueryService.getStockMovements({ limit, startDate, endDate });
     });
 }
 );
@@ -174,7 +179,7 @@ export const getDashboardStats = withTenant(
 async function getDashboardStats() {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getDashboardStats();
+        return await InventoryQueryService.getDashboardStats();
     });
 }
 );
@@ -183,7 +188,7 @@ export const getSuggestedPurchases = withTenant(
 async function getSuggestedPurchases() {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getSuggestedPurchases();
+        return await AnalyticsService.getSuggestedPurchases();
     });
 }
 );
@@ -192,7 +197,7 @@ export const getInventoryValuation = withTenant(
 async function getInventoryValuation() {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getInventoryValuation();
+        return await AnalyticsService.getInventoryValuation();
     });
 }
 );
@@ -201,7 +206,7 @@ export const getInventoryAsOf = withTenant(
 async function getInventoryAsOf(targetDate: Date, locationId?: string) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getInventoryAsOf(targetDate, locationId);
+        return await AnalyticsService.getInventoryAsOf(targetDate, locationId);
     });
 }
 );
@@ -215,7 +220,7 @@ async function getStockHistory(
 ) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getStockHistory(productVariantId, startDate, endDate, locationId);
+        return await AnalyticsService.getStockHistory(productVariantId, startDate, endDate, locationId);
     });
 }
 );
@@ -229,7 +234,7 @@ async function getStockLedgerAction(
 ) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getStockLedger(productVariantId, startDate, endDate, locationId);
+        return await getStockLedger(productVariantId, startDate, endDate, locationId);
     });
 }
 );
@@ -243,7 +248,7 @@ async function createStockReservation(data: CreateReservationValues) {
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.createStockReservation(result.data);
+        await ReservationService.createStockReservation(result.data);
         revalidatePath('/warehouse/inventory');
     });
 }
@@ -258,7 +263,7 @@ async function cancelStockReservation(data: CancelReservationValues) {
             throw new ValidationError(result.error.issues[0].message);
         }
 
-        await InventoryService.cancelStockReservation(result.data);
+        await ReservationService.cancelStockReservation(result.data);
         revalidatePath('/warehouse/inventory');
     });
 }
@@ -268,7 +273,7 @@ export const getActiveReservations = withTenant(
 async function getActiveReservations(locationId?: string, productVariantId?: string) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getActiveReservations(locationId, productVariantId);
+        return await ReservationService.getActiveReservations(locationId, productVariantId);
     });
 }
 );
@@ -281,7 +286,7 @@ export const getInventoryTurnover = withTenant(
 async function getInventoryTurnover(periodDays = 30) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getInventoryTurnover(periodDays);
+        return await AnalyticsService.getInventoryTurnover(periodDays);
     });
 }
 );
@@ -290,7 +295,7 @@ export const getDaysOfInventoryOnHand = withTenant(
 async function getDaysOfInventoryOnHand(periodDays = 30) {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getDaysOfInventoryOnHand(periodDays);
+        return await AnalyticsService.getDaysOfInventoryOnHand(periodDays);
     });
 }
 );
@@ -299,7 +304,7 @@ export const getStockMovementTrends = withTenant(
 async function getStockMovementTrends(period: 'week' | 'month' | 'quarter' = 'month') {
     return safeAction(async () => {
         await requireAuth();
-        return await InventoryService.getStockMovementTrends(period);
+        return await AnalyticsService.getStockMovementTrends(period);
     });
 }
 );

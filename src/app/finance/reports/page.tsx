@@ -43,6 +43,22 @@ const reports = [
         icon: PieChart,
         color: "text-purple-500",
         bg: "bg-purple-500/10"
+    },
+    {
+        title: "Cash Flow Statement",
+        description: "Statement of cash inflows and outflows (Operating, Investing, Financing).",
+        href: "/finance/reports/cash-flow",
+        icon: Activity,
+        color: "text-emerald-600",
+        bg: "bg-emerald-600/10"
+    },
+    {
+        title: "Tax Report",
+        description: "Monthly integrated tax report (VAT & Income Tax).",
+        href: "/finance/reports/tax",
+        icon: Scale,
+        color: "text-amber-600",
+        bg: "bg-amber-600/10"
     }
 ];
 

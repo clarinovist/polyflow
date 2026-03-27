@@ -38,8 +38,8 @@ vi.mock('@/lib/core/prisma', () => ({
 }));
 
 // Mock services that are dynamically imported
-vi.mock('@/services/inventory/inventory-service', () => ({
-    InventoryService: {
+vi.mock('@/services/inventory/core-service', () => ({
+    InventoryCoreService: {
         checkLowStockTriggers: vi.fn().mockResolvedValue(undefined)
     }
 }));
