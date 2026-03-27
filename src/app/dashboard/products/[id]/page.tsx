@@ -8,11 +8,13 @@ import { notFound } from 'next/navigation';
 
 export default async function ProductDetailPage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
-    const product = await getProductById(params.id);
+    const productRes = await getProductById(params.id);
 
-    if (!product) {
+    if (!productRes || !productRes.success || !productRes.data) {
         notFound();
     }
+
+    const product = productRes.data;
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

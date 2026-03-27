@@ -22,8 +22,8 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
         const name = formData.get("name") as string;
         const result = await updateTenant(tenant.id, formData);
 
-        if (result.error) {
-            toast.error(result.error);
+        if (!result.success) {
+            toast.error(result.error || 'Unknown error');
         } else {
             toast.success(`${name} updated successfully!`);
             setIsOpen(false);
@@ -93,8 +93,8 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
         setIsSubmitting(true);
         const result = await resetTenantAdminPassword(tenant.id, formData);
 
-        if (result.error) {
-            toast.error(result.error);
+        if (!result.success) {
+            toast.error(result.error || 'Unknown error');
         } else {
             toast.success(`Admin password for ${tenant.name} has been reset!`);
             setIsOpen(false);
@@ -153,8 +153,8 @@ export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] 
         toast.promise(createAndProvisionTenant(formData), {
             loading: `Provisioning ${name}... Please wait, this takes about 30 seconds...`,
             success: (result) => {
-                if (result.error) {
-                    throw new Error(result.error);
+                if (!result.success) {
+                    throw new Error(result.error || 'Unknown error');
                 }
                 setIsOpen(false);
                 // In a real app we'd revalidate path to fetch the new tenant from DB

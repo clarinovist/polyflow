@@ -15,12 +15,17 @@ interface PageProps {
 export default async function EditSalesOrderPage({ params }: PageProps) {
     const { id } = await params;
 
-    const [order, customers, locations, products] = await Promise.all([
+    const [orderRes, customersRes, locationsRes, productsRes] = await Promise.all([
         getSalesOrderById(id),
         getCustomers(),
         getLocations(),
         getProductVariants()
     ]);
+    
+    const order = orderRes?.success && orderRes.data ? orderRes.data : null;
+    const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
+    const locations = locationsRes?.success && locationsRes.data ? locationsRes.data : [];
+    const products = productsRes?.success && productsRes.data ? productsRes.data : [];
 
     if (!order) {
         notFound();

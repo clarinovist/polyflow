@@ -58,12 +58,14 @@ export function ProductionPlanningDialog({
         setIsLoading(true);
         try {
             const result = await simulateMrp(salesOrderId);
-            if (result.success && result.data) {
+            if (!result.success) {
+                toast.error(result.error || "Failed to run simulation");
+                return;
+            }
+            if (result.data) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setSimulationResult(result.data as any);
                 setHasSimulated(true);
-            } else {
-                toast.error(result.error || "Failed to run simulation");
             }
         } catch (_error) {
             toast.error("An error occurred during simulation");

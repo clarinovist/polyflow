@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { MovementType, ProductionStatus } from '@prisma/client';
+import { MovementType, ProductionStatus, Prisma } from '@prisma/client';
 
 export interface PoCostResult {
     id: string;
@@ -31,8 +31,7 @@ export class CostReportingService {
      * Get Costing Report for Finished Goods (Completed Orders)
      */
     static async getFinishedGoodsCosting(startDate?: Date, endDate?: Date): Promise<PoCostResult[]> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {
+        const where: Prisma.ProductionOrderWhereInput = {
             status: ProductionStatus.COMPLETED
         };
 

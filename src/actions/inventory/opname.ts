@@ -4,48 +4,54 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { OpnameStatus, MovementType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { logger } from '@/lib/config/logger';
+import { safeAction, BusinessRuleError, NotFoundError, AuthenticationError } from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
+import { auth } from '@/auth';
+import { AccountingService } from '@/services/accounting/accounting-service';
 
 export const getOpnameSessions = withTenant(
 async function getOpnameSessions() {
-    return await prisma.stockOpname.findMany({
-        orderBy: {
-            createdAt: 'desc',
-        },
-        include: {
-            location: true,
-            createdBy: true,
-        },
+    return safeAction(async () => {
+        return await prisma.stockOpname.findMany({
+            orderBy: {
+                createdAt: 'desc',
+            },
+            include: {
+                location: true,
+                createdBy: true,
+            },
+        });
     });
 }
 );
 
 export const getOpnameSession = withTenant(
 async function getOpnameSession(id: string) {
-    return await prisma.stockOpname.findUnique({
-        where: { id },
-        include: {
-            location: true,
-            createdBy: true,
-            items: {
-                include: {
-                    productVariant: {
-                        include: {
-                            product: true
+    return safeAction(async () => {
+        return await prisma.stockOpname.findUnique({
+            where: { id },
+            include: {
+                location: true,
+                createdBy: true,
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
                         }
-                    }
-                },
-                orderBy: {
-                    productVariant: {
-                        name: 'asc'
+                    },
+                    orderBy: {
+                        productVariant: {
+                            name: 'asc'
+                        }
                     }
                 }
             }
-        }
+        });
     });
 }
 );
-
 
 async function generateOpnameNumber() {
     const date = new Date();
@@ -78,7 +84,7 @@ async function generateOpnameNumber() {
 
 export const createOpnameSession = withTenant(
 async function createOpnameSession(locationId: string, remarks?: string) {
-    try {
+    return safeAction(async () => {
         // 1. Get all inventories for this location to snapshot
         const inventories = await prisma.inventory.findMany({
             where: {
@@ -87,7 +93,7 @@ async function createOpnameSession(locationId: string, remarks?: string) {
         });
 
         if (inventories.length === 0) {
-            throw new Error("No inventory found for this location to perform stock opname.");
+            throw new BusinessRuleError("No inventory found for this location to perform stock opname.");
         }
 
         // 2. Generate Number
@@ -111,11 +117,8 @@ async function createOpnameSession(locationId: string, remarks?: string) {
         });
 
         revalidatePath('/warehouse/opname');
-        return { success: true, id: session.id };
-    } catch (error) {
-        logger.error('Failed to create opname session', { error, locationId, module: 'OpnameActions' });
-        return { success: false, error: 'Failed to create opname session. Please try again.' };
-    }
+        return { id: session.id };
+    });
 }
 );
 
@@ -124,7 +127,7 @@ async function saveOpnameCount(
     opnameId: string,
     items: { id: string; countedQuantity: number; notes?: string }[]
 ) {
-    try {
+    return safeAction(async () => {
         await prisma.$transaction(
             items.map(item =>
                 prisma.stockOpnameItem.update({
@@ -138,24 +141,16 @@ async function saveOpnameCount(
         );
 
         revalidatePath(`/warehouse/opname/${opnameId}`);
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to save opname count', { error, opnameId, module: 'OpnameActions' });
-        return { success: false, error: 'Failed to save opname count. Please verify inputs.' };
-    }
+    });
 }
 );
 
-import { logActivity } from '@/lib/tools/audit';
-import { auth } from '@/auth';
-import { AccountingService } from '@/services/accounting/accounting-service';
-
 export const completeOpname = withTenant(
 async function completeOpname(opnameId: string) {
-    try {
+    return safeAction(async () => {
         const session = await auth();
         if (!session?.user?.id) {
-            throw new Error("User not authenticated");
+            throw new AuthenticationError("User not authenticated");
         }
         const userId = session.user.id;
 
@@ -164,8 +159,8 @@ async function completeOpname(opnameId: string) {
             include: { items: true }
         });
 
-        if (!opname) throw new Error("Session not found");
-        if (opname.status !== 'OPEN') throw new Error("Session is not open");
+        if (!opname) throw new NotFoundError("StockOpname", opnameId);
+        if (opname.status !== 'OPEN') throw new BusinessRuleError("Session is not open");
 
         await prisma.$transaction(async (tx) => {
             // 1. Process items with variance
@@ -227,28 +222,24 @@ async function completeOpname(opnameId: string) {
         });
 
         revalidatePath(`/warehouse/opname/${opnameId}`);
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to complete opname session', { error, opnameId, module: 'OpnameActions' });
-        return { success: false, error: 'Failed to complete opname session.' };
-    }
+    });
 }
 );
 
 export const deleteOpnameSession = withTenant(
 async function deleteOpnameSession(id: string) {
-    try {
+    return safeAction(async () => {
         const session = await prisma.stockOpname.findUnique({
             where: { id },
             select: { status: true }
         });
 
         if (!session) {
-            return { success: false, error: "Session not found" };
+            throw new NotFoundError("StockOpname", id);
         }
 
         if (session.status !== 'OPEN') {
-            return { success: false, error: "Only OPEN sessions can be deleted" };
+            throw new BusinessRuleError("Only OPEN sessions can be deleted");
         }
 
         await prisma.stockOpname.delete({
@@ -256,11 +247,7 @@ async function deleteOpnameSession(id: string) {
         });
 
         revalidatePath('/warehouse/opname');
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to delete opname session', { error, sessionId: id, module: 'OpnameActions' });
-        return { success: false, error: 'Failed to delete opname session.' };
-    }
+    });
 }
 );
 

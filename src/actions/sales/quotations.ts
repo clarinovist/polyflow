@@ -5,30 +5,34 @@ import { QuotationService } from '@/services/sales/quotation-service';
 import { CreateSalesQuotationValues, UpdateSalesQuotationValues } from '@/lib/schemas/quotation';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
-import { catchError } from '@/lib/errors/error-handler';
+import { safeAction } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 
 
 export const getQuotations = withTenant(
 async function getQuotations(dateRange?: { startDate?: Date, endDate?: Date }) {
-    await requireAuth();
-    const quotations = await QuotationService.getQuotations(dateRange);
-    return serializeData(quotations);
+    return safeAction(async () => {
+        await requireAuth();
+        const quotations = await QuotationService.getQuotations(dateRange);
+        return serializeData(quotations);
+    });
 }
 );
 
 export const getQuotationById = withTenant(
 async function getQuotationById(id: string) {
-    await requireAuth();
-    const quotation = await QuotationService.getQuotationById(id);
-    return serializeData(quotation);
+    return safeAction(async () => {
+        await requireAuth();
+        const quotation = await QuotationService.getQuotationById(id);
+        return serializeData(quotation);
+    });
 }
 );
 
 export const createQuotation = withTenant(
 async function createQuotation(data: CreateSalesQuotationValues) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const quotation = await QuotationService.createQuotation(data, session.user.id);
         revalidatePath('/sales/quotations');
         return quotation;
@@ -38,8 +42,8 @@ async function createQuotation(data: CreateSalesQuotationValues) {
 
 export const updateQuotation = withTenant(
 async function updateQuotation(data: UpdateSalesQuotationValues) {
-    await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        await requireAuth();
         await QuotationService.updateQuotation(data);
         revalidatePath('/sales/quotations');
         revalidatePath(`/sales/quotations/${data.id}`);
@@ -50,8 +54,8 @@ async function updateQuotation(data: UpdateSalesQuotationValues) {
 
 export const deleteQuotation = withTenant(
 async function deleteQuotation(id: string) {
-    await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        await requireAuth();
         await QuotationService.deleteQuotation(id);
         revalidatePath('/sales/quotations');
         return true;
@@ -61,8 +65,8 @@ async function deleteQuotation(id: string) {
 
 export const convertToOrder = withTenant(
 async function convertToOrder(quotationId: string, sourceLocationId: string) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const order = await QuotationService.convertToOrder(quotationId, session.user.id, sourceLocationId);
         revalidatePath('/sales/quotations');
         revalidatePath('/sales');

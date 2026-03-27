@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
 import { InvoiceService } from '../finance/invoice-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../finance/auto-journal-service';
@@ -44,17 +44,17 @@ describe('InvoiceService', () => {
     describe('createInvoice', () => {
         it('should handle AutoJournalService.handleSalesInvoiceCreated failure gracefully', async () => {
             // Mock generateInvoiceNumber internal logic
-            ((prisma as any).invoice.findFirst as any).mockResolvedValue(null);
+            (prisma.invoice.findFirst as Mock).mockResolvedValue(null);
 
             // Mock sales order
-            ((prisma as any).salesOrder.findUnique as any).mockResolvedValue({
+            (prisma.salesOrder.findUnique as Mock).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001'
             });
 
             // Mock created invoice
-            ((prisma as any).invoice.create as any).mockResolvedValue({
+            (prisma.invoice.create as Mock).mockResolvedValue({
                 id: 'inv-1',
                 invoiceNumber: 'INV-20231010-0001',
             });
@@ -62,7 +62,7 @@ describe('InvoiceService', () => {
             const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
-            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
+            (AutoJournalService.handleSalesInvoiceCreated as Mock).mockRejectedValue(mockError);
 
             await InvoiceService.createInvoice({
                 salesOrderId: 'so-1',
@@ -81,18 +81,18 @@ describe('InvoiceService', () => {
     describe('createDraftInvoiceFromOrder', () => {
         it('should handle AutoJournalService.handleSalesInvoiceCreated failure gracefully', async () => {
             // Mock generateInvoiceNumber internal logic
-            ((prisma as any).invoice.findFirst as any).mockResolvedValueOnce(null); // existing check
-            ((prisma as any).invoice.findFirst as any).mockResolvedValueOnce(null); // generateInvoiceNumber check
+            (prisma.invoice.findFirst as Mock).mockResolvedValueOnce(null); // existing check
+            (prisma.invoice.findFirst as Mock).mockResolvedValueOnce(null); // generateInvoiceNumber check
 
             // Mock sales order
-            ((prisma as any).salesOrder.findUnique as any).mockResolvedValue({
+            (prisma.salesOrder.findUnique as Mock).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
                 orderNumber: 'SO-001'
             });
 
             // Mock created invoice
-            ((prisma as any).invoice.create as any).mockResolvedValue({
+            (prisma.invoice.create as Mock).mockResolvedValue({
                 id: 'inv-2',
                 invoiceNumber: 'INV-20231010-0002',
             });
@@ -100,7 +100,7 @@ describe('InvoiceService', () => {
             const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
             const mockError = new Error('Journal generation failed');
-            (AutoJournalService.handleSalesInvoiceCreated as any).mockRejectedValue(mockError);
+            (AutoJournalService.handleSalesInvoiceCreated as Mock).mockRejectedValue(mockError);
 
             await InvoiceService.createDraftInvoiceFromOrder('so-1', 'user-1');
 

@@ -13,12 +13,17 @@ export const metadata: Metadata = {
 };
 
 export default async function WarehouseTransferPage() {
-    const [liveInventory, locations, productsData, recentMovements] = await Promise.all([
+    const [liveInventoryRes, locationsRes, productsDataRes, recentMovementsRes] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getProductVariants(),
         getStockMovements(10),
     ]);
+    
+    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const productsData = productsDataRes.success && productsDataRes.data ? productsDataRes.data : [];
+    const recentMovements = recentMovementsRes.success && recentMovementsRes.data ? recentMovementsRes.data : [];
 
     const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
     const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));

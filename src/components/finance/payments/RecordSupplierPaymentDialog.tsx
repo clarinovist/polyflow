@@ -69,7 +69,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
             if (result.success) {
                 toast({
                     title: 'Success',
-                    description: result.message,
+                    description: result.data?.message,
                 });
                 onOpenChange(false);
             } else {

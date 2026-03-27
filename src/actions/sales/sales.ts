@@ -12,43 +12,49 @@ import {
 import { SalesService } from '@/services/sales/sales-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { catchError } from '@/lib/errors/error-handler';
+import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 
 export const getSalesOrders = withTenant(
 async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Date, endDate?: Date }) {
-    await requireAuth();
-    const orders = await SalesService.getOrders({
-        includeItems,
-        startDate: dateRange?.startDate,
-        endDate: dateRange?.endDate
+    return safeAction(async () => {
+        await requireAuth();
+        const orders = await SalesService.getOrders({
+            includeItems,
+            startDate: dateRange?.startDate,
+            endDate: dateRange?.endDate
+        });
+        return serializeData(orders);
     });
-    return serializeData(orders);
 }
 );
 
 export const getSalesOrdersByCustomerId = withTenant(
 async function getSalesOrdersByCustomerId(customerId: string) {
-    await requireAuth();
-    const orders = await SalesService.getOrders({ customerId });
-    return serializeData(orders);
+    return safeAction(async () => {
+        await requireAuth();
+        const orders = await SalesService.getOrders({ customerId });
+        return serializeData(orders);
+    });
 }
 );
 
 
 export const getSalesOrderById = withTenant(
 async function getSalesOrderById(id: string) {
-    await requireAuth();
-    const order = await SalesService.getOrderById(id);
-    if (!order) return null;
-    return serializeData(order);
+    return safeAction(async () => {
+        await requireAuth();
+        const order = await SalesService.getOrderById(id);
+        if (!order) return null;
+        return serializeData(order);
+    });
 }
 );
 
 export const createSalesOrder = withTenant(
 async function createSalesOrder(data: CreateSalesOrderValues) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const result = createSalesOrderSchema.parse(data);
         const order = await SalesService.createOrder(result, session.user.id);
         revalidatePath('/sales');
@@ -59,8 +65,8 @@ async function createSalesOrder(data: CreateSalesOrderValues) {
 
 export const updateSalesOrder = withTenant(
 async function updateSalesOrder(data: UpdateSalesOrderValues) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const result = updateSalesOrderSchema.parse(data);
         await SalesService.updateOrder(result, session.user.id);
         revalidatePath('/sales');
@@ -72,8 +78,8 @@ async function updateSalesOrder(data: UpdateSalesOrderValues) {
 
 export const confirmSalesOrder = withTenant(
 async function confirmSalesOrder(id: string) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         await SalesService.confirmOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -84,8 +90,8 @@ async function confirmSalesOrder(id: string) {
 
 export const markReadyToShip = withTenant(
 async function markReadyToShip(id: string) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         await SalesService.markReadyToShip(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -96,8 +102,8 @@ async function markReadyToShip(id: string) {
 
 export const shipSalesOrder = withTenant(
 async function shipSalesOrder(data: { id: string, trackingNumber?: string, carrier?: string }) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const validatedData = shipSalesOrderSchema.parse(data);
         await SalesService.shipOrder(validatedData.id, session.user.id, {
             trackingNumber: validatedData.trackingNumber,
@@ -113,8 +119,8 @@ async function shipSalesOrder(data: { id: string, trackingNumber?: string, carri
 
 export const checkSalesOrderFulfillment = withTenant(
 async function checkSalesOrderFulfillment(id: string) {
-    await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        await requireAuth();
         const order = await prisma.salesOrder.findUnique({
             where: { id },
             include: {
@@ -184,8 +190,8 @@ async function checkSalesOrderFulfillment(id: string) {
 
 export const deliverSalesOrder = withTenant(
 async function deliverSalesOrder(id: string) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         await SalesService.deliverOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -198,8 +204,8 @@ async function deliverSalesOrder(id: string) {
 
 export const cancelSalesOrder = withTenant(
 async function cancelSalesOrder(id: string) {
-    const session = await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        const session = await requireAuth();
         await SalesService.cancelOrder(id, session.user.id);
         revalidatePath('/sales');
         revalidatePath(`/sales/orders/${id}`);
@@ -210,8 +216,8 @@ async function cancelSalesOrder(id: string) {
 
 export const deleteSalesOrder = withTenant(
 async function deleteSalesOrder(id: string) {
-    await requireAuth();
-    return catchError(async () => {
+    return safeAction(async () => {
+        await requireAuth();
         await SalesService.deleteOrder(id);
         revalidatePath('/sales');
         return true;
@@ -221,34 +227,36 @@ async function deleteSalesOrder(id: string) {
 
 export const getSalesOrderStats = withTenant(
 async function getSalesOrderStats() {
-    await requireAuth();
+    return safeAction(async () => {
+        await requireAuth();
 
-    const stats = await prisma.salesOrder.groupBy({
-        by: ['status'],
-        _count: {
-            status: true
-        }
+        const stats = await prisma.salesOrder.groupBy({
+            by: ['status'],
+            _count: {
+                status: true
+            }
+        });
+
+        const totalOrders = stats.reduce((acc, curr) => acc + curr._count.status, 0);
+
+        const activeCount = stats
+            .filter(s => ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(s.status))
+            .reduce((acc, curr) => acc + curr._count.status, 0);
+
+        const completedCount = stats
+            .filter(s => ['SHIPPED', 'DELIVERED'].includes(s.status))
+            .reduce((acc, curr) => acc + curr._count.status, 0);
+
+        const cancelledCount = stats
+            .filter(s => s.status === 'CANCELLED')
+            .reduce((acc, curr) => acc + curr._count.status, 0);
+
+        return {
+            totalOrders,
+            activeCount,
+            completedCount,
+            cancelledCount
+        };
     });
-
-    const totalOrders = stats.reduce((acc, curr) => acc + curr._count.status, 0);
-
-    const activeCount = stats
-        .filter(s => ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(s.status))
-        .reduce((acc, curr) => acc + curr._count.status, 0);
-
-    const completedCount = stats
-        .filter(s => ['SHIPPED', 'DELIVERED'].includes(s.status))
-        .reduce((acc, curr) => acc + curr._count.status, 0);
-
-    const cancelledCount = stats
-        .filter(s => s.status === 'CANCELLED')
-        .reduce((acc, curr) => acc + curr._count.status, 0);
-
-    return {
-        totalOrders,
-        activeCount,
-        completedCount,
-        cancelledCount
-    };
 }
 );

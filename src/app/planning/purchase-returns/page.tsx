@@ -11,10 +11,11 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
     const params = await searchParams;
 
     // Fetch returns
-    const returns = await getPurchaseReturns({ 
+    const returnsRes = await getPurchaseReturns({ 
         search: params?.search,
         status: params?.status 
     });
+    const returns = returnsRes.success && returnsRes.data ? returnsRes.data : [];
 
     // Serialize all Prisma objects for Client Components
     const serializedReturns = serializeData(returns);

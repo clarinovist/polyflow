@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
 import { ProductionCostService } from '../cost-service';
 import { prisma } from '@/lib/core/prisma';
 import { MovementType } from '@prisma/client';
@@ -31,13 +30,13 @@ describe('ProductionCostService', () => {
                 orderNumber: 'PO-001',
                 estimatedConversionCost: 500, // Conversion Cost
                 actualQuantity: 10,            // Yield
-            } as any);
+            } as Mock);
 
             // Mock Material Movements (OUT)
             vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
                 { cost: 100, quantity: 2, type: MovementType.OUT }, // 200
                 { cost: 50, quantity: 4, type: MovementType.OUT },  // 200
-            ] as any);
+            ] as Mock);
 
             // Total Material: 200 + 200 = 400
             // Conversion: 500
@@ -59,7 +58,7 @@ describe('ProductionCostService', () => {
             vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
                 id: orderId,
                 actualQuantity: 0,
-            } as any);
+            } as Mock);
 
             vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([]);
 

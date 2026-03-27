@@ -47,8 +47,10 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
 
         const fetchCode = async () => {
             if (!initialData) {
-                const code = await generateNextEmployeeCode();
-                setFormData(prev => ({ ...prev, code }));
+                const res = await generateNextEmployeeCode();
+                if (res.success && res.data) {
+                    setFormData(prev => ({ ...prev, code: res.data }));
+                }
             }
         };
         fetchCode();

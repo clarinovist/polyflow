@@ -16,7 +16,14 @@ export default async function ProductionAnalyticsPage(props: { searchParams: Sea
 
     const dateRange = from && to ? { from, to } : undefined;
 
-    const data = await getProductionAnalytics(dateRange);
+    const dataRes = await getProductionAnalytics(dateRange);
+    const data = dataRes.success && dataRes.data ? dataRes.data : {
+        realization: [],
+        materialVariance: [],
+        machinePerformance: [],
+        operatorProductivity: [],
+        quality: { inspections: { total: 0, pass: 0, fail: 0, quarantine: 0, passRate: 0 }, scrapByReason: [], scrapByProduct: [] }
+    };
 
     // Calculate aggregated stats
     const avgYield = data.realization.reduce((acc, curr) => acc + curr.yieldRate, 0) / (data.realization.length || 1);

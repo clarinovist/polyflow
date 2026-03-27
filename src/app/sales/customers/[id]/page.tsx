@@ -6,10 +6,12 @@ import { CustomerDetailClient } from '@/components/customers/CustomerDetailClien
 export default async function CustomerDetailPage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params;
 
-    const [customer, salesOrders] = await Promise.all([
+    const [customerRes, salesOrdersRes] = await Promise.all([
         getCustomerById(id),
         getSalesOrdersByCustomerId(id)
     ]);
+    const customer = customerRes?.success && customerRes.data ? customerRes.data : null;
+    const salesOrders = salesOrdersRes?.success && salesOrdersRes.data ? salesOrdersRes.data : [];
 
     if (!customer) {
         notFound();

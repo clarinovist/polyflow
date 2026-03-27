@@ -39,18 +39,24 @@ export default async function InventoryDashboard({
 
     // Fetch data in parallel
     const [
-        liveInventory,
-        dashboardStats,
-        turnoverStats,
-        dohStats,
+        liveInventoryRes,
+        dashboardStatsRes,
+        turnoverStatsRes,
+        dohStatsRes,
     ] = await Promise.all([
         getInventoryStats(),
         getDashboardStats(),
         getInventoryTurnover(),
         getDaysOfInventoryOnHand(),
     ]);
+    
+    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
+    const dashboardStats = dashboardStatsRes.success && dashboardStatsRes.data ? dashboardStatsRes.data : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
+    const turnoverStats = turnoverStatsRes.success && turnoverStatsRes.data ? turnoverStatsRes.data : { turnoverRatio: 0, averageInventory: 0, totalCOGS: 0 };
+    const dohStats = dohStatsRes.success && dohStatsRes.data ? dohStatsRes.data : { daysOnHand: 0 };
 
-    const showPrices = await canViewPrices();
+    const showPricesRes = await canViewPrices();
+    const showPrices = showPricesRes.success && showPricesRes.data ? showPricesRes.data : false;
 
     // Parse active location IDs (support multi-select)
     const activeLocationIds = params.locationId
@@ -64,7 +70,8 @@ export default async function InventoryDashboard({
 
     // Phase 1: Historical Data Logic (Only affects Table)
     if (asOfDate) {
-        const historicalInventory = await getInventoryAsOf(asOfDate);
+        const historicalInventoryRes = await getInventoryAsOf(asOfDate);
+        const historicalInventory = historicalInventoryRes.success && historicalInventoryRes.data ? historicalInventoryRes.data : [];
 
         // Map historical quantities to a new tableInventory array
         tableInventory = liveInventory.map(item => {
@@ -81,7 +88,8 @@ export default async function InventoryDashboard({
     // Phase 2: Comparison logic (Only affects Table)
     const comparisonData: Record<string, number> = {};
     if (compareDate) {
-        const compInventory = await getInventoryAsOf(compareDate);
+        const compInventoryRes = await getInventoryAsOf(compareDate);
+        const compInventory = compInventoryRes.success && compInventoryRes.data ? compInventoryRes.data : [];
         compInventory.forEach(item => {
             const key = `${item.productVariantId}-${item.locationId}`;
             comparisonData[key] = item.quantity;

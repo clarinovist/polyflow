@@ -9,7 +9,14 @@ import { PageHeader } from '@/components/ui/page-header';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionDashboardPage() {
-    const stats = await getProductionDashboardStats();
+    const statsRes = await getProductionDashboardStats();
+    const stats = statsRes.success && statsRes.data ? statsRes.data : {
+        activeJobs: 0,
+        activeMachines: 0,
+        totalMachines: 0,
+        completedJobs: 0,
+        draftJobs: 0
+    };
 
     return (
         <div className="flex flex-col gap-8">

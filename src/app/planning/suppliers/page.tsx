@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Supplier } from '@prisma/client';
 
 export default async function SuppliersPage() {
-    const suppliers = await getSuppliers();
+    const suppliersRes = await getSuppliers();
+    const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
 
     return (
         <div className="p-6 space-y-6">

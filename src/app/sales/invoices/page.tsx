@@ -15,8 +15,11 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const invoices = await getSalesInvoices({ startDate: checkStart, endDate: checkEnd });
-    const stats = await getInvoiceStats();
+    const invoicesRes = await getSalesInvoices({ startDate: checkStart, endDate: checkEnd });
+    const statsRes = await getInvoiceStats();
+    
+    const invoices = invoicesRes.success && invoicesRes.data ? invoicesRes.data : [];
+    const stats = statsRes.success && statsRes.data ? statsRes.data : { totalOutstanding: 0, overdueCount: 0 };
     const serializedInvoices = serializeData(invoices);
 
     return (

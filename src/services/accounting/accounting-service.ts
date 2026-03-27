@@ -1,4 +1,4 @@
-import { AccountType, AccountCategory, JournalStatus } from '@prisma/client';
+import { AccountType, AccountCategory, JournalStatus, Prisma } from '@prisma/client';
 import type { CreateJournalEntryInput } from './types';
 import {
     createJournalEntry,
@@ -23,16 +23,14 @@ export class AccountingService {
      * Create a new Journal Entry.
      * Default Status: DRAFT
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async createJournalEntry(input: CreateJournalEntryInput, tx?: any) {
+    static async createJournalEntry(input: CreateJournalEntryInput, tx?: Prisma.TransactionClient) {
         return createJournalEntry(input, tx);
     }
 
     /**
      * Post a Journal Entry (DRAFT -> POSTED)
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async postJournal(id: string, userId?: string, tx?: any) {
+    static async postJournal(id: string, userId?: string, tx?: Prisma.TransactionClient) {
         return postJournal(id, userId, tx);
     }
 
@@ -131,8 +129,7 @@ export class AccountingService {
      * AUTO-JOURNAL: Record Inventory Movement
      * Maps StockMovement to GL Entries
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async recordInventoryMovement(movement: any, tx?: any) {
+    static async recordInventoryMovement(movement: Parameters<typeof recordInventoryMovement>[0], tx?: Prisma.TransactionClient) {
         return recordInventoryMovement(movement, tx);
     }
 

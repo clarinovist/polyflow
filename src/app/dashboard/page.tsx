@@ -7,7 +7,7 @@ export default async function DashboardPage() {
 
     return (
         <DashboardClient
-            stats={serializeData(stats)}
+            stats={serializeData(stats.success && stats.data ? stats.data : null)}
         />
     );
 }

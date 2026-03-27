@@ -59,7 +59,11 @@ export function ImportDialog() {
             // Get existing SKUs
             setProgress(40);
             setStatusMessage('Checking for duplicates...');
-            const existingSKUs = await getExistingSKUs();
+            const existingSKUsResult = await getExistingSKUs();
+            if (!existingSKUsResult.success) {
+                throw new Error(existingSKUsResult.error || "Failed to fetch existing SKUs");
+            }
+            const existingSKUs = new Set(existingSKUsResult.data || []);
 
             // Validate rows
             setProgress(70);
@@ -91,7 +95,23 @@ export function ImportDialog() {
 
             // Import via server action
             const result = await importProducts(products);
-            setImportResult(result);
+            if (!result.success) {
+                setImportResult({
+                    success: false,
+                    products: 0,
+                    variants: 0,
+                    errors: result.error ? [result.error] : ['Unknown import error']
+                });
+                setStep('result');
+                return;
+            }
+            if (result.data) {
+                setImportResult({
+                    success: true,
+                    products: result.data.products,
+                    variants: result.data.variants
+                });
+            }
 
             // Move to result step
             setStep('result');

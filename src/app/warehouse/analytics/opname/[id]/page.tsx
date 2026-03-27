@@ -9,7 +9,8 @@ interface PageProps {
 
 export default async function OpnameDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const session = await getOpnameSession(id);
+    const sessionRes = await getOpnameSession(id);
+    const session = sessionRes?.success && sessionRes.data ? sessionRes.data : null;
 
     if (!session) {
         notFound();

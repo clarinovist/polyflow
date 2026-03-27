@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/core/prisma";
 import { CreatePurchaseReturnValues, UpdatePurchaseReturnValues } from "@/lib/schemas/returns";
-import { PurchaseReturnStatus, MovementType } from "@prisma/client";
+import { PurchaseReturnStatus, MovementType, Prisma } from "@prisma/client";
 import { format } from "date-fns";
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../finance/auto-journal-service";
@@ -84,8 +84,7 @@ export class PurchaseReturnService {
 
     let totalAmount = existing.totalAmount ? Number(existing.totalAmount) : 0;
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {
+    const updateData: Prisma.PurchaseReturnUncheckedUpdateInput = {
       purchaseOrderId: data.purchaseOrderId,
       goodsReceiptId: data.goodsReceiptId,
       supplierId: data.supplierId,
@@ -264,8 +263,7 @@ export class PurchaseReturnService {
   }
 
   static async getReturns(filters?: { status?: PurchaseReturnStatus, supplierId?: string, search?: string }) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
+    const where: Prisma.PurchaseReturnWhereInput = {};
     if (filters?.status) where.status = filters.status;
     if (filters?.supplierId) where.supplierId = filters.supplierId;
     if (filters?.search) {

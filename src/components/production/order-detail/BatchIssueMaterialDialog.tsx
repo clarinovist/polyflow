@@ -105,8 +105,10 @@ export function BatchIssueMaterialDialog({
 
         await Promise.all(activeItems.map(async (item) => {
             try {
-                const qty = await getRealtimeStock(selectedLocation, item.productVariantId);
-                newStocks[item.productVariantId] = qty;
+                const res = await getRealtimeStock(selectedLocation, item.productVariantId);
+                if (res.success && typeof res.data === 'number') {
+                    newStocks[item.productVariantId] = res.data;
+                }
             } catch (_e) {
                 console.error(_e);
             }

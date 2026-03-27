@@ -302,15 +302,18 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
 
             setIsSubmitting(false);
 
-            if (response.success && response.data) {
+            if (!response.success) {
+                toast.error("Error", {
+                    description: response.error || "Something went wrong",
+                });
+                return;
+            }
+
+            if (response.data) {
                 toast.success("Work Order Created", {
                     description: `Order ${response.data.orderNumber} has been created successfully.`,
                 });
                 router.push(`/planning/orders/${response.data.id}`);
-            } else {
-                toast.error("Error", {
-                    description: response.error || "Something went wrong",
-                });
             }
         } catch {
             setIsSubmitting(false);

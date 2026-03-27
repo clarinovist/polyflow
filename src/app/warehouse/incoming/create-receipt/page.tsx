@@ -24,10 +24,11 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
         notFound();
     }
 
-    const [order, locations] = await Promise.all([
+    const [order, locationsRes] = await Promise.all([
         PurchaseService.getPurchaseOrderById(poId),
         getLocations()
     ]);
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     if (!order) {
         notFound();

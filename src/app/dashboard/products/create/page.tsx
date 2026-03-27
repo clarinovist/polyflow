@@ -4,10 +4,13 @@ import { ProductGlossary } from '@/components/products/ProductGlossary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CreateProductPage() {
-    const [productTypes, units] = await Promise.all([
+    const [productTypesRes, unitsRes] = await Promise.all([
         getProductTypes(),
         getUnits(),
     ]);
+
+    const productTypes = productTypesRes.success && productTypesRes.data ? productTypesRes.data : [];
+    const units = unitsRes.success && unitsRes.data ? unitsRes.data : [];
 
     return (
         <div className="p-6">

@@ -50,9 +50,13 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
             const formValues = getValues();
             const currentSkus = formValues.variants?.map(v => v.skuCode).filter(Boolean) as string[] || [];
 
-            const nextSKU = await getNextSKU(productType as ProductType, productName, currentSkus);
-            setValue(`variants.${index}.skuCode`, nextSKU, { shouldValidate: true });
-            toast.success('SKU generated successfully');
+            const nextSKUResult = await getNextSKU(productType as ProductType, productName, currentSkus);
+            if (nextSKUResult.success && nextSKUResult.data) {
+                setValue(`variants.${index}.skuCode`, nextSKUResult.data, { shouldValidate: true });
+                toast.success('SKU generated successfully');
+            } else {
+                toast.error(nextSKUResult.error || 'Failed to generate SKU');
+            }
         } catch (error) {
             console.error('Error generating SKU:', error);
             toast.error('Failed to generate SKU');

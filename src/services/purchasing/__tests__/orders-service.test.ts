@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
 import { createOrder, updateOrderStatus, deleteOrder } from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
 import { PurchaseOrderStatus } from '@prisma/client';
@@ -39,10 +38,10 @@ describe('OrdersService (Purchasing)', () => {
             const year = new Date().getFullYear();
             vi.mocked(prisma.purchaseOrder.findFirst).mockResolvedValue({
                 orderNumber: `PO-${year}-0005`
-            } as any);
+            } as never);
 
             const mockCreatedOrder = { id: 'po-1', orderNumber: `PO-${year}-0006`, totalAmount: 500 };
-            vi.mocked(prisma.purchaseOrder.create).mockResolvedValue(mockCreatedOrder as any);
+            vi.mocked(prisma.purchaseOrder.create).mockResolvedValue(mockCreatedOrder as Mock);
 
             const input = {
                 supplierId: 'sup-1',
@@ -77,7 +76,7 @@ describe('OrdersService (Purchasing)', () => {
                 id: 'po-1',
                 orderNumber: 'PO-TEST',
                 status: PurchaseOrderStatus.SENT
-            } as any);
+            } as never);
 
             const result = await updateOrderStatus('po-1', PurchaseOrderStatus.SENT, 'user-1');
 
@@ -99,7 +98,7 @@ describe('OrdersService (Purchasing)', () => {
                 status: PurchaseOrderStatus.SENT,
                 goodsReceipts: [],
                 invoices: []
-            } as any);
+            } as never);
 
             await expect(deleteOrder('po-1', 'user-1'))
                 .rejects.toThrow(/Only DRAFT or CANCELLED orders can be deleted/);
@@ -112,7 +111,7 @@ describe('OrdersService (Purchasing)', () => {
                 status: PurchaseOrderStatus.DRAFT,
                 goodsReceipts: [],
                 invoices: []
-            } as any);
+            } as never);
 
             await deleteOrder('po-1', 'user-1');
 

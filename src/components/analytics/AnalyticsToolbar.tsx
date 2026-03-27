@@ -56,7 +56,7 @@ export function AnalyticsToolbar() {
                 result = await exportSalesAnalytics(exportRange);
             }
 
-            if (result.error) {
+            if (!result.success) {
                 toast.error(result.error);
                 toast.dismiss(toastId);
                 return;

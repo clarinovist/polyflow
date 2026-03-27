@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 };
 
 export default async function QuickEntryPage() {
-    const accounts = await getChartOfAccounts();
+    const accountsRes = await getChartOfAccounts();
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     // Fetch unpaid invoices for the wizard
     const [salesInvoices, purchaseInvoices] = await Promise.all([

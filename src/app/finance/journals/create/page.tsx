@@ -2,7 +2,8 @@ import { getChartOfAccounts } from '@/actions/finance/accounting';
 import ManualJournalForm from '@/components/finance/accounting/manual-journal-form';
 
 export default async function CreateManualJournalPage() {
-    const accounts = await getChartOfAccounts();
+    const accountsRes = await getChartOfAccounts();
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (
         <div className="space-y-6">

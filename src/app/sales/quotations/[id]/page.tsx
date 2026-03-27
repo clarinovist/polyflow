@@ -6,10 +6,13 @@ import { serializeData } from '@/lib/utils/utils';
 
 export default async function SalesQuotationDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const [quotation, locations] = await Promise.all([
+    const [quotationRes, locationsRes] = await Promise.all([
         getQuotationById(id),
         getLocations()
     ]);
+    
+    const quotation = quotationRes?.success && quotationRes.data ? quotationRes.data : null;
+    const locations = locationsRes?.success && locationsRes.data ? locationsRes.data : [];
 
     if (!quotation) {
         notFound();

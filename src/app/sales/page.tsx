@@ -18,7 +18,19 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
     const to = typeof searchParams.to === 'string' ? new Date(searchParams.to) : undefined;
 
     const dateRange = from && to ? { from, to } : undefined;
-    const stats = await getSalesDashboardStats(dateRange);
+    const statsRes = await getSalesDashboardStats(dateRange);
+    const stats = statsRes.success && statsRes.data ? statsRes.data : {
+        totalRevenue: 0,
+        revenueTrend: [],
+        activeOrders: 0,
+        pendingDeliveries: 0,
+        activeCustomers: 0,
+        recentOrders: [],
+        topProducts: [],
+        topCustomers: [],
+        monthlyRevenue: []
+    };
+    
     const serializedOrders = serializeData(stats.recentOrders);
 
     // Cast stats to SalesMetrics for components that expect it

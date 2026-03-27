@@ -4,10 +4,13 @@ import { SalesQuotationForm } from '@/components/sales/quotations/SalesQuotation
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CreateSalesQuotationPage() {
-    const [customers, products] = await Promise.all([
+    const [customersRes, productsRes] = await Promise.all([
         getCustomers(),
         getProductVariants()
     ]);
+    
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
+    const products = productsRes.success && productsRes.data ? productsRes.data : [];
 
     return (
         <div className="p-6 max-w-5xl mx-auto">

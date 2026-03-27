@@ -9,7 +9,7 @@ export default async function OpeningBalancePage() {
     await requireAuth();
 
     // Fetch data in parallel
-    const [accounts, customersData, suppliersData] = await Promise.all([
+    const [accountsRes, customersData, suppliersData] = await Promise.all([
         getAccountsForOpeningBalance(),
         prisma.customer.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.supplier.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
@@ -18,6 +18,7 @@ export default async function OpeningBalancePage() {
     // Serialize Decimal objects if any (though these simple selects might not need it, it's safer)
     const customers = serializeData(customersData);
     const suppliers = serializeData(suppliersData);
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (
         <div className="container mx-auto py-8 max-w-7xl">

@@ -12,7 +12,14 @@ import { ResponsiveButtonGroup } from '@/components/ui/responsive-button-group';
 export const dynamic = 'force-dynamic';
 
 export default async function PlanningDashboardPage() {
-    const stats = await getPlanningDashboardStats();
+    const statsRes = await getPlanningDashboardStats();
+    const stats = statsRes.success && statsRes.data ? statsRes.data : {
+        activeJobsCount: 0,
+        plannedJobsCount: 0,
+        machineStats: { active: 0, maintenance: 0, broken: 0, total: 0 },
+        procurement: { openPos: 0 },
+        recentOrders: []
+    };
 
     return (
         <div className="flex flex-col space-y-6">

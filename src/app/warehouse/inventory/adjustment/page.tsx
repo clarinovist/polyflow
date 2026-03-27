@@ -11,11 +11,15 @@ export const metadata: Metadata = {
 };
 
 export default async function WarehouseAdjustmentPage() {
-    const [liveInventory, locations, productsData] = await Promise.all([
+    const [liveInventoryRes, locationsRes, productsDataRes] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getProductVariants(),
     ]);
+    
+    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const productsData = productsDataRes.success && productsDataRes.data ? productsDataRes.data : [];
 
     const formLocations = locations.map(l => ({ id: l.id, name: l.name }));
     const formProducts = productsData.map(p => ({ id: p.id, name: p.name, skuCode: p.skuCode }));

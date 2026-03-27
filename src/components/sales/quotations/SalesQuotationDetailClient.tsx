@@ -70,12 +70,14 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
         setIsConverting(true);
         try {
             const result = await convertToOrder(quotation.id, selectedLocationId);
-            if (result.success && result.data) {
+            if (!result.success) {
+                toast.error(result.error || "Failed to convert quotation");
+                return;
+            }
+            if (result.data) {
                 toast.success("Quotation converted to Sales Order successfully!");
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 router.push(`/sales/orders/${(result.data as any).id}`);
-            } else {
-                toast.error(result.error);
             }
         } catch {
             toast.error("Failed to convert quotation");

@@ -35,14 +35,20 @@ export function NotificationBell() {
     // Fetch unread count, revalidating on focus to keep it snappy without costly polling
     const { data: count, mutate: mutateCount } = useSWR(
         'notificationCount', 
-        () => getUnreadNotificationCount(), 
+        async () => {
+            const res = await getUnreadNotificationCount();
+            return res.success && res.data ? res.data : 0;
+        }, 
         { revalidateOnFocus: true, refreshInterval: 60000 }
     );
 
     // Fetch notifications only if the popover is open or data doesn't exist yet
     const { data: notifications, mutate: mutateNotifications, isLoading } = useSWR(
         isOpen ? 'notificationList' : null, 
-        () => getMyNotifications({ take: 20 }),
+        async () => {
+            const res = await getMyNotifications({ take: 20 });
+            return res.success && res.data ? res.data : [];
+        },
         { revalidateOnFocus: true }
     );
 

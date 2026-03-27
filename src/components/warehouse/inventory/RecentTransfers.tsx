@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import type { getStockMovements } from '@/actions/inventory/inventory';
 
 // Infer type from action return type
-export type StockMovement = Awaited<ReturnType<typeof getStockMovements>>[number];
+type GetStockMovementsResult = Awaited<ReturnType<typeof getStockMovements>>;
+export type StockMovement = Extract<GetStockMovementsResult, { success: true }>['data'][number];
 
 interface RecentTransfersProps {
     movements: StockMovement[];

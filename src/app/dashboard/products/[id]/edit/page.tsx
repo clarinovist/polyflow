@@ -8,11 +8,14 @@ import { Product, ProductVariant } from '@prisma/client';
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [product, productTypes, units] = await Promise.all([
+    const [product, productTypesRes, unitsRes] = await Promise.all([
         getProductById(id),
         getProductTypes(),
         getUnits(),
     ]);
+
+    const productTypes = productTypesRes.success && productTypesRes.data ? productTypesRes.data : [];
+    const units = unitsRes.success && unitsRes.data ? unitsRes.data : [];
 
     if (!product) {
         notFound();

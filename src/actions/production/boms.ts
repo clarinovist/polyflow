@@ -10,10 +10,11 @@ import { updateStandardCost } from '@/actions/finance/cost-history';
 import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from "@/lib/tools/audit";
+import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 
 export const getBoms = withTenant(
 async function getBoms(category?: string) {
-    try {
+    return safeAction(async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
         if (category && category !== 'ALL') {
@@ -23,229 +24,182 @@ async function getBoms(category?: string) {
         const boms = await prisma.bom.findMany({
             where,
             include: {
-                productVariant: {
-                    include: {
-                        product: true
-                    }
-                },
-                items: {
-                    include: {
-                        productVariant: {
-                            include: {
-                                product: true
-                            }
-                        }
-                    }
-                }
+                productVariant: { include: { product: true } },
+                items: { include: { productVariant: { include: { product: true } } } }
             },
-            orderBy: {
-                updatedAt: 'desc'
-            }
+            orderBy: { updatedAt: 'desc' }
         });
-        return { success: true, data: serializeData(boms) };
-    } catch (error) {
-        logger.error("Failed to fetch BOMs", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to fetch Recipes (BOMs). Please refresh the page." };
-    }
+        return serializeData(boms);
+    });
 }
 );
 
 export const getProductVariants = withTenant(
 async function getProductVariants() {
-    try {
+    return safeAction(async () => {
         const variants = await prisma.productVariant.findMany({
-            include: {
-                product: true
-            },
-            orderBy: {
-                name: 'asc'
-            }
+            include: { product: true },
+            orderBy: { name: 'asc' }
         });
-        return { success: true, data: serializeData(variants) };
-    } catch (error) {
-        logger.error("Failed to fetch product variants", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to fetch product variants. Please try again." };
-    }
+        return serializeData(variants);
+    });
 }
 );
 
 export const createBom = withTenant(
 async function createBom(data: CreateBomValues) {
-    const session = await requireAuth();
-    try {
+    return safeAction(async () => {
+        const session = await requireAuth();
         const validated = createBomSchema.parse(data);
 
-        const bom = await prisma.bom.create({
-            data: {
-                name: validated.name,
-                productVariant: { connect: { id: validated.productVariantId } },
-                outputQuantity: validated.outputQuantity,
-                isDefault: validated.isDefault,
-                category: validated.category,
-                items: {
-                    create: validated.items.map(item => ({
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity,
-                        scrapPercentage: item.scrapPercentage
-                    }))
-                }
-            }
-        });
-
-        // Perform Cost Roll-up
-        const createdBom = await prisma.bom.findUnique({
-            where: { id: bom.id },
-            include: { items: { include: { productVariant: true } } }
-        });
-
-        if (createdBom) {
-            const totalCost = calculateBomCost(createdBom.items);
-            const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
-
-            await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
-        }
-
-        await logActivity({
-            userId: session.user.id,
-            action: 'CREATE_BOM',
-            entityType: 'Bom',
-            entityId: bom.id,
-            details: `Created Recipe (BOM) ${bom.name}`
-        });
-
-        revalidatePath('/dashboard/boms');
-        return { success: true, data: serializeData(bom) };
-    } catch (error) {
-        logger.error("Failed to create BOM", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to create Recipe (BOM). Please verify the details." };
-    }
-}
-);
-
-export const getBom = withTenant(
-async function getBom(id: string) {
-    try {
-        const bom = await prisma.bom.findUnique({
-            where: { id },
-            include: {
-                productVariant: {
-                    include: {
-                        product: true
-                    }
-                },
-                items: {
-                    include: {
-                        productVariant: {
-                            include: {
-                                product: true
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        if (!bom) {
-            return { success: false, error: "Recipe not found" };
-        }
-
-        return { success: true, data: serializeData(bom) };
-    } catch (error) {
-        logger.error("Failed to fetch BOM details", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to fetch Recipe (BOM) details." };
-    }
-}
-);
-
-export const updateBom = withTenant(
-async function updateBom(id: string, data: CreateBomValues) {
-    const session = await requireAuth();
-    try {
-        const validated = createBomSchema.parse(data);
-
-        // Transactional update: Delete existing items and recreate them
-        const result = await prisma.$transaction(async (tx) => {
-            // Update BOM Header
-            const updatedBom = await tx.bom.update({
-                where: { id },
+        try {
+            const bom = await prisma.bom.create({
                 data: {
                     name: validated.name,
                     productVariant: { connect: { id: validated.productVariantId } },
                     outputQuantity: validated.outputQuantity,
                     isDefault: validated.isDefault,
                     category: validated.category,
+                    items: {
+                        create: validated.items.map(item => ({
+                            productVariantId: item.productVariantId,
+                            quantity: item.quantity,
+                            scrapPercentage: item.scrapPercentage
+                        }))
+                    }
                 }
             });
 
-            // Delete existing items
-            await tx.bomItem.deleteMany({
-                where: { bomId: id }
+            const createdBom = await prisma.bom.findUnique({
+                where: { id: bom.id },
+                include: { items: { include: { productVariant: true } } }
             });
 
-            // Create new items
-            await tx.bomItem.createMany({
-                data: validated.items.map(item => ({
-                    bomId: id,
-                    productVariantId: item.productVariantId,
-                    quantity: item.quantity,
-                    scrapPercentage: item.scrapPercentage
-                }))
+            if (createdBom) {
+                const totalCost = calculateBomCost(createdBom.items);
+                const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
+
+                await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
+            }
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'CREATE_BOM',
+                entityType: 'Bom',
+                entityId: bom.id,
+                details: `Created Recipe (BOM) ${bom.name}`
             });
 
-            // Re-fetch items to calculate cost (since we just inserted them)
-            const newItemsWithCosts = await tx.bomItem.findMany({
-                where: { bomId: id },
-                include: { productVariant: true }
-            });
+            revalidatePath('/dashboard/boms');
+            return serializeData(bom);
+        } catch (error) {
+            logger.error("Failed to create BOM", { error, module: 'BomActions' });
+            throw new BusinessRuleError("Failed to create Recipe (BOM). Please verify the details.");
+        }
+    });
+}
+);
 
-            const totalCost = calculateBomCost(newItemsWithCosts);
-            const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
-
-            await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
-
-            return updatedBom;
+export const getBom = withTenant(
+async function getBom(id: string) {
+    return safeAction(async () => {
+        const bom = await prisma.bom.findUnique({
+            where: { id },
+            include: {
+                productVariant: { include: { product: true } },
+                items: { include: { productVariant: { include: { product: true } } } }
+            }
         });
 
-        await logActivity({
-            userId: session.user.id,
-            action: 'UPDATE_BOM',
-            entityType: 'Bom',
-            entityId: id,
-            details: `Updated Recipe (BOM) ${validated.name}`
-        });
+        if (!bom) throw new NotFoundError("Recipe", id);
 
-        revalidatePath('/dashboard/boms');
-        return { success: true, data: serializeData(result) };
-    } catch (error) {
-        logger.error("Failed to update BOM", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to update Recipe (BOM). Please try again." };
-    }
+        return serializeData(bom);
+    });
+}
+);
+
+export const updateBom = withTenant(
+async function updateBom(id: string, data: CreateBomValues) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        const validated = createBomSchema.parse(data);
+
+        try {
+            const result = await prisma.$transaction(async (tx) => {
+                const updatedBom = await tx.bom.update({
+                    where: { id },
+                    data: {
+                        name: validated.name,
+                        productVariant: { connect: { id: validated.productVariantId } },
+                        outputQuantity: validated.outputQuantity,
+                        isDefault: validated.isDefault,
+                        category: validated.category,
+                    }
+                });
+
+                await tx.bomItem.deleteMany({ where: { bomId: id } });
+
+                await tx.bomItem.createMany({
+                    data: validated.items.map(item => ({
+                        bomId: id,
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity,
+                        scrapPercentage: item.scrapPercentage
+                    }))
+                });
+
+                const newItemsWithCosts = await tx.bomItem.findMany({
+                    where: { bomId: id },
+                    include: { productVariant: true }
+                });
+
+                const totalCost = calculateBomCost(newItemsWithCosts);
+                const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
+
+                await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
+
+                return updatedBom;
+            });
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'UPDATE_BOM',
+                entityType: 'Bom',
+                entityId: id,
+                details: `Updated Recipe (BOM) ${validated.name}`
+            });
+
+            revalidatePath('/dashboard/boms');
+            return serializeData(result);
+        } catch (error) {
+            logger.error("Failed to update BOM", { error, module: 'BomActions' });
+            throw new BusinessRuleError("Failed to update Recipe (BOM). Please try again.");
+        }
+    });
 }
 );
 
 export const deleteBom = withTenant(
 async function deleteBom(id: string) {
-    const session = await requireAuth();
-    try {
-        await prisma.bom.delete({
-            where: { id }
-        });
+    return safeAction(async () => {
+        const session = await requireAuth();
+        try {
+            await prisma.bom.delete({ where: { id } });
 
-        await logActivity({
-            userId: session.user.id,
-            action: 'DELETE_BOM',
-            entityType: 'Bom',
-            entityId: id,
-            details: `Deleted Recipe (BOM) ${id}`
-        });
+            await logActivity({
+                userId: session.user.id,
+                action: 'DELETE_BOM',
+                entityType: 'Bom',
+                entityId: id,
+                details: `Deleted Recipe (BOM) ${id}`
+            });
 
-        revalidatePath('/dashboard/boms');
-        return { success: true };
-    } catch (error) {
-        logger.error("Failed to delete BOM", { error, module: 'BomActions' });
-        return { success: false, error: "Failed to delete Recipe. It might be in use by a production order." };
-    }
+            revalidatePath('/dashboard/boms');
+            return null;
+        } catch (error) {
+            logger.error("Failed to delete BOM", { error, module: 'BomActions' });
+            throw new BusinessRuleError("Failed to delete Recipe. It might be in use by a production order.");
+        }
+    });
 }
 );
-
-

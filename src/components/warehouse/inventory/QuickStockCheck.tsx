@@ -29,7 +29,7 @@ export function QuickStockCheck({ products, locations }: QuickStockCheckProps) {
         try {
             // Check stock across all locations concurrently
             const promises = locations.map(loc =>
-                getRealtimeStock(loc.id, productId).then(qty => ({ locId: loc.id, qty }))
+                getRealtimeStock(loc.id, productId).then(res => ({ locId: loc.id, qty: res.success ? (res.data || 0) : 0 }))
             );
 
             const results = await Promise.all(promises);

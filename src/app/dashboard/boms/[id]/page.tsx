@@ -31,7 +31,7 @@ export default async function BomDetailPage({ params }: BomDetailPageProps) {
 
             <BOMDetails
                 bom={bom}
-                showPrices={showPrices}
+                showPrices={showPrices.success ? showPrices.data : false}
             />
         </div>
     );

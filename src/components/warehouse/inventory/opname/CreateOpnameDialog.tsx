@@ -40,7 +40,15 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
 
     useEffect(() => {
         if (open) {
-            getLocations().then(setLocations);
+            getLocations().then(res => {
+                if (!res.success) {
+                    toast.error(res.error || "Failed to load locations");
+                    return;
+                }
+                if (res.data) {
+                    setLocations(res.data);
+                }
+            });
         }
     }, [open]);
 
@@ -53,12 +61,14 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
         setIsLoading(true);
         try {
             const result = await createOpnameSession(locationId, remarks);
-            if (result.success) {
+            if (!result.success) {
+                toast.error(`Error: ${result.error || "Unknown error"}`);
+                return;
+            }
+            if (result.data) {
                 toast.success("Stock Opname session created");
                 setOpen(false);
-                router.push(`${basePath}/${result.id}`);
-            } else {
-                toast.error(`Error: ${result.error}`);
+                router.push(`${basePath}/${result.data.id}`);
             }
         } catch {
             toast.error("An unexpected error occurred");

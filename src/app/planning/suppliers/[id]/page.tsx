@@ -36,12 +36,14 @@ interface SupplierProduct {
 export default async function SupplierDetailPage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params;
 
-    const supplier = await getSupplierById(id);
+    const supplierRes = await getSupplierById(id);
+    const supplier = supplierRes?.success && supplierRes.data ? supplierRes.data : null;
     if (!supplier) {
         notFound();
     }
 
-    const supplierProducts = await getSupplierProducts(id) as unknown as SupplierProduct[];
+    const supplierProductsRes = await getSupplierProducts(id);
+    const supplierProducts = supplierProductsRes?.success && supplierProductsRes.data ? supplierProductsRes.data : [];
 
     return (
         <div className="p-6 space-y-6">

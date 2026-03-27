@@ -2,7 +2,8 @@ import { getChartOfAccounts } from '@/actions/finance/accounting';
 import ImportJournalForm from '@/components/finance/accounting/import-journal-form';
 
 export default async function ImportJournalPage() {
-    const accounts = await getChartOfAccounts();
+    const accountsRes = await getChartOfAccounts();
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (
         <div className="space-y-6">

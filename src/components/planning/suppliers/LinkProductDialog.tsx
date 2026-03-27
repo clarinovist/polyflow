@@ -85,8 +85,15 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
     useEffect(() => {
         if (open) {
             setIsFetchingVariants(true);
-            getVariants().then((data) => {
-                setVariants(data as Variant[]);
+            getVariants().then((res) => {
+                if (!res.success) {
+                    toast.error(res.error || 'Failed to fetch variants');
+                    setIsFetchingVariants(false);
+                    return;
+                }
+                if (res.data) {
+                    setVariants(res.data as Variant[]);
+                }
                 setIsFetchingVariants(false);
             });
         }

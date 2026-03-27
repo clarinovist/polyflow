@@ -70,10 +70,13 @@ export function JournalListClient() {
                 page,
                 limit
             });
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setData(res.data as any);
-            setTotal(res.meta.total);
-
+            if (res.success && res.data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setData(res.data.data as any);
+                setTotal(res.data.meta.total);
+            } else if (!res.success) {
+                toast.error(res.error || 'Failed to fetch journals');
+            }
         } catch (error) {
             console.error("Failed to fetch journals", error);
         } finally {

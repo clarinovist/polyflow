@@ -7,7 +7,7 @@ import {
     ProductionOutputValues,
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MovementType, ProductionMaterial, BomItem } from '@prisma/client';
+import { ProductionStatus, MovementType, ProductionMaterial, BomItem, ProductionExecution } from '@prisma/client';
 import { InventoryService } from '../inventory/inventory-service';
 import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
@@ -31,8 +31,7 @@ export class ProductionExecutionService {
                     operatorId,
                     shiftId,
                     startTime: new Date(),
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    endTime: null as any,
+                    endTime: null as unknown as Date,
                     quantityProduced: 0,
                     scrapQuantity: 0,
                 }
@@ -60,8 +59,7 @@ export class ProductionExecutionService {
     static async stopExecution(data: StopExecutionValues & { userId?: string }) {
         const { executionId, quantityProduced, scrapQuantity, notes, userId } = data;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let finalExecution: any;
+        let finalExecution!: ProductionExecution;
         await prisma.$transaction(async (tx) => {
             finalExecution = await tx.productionExecution.update({
                 where: { id: executionId },
@@ -583,8 +581,7 @@ export class ProductionExecutionService {
     static async getActiveExecutions() {
         return await prisma.productionExecution.findMany({
             where: {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                endTime: { equals: null as any }
+                endTime: { equals: null }
             },
             include: {
                 productionOrder: {

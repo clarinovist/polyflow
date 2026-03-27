@@ -6,12 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CreateSalesReturnPage() {
     // Fetch all required lookup data
-    const [customers, locations, products, salesOrders] = await Promise.all([
+    const [customersRes, locationsRes, productsRes, salesOrdersRes] = await Promise.all([
         getCustomers(),
         getLocations(),
         getProductVariants(),
         getSalesOrders()
     ]);
+    
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const products = productsRes.success && productsRes.data ? productsRes.data : [];
+    const salesOrders = salesOrdersRes.success && salesOrdersRes.data ? salesOrdersRes.data : [];
 
     return (
         <div className="p-6 max-w-5xl mx-auto">

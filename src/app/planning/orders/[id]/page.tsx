@@ -23,7 +23,10 @@ export default async function ProductionDetailPage(props: PageProps) {
         notFound();
     }
 
-    const { locations, operators, helpers, machines, rawMaterials } = await getProductionFormData();
+    const formDataRes = await getProductionFormData();
+    const { locations, operators, helpers, machines, rawMaterials } = formDataRes.success && formDataRes.data 
+        ? formDataRes.data 
+        : { locations: [], operators: [], helpers: [], machines: [], rawMaterials: [] };
     const workShiftsResult = await getWorkShifts();
     const workShifts = workShiftsResult.success && workShiftsResult.data ? workShiftsResult.data : [];
 

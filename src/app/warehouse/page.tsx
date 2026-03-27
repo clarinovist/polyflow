@@ -46,7 +46,8 @@ export default async function WarehousePage() {
         }
     });
 
-    const formData = await getProductionFormData();
+    const formDataRes = await getProductionFormData();
+    const formData = formDataRes.success && formDataRes.data ? formDataRes.data : { locations: [], operators: [], helpers: [], workShifts: [], boms: [], machines: [], rawMaterials: [] };
 
     async function refreshData() {
         'use server';

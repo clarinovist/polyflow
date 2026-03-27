@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
 export default async function HistoryPage() {
-    const movements = await getStockMovements(100);
+    const movementsRes = await getStockMovements(100);
+    const movements = movementsRes.success && movementsRes.data ? movementsRes.data : [];
 
     return (
         <div className="p-6 space-y-6">

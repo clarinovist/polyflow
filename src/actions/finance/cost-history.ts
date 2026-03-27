@@ -1,4 +1,3 @@
-
 'use server';
 
 import { withTenant } from "@/lib/core/tenant";
@@ -6,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
+import { safeAction, NotFoundError } from '@/lib/errors/errors';
 
 export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPORT' | 'BOM_UPDATE';
 
@@ -15,20 +15,22 @@ type ExtendedClient = Prisma.TransactionClient & { costHistory: any };
 
 export const getCostHistory = withTenant(
 async function getCostHistory(variantId: string) {
-    await requireAuth();
+    return safeAction(async () => {
+        await requireAuth();
 
-    const db = prisma as unknown as ExtendedClient;
-    const history = await db.costHistory.findMany({
-        where: { productVariantId: variantId },
-        include: {
-            createdBy: {
-                select: { name: true }
-            }
-        },
-        orderBy: { createdAt: 'desc' }
+        const db = prisma as unknown as ExtendedClient;
+        const history = await db.costHistory.findMany({
+            where: { productVariantId: variantId },
+            include: {
+                createdBy: {
+                    select: { name: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return serializeData(history);
     });
-
-    return serializeData(history);
 }
 );
 
@@ -40,55 +42,57 @@ async function updateStandardCost(
     referenceId?: string,
     tx?: Prisma.TransactionClient
 ) {
-    const session = await requireAuth();
-    const userId = session?.user?.id;
+    return safeAction(async () => {
+        const session = await requireAuth();
+        const userId = session?.user?.id;
 
-    if (!userId) throw new Error('User ID missing');
+        if (!userId) throw new Error('User ID missing');
 
-    const db = (tx || prisma) as unknown as ExtendedClient;
+        const db = (tx || prisma) as unknown as ExtendedClient;
 
-    const variant = await db.productVariant.findUnique({
-        where: { id: variantId },
-        select: { standardCost: true }
-    });
-
-    if (!variant) throw new Error('Product variant not found');
-
-    const previousCost = variant.standardCost ? Number(variant.standardCost) : null;
-
-    // Calculate percentage change
-    let changePercent = null;
-    if (previousCost !== null && previousCost !== 0) {
-        changePercent = ((newCost - previousCost) / previousCost) * 100;
-    }
-
-    const execute = async (client: ExtendedClient) => {
-        const updatedVariant = await client.productVariant.update({
+        const variant = await db.productVariant.findUnique({
             where: { id: variantId },
-            data: { standardCost: newCost }
+            select: { standardCost: true }
         });
 
-        await client.costHistory.create({
-            data: {
-                productVariantId: variantId,
-                previousCost,
-                newCost,
-                changeReason: reason,
-                referenceId,
-                changePercent,
-                createdById: userId
-            }
-        });
+        if (!variant) throw new NotFoundError('Product Variant', variantId);
 
-        return serializeData(updatedVariant);
-    };
+        const previousCost = variant.standardCost ? Number(variant.standardCost) : null;
 
-    if (tx) {
-        return await execute(tx as unknown as ExtendedClient);
-    } else {
-        return await prisma.$transaction(async (internalTx) => {
-            return await execute(internalTx as unknown as ExtendedClient);
-        });
-    }
+        // Calculate percentage change
+        let changePercent = null;
+        if (previousCost !== null && previousCost !== 0) {
+            changePercent = ((newCost - previousCost) / previousCost) * 100;
+        }
+
+        const execute = async (client: ExtendedClient) => {
+            const updatedVariant = await client.productVariant.update({
+                where: { id: variantId },
+                data: { standardCost: newCost }
+            });
+
+            await client.costHistory.create({
+                data: {
+                    productVariantId: variantId,
+                    previousCost,
+                    newCost,
+                    changeReason: reason,
+                    referenceId,
+                    changePercent,
+                    createdById: userId
+                }
+            });
+
+            return serializeData(updatedVariant);
+        };
+
+        if (tx) {
+            return await execute(tx as unknown as ExtendedClient);
+        } else {
+            return await prisma.$transaction(async (internalTx) => {
+                return await execute(internalTx as unknown as ExtendedClient);
+            });
+        }
+    });
 }
 );

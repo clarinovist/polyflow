@@ -11,7 +11,8 @@ export default async function CreateProductionOrderPage({
     searchParams: Promise<{ salesOrderId?: string }>
 }) {
     const resolvedSearchParams = await searchParams;
-    const rawData = await getProductionFormData();
+    const rawDataRes = await getProductionFormData();
+    const rawData = rawDataRes.success && rawDataRes.data ? rawDataRes.data : { boms: [], locations: [], operators: [], helpers: [], machines: [], rawMaterials: [] };
     // Only destructure what we need
     const { boms, locations, machines } = serializeData(rawData) as unknown as ProductionOrderFormProps;
     const salesOrderId = resolvedSearchParams.salesOrderId;

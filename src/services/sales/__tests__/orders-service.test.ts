@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { confirmOrder } from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
@@ -62,25 +61,25 @@ describe('confirmOrder', () => {
             orderNumber: 'SO-001',
             status: SalesOrderStatus.DRAFT,
             orderType: SalesOrderType.MAKE_TO_ORDER,
-            totalAmount: { toNumber: () => 100 } as any,
+            totalAmount: { toNumber: () => 100 } as never,
             customerId: 'cust-1',
             sourceLocationId: 'loc-1',
             items: [
                 {
                     id: 'item-1',
                     productVariantId: 'pv-1',
-                    quantity: { toNumber: () => 10 } as any,
+                    quantity: { toNumber: () => 10 } as never,
                 }
             ]
-        } as any);
+        } as never);
 
         vi.mocked(prisma.inventory.findUnique).mockResolvedValue(null);
         vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
-        vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({ _sum: { quantity: null } } as any);
-        vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as any);
-        vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: 'bom-1' } as any);
-        vi.mocked(prisma.bom.findMany).mockResolvedValue([{ productVariantId: 'pv-1' }] as any);
-        vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as any);
+        vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({ _sum: { quantity: null } } as never);
+        vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+        vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: 'bom-1' } as never);
+        vi.mocked(prisma.bom.findMany).mockResolvedValue([{ productVariantId: 'pv-1' }] as never);
+        vi.mocked(prisma.productVariant.findMany).mockResolvedValue([] as never);
         vi.mocked(checkCreditLimit).mockResolvedValue(undefined);
     });
 

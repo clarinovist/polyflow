@@ -5,7 +5,7 @@ import {
     ScrapRecordValues,
     QualityInspectionValues
 } from '@/lib/schemas/production';
-import { MovementType, ReferenceType } from '@prisma/client';
+import { MovementType, ReferenceType, Prisma } from '@prisma/client';
 import { InventoryService } from '../inventory/inventory-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
@@ -160,8 +160,8 @@ export class ProductionMaterialService {
                                 reference: `${refPrefix}${idempotencySuffix}`,
                                 createdById: userId,
                                 productionOrderId: productionOrderId // Add structured relation
-                            } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        } as any);
+                            }
+                        });
                         await AccountingService.recordInventoryMovement(moveOut, tx);
                     } else {
                         for (const batch of batches) {
@@ -204,8 +204,8 @@ export class ProductionMaterialService {
                                     batchId: batch.id,
                                     createdById: userId,
                                     productionOrderId: productionOrderId // Add structured relation
-                                } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            } as any);
+                                }
+                            });
                             await AccountingService.recordInventoryMovement(moveOut, tx);
 
                             remainingToDeduct -= deductFromBatch;
@@ -255,8 +255,8 @@ export class ProductionMaterialService {
                             batchId: item.batchId,
                             createdById: userId,
                             productionOrderId: productionOrderId // Add structured relation
-                        } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    } as any);
+                        }
+                    });
                     await AccountingService.recordInventoryMovement(moveOut, tx);
                 }
             }
@@ -384,12 +384,10 @@ export class ProductionMaterialService {
 
     // --- Scrap ---
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async recordScrap(data: ScrapRecordValues & { userId?: string }, existingTx?: any) {
+    static async recordScrap(data: ScrapRecordValues & { userId?: string }, existingTx?: Prisma.TransactionClient) {
         const { productionOrderId, productVariantId, locationId, quantity, reason, userId } = data;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const recordLogic = async (tx: any) => {
+        const recordLogic = async (tx: Prisma.TransactionClient) => {
             await InventoryService.incrementStock(
                 tx,
                 locationId,
@@ -480,8 +478,8 @@ export class ProductionMaterialService {
                     quantity: scrap.quantity,
                     reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
                     productionOrderId: productionOrderId // Add structured relation
-                } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any);
+                }
+            });
             await AccountingService.recordInventoryMovement(movement, tx);
 
             // Delete record

@@ -5,11 +5,15 @@ import { SalesOrderForm } from '@/components/sales/SalesOrderForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CreateSalesOrderPage() {
-    const [customers, locations, products] = await Promise.all([
+    const [customersRes, locationsRes, productsRes] = await Promise.all([
         getCustomers(),
         getLocations(),
         getProductVariants()
     ]);
+    
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const products = productsRes.success && productsRes.data ? productsRes.data : [];
 
     // Filter locations: Only Finished Goods & Scrap
     // Assuming slugs are 'finished-goods' and 'scrap-warehouse' or similar

@@ -96,9 +96,14 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                 }))
             });
 
-            // Fetch locations
             getLocations().then(res => {
-                setLocations(res);
+                if (!res.success) {
+                    toast.error(res.error || "Failed to load locations");
+                    return;
+                }
+                if (res.data) {
+                    setLocations(res.data);
+                }
             });
         }
     }, [open, items, sourceLocationId, form]);

@@ -36,11 +36,11 @@ export function DepreciationDialog() {
         setLoading(true);
         try {
             const res = await runDepreciation(parseInt(year), parseInt(month));
-            if (res.success) {
-                toast.success(`Processed depreciation for ${res.count} assets`);
-                setOpen(false);
-            } else {
+            if (!res.success) {
                 toast.error(res.error || 'Failed to run depreciation');
+            } else {
+                toast.success(`Processed depreciation for ${res.data?.count || 0} assets`);
+                setOpen(false);
             }
         } catch (_error) {
             toast.error('An unexpected error occurred');

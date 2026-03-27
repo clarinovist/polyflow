@@ -30,7 +30,14 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const stats = await getFinanceDashboardStats({ startDate: checkStart, endDate: checkEnd });
+    const statsRes = await getFinanceDashboardStats({ startDate: checkStart, endDate: checkEnd });
+    const stats = statsRes.success && statsRes.data ? statsRes.data : {
+        revenue: 0,
+        receivables: 0,
+        payables: 0,
+        netCashPosition: 0,
+        counts: { receivables: 0, payables: 0 }
+    };
 
     return (
         <div className="flex flex-col gap-8">

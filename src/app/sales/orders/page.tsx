@@ -19,8 +19,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
     // Pass date filter to fetch function
-    const orders = await getSalesOrders(false, { startDate: checkStart, endDate: checkEnd });
-    const stats = await getSalesOrderStats();
+    const ordersRes = await getSalesOrders(false, { startDate: checkStart, endDate: checkEnd });
+    const statsRes = await getSalesOrderStats();
+    
+    const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
+    const stats = statsRes.success && statsRes.data ? statsRes.data : {
+        totalOrders: 0,
+        activeCount: 0,
+        completedCount: 0,
+        cancelledCount: 0
+    };
 
     // Serialize all Prisma objects for Client Components
     const serializedOrders = serializeData(orders);

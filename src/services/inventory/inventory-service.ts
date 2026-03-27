@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { MovementType, Prisma, BatchStatus, ProductType, NotificationType } from '@prisma/client';
+import { MovementType, Prisma, BatchStatus, ProductType, NotificationType, ReservationStatus } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import {
@@ -13,7 +13,7 @@ import {
 
 import { InventoryWithRelations } from '@/types/inventory';
 import { AccountingService } from '@/services/accounting/accounting-service';
-import { STATUS_ACTIVE, STATUS_WAITING } from './constants';
+
 import { createStockReservation, cancelStockReservation, getActiveReservations } from './reservation-service';
 import {
     getSuggestedPurchases,
@@ -69,7 +69,7 @@ export class InventoryService {
             where: {
                 locationId,
                 productVariantId,
-                status: STATUS_ACTIVE
+                status: ReservationStatus.ACTIVE
             },
             _sum: { quantity: true }
         });
@@ -192,8 +192,7 @@ export class InventoryService {
         const reservations = await prisma.stockReservation.groupBy({
             by: ['productVariantId', 'locationId', 'status'],
             where: {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                status: { in: [STATUS_ACTIVE, STATUS_WAITING] as any }
+                status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] }
             },
             _sum: {
                 quantity: true
@@ -208,9 +207,9 @@ export class InventoryService {
             const qty = r._sum.quantity?.toNumber() || 0;
             // Use string comparison for safety
             const status = r.status as string;
-            if (status === STATUS_ACTIVE) {
+            if (status === ReservationStatus.ACTIVE) {
                 activeReservationMap.set(key, qty);
-            } else if (status === STATUS_WAITING) {
+            } else if (status === ReservationStatus.WAITING) {
                 waitingReservationMap.set(key, qty);
             }
         });
@@ -306,7 +305,7 @@ export class InventoryService {
                 where: {
                     locationId: sourceLocationId,
                     productVariantId: productVariantId,
-                    status: STATUS_ACTIVE
+                    status: ReservationStatus.ACTIVE
                 },
                 _sum: { quantity: true }
             });
@@ -395,7 +394,7 @@ export class InventoryService {
                 where: {
                     locationId: sourceLocationId,
                     productVariantId: { in: productVariantIds },
-                    status: STATUS_ACTIVE
+                    status: ReservationStatus.ACTIVE
                 },
                 _sum: { quantity: true }
             });
@@ -497,7 +496,7 @@ export class InventoryService {
                     where: {
                         locationId,
                         productVariantId,
-                        status: STATUS_ACTIVE
+                        status: ReservationStatus.ACTIVE
                     },
                     _sum: { quantity: true }
                 });

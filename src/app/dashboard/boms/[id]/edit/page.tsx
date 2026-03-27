@@ -38,7 +38,7 @@ export default async function EditBomPage({ params }: EditBomPageProps) {
             <BOMForm
                 bom={bom}
                 productVariants={productVariants}
-                showPrices={showPrices}
+                showPrices={showPrices.success ? showPrices.data : false}
             />
         </div>
     );

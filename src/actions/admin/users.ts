@@ -7,8 +7,7 @@ import { Role, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
-import { catchError } from '@/lib/errors/error-handler';
-import { AuthorizationError, ConflictError, BusinessRuleError } from '@/lib/errors/errors';
+import { safeAction, AuthorizationError, ConflictError, BusinessRuleError } from '@/lib/errors/errors';
 
 // Schema for creating a user
 const CreateUserSchema = z.object({
@@ -42,7 +41,7 @@ async function checkAdmin() {
 
 export const getUsers = withTenant(
     async function getUsers() {
-        return catchError(async () => {
+        return safeAction(async () => {
             await checkAdmin();
             const users = await prisma.user.findMany({
                 where: { isSuperAdmin: false },
@@ -62,7 +61,7 @@ export const getUsers = withTenant(
 
 export const createUser = withTenant(
     async function createUser(data: CreateUserInput) {
-        return catchError(async () => {
+        return safeAction(async () => {
             await checkAdmin();
             const validated = CreateUserSchema.parse(data);
 
@@ -86,14 +85,14 @@ export const createUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return true;
+            return null;
         });
     }
 );
 
 export const updateUserRole = withTenant(
     async function updateUserRole(userId: string, newRole: Role) {
-        return catchError(async () => {
+        return safeAction(async () => {
             await checkAdmin();
 
             const targetUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -107,14 +106,14 @@ export const updateUserRole = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return true;
+            return null;
         });
     }
 );
 
 export const updateUser = withTenant(
     async function updateUser(data: UpdateUserInput) {
-        return catchError(async () => {
+        return safeAction(async () => {
             await checkAdmin();
             const validated = UpdateUserSchema.parse(data);
 
@@ -147,14 +146,14 @@ export const updateUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return true;
+            return null;
         });
     }
 );
 
 export const deleteUser = withTenant(
     async function deleteUser(userId: string) {
-        return catchError(async () => {
+        return safeAction(async () => {
             const session = await checkAdmin();
 
             // Prevent deleting self
@@ -172,7 +171,7 @@ export const deleteUser = withTenant(
             });
 
             revalidatePath('/dashboard/settings');
-            return true;
+            return null;
         });
     }
 );

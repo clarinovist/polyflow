@@ -39,12 +39,12 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                 const from = dateRange?.from ? dateRange.from : undefined;
                 const to = dateRange?.to ? dateRange.to : undefined;
 
-                const [costs, wip] = await Promise.all([
+                const [costsRes, wipRes] = await Promise.all([
                     getProductionCostReport(from, to),
                     getWipValuation()
                 ]);
-                setCostData(costs);
-                setWipData(wip);
+                setCostData(costsRes.success && costsRes.data ? costsRes.data : []);
+                setWipData(wipRes.success && wipRes.data ? wipRes.data : null);
             } catch (error) {
                 console.error("Failed to fetch costing data", error);
             } finally {

@@ -11,7 +11,8 @@ export const metadata = {
 export default async function ProductionRequestsPage() {
     // Ideally we would have a specific server action for this to filter on database level,
     // but for now we reuse existing and filter here.
-    const allOrders = await getSalesOrders(true);
+    const allOrdersRes = await getSalesOrders(true);
+    const allOrders = allOrdersRes.success && allOrdersRes.data ? allOrdersRes.data : [];
 
     // Filter for CONFIRMED (MTS) or IN_PRODUCTION (MTO) orders
     // that still need production processing (no work orders created yet).

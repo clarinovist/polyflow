@@ -3,7 +3,8 @@ import { getAccounts } from "@/actions/finance/account-actions";
 import { COAAuditTool } from "@/components/finance/COAAuditTool";
 
 export default async function CoaPage() {
-    const accounts = await getAccounts();
+    const accountsRes = await getAccounts();
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (
         <div className="space-y-6">

@@ -1,5 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
 import { SalesReturnService } from '../returns-service';
 import { prisma } from '@/lib/core/prisma';
 import { AutoJournalService } from '../../finance/auto-journal-service';
@@ -53,16 +52,16 @@ describe('SalesReturnService', () => {
         salesOrder: { id: 'so-1' }
       };
 
-      (prisma.salesReturn.findUnique as any).mockResolvedValueOnce(mockSalesReturn as any);
-      (prisma.salesReturn.update as any).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as any);
+      (prisma.salesReturn.findUnique as Mock).mockResolvedValueOnce(mockSalesReturn as Mock);
+      (prisma.salesReturn.update as Mock).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
 
       const expectedError = new Error('Auto-journal failed');
-      (AutoJournalService.handleSalesReturnReceived as any).mockRejectedValueOnce(expectedError);
+      (AutoJournalService.handleSalesReturnReceived as Mock).mockRejectedValueOnce(expectedError);
 
       const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
 
       // Mock getReturnById which is called at the end
-      vi.spyOn(SalesReturnService, 'getReturnById').mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as any);
+      vi.spyOn(SalesReturnService, 'getReturnById').mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
 
       // Act
       const result = await SalesReturnService.receiveReturn(mockReturnId, mockUserId);

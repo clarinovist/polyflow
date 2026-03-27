@@ -27,7 +27,13 @@ import {
 } from 'lucide-react';
 import { parseStockCSVFile, downloadStockCSVTemplate, downloadStockErrorReport } from '@/lib/utils/stock-csv-parser';
 import { validateStockImportRows, ValidationResult, getStockValidationSummary } from '@/lib/utils/stock-import-validator';
-import { getStockImportLookups, importInitialStock, ImportStockResult } from '@/actions/inventory/stock-import';
+import { getStockImportLookups, importInitialStock } from '@/actions/inventory/stock-import';
+
+interface ImportStockResult {
+    success: boolean;
+    imported: number;
+    errors?: string[];
+}
 import { ImportStockPreviewTable } from './ImportStockPreviewTable';
 import { toast } from 'sonner';
 
@@ -65,13 +71,23 @@ export function ImportStockDialog() {
             setProgress(40);
             setStatusMessage('Fetching system data...');
             const lookups = await getStockImportLookups();
+            if (!lookups.success) {
+                toast.error(lookups.error || "Failed to fetch system data");
+                setIsProcessing(false);
+                return;
+            }
+            if (!lookups.data) {
+                toast.error("Failed to fetch system data");
+                setIsProcessing(false);
+                return;
+            }
 
             // Map converting for validator
             const skuMap = new Map<string, string>();
-            lookups.products.forEach(p => skuMap.set(p.sku, p.id));
+            lookups.data.products.forEach(p => skuMap.set(p.sku, p.id));
 
             const locationMap = new Map<string, string>();
-            lookups.locations.forEach(l => locationMap.set(l.name, l.id));
+            lookups.data.locations.forEach(l => locationMap.set(l.name, l.id));
 
             // 3. Validate rows
             setProgress(70);
@@ -112,12 +128,22 @@ export function ImportStockDialog() {
 
             // Import via server action
             const result = await importInitialStock(importItems, importReason);
-            setImportResult(result);
-
-            if (result.success) {
-                toast.success(`Successfully imported ${result.imported} items`);
-            } else {
+            if (!result.success) {
+                setImportResult({
+                    success: false,
+                    imported: 0,
+                    errors: result.error ? [result.error] : ['Unknown import error']
+                });
                 toast.error("Import failed with errors");
+                setStep('result');
+                return;
+            }
+            if (result.data) {
+                setImportResult({
+                    success: true,
+                    imported: result.data.imported
+                });
+                toast.success(`Successfully imported ${result.data.imported} items`);
             }
 
             // Move to result step

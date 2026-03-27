@@ -23,7 +23,7 @@ export default async function CreateBomPage() {
 
             <BOMForm
                 productVariants={productVariants}
-                showPrices={showPrices}
+                showPrices={showPrices.success ? showPrices.data : false}
             />
         </div>
     );

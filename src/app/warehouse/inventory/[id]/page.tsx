@@ -20,7 +20,7 @@ export default async function StockLedgerPage({ params, searchParams }: PageProp
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
-    const [ledgerData, locations] = await Promise.all([
+    const [ledgerDataRes, locationsRes] = await Promise.all([
         getStockLedgerAction(
             id,
             startDate ? new Date(startDate) : defaultStart,
@@ -30,8 +30,11 @@ export default async function StockLedgerPage({ params, searchParams }: PageProp
             console.error('Error fetching stock ledger:', error);
             return null;
         }),
-        getLocations().catch(() => [])
+        getLocations().catch(() => null)
     ]);
+    
+    const ledgerData = ledgerDataRes && ledgerDataRes.success && ledgerDataRes.data ? ledgerDataRes.data : null;
+    const locations = locationsRes && locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     if (!ledgerData) {
         notFound();

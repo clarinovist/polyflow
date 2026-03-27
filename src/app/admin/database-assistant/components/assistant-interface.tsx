@@ -53,10 +53,11 @@ export function AssistantInterface() {
 
         try {
             const response = await generateAndRunQuery(question);
-            setResult(response.success
-                ? { sql: response.sql, data: Array.isArray(response.data) ? response.data : [response.data] }
-                : { error: response.error }
-            );
+            if (response.success && response.data) {
+                setResult({ sql: response.data.sql, data: Array.isArray(response.data.data) ? response.data.data : [response.data.data] });
+            } else {
+                setResult({ error: !response.success ? response.error : 'Unknown error' });
+            }
 
             if (response.success) {
                 saveToHistory(question);

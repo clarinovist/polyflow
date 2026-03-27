@@ -152,8 +152,7 @@ export async function recordInventoryMovement(
 
 const accountCache = new Map<string, string>();
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getAccountId(code: string, db: any): Promise<string> {
+async function getAccountId(code: string, db: Prisma.TransactionClient): Promise<string> {
     // If code is already a UUID (e.g. from Product account mappings), return it directly
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)) {
         return code;

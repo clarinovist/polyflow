@@ -22,7 +22,13 @@ export function COAAuditTool() {
         setIsLoading(true);
         try {
             const result = await auditRequiredAccounts();
-            setAudit(result);
+            if (!result.success) {
+                toast.error(result.error || 'Failed to run COA audit');
+                return;
+            }
+            if (result.data) {
+                setAudit(result.data);
+            }
         } catch (error) {
             toast.error('Failed to run COA audit');
             console.error(error);
@@ -35,10 +41,12 @@ export function COAAuditTool() {
         setIsFixing(true);
         try {
             const result = await fixMissingAccounts();
-            if (result.success) {
-                toast.success(`Successfully initialized ${result.count} accounts`);
-                await runAudit();
+            if (!result.success) {
+                toast.error(result.error || 'Failed to initialize accounts');
+                return;
             }
+            toast.success(`Successfully initialized ${result.data?.count} accounts`);
+            await runAudit();
         } catch (error) {
             toast.error('Failed to fix accounts');
             console.error(error);

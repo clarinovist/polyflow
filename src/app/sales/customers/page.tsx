@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Customer } from '@prisma/client';
 
 export default async function CustomersPage() {
-    const customers = await getCustomers();
+    const customersRes = await getCustomers();
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
 
     return (
         <div className="p-6 space-y-6">

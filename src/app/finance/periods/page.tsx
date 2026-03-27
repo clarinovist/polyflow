@@ -11,7 +11,8 @@ export default async function PeriodsPage({
     const resolvedParams = await searchParams;
     const currentYear = new Date().getFullYear();
     const selectedYear = resolvedParams.year ? parseInt(resolvedParams.year) : currentYear;
-    const periods = await getFiscalPeriods(selectedYear);
+    const periodsRes = await getFiscalPeriods(selectedYear);
+    const periods = periodsRes.success && periodsRes.data ? periodsRes.data : [];
 
     return (
         <PeriodManagementClient

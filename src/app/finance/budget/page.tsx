@@ -11,7 +11,7 @@ export default async function BudgetPage(props: { searchParams: Promise<{ year?:
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const budgets = budgetsRes.success ? (budgetsRes.data as any[]) : [];
-    const accounts = accountsRes || [];
+    const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (
         <BudgetListClient

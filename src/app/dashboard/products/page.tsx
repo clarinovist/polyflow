@@ -26,7 +26,8 @@ export default async function ProductsPage({
         type: isValidType ? (typeParam as ProductType) : undefined
     });
 
-    const showPrices = await canViewPrices();
+    const showPricesRes = await canViewPrices();
+    const showPrices = showPricesRes.success ? showPricesRes.data : false;
 
     // Serialize Decimal fields for client component
     const serializedProducts = JSON.parse(

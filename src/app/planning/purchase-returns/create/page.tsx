@@ -6,12 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CreatePurchaseReturnPage() {
     // Fetch all required lookup data
-    const [suppliers, locations, products, purchaseOrders] = await Promise.all([
+    const [suppliersRes, locationsRes, productsRes, purchaseOrdersRes] = await Promise.all([
         getSuppliers(),
         getLocations(),
         getProductVariants(),
         getPurchaseOrders()
     ]);
+
+    const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const products = productsRes.success && productsRes.data ? productsRes.data : [];
+    const purchaseOrders = purchaseOrdersRes.success && purchaseOrdersRes.data ? purchaseOrdersRes.data : [];
 
     return (
         <div className="p-6 max-w-5xl mx-auto">

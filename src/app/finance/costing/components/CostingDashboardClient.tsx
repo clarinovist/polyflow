@@ -43,8 +43,8 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                     getProductionCostReport(from, to),
                     getWipValuation()
                 ]);
-                setCostData(costs);
-                setWipData(wip);
+                setCostData(costs.success && costs.data ? costs.data : []);
+                setWipData(wip.success && wip.data ? wip.data : null);
             } catch (error) {
                 console.error("Failed to fetch costing data", error);
             } finally {

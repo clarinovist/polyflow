@@ -21,7 +21,8 @@ export default async function WarehouseHistoryPage({ searchParams }: { searchPar
     // For safety let's kep it reasonable but higher, e.g. 500 if date is set.
     const limit = startDate ? 500 : 100;
 
-    const movements = await getStockMovements(limit, startDate, endDate);
+    const movementsRes = await getStockMovements(limit, startDate, endDate);
+    const movements = movementsRes.success && movementsRes.data ? movementsRes.data : [];
 
     return (
         <div className="space-y-6">

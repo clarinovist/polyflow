@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { AccountType, AccountCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { safeAction } from '@/lib/errors/errors';
 
 export interface RequiredAccount {
     code: string;
@@ -32,45 +33,61 @@ const REQUIRED_ACCOUNTS: RequiredAccount[] = [
 
 export const auditRequiredAccounts = withTenant(
 async function auditRequiredAccounts() {
-    await requireAuth();
+    return safeAction(async () => {
+        await requireAuth();
 
-    const existingAccounts = await prisma.account.findMany({
-        where: {
-            code: { in: REQUIRED_ACCOUNTS.map(a => a.code) }
-        },
-        select: { code: true }
+        const existingAccounts = await prisma.account.findMany({
+            where: {
+                code: { in: REQUIRED_ACCOUNTS.map(a => a.code) }
+            },
+            select: { code: true }
+        });
+
+        const existingCodes = new Set(existingAccounts.map(a => a.code));
+        const missing = REQUIRED_ACCOUNTS.filter(a => !existingCodes.has(a.code));
+
+        return {
+            total: REQUIRED_ACCOUNTS.length,
+            existing: existingCodes.size,
+            missing: missing,
+            isPerfect: missing.length === 0
+        };
     });
-
-    const existingCodes = new Set(existingAccounts.map(a => a.code));
-    const missing = REQUIRED_ACCOUNTS.filter(a => !existingCodes.has(a.code));
-
-    return {
-        total: REQUIRED_ACCOUNTS.length,
-        existing: existingCodes.size,
-        missing: missing,
-        isPerfect: missing.length === 0
-    };
 }
 );
 
 export const fixMissingAccounts = withTenant(
 async function fixMissingAccounts() {
-    await requireAuth();
+    return safeAction(async () => {
+        await requireAuth();
 
-    const audit = await auditRequiredAccounts();
-    if (audit.isPerfect) return { success: true, count: 0 };
+        // Need to call the actual function logic
+        const existingAccounts = await prisma.account.findMany({
+            where: {
+                code: { in: REQUIRED_ACCOUNTS.map(a => a.code) }
+            },
+            select: { code: true }
+        });
 
-    const result = await prisma.account.createMany({
-        data: audit.missing.map(account => ({
-            code: account.code,
-            name: account.name,
-            type: account.type,
-            category: account.category,
-            description: account.description
-        }))
+        const existingCodes = new Set(existingAccounts.map(a => a.code));
+        const missing = REQUIRED_ACCOUNTS.filter(a => !existingCodes.has(a.code));
+
+        const isPerfect = missing.length === 0;
+
+        if (isPerfect) return { count: 0 };
+
+        const result = await prisma.account.createMany({
+            data: missing.map(account => ({
+                code: account.code,
+                name: account.name,
+                type: account.type,
+                category: account.category,
+                description: account.description
+            }))
+        });
+
+        revalidatePath('/finance/settings'); // Assuming this is where it will be managed
+        return { count: result.count };
     });
-
-    revalidatePath('/finance/settings'); // Assuming this is where it will be managed
-    return { success: true, count: result.count };
 }
 );

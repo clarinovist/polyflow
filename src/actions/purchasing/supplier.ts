@@ -6,31 +6,35 @@ import { createSupplierSchema, updateSupplierSchema, CreateSupplierValues, Updat
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
+import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 
 export const getSuppliers = withTenant(
 async function getSuppliers() {
-    await requireAuth();
-    return prisma.supplier.findMany({
-        orderBy: {
-            name: 'asc',
-        },
+    return safeAction(async () => {
+        await requireAuth();
+        return prisma.supplier.findMany({
+            orderBy: {
+                name: 'asc',
+            },
+        });
     });
 }
 );
 
 export const getSupplierById = withTenant(
 async function getSupplierById(id: string) {
-    await requireAuth();
-    return prisma.supplier.findUnique({
-        where: { id },
-        include: {
-            // Include counting of related items if useful
-            _count: {
-                select: {
-                    supplierProducts: true,
+    return safeAction(async () => {
+        await requireAuth();
+        return prisma.supplier.findUnique({
+            where: { id },
+            include: {
+                _count: {
+                    select: {
+                        supplierProducts: true,
+                    }
                 }
             }
-        }
+        });
     });
 }
 );
@@ -40,7 +44,6 @@ async function getNextSupplierCode(): Promise<string> {
     await requireAuth();
     const prefix = 'SUP-';
 
-    // Find the highest existing code with this prefix
     const lastSupplier = await prisma.supplier.findFirst({
         where: {
             code: {
@@ -71,109 +74,108 @@ async function getNextSupplierCode(): Promise<string> {
 
 export const createSupplier = withTenant(
 async function createSupplier(data: CreateSupplierValues) {
-    await requireAuth();
-    const result = createSupplierSchema.safeParse(data);
+    return safeAction(async () => {
+        await requireAuth();
+        const result = createSupplierSchema.safeParse(data);
 
-    if (!result.success) {
-        return { success: false, error: result.error.issues[0].message };
-    }
+        if (!result.success) {
+            throw new BusinessRuleError(result.error.issues[0].message);
+        }
 
-    try {
-        // Auto-generate code if not provided
-        let code = result.data.code?.trim();
-        if (!code) {
-            code = await getNextSupplierCode();
+        try {
+            let code = result.data.code?.trim();
+            if (!code) {
+                code = await getNextSupplierCode();
 
-            // Retry loop to handle race conditions (max 5 attempts)
-            let attempts = 0;
-            while (attempts < 5) {
-                const exists = await prisma.supplier.findUnique({
-                    where: { code },
-                    select: { id: true },
-                });
+                let attempts = 0;
+                while (attempts < 5) {
+                    const exists = await prisma.supplier.findUnique({
+                        where: { code },
+                        select: { id: true },
+                    });
 
-                if (!exists) break;
+                    if (!exists) break;
 
-                // Code exists, increment and try again
-                const numPart = parseInt(code.substring(4), 10);
-                code = `SUP-${(numPart + 1).toString().padStart(3, '0')}`;
-                attempts++;
+                    const numPart = parseInt(code.substring(4), 10);
+                    code = `SUP-${(numPart + 1).toString().padStart(3, '0')}`;
+                    attempts++;
+                }
             }
-        }
 
-        await prisma.supplier.create({
-            data: {
-                ...result.data,
-                code,
-            },
-        });
+            await prisma.supplier.create({
+                data: {
+                    ...result.data,
+                    code,
+                },
+            });
 
-        revalidatePath('/planning/suppliers');
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to create supplier', { error, module: 'SupplierActions' });
-        // Check for unique constraint violation
-        if (error instanceof Error && error.message.includes('Unique constraint')) {
-            return { success: false, error: 'Supplier code already exists' };
+            revalidatePath('/planning/suppliers');
+            return null;
+        } catch (error) {
+            logger.error('Failed to create supplier', { error, module: 'SupplierActions' });
+            if (error instanceof Error && error.message.includes('Unique constraint')) {
+                throw new BusinessRuleError('Supplier code already exists');
+            }
+            throw new BusinessRuleError('Failed to create supplier');
         }
-        return { success: false, error: 'Failed to create supplier' };
-    }
+    });
 }
 );
 
 export const updateSupplier = withTenant(
 async function updateSupplier(data: UpdateSupplierValues) {
-    await requireAuth();
-    const result = updateSupplierSchema.safeParse(data);
+    return safeAction(async () => {
+        await requireAuth();
+        const result = updateSupplierSchema.safeParse(data);
 
-    if (!result.success) {
-        return { success: false, error: result.error.issues[0].message };
-    }
+        if (!result.success) {
+            throw new BusinessRuleError(result.error.issues[0].message);
+        }
 
-    try {
-        await prisma.supplier.update({
-            where: { id: data.id },
-            data: result.data,
-        });
+        try {
+            await prisma.supplier.update({
+                where: { id: data.id },
+                data: result.data,
+            });
 
-        revalidatePath('/planning/suppliers');
-        revalidatePath(`/planning/suppliers/${data.id}`);
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to update supplier', { error, supplierId: data.id, module: 'SupplierActions' });
-        return { success: false, error: 'Failed to update supplier' };
-    }
+            revalidatePath('/planning/suppliers');
+            revalidatePath(`/planning/suppliers/${data.id}`);
+            return null;
+        } catch (error) {
+            logger.error('Failed to update supplier', { error, supplierId: data.id, module: 'SupplierActions' });
+            throw new BusinessRuleError('Failed to update supplier');
+        }
+    });
 }
 );
 
 export const deleteSupplier = withTenant(
 async function deleteSupplier(id: string) {
-    await requireAuth();
-    try {
-        // Check for references before deleting
-        const checks = await Promise.all([
-            prisma.supplierProduct.count({ where: { supplierId: id } }),
-            prisma.productVariant.count({ where: { preferredSupplierId: id } }),
-        ]);
+    return safeAction(async () => {
+        await requireAuth();
+        try {
+            const checks = await Promise.all([
+                prisma.supplierProduct.count({ where: { supplierId: id } }),
+                prisma.productVariant.count({ where: { preferredSupplierId: id } }),
+            ]);
 
-        const [productCount, preferredCount] = checks;
+            const [productCount, preferredCount] = checks;
 
-        if (productCount > 0 || preferredCount > 0) {
-            return {
-                success: false,
-                error: `Cannot delete supplier. It is used in ${productCount} products and is preferred for ${preferredCount} variants.`,
-            };
+            if (productCount > 0 || preferredCount > 0) {
+                throw new BusinessRuleError(`Cannot delete supplier. It is used in ${productCount} products and is preferred for ${preferredCount} variants.`);
+            }
+
+            await prisma.supplier.delete({
+                where: { id },
+            });
+
+            revalidatePath('/planning/suppliers');
+            return null;
+        } catch (error) {
+            if (error instanceof BusinessRuleError) throw error;
+            logger.error('Failed to delete supplier', { error, supplierId: id, module: 'SupplierActions' });
+            throw new BusinessRuleError('Failed to delete supplier');
         }
-
-        await prisma.supplier.delete({
-            where: { id },
-        });
-
-        revalidatePath('/planning/suppliers');
-        return { success: true };
-    } catch (error) {
-        logger.error('Failed to delete supplier', { error, supplierId: id, module: 'SupplierActions' });
-        return { success: false, error: 'Failed to delete supplier' };
-    }
+    });
 }
 );

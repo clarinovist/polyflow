@@ -18,17 +18,29 @@ export default async function PurchasingAnalyticsPage(props: { searchParams: Sea
 
     const dateRange = from && to ? { from, to } : undefined;
 
-    const data = await getPurchasingAnalytics(dateRange);
+    const dataRes = await getPurchasingAnalytics(dateRange);
+    const data = dataRes.success && dataRes.data ? dataRes.data : {
+        spendTrend: undefined,
+        topSuppliers: undefined,
+        statusBreakdown: undefined,
+        apAging: undefined
+    };
+
+    const spendTrend = data.spendTrend || { periodSpend: 0, periodOrderCount: 0, spendGrowth: 0, orderCountGrowth: 0, chartData: [] };
+    const statusBreakdown = data.statusBreakdown || [];
+    const apAging = data.apAging || [];
+    const topSuppliers = data.topSuppliers || [];
 
     // Calculate KPIs
-    const totalSpend = data.spendTrend.periodSpend;
-    const totalOpenOrders = data.statusBreakdown
+    const totalSpend = spendTrend.periodSpend;
+    const totalOpenOrders = statusBreakdown
         .filter(s => ['ISSUED', 'SENT', 'CONFIRMED', 'PARTIAL_RECEIVED'].includes(s.status))
         .reduce((acc, curr) => acc + curr.count, 0);
-    const overdueAP = data.apAging
+    const overdueAP = apAging
         .filter(i => i.range !== 'Current')
         .reduce((acc, curr) => acc + curr.amount, 0);
-    const topSupplier = data.topSuppliers[0];
+    const topSupplier = topSuppliers[0];
+    const topSupplierSpend = topSupplier ? topSupplier.totalSpend : 0;
 
     return (
         <div className="p-6 space-y-6">
@@ -99,14 +111,14 @@ export default async function PurchasingAnalyticsPage(props: { searchParams: Sea
 
             {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <PurchaseSpendChart data={data.spendTrend.chartData} />
-                <TopSuppliersCard data={data.topSuppliers} />
+                <PurchaseSpendChart data={spendTrend.chartData} />
+                <TopSuppliersCard data={topSuppliers} />
             </div>
 
             {/* Charts Row 2 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <PurchaseStatusChart data={data.statusBreakdown} />
-                <APAgingCard data={data.apAging} />
+                <PurchaseStatusChart data={statusBreakdown} />
+                <APAgingCard data={apAging} />
             </div>
         </div>
     );

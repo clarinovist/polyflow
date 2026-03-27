@@ -24,7 +24,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 interface DashboardClientProps {
-    stats: ExecutiveStats;
+    stats: ExecutiveStats | null;
 }
 
 export default function DashboardClient({ stats }: DashboardClientProps) {
@@ -38,6 +38,19 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
     };
 
     const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    if (!stats) {
+        return (
+            <div className="p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
+                <h2 className="text-xl font-semibold">Failed to load dashboard statistics</h2>
+                <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    Retry
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">

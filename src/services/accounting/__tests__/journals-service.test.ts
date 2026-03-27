@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach , Mock } from 'vitest';
 import { createJournalEntry } from '../journals-service';
 import { prisma } from '@/lib/core/prisma';
 import { isPeriodOpen } from '../periods-service';
@@ -48,10 +47,10 @@ describe('JournalsService', () => {
             vi.mocked(isPeriodOpen).mockResolvedValue(true);
 
             // Mock sequence generation
-            vi.mocked(prisma.systemSequence.update).mockResolvedValue({ value: BigInt(2) } as any);
+            vi.mocked(prisma.systemSequence.update).mockResolvedValue({ value: BigInt(2) } as never);
 
             // Mock create
-            vi.mocked(prisma.journalEntry.create).mockResolvedValue({ id: 'je-1', ...validEntry } as any);
+            vi.mocked(prisma.journalEntry.create).mockResolvedValue({ id: 'je-1', ...validEntry } as never);
 
             await expect(createJournalEntry(validEntry)).resolves.not.toThrow();
 
@@ -67,7 +66,7 @@ describe('JournalsService', () => {
                 ]
             };
 
-            await expect(createJournalEntry(unbalancedEntry as any)).rejects.toThrow(/Journal Entry is not balanced/);
+            await expect(createJournalEntry(unbalancedEntry as Mock)).rejects.toThrow(/Journal Entry is not balanced/);
             expect(prisma.journalEntry.create).not.toHaveBeenCalled();
         });
 
@@ -93,10 +92,10 @@ describe('JournalsService', () => {
             vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
 
             // Mock upsert to create the new sequence
-            vi.mocked(prisma.systemSequence.upsert).mockResolvedValue({ value: BigInt(2) } as any);
+            vi.mocked(prisma.systemSequence.upsert).mockResolvedValue({ value: BigInt(2) } as never);
 
             // Mock create
-            vi.mocked(prisma.journalEntry.create).mockResolvedValue({ id: 'je-1', ...validEntry } as any);
+            vi.mocked(prisma.journalEntry.create).mockResolvedValue({ id: 'je-1', ...validEntry } as never);
 
             await expect(createJournalEntry(validEntry)).resolves.not.toThrow();
 

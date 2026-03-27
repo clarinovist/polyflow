@@ -45,7 +45,7 @@ export default async function BomsPage() {
 
             <BOMList
                 boms={boms}
-                showPrices={showPrices}
+                showPrices={showPrices.success ? showPrices.data : false}
             />
         </div >
     );

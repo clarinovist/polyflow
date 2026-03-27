@@ -8,7 +8,8 @@ import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/Crea
 import { Separator } from '@/components/ui/separator';
 
 export default async function WarehouseOpnameListPage() {
-    const sessions = await getOpnameSessions();
+    const sessionsRes = await getOpnameSessions();
+    const sessions = sessionsRes.success && sessionsRes.data ? sessionsRes.data : [];
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">

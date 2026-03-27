@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InventoryService } from '../inventory/inventory-service';
 import { prisma } from '@/lib/core/prisma';
@@ -83,7 +83,7 @@ describe('InventoryService', () => {
             // 2. Mock stockReservation.aggregate (returns _sum)
             vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({
                 _sum: { quantity: { toNumber: () => 0 } }
-            } as any);
+            } as never);
 
             await expect(
                 InventoryService.validateAndLockStock(mockTx, locationId, productVariantId, 10)
@@ -98,8 +98,8 @@ describe('InventoryService', () => {
             vi.mocked(prisma.$queryRaw).mockResolvedValue([{ quantity: '5' }]);
 
             // Mock details for error message
-            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as any);
-            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as any);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as never);
+            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as never);
 
             await expect(
                 InventoryService.validateAndLockStock(mockTx, locationId, productVariantId, 10)
@@ -113,11 +113,11 @@ describe('InventoryService', () => {
             // Mock high reservations (15 reserved, so only 5 available)
             vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({
                 _sum: { quantity: { toNumber: () => 15 } }
-            } as any);
+            } as never);
 
             // Mock details for error message
-            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as any);
-            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as any);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Item A', primaryUnit: 'PACK' } as never);
+            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Warehouse A' } as never);
 
             await expect(
                 InventoryService.validateAndLockStock(mockTx, locationId, productVariantId, 10)
@@ -173,11 +173,11 @@ describe('InventoryService', () => {
             // Assume 0 reserved
             vi.mocked(prisma.stockReservation.aggregate).mockResolvedValue({
                 _sum: { quantity: { toNumber: () => 0 } }
-            } as any);
+            } as never);
 
             // Item info
-            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Battery', primaryUnit: 'PCS' } as any);
-            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Main Warehouse' } as any);
+            vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({ name: 'Battery', primaryUnit: 'PCS' } as never);
+            vi.mocked(prisma.location.findUnique).mockResolvedValue({ name: 'Main Warehouse' } as never);
 
             // Try to lock/deduct 11
             await expect(

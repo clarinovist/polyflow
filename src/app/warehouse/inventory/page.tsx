@@ -36,16 +36,21 @@ export default async function WarehouseInventoryPage({
 
     // Fetch data in parallel
     const [
-        liveInventory,
-        locations,
-        dashboardStats,
+        liveInventoryRes,
+        locationsRes,
+        dashboardStatsRes,
     ] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getDashboardStats(),
     ]);
 
-    const showPrices = await canViewPrices();
+    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const dashboardStats = dashboardStatsRes.success && dashboardStatsRes.data ? dashboardStatsRes.data : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
+
+    const showPricesRes = await canViewPrices();
+    const showPrices = showPricesRes.success && showPricesRes.data ? showPricesRes.data : false;
 
     // Parse active location IDs (support multi-select)
     const activeLocationIds = params.locationId
@@ -57,7 +62,8 @@ export default async function WarehouseInventoryPage({
     let tableInventory: any[] = liveInventory;
 
     if (asOfDate) {
-        const historicalInventory = await getInventoryAsOf(asOfDate);
+        const historicalInventoryRes = await getInventoryAsOf(asOfDate);
+        const historicalInventory = historicalInventoryRes.success && historicalInventoryRes.data ? historicalInventoryRes.data : [];
         tableInventory = liveInventory.map(item => {
             const histItem = historicalInventory.find(
                 h => h.productVariantId === item.productVariantId && h.locationId === item.locationId
@@ -71,7 +77,8 @@ export default async function WarehouseInventoryPage({
 
     const comparisonData: Record<string, number> = {};
     if (compareDate) {
-        const compInventory = await getInventoryAsOf(compareDate);
+        const compInventoryRes = await getInventoryAsOf(compareDate);
+        const compInventory = compInventoryRes.success && compInventoryRes.data ? compInventoryRes.data : [];
         compInventory.forEach(item => {
             const key = `${item.productVariantId}-${item.locationId}`;
             comparisonData[key] = item.quantity;

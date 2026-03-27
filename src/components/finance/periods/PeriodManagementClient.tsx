@@ -75,8 +75,14 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         setSelectedPeriod({ id, name });
         try {
             const summary = await getIncomeStatementSummary(id);
-            setClosingSummary(summary);
-            setIsConfirmOpen(true);
+            if (!summary.success) {
+                toast.error(summary.error || "Failed to fetch period summary");
+                return;
+            }
+            if (summary.data) {
+                setClosingSummary(summary.data);
+                setIsConfirmOpen(true);
+            }
         } catch (_error) {
             toast.error("Failed to fetch period summary");
         }

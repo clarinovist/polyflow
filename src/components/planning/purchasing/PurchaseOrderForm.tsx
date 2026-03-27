@@ -59,12 +59,15 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
         setIsLoading(true);
         try {
             const result = await createPurchaseOrder(data);
-            if (result) {
+            if (!result.success) {
+                toast.error(result.error || 'Failed to create Purchase Order');
+                return;
+            }
+            if (result.data?.id) {
                 toast.success('Purchase Order created successfully');
-                router.push(`/planning/purchase-orders/${result.id}`);
+                router.push(`/planning/purchase-orders/${result.data.id}`);
                 router.refresh();
             }
-        } catch (_error) {
             toast.error('Failed to create Purchase Order');
         } finally {
             setIsLoading(false);
