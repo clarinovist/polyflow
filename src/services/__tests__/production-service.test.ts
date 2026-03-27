@@ -40,7 +40,11 @@ vi.mock('@/lib/core/prisma', () => {
         },
         productVariant: {
             findUnique: vi.fn(),
-        }
+        },
+        stockReservation: {
+            aggregate: vi.fn().mockResolvedValue({ _sum: { quantity: { toNumber: () => 0 } } }),
+        },
+        $queryRaw: vi.fn().mockResolvedValue([{ quantity: 100 }]),
     };
     return { prisma: mockPrisma };
 });
@@ -49,6 +53,7 @@ import { ProductionCostService } from '../production/cost-service';
 import { AccountingService } from '../accounting/accounting-service';
 
 vi.mock('../inventory/inventory-service');
+vi.mock('../inventory/core-service');
 vi.mock('../production/cost-service');
 vi.mock('../accounting/accounting-service');
 vi.mock('../finance/auto-journal-service');
