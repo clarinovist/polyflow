@@ -7,7 +7,7 @@ import { InvoiceStatus } from '@prisma/client';
 export const dynamic = 'force-dynamic';
 
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
+
 
 export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;
@@ -34,17 +34,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
     });
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Customer Payments</h1>
-                    <p className="text-muted-foreground">Track and manage payments received from customers.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
-                </div>
-            </div>
-
+        <div className="p-6">
             <ReceivedPaymentsClient
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 payments={payments as any}
