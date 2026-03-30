@@ -33,11 +33,15 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
 
-    const filteredAccounts = initialAccounts.filter(acc =>
-        acc.code.toLowerCase().includes(search.toLowerCase()) ||
-        acc.name.toLowerCase().includes(search.toLowerCase()) ||
-        acc.category.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredAccounts = (initialAccounts || []).filter(acc => {
+        if (!acc) return false;
+        const code = acc.code || '';
+        const name = acc.name || '';
+        const category = acc.category || '';
+        return code.toLowerCase().includes(search.toLowerCase()) ||
+               name.toLowerCase().includes(search.toLowerCase()) ||
+               category.toLowerCase().includes(search.toLowerCase());
+    });
 
     const handleDelete = (id: string, code: string) => {
         if (!confirm(`Are you sure you want to delete account ${code}? This cannot be undone.`)) return;
@@ -61,7 +65,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                     <h2 className="text-2xl font-bold tracking-tight">Chart of Accounts</h2>
                     <p className="text-muted-foreground">Manage your general ledger accounts.</p>
                 </div>
-                <AccountForm parentOptions={initialAccounts} />
+                <AccountForm parentOptions={(initialAccounts || []).filter(a => !!a)} />
             </div>
 
             <Card>
@@ -101,21 +105,23 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredAccounts.map((account) => (
+                                    filteredAccounts.map((account) => {
+                                        if (!account) return null;
+                                        return (
                                         <TableRow
                                             key={account.id}
                                             className="cursor-pointer hover:bg-muted/50"
                                             onClick={() => router.push(`/finance/coa/${account.id}`)}
                                         >
-                                            <TableCell className="font-mono font-medium">{account.code}</TableCell>
+                                            <TableCell className="font-mono font-medium">{account.code || '-'}</TableCell>
                                             <TableCell>
-                                                <div className="font-medium">{account.name}</div>
+                                                <div className="font-medium">{account.name || 'Unknown'}</div>
                                                 {account.description && <div className="text-xs text-muted-foreground">{account.description}</div>}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline">{account.type}</Badge>
                                             </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">{account.category.replace(/_/g, ' ')}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{(account.category || '').replace(/_/g, ' ')}</TableCell>
                                             <TableCell className="text-xs">
                                                 {account.parent ? `${account.parent.code}` : '-'}
                                             </TableCell>
@@ -123,7 +129,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                                 <div className="flex items-center justify-end gap-2">
                                                     <AccountForm
                                                         account={account}
-                                                        parentOptions={initialAccounts.filter(a => a.id !== account.id)} // Prevent self-parenting
+                                                        parentOptions={(initialAccounts || []).filter(a => a && a.id !== account.id)} // Prevent self-parenting
                                                         trigger={
                                                             <Button variant="ghost" size="icon" className="h-8 w-8">
                                                                 <Edit className="h-4 w-4" />
@@ -142,7 +148,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))
+                                    )})
                                 )}
                             </TableBody>
                         </Table>

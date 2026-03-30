@@ -198,9 +198,10 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="null">None</SelectItem> {/* Handle null explicitly if generic doesn't support null */}
-                                            {parentOptions.map((opt) => (
-                                                <SelectItem key={opt.id} value={opt.id}>{opt.code} - {opt.name}</SelectItem>
-                                            ))}
+                                            {(parentOptions || []).map((opt) => {
+                                                if (!opt) return null;
+                                                return <SelectItem key={opt.id} value={opt.id}>{opt.code} - {opt.name}</SelectItem>
+                                            })}
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
