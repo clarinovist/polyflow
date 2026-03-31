@@ -4,7 +4,9 @@ services:
     build: .
     container_name: polyflow-app
     restart: always
-    # No host port published; access via ceritakita-nginx on ceritakita-network
+    # Host port published to 3002 for Nginx reverse proxy running on host system
+    ports:
+      - "127.0.0.1:3002:3000"
     env_file:
       - .env
     environment:
