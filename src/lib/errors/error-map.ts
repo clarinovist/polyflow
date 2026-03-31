@@ -18,6 +18,7 @@ export enum ErrorCode {
 
     // Generic
     INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
+    DEPLOYMENT_VERSION_MISMATCH = 'DEPLOYMENT_VERSION_MISMATCH',
     UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
@@ -31,6 +32,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
     [ErrorCode.EXTERNAL_API_TIMEOUT]: 'Terjadi masalah koneksi ke penyedia layanan pihak ketiga (LLM/Email). Sedang dicoba ulang. Harap tunggu sesaat.',
     [ErrorCode.RATE_LIMITED]: 'Anda telah melawati batas request yang ditetapkan. Silahkan coba beberapa menit lagi.',
     [ErrorCode.INTERNAL_SERVER_ERROR]: 'Sistem mendeteksi kesalahan teknis. Tim developer kami telah diberitahu.',
+    [ErrorCode.DEPLOYMENT_VERSION_MISMATCH]: 'Sistem telah diperbarui. Mohon muat ulang halaman untuk melanjutkan.',
     [ErrorCode.UNKNOWN_ERROR]: 'Terjadi kesalahan tidak terduga. Silahkan ulangi aksi tersebut.'
 };
 

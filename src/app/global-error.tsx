@@ -12,9 +12,17 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const isVersionMismatch = 
+        error.message.includes('Failed to find Server Action') || 
+        error.message.includes('NEXT_REDIRECT');
+
     useEffect(() => {
         Sentry.captureException(error);
     }, [error]);
+
+    const handleReload = () => {
+        window.location.reload();
+    };
 
     return (
         <html>
@@ -26,11 +34,13 @@ export default function GlobalError({
                         </div>
 
                         <h1 className="mb-2 text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                            Application Error
+                            {isVersionMismatch ? 'Pembaruan Sistem' : 'Application Error'}
                         </h1>
 
                         <p className="mb-6 text-zinc-500 dark:text-zinc-400">
-                            A critical error occurred. Please try refreshing the page.
+                            {isVersionMismatch 
+                                ? 'Sistem telah diperbarui untuk meningkatkan performa dan fitur. Mohon muat ulang halaman untuk melanjutkan.'
+                                : 'A critical error occurred. Please try refreshing the page.'}
                             {error.digest && (
                                 <span className="mt-2 block font-mono text-xs text-zinc-400">
                                     Reference: {error.digest}
@@ -38,9 +48,9 @@ export default function GlobalError({
                             )}
                         </p>
 
-                        <Button onClick={reset} size="lg" className="gap-2">
+                        <Button onClick={isVersionMismatch ? handleReload : reset} size="lg" className="gap-2">
                             <RefreshCw className="h-4 w-4" />
-                            Refresh Page
+                            {isVersionMismatch ? 'Muat Ulang Halaman' : 'Refresh Page'}
                         </Button>
                     </div>
                 </div>

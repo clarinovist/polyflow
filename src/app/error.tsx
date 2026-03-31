@@ -13,12 +13,22 @@ export default function Error({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const isVersionMismatch = 
+        error.message.includes('Failed to find Server Action') || 
+        error.message.includes('NEXT_REDIRECT'); // Sometimes happens during action redirects in old builds
+
     useEffect(() => {
-        // Log to error reporting service (Sentry integration point)
+        // Log to error reporting service
         console.error('[ErrorBoundary]', error);
     }, [error]);
 
-    const uiMessage = getUserFriendlyError(error.message) || getUserFriendlyError('UNKNOWN_ERROR');
+    const uiMessage = isVersionMismatch 
+        ? getUserFriendlyError('DEPLOYMENT_VERSION_MISMATCH')
+        : getUserFriendlyError(error.message) || getUserFriendlyError('UNKNOWN_ERROR');
+
+    const handleReload = () => {
+        window.location.reload();
+    };
 
     return (
         <div className="flex min-h-[60vh] items-center justify-center p-6">
@@ -28,7 +38,7 @@ export default function Error({
                 </div>
 
                 <h2 className="mb-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-                    Perhatian
+                    {isVersionMismatch ? 'Pembaruan Sistem' : 'Perhatian'}
                 </h2>
 
                 <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
@@ -41,14 +51,25 @@ export default function Error({
                 </p>
 
                 <div className="flex items-center justify-center gap-3">
-                    <Button
-                        onClick={reset}
-                        variant="default"
-                        className="gap-2"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        Try Again
-                    </Button>
+                    {isVersionMismatch ? (
+                        <Button
+                            onClick={handleReload}
+                            variant="default"
+                            className="gap-2"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Muat Ulang Halaman
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={reset}
+                            variant="default"
+                            className="gap-2"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Try Again
+                        </Button>
+                    )}
                     <Button variant="outline" asChild>
                         <Link href="/dashboard" className="gap-2">
                             <Home className="h-4 w-4" />
