@@ -35,7 +35,7 @@ export interface OpnameSession {
     id: string;
     status: string;
     remarks: string | null;
-    location: { name: string };
+    location?: { name: string } | null;
     createdBy?: { name: string | null } | null;
     items: OpnameItem[];
     opnameNumber: string | null;
@@ -96,7 +96,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 <div>
                     <div className="flex items-center gap-4 mb-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                            {session.opnameNumber ? `${session.opnameNumber} - ` : ''}{session.location.name}
+                            {session.opnameNumber ? `${session.opnameNumber} - ` : ''}{session.location?.name || 'Unknown Location'}
                         </h2>
                         <Badge
                             variant={isOpen ? "secondary" : "outline"}
