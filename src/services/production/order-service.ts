@@ -175,6 +175,7 @@ export class ProductionOrderService {
                         (bom.category === BomCategory.MIXING && machine.type === MachineType.MIXER) ||
                         (bom.category === BomCategory.EXTRUSION && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.REWINDER)) ||
                         (bom.category === BomCategory.PACKING && (machine.type === MachineType.PACKER || machine.type === MachineType.GRANULATOR)) ||
+                        (bom.category === BomCategory.REWORK) || // Rework is manual, any machine is OK
                         (bom.category === BomCategory.STANDARD && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.MIXER)) // Standard fallback
                     );
 

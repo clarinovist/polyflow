@@ -438,7 +438,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             .filter((mi) => mi.productVariantId === item.productVariantId && mi.status !== 'VOIDED')
                                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
-                                        const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
+                                        const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING', 'REWORK'].includes(order.bom?.category || '');
                                         const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
 
                                         const hasExplicitIssues = (order.materialIssues || []).filter(mi => mi.status !== 'VOIDED').length > 0;

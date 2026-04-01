@@ -152,7 +152,7 @@ export class ProductionExecutionService {
                     if (order.bom?.category === 'EXTRUSION') {
                         const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                         if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                    } else if (order.bom?.category === 'PACKING') {
+                    } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                         const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                         if (fgLoc) consumptionLocationId = fgLoc.id;
                     }
@@ -310,7 +310,7 @@ export class ProductionExecutionService {
                 if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                } else if (order.bom?.category === 'PACKING') {
+                } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
                 }
@@ -382,6 +382,17 @@ export class ProductionExecutionService {
         } = data;
 
         await prisma.$transaction(async (tx) => {
+            // Validate: qty=0 only allowed for REWORK orders
+            if (quantityProduced === 0) {
+                const checkOrder = await tx.productionOrder.findUniqueOrThrow({
+                    where: { id: productionOrderId },
+                    include: { bom: { select: { category: true } } }
+                });
+                if (checkOrder.bom?.category !== 'REWORK') {
+                    throw new Error('Output quantity must be greater than 0 for non-Rework orders');
+                }
+            }
+
             const executionData: {
                 productionOrderId: string;
                 machineId?: string | null;
@@ -415,46 +426,48 @@ export class ProductionExecutionService {
                 }
             });
 
-            const locationId = order.locationId;
-            const outputVariantId = order.bom.productVariantId;
+            if (quantityProduced > 0) {
+                const locationId = order.locationId;
+                const outputVariantId = order.bom.productVariantId;
 
-            await tx.inventory.upsert({
-                where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } },
-                update: { quantity: { increment: quantityProduced } },
-                create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
-            });
+                await tx.inventory.upsert({
+                    where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } },
+                    update: { quantity: { increment: quantityProduced } },
+                    create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
+                });
 
-            let unitCost = 0;
-            try {
-                unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
-            } catch (e) {
-                console.warn("COGM Calc failed", e);
-            }
-
-            const moveIn = await tx.stockMovement.create({
-                data: {
-                    type: MovementType.IN,
-                    productVariantId: outputVariantId,
-                    toLocationId: locationId,
-                    quantity: quantityProduced,
-                    cost: unitCost,
-                    reference: `Production Output: WO#${order.orderNumber}`,
-                    productionOrderId: productionOrderId
+                let unitCost = 0;
+                try {
+                    unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
+                } catch (e) {
+                    console.warn("COGM Calc failed", e);
                 }
-            });
-            await AccountingService.recordInventoryMovement(moveIn, tx);
 
-            // WAC Update
-            const fgInv = await tx.inventory.findUnique({
-                where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
-            });
-            if (fgInv && unitCost > 0) {
-                const currentQty = fgInv.quantity.toNumber();
-                const oldQty = currentQty - quantityProduced;
-                const oldCost = fgInv.averageCost?.toNumber() || 0;
-                const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
-                const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
-                await tx.inventory.update({ where: { id: fgInv.id }, data: { averageCost: newAvg } });
+                const moveIn = await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.IN,
+                        productVariantId: outputVariantId,
+                        toLocationId: locationId,
+                        quantity: quantityProduced,
+                        cost: unitCost,
+                        reference: `Production Output: WO#${order.orderNumber}`,
+                        productionOrderId: productionOrderId
+                    }
+                });
+                await AccountingService.recordInventoryMovement(moveIn, tx);
+
+                // WAC Update
+                const fgInv = await tx.inventory.findUnique({
+                    where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
+                });
+                if (fgInv && unitCost > 0) {
+                    const currentQty = fgInv.quantity.toNumber();
+                    const oldQty = currentQty - quantityProduced;
+                    const oldCost = fgInv.averageCost?.toNumber() || 0;
+                    const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
+                    const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
+                    await tx.inventory.update({ where: { id: fgInv.id }, data: { averageCost: newAvg } });
+                }
             }
 
             // Backflush
@@ -463,12 +476,12 @@ export class ProductionExecutionService {
 
             if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
-                let consumptionLocationId = locationId; // Default to order location
+                let consumptionLocationId = order.locationId; // Default to order location
                 if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
 
-                } else if (order.bom?.category === 'PACKING') {
+                } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
                 }

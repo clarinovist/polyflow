@@ -41,7 +41,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
     });
 
     const plannedQty = Number(order.plannedQuantity);
-    const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '');
+    const isBackflushCategory = ['MIXING', 'EXTRUSION', 'PACKING', 'REWORK'].includes(order.bom?.category || '');
     const actualQty = order.actualQuantity ? Number(order.actualQuantity) : 0;
 
     // 4. Map material -> total qty consumed/issued

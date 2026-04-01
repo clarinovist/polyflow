@@ -81,7 +81,7 @@ export const createBomSchema = z.object({
     productVariantId: z.string().min(1, "Output product is required"),
     outputQuantity: z.coerce.number().positive("Output quantity must be positive"),
     isDefault: z.boolean().default(false),
-    category: z.enum(['STANDARD', 'MIXING', 'EXTRUSION', 'PACKING']).default('STANDARD'),
+    category: z.enum(['STANDARD', 'MIXING', 'EXTRUSION', 'PACKING', 'REWORK']).default('STANDARD'),
     items: z.array(z.object({
         productVariantId: z.string().min(1, "Ingredient is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
@@ -97,7 +97,7 @@ export const productionOutputSchema = z.object({
     machineId: z.string().optional(),
     operatorId: z.string().optional(),
     shiftId: z.string().optional(),
-    quantityProduced: z.coerce.number().positive("Quantity must be positive"),
+    quantityProduced: z.coerce.number().nonnegative("Quantity cannot be negative"),
     scrapQuantity: z.coerce.number().nonnegative().default(0), // Total Aggregated Scrap (Legacy/KPI)
     scrapProngkolQty: z.coerce.number().nonnegative().default(0),
     scrapDaunQty: z.coerce.number().nonnegative().default(0),

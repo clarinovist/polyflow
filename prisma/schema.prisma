@@ -979,6 +979,7 @@ enum BomCategory {
   MIXING
   EXTRUSION
   PACKING
+  REWORK
 }
 
 enum ProductionIssueType {

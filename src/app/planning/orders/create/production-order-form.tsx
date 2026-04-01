@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 // Helper for generating order number outside of component to satisfy React Compiler purity rules
 function generateOrderNumber(processType: string) {
     const dateStr = format(new Date(), 'yyMMdd');
-    const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : 'PCK';
+    const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : processType === 'rework' ? 'RWK' : 'PCK';
     const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
     return `WO-${dateStr}-${typeCode}${randomDigits}`;
 }
@@ -37,7 +37,7 @@ export interface ProductionOrderFormProps {
         name: string;
         isDefault: boolean;
         productVariantId: string;
-        category: 'MIXING' | 'EXTRUSION' | 'PACKING' | 'STANDARD';
+        category: 'MIXING' | 'EXTRUSION' | 'PACKING' | 'STANDARD' | 'REWORK';
         outputQuantity: number;
         productVariant: {
             name: string;
@@ -78,7 +78,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function ProductionOrderForm({ boms, machines, locations, salesOrderId }: ProductionOrderFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing'>('mixing');
+    const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing' | 'rework'>('mixing');
     const [selectedProductVariantId, setSelectedProductVariantId] = useState<string>('');
     const [isCalculating, setIsCalculating] = useState(false);
 
@@ -112,6 +112,9 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
             }
             if (processType === 'packing') {
                 return productBoms.some(b => b.category === 'PACKING');
+            }
+            if (processType === 'rework') {
+                return productBoms.some(b => b.category === 'REWORK');
             }
             return true;
         });
@@ -172,6 +175,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
         if (processType === 'mixing') return rmLoc?.id || '';
         if (processType === 'extrusion') return mixingLoc?.id || '';
         if (processType === 'packing') return fgLoc?.id || ''; // Source is Jumbo Roll from FG
+        if (processType === 'rework') return fgLoc?.id || ''; // Rework takes defective FG
         return '';
     }, [processType, locations]);
 
@@ -270,6 +274,8 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
             if (fgLoc) form.setValue('locationId', fgLoc.id);
         } else if (processType === 'packing') {
             if (packingLoc) form.setValue('locationId', packingLoc.id);
+        } else if (processType === 'rework') {
+            if (fgLoc) form.setValue('locationId', fgLoc.id); // Output location = FG (though output will be 0)
         }
     }, [processType, locations, form]);
 
@@ -279,6 +285,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
             if (processType === 'mixing') return m.type === 'MIXER';
             if (processType === 'extrusion') return m.type === 'EXTRUDER' || m.type === 'REWINDER';
             if (processType === 'packing') return m.type === 'PACKER' || m.type === 'GRANULATOR';
+            if (processType === 'rework') return true; // Rework is manual, no specific machine
             return true;
         });
     }, [machines, processType]);
@@ -381,7 +388,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                         <Button
                                             type="button"
                                             variant={processType === 'packing' ? 'default' : 'outline'}
-                                            className="rounded-l-none h-9 flex-1 text-xs border-l-0"
+                                            className="rounded-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
                                                 setProcessType('packing');
                                                 setMaterialSourceLocationId(locations.find(l => l.slug === 'fg_warehouse')?.id || '');
@@ -395,6 +402,24 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                             }}
                                         >
                                             Packing
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={processType === 'rework' ? 'default' : 'outline'}
+                                            className="rounded-l-none h-9 flex-1 text-xs border-l-0"
+                                            onClick={() => {
+                                                setProcessType('rework');
+                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'fg_warehouse')?.id || '');
+                                                setSelectedProductVariantId('');
+                                                form.setValue('items', []);
+                                                form.setValue('bomId', '');
+                                                form.setValue('plannedQuantity', 0);
+                                                form.setValue('machineId', '');
+                                                setMaterialInfo({});
+                                                setSuggestedSource(null);
+                                            }}
+                                        >
+                                            Rework
                                         </Button>
                                     </div>
                                 </div>

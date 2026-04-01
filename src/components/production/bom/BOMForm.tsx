@@ -233,6 +233,7 @@ export function BOMForm({
                                                     <SelectItem value="MIXING">Mixing (Adonan)</SelectItem>
                                                     <SelectItem value="EXTRUSION">Extrusion (Bahan Setengah Jadi)</SelectItem>
                                                     <SelectItem value="PACKING">Packing (Finishing)</SelectItem>
+                                                    <SelectItem value="REWORK">Rework / Reject (Seset Affal)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

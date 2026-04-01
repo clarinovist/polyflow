@@ -54,6 +54,11 @@ export function BatchIssueMaterialDialog({
             const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
             if (fgLoc) return fgLoc.id;
         }
+        // 4. If it's a REWORK order, source should be Finished Goods Warehouse (defective FG)
+        if (order.bom?.category === 'REWORK') {
+            const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
+            if (fgLoc) return fgLoc.id;
+        }
         // Fallback: Machine Location or first available
         return order.machine?.locationId || locations[0]?.id;
     }, [order, locations]);
@@ -63,7 +68,7 @@ export function BatchIssueMaterialDialog({
 
     // Check if transfer mode (Backflush) based on machine type OR bom category
     const isTransferMode = order.machine?.type === 'MIXER' ||
-        ['MIXING', 'EXTRUSION', 'PACKING'].includes(order.bom?.category || '') ||
+        ['MIXING', 'EXTRUSION', 'PACKING', 'REWORK'].includes(order.bom?.category || '') ||
         (order.bom?.name || '').toLowerCase().includes('adonan');
 
     // Initial items based on plannedMaterials
