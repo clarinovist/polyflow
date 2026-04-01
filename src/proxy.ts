@@ -76,7 +76,7 @@ export default function proxy(...args: Parameters<typeof handler>) {
 
 export const config = {
 	matcher: [
-		// Intercept everything except static assets, Sentry monitoring, and standard bypasses
-		'/((?!monitoring|_next/static|_next/image|images|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)'
+		// Intercept everything except static assets and standard bypasses
+		'/((?!_next/static|_next/image|images|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg)$).*)'
 	],
 };

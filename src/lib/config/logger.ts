@@ -103,7 +103,6 @@ function log(level: LogLevel, message: string, context?: LogContext, error?: unk
             if (entry.error?.stack) {
                 console.error(entry.error.stack);
             }
-            // Future: Send to Sentry here
             break;
     }
 }

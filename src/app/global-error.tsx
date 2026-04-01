@@ -2,8 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import * as Sentry from "@sentry/nextjs";
-import { useEffect } from "react";
 
 export default function GlobalError({
     error,
@@ -15,10 +13,6 @@ export default function GlobalError({
     const isVersionMismatch = 
         error.message.includes('Failed to find Server Action') || 
         error.message.includes('NEXT_REDIRECT');
-
-    useEffect(() => {
-        Sentry.captureException(error);
-    }, [error]);
 
     const handleReload = () => {
         window.location.reload();
