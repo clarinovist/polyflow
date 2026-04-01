@@ -11,11 +11,13 @@ interface PageProps {
 
 export default async function WarehouseOutgoingOrderDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const order = await getSalesOrderById(id);
+    const response = await getSalesOrderById(id);
 
-    if (!order) {
+    if (!response || !response.success || !response.data) {
         notFound();
     }
+
+    const order = response.data;
 
     // Serialize all Prisma objects for Client Components
     const serializedOrder = serializeData(order);
