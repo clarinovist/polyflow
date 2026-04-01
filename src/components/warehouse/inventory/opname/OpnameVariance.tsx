@@ -20,7 +20,8 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
     // Filter to show only items with variance or specific interest?
     // For now show all, sorted by variance magnitude?
 
-    const itemsWithVariance = items.map(item => {
+    const safeItems = items || [];
+    const itemsWithVariance = safeItems.map(item => {
         const sys = Number(item.systemQuantity);
         const count = item.countedQuantity !== null ? Number(item.countedQuantity) : sys; // assume no variance if not counted?
         // Actually if not counted, we should probably warn. But lets handle null as 0 if user intends 0, or equal if skipped.
@@ -39,7 +40,7 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
             <div className="flex gap-4">
                 <div className="p-4 bg-slate-50 border rounded-lg">
                     <div className="text-sm text-slate-500">Total Items</div>
-                    <div className="text-2xl font-bold">{items.length}</div>
+                    <div className="text-2xl font-bold">{safeItems.length}</div>
                 </div>
                 <div className="p-4 bg-orange-50 border border-orange-100 rounded-lg">
                     <div className="text-sm text-orange-600">Items with Variance</div>

@@ -48,7 +48,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
         const initialCounts: Record<string, string> = {};
         const initialNotes: Record<string, string> = {};
 
-        session.items.forEach((item) => {
+        (session.items || []).forEach((item) => {
             if (item.countedQuantity !== null) {
                 initialCounts[item.id] = item.countedQuantity.toString();
             }
@@ -126,7 +126,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {session.items.map((item) => (
+                        {(session.items || []).map((item) => (
                             <TableRow key={item.id} className="hover:bg-muted/20">
                                 <TableCell className="font-medium">
                                     <div className="flex flex-col">
