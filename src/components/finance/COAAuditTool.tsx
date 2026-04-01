@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle, Loader2, RefreshCcw, ShieldCheck } from 'lucide-react';
 import { auditRequiredAccounts, fixMissingAccounts, RequiredAccount } from '@/actions/finance/coa-audit';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils/utils';
 
 export function COAAuditTool() {
     const [audit, setAudit] = useState<{
@@ -152,6 +153,3 @@ export function COAAuditTool() {
         </Card>
     );
 }
-
-// Helper for cn in this file if needed, or import from lib/utils
-import { cn } from '@/lib/utils/utils';

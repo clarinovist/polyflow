@@ -16,7 +16,7 @@ export function SalesPipelineChart({ data }: SalesPipelineChartProps) {
     // mapped status to readable names
     const formattedData = data.map(item => ({
         ...item,
-        statusName: item.status.replace(/_/g, ' ')
+        statusName: item.status?.replace(/_/g, ' ') || 'Unknown'
     }));
 
     return (

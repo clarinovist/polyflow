@@ -14,7 +14,7 @@ const COLORS = ['#94a3b8', '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'
 export function PurchaseStatusChart({ data }: PurchaseStatusChartProps) {
     const formattedData = data.map(item => ({
         ...item,
-        statusName: item.status.replace(/_/g, ' ')
+        statusName: item.status?.replace(/_/g, ' ') || 'Unknown'
     }));
 
     return (
