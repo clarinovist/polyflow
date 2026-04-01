@@ -10,13 +10,13 @@ interface PageProps {
 
 export default async function WarehouseOpnameDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const session = await getOpnameSession(id);
+    const result = await getOpnameSession(id);
 
-    if (!session) {
+    if (!result.success || !result.data) {
         notFound();
     }
 
-    const serializedSession = serializeData(session) as unknown as OpnameSession;
+    const serializedSession = serializeData(result.data) as unknown as OpnameSession;
 
     const userSession = await auth();
     const currentUserId = userSession?.user?.id || '';
