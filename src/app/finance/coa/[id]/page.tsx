@@ -29,14 +29,14 @@ export default async function AccountLedgerPage({ params, searchParams }: PagePr
         notFound();
     });
 
-    if (!ledgerData) {
+    if (!ledgerData || !ledgerData.success || !ledgerData.data) {
         notFound();
     }
 
     return (
         <AccountLedgerClient
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ledgerData={serializeData(ledgerData) as any}
+            ledgerData={serializeData(ledgerData.data) as any}
         />
     );
 }
