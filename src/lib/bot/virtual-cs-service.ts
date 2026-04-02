@@ -243,7 +243,7 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
     const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
     
     const completion = await openai.chat.completions.create({
-      model: 'openrouter/qwen/qwen3.6-plus:free',
+      model: 'qwen/qwen3.6-plus:free',
       messages: [
         {
           role: 'system',
