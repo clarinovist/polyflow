@@ -124,6 +124,13 @@ export async function safeAction<T>(
         const data = await fn();
         return { success: true, data };
     } catch (error) {
+        // Re-throw Next.js internal errors (redirect, notFound) — they use thrown errors as control flow
+        if (error && typeof error === 'object' && 'message' in error) {
+            const err = error as { message: string; digest?: string };
+            if (err.message === 'NEXT_REDIRECT' || err.message === 'NEXT_NOT_FOUND' || err.digest?.startsWith('NEXT_REDIRECT')) {
+                throw error;
+            }
+        }
         if (error instanceof ApplicationError) {
             return { success: false, error: error.message, code: error.code };
         }
