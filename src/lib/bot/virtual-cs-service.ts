@@ -23,15 +23,7 @@ export type VirtualCsResponse = {
   };
 };
 
-type Intent =
-  | 'stock_overview'
-  | 'critical_stock'
-  | 'active_production'
-  | 'pending_sales'
-  | 'finance_summary'
-  | 'stock_mutation_today'
-  | 'sop_help'
-  | 'unknown';
+
 
 type StockRow = {
   product: string;

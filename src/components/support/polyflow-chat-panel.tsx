@@ -143,39 +143,45 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
         </div>
       </div>
 
-      <ScrollArea className="flex-1 bg-slate-50">
-        <div className="space-y-3 p-4">
+      <ScrollArea className="flex-1 min-h-0 bg-slate-50/50">
+        <div className="space-y-4 p-4">
           {messages.map((msg) => (
-            <div key={msg.id} className={cn('flex items-start gap-2', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div key={msg.id} className={cn('flex items-start gap-3', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
               {msg.role === 'assistant' && (
-                <div className="mt-0.5 rounded-full bg-teal-600 p-1.5 text-white">
-                  <Bot className="h-3.5 w-3.5" />
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white shadow-sm">
+                  <Bot className="h-4 w-4" />
                 </div>
               )}
 
               <div
                 className={cn(
-                  'max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm whitespace-pre-line',
+                  'max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm',
                   msg.role === 'user'
-                    ? 'rounded-tr-md bg-slate-900 text-white'
-                    : 'rounded-tl-md border border-slate-200 bg-white text-slate-800'
+                    ? 'rounded-tr-sm bg-gradient-to-br from-slate-800 to-slate-900 text-white'
+                    : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800'
                 )}
               >
-                {msg.text}
+                {msg.role === 'assistant' ? (
+                  <div className="prose prose-sm prose-slate max-w-none break-words whitespace-pre-wrap leading-relaxed">
+                    {msg.text}
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                )}
               </div>
 
               {msg.role === 'user' && (
-                <div className="mt-0.5 rounded-full bg-slate-200 p-1.5 text-slate-700">
-                  <User className="h-3.5 w-3.5" />
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 shadow-sm">
+                  <User className="h-4 w-4" />
                 </div>
               )}
             </div>
           ))}
 
           {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Virtual CS sedang menyiapkan jawaban...
+            <div className="flex items-center gap-2 pl-11 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+              <span className="italic">Virtual CS sedang memproses...</span>
             </div>
           )}
           <div ref={bottomRef} />
