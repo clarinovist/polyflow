@@ -1,6 +1,12 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { enforceGuardrails } from './guardrails';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY || 'no-key',
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 export type VirtualCsRequest = {
   question: string;
@@ -58,19 +64,7 @@ type MutationRow = {
   txCount: bigint;
 };
 
-function detectIntent(question: string): Intent {
-  const q = question.toLowerCase();
 
-  if (q.includes('stok kritis') || q.includes('stok menipis')) return 'critical_stock';
-  if (q.includes('stok') || q.includes('inventory') || q.includes('persediaan')) return 'stock_overview';
-  if (q.includes('produksi') || q.includes('spk') || q.includes('order produksi')) return 'active_production';
-  if (q.includes('pending sales') || q.includes('belum terkirim') || q.includes('sales order')) return 'pending_sales';
-  if (q.includes('finance') || q.includes('piutang') || q.includes('hutang')) return 'finance_summary';
-  if (q.includes('mutasi')) return 'stock_mutation_today';
-  if (q.includes('sop') || q.includes('cara') || q.includes('bagaimana')) return 'sop_help';
-
-  return 'unknown';
-}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -234,43 +228,71 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
     };
   }
 
-  const intent = detectIntent(input.question);
-  let body: string;
+  const [stock, critical, prod, sales, finance, mutation] = await Promise.all([
+    getStockOverview(),
+    getCriticalStock(),
+    getActiveProduction(),
+    getPendingSales(),
+    getFinanceSummary(),
+    getStockMutationToday(),
+  ]);
 
-  switch (intent) {
-    case 'stock_overview':
-      body = await getStockOverview();
-      break;
-    case 'critical_stock':
-      body = await getCriticalStock();
-      break;
-    case 'active_production':
-      body = await getActiveProduction();
-      break;
-    case 'pending_sales':
-      body = await getPendingSales();
-      break;
-    case 'finance_summary':
-      body = await getFinanceSummary();
-      break;
-    case 'stock_mutation_today':
-      body = await getStockMutationToday();
-      break;
-    case 'sop_help':
-      body = getSopHelp();
-      break;
-    default:
-      body = 'Bisa dibantu dengan kata kunci yang lebih spesifik ya. Contoh: stok, stok kritis, produksi aktif, pending sales, finance, atau mutasi hari ini.';
-      break;
+  const contextData = [
+    stock,
+    critical,
+    prod,
+    sales,
+    finance,
+    mutation,
+    getSopHelp(),
+  ].join('\\n\\n');
+
+  try {
+    const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
+    
+    const completion = await openai.chat.completions.create({
+      model: 'openrouter/qwen/qwen3.6-plus:free',
+      messages: [
+        {
+          role: 'system',
+          content: `Anda adalah Virtual CS Polyflow, sebuah ERP pabrik plastik. Anda BISA BERBAHASA INDONESIA yang ramah, sopan (menggunakan "saya" dan "Anda"/"Bapak"/"Ibu"), namun profesional. 
+Tugas Anda: menjawab pertanyaan user berdasarkan konteks data operasional terkini berikut ini secara singkat, padat, dan relevan.
+Jangan berfantasi atau mengarang nominal angka yang tidak ada di konteks data. Jika data bilang kosong, ya jawab kosong.
+${greeting}
+
+=== KONTEKS DATA POLYFLOW SERVER SAAT INI ===
+${contextData}
+===========================================
+
+Aturan Penting:
+1. Jika user menanyakan data yang ada di konteks, berikan rangkuman datanya dengan ramah.
+2. Jika user menanyakan data/modul yang tidak ada di konteks di atas, sampaikan dengan ramah bahwa Anda belum memiliki akses ke data tersebut dan instruksikan user mengecek langsung lewat Web Polyflow.
+3. Ingatkan (secara halus ketika sesuai situasi) bahwa Anda adalah Virtual CS read-only, sehingga merubah data harus dilakukan manual lewat menu Web Polyflow.`,
+        },
+        { role: 'user', content: input.question },
+      ],
+      temperature: 0.2, // Rendah agar data akurat
+      max_tokens: 500,
+    });
+
+    const aiAnswer = completion.choices[0]?.message?.content?.trim();
+
+    return {
+      answer: aiAnswer || 'Maaf, saya tidak dapat menghasilkan respon saat ini. Coba tanyakan ulang sebentar lagi.',
+      citations: ['db:polyflow-readonly', 'policy:llm-generated', 'api:openrouter'],
+      safety: {
+        allowed: true,
+      },
+    };
+  } catch (error) {
+    console.error('[OPENROUTER/LLM] Failed:', error);
+    return {
+      answer: 'Maaf, saya sedang mengalami gangguan koneksi ke sistem otak AI (OpenRouter). Silakan coba lagi nanti.',
+      citations: [],
+      safety: {
+        allowed: false,
+        blockedReason: 'LLM Provider / Network Error',
+      },
+    };
   }
-
-  const greeting = input.requesterName ? `Halo ${input.requesterName},` : 'Halo,';
-
-  return {
-    answer: `${greeting}\n${body}\n\nSaya hanya bisa bantu baca data dan panduan penggunaan. Kalau mau ubah data, silakan lewat UI Polyflow ya.`,
-    citations: ['db:polyflow-readonly', 'policy:read-only', 'policy:topic-lock'],
-    safety: {
-      allowed: true,
-    },
-  };
 }
