@@ -126,15 +126,14 @@ async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Dat
                     }
                 }
             },
-            orderBy: { paymentDate: 'desc' },
-            take: 50
+            orderBy: { paymentDate: 'desc' }
         });
 
         return serializeData(payments.map(p => ({
             id: p.id,
             referenceNumber: p.paymentNumber,
             date: p.paymentDate,
-            entityName: p.invoice?.salesOrder?.customer?.name || 'Unknown Customer',
+            entityName: p.invoice?.salesOrder?.customer?.name || 'Walk-in / Tunai',
             amount: Number(p.amount),
             method: p.method,
             status: 'COMPLETED'
