@@ -37,7 +37,13 @@ async function migrateAllTenants() {
                     console.log(`  -> Up to date.`);
                 }
 
-                if (stderr) console.error(`  -> Warning/Error: ${stderr}`);
+                // Filter out Prisma's "Update available" banner from stderr
+                const filteredStderr = stderr
+                    ?.split('\n')
+                    .filter(line => !line.match(/Update available|major-version-upgrade|npm i.*prisma|pris\.ly|[┌┐└┘│─█▀▄]/))
+                    .join('\n')
+                    .trim();
+                if (filteredStderr) console.error(`  -> Warning/Error: ${filteredStderr}`);
 
             } catch (err) {
                 console.error(`\n❌ Failed to migrate tenant ${tenant.subdomain} (${tenant.id}):`);
