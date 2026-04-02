@@ -3,11 +3,6 @@ import { Prisma } from '@prisma/client';
 import { enforceGuardrails } from './guardrails';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || 'no-key',
-  baseURL: 'https://openrouter.ai/api/v1',
-});
-
 export type VirtualCsRequest = {
   question: string;
   channel: 'telegram' | 'web';
@@ -219,6 +214,11 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
       },
     };
   }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY || 'no-key',
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
 
   const [stock, critical, prod, sales, finance, mutation] = await Promise.all([
     getStockOverview(),
