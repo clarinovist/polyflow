@@ -196,6 +196,7 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
             placeholder="Ketik pertanyaan Anda, contoh: stok kritis hari ini bagaimana?"
             className="min-h-[90px] resize-none border-0 bg-transparent p-2 shadow-none focus-visible:ring-0"
             disabled={isLoading}
+            autoFocus
           />
           <div className="flex items-center justify-between px-2 pb-1">
             <p className="text-xs text-slate-500">Read-only: perubahan data tetap melalui menu Polyflow.</p>
