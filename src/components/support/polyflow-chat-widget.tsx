@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { MessageCircleHeart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,7 +12,6 @@ const ENABLED_PATH_PREFIXES = ['/dashboard', '/warehouse', '/production', '/sale
 
 export function PolyflowChatWidget() {
   const pathname = usePathname();
-  const { status } = useSession();
 
   const shouldHide = useMemo(() => {
     if (!pathname) return true;
@@ -21,7 +19,7 @@ export function PolyflowChatWidget() {
     return !ENABLED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   }, [pathname]);
 
-  if (status !== 'authenticated' || shouldHide) {
+  if (shouldHide) {
     return null;
   }
 
