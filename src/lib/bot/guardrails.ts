@@ -3,30 +3,6 @@ const MUTATION_PATTERNS = [
   /\b(jalankan|run|eksekusi|execute)\b.*\b(script|bash|terminal|ssh|command|cmd)\b/i,
 ];
 
-const POLYFLOW_TOPICS = [
-  'stok',
-  'gudang',
-  'inventory',
-  'persediaan',
-  'produksi',
-  'spk',
-  'sales',
-  'penjualan',
-  'invoice',
-  'piutang',
-  'hutang',
-  'finance',
-  'mutasi',
-  'opname',
-  'polyflow',
-  'sop',
-  'cara',
-  'bagaimana',
-  'modul',
-  'menu',
-  'dashboard',
-];
-
 export type GuardrailDecision = {
   allowed: boolean;
   reason?: string;
@@ -48,16 +24,8 @@ export function enforceGuardrails(question: string): GuardrailDecision {
     }
   }
 
-  const isPolyflowTopic = POLYFLOW_TOPICS.some((topic) =>
-    trimmed.toLowerCase().includes(topic)
-  );
-
-  if (!isPolyflowTopic) {
-    return {
-      allowed: false,
-      reason: 'Topik di luar layanan saya. Saya hanya melayani pertanyaan operasional Polyflow dan SOP penggunaan.',
-    };
-  }
+  // Topic validation is now entirely handled by the LLM system prompt
+  // which will politely reject non-operational queries based on the provided data context.
 
   return { allowed: true };
 }
