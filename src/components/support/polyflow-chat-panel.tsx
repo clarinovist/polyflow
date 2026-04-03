@@ -31,12 +31,6 @@ interface PolyflowChatPanelProps {
   embedded?: boolean;
 }
 
-const STARTER_QUESTIONS = [
-  'Stok kritis hari ini bagaimana?',
-  'Ada SPK produksi yang aktif?',
-  'Pending sales order saat ini berapa?',
-  'Cara cek mutasi stok hari ini?',
-];
 
 export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) {
   const [question, setQuestion] = useState('');
