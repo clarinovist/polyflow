@@ -18,8 +18,6 @@ export type VirtualCsResponse = {
   };
 };
 
-
-
 type StockRow = {
   product: string;
   location: string;
@@ -50,8 +48,6 @@ type MutationRow = {
   qty: Prisma.Decimal;
   txCount: bigint;
 };
-
-
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -202,6 +198,122 @@ function getSopHelp(): string {
   ].join('\n');
 }
 
+// ------ NEW TOOLS ------
+
+async function getProductStock(productName: string): Promise<string> {
+  const rows = await prisma.$queryRaw<StockRow[]>(Prisma.sql`
+    SELECT p.name AS product, l.name AS location, COALESCE(SUM(i.quantity), 0) AS quantity
+    FROM "Inventory" i
+    JOIN "ProductVariant" pv ON i."productVariantId" = pv.id
+    JOIN "Product" p ON pv."productId" = p.id
+    JOIN "Location" l ON i."locationId" = l.id
+    WHERE pv.name ILIKE ${'%' + productName + '%'} OR p.name ILIKE ${'%' + productName + '%'}
+    GROUP BY p.name, l.name
+    ORDER BY SUM(i.quantity) DESC
+  `);
+  if (!rows.length) return `Stok untuk produk '${productName}' tidak ditemukan atau kosong.`;
+  const lines = rows.map((row) => `- Produksi/Tipe: ${row.product} | Lokasi: ${row.location} | Qty Fisik: ${Number(row.quantity).toFixed(2)} KG`);
+  return `Informasi stok fisik untuk produk '${productName}':\n${lines.join('\n')}`;
+}
+
+async function getSalesOrderLines(searchTerm: string): Promise<string> {
+  const orders = await prisma.$queryRaw<any[]>(Prisma.sql`
+    SELECT so.id, so."orderNumber", c.name as customer, so.status
+    FROM "SalesOrder" so
+    LEFT JOIN "Customer" c ON so."customerId" = c.id
+    WHERE so."orderNumber" ILIKE ${'%' + searchTerm + '%'} OR c.name ILIKE ${'%' + searchTerm + '%'} OR so."id" = ${searchTerm}
+    ORDER BY so."createdAt" DESC
+    LIMIT 3
+  `);
+  
+  if (!orders.length) return `Sales Order dengan kata kunci '${searchTerm}' tidak ditemukan.`;
+
+  let resultString = '';
+  for (const order of orders) {
+    const items = await prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT pv.name as variant, soi.quantity 
+      FROM "SalesOrderItem" soi
+      JOIN "ProductVariant" pv ON soi."productVariantId" = pv.id
+      WHERE soi."salesOrderId" = ${order.id as string}
+    `);
+    resultString += `\n[Order: ${order.orderNumber} | Kustomer: ${order.customer || '-'} | Status: ${order.status}]\n`;
+    items.forEach(item => {
+      resultString += `- Item: ${item.variant} | Qty Diminta: ${Number(item.quantity).toFixed(2)} KG\n`;
+    });
+  }
+  return resultString;
+}
+
+const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_product_stock",
+      description: "Ambil informasi stok fisik yang tersedia untuk sebuah produk secara spesifik. Berguna ketika memeriksa stok.",
+      parameters: {
+        type: "object",
+        properties: {
+          productName: { type: "string", description: "Nama atau kode produk (misal: 'MP 15' atau 'Affal Daun')" }
+        },
+        required: ["productName"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_sales_order_lines",
+      description: "Ambil detail barang (line item) dan kuantitas yang diminta dalam sebuah Sales Order. Berguna ketika menganalisis mengapa pesanan gagal atau inventory insufficient.",
+      parameters: {
+        type: "object",
+        properties: {
+          searchTerm: { type: "string", description: "Nomor order SO atau nama kustomer (misal: 'SO-2026-0001' atau '191cecb1')" }
+        },
+        required: ["searchTerm"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: { name: "get_finance_summary", description: "Ringkasan utang/piutang (finance)." }
+  },
+  {
+    type: "function",
+    function: { name: "get_active_production", description: "Daftar SPK/produksi aktif." }
+  },
+  {
+    type: "function",
+    function: { name: "get_general_stock_overview", description: "Ranking 12 stok terbanyak saat ini di gudang secara umum." }
+  },
+  {
+    type: "function",
+    function: { name: "get_critical_stock_overview", description: "Daftar produk yang stoknya kurang dari nilai ambang batas minimum." }
+  },
+  {
+    type: "function",
+    function: { name: "get_pending_sales_overview", description: "Daftar ringkas sales orders yang statusnya belum selesai." }
+  }
+];
+
+async function handleToolCall(name: string, args: any): Promise<string> {
+  try {
+    switch (name) {
+      case 'get_product_stock': return await getProductStock(args.productName || '');
+      case 'get_sales_order_lines': return await getSalesOrderLines(args.searchTerm || '');
+      case 'get_finance_summary': return await getFinanceSummary();
+      case 'get_active_production': return await getActiveProduction();
+      case 'get_general_stock_overview': return await getStockOverview();
+      case 'get_critical_stock_overview': return await getCriticalStock();
+      case 'get_pending_sales_overview': return await getPendingSales();
+      default: return `Error: Tool '${name}' tidak dikenali.`;
+    }
+  } catch(e: any) {
+    return `Error executing tool ${name}: ${e.message}`;
+  }
+}
+
+// ------ END NEW TOOLS ------
+
 export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<VirtualCsResponse> {
   const guard = enforceGuardrails(input.question);
   if (!guard.allowed) {
@@ -220,66 +332,72 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
     baseURL: 'https://openrouter.ai/api/v1',
   });
 
-  const [stock, critical, prod, sales, finance, mutation] = await Promise.all([
-    getStockOverview(),
-    getCriticalStock(),
-    getActiveProduction(),
-    getPendingSales(),
-    getFinanceSummary(),
-    getStockMutationToday(),
-  ]);
+  const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
 
-  const contextData = [
-    stock,
-    critical,
-    prod,
-    sales,
-    finance,
-    mutation,
-    getSopHelp(),
-  ].join('\\n\\n');
-
-  try {
-    const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
-    
-    const completion = await openai.chat.completions.create({
-      model: 'qwen/qwen3.6-plus:free',
-      messages: [
-        {
-          role: 'system',
-          content: `Anda adalah Virtual CS Polyflow, sebuah ERP pabrik plastik. Anda BISA BERBAHASA INDONESIA yang ramah, sopan (menggunakan "saya" dan "Anda"/"Bapak"/"Ibu"), namun profesional. 
-Tugas Anda: menjawab pertanyaan user berdasarkan konteks data operasional terkini berikut ini secara singkat, padat, dan relevan.
-Jangan berfantasi atau mengarang nominal angka yang tidak ada di konteks data. Jika data bilang kosong, ya jawab kosong.
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: `Anda adalah Virtual CS Polyflow, ERP pabrik plastik. Gunakan bahasa Indonesia yang ramah dan profesional.
+Anda dilengkapi dengan TOOLS untuk mengecek database operasional pabrik.
 ${greeting}
 
-=== KONTEKS DATA POLYFLOW SERVER SAAT INI ===
-${contextData}
-===========================================
+Aturan Agentic:
+1. JIKA user bertanya info spesifik (ex: kenapa order Budi gagal, cek stok MP 15, apa ada penjualan kemarin?), Anda WAJIB memanggil tools.
+2. Jika perlu investigasi (seperti insuficient stock), hubungkan data dari get_sales_order_lines lalu bandingkan dengan get_product_stock. 
+   PERHATIAN! Sebuah pesanan bisa memiliki beberapa baris produk yang sama. Jumlahkan total pesanan tersebut BUKAN dari satu baris, lalu bandingkan dengan total inventori fisik!
+3. Jika tools tidak menemukan data yang cukup untuk menjawab, akui keterbatasan tersebut.
+4. Anda read-only. Operasional perubahan data harus dilakukan manual melalui aplikasi UI Polyflow.`
+    },
+    { role: 'user', content: input.question }
+  ];
 
-Aturan Penting:
-1. Jika user menanyakan data yang ada di konteks, berikan rangkuman datanya dengan ramah.
-2. Jika user menanyakan data/modul yang tidak ada di konteks di atas, sampaikan dengan ramah bahwa Anda belum memiliki akses ke data tersebut dan instruksikan user mengecek langsung lewat Web Polyflow.
-3. Ingatkan (secara halus ketika sesuai situasi) bahwa Anda adalah Virtual CS read-only, sehingga merubah data harus dilakukan manual lewat menu Web Polyflow.`,
-        },
-        { role: 'user', content: input.question },
-      ],
-      temperature: 0.2, // Rendah agar data akurat
-      max_tokens: 500,
-    });
+  try {
+    let finalAnswer = '';
+    
+    // Agentic Loop (max 4 iteration to avoid infinite loops)
+    for (let loop = 0; loop < 4; loop++) {
+      const completion = await openai.chat.completions.create({
+        model: 'qwen/qwen3.6-plus:free',
+        messages: messages,
+        temperature: 0.2,
+        tools: agentTools as any,
+        tool_choice: 'auto'
+      });
 
-    const aiAnswer = completion.choices[0]?.message?.content?.trim();
+      const responseMessage = completion.choices[0]?.message;
+      if (!responseMessage) break;
+
+      messages.push(responseMessage);
+
+      // Check if LLM invoked tools
+      if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+        for (const toolCall of responseMessage.tool_calls) {
+          const args = JSON.parse(toolCall.function.arguments || '{}');
+          console.log(`[AGENTIC] Calling tool: ${toolCall.function.name} with args:`, args);
+          const result = await handleToolCall(toolCall.function.name, args);
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: result
+          } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+        }
+      } else {
+        finalAnswer = responseMessage.content?.trim() || '';
+        break; // Finish reasoning
+      }
+    }
 
     return {
-      answer: aiAnswer || 'Maaf, saya tidak dapat menghasilkan respon saat ini. Coba tanyakan ulang sebentar lagi.',
-      citations: ['db:polyflow-readonly', 'policy:llm-generated', 'api:openrouter'],
+      answer: finalAnswer || 'Maaf, saya tidak dapat merangkum analisis pada saat ini.',
+      citations: ['db:polyflow-agentic', 'api:openrouter-tools'],
       safety: {
         allowed: true,
       },
     };
-  } catch (error) {
-    console.error('[OPENROUTER/LLM] Failed:', error);
+  } catch (error: any) {
+    console.error('[OPENROUTER/LLM] Failed:', error?.message || error);
     return {
-      answer: 'Maaf, saya sedang mengalami gangguan koneksi ke sistem otak AI (OpenRouter). Silakan coba lagi nanti.',
+      answer: 'Maaf, saya sedang mengalami gangguan koneksi (Network Error) ke OpenRouter Agent Network. Silakan coba lagi nanti.',
       citations: [],
       safety: {
         allowed: false,
