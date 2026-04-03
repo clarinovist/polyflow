@@ -127,21 +127,23 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
         </div>
       </div>
 
-      <div className="border-b border-brand-border bg-brand-glass/50 px-4 py-3">
-        <div className="flex flex-wrap gap-2">
-          {STARTER_QUESTIONS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => void sendQuestion(item)}
-              disabled={isLoading}
-              className="rounded-full border border-brand-border bg-brand-glass px-3 py-1 text-xs font-medium text-foreground transition-all hover:border-brand-border-heavy hover:bg-brand-glass-heavy focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
-            >
-              {item}
-            </button>
-          ))}
+      {messages.length <= 1 && (
+        <div className="border-b border-brand-border bg-brand-glass/50 px-4 py-3">
+          <div className="flex overflow-x-auto gap-2 pb-1" style={{ scrollbarWidth: 'thin' }}>
+            {STARTER_QUESTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => void sendQuestion(item)}
+                disabled={isLoading}
+                className="shrink-0 whitespace-nowrap rounded-full border border-brand-border bg-brand-glass px-3 py-1 text-xs font-medium text-foreground transition-all hover:border-brand-border-heavy hover:bg-brand-glass-heavy focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <ScrollArea className="flex-1 min-h-0 bg-transparent">
         <div className="space-y-4 p-4">
