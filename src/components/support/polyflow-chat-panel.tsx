@@ -119,7 +119,7 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Polyflow Support</p>
             <h2 className="mt-1 text-lg font-semibold text-foreground">Virtual CS (Read-Only)</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Bantu cek data operasional dan panduan SOP untuk tim non-teknis.</p>
+
           </div>
           <div className="rounded-lg border border-brand-border bg-brand-glass p-2 shadow-inner text-primary">
             <ShieldCheck className="h-5 w-5" />
@@ -127,23 +127,7 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
         </div>
       </div>
 
-      {messages.length <= 1 && (
-        <div className="border-b border-brand-border bg-brand-glass/50 px-4 py-3">
-          <div className="flex overflow-x-auto gap-2 pb-1" style={{ scrollbarWidth: 'thin' }}>
-            {STARTER_QUESTIONS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => void sendQuestion(item)}
-                disabled={isLoading}
-                className="shrink-0 whitespace-nowrap rounded-full border border-brand-border bg-brand-glass px-3 py-1 text-xs font-medium text-foreground transition-all hover:border-brand-border-heavy hover:bg-brand-glass-heavy focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       <ScrollArea className="flex-1 min-h-0 bg-transparent">
         <div className="space-y-4 p-4">
@@ -191,22 +175,19 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
       </ScrollArea>
 
       <form onSubmit={onSubmit} className="border-t border-brand-border bg-brand-glass-heavy p-4 backdrop-blur-md">
-        <div className="rounded-xl border border-brand-border bg-brand-glass/50 p-2 shadow-inner focus-within:border-brand-border-heavy focus-within:bg-brand-glass-heavy transition-all duration-300">
+        <div className="flex items-end gap-2 rounded-xl border border-brand-border bg-brand-glass/50 p-2 shadow-inner focus-within:border-brand-border-heavy focus-within:bg-brand-glass-heavy transition-all duration-300">
           <Textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ketik pertanyaan Anda, contoh: stok kritis hari ini bagaimana?"
-            className="min-h-[44px] resize-none border-0 bg-transparent p-2 shadow-none focus-visible:ring-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 font-medium"
+            placeholder="Ketik pertanyaan Anda..."
+            className="min-h-[44px] flex-1 resize-none border-0 bg-transparent py-2.5 px-2 shadow-none focus-visible:ring-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 font-medium"
             disabled={isLoading}
             autoFocus
           />
-          <div className="flex items-center justify-between px-2 pb-1 pt-2 border-t border-brand-border/50 mt-2">
-            <p className="text-xs text-muted-foreground">Read-only: perubahan data tetap melalui menu Polyflow.</p>
-            <Button type="submit" disabled={!canSend} className="gap-2 shadow-md hover:scale-[1.02] transition-transform">
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Kirim
-            </Button>
-          </div>
+          <Button type="submit" disabled={!canSend} className="mb-0.5 shrink-0 gap-2 shadow-md hover:scale-[1.02] transition-transform">
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Kirim
+          </Button>
         </div>
       </form>
     </div>
