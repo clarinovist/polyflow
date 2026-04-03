@@ -40,7 +40,7 @@ export function PolyflowChatWidget() {
           side="top" 
           align="end" 
           sideOffset={16}
-          className="w-[calc(100vw-2.5rem)] sm:w-[450px] md:w-[600px] border-0 bg-transparent p-0 shadow-none"
+          className="w-[calc(100vw-2.5rem)] sm:w-[400px] md:w-[420px] border-0 bg-transparent p-0 shadow-none"
         >
           <PolyflowChatPanel />
         </PopoverContent>

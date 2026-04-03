@@ -194,7 +194,7 @@ export function PolyflowChatPanel({ embedded = false }: PolyflowChatPanelProps) 
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="Ketik pertanyaan Anda, contoh: stok kritis hari ini bagaimana?"
-            className="min-h-[90px] resize-none border-0 bg-transparent p-2 shadow-none focus-visible:ring-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 font-medium"
+            className="min-h-[44px] resize-none border-0 bg-transparent p-2 shadow-none focus-visible:ring-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 font-medium"
             disabled={isLoading}
             autoFocus
           />
