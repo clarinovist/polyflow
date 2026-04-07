@@ -18,6 +18,18 @@ export const createProductionOrderSchema = z.object({
         productVariantId: z.string(),
         quantity: z.coerce.number()
     })).optional(),
+
+    isMaklon: z.boolean().default(false),
+    maklonCustomerId: z.string().optional(),
+    estimatedConversionCost: z.coerce.number().nonnegative().optional().default(0),
+}).superRefine((data, ctx) => {
+    if (data.isMaklon && !data.maklonCustomerId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Customer is required for Maklon orders",
+            path: ["maklonCustomerId"],
+        });
+    }
 });
 
 export const updateProductionOrderSchema = z.object({

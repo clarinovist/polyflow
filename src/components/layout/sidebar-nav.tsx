@@ -56,6 +56,10 @@ export const sidebarLinks: NavItemType[] = [
     { title: "BOMs", href: "/dashboard/boms", icon: Files },
     { title: "Machines", href: "/dashboard/machines", icon: Settings2 },
     { title: "Employees", href: "/dashboard/employees", icon: Users },
+
+    // Maklon Jasa
+    { title: "Maklon Receipts", href: "/dashboard/maklon/receipts", icon: PackageSearch },
+    { title: "Maklon Returns", href: "/dashboard/maklon/returns", icon: Package },
 ];
 
 export function SidebarNav({ user, permissions }: SidebarNavProps) {

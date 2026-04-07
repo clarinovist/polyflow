@@ -4,6 +4,8 @@ import { GoodsReceiptTable } from '@/components/planning/purchasing/GoodsReceipt
 import { Metadata } from 'next';
 import { PackageSearch } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -38,7 +40,15 @@ export default async function WarehouseIncomingPage({ searchParams }: { searchPa
                     <p className="text-muted-foreground">View and manage all incoming stock deliveries from suppliers.</p>
                 </div>
                 <div>
-                    <UrlTransactionDateFilter defaultPreset="this_month" />
+                    <div className="flex gap-2">
+                        <Link href="/warehouse/incoming/create-maklon" passHref>
+                            <Button className="bg-purple-600 hover:bg-purple-700 h-9 shrink-0 gap-2">
+                                <PackageSearch className="h-4 w-4" />
+                                Post Maklon Receipt
+                            </Button>
+                        </Link>
+                        <UrlTransactionDateFilter defaultPreset="this_month" />
+                    </div>
                 </div>
             </div>
 

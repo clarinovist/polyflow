@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Customer, Location, ProductVariant, Product, SalesOrderType } from '@prisma/client';
+import { Customer, Location, ProductVariant, Product, SalesOrderType, ProductType } from '@prisma/client';
 import { useAction } from '@/hooks/use-action';
 import { ErrorAlert } from '@/components/ui/error-alert';
 
@@ -122,13 +122,22 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     const selectedOrderType = useWatch({ control: form.control, name: 'orderType' });
 
     const filteredProducts = useMemo(() => {
-        if (!selectedSourceLocationId) return products;
+        let baseProducts = products;
+
+        // Filter by ProductType based on OrderType
+        if (selectedOrderType === 'MAKLON_JASA') {
+            baseProducts = products.filter(p => p.product.productType === ProductType.SERVICE);
+        } else {
+            baseProducts = products.filter(p => p.product.productType !== ProductType.SERVICE);
+        }
+
+        if (!selectedSourceLocationId) return baseProducts;
 
         // Filter by inventory if a sourceLocationId is chosen
-        if (selectedOrderType === 'MAKE_TO_ORDER') return products;
+        if (selectedOrderType === 'MAKE_TO_ORDER' || selectedOrderType === 'MAKLON_JASA') return baseProducts;
 
         // For MTS, only show products that have stock in the selected location
-        return products.filter((p: SerializedProductVariant) =>
+        return baseProducts.filter((p: SerializedProductVariant) =>
             p.inventories.some(inv => inv.locationId === selectedSourceLocationId && inv.quantity > 0)
         );
     }, [products, selectedSourceLocationId, selectedOrderType]);
@@ -315,6 +324,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                     <SelectContent>
                                         <SelectItem value="MAKE_TO_STOCK">Make to Stock (MTS)</SelectItem>
                                         <SelectItem value="MAKE_TO_ORDER">Make to Order (MTO)</SelectItem>
+                                        <SelectItem value="MAKLON_JASA">Maklon Jasa</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

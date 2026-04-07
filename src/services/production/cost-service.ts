@@ -44,7 +44,19 @@ export class ProductionCostService {
         });
 
         // 2. Conversion Cost
-        const conversionCost = Number(order.estimatedConversionCost || 0);
+        let conversionCost = Number(order.estimatedConversionCost || 0);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((order as any).isMaklon) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const maklonCosts = await (client as any).maklonCostItem.findMany({
+                where: { productionOrderId: order.id }
+            });
+            conversionCost = maklonCosts.reduce(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (sum: number, item: any) => sum + Number(item.amount), 0
+            );
+        }
 
         // 3. Total Cost
         const totalCost = totalMaterialCost + conversionCost;

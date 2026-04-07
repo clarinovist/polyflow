@@ -45,7 +45,7 @@ export const getInitData = withTenant(
                 logger.error("Failed to get init data", { error, module: 'ProductionActions' });
                 return {
                     boms: [], machines: [], locations: [],
-                    operators: [], helpers: [], workShifts: [], rawMaterials: []
+                    operators: [], helpers: [], workShifts: [], rawMaterials: [], customers: []
                 };
             }
         });
@@ -127,6 +127,7 @@ export const getProductionOrders = withTenant(
                 actualStartDate: true,
                 actualEndDate: true,
                 createdAt: true,
+                isMaklon: true,
                 bom: {
                     select: {
                         id: true,

@@ -1,4 +1,4 @@
-import { PrismaClient, ProductType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus } from '@prisma/client'
+import { PrismaClient, ProductType, Unit, Role, MovementType, MachineType, MachineStatus, BatchStatus, ProductionStatus, LocationType } from '@prisma/client'
 import { seedCoA } from './seed-coa';
 
 const prisma = new PrismaClient()
@@ -104,6 +104,7 @@ async function main() {
         { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
         { name: 'Packing Area', slug: 'packing_area', description: 'Production floor for bag-making and finishing processes' },
         { name: 'Scrap Warehouse', slug: 'scrap_warehouse', description: 'Storage for waste/afval' },
+        { name: 'Customer Owned Storage', slug: 'CUSTOMER_OWNED', description: 'Storage for customer owned materials (Maklon)', locationType: LocationType.CUSTOMER_OWNED },
     ]
 
     for (const loc of locations) {

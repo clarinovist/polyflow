@@ -4,7 +4,8 @@ export const WAREHOUSE_SLUGS = {
     SCRAP: 'scrap_warehouse',
     MIXING: 'mixing_area',
     PACKING_AREA: 'packing_area',
-    WIP_STORAGE: 'wip_storage'
+    WIP_STORAGE: 'wip_storage',
+    CUSTOMER_OWNED: 'customer_owned_storage'
 } as const;
 
 export type WarehouseSlug = typeof WAREHOUSE_SLUGS[keyof typeof WAREHOUSE_SLUGS];

@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Factory } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { useState, useMemo, useEffect } from 'react';
 import { createProductionOrder, getBomWithInventory } from '@/actions/production/production';
@@ -52,6 +54,7 @@ export interface ProductionOrderFormProps {
         }[];
         salesOrderId?: string;
     }[];
+    customers?: { id: string; name: string }[];
     salesOrderId?: string;
 }
 
@@ -75,7 +78,7 @@ const formSchema = createProductionOrderSchema;
 type FormValues = z.infer<typeof formSchema>;
 
 
-export function ProductionOrderForm({ boms, machines, locations, salesOrderId }: ProductionOrderFormProps) {
+export function ProductionOrderForm({ boms, machines, locations, customers = [], salesOrderId }: ProductionOrderFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [processType, setProcessType] = useState<'mixing' | 'extrusion' | 'packing' | 'rework'>('mixing');
@@ -138,6 +141,8 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
             machineId: '',
             salesOrderId: salesOrderId || '',
             notes: '',
+            isMaklon: false,
+            estimatedConversionCost: 0,
         },
     });
 
@@ -151,6 +156,7 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
     const watchBomId = useWatch({ control: form.control, name: 'bomId' });
     const watchPlannedQty = useWatch({ control: form.control, name: 'plannedQuantity' });
     const watchItems = useWatch({ control: form.control, name: 'items' });
+    const watchIsMaklon = useWatch({ control: form.control, name: 'isMaklon' });
 
     const [planningMode, setPlanningMode] = useState<'weight' | 'batch'>('weight');
     const [batchCount, setBatchCount] = useState<number>(1);
@@ -611,6 +617,83 @@ export function ProductionOrderForm({ boms, machines, locations, salesOrderId }:
                                             />
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Maklon Service Information */}
+                                <div className="pt-4 border-t space-y-4">
+                                    <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 bg-blue-100 rounded-md">
+                                                <Factory className="h-4 w-4 text-blue-700" />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="is-maklon" className="font-bold text-sm text-blue-900 leading-none">Maklon Order</Label>
+                                                <p className="text-[11px] text-blue-700/70 mt-1">This is a service order based on customer materials</p>
+                                            </div>
+                                        </div>
+                                        <FormField
+                                            control={form.control}
+                                            name="isMaklon"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormControl>
+                                                        <Switch
+                                                            id="is-maklon"
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {watchIsMaklon && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <FormField
+                                                control={form.control}
+                                                name="maklonCustomerId"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Maklon Customer</FormLabel>
+                                                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select Customer" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {customers.map((c) => (
+                                                                    <SelectItem key={c.id} value={c.id}>
+                                                                        {c.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="estimatedConversionCost"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Est. Conversion Cost (Service Fee)</FormLabel>
+                                                        <FormControl>
+                                                            <div className="relative">
+                                                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">Rp</span>
+                                                                <Input type="number" className="pl-9" {...field} />
+                                                            </div>
+                                                        </FormControl>
+                                                        <FormDescription>The fee charged to the customer for the processing service.</FormDescription>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Notes Field */}

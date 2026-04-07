@@ -28,7 +28,9 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         const receiptTx = await tx.goodsReceipt.create({
             data: {
                 receiptNumber,
-                purchaseOrderId: data.purchaseOrderId,
+                ...(data.purchaseOrderId ? { purchaseOrderId: data.purchaseOrderId } : {}),
+                isMaklon: data.isMaklon ?? false,
+                ...(data.customerId ? { customerId: data.customerId } : {}),
                 receivedDate: data.receivedDate,
                 locationId: data.locationId,
                 notes: data.notes,
@@ -88,55 +90,59 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
                     cost: item.unitCost,
                     goodsReceiptId: receiptTx.id,
                     createdById: userId,
-                    reference: `GR: ${receiptNumber} for PO`
+                    reference: data.isMaklon ? `GR: ${receiptNumber} for Maklon Customer` : `GR: ${receiptNumber} for PO`
                 }
             });
 
             await AccountingService.recordInventoryMovement(movement, tx);
 
-            const poItem = await tx.purchaseOrderItem.findFirst({
-                where: {
-                    purchaseOrderId: data.purchaseOrderId,
-                    productVariantId: item.productVariantId
-                }
-            });
-
-            if (poItem) {
-                await tx.purchaseOrderItem.update({
-                    where: { id: poItem.id },
-                    data: { receivedQty: { increment: item.receivedQty } }
+            if (data.purchaseOrderId) {
+                const poItem = await tx.purchaseOrderItem.findFirst({
+                    where: {
+                        purchaseOrderId: data.purchaseOrderId,
+                        productVariantId: item.productVariantId
+                    }
                 });
+
+                if (poItem) {
+                    await tx.purchaseOrderItem.update({
+                        where: { id: poItem.id },
+                        data: { receivedQty: { increment: item.receivedQty } }
+                    });
+                }
             }
         }
 
-        const updatedItems = await tx.purchaseOrderItem.findMany({
-            where: { purchaseOrderId: data.purchaseOrderId }
-        });
-
-        const po = await tx.purchaseOrder.findUnique({
-            where: { id: data.purchaseOrderId }
-        });
-
-        if (po && updatedItems.length > 0) {
-            const allReceived = updatedItems.every(item => item.receivedQty.toNumber() >= item.quantity.toNumber());
-            const partialReceived = updatedItems.some(item => item.receivedQty.toNumber() > 0);
-
-            let status: PurchaseOrderStatus;
-            if (allReceived) {
-                status = PurchaseOrderStatus.RECEIVED;
-            } else if (partialReceived) {
-                status = PurchaseOrderStatus.PARTIAL_RECEIVED;
-            } else {
-                // No items received yet, keep current status or set to SENT if DRAFT
-                status = po.status === PurchaseOrderStatus.DRAFT
-                    ? PurchaseOrderStatus.SENT
-                    : po.status;
-            }
-
-            await tx.purchaseOrder.update({
-                where: { id: po.id },
-                data: { status }
+        let po = null;
+        if (data.purchaseOrderId) {
+            const updatedItems = await tx.purchaseOrderItem.findMany({
+                where: { purchaseOrderId: data.purchaseOrderId }
             });
+
+            po = await tx.purchaseOrder.findUnique({
+                where: { id: data.purchaseOrderId }
+            });
+
+            if (po && updatedItems.length > 0) {
+                const allReceived = updatedItems.every(item => item.receivedQty.toNumber() >= item.quantity.toNumber());
+                const partialReceived = updatedItems.some(item => item.receivedQty.toNumber() > 0);
+
+                let status: PurchaseOrderStatus;
+                if (allReceived) {
+                    status = PurchaseOrderStatus.RECEIVED;
+                } else if (partialReceived) {
+                    status = PurchaseOrderStatus.PARTIAL_RECEIVED;
+                } else {
+                    status = po.status === PurchaseOrderStatus.DRAFT
+                        ? PurchaseOrderStatus.SENT
+                        : po.status;
+                }
+
+                await tx.purchaseOrder.update({
+                    where: { id: po.id },
+                    data: { status }
+                });
+            }
         }
 
         await logActivity({
@@ -144,17 +150,21 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
             action: 'RECEIVE_PURCHASE',
             entityType: 'GoodsReceipt',
             entityId: receiptTx.id,
-            details: `Received items for PO ${po?.orderNumber || ''} via GR ${receiptNumber}`,
+            details: data.isMaklon 
+                ? `Received maklon materials via GR ${receiptNumber}` 
+                : `Received items for PO ${po?.orderNumber || ''} via GR ${receiptNumber}`,
             tx
         });
 
         return receiptTx;
     });
 
-    // Auto-generate draft bill after GR transaction commits
-    await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
-        logger.error("Failed to auto-generate draft bill after GR", { error: err, module: 'ReceiptsService' });
-    });
+    // Auto-generate draft bill after GR transaction commits (Only for non-maklon)
+    if (data.purchaseOrderId) {
+        await createDraftBillFromPo(data.purchaseOrderId, userId).catch(err => {
+            logger.error("Failed to auto-generate draft bill after GR", { error: err, module: 'ReceiptsService' });
+        });
+    }
 
     return receipt;
 }
@@ -168,6 +178,7 @@ export async function getGoodsReceiptById(id: string) {
                     supplier: true
                 }
             },
+            customer: true,
             location: true,
             createdBy: { select: { name: true } },
             items: {
@@ -200,6 +211,7 @@ export async function getGoodsReceipts(dateRange?: { startDate?: Date, endDate?:
                     supplier: true
                 }
             },
+            customer: true,
             location: true,
             createdBy: { select: { name: true } },
             items: {

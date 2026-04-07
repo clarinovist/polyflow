@@ -66,7 +66,7 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                         }))}
                         locations={locations}
                         products={products
-                            .filter((p) => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP' || p.product.productType === 'PACKAGING')
+                            .filter((p) => p.product.productType === 'FINISHED_GOOD' || p.product.productType === 'SCRAP' || p.product.productType === 'PACKAGING' || p.product.productType === 'SERVICE')
                             .map((p) => ({
                                 ...p,
                                 price: p.price ? Number(p.price) : null,

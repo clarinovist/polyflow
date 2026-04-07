@@ -10,6 +10,7 @@ interface FinancialInvoiceDetailProps {
     invoice: Invoice & {
         salesOrder: {
             orderNumber: string;
+            orderType: string;
             customer: { name: string } | null;
             taxAmount: number | null;
             items: unknown[];
@@ -44,7 +45,14 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-center">
-                            <span className="text-2xl font-bold">{invoice.invoiceNumber}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold">{invoice.invoiceNumber}</span>
+                                {invoice.salesOrder.orderType === 'MAKLON_JASA' && (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                        Maklon Service
+                                    </Badge>
+                                )}
+                            </div>
                             {getStatusBadge(invoice.status)}
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">

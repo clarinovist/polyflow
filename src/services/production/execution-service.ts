@@ -90,6 +90,11 @@ export class ProductionExecutionService {
                 }
             });
 
+            if (data.completed && order.isMaklon) {
+                // Generate GL Journal for all previously and currently captured MaklonCostItems
+                await AccountingService.recordMaklonCosts(productionOrderId, tx);
+            }
+
             if (quantityProduced > 0) {
                 const locationId = order.locationId;
                 const outputVariantId = order.bom.productVariantId;
@@ -149,7 +154,13 @@ export class ProductionExecutionService {
                 if (itemsToBackflush.length > 0) {
                     // Determine Backflush Source Location
                     let consumptionLocationId = order.locationId; // Default to order location
-                    if (order.bom?.category === 'EXTRUSION') {
+                    if (order.isMaklon) {
+                        const maklonLoc = await tx.location.findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                        if (!maklonLoc) {
+                            throw new Error("Cannot execute Maklon order: No CUSTOMER_OWNED location found.");
+                        }
+                        consumptionLocationId = maklonLoc.id;
+                    } else if (order.bom?.category === 'EXTRUSION') {
                         const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                         if (mixingLoc) consumptionLocationId = mixingLoc.id;
                     } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
@@ -175,10 +186,11 @@ export class ProductionExecutionService {
                                 where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                                 select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                             });
-                            const srcUnitCost =
-                                Number(srcInv?.averageCost ?? 0) ||
-                                Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                                Number(srcInv?.productVariant?.buyPrice ?? 0);
+                            const srcUnitCost = order.isMaklon
+                                ? 0
+                                : (Number(srcInv?.averageCost ?? 0) ||
+                                  Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                                  Number(srcInv?.productVariant?.buyPrice ?? 0));
                             
                             const moveOut = await tx.stockMovement.create({
                                 data: {
@@ -307,7 +319,12 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = locationId; // Default to order location
-                if (order.bom?.category === 'EXTRUSION') {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if ((order as any).isMaklon) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
+                } else if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
                 } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
@@ -333,10 +350,12 @@ export class ProductionExecutionService {
                             where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                             select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                         });
-                        const srcUnitCost =
-                            Number(srcInv?.averageCost ?? 0) ||
-                            Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                            Number(srcInv?.productVariant?.buyPrice ?? 0);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const srcUnitCost = (order as any).isMaklon
+                            ? 0
+                            : (Number(srcInv?.averageCost ?? 0) ||
+                              Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                              Number(srcInv?.productVariant?.buyPrice ?? 0));
 
                         const moveOut = await tx.stockMovement.create({
                             data: {
@@ -477,7 +496,12 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = order.locationId; // Default to order location
-                if (order.bom?.category === 'EXTRUSION') {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if ((order as any).isMaklon) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
+                } else if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
 
@@ -505,10 +529,12 @@ export class ProductionExecutionService {
                             where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                             select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                         });
-                        const srcUnitCost =
-                            Number(srcInv?.averageCost ?? 0) ||
-                            Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                            Number(srcInv?.productVariant?.buyPrice ?? 0);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const srcUnitCost = (order as any).isMaklon
+                            ? 0
+                            : (Number(srcInv?.averageCost ?? 0) ||
+                              Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                              Number(srcInv?.productVariant?.buyPrice ?? 0));
 
                         const moveOut = await tx.stockMovement.create({
                             data: {

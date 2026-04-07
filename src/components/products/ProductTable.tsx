@@ -70,6 +70,7 @@ const productTypeBadgeColors: Record<ProductType, string> = {
     INTERMEDIATE: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/10 hover:bg-purple-500/20',
     PACKAGING: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/10 hover:bg-orange-500/20',
     WIP: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/10 hover:bg-yellow-500/20',
+    SERVICE: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/10 hover:bg-pink-500/20',
 };
 
 const productTypeLabels: Record<ProductType, string> = {
@@ -79,6 +80,7 @@ const productTypeLabels: Record<ProductType, string> = {
     INTERMEDIATE: 'Inter',
     PACKAGING: 'Pack',
     WIP: 'WIP',
+    SERVICE: 'Service',
 };
 
 export function ProductTable({ products, showPrices = false }: ProductTableProps) {

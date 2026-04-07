@@ -32,11 +32,28 @@ export const goodsReceiptItemSchema = z.object({
 });
 
 export const createGoodsReceiptSchema = z.object({
-    purchaseOrderId: z.string().min(1, "PO ID is required"),
+    purchaseOrderId: z.string().optional().nullable(),
+    isMaklon: z.boolean().default(false),
+    customerId: z.string().optional().nullable(),
     receivedDate: z.coerce.date(),
     locationId: z.string().min(1, "Location is required"),
     notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(goodsReceiptItemSchema).min(1, "At least one item is required"),
+}).superRefine((data, ctx) => {
+    if (data.isMaklon && !data.customerId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Customer is required for Maklon receipts",
+            path: ["customerId"]
+        });
+    }
+    if (!data.isMaklon && !data.purchaseOrderId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "PO ID is required for standard receipts",
+            path: ["purchaseOrderId"]
+        });
+    }
 });
 
 export const createPurchaseInvoiceSchema = z.object({

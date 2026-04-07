@@ -129,6 +129,11 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     <div className="flex items-center gap-2 mb-1">
                         <h1 className="text-2xl font-bold tracking-tight">Order {order.orderNumber}</h1>
                         <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                        {order.isMaklon && (
+                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                                <Factory className="w-3 h-3 mr-1" /> Maklon Service
+                            </Badge>
+                        )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><Package className="w-4 h-4" /> {order.bom.productVariant.product.name} ({order.bom.productVariant.name})</span>
@@ -302,6 +307,13 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                     <DetailRow label="Planned Start" value={format(new Date(order.plannedStartDate), 'PPP')} />
                                     <DetailRow label="Planned End" value={order.plannedEndDate ? format(new Date(order.plannedEndDate), 'PPP') : '-'} />
                                     <DetailRow label="Output Location" value={order.location.name} />
+                                    {order.isMaklon && (
+                                        <>
+                                            <DetailRow label="Is Maklon" value="Yes" />
+                                            {order.maklonCustomer && <DetailRow label="Maklon Customer" value={order.maklonCustomer.name} />}
+                                            {order.estimatedConversionCost && <DetailRow label="Est. Conversion Cost" value={formatRupiah(Number(order.estimatedConversionCost))} />}
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="border-t pt-4 mt-4">

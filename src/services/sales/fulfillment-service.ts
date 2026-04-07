@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType } from '@prisma/client';
+import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { InvoiceService } from '@/services/finance/invoice-service';
@@ -29,7 +29,7 @@ export async function markReadyToShip(id: string, userId: string) {
 export async function shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string, carrier?: string }) {
     const order = await prisma.salesOrder.findUnique({
         where: { id },
-        include: { items: true }
+        include: { items: { include: { productVariant: { include: { product: true } } } } }
     });
 
     if (!order) throw new Error("Order not found");
@@ -39,7 +39,15 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
     if (!order.sourceLocationId) throw new Error("Source location is missing");
 
     await prisma.$transaction(async (tx) => {
+        const physicalItems = [];
+
         for (const item of order.items) {
+            if (item.productVariant.product.productType === ProductType.SERVICE) {
+                // Maklon Jasa service items don't have physical inventory
+                continue;
+            }
+            physicalItems.push(item);
+
             const qty = item.quantity.toNumber();
             const locationId = order.sourceLocationId!;
 
@@ -100,25 +108,28 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
         }
         const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
 
-        await tx.deliveryOrder.create({
-            data: {
-                orderNumber: doNumber,
-                salesOrderId: order.id,
-                sourceLocationId: order.sourceLocationId!,
-                status: 'SHIPPED',
-                deliveryDate: new Date(),
-                trackingNumber: trackingInfo?.trackingNumber,
-                carrier: trackingInfo?.carrier,
-                createdById: userId,
-                items: {
-                    create: order.items.map(item => ({
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity,
-                        notes: item.id
-                    }))
+        // Create DO using only physical items (skip service items)
+        if (physicalItems.length > 0) {
+            await tx.deliveryOrder.create({
+                data: {
+                    orderNumber: doNumber,
+                    salesOrderId: order.id,
+                    sourceLocationId: order.sourceLocationId!,
+                    status: 'SHIPPED',
+                    deliveryDate: new Date(),
+                    trackingNumber: trackingInfo?.trackingNumber,
+                    carrier: trackingInfo?.carrier,
+                    createdById: userId,
+                    items: {
+                        create: physicalItems.map(item => ({
+                            productVariantId: item.productVariantId,
+                            quantity: item.quantity,
+                            notes: item.id
+                        }))
+                    }
                 }
-            }
-        });
+            });
+        }
 
         await tx.salesOrder.update({
             where: { id },
@@ -142,7 +153,7 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
             action: 'SHIP_SALES',
             entityType: 'SalesOrder',
             entityId: id,
-            details: `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${doNumber}`,
+            details: `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${physicalItems.length > 0 ? doNumber : 'N/A (maklon)'}`,
             tx
         });
     });

@@ -13,7 +13,7 @@ import {
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement } from './reports-service';
 import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './periods-service';
-import { recordInventoryMovement } from './inventory-link-service';
+import { recordInventoryMovement, recordMaklonCosts } from './inventory-link-service';
 
 export type { CreateJournalEntryInput } from './types';
 
@@ -138,6 +138,10 @@ export class AccountingService {
      */
     static async recordInventoryMovement(movement: Parameters<typeof recordInventoryMovement>[0], tx?: Prisma.TransactionClient) {
         return recordInventoryMovement(movement, tx);
+    }
+
+    static async recordMaklonCosts(productionOrderId: string, tx: Prisma.TransactionClient) {
+        return recordMaklonCosts(productionOrderId, tx);
     }
 
     /**

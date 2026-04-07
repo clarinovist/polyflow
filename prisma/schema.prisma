@@ -42,6 +42,7 @@ model User {
   purchaseReturns         PurchaseReturn[]       @relation("PurchaseReturnCreator")
   notifications           Notification[]
   pettyCashTransactions   PettyCashTransaction[] @relation("PettyCashCreator")
+  maklonReturns           MaklonMaterialReturn[] @relation("MaklonReturnCreator")
 }
 
 model Employee {
@@ -96,24 +97,27 @@ model Supplier {
 }
 
 model Customer {
-  id              String           @id @default(uuid())
+  id              String                 @id @default(uuid())
   name            String
-  code            String?          @unique
+  code            String?                @unique
   phone           String?
   email           String?
   billingAddress  String?
   shippingAddress String?
   taxId           String?
-  creditLimit     Decimal?         @db.Decimal(15, 2)
+  creditLimit     Decimal?               @db.Decimal(15, 2)
   paymentTermDays Int?
-  discountPercent Decimal?         @db.Decimal(5, 2)
+  discountPercent Decimal?               @db.Decimal(5, 2)
   notes           String?
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  isActive        Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
   salesOrders     SalesOrder[]
   quotations      SalesQuotation[]
   salesReturns    SalesReturn[]
+  maklonOrders    ProductionOrder[]      @relation("MaklonCustomer")
+  maklonReceipts  GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
+  maklonReturns   MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
 }
 
 model ApiKey {
@@ -129,12 +133,13 @@ model ApiKey {
 }
 
 model Location {
-  id               String             @id @default(uuid())
+  id               String                 @id @default(uuid())
   name             String
-  slug             String             @unique
+  slug             String                 @unique
   description      String?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  locationType     LocationType           @default(INTERNAL)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
   Batch            Batch[]
   deliveryOrders   DeliveryOrder[]
   fixedAssets      FixedAsset[]
@@ -143,14 +148,15 @@ model Location {
   machines         Machine[]
   MaterialIssue    MaterialIssue[]
   ProductionOrder  ProductionOrder[]
-  salesOrders      SalesOrder[]       @relation("SalesSourceLocation")
+  salesOrders      SalesOrder[]           @relation("SalesSourceLocation")
   ScrapRecord      ScrapRecord[]
-  movementsFrom    StockMovement[]    @relation("FromLocation")
-  movementsTo      StockMovement[]    @relation("ToLocation")
+  movementsFrom    StockMovement[]        @relation("FromLocation")
+  movementsTo      StockMovement[]        @relation("ToLocation")
   opnames          StockOpname[]
   StockReservation StockReservation[]
-  salesReturns     SalesReturn[]      @relation("ReturnLocation")
-  purchaseReturns  PurchaseReturn[]   @relation("PurchaseReturnLocation")
+  salesReturns     SalesReturn[]          @relation("ReturnLocation")
+  purchaseReturns  PurchaseReturn[]       @relation("PurchaseReturnLocation")
+  maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnLocation")
 }
 
 model Product {
@@ -167,35 +173,35 @@ model Product {
 }
 
 model ProductVariant {
-  id                   String                @id @default(uuid())
+  id                   String                     @id @default(uuid())
   productId            String
   name                 String
-  skuCode              String                @unique
-  price                Decimal?              @db.Decimal(10, 2)
-  buyPrice             Decimal?              @db.Decimal(10, 2)
-  sellPrice            Decimal?              @db.Decimal(10, 2)
+  skuCode              String                     @unique
+  price                Decimal?                   @db.Decimal(10, 2)
+  buyPrice             Decimal?                   @db.Decimal(10, 2)
+  sellPrice            Decimal?                   @db.Decimal(10, 2)
   primaryUnit          Unit
   salesUnit            Unit?
-  conversionFactor     Decimal               @default(1.0) @db.Decimal(10, 4)
+  conversionFactor     Decimal                    @default(1.0) @db.Decimal(10, 4)
   attributes           Json?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  minStockAlert        Decimal?              @db.Decimal(15, 4)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  minStockAlert        Decimal?                   @db.Decimal(15, 4)
   leadTimeDays         Int?
   preferredSupplierId  String?
-  reorderPoint         Decimal?              @db.Decimal(15, 4)
-  reorderQuantity      Decimal?              @db.Decimal(15, 4)
-  costingMethod        CostingMethod         @default(WEIGHTED_AVERAGE)
-  standardCost         Decimal?              @db.Decimal(15, 4)
+  reorderPoint         Decimal?                   @db.Decimal(15, 4)
+  reorderQuantity      Decimal?                   @db.Decimal(15, 4)
+  costingMethod        CostingMethod              @default(WEIGHTED_AVERAGE)
+  standardCost         Decimal?                   @db.Decimal(15, 4)
   Batch                Batch[]
-  productionBoms       Bom[]                 @relation("ProductBom")
-  ingredientInBoms     BomItem[]             @relation("Ingredient")
+  productionBoms       Bom[]                      @relation("ProductBom")
+  ingredientInBoms     BomItem[]                  @relation("Ingredient")
   deliveryOrderItems   DeliveryOrderItem[]
   goodsReceiptItems    GoodsReceiptItem[]
   inventories          Inventory[]
   MaterialIssue        MaterialIssue[]
-  preferredSupplier    Supplier?             @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
-  product              Product               @relation(fields: [productId], references: [id])
+  preferredSupplier    Supplier?                  @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
+  product              Product                    @relation(fields: [productId], references: [id])
   productionMaterials  ProductionMaterial[]
   purchaseOrderItems   PurchaseOrderItem[]
   purchaseRequestItems PurchaseRequestItem[]
@@ -209,6 +215,7 @@ model ProductVariant {
   costHistory          CostHistory[]
   salesReturnItems     SalesReturnItem[]
   purchaseReturnItems  PurchaseReturnItem[]
+  maklonReturnItems    MaklonMaterialReturnItem[]
 }
 
 model CostHistory {
@@ -411,6 +418,10 @@ model ProductionOrder {
   salesOrderId            String?
   estimatedConversionCost Decimal?              @db.Decimal(15, 2)
   parentOrderId           String?
+  isMaklon                Boolean               @default(false)
+  maklonCustomerId        String?
+  maklonCustomer          Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
+  maklonCostItems         MaklonCostItem[]
   materialIssues          MaterialIssue[]
   executions              ProductionExecution[]
   plannedMaterials        ProductionMaterial[]
@@ -734,15 +745,18 @@ model PurchaseOrderItem {
 model GoodsReceipt {
   id              String             @id @default(uuid())
   receiptNumber   String             @unique
-  purchaseOrderId String
+  purchaseOrderId String?
   receivedDate    DateTime           @default(now())
   locationId      String
+  isMaklon        Boolean            @default(false)
+  customerId      String?
   notes           String?
   createdById     String?
   createdAt       DateTime           @default(now())
   createdBy       User?              @relation("GoodsReceiptCreator", fields: [createdById], references: [id])
   location        Location           @relation(fields: [locationId], references: [id])
-  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrder   PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
+  customer        Customer?          @relation("MaklonGoodsReceiptCustomer", fields: [customerId], references: [id])
   items           GoodsReceiptItem[]
   movements       StockMovement[]    @relation("GoodsReceiptMovement")
   purchaseReturns PurchaseReturn[]
@@ -1021,6 +1035,7 @@ enum ProductType {
   WIP
   FINISHED_GOOD
   SCRAP
+  SERVICE
 }
 
 enum Unit {
@@ -1124,6 +1139,7 @@ enum SalesQuotationStatus {
 enum SalesOrderType {
   MAKE_TO_STOCK
   MAKE_TO_ORDER
+  MAKLON_JASA
 }
 
 enum SalesOrderStatus {
@@ -1442,4 +1458,74 @@ model PettyCashTransaction {
 
   @@index([createdById])
   @@index([status, date])
+}
+
+enum LocationType {
+  INTERNAL
+  CUSTOMER_OWNED
+}
+
+model MaklonCostItem {
+  id                String         @id @default(uuid())
+  productionOrderId String
+  costType          MaklonCostType
+  description       String?
+  amount            Decimal        @db.Decimal(15, 2)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+
+  @@index([productionOrderId])
+}
+
+enum MaklonCostType {
+  LABOR
+  MACHINE
+  ELECTRICITY
+  ADDITIVE
+  COLORANT
+  OVERHEAD
+  OTHER
+}
+
+model MaklonMaterialReturn {
+  id               String                     @id @default(uuid())
+  returnNumber     String                     @unique
+  customerId       String
+  sourceLocationId String
+  returnDate       DateTime                   @default(now())
+  status           MaklonMaterialReturnStatus @default(DRAFT)
+  reason           String?
+  notes            String?
+  createdById      String?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  items          MaklonMaterialReturnItem[]
+  customer       Customer                   @relation("MaklonReturnCustomer", fields: [customerId], references: [id])
+  sourceLocation Location                   @relation("MaklonReturnLocation", fields: [sourceLocationId], references: [id])
+  createdBy      User?                      @relation("MaklonReturnCreator", fields: [createdById], references: [id])
+
+  @@index([customerId])
+}
+
+model MaklonMaterialReturnItem {
+  id                     String   @id @default(uuid())
+  maklonMaterialReturnId String
+  productVariantId       String
+  quantity               Decimal  @db.Decimal(15, 4)
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  maklonMaterialReturn MaklonMaterialReturn @relation(fields: [maklonMaterialReturnId], references: [id], onDelete: Cascade)
+  productVariant       ProductVariant       @relation(fields: [productVariantId], references: [id])
+}
+
+enum MaklonMaterialReturnStatus {
+  DRAFT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
 }

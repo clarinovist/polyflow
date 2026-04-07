@@ -29,6 +29,7 @@ const productTypeLabels: Record<ProductType, string> = {
     INTERMEDIATE: 'Intermediate',
     PACKAGING: 'Packaging',
     WIP: 'Work In Progress',
+    SERVICE: 'Service',
 };
 
 export function ProductForm({ mode, productTypes, units, initialData }: ProductFormProps) {

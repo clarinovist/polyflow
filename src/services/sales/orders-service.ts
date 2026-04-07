@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma } from '@prisma/client';
+import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma, ProductType } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { createStockReservation } from '@/services/inventory/reservation-service';
@@ -97,7 +97,22 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
     let totalDiscount = 0;
     let totalTax = 0;
 
-    const itemsWithTotals = data.items.map(item => {
+    const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
+        const variant = await prisma.productVariant.findUnique({
+            where: { id: item.productVariantId },
+            include: { product: true }
+        });
+
+        if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+
+        const isService = variant.product.productType === ProductType.SERVICE;
+        if (isService && data.orderType !== SalesOrderType.MAKLON_JASA) {
+            throw new Error(`Service item '${variant.name}' is only allowed for Maklon Jasa orders`);
+        }
+        if (!isService && data.orderType === SalesOrderType.MAKLON_JASA) {
+            throw new Error(`Physical item '${variant.name}' is not allowed for Maklon Jasa orders. Use a Service item instead.`);
+        }
+
         const rawSubtotal = item.quantity * item.unitPrice;
         const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
         const subtotalAfterDiscount = rawSubtotal - discountAmount;
@@ -115,7 +130,7 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
             taxAmount,
             subtotal: flowSubtotal
         };
-    });
+    }));
 
     if (data.customerId) {
         await checkCreditLimit(data.customerId, totalAmount);
@@ -156,7 +171,26 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
     let totalDiscount = 0;
     let totalTax = 0;
 
-    const itemsWithTotals = data.items.map(item => {
+    const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
+        const variant = await prisma.productVariant.findUnique({
+            where: { id: item.productVariantId },
+            include: { product: true }
+        });
+
+        if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+
+        // Fetch current order to check orderType since it's not and update payload
+        const currentOrder = await prisma.salesOrder.findUnique({ where: { id: data.id }, select: { orderType: true } });
+        const effectiveOrderType = currentOrder?.orderType;
+
+        const isService = variant.product.productType === ProductType.SERVICE;
+        if (isService && effectiveOrderType !== SalesOrderType.MAKLON_JASA) {
+            throw new Error(`Service item '${variant.name}' is only allowed for Maklon Jasa orders`);
+        }
+        if (!isService && effectiveOrderType === SalesOrderType.MAKLON_JASA) {
+            throw new Error(`Physical item '${variant.name}' is not allowed for Maklon Jasa orders. Use a Service item instead.`);
+        }
+
         const rawSubtotal = item.quantity * item.unitPrice;
         const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
         const subtotalAfterDiscount = rawSubtotal - discountAmount;
@@ -174,7 +208,7 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
             taxAmount,
             subtotal: flowSubtotal
         };
-    });
+    }));
 
     if (data.customerId) {
         await checkCreditLimit(data.customerId, totalAmount);
@@ -216,17 +250,25 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
 export async function confirmOrder(id: string, userId: string) {
     const order = await prisma.salesOrder.findUnique({
         where: { id },
-        include: { items: true }
+        include: { 
+            items: {
+                include: {
+                    productVariant: {
+                        include: { product: true }
+                    }
+                }
+            } 
+        }
     });
 
     if (!order) throw new Error("Order not found");
     if (order.status !== SalesOrderStatus.DRAFT) throw new Error("Only draft orders can be confirmed");
 
-    if (order.customerId && order.orderType === SalesOrderType.MAKE_TO_STOCK) {
+    if (order.customerId && order.orderType !== SalesOrderType.MAKE_TO_ORDER) {
         await checkCreditLimit(order.customerId, Number(order.totalAmount || 0));
     }
 
-    let nextStatus = order.orderType === SalesOrderType.MAKE_TO_ORDER
+    let nextStatus = (order.orderType === SalesOrderType.MAKE_TO_ORDER || order.orderType === SalesOrderType.MAKLON_JASA)
         ? SalesOrderStatus.IN_PRODUCTION
         : SalesOrderStatus.CONFIRMED;
 
@@ -261,6 +303,12 @@ export async function confirmOrder(id: string, userId: string) {
             const reservationMap = new Map(activeReservations.map(res => [res.productVariantId, res._sum.quantity?.toNumber() || 0]));
 
             for (const item of order.items) {
+                if (item.productVariant.product.productType === ProductType.SERVICE) {
+                    // SERVICE items (Maklon Jasa) don't have physical inventory or standard BOMs.
+                    // WOs for Maklon must be created manually in the Production module.
+                    continue;
+                }
+                
                 let activeReservationAmount = 0;
                 let shortageAmount = item.quantity.toNumber();
 

@@ -23,11 +23,15 @@ type ReceiptWithRelations = {
     receiptNumber: string;
     receivedDate: Date;
     notes: string | null;
+    isMaklon: boolean;
     purchaseOrder: {
         orderNumber: string;
         status: string;
         supplier: { name: string };
-    };
+    } | null;
+    customer: {
+        name: string;
+    } | null;
     items: {
         id: string;
         receivedQty: number;
@@ -57,11 +61,17 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredReceipts = useMemo(() => {
-        return receipts.filter(r =>
-            r.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.purchaseOrder.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.purchaseOrder.supplier.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return receipts.filter(r => {
+            const search = searchTerm.toLowerCase();
+            const poMatch = r.purchaseOrder ? (
+                r.purchaseOrder.orderNumber.toLowerCase().includes(search) ||
+                r.purchaseOrder.supplier.name.toLowerCase().includes(search)
+            ) : false;
+            
+            const maklonMatch = r.customer ? r.customer.name.toLowerCase().includes(search) : false;
+            
+            return r.receiptNumber.toLowerCase().includes(search) || poMatch || maklonMatch;
+        });
     }, [receipts, searchTerm]);
 
     return (
@@ -69,7 +79,7 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search receipt or PO number..."
+                    placeholder="Search receipt, PO number or customer..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
@@ -82,9 +92,9 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                         <TableHeader className="bg-muted/50">
                             <TableRow>
                                 <TableHead className="w-[150px]">Receipt No</TableHead>
-                                <TableHead>PO Reference</TableHead>
+                                <TableHead>PO Reference / Type</TableHead>
                                 <TableHead>PO Status</TableHead>
-                                <TableHead>Supplier</TableHead>
+                                <TableHead>Supplier / Customer</TableHead>
                                 <TableHead>Received Date</TableHead>
                                 <TableHead>Location</TableHead>
                                 <TableHead>Items</TableHead>
@@ -104,22 +114,41 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10">
-                                                {gr.purchaseOrder.orderNumber}
-                                            </Badge>
+                                            {gr.purchaseOrder ? (
+                                                <Badge variant="outline" className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10">
+                                                    {gr.purchaseOrder.orderNumber}
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10">
+                                                    Maklon
+                                                </Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge
-                                                variant={gr.purchaseOrder.status === 'COMPLETED' ? 'default' : gr.purchaseOrder.status === 'PARTIAL_RECEIVED' ? 'secondary' : 'outline'}
-                                                className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 border-none' : ''}
-                                            >
-                                                {gr.purchaseOrder.status.replace(/_/g, ' ')}
-                                            </Badge>
+                                            {gr.purchaseOrder ? (
+                                                <Badge
+                                                    variant={gr.purchaseOrder.status === 'COMPLETED' ? 'default' : gr.purchaseOrder.status === 'PARTIAL_RECEIVED' ? 'secondary' : 'outline'}
+                                                    className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 border-none' : ''}
+                                                >
+                                                    {gr.purchaseOrder.status.replace(/_/g, ' ')}
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-muted-foreground">-</Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2 text-sm font-medium">
-                                                <Building2 className="h-3 w-3 text-muted-foreground" />
-                                                {gr.purchaseOrder.supplier.name}
+                                                {gr.purchaseOrder ? (
+                                                    <>
+                                                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                                                        {gr.purchaseOrder.supplier.name}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <User className="h-3 w-3 text-muted-foreground" />
+                                                        {gr.customer?.name || 'Unknown Maklon'}
+                                                    </>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-sm">

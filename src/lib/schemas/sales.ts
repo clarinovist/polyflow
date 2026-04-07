@@ -20,10 +20,10 @@ export const createSalesOrderSchema = z.object({
     notes: z.string().optional().transform(sanitizeHtml),
     items: z.array(salesOrderItemSchema).min(1, "At least one item is required"),
 }).superRefine((data, ctx) => {
-    if (data.orderType === SalesOrderType.MAKE_TO_ORDER && !data.customerId) {
+    if ((data.orderType === SalesOrderType.MAKE_TO_ORDER || data.orderType === SalesOrderType.MAKLON_JASA) && !data.customerId) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Customer is required for Make to Order",
+            message: "Customer is required for Make to Order / Maklon Jasa",
             path: ["customerId"],
         });
     }

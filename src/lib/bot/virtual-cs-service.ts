@@ -168,6 +168,7 @@ async function getFinanceSummary(): Promise<string> {
   ].join('\n');
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function getStockMutationToday(): Promise<string> {
   const rows = await prisma.$queryRaw<MutationRow[]>(Prisma.sql`
     SELECT type, SUM(quantity) AS qty, COUNT(*)::bigint AS "txCount"
@@ -187,6 +188,7 @@ async function getStockMutationToday(): Promise<string> {
   return `Mutasi stok hari ini:\n${lines.join('\n')}`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getSopHelp(): string {
   return [
     'Saya bisa bantu panduan SOP penggunaan Polyflow secara umum.',
@@ -217,6 +219,7 @@ async function getProductStock(productName: string): Promise<string> {
 }
 
 async function getSalesOrderLines(searchTerm: string): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orders = await prisma.$queryRaw<any[]>(Prisma.sql`
     SELECT so.id, so."orderNumber", c.name as customer, so.status
     FROM "SalesOrder" so
@@ -230,6 +233,7 @@ async function getSalesOrderLines(searchTerm: string): Promise<string> {
 
   let resultString = '';
   for (const order of orders) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = await prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT pv.name as variant, soi.quantity 
       FROM "SalesOrderItem" soi
@@ -295,6 +299,7 @@ const agentTools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   }
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleToolCall(name: string, args: any): Promise<string> {
   try {
     switch (name) {
@@ -307,8 +312,8 @@ async function handleToolCall(name: string, args: any): Promise<string> {
       case 'get_pending_sales_overview': return await getPendingSales();
       default: return `Error: Tool '${name}' tidak dikenali.`;
     }
-  } catch(e: any) {
-    return `Error executing tool ${name}: ${e.message}`;
+  } catch(e) {
+    return `Error executing tool ${name}: ${e instanceof Error ? e.message : 'Unknown error'}`;
   }
 }
 
@@ -360,6 +365,7 @@ Aturan Agentic:
         model: 'qwen/qwen3.6-plus:free',
         messages: messages,
         temperature: 0.2,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tools: agentTools as any,
         tool_choice: 'auto'
       });
@@ -372,9 +378,11 @@ Aturan Agentic:
       // Check if LLM invoked tools
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         for (const toolCall of responseMessage.tool_calls) {
-          const args = JSON.parse(toolCall.function.arguments || '{}');
-          console.log(`[AGENTIC] Calling tool: ${toolCall.function.name} with args:`, args);
-          const result = await handleToolCall(toolCall.function.name, args);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const fn = (toolCall as any).function;
+          const args = JSON.parse(fn.arguments || '{}');
+          console.log(`[AGENTIC] Calling tool: ${fn.name} with args:`, args);
+          const result = await handleToolCall(fn.name, args);
           messages.push({
             role: "tool",
             tool_call_id: toolCall.id,
@@ -394,8 +402,9 @@ Aturan Agentic:
         allowed: true,
       },
     };
-  } catch (error: any) {
-    console.error('[OPENROUTER/LLM] Failed:', error?.message || error);
+  } catch (error) {
+    const e = error as Error;
+    console.error('[OPENROUTER/LLM] Failed:', e?.message || e);
     return {
       answer: 'Maaf, saya sedang mengalami gangguan koneksi (Network Error) ke OpenRouter Agent Network. Silakan coba lagi nanti.',
       citations: [],

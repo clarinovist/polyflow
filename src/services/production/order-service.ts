@@ -3,7 +3,7 @@ import {
     CreateProductionOrderValues,
     UpdateProductionOrderValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MachineType, BomCategory } from '@prisma/client';
+import { ProductionStatus, MachineType, BomCategory, SalesOrderType } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Ok, Err, Result } from '@/lib/utils/result';
@@ -14,7 +14,7 @@ export class ProductionOrderService {
      */
     static async getInitData() {
         // Run in parallel
-        const [boms, machines, locations, employees, workShifts, rawMaterials] = await Promise.all([
+        const [boms, machines, locations, employees, workShifts, rawMaterials, customers] = await Promise.all([
             prisma.bom.findMany({
                 include: {
                     productVariant: {
@@ -43,6 +43,9 @@ export class ProductionOrderService {
                     product: true
                 },
                 orderBy: { name: 'asc' }
+            }),
+            prisma.customer.findMany({
+                orderBy: { name: 'asc' }
             })
         ]);
 
@@ -57,7 +60,8 @@ export class ProductionOrderService {
             operators,
             helpers,
             workShifts,
-            rawMaterials
+            rawMaterials,
+            customers
         };
     }
 
@@ -159,7 +163,8 @@ export class ProductionOrderService {
     static async createOrder(data: CreateProductionOrderValues & { userId?: string }) {
         const {
             bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-            locationId, orderNumber, notes, salesOrderId, userId, machineId
+            locationId, orderNumber, notes, salesOrderId, userId, machineId,
+            isMaklon, maklonCustomerId, estimatedConversionCost
         } = data;
 
         return await prisma.$transaction(async (tx) => {
@@ -237,7 +242,10 @@ export class ProductionOrderService {
                     actualQuantity: 0,
                     salesOrderId: salesOrderId || null,
                     createdById: userId,
-                    machineId: machineId || null
+                    machineId: machineId || null,
+                    isMaklon: isMaklon,
+                    maklonCustomerId: maklonCustomerId || null,
+                    estimatedConversionCost: estimatedConversionCost
                 }
             });
 
@@ -279,10 +287,12 @@ export class ProductionOrderService {
         // 2. Fetch Sales Order
         const so = await prisma.salesOrder.findUnique({
             where: { id: salesOrderId },
-            select: { sourceLocationId: true, expectedDate: true }
+            select: { sourceLocationId: true, expectedDate: true, orderType: true, customerId: true }
         });
 
         if (!so) throw new Error("Sales Order not found");
+
+        const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
 
         // 3. Create PO
         return await this.createOrder({
@@ -292,7 +302,10 @@ export class ProductionOrderService {
             plannedEndDate: so.expectedDate || undefined,
             locationId: so.sourceLocationId || '',
             salesOrderId,
-            notes: `Auto-generated from Sales Order shortage.`
+            notes: `Auto-generated from Sales Order shortage${isMaklon ? ' (Maklon)' : ''}.`,
+            isMaklon: isMaklon,
+            maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
+            estimatedConversionCost: 0
         });
     }
 

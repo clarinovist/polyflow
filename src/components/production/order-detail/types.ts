@@ -1,7 +1,7 @@
 import {
     ProductionOrder, Bom, Machine, Location, User, MaterialIssue, ScrapRecord, QualityInspection,
     ProductVariant, Employee, WorkShift, ProductionExecution, ProductionMaterial,
-    ProductionShift, Product, ProductionIssue
+    ProductionShift, Product, ProductionIssue, Customer
 } from '@prisma/client';
 
 export type ExtendedProductionOrder = ProductionOrder & {
@@ -22,4 +22,7 @@ export type ExtendedProductionOrder = ProductionOrder & {
     childOrders: (ProductionOrder & { bom: Bom & { productVariant: { name: string, id: string } } })[];
     parentOrder: ProductionOrder | null;
     issues?: (ProductionIssue & { reportedBy: { id: string; name: string | null } | null })[];
+    isMaklon?: boolean;
+    maklonCustomer?: Customer | null;
+    estimatedConversionCost?: number;
 }
