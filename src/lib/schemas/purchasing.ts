@@ -28,7 +28,7 @@ export const updatePurchaseOrderSchema = z.object({
 export const goodsReceiptItemSchema = z.object({
     productVariantId: z.string().min(1, "Product is required"),
     receivedQty: z.coerce.number().positive("Quantity must be positive"),
-    unitCost: z.coerce.number().positive("Unit cost must be positive"),
+    unitCost: z.coerce.number().min(0, "Unit cost cannot be negative"),
 });
 
 export const createGoodsReceiptSchema = z.object({
