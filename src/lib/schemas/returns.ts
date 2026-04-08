@@ -54,10 +54,26 @@ export const createPurchaseReturnSchema = z.object({
   items: z.array(purchaseReturnItemSchema).min(1, "At least one item must be returned"),
 });
 
-export const updatePurchaseReturnSchema = createPurchaseReturnSchema.partial().extend({
-  id: z.string().uuid("Invalid Return ID"),
+export const updatePurchaseReturnSchema = createPurchaseReturnSchema.extend({
+    id: z.string().min(1)
 });
 
 export type PurchaseReturnItemValues = z.infer<typeof purchaseReturnItemSchema>;
 export type CreatePurchaseReturnValues = z.infer<typeof createPurchaseReturnSchema>;
 export type UpdatePurchaseReturnValues = z.infer<typeof updatePurchaseReturnSchema>;
+
+// Maklon Return Schemas
+export const createMaklonReturnSchema = z.object({
+    returnNumber: z.string().min(1, 'Return number is required'),
+    customerId: z.string().min(1, 'Customer is required'),
+    sourceLocationId: z.string().min(1, 'Source location is required'),
+    reason: z.string().optional(),
+    notes: z.string().optional(),
+    items: z.array(z.object({
+        productVariantId: z.string().min(1, 'Product variant is required'),
+        quantity: z.number().positive('Quantity must be greater than 0'),
+        notes: z.string().optional()
+    })).min(1, 'At least one item must be returned')
+});
+
+export type CreateMaklonReturnValues = z.infer<typeof createMaklonReturnSchema>;

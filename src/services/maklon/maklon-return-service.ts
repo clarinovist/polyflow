@@ -73,4 +73,72 @@ export class MaklonReturnService {
         if (tx) return execute(tx);
         return await prisma.$transaction(execute);
     }
+
+    static async getReturns(params?: {
+        search?: string;
+        status?: string;
+        startDate?: Date;
+        endDate?: Date;
+    }) {
+        const where: Prisma.MaklonMaterialReturnWhereInput = {};
+
+        if (params?.search) {
+            where.OR = [
+                { returnNumber: { contains: params.search, mode: 'insensitive' } },
+                { customer: { name: { contains: params.search, mode: 'insensitive' } } }
+            ];
+        }
+
+        if (params?.status) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            where.status = params.status as any;
+        }
+
+        if (params?.startDate && params?.endDate) {
+            where.returnDate = {
+                gte: params.startDate,
+                lte: params.endDate
+            };
+        }
+
+        return await prisma.maklonMaterialReturn.findMany({
+            where,
+            include: {
+                customer: true,
+                sourceLocation: true,
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { returnDate: 'desc' }
+        });
+    }
+
+    static async getReturnById(id: string) {
+        return await prisma.maklonMaterialReturn.findUnique({
+            where: { id },
+            include: {
+                customer: true,
+                sourceLocation: true,
+                createdBy: {
+                    select: { name: true }
+                },
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 }

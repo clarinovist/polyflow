@@ -33,3 +33,33 @@ export async function createMaklonReturnAction(data: {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+
+export async function getMaklonReturnsAction(params?: {
+    search?: string;
+    status?: string;
+    startDate?: Date;
+    endDate?: Date;
+}) {
+    try {
+        const session = await requireAuth();
+        if (!session?.user) throw new Error('Unauthorized');
+        
+        const returns = await MaklonReturnService.getReturns(params);
+        return { success: true, data: returns };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function getMaklonReturnByIdAction(id: string) {
+    try {
+        const session = await requireAuth();
+        if (!session?.user) throw new Error('Unauthorized');
+        
+        const ret = await MaklonReturnService.getReturnById(id);
+        if (!ret) throw new Error('Return not found');
+        return { success: true, data: ret };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
