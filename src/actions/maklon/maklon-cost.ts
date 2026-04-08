@@ -1,9 +1,10 @@
 'use server';
 
 import { MaklonCostService } from '@/services/maklon/maklon-cost-service';
+import { withTenant } from '@/lib/core/tenant';
 import { revalidatePath } from 'next/cache';
 
-export async function addMaklonCostAction(data: {
+export const addMaklonCostAction = withTenant(async function addMaklonCostAction(data: {
     productionOrderId: string;
     costType: 'LABOR' | 'MACHINE' | 'ELECTRICITY' | 'ADDITIVE' | 'COLORANT' | 'OVERHEAD' | 'OTHER';
     amount: number;
@@ -13,21 +14,21 @@ export async function addMaklonCostAction(data: {
         await MaklonCostService.addCostItem(data);
         await MaklonCostService.updateEstimatedConversionCost(data.productionOrderId);
         
-        revalidatePath(`/dashboard/production/${data.productionOrderId}`);
+        revalidatePath(`/planning/orders/${data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-}
+});
 
-export async function removeMaklonCostAction(id: string, productionOrderId: string) {
+export const removeMaklonCostAction = withTenant(async function removeMaklonCostAction(id: string, productionOrderId: string) {
     try {
         await MaklonCostService.removeCostItem(id);
         await MaklonCostService.updateEstimatedConversionCost(productionOrderId);
 
-        revalidatePath(`/dashboard/production/${productionOrderId}`);
+        revalidatePath(`/planning/orders/${productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-}
+});

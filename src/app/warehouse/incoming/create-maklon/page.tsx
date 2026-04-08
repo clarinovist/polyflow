@@ -18,6 +18,7 @@ export default async function CreateMaklonReceiptPage() {
     });
 
     const locations = await prisma.location.findMany({
+        where: { locationType: 'CUSTOMER_OWNED' },
         select: { id: true, name: true },
         orderBy: { name: 'asc' }
     });

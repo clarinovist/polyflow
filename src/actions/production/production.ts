@@ -250,6 +250,9 @@ export const getProductionOrder = withTenant(
                         reportedBy: { select: { id: true, name: true } }
                     },
                     orderBy: { reportedAt: 'desc' }
+                },
+                maklonCostItems: {
+                    orderBy: { createdAt: 'asc' }
                 }
             }
         });

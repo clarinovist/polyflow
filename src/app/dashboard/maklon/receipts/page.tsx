@@ -46,7 +46,7 @@ export default async function MaklonReceiptsPage({ searchParams }: { searchParam
             <GoodsReceiptTable
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 receipts={serializedReceipts as any}
-                basePath="/warehouse/incoming"
+                basePath="/dashboard/maklon/receipts"
             />
         </div>
     );

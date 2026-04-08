@@ -1,5 +1,6 @@
 import { getCustomers } from '@/actions/sales/customer';
-import { getLocations, getProductVariants } from '@/actions/inventory/inventory';
+import { getCustomerOwnedLocations } from '@/actions/inventory/locations';
+import { getProductVariants } from '@/actions/inventory/inventory';
 import { MaklonReturnForm } from '@/components/planning/maklon/MaklonReturnForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -7,7 +8,7 @@ export default async function CreateMaklonReturnPage() {
     // Fetch all required lookup data
     const [customersRes, locationsRes, productsRes] = await Promise.all([
         getCustomers(),
-        getLocations(),
+        getCustomerOwnedLocations(),
         getProductVariants()
     ]);
 

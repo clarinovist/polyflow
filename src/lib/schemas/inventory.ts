@@ -92,3 +92,17 @@ export const bulkAdjustStockSchema = z.object({
 
 export type BulkTransferStockValues = z.infer<typeof bulkTransferStockSchema>;
 export type BulkAdjustStockValues = z.infer<typeof bulkAdjustStockSchema>;
+
+// Location Schemas
+export const createLocationSchema = z.object({
+    name: z.string().min(1, "Location name is required").transform(sanitizeHtml),
+    slug: z.string().optional().transform(slug => slug ? sanitizeHtml(slug) : undefined),
+    description: z.string().optional().transform(desc => desc ? sanitizeHtml(desc) : undefined),
+    locationType: z.enum(['INTERNAL', 'CUSTOMER_OWNED'] as const),
+});
+
+export const updateLocationSchema = createLocationSchema;
+
+export type CreateLocationValues = z.infer<typeof createLocationSchema>;
+export type UpdateLocationValues = z.infer<typeof updateLocationSchema>;
+

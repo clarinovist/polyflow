@@ -101,7 +101,18 @@ export class InventoryQueryService {
     }
 
     static async getLocations() {
-        return await prisma.location.findMany();
+        return await prisma.location.findMany({
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                description: true,
+                locationType: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+            orderBy: { name: 'asc' },
+        });
     }
 
     static async getProductVariants() {

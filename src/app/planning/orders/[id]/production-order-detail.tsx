@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon, Factory } from 'lucide-react';
+import { MaklonCostManager } from '@/components/maklon/MaklonCostManager';
 import { cn, formatRupiah } from '@/lib/utils/utils';
 import { getOrderCosting } from '@/actions/finance/finance';
 import { useEffect } from 'react';
@@ -782,6 +783,15 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                 </TabsContent>
 
                 <TabsContent value="costing" className="space-y-6 mt-6">
+                    {/* Maklon Conversion Costs – only for Maklon orders */}
+                    {order.isMaklon && (
+                        <MaklonCostManager
+                            productionOrderId={order.id}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            initialItems={(order as any).maklonCostItems ?? []}
+                        />
+                    )}
+
                     {loadingCosting ? (
                         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                             <Calculator className="w-8 h-8 animate-pulse mb-2" />

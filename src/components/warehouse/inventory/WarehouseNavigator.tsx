@@ -10,6 +10,7 @@ interface LocationSummary {
     name: string;
     totalSkus: number;
     lowStockCount: number;
+    locationType?: string;
 }
 
 interface WarehouseNavigatorProps {
@@ -75,10 +76,17 @@ export function WarehouseNavigator({
                                 "flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-sm font-medium whitespace-nowrap",
                                 isActive
                                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                    : "bg-card hover:bg-muted/50 border-border text-muted-foreground"
+                                    : location.locationType === 'CUSTOMER_OWNED'
+                                        ? "bg-purple-50 hover:bg-purple-100/70 border-purple-200 text-purple-800 dark:bg-purple-900/20 dark:border-purple-700 dark:text-purple-300"
+                                        : "bg-card hover:bg-muted/50 border-border text-muted-foreground"
                             )}
                         >
                             <span>{location.name}</span>
+                            {location.locationType === 'CUSTOMER_OWNED' && !isActive && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider bg-purple-200 text-purple-800 dark:bg-purple-800/40 dark:text-purple-200 px-1.5 py-0.5 rounded-full">
+                                    Customer
+                                </span>
+                            )}
                             <div className="flex items-center gap-1">
                                 <Badge
                                     variant={isActive ? "secondary" : "outline"}

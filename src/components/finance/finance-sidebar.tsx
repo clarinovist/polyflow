@@ -14,7 +14,8 @@ import {
     TrendingUp,
     Wallet,
     Landmark,
-    Box
+    Box,
+    Factory
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -68,6 +69,7 @@ const financeLinks = [
             { href: '/finance/reports/trial-balance', icon: FileText, label: 'Trial Balance' },
             { href: '/finance/reports/budget-variance', icon: FileText, label: 'Budget Variance' },
             { href: '/finance/reports/tax', icon: FileText, label: 'Tax Report' },
+            { href: '/finance/reports/maklon', icon: Factory, label: 'Maklon Profitability' },
         ],
     },
     {

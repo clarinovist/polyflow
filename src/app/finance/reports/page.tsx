@@ -7,7 +7,8 @@ import {
     ArrowRight,
     Activity,
     PieChart,
-    Scale
+    Scale,
+    Factory
 } from "lucide-react";
 import Link from "next/link";
 
@@ -59,6 +60,14 @@ const reports = [
         icon: Scale,
         color: "text-amber-600",
         bg: "bg-amber-600/10"
+    },
+    {
+        title: "Maklon Profitability",
+        description: "Analyze service revenue vs internal conversion costs for toll manufacturing.",
+        href: "/finance/reports/maklon",
+        icon: Factory,
+        color: "text-purple-600",
+        bg: "bg-purple-600/10"
     }
 ];
 

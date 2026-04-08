@@ -65,6 +65,12 @@ const warehouseLinks: SidebarLinkGroup[] = [
             { title: "History Logs", href: "/warehouse/inventory/history", icon: History },
         ],
     },
+    {
+        heading: "Master Data",
+        items: [
+            { title: "Locations", href: "/warehouse/locations", icon: Warehouse },
+        ],
+    },
 ];
 
 export function WarehouseSidebar({ user }: WarehouseSidebarProps) {
