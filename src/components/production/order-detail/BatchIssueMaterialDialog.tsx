@@ -100,7 +100,7 @@ export function BatchIssueMaterialDialog({
     const [items, setItems] = useState<BatchItem[]>(initialItems);
     const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
     const [checkingStock, setCheckingStock] = useState(false);
-    const [adjustingItem, setAdjustingItem] = useState<{ id: string, name: string, variantId: string, needed: number, current: number } | null>(null);
+    const [adjustingItem, setAdjustingItem] = useState<{ id: string, name: string, variantId: string, locationId: string, needed: number, current: number } | null>(null);
     const [adjustReason, setAdjustReason] = useState("Ad-hoc production adjustment");
 
     // Fetch Stock Levels
@@ -114,7 +114,8 @@ export function BatchIssueMaterialDialog({
                 const locToUse = item.sourceLocationId || selectedLocation;
                 const res = await getRealtimeStock(locToUse, item.productVariantId);
                 if (res.success && typeof res.data === 'number') {
-                    newStocks[item.productVariantId] = res.data;
+                    const stockKey = `${locToUse}_${item.productVariantId}`;
+                    newStocks[stockKey] = res.data;
                 }
             } catch (_e) {
                 console.error(_e);
@@ -140,7 +141,7 @@ export function BatchIssueMaterialDialog({
 
         try {
             const res = await adjustStock({
-                locationId: selectedLocation,
+                locationId: adjustingItem.locationId,
                 productVariantId: adjustingItem.variantId,
                 type: 'ADJUSTMENT_IN',
                 quantity: missing,
@@ -445,29 +446,36 @@ export function BatchIssueMaterialDialog({
                                                     />
                                                     <span className="text-muted-foreground w-10 text-xs font-bold">{item.unit || '-'}</span>
                                                 </div>
-                                                {!isTransferMode && (
-                                                    <div className="mt-1 flex items-center justify-end gap-2">
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            Stock: {stockLevels[item.productVariantId] ?? '...'}
-                                                        </span>
-                                                        {(stockLevels[item.productVariantId] !== undefined && stockLevels[item.productVariantId] < item.quantity) && (
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                className="h-5 text-[10px] px-1.5"
-                                                                onClick={() => setAdjustingItem({
-                                                                    id: item.id,
-                                                                    name: item.name,
-                                                                    variantId: item.productVariantId,
-                                                                    needed: item.quantity,
-                                                                    current: stockLevels[item.productVariantId] || 0
-                                                                })}
-                                                            >
-                                                                <Wrench className="w-3 h-3 mr-1" /> Fix Shortage
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                {!isTransferMode && (() => {
+                                                    const locToUse = item.sourceLocationId || selectedLocation;
+                                                    const stockKey = `${locToUse}_${item.productVariantId}`;
+                                                    const currentStock = stockLevels[stockKey];
+                                                    
+                                                    return (
+                                                        <div className="mt-1 flex items-center justify-end gap-2">
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                Stock: {currentStock ?? '...'}
+                                                            </span>
+                                                            {(currentStock !== undefined && currentStock < item.quantity) && (
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    className="h-5 text-[10px] px-1.5"
+                                                                    onClick={() => setAdjustingItem({
+                                                                        id: item.id,
+                                                                        name: item.name,
+                                                                        variantId: item.productVariantId,
+                                                                        locationId: locToUse,
+                                                                        needed: item.quantity,
+                                                                        current: currentStock || 0
+                                                                    })}
+                                                                >
+                                                                    <Wrench className="w-3 h-3 mr-1" /> Fix Shortage
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="p-3 text-center">
                                                 {item.isPlanned ? (
