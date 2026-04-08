@@ -194,13 +194,17 @@ export async function getGoodsReceiptById(id: string) {
     });
 }
 
-export async function getGoodsReceipts(dateRange?: { startDate?: Date, endDate?: Date }) {
+export async function getGoodsReceipts(filter?: { startDate?: Date, endDate?: Date, isMaklon?: boolean }) {
     const where: Prisma.GoodsReceiptWhereInput = {};
 
-    if (dateRange?.startDate || dateRange?.endDate) {
+    if (filter?.startDate || filter?.endDate) {
         where.receivedDate = {};
-        if (dateRange.startDate) where.receivedDate.gte = dateRange.startDate;
-        if (dateRange.endDate) where.receivedDate.lte = dateRange.endDate;
+        if (filter.startDate) where.receivedDate.gte = filter.startDate;
+        if (filter.endDate) where.receivedDate.lte = filter.endDate;
+    }
+
+    if (filter?.isMaklon !== undefined) {
+        where.isMaklon = filter.isMaklon;
     }
 
     return await prisma.goodsReceipt.findMany({

@@ -68,8 +68,8 @@ export class PurchaseService {
         return getGoodsReceiptById(id);
     }
 
-    static async getGoodsReceipts(dateRange?: { startDate?: Date, endDate?: Date }) {
-        return getGoodsReceipts(dateRange);
+    static async getGoodsReceipts(filter?: { startDate?: Date, endDate?: Date, isMaklon?: boolean }) {
+        return getGoodsReceipts(filter);
     }
 
     static async getPurchaseInvoiceById(id: string) {

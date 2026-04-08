@@ -27,10 +27,15 @@ interface GoodsReceiptDetailProps {
         receiptNumber: string;
         receivedDate: Date | string;
         notes: string | null;
+        isMaklon?: boolean;
         purchaseOrder: {
             orderNumber: string;
             supplier: { name: string; code: string | null };
-        };
+        } | null;
+        customer?: {
+            name: string;
+            code: string | null;
+        } | null;
         location: { name: string };
         createdBy: { name: string };
         items: GoodsReceiptItem[];
@@ -64,12 +69,14 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                     </div>
                 </div>
 
-                <Button variant="outline" asChild>
-                    <Link href={`${basePath}/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        View PO {receipt.purchaseOrder.orderNumber}
-                    </Link>
-                </Button>
+                {receipt.purchaseOrder && (
+                    <Button variant="outline" asChild>
+                        <Link href={`${basePath}/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            View PO {receipt.purchaseOrder.orderNumber}
+                        </Link>
+                    </Button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -133,31 +140,57 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <CardTitle className="text-base">Receipt Details</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-start gap-3">
-                                <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
-                                    <Link
-                                        href={`${basePath}/orders`}
-                                        className="font-mono text-blue-600 hover:underline"
-                                    >
-                                        {receipt.purchaseOrder.orderNumber}
-                                    </Link>
-                                </div>
-                            </div>
+                            {receipt.purchaseOrder ? (
+                                <>
+                                    <div className="flex items-start gap-3">
+                                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                        <div>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
+                                            <Link
+                                                href={`${basePath}/orders`}
+                                                className="font-mono text-blue-600 hover:underline"
+                                            >
+                                                {receipt.purchaseOrder.orderNumber}
+                                            </Link>
+                                        </div>
+                                    </div>
 
-                            <div className="flex items-start gap-3">
-                                <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Supplier</h3>
-                                    <p className="font-medium">{receipt.purchaseOrder.supplier.name}</p>
-                                    {receipt.purchaseOrder.supplier.code && (
-                                        <p className="text-xs text-muted-foreground font-mono">
-                                            {receipt.purchaseOrder.supplier.code}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+                                    <div className="flex items-start gap-3">
+                                        <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                        <div>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Supplier</h3>
+                                            <p className="font-medium">{receipt.purchaseOrder.supplier.name}</p>
+                                            {receipt.purchaseOrder.supplier.code && (
+                                                <p className="text-xs text-muted-foreground font-mono">
+                                                    {receipt.purchaseOrder.supplier.code}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-start gap-3">
+                                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                        <div>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Receipt Type</h3>
+                                            <Badge variant="outline" className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10">Maklon Jasa</Badge>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <User className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                        <div>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Customer (Owner)</h3>
+                                            <p className="font-medium">{receipt.customer?.name || 'Unknown Maklon Customer'}</p>
+                                            {receipt.customer?.code && (
+                                                <p className="text-xs text-muted-foreground font-mono">
+                                                    {receipt.customer.code}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
                             <div className="flex items-start gap-3">
                                 <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
