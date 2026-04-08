@@ -67,6 +67,7 @@ describe('confirmOrder', () => {
                     id: 'item-1',
                     productVariantId: 'pv-1',
                     quantity: { toNumber: () => 10 } as never,
+                    productVariant: { product: { productType: 'PHYSICAL' } }
                 }
             ]
         } as never);

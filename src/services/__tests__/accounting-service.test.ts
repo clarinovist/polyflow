@@ -23,6 +23,15 @@ vi.mock('@/lib/core/prisma', () => {
         account: {
             findUnique: vi.fn(),
             findMany: vi.fn(),
+        },
+        productVariant: {
+            findUnique: vi.fn(),
+        },
+        salesOrder: {
+            findUnique: vi.fn(),
+        },
+        productionOrder: {
+            findUnique: vi.fn(),
         }
     };
     return { prisma: mockPrisma };

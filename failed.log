@@ -1,0 +1,297 @@
+Test & Validate	UNKNOWN STEP	﻿2026-04-07T07:45:32.6589761Z Current runner version: '2.333.1'
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6625188Z ##[group]Runner Image Provisioner
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6626497Z Hosted Compute Agent
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6627685Z Version: 20260213.493
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6628771Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6629925Z Build Date: 2026-02-13T00:28:41Z
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6631092Z Worker ID: {9ebf8cf6-83ef-4abf-b08f-99a4b3b3f98d}
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6632317Z Azure Region: eastus2
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6633337Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6635532Z ##[group]Operating System
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6636582Z Ubuntu
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6637294Z 24.04.4
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6638295Z LTS
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6639110Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6639936Z ##[group]Runner Image
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6640816Z Image: ubuntu-24.04
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6641657Z Version: 20260329.72.1
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6643704Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260329.72/images/ubuntu/Ubuntu2404-Readme.md
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6646520Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260329.72
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6648429Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6650598Z ##[group]GITHUB_TOKEN Permissions
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6653512Z Contents: write
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6654482Z Metadata: read
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6655310Z Packages: write
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6656194Z PullRequests: write
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6657130Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6660534Z Secret source: Actions
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.6661689Z Prepare workflow directory
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.7246621Z Prepare all required actions
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.7306543Z Getting action download info
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:32.9697884Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.0978348Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.2819193Z Complete job name: Test & Validate
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3541753Z ##[group]Run actions/checkout@v4
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3542607Z with:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3543019Z   repository: clarinovist/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3543678Z   token: ***
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3544057Z   ssh-strict: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3544458Z   ssh-user: git
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3544849Z   persist-credentials: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3545282Z   clean: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3545667Z   sparse-checkout-cone-mode: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3546129Z   fetch-depth: 1
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3546501Z   fetch-tags: false
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3546891Z   show-progress: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3547282Z   lfs: false
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3547929Z   submodules: false
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3548332Z   set-safe-directory: true
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3549055Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3549415Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.3549803Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4626572Z Syncing repository: clarinovist/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4629128Z ##[group]Getting Git version info
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4629939Z Working directory is '/home/runner/work/polyflow/polyflow'
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4630923Z [command]/usr/bin/git version
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4681837Z git version 2.53.0
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4708722Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4725569Z Temporarily overriding HOME='/home/runner/work/_temp/786ff3b3-08d1-422f-a2d6-b476c4da0f7c' before making global git config changes
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4728191Z Adding repository directory to the temporary git global config as a safe directory
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4740450Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/polyflow/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4773318Z Deleting the contents of '/home/runner/work/polyflow/polyflow'
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4776706Z ##[group]Initializing the repository
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4781012Z [command]/usr/bin/git init /home/runner/work/polyflow/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4873728Z hint: Using 'master' as the name for the initial branch. This default branch name
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4875416Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4876645Z hint: to use in all of your new repositories, which will suppress this warning,
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4877345Z hint: call:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4878098Z hint:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4878835Z hint: 	git config --global init.defaultBranch <name>
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4879572Z hint:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4880374Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4881444Z hint: 'development'. The just-created branch can be renamed via this command:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4882140Z hint:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4882512Z hint: 	git branch -m <name>
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4882942Z hint:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4883511Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4884481Z Initialized empty Git repository in /home/runner/work/polyflow/polyflow/.git/
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4886473Z [command]/usr/bin/git remote add origin https://github.com/clarinovist/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4915592Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4916325Z ##[group]Disabling automatic garbage collection
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4919896Z [command]/usr/bin/git config --local gc.auto 0
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4947008Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4947987Z ##[group]Setting up auth
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4954129Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.4983280Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5261482Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5290080Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5502034Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5531431Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5751248Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5785766Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5787025Z ##[group]Fetching the repository
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.5796024Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +19846a142d99d89566d67846e8a005c5c03ff1e8:refs/remotes/origin/main
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.9976255Z From https://github.com/clarinovist/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:33.9978370Z  * [new ref]         19846a142d99d89566d67846e8a005c5c03ff1e8 -> origin/main
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0008300Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0009586Z ##[group]Determining the checkout info
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0011588Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0015041Z [command]/usr/bin/git sparse-checkout disable
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0056449Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0083777Z ##[group]Checking out the ref
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0086678Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0686734Z Switched to a new branch 'main'
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0688504Z branch 'main' set up to track 'origin/main'.
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0697372Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0735703Z [command]/usr/bin/git log -1 --format=%H
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.0757102Z 19846a142d99d89566d67846e8a005c5c03ff1e8
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1060831Z ##[group]Run actions/setup-node@v4
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1061956Z with:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1062756Z   node-version: 20
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1063612Z   cache: npm
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1064450Z   always-auth: false
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1065347Z   check-latest: false
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1066488Z   token: ***
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1067684Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1068665Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.1069812Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.2836089Z Found in cache @ /opt/hostedtoolcache/node/20.20.2/x64
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.2843481Z ##[group]Environment details
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.5648989Z node: v20.20.2
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.5649533Z npm: 10.8.2
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.5649921Z yarn: 1.22.22
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.5651292Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.5670695Z [command]/opt/hostedtoolcache/node/20.20.2/x64/bin/npm config get cache
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.6920605Z /home/runner/.npm
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:34.8142487Z Cache hit for: node-cache-Linux-x64-npm-954f10a11c8c861837aa53aaa260f58afa8cd7e71266d066eea8b2c2a87b4867
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:35.8665799Z Received 211512572 of 215706876 (98.1%), 201.7 MBs/sec
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:35.9005110Z Received 215706876 of 215706876 (100.0%), 198.9 MBs/sec
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:35.9006338Z Cache Size: ~206 MB (215706876 B)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:35.9136685Z [command]/usr/bin/tar -xf /home/runner/work/_temp/0aed477e-3565-40df-9007-3bbc538dbcec/cache.tzst -P -C /home/runner/work/polyflow/polyflow --use-compress-program unzstd
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3146775Z Cache restored successfully
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3249480Z Cache restored from key: node-cache-Linux-x64-npm-954f10a11c8c861837aa53aaa260f58afa8cd7e71266d066eea8b2c2a87b4867
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3414322Z ##[group]Run npm ci
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3414645Z [36;1mnpm ci[0m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3452062Z shell: /usr/bin/bash -e {0}
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3452339Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3452517Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:36.3452715Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5644499Z npm warn ERESOLVE overriding peer dependency
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5645268Z npm warn While resolving: @react-email/tailwind@2.0.5
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5645857Z npm warn Found: @react-email/body@0.3.0
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5646302Z npm warn node_modules/@react-email/body
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5646887Z npm warn   @react-email/body@"0.3.0" from @react-email/components@1.0.9
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5647801Z npm warn   node_modules/@react-email/components
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5648531Z npm warn     @react-email/components@"^1.0.9" from the root project
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5648959Z npm warn
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5649286Z npm warn Could not resolve dependency:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5649973Z npm warn peerOptional @react-email/body@"0.2.1" from @react-email/tailwind@2.0.5
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5650583Z npm warn node_modules/@react-email/tailwind
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5651189Z npm warn   @react-email/tailwind@"2.0.5" from @react-email/components@1.0.9
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5651801Z npm warn   node_modules/@react-email/components
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5652195Z npm warn
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5652632Z npm warn Conflicting peer dependency: @react-email/body@0.2.1
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5653151Z npm warn node_modules/@react-email/body
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5653817Z npm warn   peerOptional @react-email/body@"0.2.1" from @react-email/tailwind@2.0.5
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5654439Z npm warn   node_modules/@react-email/tailwind
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5655441Z npm warn     @react-email/tailwind@"2.0.5" from @react-email/components@1.0.9
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:37.5656494Z npm warn     node_modules/@react-email/components
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.1114634Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.1116224Z added 761 packages, and audited 762 packages in 18s
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.1118410Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.1119053Z 196 packages are looking for funding
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.1119912Z   run `npm fund` for details
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2167784Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2168918Z 7 vulnerabilities (1 moderate, 6 high)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2169756Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2170548Z To address issues that do not require attention, run:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2171357Z   npm audit fix
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2171634Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2172053Z To address all issues possible, run:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2172709Z   npm audit fix --force
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2173053Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2173388Z Some issues need review, and may require choosing
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2173907Z a different dependency.
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2174130Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.2256941Z Run `npm audit` for details.
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3091887Z ##[group]Run npx prisma generate
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3092206Z [36;1mnpx prisma generate[0m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3123267Z shell: /usr/bin/bash -e {0}
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3123500Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3123663Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:54.3123858Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:55.0318581Z Prisma schema loaded from prisma/schema.prisma
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5736477Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5740194Z ✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 827ms
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5741193Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5745451Z Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5747896Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5750614Z Tip: Want real-time updates to your database without manual polling? Discover how with Pulse: https://pris.ly/tip-0-pulse
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.5752297Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7817059Z ##[group]Run npm run lint
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7817333Z [36;1mnpm run lint[0m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7845230Z shell: /usr/bin/bash -e {0}
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7845481Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7845646Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.7845837Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.8979362Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.8979930Z > polyflow@1.5.0 lint
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.8980410Z > eslint
+Test & Validate	UNKNOWN STEP	2026-04-07T07:45:56.8980619Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8176854Z ##[group]Run npx vitest run --coverage
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8177179Z [36;1mnpx vitest run --coverage[0m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8204242Z shell: /usr/bin/bash -e {0}
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8204471Z env:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8204636Z   REGISTRY: ghcr.io
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:20.8204826Z ##[endgroup]
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:21.6058013Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:21.6060696Z [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/home/runner/work/polyflow/polyflow[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:21.6061918Z       [2mCoverage enabled with [22m[33mv8[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:21.6062356Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.0284244Z  [32m✓[39m src/services/inventory/__tests__/stock-ledger-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.5188515Z  [32m✓[39m src/services/__tests__/invoice-service.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7971514Z  [31m❯[39m src/services/__tests__/accounting-service.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 31[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7973272Z        [32m✓[39m should throw error if attempting to create journal in a closed period[32m 8[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7974782Z        [32m✓[39m should create a grouped journal entry if debits equal credits[32m 1[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7975982Z        [32m✓[39m should throw an error if debits and credits do not match[32m 1[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7977225Z        [32m✓[39m should successfully void a POSTED journal[32m 3[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7978821Z        [32m✓[39m should throw an error if attempting to void a DRAFT journal[32m 1[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7980458Z        [32m✓[39m should create correct journal lines for Goods Receipt (PURCHASE)[32m 2[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7982148Z        [32m✓[39m should create correct journal lines for Production Output (IN)[32m 1[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.7984362Z [31m       [31m×[31m should create correct journal lines for Sales Shipment (OUT with Sales Order)[39m[32m 12[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.8359656Z  [32m✓[39m src/services/__tests__/production-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:22.8908714Z  [32m✓[39m src/services/purchasing/__tests__/orders-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.1300314Z  [32m✓[39m src/services/accounting/__tests__/journals-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.2090571Z  [32m✓[39m src/app/api/cron/cleanup/__tests__/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.2116957Z  [32m✓[39m src/services/__tests__/costing-service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.4880863Z  [31m❯[39m src/services/sales/__tests__/orders-service.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 15[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.4909714Z [31m     [31m×[31m should catch and log an error if ProductionService.createOrderFromSales throws synchronously[39m[32m 12[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.5399613Z  [32m✓[39m src/services/production/__tests__/cost-service.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.7074577Z  [32m✓[39m src/services/sales/__tests__/returns-service.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.7752447Z  [32m✓[39m src/lib/__tests__/rate-limit.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.7762573Z  [32m✓[39m src/services/__tests__/dummy.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:23.8864864Z  [32m✓[39m src/lib/__tests__/production-utils.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0932319Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0934087Z [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0934617Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0938346Z [41m[1m FAIL [22m[49m src/services/__tests__/accounting-service.test.ts[2m > [22mAccountingService[2m > [22mAuto-Journal from Inventory Movements[2m > [22mshould create correct journal lines for Sales Shipment (OUT with Sales Order)
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0943302Z [31m[1mTypeError[22m: Cannot read properties of undefined (reading 'findUnique')[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0944842Z [36m [2m❯[22m recordInventoryMovement src/services/accounting/inventory-link-service.ts:[2m37:40[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0989195Z     [90m 35| [39m        [35mif[39m (po[33m?.[39misMaklon) isMaklon [33m=[39m [35mtrue[39m[33m;[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0990384Z     [90m 36| [39m    } [35melse[39m [35mif[39m (movement[33m.[39msalesOrderId) {
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0991477Z     [90m 37| [39m        const so = await db.salesOrder.findUnique({ where: { id: movem…
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0992518Z     [90m   | [39m                                       [31m^[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0993843Z     [90m 38| [39m        [35mif[39m (so[33m?.[39morderType [33m===[39m [32m'MAKLON_JASA'[39m) isMaklon [33m=[39m [35mtrue[39m[33m;[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0994788Z     [90m 39| [39m    }
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0995936Z [90m [2m❯[22m Function.recordInventoryMovement src/services/accounting/accounting-service.ts:[2m140:16[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0996770Z [90m [2m❯[22m src/services/__tests__/accounting-service.test.ts:[2m247:37[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0997091Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0997329Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0997892Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.0998903Z [41m[1m FAIL [22m[49m src/services/sales/__tests__/orders-service.test.ts[2m > [22mconfirmOrder[2m > [22mshould catch and log an error if ProductionService.createOrderFromSales throws synchronously
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1000033Z [31m[1mTypeError[22m: Cannot read properties of undefined (reading 'product')[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1000684Z [36m [2m❯[22m src/services/sales/orders-service.ts:[2m306:41[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1043818Z     [90m304| [39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1045287Z     [90m305| [39m            [35mfor[39m ([35mconst[39m item [35mof[39m order[33m.[39mitems) {
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1046540Z     [90m306| [39m                if (item.productVariant.product.productType === Produc…
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1047786Z     [90m   | [39m                                        [31m^[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1048811Z     [90m307| [39m                    // SERVICE items (Maklon Jasa) don't have physical…
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1049935Z     [90m308| [39m                    // WOs for Maklon must be created manually in the …
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1050862Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1051362Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1051739Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1053003Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1054380Z [2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (14)[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1055856Z [2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m41 passed[39m[22m[90m (43)[39m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1056827Z [2m   Start at [22m 07:46:21
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1058996Z [2m   Duration [22m 2.47s[2m (transform 1.45s, setup 261ms, import 2.94s, tests 241ms, environment 3ms)[22m
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1059734Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1070205Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1101870Z ##[error]TypeError: Cannot read properties of undefined (reading 'findUnique')
+Test & Validate	UNKNOWN STEP	 ❯ recordInventoryMovement src/services/accounting/inventory-link-service.ts:37:40
+Test & Validate	UNKNOWN STEP	 ❯ Function.recordInventoryMovement src/services/accounting/accounting-service.ts:140:16
+Test & Validate	UNKNOWN STEP	 ❯ src/services/__tests__/accounting-service.test.ts:247:37
+Test & Validate	UNKNOWN STEP	
+Test & Validate	UNKNOWN STEP	
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1114212Z 
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1116685Z ##[error]TypeError: Cannot read properties of undefined (reading 'product')
+Test & Validate	UNKNOWN STEP	 ❯ src/services/sales/orders-service.ts:306:41
+Test & Validate	UNKNOWN STEP	
+Test & Validate	UNKNOWN STEP	
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1488423Z ##[error]Process completed with exit code 1.
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.1601171Z Post job cleanup.
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2542499Z [command]/usr/bin/git version
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2579727Z git version 2.53.0
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2624371Z Temporarily overriding HOME='/home/runner/work/_temp/96e12bb3-0d69-4888-af25-52e0207cb9c6' before making global git config changes
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2626736Z Adding repository directory to the temporary git global config as a safe directory
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2638362Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/polyflow/polyflow
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2672545Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2703524Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2924623Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2945181Z http.https://github.com/.extraheader
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2957240Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.2988311Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.3214793Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.3252921Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.3621013Z Cleaning up orphan processes
+Test & Validate	UNKNOWN STEP	2026-04-07T07:46:24.3904012Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-node@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
