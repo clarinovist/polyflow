@@ -71,6 +71,7 @@ export const batchMaterialIssueSchema = z.object({
         productVariantId: z.string().min(1, "Material variant is required"),
         quantity: z.coerce.number().positive("Quantity must be positive"),
         batchId: z.string().optional(), // NEW: Batch selection support
+        sourceLocationId: z.string().optional(), // NEW: Per-item location override
     })).min(0, "Items can be empty if only updating plan"),
     removedPlannedMaterialIds: z.array(z.string()).optional(),
     addedPlannedMaterials: z.array(z.object({

@@ -103,6 +103,8 @@ export class ProductionMaterialService {
             const idempotencySuffix = requestId ? ` REQ:${requestId}` : "";
 
             for (const item of items) {
+                const itemLocationId = item.sourceLocationId || locationId;
+                if (!itemLocationId) throw new Error("Source location is required");
                 // 2. Server-side Capping
                 const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
                 const plannedQty = planItem ? Number(planItem.quantity) : 0;
@@ -128,7 +130,7 @@ export class ProductionMaterialService {
                     const batches = await tx.batch.findMany({
                         where: {
                             productVariantId: item.productVariantId,
-                            locationId,
+                            locationId: itemLocationId,
                             quantity: { gt: 0 }
                         },
                         orderBy: { manufacturingDate: 'asc' } // FIFO
@@ -136,15 +138,15 @@ export class ProductionMaterialService {
 
                     if (batches.length === 0) {
                         // Fallback: Check if there's stock without batch record
-                        await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, remainingToDeduct);
-                        await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, remainingToDeduct);
+                        await InventoryCoreService.validateAndLockStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
+                        await InventoryCoreService.deductStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
 
                         const newIssue = await tx.materialIssue.create({
                             data: {
                                 productionOrderId,
                                 productVariantId: item.productVariantId,
                                 quantity: remainingToDeduct,
-                                locationId, // SAVED: Direct location tracking
+                                locationId: itemLocationId, // SAVED: Direct location tracking
                                 createdById: userId
                             }
                         });
@@ -154,7 +156,7 @@ export class ProductionMaterialService {
                             data: {
                                 type: MovementType.OUT,
                                 productVariantId: item.productVariantId,
-                                fromLocationId: locationId,
+                                fromLocationId: itemLocationId,
                                 toLocationId: null,
                                 quantity: remainingToDeduct,
                                 reference: `${refPrefix}${idempotencySuffix}`,
@@ -177,7 +179,7 @@ export class ProductionMaterialService {
 
                             // Deduct from Inventory
                             await tx.inventory.update({
-                                where: { locationId_productVariantId: { locationId, productVariantId: item.productVariantId } },
+                                where: { locationId_productVariantId: { locationId: itemLocationId, productVariantId: item.productVariantId } },
                                 data: { quantity: { decrement: deductFromBatch } }
                             });
 
@@ -187,7 +189,7 @@ export class ProductionMaterialService {
                                     productVariantId: item.productVariantId,
                                     quantity: deductFromBatch,
                                     batchId: batch.id,
-                                    locationId, // SAVED: Direct location tracking
+                                    locationId: itemLocationId, // SAVED: Direct location tracking
                                     createdById: userId
                                 }
                             });
@@ -197,7 +199,7 @@ export class ProductionMaterialService {
                                 data: {
                                     type: MovementType.OUT,
                                     productVariantId: item.productVariantId,
-                                    fromLocationId: locationId,
+                                    fromLocationId: itemLocationId,
                                     toLocationId: null,
                                     quantity: deductFromBatch,
                                     reference: `${refPrefix}${idempotencySuffix}`,
@@ -228,7 +230,7 @@ export class ProductionMaterialService {
                     });
 
                     await tx.inventory.update({
-                        where: { locationId_productVariantId: { locationId, productVariantId: item.productVariantId } },
+                        where: { locationId_productVariantId: { locationId: itemLocationId, productVariantId: item.productVariantId } },
                         data: { quantity: { decrement: remainingToDeduct } }
                     });
 
@@ -238,7 +240,7 @@ export class ProductionMaterialService {
                             productVariantId: item.productVariantId,
                             quantity: remainingToDeduct,
                             batchId: item.batchId,
-                            locationId, // SAVED: Direct location tracking
+                            locationId: itemLocationId, // SAVED: Direct location tracking
                             createdById: userId
                         }
                     });
@@ -248,7 +250,7 @@ export class ProductionMaterialService {
                         data: {
                             type: MovementType.OUT,
                             productVariantId: item.productVariantId,
-                            fromLocationId: locationId,
+                            fromLocationId: itemLocationId,
                             toLocationId: null,
                             quantity: remainingToDeduct,
                             reference: `${refPrefix}${idempotencySuffix}`,

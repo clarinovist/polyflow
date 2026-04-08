@@ -18,6 +18,7 @@ interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
     productVariantId: string;
     quantity: number;
+    sourceLocationId?: string;
     isPlanned: boolean;
     name: string;
     unit: string;
@@ -110,7 +111,8 @@ export function BatchIssueMaterialDialog({
 
         await Promise.all(activeItems.map(async (item) => {
             try {
-                const res = await getRealtimeStock(selectedLocation, item.productVariantId);
+                const locToUse = item.sourceLocationId || selectedLocation;
+                const res = await getRealtimeStock(locToUse, item.productVariantId);
                 if (res.success && typeof res.data === 'number') {
                     newStocks[item.productVariantId] = res.data;
                 }
@@ -162,6 +164,7 @@ export function BatchIssueMaterialDialog({
             id: `sub-${Date.now()}`,
             productVariantId: '',
             quantity: 0,
+            sourceLocationId: selectedLocation,
             isPlanned: false,
             name: '',
             unit: '',
@@ -203,6 +206,10 @@ export function BatchIssueMaterialDialog({
         } : item));
     };
 
+    const handleUpdateLocation = (id: string, locId: string) => {
+        setItems(items.map(item => item.id === id ? { ...item, sourceLocationId: locId } : item));
+    };
+
     async function onSubmit() {
         const validItems = items.filter(i => !i.isDeletedPlan && i.quantity > 0 && i.productVariantId !== '');
 
@@ -226,21 +233,41 @@ export function BatchIssueMaterialDialog({
                     setLoading(false);
                     return;
                 }
-                // TRANSFER MODE: Transfer Stock Logic
-                const itemsToTransfer = validItems.map(i => ({
-                    productVariantId: i.productVariantId,
-                    quantity: i.quantity
-                }));
+                // TRANSFER MODE: Transfer Stock Logic, grouping by source locations
+                const transfersByLocation = validItems.reduce((acc, item) => {
+                    const loc = item.sourceLocationId || selectedLocation;
+                    if (!acc[loc]) acc[loc] = [];
+                    acc[loc].push({
+                        productVariantId: item.productVariantId,
+                        quantity: item.quantity
+                    });
+                    return acc;
+                }, {} as Record<string, { productVariantId: string, quantity: number }[]>);
+                
+                // Validate destination
+                if (Object.keys(transfersByLocation).includes(order.location.id)) {
+                    toast.error("Source and destination locations must be different for transfer.");
+                    setLoading(false);
+                    return;
+                }
 
-                const result = await transferStockBulk({
-                    sourceLocationId: selectedLocation,
-                    destinationLocationId: order.location.id, // Target is the Production Location
-                    items: itemsToTransfer,
-                    date: new Date(),
-                    notes: `Transfer for Order ${order.orderNumber}`
-                });
+                // Execute all transfers
+                const results = await Promise.all(
+                    Object.entries(transfersByLocation).map(([sourceLocId, itemsToTransfer]) =>
+                        transferStockBulk({
+                            sourceLocationId: sourceLocId,
+                            destinationLocationId: order.location.id, // Target is the Production Location
+                            items: itemsToTransfer,
+                            date: new Date(),
+                            notes: `Transfer for Order ${order.orderNumber}`
+                        })
+                    )
+                );
 
-                if (result.success) {
+                const hasError = results.some(r => !r.success);
+                // Note: Partial failure could happen, but we assume atomic failures for now.
+                
+                if (!hasError) {
                     // SYNC PLAN: Also update the production plan if there are changes
                     if (removedPlannedMaterialIds.length > 0 || addedPlannedMaterials.length > 0 || validItems.some(i => i.isPlanned)) {
                         await batchIssueMaterials({
@@ -264,7 +291,8 @@ export function BatchIssueMaterialDialog({
                     setOpen(false);
                     router.refresh();
                 } else {
-                    toast.error(result.error || "Failed to transfer materials");
+                    const firstError = results.find(r => !r.success)?.error;
+                    toast.error(firstError || "Failed to transfer materials");
                 }
             } else {
                 // STANDARD MODE: Issue Logic
@@ -273,7 +301,8 @@ export function BatchIssueMaterialDialog({
                     locationId: selectedLocation,
                     items: validItems.map(i => ({
                         productVariantId: i.productVariantId,
-                        quantity: i.quantity
+                        quantity: i.quantity,
+                        sourceLocationId: i.sourceLocationId
                     })),
                     removedPlannedMaterialIds,
                     addedPlannedMaterials,
@@ -387,6 +416,22 @@ export function BatchIssueMaterialDialog({
                                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Substitute</span>
                                                     </div>
                                                 )}
+                                                <div className="mt-2">
+                                                    <Select
+                                                        value={item.sourceLocationId || selectedLocation}
+                                                        onValueChange={(val) => handleUpdateLocation(item.id, val)}
+                                                    >
+                                                        <SelectTrigger className="h-7 text-xs border-dashed w-fit">
+                                                            <SelectValue placeholder="Override Source Location" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value={selectedLocation}>Default Location</SelectItem>
+                                                            {locations.filter(l => l.id !== selectedLocation).map(l => (
+                                                                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </td>
                                             <td className="p-3">
                                                 <div className="flex items-center gap-2">
