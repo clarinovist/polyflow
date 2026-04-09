@@ -154,18 +154,16 @@ export class ProductionExecutionService {
                 if (itemsToBackflush.length > 0) {
                     // Determine Backflush Source Location
                     let consumptionLocationId = order.locationId; // Default to order location
-                    if (order.isMaklon) {
-                        const maklonLoc = await tx.location.findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                        if (!maklonLoc) {
-                            throw new Error("Cannot execute Maklon order: No CUSTOMER_OWNED location found.");
-                        }
-                        consumptionLocationId = maklonLoc.id;
-                    } else if (order.bom?.category === 'EXTRUSION') {
+                    if (order.bom?.category === 'EXTRUSION') {
                         const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                         if (mixingLoc) consumptionLocationId = mixingLoc.id;
                     } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                         const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                         if (fgLoc) consumptionLocationId = fgLoc.id;
+                    } else if (order.isMaklon) {
+                        const maklonLoc = await tx.location.findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                        if (!maklonLoc) throw new Error("Cannot execute Maklon order: No CUSTOMER_OWNED location found.");
+                        consumptionLocationId = maklonLoc.id;
                     }
 
                     for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
@@ -186,11 +184,11 @@ export class ProductionExecutionService {
                                 where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                                 select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                             });
-                            const srcUnitCost = order.isMaklon
-                                ? 0
-                                : (Number(srcInv?.averageCost ?? 0) ||
-                                  Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                                  Number(srcInv?.productVariant?.buyPrice ?? 0));
+                            let srcUnitCost = Number(srcInv?.averageCost ?? 0);
+                            if (srcUnitCost === 0 && !order.isMaklon) {
+                                srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                                              Number(srcInv?.productVariant?.buyPrice ?? 0);
+                            }
                             
                             const moveOut = await tx.stockMovement.create({
                                 data: {
@@ -319,17 +317,17 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = locationId; // Default to order location
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if ((order as any).isMaklon) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
-                } else if (order.bom?.category === 'EXTRUSION') {
+                if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
                 } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } else if ((order as any).isMaklon) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
                 }
 
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
@@ -350,12 +348,12 @@ export class ProductionExecutionService {
                             where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                             select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                         });
+                        let srcUnitCost = Number(srcInv?.averageCost ?? 0);
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const srcUnitCost = (order as any).isMaklon
-                            ? 0
-                            : (Number(srcInv?.averageCost ?? 0) ||
-                              Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                              Number(srcInv?.productVariant?.buyPrice ?? 0));
+                        if (srcUnitCost === 0 && !(order as any).isMaklon) {
+                            srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                                          Number(srcInv?.productVariant?.buyPrice ?? 0);
+                        }
 
                         const moveOut = await tx.stockMovement.create({
                             data: {
@@ -507,18 +505,17 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 // Determine Backflush Source Location
                 let consumptionLocationId = order.locationId; // Default to order location
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if ((order as any).isMaklon) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
-                } else if (order.bom?.category === 'EXTRUSION') {
+                if (order.bom?.category === 'EXTRUSION') {
                     const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
                     if (mixingLoc) consumptionLocationId = mixingLoc.id;
-
                 } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
                     const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
                     if (fgLoc) consumptionLocationId = fgLoc.id;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } else if ((order as any).isMaklon) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
+                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
                 }
 
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
@@ -540,12 +537,12 @@ export class ProductionExecutionService {
                             where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
                             select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
                         });
+                        let srcUnitCost = Number(srcInv?.averageCost ?? 0);
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const srcUnitCost = (order as any).isMaklon
-                            ? 0
-                            : (Number(srcInv?.averageCost ?? 0) ||
-                              Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                              Number(srcInv?.productVariant?.buyPrice ?? 0));
+                        if (srcUnitCost === 0 && !(order as any).isMaklon) {
+                            srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
+                                          Number(srcInv?.productVariant?.buyPrice ?? 0);
+                        }
 
                         const moveOut = await tx.stockMovement.create({
                             data: {
