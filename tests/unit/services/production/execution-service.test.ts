@@ -181,6 +181,10 @@ describe('ProductionExecutionService', () => {
         // Execute addProductionOutput
         await ProductionExecutionService.addProductionOutput({
             productionOrderId: 'po-2',
+            machineId: undefined,
+            operatorId: undefined,
+            shiftId: undefined,
+            cekGram: undefined,
             quantityProduced: 200,
             scrapQuantity: 0,
             scrapProngkolQty: 0,

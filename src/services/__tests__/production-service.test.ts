@@ -34,6 +34,9 @@ vi.mock('@/lib/core/prisma', () => {
         },
         scrapRecord: {
             create: vi.fn(),
+            updateMany: vi.fn(),
+            createMany: vi.fn(),
+            findMany: vi.fn(),
         },
         location: {
             findUnique: vi.fn(),
@@ -186,6 +189,10 @@ describe('ProductionService', () => {
         it('should automatically deduct materials proportionally based on BOM when output is added', async () => {
             await ProductionService.addProductionOutput({
                 productionOrderId: 'po-1',
+                machineId: 'mach-1',
+                operatorId: 'op-1',
+                shiftId: 'shift-1',
+                cekGram: undefined,
                 quantityProduced: 10,
                 scrapQuantity: 0,
                 scrapProngkolQty: 0,
@@ -223,6 +230,10 @@ describe('ProductionService', () => {
         it('should automatically record scrap details and adjust inventory when scrap components are logged', async () => {
             await ProductionService.addProductionOutput({
                 productionOrderId: 'po-1',
+                machineId: 'mach-1',
+                operatorId: 'op-1',
+                shiftId: 'shift-1',
+                cekGram: undefined,
                 quantityProduced: 10,
                 scrapQuantity: 5,
                 scrapProngkolQty: 2,

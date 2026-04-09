@@ -395,8 +395,9 @@ export class ProductionExecutionService {
      */
     static async addProductionOutput(data: ProductionOutputValues & { userId?: string }) {
         const {
-            productionOrderId, machineId, operatorId, shiftId,
+            productionOrderId, machineId, operatorId, shiftId, helperIds,
             quantityProduced, scrapQuantity, scrapProngkolQty, scrapDaunQty,
+            bruto, bobin, cekGram,
             startTime, endTime, notes, userId
         } = data;
 
@@ -424,14 +425,24 @@ export class ProductionExecutionService {
                 notes?: string | null;
                 scrapProngkolQty?: number;
                 scrapDaunQty?: number;
+                bruto?: number | null;
+                bobin?: number | null;
+                cekGram?: string | null;
+                helpers?: { connect: { id: string }[] };
             } = {
                 productionOrderId, machineId, operatorId, shiftId,
                 startTime, endTime, quantityProduced: Number(quantityProduced), scrapQuantity: Number(scrapQuantity), notes
             };
             if (scrapProngkolQty !== undefined) executionData.scrapProngkolQty = Number(scrapProngkolQty);
             if (scrapDaunQty !== undefined) executionData.scrapDaunQty = Number(scrapDaunQty);
+            if (bruto !== undefined) executionData.bruto = Number(bruto);
+            if (bobin !== undefined) executionData.bobin = Number(bobin);
+            if (cekGram !== undefined) executionData.cekGram = cekGram;
+            if (helperIds && helperIds.length > 0) {
+                executionData.helpers = { connect: helperIds.map(id => ({ id })) };
+            }
 
-            await tx.productionExecution.create({ data: executionData });
+            const execution = await tx.productionExecution.create({ data: executionData });
 
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
             const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
@@ -566,7 +577,7 @@ export class ProductionExecutionService {
             // --- SYSTEM: AUTOMATIC SCRAP RECORDING ---
             // If prongkol or daun qty is provided, we record them as actual ScrapRecord
             // so they enter the 'Scrap Warehouse' and become sellable inventory.
-            if (scrapProngkolQty > 0 || scrapDaunQty > 0) {
+            if (scrapProngkolQty > 0 || scrapDaunQty > 0 || scrapQuantity > 0) {
                 const scrapLocation = await tx.location.findUnique({
                     where: { slug: WAREHOUSE_SLUGS.SCRAP }
                 });
@@ -586,6 +597,11 @@ export class ProductionExecutionService {
                                 reason: 'Production Process Waste (Lumps)',
                                 userId
                             }, tx);
+                            // Link to Execution
+                            await tx.scrapRecord.updateMany({
+                                where: { productionOrderId, productVariantId: variant.id, locationId: scrapLocation.id, quantity: scrapProngkolQty },
+                                data: { productionExecutionId: execution.id }
+                            });
                         } else {
                             console.warn(`Scrap variant SCRAP-PRONGKOL not found. Scrap tracking for this run will be recorded as execution data only.`);
                         }
@@ -605,6 +621,11 @@ export class ProductionExecutionService {
                                 reason: 'Production Process Waste (Trim)',
                                 userId
                             }, tx);
+                            // Link to Execution
+                            await tx.scrapRecord.updateMany({
+                                where: { productionOrderId, productVariantId: variant.id, locationId: scrapLocation.id, quantity: scrapDaunQty },
+                                data: { productionExecutionId: execution.id }
+                            });
                         } else {
                             console.warn(`Scrap variant SCRAP-DAUN not found. Scrap tracking for this run will be recorded as execution data only.`);
                         }

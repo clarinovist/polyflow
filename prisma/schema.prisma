@@ -55,6 +55,7 @@ model Employee {
   updatedAt            DateTime              @updatedAt
   hourlyRate           Decimal               @default(0) @db.Decimal(10, 2)
   executionsAsOperator ProductionExecution[] @relation("ExecutionOperator")
+  executionsAsHelper   ProductionExecution[] @relation("ExecutionHelpers")
   shiftsAsOperator     ProductionShift[]     @relation("ShiftOperator")
   shiftsAsHelper       ProductionShift[]     @relation("ShiftHelpers")
 }
@@ -494,20 +495,23 @@ model ProductionIssue {
 }
 
 model ScrapRecord {
-  id                String          @id @default(uuid())
-  productionOrderId String
-  productVariantId  String
-  quantity          Decimal         @db.Decimal(15, 4)
-  reason            String?
-  recordedAt        DateTime        @default(now())
-  createdById       String?
-  locationId        String?
-  createdBy         User?           @relation(fields: [createdById], references: [id])
-  location          Location?       @relation(fields: [locationId], references: [id])
-  productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  id                    String               @id @default(uuid())
+  productionOrderId     String
+  productionExecutionId String?
+  productVariantId      String
+  quantity              Decimal              @db.Decimal(15, 4)
+  reason                String?
+  recordedAt            DateTime             @default(now())
+  createdById           String?
+  locationId            String?
+  createdBy             User?                @relation(fields: [createdById], references: [id])
+  location              Location?            @relation(fields: [locationId], references: [id])
+  productVariant        ProductVariant       @relation(fields: [productVariantId], references: [id])
+  productionOrder       ProductionOrder      @relation(fields: [productionOrderId], references: [id])
+  productionExecution   ProductionExecution? @relation(fields: [productionExecutionId], references: [id])
 
   @@index([recordedAt])
+  @@index([productionExecutionId])
 }
 
 model QualityInspection {
@@ -545,6 +549,9 @@ model ProductionExecution {
   shiftId           String?
   quantityProduced  Decimal         @db.Decimal(15, 4)
   scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
+  bruto             Decimal?        @db.Decimal(15, 4)
+  bobin             Decimal?        @db.Decimal(15, 4)
+  cekGram           String?
   startTime         DateTime
   endTime           DateTime?
   notes             String?
@@ -555,8 +562,10 @@ model ProductionExecution {
   scrapProngkolQty  Decimal         @default(0) @db.Decimal(15, 4)
   machine           Machine?        @relation(fields: [machineId], references: [id])
   operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
+  helpers           Employee[]      @relation("ExecutionHelpers")
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   shift             WorkShift?      @relation(fields: [shiftId], references: [id])
+  scrapRecords      ScrapRecord[]
 
   @@index([productionOrderId])
   @@index([startTime])

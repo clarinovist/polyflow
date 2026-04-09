@@ -120,11 +120,13 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
             productionOrderId: order.id,
             machineId: order.machineId || undefined,
             operatorId: fd.get('operatorId') as string,
+            helperIds: selectedHelpers,
             shiftId: fd.get('shiftId') as string,
             quantityProduced: totalGoodQty,
             scrapProngkolQty: Number(scrapProngkol || 0),
             scrapDaunQty: Number(scrapDaun || 0),
             scrapQuantity: 0, // Legacy/Required by type
+            cekGram: undefined, // Not applicable in desktop UI
             startTime: new Date(nowIso), // Always NOW
             endTime: new Date(nowIso),   // Always NOW
             notes: finalNotes

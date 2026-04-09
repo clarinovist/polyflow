@@ -107,13 +107,19 @@ export type CreateBomValues = z.infer<typeof createBomSchema>;
 
 export const productionOutputSchema = z.object({
     productionOrderId: z.string().min(1, "Production Order ID is required"),
-    machineId: z.string().optional(),
-    operatorId: z.string().optional(),
-    shiftId: z.string().optional(),
+    // Transform empty string '' → undefined to prevent FK constraint violations in DB
+    machineId: z.string().optional().transform(v => v || undefined),
+    operatorId: z.string().optional().transform(v => v || undefined),
+    helperIds: z.array(z.string()).optional(),
+    shiftId: z.string().optional().transform(v => v || undefined),
     quantityProduced: z.coerce.number().nonnegative("Quantity cannot be negative"),
     scrapQuantity: z.coerce.number().nonnegative().default(0), // Total Aggregated Scrap (Legacy/KPI)
     scrapProngkolQty: z.coerce.number().nonnegative().default(0),
     scrapDaunQty: z.coerce.number().nonnegative().default(0),
+    bruto: z.coerce.number().nonnegative().optional(),
+    bobin: z.coerce.number().nonnegative().optional(),
+    // Empty string for cekGram should also not be stored in DB
+    cekGram: z.string().optional().transform(v => v || undefined),
     startTime: z.coerce.date(),
     endTime: z.coerce.date(),
     notes: z.string().optional().transform(sanitizeHtml),
