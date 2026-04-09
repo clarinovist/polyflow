@@ -14,8 +14,55 @@ import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { ProductionMaterialService } from './material-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { Prisma } from '@prisma/client';
+
+interface BackflushOrder {
+    isMaklon: boolean;
+    locationId: string;
+    bom?: { category: string | null } | null;
+}
 
 export class ProductionExecutionService {
+
+    /**
+     * Resolve the source location for material consumption per item.
+     * Priorities:
+     * 1. If Maklon: Check if CUSTOMER_OWNED stock exists for the item.
+     * 2. Category overrides (EXTRUSION -> Mixing, PACKING/REWORK -> Finishing).
+     * 3. Fallback to Order's default location.
+     */
+    private static async resolveMaterialLocation(
+        tx: Prisma.TransactionClient,
+        order: BackflushOrder,
+        productVariantId: string
+    ): Promise<string> {
+        // 1. If Maklon, check for customer stock first
+        if (order.isMaklon) {
+            const customerInv = await tx.inventory.findFirst({
+                where: {
+                    productVariantId,
+                    location: { locationType: 'CUSTOMER_OWNED' }
+                },
+                select: { locationId: true, quantity: true }
+            });
+
+            if (customerInv && customerInv.quantity.toNumber() > 0) {
+                return customerInv.locationId;
+            }
+        }
+
+        // 2. Category Overrides
+        if (order.bom?.category === 'EXTRUSION') {
+            const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
+            if (mixingLoc) return mixingLoc.id;
+        } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
+            const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+            if (fgLoc) return fgLoc.id;
+        }
+
+        // 3. System Default
+        return order.locationId;
+    }
 
     /**
      * Start Execution
@@ -152,21 +199,10 @@ export class ProductionExecutionService {
                 const isUsingPlanned = order.plannedMaterials.length > 0;
 
                 if (itemsToBackflush.length > 0) {
-                    // Determine Backflush Source Location
-                    let consumptionLocationId = order.locationId; // Default to order location
-                    if (order.bom?.category === 'EXTRUSION') {
-                        const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
-                        if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                    } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-                        const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
-                        if (fgLoc) consumptionLocationId = fgLoc.id;
-                    } else if (order.isMaklon) {
-                        const maklonLoc = await tx.location.findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                        if (!maklonLoc) throw new Error("Cannot execute Maklon order: No CUSTOMER_OWNED location found.");
-                        consumptionLocationId = maklonLoc.id;
-                    }
-
                     for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
+                        // Resolve Location per item
+                        const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+
                         let ratio = 0;
                         if (isUsingPlanned) {
                             ratio = Number(item.quantity) / Number(order.plannedQuantity);
@@ -315,22 +351,10 @@ export class ProductionExecutionService {
             const isUsingPlanned = order.plannedMaterials.length > 0;
 
             if (itemsToBackflush.length > 0) {
-                // Determine Backflush Source Location
-                let consumptionLocationId = locationId; // Default to order location
-                if (order.bom?.category === 'EXTRUSION') {
-                    const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
-                    if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-                    const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
-                    if (fgLoc) consumptionLocationId = fgLoc.id;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } else if ((order as any).isMaklon) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
-                }
-
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
+                    // Resolve Location per item
+                    const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+
                     let ratio = 0;
                     if (isUsingPlanned) {
                         ratio = Number(item.quantity) / Number(order.plannedQuantity);
@@ -503,22 +527,10 @@ export class ProductionExecutionService {
             const isUsingPlanned = order.plannedMaterials.length > 0;
 
             if (itemsToBackflush.length > 0) {
-                // Determine Backflush Source Location
-                let consumptionLocationId = order.locationId; // Default to order location
-                if (order.bom?.category === 'EXTRUSION') {
-                    const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
-                    if (mixingLoc) consumptionLocationId = mixingLoc.id;
-                } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-                    const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
-                    if (fgLoc) consumptionLocationId = fgLoc.id;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } else if ((order as any).isMaklon) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const maklonLoc = await (tx.location as any).findFirst({ where: { locationType: 'CUSTOMER_OWNED' } });
-                    if (maklonLoc) consumptionLocationId = maklonLoc.id;
-                }
-
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
+                    // Resolve Location per item
+                    const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+
                     let ratio = 0;
                     if (isUsingPlanned) {
                         ratio = Number(item.quantity) / Number(order.plannedQuantity);
