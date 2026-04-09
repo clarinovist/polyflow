@@ -201,7 +201,7 @@ export class ProductionExecutionService {
                 if (itemsToBackflush.length > 0) {
                     for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
                         // Resolve Location per item
-                        const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+                        const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
 
                         let ratio = 0;
                         if (isUsingPlanned) {
@@ -353,7 +353,7 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
                     // Resolve Location per item
-                    const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+                    const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
 
                     let ratio = 0;
                     if (isUsingPlanned) {
@@ -529,7 +529,7 @@ export class ProductionExecutionService {
             if (itemsToBackflush.length > 0) {
                 for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
                     // Resolve Location per item
-                    const consumptionLocationId = await this.resolveMaterialLocation(tx, order, item.productVariantId);
+                    const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
 
                     let ratio = 0;
                     if (isUsingPlanned) {
