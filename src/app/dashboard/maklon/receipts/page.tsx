@@ -34,7 +34,7 @@ export default async function MaklonReceiptsPage({ searchParams }: { searchParam
                 actions={
                     <>
                         <Link href="/warehouse/incoming/create-maklon" passHref>
-                            <Button className="bg-purple-600 hover:bg-purple-700 h-9 shrink-0 gap-2">
+                            <Button className="h-9 shrink-0 gap-2">
                                 <PackageSearch className="h-4 w-4" />
                                 New Maklon Receipt
                             </Button>

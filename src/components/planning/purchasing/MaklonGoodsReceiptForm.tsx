@@ -81,7 +81,7 @@ export function MaklonGoodsReceiptForm({
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2">
-                                    <Package className="h-5 w-5 text-purple-500" />
+                                    <Package className="h-5 w-5 text-muted-foreground" />
                                     Receive Maklon Materials
                                 </CardTitle>
                                 <CardDescription>Register materials supplied by customers for Maklon production.</CardDescription>
@@ -277,9 +277,9 @@ export function MaklonGoodsReceiptForm({
                                     )}
                                 />
 
-                                <div className="bg-purple-50 dark:bg-purple-950/20 p-3 rounded-md border border-purple-200 dark:border-purple-800 flex gap-3 mt-4">
-                                    <Info className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
-                                    <div className="text-[11px] text-purple-800 dark:text-purple-200">
+                                <div className="bg-muted/50 p-3 rounded-md border border-border flex gap-3 mt-4">
+                                    <Info className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                                    <div className="text-[11px] text-muted-foreground">
                                         Maklon Receipts do not link to a Purchase Order. Valuation Cost is used for reporting purposes only, as no invoice will be generated.
                                     </div>
                                 </div>
@@ -287,7 +287,7 @@ export function MaklonGoodsReceiptForm({
                                 <Button
                                     type="submit"
                                     disabled={isLoading || fields.length === 0}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 h-11"
+                                    className="w-full h-11"
                                 >
                                     {isLoading ? "Processing..." : (
                                         <>

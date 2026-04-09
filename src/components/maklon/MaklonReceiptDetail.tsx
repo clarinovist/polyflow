@@ -56,7 +56,7 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h1 className="text-2xl font-bold tracking-tight">{receipt.receiptNumber}</h1>
-                        <Badge className="bg-purple-100 text-purple-700 border-purple-200 border hover:bg-purple-100">
+                        <Badge variant="secondary">
                             <PackageSearch className="w-3 h-3 mr-1" />
                             Maklon Receipt
                         </Badge>
@@ -65,7 +65,7 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                         Customer Material Intake — goods received on behalf of customer for Maklon Jasa processing
                     </p>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 text-purple-700 border-purple-200 hover:bg-purple-50" asChild>
+                <Button variant="outline" size="sm" className="gap-2" asChild>
                     <Link href="/warehouse/incoming/create-maklon">
                         <PackageSearch className="w-4 h-4" />
                         New Receipt
@@ -75,11 +75,11 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="border-purple-100">
+                <Card>
                     <CardContent className="pt-5">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                                <User className="w-4 h-4 text-purple-700" />
+                            <div className="p-2 bg-muted rounded-lg">
+                                <User className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Customer</p>
@@ -89,11 +89,11 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="border-purple-100">
+                <Card>
                     <CardContent className="pt-5">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                                <MapPin className="w-4 h-4 text-purple-700" />
+                            <div className="p-2 bg-muted rounded-lg">
+                                <MapPin className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Storage Location</p>
@@ -103,11 +103,11 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                     </CardContent>
                 </Card>
 
-                <Card className="border-purple-100">
+                <Card>
                     <CardContent className="pt-5">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                                <Calendar className="w-4 h-4 text-purple-700" />
+                            <div className="p-2 bg-muted rounded-lg">
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Received Date</p>

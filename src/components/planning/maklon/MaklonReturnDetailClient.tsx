@@ -18,11 +18,11 @@ export function MaklonReturnDetailClient({
 }) {
     const getStatusColor = (status: MaklonMaterialReturnStatus) => {
         switch (status) {
-            case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-200';
-            case 'CONFIRMED': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'COMPLETED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'CANCELLED': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-slate-100 text-slate-800';
+            case 'DRAFT': return 'bg-muted text-muted-foreground border-border';
+            case 'CONFIRMED': return 'bg-primary/10 text-primary border-primary/20';
+            case 'COMPLETED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            case 'CANCELLED': return 'bg-red-50 text-red-700 border-red-200';
+            default: return 'bg-muted text-muted-foreground';
         }
     };
 

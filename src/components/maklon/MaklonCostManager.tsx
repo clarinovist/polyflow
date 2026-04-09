@@ -37,12 +37,12 @@ type CostItem = {
 };
 
 const COST_TYPE_CONFIG: Record<MaklonCostType, { label: string; icon: React.ElementType; color: string }> = {
-    LABOR:       { label: 'Labor',       icon: Users,          color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    MACHINE:     { label: 'Machine',     icon: Wrench,         color: 'bg-slate-100 text-slate-700 border-slate-200' },
-    ELECTRICITY: { label: 'Electricity', icon: Zap,            color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-    ADDITIVE:    { label: 'Additive',    icon: FlaskConical,   color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    COLORANT:    { label: 'Colorant',    icon: Droplets,       color: 'bg-pink-100 text-pink-700 border-pink-200' },
-    OVERHEAD:    { label: 'Overhead',    icon: Building,       color: 'bg-orange-100 text-orange-700 border-orange-200' },
+    LABOR:       { label: 'Labor',       icon: Users,          color: 'bg-secondary text-secondary-foreground border-border' },
+    MACHINE:     { label: 'Machine',     icon: Wrench,         color: 'bg-secondary text-secondary-foreground border-border' },
+    ELECTRICITY: { label: 'Electricity', icon: Zap,            color: 'bg-secondary text-secondary-foreground border-border' },
+    ADDITIVE:    { label: 'Additive',    icon: FlaskConical,   color: 'bg-secondary text-secondary-foreground border-border' },
+    COLORANT:    { label: 'Colorant',    icon: Droplets,       color: 'bg-secondary text-secondary-foreground border-border' },
+    OVERHEAD:    { label: 'Overhead',    icon: Building,       color: 'bg-secondary text-secondary-foreground border-border' },
     OTHER:       { label: 'Other',       icon: CircleDollarSign, color: 'bg-muted text-muted-foreground border-muted' },
 };
 
@@ -111,12 +111,12 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
     };
 
     return (
-        <Card className="border-purple-200 bg-purple-50/30">
+        <Card>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle className="text-base flex items-center gap-2 text-purple-800">
-                            <CircleDollarSign className="w-4 h-4" />
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <CircleDollarSign className="w-4 h-4 text-muted-foreground" />
                             Maklon Conversion Costs
                         </CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -125,7 +125,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                     </div>
                     <Dialog open={open} onOpenChange={setOpen}>
                         <DialogTrigger asChild>
-                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700 gap-1.5">
+                            <Button size="sm" className="gap-1.5">
                                 <PlusCircle className="w-3.5 h-3.5" />
                                 Add Cost
                             </Button>
@@ -184,7 +184,6 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                                     Cancel
                                 </Button>
                                 <Button
-                                    className="bg-purple-600 hover:bg-purple-700"
                                     onClick={handleAdd}
                                     disabled={isPending || !amount}
                                 >
@@ -197,8 +196,8 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
             </CardHeader>
             <CardContent>
                 {items.length === 0 ? (
-                    <div className="text-center py-8 border-2 border-dashed border-purple-200 rounded-lg">
-                        <CircleDollarSign className="w-8 h-8 mx-auto mb-2 text-purple-300" />
+                    <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+                        <CircleDollarSign className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
                         <p className="text-sm text-muted-foreground">No conversion costs recorded yet.</p>
                         <p className="text-xs text-muted-foreground mt-1">Click &quot;Add Cost&quot; to start recording.</p>
                     </div>
@@ -241,7 +240,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
 
                         <div className="flex justify-between items-center pt-3 border-t mt-3">
                             <span className="text-sm font-medium text-muted-foreground">Total Conversion Cost</span>
-                            <span className="text-lg font-bold text-purple-700">
+                            <span className="text-lg font-bold text-foreground">
                                 {formatRupiah(total)}
                             </span>
                         </div>
