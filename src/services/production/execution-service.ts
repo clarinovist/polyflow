@@ -27,16 +27,46 @@ export class ProductionExecutionService {
     /**
      * Resolve the source location for material consumption per item.
      * Priorities:
-     * 1. If Maklon: Check if CUSTOMER_OWNED stock exists for the item.
-     * 2. Category overrides (EXTRUSION -> Mixing, PACKING/REWORK -> Finishing).
-     * 3. Fallback to Order's default location.
+     * 1. Category overrides (EXTRUSION/MIXING -> Mixing, PACKING/REWORK -> Finishing).
+     * 2. If stock already exists at the order's production location (e.g. materials manually
+     *    transferred there before production), consume from there. This correctly handles
+     *    Maklon orders where materials were transferred from CUSTOMER_OWNED to the production floor.
+     * 3. If Maklon: Fall back to CUSTOMER_OWNED stock.
+     * 4. Fallback to Order's default location.
      */
     private static async resolveMaterialLocation(
         tx: Prisma.TransactionClient,
         order: BackflushOrder,
         productVariantId: string
     ): Promise<string> {
-        // 1. If Maklon, check for customer stock first
+        // 1. Category Overrides (highest priority)
+        if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
+            const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
+            if (mixingLoc) return mixingLoc.id;
+        } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
+            const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+            if (fgLoc) return fgLoc.id;
+        }
+
+        // 2. Check if stock already exists at the order's production location.
+        //    This handles the case where materials were manually transferred from a CUSTOMER_OWNED
+        //    location (e.g. Saudin Warehouse) to the production floor (e.g. Mixing Area) before
+        //    production started. We should consume from wherever the stock actually is now.
+        const orderLocInv = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: {
+                    locationId: order.locationId,
+                    productVariantId
+                }
+            },
+            select: { quantity: true }
+        });
+
+        if (orderLocInv && orderLocInv.quantity.toNumber() > 0) {
+            return order.locationId;
+        }
+
+        // 3. If Maklon and no stock at production location, fall back to CUSTOMER_OWNED
         if (order.isMaklon) {
             const customerInv = await tx.inventory.findFirst({
                 where: {
@@ -51,16 +81,7 @@ export class ProductionExecutionService {
             }
         }
 
-        // 2. Category Overrides
-        if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
-            const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
-            if (mixingLoc) return mixingLoc.id;
-        } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-            const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
-            if (fgLoc) return fgLoc.id;
-        }
-
-        // 3. System Default
+        // 4. System Default
         return order.locationId;
     }
 
