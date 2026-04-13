@@ -18,6 +18,7 @@ interface Invoice {
     totalAmount: number;
     paidAmount: number;
     salesOrder: {
+        orderNumber: string;
         customer: { name: string } | null;
     };
 }
@@ -110,9 +111,11 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices }: Re
                             <SelectContent>
                                 {invoices.map((inv) => {
                                     const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                    const customerLabel = inv.salesOrder.customer?.name
+                                        || `Internal / MTS (${inv.salesOrder.orderNumber})`;
                                     return (
                                         <SelectItem key={inv.id} value={inv.id}>
-                                            {inv.invoiceNumber} - {inv.salesOrder.customer?.name || 'Unknown'} ({formatRupiah(balance)})
+                                            {inv.invoiceNumber} - {customerLabel} ({formatRupiah(balance)})
                                         </SelectItem>
                                     );
                                 })}

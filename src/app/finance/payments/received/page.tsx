@@ -20,6 +20,10 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
 
     const payments = await getReceivedPayments({ startDate: checkStart, endDate: checkEnd });
 
+    if (!payments.success) {
+        throw new Error(payments.error);
+    }
+
     // Fetch unpaid invoices for payment recording
     const unpaidInvoices = await prisma.invoice.findMany({
         where: {
@@ -36,8 +40,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
     return (
         <div className="p-6">
             <ReceivedPaymentsClient
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                payments={payments as any}
+                payments={payments.data}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 unpaidInvoices={serializeData(unpaidInvoices) as any}
             />

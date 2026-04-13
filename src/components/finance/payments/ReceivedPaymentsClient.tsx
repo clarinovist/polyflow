@@ -22,6 +22,7 @@ interface Invoice {
     totalAmount: number;
     paidAmount: number;
     salesOrder: {
+        orderNumber: string;
         customer: { name: string } | null;
     };
 }

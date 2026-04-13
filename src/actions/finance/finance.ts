@@ -133,7 +133,10 @@ async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Dat
             id: p.id,
             referenceNumber: p.paymentNumber,
             date: p.paymentDate,
-            entityName: p.invoice?.salesOrder?.customer?.name || 'Walk-in / Tunai',
+            entityName: p.invoice?.salesOrder?.customer?.name
+                || (p.invoice?.salesOrder?.orderNumber
+                    ? `Internal / MTS (${p.invoice.salesOrder.orderNumber})`
+                    : 'Internal / MTS'),
             amount: Number(p.amount),
             method: p.method,
             status: 'COMPLETED'
