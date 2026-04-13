@@ -35,6 +35,25 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
         notFound();
     }
 
+    let partyName: string | null = null;
+    let partyLabel: string | null = null;
+
+    if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: journal.referenceId },
+            include: { salesOrder: { include: { customer: true } } }
+        });
+        partyName = invoice?.salesOrder?.customer?.name ?? null;
+        partyLabel = 'Pembeli';
+    } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
+        const invoice = await prisma.purchaseInvoice.findUnique({
+            where: { id: journal.referenceId },
+            include: { purchaseOrder: { include: { supplier: true } } }
+        });
+        partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
+        partyLabel = 'Pemasok';
+    }
+
     const totalDebit = journal.lines.reduce((sum, line) => sum + Number(line.debit), 0);
     const totalCredit = journal.lines.reduce((sum, line) => sum + Number(line.credit), 0);
 
@@ -120,6 +139,13 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
 
                             <div className="text-muted-foreground">Reference ID</div>
                             <div className="font-medium text-right truncate" title={journal.reference || ''}>{journal.reference || '-'}</div>
+
+                            {partyLabel && partyName && (
+                                <>
+                                    <div className="text-muted-foreground">{partyLabel}</div>
+                                    <div className="font-medium text-right">{partyName}</div>
+                                </>
+                            )}
 
                             <div className="text-muted-foreground">Created By</div>
                             <div className="font-medium text-right">{journal.createdBy?.name || 'System'}</div>
