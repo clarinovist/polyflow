@@ -223,13 +223,13 @@ export class MrpService {
         const po = await createProductionOrderWithGeneratedNumber(
             tx,
             {
-                salesOrderId,
-                bomId: bom.id,
+                salesOrder: { connect: { id: salesOrderId } },
+                bom: { connect: { id: bom.id } },
                 plannedQuantity: quantity,
                 status,
                 plannedStartDate: new Date(),
-                locationId,
-                parentOrderId,
+                location: { connect: { id: locationId } },
+                parentOrder: parentOrderId ? { connect: { id: parentOrderId } } : undefined,
                 notes: `Auto-generated ${parentOrderId ? 'child' : 'root'} stage for ${variant?.name}`
             },
             {

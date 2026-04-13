@@ -3,7 +3,7 @@ import {
     CreateProductionOrderValues,
     UpdateProductionOrderValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MachineType, BomCategory, SalesOrderType } from '@prisma/client';
+import { ProductionStatus, MachineType, BomCategory, SalesOrderType, Prisma } from '@prisma/client';
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Ok, Err, Result } from '@/lib/utils/result';
@@ -231,19 +231,19 @@ export class ProductionOrderService {
 
             // 4. Create Order
             const orderData = {
-                bomId,
+                bom: { connect: { id: bomId } },
                 plannedQuantity,
                 plannedStartDate,
                 plannedEndDate,
-                locationId,
+                location: { connect: { id: locationId } },
                 notes,
                 status: initialStatus,
                 actualQuantity: 0,
-                salesOrderId: salesOrderId || null,
-                createdById: userId,
-                machineId: machineId || null,
+                salesOrder: salesOrderId ? { connect: { id: salesOrderId } } : undefined,
+                createdBy: userId ? { connect: { id: userId } } : undefined,
+                machine: machineId ? { connect: { id: machineId } } : undefined,
                 isMaklon: isMaklon,
-                maklonCustomerId: maklonCustomerId || null,
+                maklonCustomer: maklonCustomerId ? { connect: { id: maklonCustomerId } } : undefined,
                 estimatedConversionCost: estimatedConversionCost
             } satisfies Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>;
 
