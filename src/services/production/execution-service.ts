@@ -52,7 +52,7 @@ export class ProductionExecutionService {
         }
 
         // 2. Category Overrides
-        if (order.bom?.category === 'EXTRUSION') {
+        if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
             const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
             if (mixingLoc) return mixingLoc.id;
         } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
