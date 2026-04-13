@@ -37,6 +37,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
 
     let partyName: string | null = null;
     let partyLabel: string | null = null;
+    let orderNotes: string | null = null;
 
     if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
         const invoice = await prisma.invoice.findUnique({
@@ -44,6 +45,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
             include: { salesOrder: { include: { customer: true } } }
         });
         partyName = invoice?.salesOrder?.customer?.name ?? null;
+        orderNotes = invoice?.salesOrder?.notes ?? null;
         partyLabel = 'Pembeli';
     } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
         const invoice = await prisma.purchaseInvoice.findUnique({
@@ -51,6 +53,7 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
             include: { purchaseOrder: { include: { supplier: true } } }
         });
         partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
+        orderNotes = invoice?.purchaseOrder?.notes ?? null;
         partyLabel = 'Pemasok';
     }
 
@@ -144,6 +147,13 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                 <>
                                     <div className="text-muted-foreground">{partyLabel}</div>
                                     <div className="font-medium text-right">{partyName}</div>
+                                </>
+                            )}
+
+                            {orderNotes && (
+                                <>
+                                    <div className="text-muted-foreground">Order Notes</div>
+                                    <div className="font-medium text-right truncate" title={orderNotes}>{orderNotes}</div>
                                 </>
                             )}
 
