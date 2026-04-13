@@ -345,6 +345,13 @@ export class ProductionOrderService {
         }
 
         await prisma.$transaction(async (tx) => {
+            await tx.stockMovement.updateMany({
+                where: { productionOrderId: id },
+                data: { productionOrderId: null }
+            });
+            await tx.materialIssue.deleteMany({ where: { productionOrderId: id } });
+            await tx.scrapRecord.deleteMany({ where: { productionOrderId: id } });
+            await tx.qualityInspection.deleteMany({ where: { productionOrderId: id } });
             await tx.productionShift.deleteMany({ where: { productionOrderId: id } });
             await tx.productionMaterial.deleteMany({ where: { productionOrderId: id } });
             await tx.productionOrder.delete({ where: { id } });

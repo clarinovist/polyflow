@@ -13,7 +13,13 @@ interface PageProps {
 
 export default async function FinancialInvoicePage({ params }: PageProps) {
     const { id } = await params;
-    const invoice = await getInvoiceById(id);
+    const invoiceResult = await getInvoiceById(id);
+
+    if (!invoiceResult.success) {
+        throw new Error(invoiceResult.error);
+    }
+
+    const invoice = invoiceResult.data;
 
     if (!invoice) {
         notFound();
@@ -34,8 +40,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                 </div>
             </div>
 
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <FinancialInvoiceDetail invoice={invoice as any} />
+            <FinancialInvoiceDetail invoice={invoice} />
         </div>
     );
 }

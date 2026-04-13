@@ -72,7 +72,7 @@ model ProductionShift {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   operator          Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   helpers           Employee[]      @relation("ShiftHelpers")
 }
 
@@ -472,7 +472,7 @@ model MaterialIssue {
   createdBy         User?           @relation(fields: [createdById], references: [id])
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
 }
 
 model ProductionIssue {
@@ -507,7 +507,7 @@ model ScrapRecord {
   createdBy             User?                @relation(fields: [createdById], references: [id])
   location              Location?            @relation(fields: [locationId], references: [id])
   productVariant        ProductVariant       @relation(fields: [productVariantId], references: [id])
-  productionOrder       ProductionOrder      @relation(fields: [productionOrderId], references: [id])
+   productionOrder       ProductionOrder      @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   productionExecution   ProductionExecution? @relation(fields: [productionExecutionId], references: [id])
 
   @@index([recordedAt])
@@ -522,7 +522,7 @@ model QualityInspection {
   notes             String?
   inspectedAt       DateTime         @default(now())
   inspector         User?            @relation(fields: [inspectorId], references: [id])
-  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id])
+   productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
 
   @@index([inspectedAt])
 }

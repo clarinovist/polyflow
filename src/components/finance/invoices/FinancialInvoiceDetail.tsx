@@ -8,17 +8,20 @@ import { AlertCircle } from "lucide-react";
 
 interface FinancialInvoiceDetailProps {
     invoice: Invoice & {
-        salesOrder: {
+        salesOrder?: {
             orderNumber: string;
             orderType: string;
             customer: { name: string } | null;
-            taxAmount: number | null;
+            taxAmount: unknown;
             items: unknown[];
-        };
+        } | null;
     };
 }
 
 export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps) {
+    const salesOrder = invoice.salesOrder ?? null;
+    const taxAmount = Number(salesOrder?.taxAmount || 0);
+
     const getStatusBadge = (status: InvoiceStatus) => {
         const styles: Record<string, string> = {
             UNPAID: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
@@ -47,7 +50,7 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
                                 <span className="text-2xl font-bold">{invoice.invoiceNumber}</span>
-                                {invoice.salesOrder.orderType === 'MAKLON_JASA' && (
+                                {salesOrder?.orderType === 'MAKLON_JASA' && (
                                     <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                                         Maklon Service
                                     </Badge>
@@ -68,13 +71,18 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Customer</p>
-                                <p className="font-medium">{invoice.salesOrder.customer?.name || 'N/A'}</p>
+                                <p className="font-medium">{salesOrder?.customer?.name || 'N/A'}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Reference Order</p>
-                                <p className="font-medium text-blue-600">{invoice.salesOrder.orderNumber}</p>
+                                <p className="font-medium text-blue-600">{salesOrder?.orderNumber || 'N/A'}</p>
                             </div>
                         </div>
+                        {!salesOrder && (
+                            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                Sales order reference is missing for this invoice. Financial totals are still shown using invoice data.
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -123,11 +131,11 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                             </div>
                             <div className="flex justify-between text-sm py-2">
                                 <span>Sales Order Items Total</span>
-                                <span>{formatRupiah(Number(invoice.totalAmount) - Number(invoice.salesOrder.taxAmount || 0))}</span>
+                                <span>{formatRupiah(Number(invoice.totalAmount) - taxAmount)}</span>
                             </div>
                             <div className="flex justify-between text-sm py-2">
                                 <span>Tax / VAT</span>
-                                <span>{formatRupiah(Number(invoice.salesOrder.taxAmount || 0))}</span>
+                                <span>{formatRupiah(taxAmount)}</span>
                             </div>
                             <Separator className="my-2" />
                             <div className="flex justify-between font-bold">
