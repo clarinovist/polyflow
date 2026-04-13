@@ -33,6 +33,7 @@ import { serializeData } from '@/lib/utils/utils';
 import { ProductionStatus, Prisma, ProductType, BomCategory } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
+import { createProductionOrderWithGeneratedNumber } from '@/services/production/order-number-service';
 import { MrpService } from '@/services/production/mrp-service';
 
 export const getInitData = withTenant(
@@ -792,12 +793,9 @@ export const createChildProductionOrder = withTenant(
 
                     if (!bom) throw new Error("No default BOM found for this item. Please set a Primary Default Recipe first.");
 
-                    const rand = Math.random().toString(36).substr(2, 4).toUpperCase();
-                    const orderNumber = `SWO-${productVariantId.slice(0, 4)}-${rand}`;
-
-                    const po = await tx.productionOrder.create({
-                        data: {
-                            orderNumber,
+                    const po = await createProductionOrderWithGeneratedNumber(
+                        tx,
+                        {
                             salesOrderId: parentOrder.salesOrderId,
                             bomId: bom.id,
                             plannedQuantity: quantity,
@@ -806,8 +804,12 @@ export const createChildProductionOrder = withTenant(
                             locationId: parentOrder.locationId,
                             parentOrderId: parentOrderId,
                             notes: `Sub-order for ${parentOrder.status} parent`
+                        },
+                        {
+                            prefix: 'SWO',
+                            productVariantId,
                         }
-                    });
+                    );
 
                     const bomItems = await tx.bomItem.findMany({
                         where: { bomId: bom.id }

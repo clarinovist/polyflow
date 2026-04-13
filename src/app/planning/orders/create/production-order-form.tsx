@@ -11,19 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, AlertCircle, Factory } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { format } from 'date-fns';
 import { useState, useMemo, useEffect } from 'react';
 import { createProductionOrder, getBomWithInventory } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-
-// Helper for generating order number outside of component to satisfy React Compiler purity rules
-function generateOrderNumber(processType: string) {
-    const dateStr = format(new Date(), 'yyMMdd');
-    const typeCode = processType === 'mixing' ? 'MIX' : processType === 'extrusion' ? 'EXT' : processType === 'rework' ? 'RWK' : 'PCK';
-    const randomDigits = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-    return `WO-${dateStr}-${typeCode}${randomDigits}`;
-}
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -302,11 +293,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
 
         setIsSubmitting(true);
         try {
-            const orderNumber = generateOrderNumber(processType);
-
             const response = await createProductionOrder({
                 ...data,
-                orderNumber, // Inject the generated number
                 locationId: data.locationId, // Ensure hidden field value is passed
                 plannedQuantity: planningMode === 'batch' && selectedBom
                     ? batchCount * Number(selectedBom.outputQuantity)

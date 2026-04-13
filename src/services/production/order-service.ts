@@ -7,6 +7,7 @@ import { ProductionStatus, MachineType, BomCategory, SalesOrderType } from '@pri
 
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Ok, Err, Result } from '@/lib/utils/result';
+import { createProductionOrderWithGeneratedNumber } from './order-number-service';
 
 export class ProductionOrderService {
     /**
@@ -229,25 +230,31 @@ export class ProductionOrderService {
             }
 
             // 4. Create Order
-            const newOrder = await tx.productionOrder.create({
-                data: {
-                    orderNumber: orderNumber || `WO-${Date.now()}`,
-                    bomId,
-                    plannedQuantity,
-                    plannedStartDate,
-                    plannedEndDate,
-                    locationId,
-                    notes,
-                    status: initialStatus,
-                    actualQuantity: 0,
-                    salesOrderId: salesOrderId || null,
-                    createdById: userId,
-                    machineId: machineId || null,
-                    isMaklon: isMaklon,
-                    maklonCustomerId: maklonCustomerId || null,
-                    estimatedConversionCost: estimatedConversionCost
-                }
-            });
+            const orderData = {
+                bomId,
+                plannedQuantity,
+                plannedStartDate,
+                plannedEndDate,
+                locationId,
+                notes,
+                status: initialStatus,
+                actualQuantity: 0,
+                salesOrderId: salesOrderId || null,
+                createdById: userId,
+                machineId: machineId || null,
+                isMaklon: isMaklon,
+                maklonCustomerId: maklonCustomerId || null,
+                estimatedConversionCost: estimatedConversionCost
+            } satisfies Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>;
+
+            const newOrder = orderNumber
+                ? await tx.productionOrder.create({
+                    data: {
+                        ...orderData,
+                        orderNumber,
+                    }
+                })
+                : await createProductionOrderWithGeneratedNumber(tx, orderData);
 
             // 5. Create Material Requirements
             if (materialsToCreate.length > 0) {

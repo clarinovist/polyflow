@@ -24,8 +24,8 @@ Database Schema (PostgreSQL/Prisma):
 - ProductVariant(id, productId, name, price)
 - Inventory(id, productVariantId, locationId, quantity)
 - Machine(id, code, name, status, locationId)
-- ProductionOrder(id, orderNumber, machineId, bomId, plannedQuantity, status)
-- Bom(id, productVariantId, outputQuantity)
+- ProductionOrder(id, orderNumber, machineId, bomId, plannedQuantity, status, createdAt, actualStartDate)
+- Bom(id, productVariantId, outputQuantity, createdAt)
 - BomItem(id, bomId, productVariantId, quantity)
 - Location(id, name, slug)
 - Invoice(id, invoiceNumber, salesOrderId, totalAmount, status)
@@ -59,7 +59,7 @@ async function generateAndRunQuery(question: string) {
                         RULES:
                         1. ONLY generate SELECT statements.
                         2. NEVER generate INSERT, UPDATE, DELETE, DROP, or ALTER statements.
-                        3. Use double quotes for table and column names to ensure case sensitivity (e.g., "SalesOrder", "totalAmount").
+                        3. Use double quotes for table and column names to ensure case sensitivity (e.g., "SalesOrder", "totalAmount"). For aliased tables, quote camelCase columns as alias."columnName" (e.g., b."createdAt", po."orderNumber").
                         4. ALWAYS use the exact column names from the schema provided above (e.g., use "id" NOT "CustomerID", use "customerId" NOT "CustomerID").
                         5. If the question cannot be answered with the database, explain why.
                         6. Output ONLY the raw SQL query, without markdown formatting or explanation.`

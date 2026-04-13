@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { ProductionStatus, Prisma, ProductionOrder } from '@prisma/client';
+import { createProductionOrderWithGeneratedNumber } from './order-number-service';
 
 
 export interface MaterialRequirement {
@@ -216,14 +217,12 @@ export class MrpService {
         });
 
         // 2. Generate Order Number
-        const rand = Math.random().toString(36).substr(2, 4).toUpperCase();
         const prefix = parentOrderId ? 'SWO' : 'WO'; // Sub-Work Order for children
-        const orderNumber = `${prefix}-${productVariantId.slice(0, 4)}-${rand}`;
 
         // 3. Create the Production Order
-        const po = await tx.productionOrder.create({
-            data: {
-                orderNumber,
+        const po = await createProductionOrderWithGeneratedNumber(
+            tx,
+            {
                 salesOrderId,
                 bomId: bom.id,
                 plannedQuantity: quantity,
@@ -232,8 +231,12 @@ export class MrpService {
                 locationId,
                 parentOrderId,
                 notes: `Auto-generated ${parentOrderId ? 'child' : 'root'} stage for ${variant?.name}`
+            },
+            {
+                prefix,
+                productVariantId,
             }
-        });
+        );
         createdOrders.push(po);
 
         // 4. Create Planned Materials
