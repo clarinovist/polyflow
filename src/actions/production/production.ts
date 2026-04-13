@@ -796,13 +796,15 @@ export const createChildProductionOrder = withTenant(
                     const po = await createProductionOrderWithGeneratedNumber(
                         tx,
                         {
-                            salesOrderId: parentOrder.salesOrderId,
-                            bomId: bom.id,
+                            salesOrder: parentOrder.salesOrderId
+                                ? { connect: { id: parentOrder.salesOrderId } }
+                                : undefined,
+                            bom: { connect: { id: bom.id } },
                             plannedQuantity: quantity,
                             status: 'DRAFT',
                             plannedStartDate: new Date(),
-                            locationId: parentOrder.locationId,
-                            parentOrderId: parentOrderId,
+                            location: { connect: { id: parentOrder.locationId } },
+                            parentOrder: { connect: { id: parentOrderId } },
                             notes: `Sub-order for ${parentOrder.status} parent`
                         },
                         {
