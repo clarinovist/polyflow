@@ -26,7 +26,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembelian oli mesin, kebersihan, atau suku cadang kecil',
         icon: ShoppingCart,
         category: 'EXPENSE',
-        debitAccountCode: '12900', // Inventory - Consumables
+        debitAccountCode: '11360', // Inventory - Consumables
         creditAccountCode: '21110', // AP Accrual
         defaultDescription: 'Pembelian Consumable/Spares',
         showPaymentPicker: true
@@ -37,8 +37,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran tagihan PLN pabrik/kantor',
         icon: Zap,
         category: 'EXPENSE',
-        debitAccountCode: '60100', // Factory Electricity (PLN)
-        creditAccountCode: '10200', // Bank - Operating
+        debitAccountCode: '53200', // Factory Electricity (PLN)
+        creditAccountCode: '11120', // Bank BCA
         defaultDescription: 'Bayar Listrik PLN',
         showPaymentPicker: true
     },
@@ -48,8 +48,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Biaya servis mesin atau perbaikan fasilitas',
         icon: Building2,
         category: 'EXPENSE',
-        debitAccountCode: '60200', // Machine Maintenance
-        creditAccountCode: '10200', // Bank
+        debitAccountCode: '53300', // Machine Maintenance
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Biaya Maintenance Mesin',
         showPaymentPicker: true
     },
@@ -59,8 +59,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Sewa gedung, gudang, atau mesin',
         icon: Wallet,
         category: 'EXPENSE',
-        debitAccountCode: '60400', // Factory Rent
-        creditAccountCode: '10200', // Bank
+        debitAccountCode: '53410', // Factory Rent
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Sewa Gedung/Fasilitas',
         showPaymentPicker: true
     },
@@ -70,8 +70,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran gaji operator atau staff',
         icon: Calculator,
         category: 'EXPENSE',
-        debitAccountCode: '61000', // Office Salaries
-        creditAccountCode: '10200', // Bank
+        debitAccountCode: '62100', // Office Salaries
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Pembayaran Gaji',
         showPaymentPicker: true
     },
@@ -81,8 +81,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Ongkos kirim ke customer atau dari supplier',
         icon: Truck,
         category: 'EXPENSE',
-        debitAccountCode: '62100', // Logistics & Delivery
-        creditAccountCode: '10200', // Bank
+        debitAccountCode: '61100', // Logistics & Delivery
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Biaya Logistik & Pengiriman',
         showPaymentPicker: true
     },
@@ -92,8 +92,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Biaya operasional lainnya yang tidak terdaftar',
         icon: CreditCard,
         category: 'EXPENSE',
-        debitAccountCode: '61200', // Default to Prof Fees or misc
-        creditAccountCode: '10200', // Bank
+        debitAccountCode: '62400', // Default to Prof Fees or misc
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Pengeluaran Operasional',
         showAccountPicker: true,
         accountPickerFilter: ['6'], // Show all expense accounts
@@ -118,8 +118,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pencairan dana talangan dari Owner/Pribadi',
         icon: HandCoins,
         category: 'FINANCING',
-        debitAccountCode: '11121', // Kas Kecil (Default Target)
-        creditAccountCode: '21112', // Hutang ke Nugroho Pramono
+        debitAccountCode: '11110', // Petty Cash (Default Target)
+        creditAccountCode: '21120', // Other Payables (Hutang Owner)
         defaultDescription: 'Pinjaman Dana dari Owner',
         showAccountPicker: true,
         accountPickerFilter: ['111'] // Pick which Bank/Cash receives the money
@@ -142,8 +142,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran kembali dana talangan ke Owner/Pribadi',
         icon: Wallet,
         category: 'PAYMENT',
-        debitAccountCode: '21112', // Hutang ke Nugroho Pramono
-        creditAccountCode: '11121', // Kas Kecil
+        debitAccountCode: '21120', // Other Payables (Hutang ke Owner)
+        creditAccountCode: '11110', // Petty Cash
         defaultDescription: 'Pembayaran Hutang ke Owner',
         showPaymentPicker: true,
         paymentPickerFilter: ['111'] // Pick which Bank/Cash is used to pay
@@ -169,7 +169,7 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         icon: ArrowUpCircle,
         category: 'PAYMENT',
         debitAccountCode: '21110', // Accounts Payable
-        creditAccountCode: '10200', // Bank
+        creditAccountCode: '11120', // Bank
         defaultDescription: 'Pembayaran Invoice Supplier',
         showPaymentPicker: true,
         paymentPickerFilter: ['111'], // Pick which Bank/Cash is used for payment

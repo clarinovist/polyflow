@@ -22,6 +22,7 @@ const accounts = [
     { code: '11330', name: 'Finished Goods', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
     { code: '11340', name: 'Packaging Materials', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
     { code: '11350', name: 'Scrap & Waste', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
+    { code: '11360', name: 'Inventory - Consumables', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
 
     { code: '11400', name: 'Prepaid Expenses', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
     { code: '11410', name: 'Prepaid Insurance', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11400' },
@@ -44,6 +45,7 @@ const accounts = [
     { code: '21000', name: 'Current Liabilities', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: null },
     { code: '21100', name: 'Accounts Payable', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
     { code: '21110', name: 'Trade Payables', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21100' },
+    { code: '21120', name: 'Other Payables', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21100' },
 
     { code: '21200', name: 'Accrued Expenses', type: AccountType.LIABILITY, category: AccountCategory.CURRENT_LIABILITY, parentCode: '21000' },
 
@@ -84,6 +86,7 @@ const accounts = [
     { code: '53200', name: "Factory Electricity", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
     { code: '53300', name: "Factory Maintenance", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
     { code: '53400', name: "Indirect Materials", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
+    { code: '53410', name: "Factory Rent", type: AccountType.EXPENSE, category: AccountCategory.COGS, parentCode: '53000' },
 
     // 6. EXPENSES
     { code: '60000', name: "Operating Expenses", type: AccountType.EXPENSE, category: AccountCategory.OPERATING_EXPENSE, parentCode: null },
