@@ -716,18 +716,44 @@ export class ProductionExecutionService {
             });
 
             if (!execution) throw new Error("Execution record not found");
+            if (execution.status === 'VOIDED') throw new Error("Execution has already been voided");
+            if (execution.status !== 'COMPLETED') throw new Error("Only completed executions can be voided");
 
             const { productionOrderId, quantityProduced, createdAt } = execution;
 
-            // 1. Find related Stock Movements by time window and Order ID
-            const marginMs = 30000; // 30 seconds to be safe
-            const startTime = new Date(createdAt.getTime() - marginMs);
-            const endTime = new Date(createdAt.getTime() + marginMs);
+            // 1. Isolate the execution's own movement window so nearby executions on the same
+            //    work order are not accidentally reversed together.
+            const marginMs = 30000;
+            const previousExecution = await tx.productionExecution.findFirst({
+                where: {
+                    productionOrderId,
+                    createdAt: { lt: createdAt }
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { createdAt: true }
+            });
+            const nextExecution = await tx.productionExecution.findFirst({
+                where: {
+                    productionOrderId,
+                    createdAt: { gt: createdAt }
+                },
+                orderBy: { createdAt: 'asc' },
+                select: { createdAt: true }
+            });
+
+            const startTime = previousExecution
+                ? new Date((previousExecution.createdAt.getTime() + createdAt.getTime()) / 2)
+                : new Date(createdAt.getTime() - marginMs);
+            const endTime = nextExecution
+                ? new Date((nextExecution.createdAt.getTime() + createdAt.getTime()) / 2)
+                : new Date(createdAt.getTime() + marginMs);
 
             const movements = await tx.stockMovement.findMany({
                 where: {
                     productionOrderId,
-                    createdAt: { gte: startTime, lte: endTime }
+                    createdAt: nextExecution
+                        ? { gte: startTime, lt: endTime }
+                        : { gte: startTime, lte: endTime }
                 }
             });
 
@@ -771,7 +797,9 @@ export class ProductionExecutionService {
             await tx.materialIssue.updateMany({
                 where: {
                     productionOrderId,
-                    issuedAt: { gte: startTime, lte: endTime }
+                    issuedAt: nextExecution
+                        ? { gte: startTime, lt: endTime }
+                        : { gte: startTime, lte: endTime }
                 },
                 data: { status: 'VOIDED' }
             });

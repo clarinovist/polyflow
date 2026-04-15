@@ -45,7 +45,7 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={isLoading}>
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                 </Button>
             </AlertDialogTrigger>
@@ -62,9 +62,10 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleVoid}
+                        disabled={isLoading}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
-                        Void Execution
+                        {isLoading ? 'Voiding...' : 'Void Execution'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
