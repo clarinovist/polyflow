@@ -8,7 +8,7 @@ import { Product, ProductVariant } from '@prisma/client';
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [product, productTypesRes, unitsRes] = await Promise.all([
+    const [productRes, productTypesRes, unitsRes] = await Promise.all([
         getProductById(id),
         getProductTypes(),
         getUnits(),
@@ -17,11 +17,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     const productTypes = productTypesRes.success && productTypesRes.data ? productTypesRes.data : [];
     const units = unitsRes.success && unitsRes.data ? unitsRes.data : [];
 
-    if (!product) {
+    if (!productRes.success || !productRes.data) {
         notFound();
     }
 
-    const productData = product as unknown as Product & { variants: ProductVariant[] };
+    const productData = productRes.data as Product & { variants: ProductVariant[] };
 
     // Transform product data to match form values
     const formData: UpdateProductValues = {
