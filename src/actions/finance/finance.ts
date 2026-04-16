@@ -98,7 +98,7 @@ async function getOrderCosting(orderId: string) {
 );
 
 export const getReceivedPayments = withTenant(
-async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Date }) {
+async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Date }, demandType?: 'customer' | 'legacy-internal') {
     return safeAction(async () => {
         await requireAuth();
 
@@ -110,6 +110,20 @@ async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Dat
             where.paymentDate = {
                 gte: dateRange.startDate,
                 lte: dateRange.endDate
+            };
+        }
+
+        if (demandType === 'customer') {
+            where.invoice = {
+                salesOrder: {
+                    customerId: { not: null }
+                }
+            };
+        } else if (demandType === 'legacy-internal') {
+            where.invoice = {
+                salesOrder: {
+                    customerId: null
+                }
             };
         }
 
@@ -135,8 +149,8 @@ async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Dat
             date: p.paymentDate,
             entityName: p.invoice?.salesOrder?.customer?.name
                 || (p.invoice?.salesOrder?.orderNumber
-                    ? `Internal / MTS (${p.invoice.salesOrder.orderNumber})`
-                    : 'Internal / MTS'),
+                    ? `Legacy Internal Stock Build (${p.invoice.salesOrder.orderNumber})`
+                    : 'Legacy Internal Stock Build'),
             amount: Number(p.amount),
             method: p.method,
             status: 'COMPLETED'

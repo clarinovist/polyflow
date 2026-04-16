@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -39,6 +40,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Customer, Location, ProductVariant, Product, SalesOrderType, ProductType } from '@prisma/client';
 import { useAction } from '@/hooks/use-action';
 import { ErrorAlert } from '@/components/ui/error-alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -200,87 +202,94 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <ErrorAlert error={actionError} />
 
+                <Alert className="border-amber-200 bg-amber-50">
+                    <AlertTitle>Sales Order is for customer demand</AlertTitle>
+                    <AlertDescription>
+                        Use Sales Order for customer transactions, whether fulfilled from stock or made to order. If the goal is only to build stock internally, create a Production Order from Planning instead.
+                    </AlertDescription>
+                </Alert>
+
                 {/* Header Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Customer - Only show for MTO */}
-                    {selectedOrderType !== 'MAKE_TO_STOCK' && (
-                        <FormField
-                            control={form.control}
-                            name="customerId"
-                            render={({ field }) => {
-                                const selectedCustomer = customers.find(c => c.id === field.value);
-                                const isOverLimit = selectedCustomer?.creditLimit && (selectedCustomer.creditLimit < totals.net);
+                    <FormField
+                        control={form.control}
+                        name="customerId"
+                        render={({ field }) => {
+                            const selectedCustomer = customers.find(c => c.id === field.value);
+                            const isOverLimit = selectedCustomer?.creditLimit && (selectedCustomer.creditLimit < totals.net);
 
-                                return (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Customer</FormLabel>
-                                        <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        role="combobox"
-                                                        className={cn(
-                                                            "w-full justify-between",
-                                                            !field.value && "text-muted-foreground",
-                                                            isOverLimit && "border-red-500 bg-red-50 text-red-900"
-                                                        )}
-                                                    >
-                                                        {field.value
-                                                            ? customers.find((customer) => customer.id === field.value)?.name
-                                                            : "Select customer"}
-                                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                <Command>
-                                                    <CommandInput placeholder="Search customer..." />
-                                                    <CommandList>
-                                                        <CommandEmpty>No customer found.</CommandEmpty>
-                                                        <CommandGroup>
-                                                            {customers.map((customer) => (
-                                                                <CommandItem
-                                                                    key={customer.id}
-                                                                    value={customer.name}
-                                                                    onSelect={() => {
-                                                                        form.setValue("customerId", customer.id);
-                                                                        setOpenCustomer(false);
-                                                                    }}
-                                                                >
-                                                                    <Check
-                                                                        className={cn(
-                                                                            "mr-2 h-4 w-4",
-                                                                            customer.id === field.value
-                                                                                ? "opacity-100"
-                                                                                : "opacity-0"
-                                                                        )}
-                                                                    />
-                                                                    {customer.name}
-                                                                    {!!customer.creditLimit && (
-                                                                        <span className="ml-auto text-xs text-muted-foreground">
-                                                                            Limit: {formatRupiah(customer.creditLimit)}
-                                                                        </span>
+                            return (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Customer</FormLabel>
+                                    <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        !field.value && "text-muted-foreground",
+                                                        isOverLimit && "border-red-500 bg-red-50 text-red-900"
+                                                    )}
+                                                >
+                                                    {field.value
+                                                        ? customers.find((customer) => customer.id === field.value)?.name
+                                                        : "Select customer"}
+                                                    <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search customer..." />
+                                                <CommandList>
+                                                    <CommandEmpty>No customer found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {customers.map((customer) => (
+                                                            <CommandItem
+                                                                key={customer.id}
+                                                                value={customer.name}
+                                                                onSelect={() => {
+                                                                    form.setValue("customerId", customer.id);
+                                                                    setOpenCustomer(false);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        customer.id === field.value
+                                                                            ? "opacity-100"
+                                                                            : "opacity-0"
                                                                     )}
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                        {!!selectedCustomer?.creditLimit && (
-                                            <div className={cn("text-xs flex justify-between", isOverLimit ? "text-red-500 font-medium" : "text-muted-foreground")}>
-                                                <span>Limit: {formatRupiah(selectedCustomer.creditLimit)}</span>
-                                                {isOverLimit && <span>Exceeds Limit!</span>}
-                                            </div>
-                                        )}
-                                        <FormMessage />
-                                    </FormItem>
-                                )
-                            }}
-                        />
-                    )}
+                                                                />
+                                                                {customer.name}
+                                                                {!!customer.creditLimit && (
+                                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                                        Limit: {formatRupiah(customer.creditLimit)}
+                                                                    </span>
+                                                                )}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormDescription>
+                                        Customer tetap wajib diisi. Jika tujuan order hanya build stock internal, gunakan Production Order manual.
+                                    </FormDescription>
+                                    {!!selectedCustomer?.creditLimit && (
+                                        <div className={cn("text-xs flex justify-between", isOverLimit ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                                            <span>Limit: {formatRupiah(selectedCustomer.creditLimit)}</span>
+                                            {isOverLimit && <span>Exceeds Limit!</span>}
+                                        </div>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )
+                        }}
+                    />
 
                     {/* Source Location */}
                     <FormField
@@ -327,6 +336,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                         <SelectItem value="MAKLON_JASA">Maklon Jasa</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                <FormDescription>
+                                    Make to Stock berarti order customer dipenuhi dari stok lebih dulu. Make to Order berarti demand langsung memicu produksi berdasarkan pesanan.
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

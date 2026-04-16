@@ -112,7 +112,7 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices }: Re
                                 {invoices.map((inv) => {
                                     const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
                                     const customerLabel = inv.salesOrder.customer?.name
-                                        || `Internal / MTS (${inv.salesOrder.orderNumber})`;
+                                        || `Legacy Internal Stock Build (${inv.salesOrder.orderNumber})`;
                                     return (
                                         <SelectItem key={inv.id} value={inv.id}>
                                             {inv.invoiceNumber} - {customerLabel} ({formatRupiah(balance)})

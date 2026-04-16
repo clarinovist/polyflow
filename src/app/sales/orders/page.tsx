@@ -5,21 +5,31 @@ import { Plus, ShoppingCart, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
+    const demand = params?.demand || 'customer';
 
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
+    const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
+        const query = new URLSearchParams();
+        query.set('demand', nextDemand);
+        if (params?.startDate) query.set('startDate', params.startDate);
+        if (params?.endDate) query.set('endDate', params.endDate);
+        return `/sales/orders?${query.toString()}`;
+    };
+
     // Pass date filter to fetch function
-    const ordersRes = await getSalesOrders(false, { startDate: checkStart, endDate: checkEnd });
+    const ordersRes = await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, demand);
     const statsRes = await getSalesOrderStats();
     
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
@@ -93,7 +103,19 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
 
             <Card>
                 <CardHeader>
-                    <CardTitle>All Orders</CardTitle>
+                    <div className="flex flex-col gap-4">
+                        <CardTitle>All Orders</CardTitle>
+                        <Tabs defaultValue={demand} className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
+                                <TabsTrigger value="customer" asChild>
+                                    <Link href={buildDemandHref('customer')}>Customer Demand</Link>
+                                </TabsTrigger>
+                                <TabsTrigger value="legacy-internal" asChild>
+                                    <Link href={buildDemandHref('legacy-internal')}>Legacy Internal</Link>
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

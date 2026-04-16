@@ -13,7 +13,7 @@ import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError, ValidationError } from '@/lib/errors/errors';
 
 export const getInvoices = withTenant(
-async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }, demandType?: 'customer' | 'legacy-internal') {
     return safeAction(async () => {
         await requireAuth();
         const where: Prisma.InvoiceWhereInput = {};
@@ -21,6 +21,16 @@ async function getInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
             where.invoiceDate = {
                 gte: dateRange.startDate,
                 lte: dateRange.endDate
+            };
+        }
+
+        if (demandType === 'customer') {
+            where.salesOrder = {
+                customerId: { not: null }
+            };
+        } else if (demandType === 'legacy-internal') {
+            where.salesOrder = {
+                customerId: null
             };
         }
 
@@ -90,6 +100,9 @@ async function createInvoice(data: CreateInvoiceValues) {
             return serializeData(invoice);
         } catch (error) {
             logger.error('Failed to create invoice', { error, module: 'InvoiceActions' });
+            if (error instanceof Error && /Sales Order not found|Sales Order has no total amount|without customer/i.test(error.message)) {
+                throw new BusinessRuleError(error.message);
+            }
             throw new BusinessRuleError('Failed to create invoice. Please try again.');
         }
     });

@@ -25,6 +25,14 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
         discountPercent: number | null;
     }) | null;
     sourceLocation: Location | null;
+    items?: Array<{
+        productVariant: {
+            name: string;
+            product: {
+                name: string;
+            };
+        };
+    }>;
     _count: { items: number };
 };
 
@@ -35,6 +43,24 @@ interface SalesOrderTableProps {
 
 export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: SalesOrderTableProps) {
     const router = useRouter();
+
+    const getCustomerLabel = (order: SerializedSalesOrder) => order.customer?.name || 'Legacy Internal Stock Build';
+
+    const getItemSummary = (order: SerializedSalesOrder) => {
+        if (!order.items?.length) return `${order._count.items} item`;
+
+        const productNames = order.items.slice(0, 2).map((item) => {
+            const variant = item.productVariant;
+            return variant.product.name === variant.name
+                ? variant.name
+                : `${variant.product.name} - ${variant.name}`;
+        });
+
+        const remainder = order.items.length - productNames.length;
+        return remainder > 0
+            ? `${productNames.join(', ')} +${remainder} lagi`
+            : productNames.join(', ');
+    };
 
     const getStatusColor = (status: SalesOrderStatus) => {
         switch (status) {
@@ -91,7 +117,12 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                             {format(new Date(order.orderDate), 'MMM d, yyyy')}
                                         </TableCell>
                                         <TableCell>
-                                            {order.customer?.name || 'Internal / MTS'}
+                                            <div>
+                                                <div className="font-medium">{getCustomerLabel(order)}</div>
+                                                {!order.customer && (
+                                                    <div className="text-xs text-amber-700">Legacy internal order, not eligible for new invoicing</div>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell">
                                             <Badge variant="outline" className="font-normal">
@@ -103,8 +134,9 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                                 {order.status.replace(/_/g, ' ')}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
-                                            {order._count.items}
+                                        <TableCell className="hidden sm:table-cell">
+                                            <div className="text-sm">{getItemSummary(order)}</div>
+                                            <div className="text-xs text-muted-foreground">{order._count.items} item(s)</div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">
                                             {order.totalAmount ? formatRupiah(Number(order.totalAmount)) : '-'}
@@ -152,7 +184,10 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                     <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div>
                                             <p className="text-[10px] text-muted-foreground uppercase font-semibold">Customer</p>
-                                            <p className="font-medium truncate">{order.customer?.name || 'Internal / MTS'}</p>
+                                            <p className="font-medium truncate">{getCustomerLabel(order)}</p>
+                                            {!order.customer && (
+                                                <p className="text-[10px] text-amber-700">Legacy internal order</p>
+                                            )}
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total</p>
@@ -166,7 +201,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                             <Badge variant="outline" className="h-4 px-1 rounded-sm text-[9px] font-normal">
                                                 {order.sourceLocation?.name || '-'}
                                             </Badge>
-                                            <span>• {order._count.items} Items</span>
+                                            <span>• {getItemSummary(order)}</span>
                                         </div>
                                         <div className="flex items-center text-primary font-medium">
                                             View Details <ChevronRight className="h-3 w-3 ml-0.5" />

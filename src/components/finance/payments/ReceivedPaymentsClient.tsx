@@ -30,11 +30,12 @@ interface Invoice {
 interface ReceivedPaymentsClientProps {
     payments: Payment[];
     unpaidInvoices: Invoice[];
+    demandType: 'customer' | 'legacy-internal';
 }
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export function ReceivedPaymentsClient({ payments, unpaidInvoices }: ReceivedPaymentsClientProps) {
+export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
 
     return (
@@ -42,14 +43,20 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices }: ReceivedPay
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Customer Payments</h1>
-                    <p className="text-muted-foreground">Track and manage payments received from customers.</p>
+                    <p className="text-muted-foreground">
+                        {demandType === 'customer'
+                            ? 'Track and manage payments received from customers.'
+                            : 'Review and reconcile legacy internal receipts that still exist in finance history.'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
-                    <Button onClick={() => setDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Record Payment
-                    </Button>
+                    {demandType === 'customer' && (
+                        <Button onClick={() => setDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Record Payment
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -60,11 +67,13 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices }: ReceivedPay
                 type="received"
             />
 
-            <RecordCustomerPaymentDialog
-                open={dialogOpen}
-                onOpenChange={setDialogOpen}
-                invoices={unpaidInvoices}
-            />
+            {demandType === 'customer' && (
+                <RecordCustomerPaymentDialog
+                    open={dialogOpen}
+                    onOpenChange={setDialogOpen}
+                    invoices={unpaidInvoices}
+                />
+            )}
         </div>
     );
 }

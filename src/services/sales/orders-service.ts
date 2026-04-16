@@ -7,9 +7,15 @@ import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 
-export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date }) {
+export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date, demandType?: 'customer' | 'legacy-internal' }) {
     const where: Prisma.SalesOrderWhereInput = {};
     if (filters?.customerId) where.customerId = filters.customerId;
+
+    if (filters?.demandType === 'customer') {
+        where.customerId = { not: null };
+    } else if (filters?.demandType === 'legacy-internal') {
+        where.customerId = null;
+    }
 
     if (filters?.startDate && filters?.endDate) {
         where.orderDate = {
@@ -263,6 +269,9 @@ export async function confirmOrder(id: string, userId: string) {
 
     if (!order) throw new Error("Order not found");
     if (order.status !== SalesOrderStatus.DRAFT) throw new Error("Only draft orders can be confirmed");
+    if (!order.customerId) {
+        throw new Error("Sales Order without customer is treated as a legacy internal stock build. Assign a customer first, or use a Production Order for internal replenishment.");
+    }
 
     if (order.customerId && order.orderType !== SalesOrderType.MAKE_TO_ORDER) {
         await checkCreditLimit(order.customerId, Number(order.totalAmount || 0));
@@ -275,10 +284,7 @@ export async function confirmOrder(id: string, userId: string) {
     const shortages: { productVariantId: string, quantity: number }[] = [];
 
     await prisma.$transaction(async (tx) => {
-        // Skip reservations if it's a MAKE_TO_STOCK order without a customer (Internal Production)
-        const isInternalMts = order.orderType === SalesOrderType.MAKE_TO_STOCK && !order.customerId;
-
-        if (!isInternalMts && order.sourceLocationId) {
+        if (order.sourceLocationId) {
             const variantIds = order.items.map(item => item.productVariantId);
             
             // Bulk fetch inventory for all items

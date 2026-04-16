@@ -1,7 +1,7 @@
 import {
     ProductionOrder, Bom, Machine, Location, User, MaterialIssue, ScrapRecord, QualityInspection,
     ProductVariant, Employee, WorkShift, ProductionExecution, ProductionMaterial,
-    ProductionShift, Product, ProductionIssue, Customer
+    ProductionShift, Product, ProductionIssue, Customer, SalesOrder, SalesOrderType
 } from '@prisma/client';
 
 export type ExtendedProductionOrder = ProductionOrder & {
@@ -25,4 +25,8 @@ export type ExtendedProductionOrder = ProductionOrder & {
     isMaklon?: boolean;
     maklonCustomer?: Customer | null;
     estimatedConversionCost?: number;
+    salesOrder?: Pick<SalesOrder, 'id' | 'orderNumber'> & {
+        orderType: SalesOrderType;
+        customer: Pick<Customer, 'id' | 'name' | 'email' | 'phone'> | null;
+    } | null;
 }

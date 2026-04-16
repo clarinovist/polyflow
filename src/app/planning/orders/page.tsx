@@ -12,8 +12,8 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BomCategory } from '@prisma/client';
 
-export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
-    const { category } = await searchParams;
+export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string, demand?: 'customer' | 'internal' }> }) {
+    const { category, demand = 'customer' } = await searchParams;
 
     let bomCategories: BomCategory[] | undefined;
 
@@ -25,8 +25,22 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
         bomCategories = ['PACKING'];
     }
 
-    const orders = await getProductionOrders({ bomCategories });
+    const orders = await getProductionOrders({ bomCategories, demandType: demand });
     const stats = await getProductionOrderStats();
+
+    const buildCategoryHref = (nextCategory?: string) => {
+        const query = new URLSearchParams();
+        if (nextCategory) query.set('category', nextCategory);
+        if (demand) query.set('demand', demand);
+        return query.toString() ? `/planning/orders?${query.toString()}` : '/planning/orders';
+    };
+
+    const buildDemandHref = (nextDemand: 'customer' | 'internal') => {
+        const query = new URLSearchParams();
+        if (category) query.set('category', category);
+        query.set('demand', nextDemand);
+        return `/planning/orders?${query.toString()}`;
+    };
 
     return (
         <div className="p-4 md:p-8 space-y-6">
@@ -36,12 +50,20 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                     <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
                     <p className="text-muted-foreground mt-2">Plan a new manufacturing job</p>
                 </div>
-                <Link href="/planning/orders/create" className="w-full sm:w-auto">
-                    <Button className="w-full sm:w-auto gap-2">
-                        <Plus className="h-4 w-4" />
-                        Create Order
-                    </Button>
-                </Link>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <Link href="/planning/orders/create" className="w-full sm:w-auto">
+                        <Button variant="outline" className="w-full sm:w-auto gap-2">
+                            <Plus className="h-4 w-4" />
+                            Create Order
+                        </Button>
+                    </Link>
+                    <Link href="/planning/orders/create?intent=internal" className="w-full sm:w-auto">
+                        <Button className="w-full sm:w-auto gap-2">
+                            <Plus className="h-4 w-4" />
+                            Internal Replenishment
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -88,16 +110,27 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 <Tabs defaultValue={category || 'all'} className="w-full">
                     <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
                         <TabsTrigger value="all" asChild>
-                            <Link href="/planning/orders">All</Link>
+                            <Link href={buildCategoryHref()}>All</Link>
                         </TabsTrigger>
                         <TabsTrigger value="mixing" asChild>
-                            <Link href="/planning/orders?category=mixing">Mixing</Link>
+                            <Link href={buildCategoryHref('mixing')}>Mixing</Link>
                         </TabsTrigger>
                         <TabsTrigger value="extrusion" asChild>
-                            <Link href="/planning/orders?category=extrusion">Extrusion</Link>
+                            <Link href={buildCategoryHref('extrusion')}>Extrusion</Link>
                         </TabsTrigger>
                         <TabsTrigger value="packing" asChild>
-                            <Link href="/planning/orders?category=packing">Packing</Link>
+                            <Link href={buildCategoryHref('packing')}>Packing</Link>
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+
+                <Tabs defaultValue={demand} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 lg:w-[360px]">
+                        <TabsTrigger value="customer" asChild>
+                            <Link href={buildDemandHref('customer')}>Customer Demand</Link>
+                        </TabsTrigger>
+                        <TabsTrigger value="internal" asChild>
+                            <Link href={buildDemandHref('internal')}>Internal Stock Build</Link>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -125,6 +158,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                         <TableHead>Order #</TableHead>
                                         <TableHead>Product</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Demand Source</TableHead>
                                         <TableHead>Machine</TableHead>
                                         <TableHead>Progress</TableHead>
                                         <TableHead>Planned</TableHead>
@@ -135,7 +169,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                 <TableBody>
                                     {orders.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                            <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
                                                 No orders found.
                                             </TableCell>
                                         </TableRow>
@@ -163,6 +197,21 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                     </TableCell>
                                                     <TableCell>
                                                         <StatusBadge status={order.status} />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col gap-1">
+                                                            {order.salesOrder ? (
+                                                                <>
+                                                                    <span className="text-sm font-medium">{order.salesOrder.customer?.name || order.salesOrder.orderNumber}</span>
+                                                                    <span className="text-xs text-muted-foreground">{order.salesOrder.orderNumber} • {order.salesOrder.orderType.replace(/_/g, ' ')}</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-sm font-medium">Internal stock build</span>
+                                                                    <span className="text-xs text-muted-foreground">No linked sales demand</span>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         {order.machine ? (

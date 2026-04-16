@@ -52,7 +52,8 @@ describe('InvoiceService', () => {
             (prisma.salesOrder.findUnique as any).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
-                orderNumber: 'SO-001'
+                orderNumber: 'SO-001',
+                customerId: 'cust-1'
             });
 
             // Mock created invoice
@@ -95,7 +96,8 @@ describe('InvoiceService', () => {
             (prisma.salesOrder.findUnique as any).mockResolvedValue({
                 id: 'so-1',
                 totalAmount: { toNumber: () => 1000 },
-                orderNumber: 'SO-001'
+                orderNumber: 'SO-001',
+                customerId: 'cust-1'
             });
 
             // Mock created invoice
@@ -117,6 +119,35 @@ describe('InvoiceService', () => {
             expect(loggerErrorSpy).toHaveBeenCalledWith("Failed to generate auto-journal for invoice", expect.objectContaining({ error: mockError }));
 
             loggerErrorSpy.mockRestore();
+        });
+
+        it('should reject invoice creation when sales order has no customer', async () => {
+            vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+                id: 'so-legacy',
+                totalAmount: { toNumber: () => 1000 },
+                orderNumber: 'SO-LEGACY',
+                customerId: null
+            } as never);
+
+            await expect(InvoiceService.createInvoice({
+                salesOrderId: 'so-legacy',
+                invoiceDate: new Date(),
+                dueDate: new Date(),
+                termOfPaymentDays: 30,
+            }, 'user-1')).rejects.toThrow(/without customer/i);
+        });
+
+        it('should skip draft invoice generation for legacy internal orders without customer', async () => {
+            vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+                id: 'so-legacy',
+                totalAmount: { toNumber: () => 1000 },
+                orderNumber: 'SO-LEGACY',
+                customerId: null
+            } as never);
+
+            await InvoiceService.createDraftInvoiceFromOrder('so-legacy', 'user-1');
+
+            expect(prisma.invoice.create).not.toHaveBeenCalled();
         });
     });
 });

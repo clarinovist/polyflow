@@ -115,7 +115,7 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
                             invoices.map((invoice) => {
                                 const isAR = !!invoice.salesOrder;
                                 const orderNumber = invoice.salesOrder?.orderNumber || invoice.purchaseOrder?.orderNumber || '-';
-                                const entityName = invoice.salesOrder?.customer?.name || invoice.purchaseOrder?.supplier?.name || 'Internal';
+                                const entityName = invoice.salesOrder?.customer?.name || invoice.purchaseOrder?.supplier?.name || 'Legacy Internal Stock Build';
 
                                 return (
                                     <TableRow key={invoice.id}>

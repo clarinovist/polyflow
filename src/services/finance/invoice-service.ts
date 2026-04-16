@@ -43,7 +43,7 @@ export class InvoiceService {
 
         const salesOrder = await prisma.salesOrder.findUnique({
             where: { id: salesOrderId },
-            select: { id: true, totalAmount: true, orderNumber: true }
+            select: { id: true, totalAmount: true, orderNumber: true, customerId: true }
         });
 
         if (!salesOrder) {
@@ -52,6 +52,10 @@ export class InvoiceService {
 
         if (!salesOrder.totalAmount) {
             throw new Error("Sales Order has no total amount");
+        }
+
+        if (!salesOrder.customerId) {
+            throw new Error("Cannot create invoice for a Sales Order without customer. Complete the customer first, or use Production Order for internal stock build.");
         }
 
         const invoiceNumber = await this.generateInvoiceNumber();
@@ -155,10 +159,10 @@ export class InvoiceService {
     static async createDraftInvoiceFromOrder(salesOrderId: string, userId: string) {
         const salesOrder = await prisma.salesOrder.findUnique({
             where: { id: salesOrderId },
-            select: { id: true, totalAmount: true, orderNumber: true }
+            select: { id: true, totalAmount: true, orderNumber: true, customerId: true }
         });
 
-        if (!salesOrder || !salesOrder.totalAmount) return;
+        if (!salesOrder || !salesOrder.totalAmount || !salesOrder.customerId) return;
 
         // Check if invoice already exists to avoid duplicates
         const existingInvoice = await prisma.invoice.findFirst({

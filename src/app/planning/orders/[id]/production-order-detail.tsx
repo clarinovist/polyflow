@@ -29,6 +29,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Progress } from '@/components/ui/progress';
+import Link from 'next/link';
 
 import { ShiftManager } from '@/components/production/ShiftManager';
 import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
@@ -94,6 +95,11 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / plannedQty) * 100, 100);
+    const demandSourceLabel = order.salesOrder
+        ? order.salesOrder.customer?.name || 'Customer demand'
+        : order.isMaklon
+            ? order.maklonCustomer?.name || 'Maklon demand'
+            : 'Internal stock build';
 
     const handleDelete = async () => {
         toast.promise(deleteProductionOrder(order.id), {
@@ -298,6 +304,49 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardContent>
                     </Card>
 
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Demand Source</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {order.salesOrder ? (
+                                <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="text-sm font-semibold text-blue-900">Linked Sales Order</div>
+                                            <div className="text-xs text-blue-700">
+                                                {order.salesOrder.customer?.name || 'Customer not assigned'} • {order.salesOrder.orderType.replace(/_/g, ' ')}
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className="border-blue-200 bg-white text-blue-700">
+                                            Customer Demand
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="font-medium">{order.salesOrder.orderNumber}</span>
+                                        <Link href={`/sales/orders/${order.salesOrder.id}`} className="text-blue-700 hover:underline">
+                                            Open Sales Order
+                                        </Link>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div className="text-sm font-semibold text-amber-900">No linked Sales Order</div>
+                                            <div className="text-xs text-amber-700">
+                                                This work order is treated as internal replenishment or planning demand.
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className="border-amber-200 bg-white text-amber-700">
+                                            Internal Demand
+                                        </Badge>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column: Order Details & Resources */}
                         <Card className="lg:col-span-1 h-fit">
@@ -308,6 +357,8 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                     <DetailRow label="Planned Start" value={format(new Date(order.plannedStartDate), 'PPP')} />
                                     <DetailRow label="Planned End" value={order.plannedEndDate ? format(new Date(order.plannedEndDate), 'PPP') : '-'} />
                                     <DetailRow label="Output Location" value={order.location.name} />
+                                    <DetailRow label="Demand Source" value={demandSourceLabel} />
+                                    {order.salesOrder && <DetailRow label="Sales Order" value={order.salesOrder.orderNumber} />}
                                     {order.isMaklon && (
                                         <>
                                             <DetailRow label="Is Maklon" value="Yes" />

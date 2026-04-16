@@ -329,7 +329,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-sm font-medium text-muted-foreground">Customer</div>
-                                    <div className="text-lg font-semibold">{invoice.salesOrder.customer?.name || 'Internal / MTS'}</div>
+                                    <div className="text-lg font-semibold">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</div>
                                     <div className="text-sm font-medium text-muted-foreground mt-2">Sales Order</div>
                                     <div className="font-medium underline decoration-dotted">
                                         {invoice.salesOrder.orderNumber}
@@ -337,7 +337,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-sm text-muted-foreground mb-1">Customer</h3>
-                                    <p className="font-medium">{invoice.salesOrder.customer?.name || 'Internal / MTS'}</p>
+                                    <p className="font-medium">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.email || ''}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.phone || ''}</p>
                                 </div>

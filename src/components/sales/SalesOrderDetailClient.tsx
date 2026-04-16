@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt } from 'lucide-react';
+import { ArrowLeft, Edit, Truck, CheckCircle, XCircle, Package, Receipt, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import {
     confirmSalesOrder,
@@ -43,6 +43,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 // Helper types for client-side usage where Decimals are converted to numbers and Dates to strings
@@ -118,6 +119,8 @@ export function SalesOrderDetailClient({
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
+    const isLegacyInternalOrder = !order.customerId;
+    const customerLabel = order.customer?.name || 'Legacy Internal Stock Build';
 
 
     // MRP Simulation State
@@ -143,6 +146,11 @@ export function SalesOrderDetailClient({
 
 
     const handleGenerateInvoice = async () => {
+        if (isLegacyInternalOrder) {
+            toast.error('Invoice is blocked for Sales Orders without customer. Use Production Order for internal stock build.');
+            return;
+        }
+
         if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
             toast.error("Order must be shipped or delivered to generate invoice");
             return;
@@ -206,6 +214,16 @@ export function SalesOrderDetailClient({
 
     return (
         <div className="space-y-6">
+            {isLegacyInternalOrder && (
+                <Alert className="border-amber-200 bg-amber-50">
+                    <AlertTriangle className="h-4 w-4 text-amber-700" />
+                    <AlertTitle>Legacy internal order</AlertTitle>
+                    <AlertDescription>
+                        This Sales Order has no customer and is treated as a legacy internal stock build. New invoicing is blocked. Use Production Order for internal replenishment, or assign a customer before continuing with customer billing.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
@@ -260,7 +278,7 @@ export function SalesOrderDetailClient({
 
                             <Button
                                 onClick={() => handleAction('confirmed', confirmSalesOrder)}
-                                disabled={isLoading}
+                                disabled={isLoading || isLegacyInternalOrder}
                                 className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
                                 <CheckCircle className="mr-2 h-4 w-4" /> Confirm Order
@@ -303,7 +321,7 @@ export function SalesOrderDetailClient({
                             {!warehouseMode && order.invoices.length === 0 && (
                                 <Button
                                     onClick={handleGenerateInvoice}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isLegacyInternalOrder}
                                     className="bg-sky-600 hover:bg-sky-700 text-white"
                                 >
                                     <Receipt className="mr-2 h-4 w-4" /> Generate Invoice
@@ -346,8 +364,8 @@ export function SalesOrderDetailClient({
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <h3 className="font-semibold text-sm text-muted-foreground">Customer</h3>
-                                <p className="text-lg">{order.customer?.name || 'Internal / MTS'}</p>
-                                <p className="text-sm text-muted-foreground">{order.customer?.email || (order.orderType === 'MAKE_TO_STOCK' ? 'Internal Inventory' : 'No email')}</p>
+                                <p className="text-lg">{customerLabel}</p>
+                                <p className="text-sm text-muted-foreground">{order.customer?.email || (isLegacyInternalOrder ? 'No customer assigned' : 'No email')}</p>
                                 <p className="text-sm text-muted-foreground">{order.customer?.phone || ''}</p>
                             </div>
                             <div>

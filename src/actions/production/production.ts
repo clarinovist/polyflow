@@ -85,7 +85,7 @@ export const createProductionOrder = withTenant(
 );
 
 export const getProductionOrders = withTenant(
-    async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: BomCategory[] }) {
+    async function getProductionOrders(filters?: { status?: ProductionStatus, machineId?: string, productTypes?: ProductType[], bomCategories?: BomCategory[], demandType?: 'customer' | 'internal' }) {
         const where: Prisma.ProductionOrderWhereInput = {};
         const bomWhere: Prisma.BomWhereInput = {};
 
@@ -109,6 +109,16 @@ export const getProductionOrders = withTenant(
             bomWhere.category = {
                 in: filters.bomCategories
             };
+        }
+
+        if (filters?.demandType === 'customer') {
+            where.OR = [
+                { salesOrderId: { not: null } },
+                { isMaklon: true, maklonCustomerId: { not: null } }
+            ];
+        } else if (filters?.demandType === 'internal') {
+            where.salesOrderId = null;
+            where.isMaklon = false;
         }
 
         if (Object.keys(bomWhere).length > 0) {
@@ -148,6 +158,19 @@ export const getProductionOrders = withTenant(
                 },
                 location: {
                     select: { id: true, name: true }
+                },
+                salesOrder: {
+                    select: {
+                        id: true,
+                        orderNumber: true,
+                        orderType: true,
+                        customer: {
+                            select: {
+                                id: true,
+                                name: true,
+                            }
+                        }
+                    }
                 },
                 shifts: {
                     select: {
@@ -254,6 +277,21 @@ export const getProductionOrder = withTenant(
                 },
                 maklonCostItems: {
                     orderBy: { createdAt: 'asc' }
+                },
+                salesOrder: {
+                    select: {
+                        id: true,
+                        orderNumber: true,
+                        orderType: true,
+                        customer: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                phone: true,
+                            }
+                        }
+                    }
                 }
             }
         });
