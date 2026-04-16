@@ -83,7 +83,7 @@ const productTypeLabels: Record<ProductType, string> = {
     SERVICE: 'Service',
 };
 
-export function ProductTable({ products, showPrices = false }: ProductTableProps) {
+export function ProductTable({ products = [], showPrices = false }: ProductTableProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [variantToDelete, setVariantToDelete] = useState<ProductVariant | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -92,7 +92,7 @@ export function ProductTable({ products, showPrices = false }: ProductTableProps
     // Flatten products into variants
     const flattenedVariants = useMemo(() => {
         return products.flatMap(product =>
-            product.variants.map(variant => ({
+            (product.variants || []).map(variant => ({
                 ...variant,
                 productName: product.name,
                 productType: product.productType,

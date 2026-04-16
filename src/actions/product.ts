@@ -88,9 +88,12 @@ async function getProducts(options?: { type?: ProductType }) {
         return products.map(product => {
             let productTotalStock = 0;
 
-            const cleanedVariants = product.variants.map(variant => {
-                const variantStock = variant.inventories.reduce((vSum, inv) => {
-                    return vSum + inv.quantity.toNumber();
+            const variantsArray = product.variants || [];
+
+            const cleanedVariants = variantsArray.map(variant => {
+                const invs = variant.inventories || [];
+                const variantStock = invs.reduce((vSum, inv) => {
+                    return vSum + (inv.quantity?.toNumber ? inv.quantity.toNumber() : Number(inv.quantity || 0));
                 }, 0);
 
                 productTotalStock += variantStock;
@@ -153,8 +156,9 @@ async function getProductById(id: string) {
             return null;
         }
 
-        const enrichedVariants = (product.variants as ProductVariantWithRelations[]).map((variant) => {
-            const stock = variant.inventories.reduce((sum: number, inv) => sum + Number(inv.quantity), 0);
+        const enrichedVariants = (product.variants || [] as ProductVariantWithRelations[]).map((variant) => {
+            const invs = variant.inventories || [];
+            const stock = invs.reduce((sum: number, inv) => sum + Number(inv.quantity), 0);
             return {
                 ...variant,
                 stock
