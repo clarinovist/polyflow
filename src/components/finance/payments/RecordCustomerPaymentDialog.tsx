@@ -95,9 +95,9 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices }: Re
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Record Customer Payment</DialogTitle>
+                    <DialogTitle>Record Payment</DialogTitle>
                     <DialogDescription>
-                        Record a payment received from a customer for their invoice.
+                        Record a payment received against an outstanding sales invoice.
                     </DialogDescription>
                 </DialogHeader>
 

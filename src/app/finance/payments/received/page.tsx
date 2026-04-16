@@ -71,7 +71,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
                     <Alert className="border-amber-200 bg-amber-50">
                         <AlertTitle>Legacy internal receipts</AlertTitle>
                         <AlertDescription>
-                            These records exist for historical reconciliation only. New internal stock build should no longer create customer receipts through finance.
+                            These records exist for historical reconciliation only. New internal stock build should no longer create customer receipts through finance, but existing outstanding invoices here can still be settled through Record Payment.
                         </AlertDescription>
                     </Alert>
                 </div>

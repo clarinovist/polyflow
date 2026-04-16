@@ -37,6 +37,7 @@ import { UrlTransactionDateFilter } from '@/components/common/url-transaction-da
 
 export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
+    const canRecordPayment = unpaidInvoices.length > 0;
 
     return (
         <div className="space-y-6">
@@ -51,7 +52,7 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }:
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
-                    {demandType === 'customer' && (
+                    {canRecordPayment && (
                         <Button onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
                             Record Payment
@@ -67,7 +68,7 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }:
                 type="received"
             />
 
-            {demandType === 'customer' && (
+            {canRecordPayment && (
                 <RecordCustomerPaymentDialog
                     open={dialogOpen}
                     onOpenChange={setDialogOpen}
