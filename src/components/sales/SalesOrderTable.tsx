@@ -12,7 +12,7 @@ import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
-import { SalesOrder, SalesOrderStatus, Customer, Location } from '@prisma/client';
+import { SalesOrder, SalesOrderStatus, Customer, Location, InvoiceStatus } from '@prisma/client';
 import { FileText, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
@@ -32,6 +32,15 @@ type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
                 name: string;
             };
         };
+    }>;
+    invoices?: Array<{
+        id: string;
+        invoiceNumber: string;
+        status: InvoiceStatus;
+        totalAmount: number;
+        paidAmount: number;
+        invoiceDate: string | Date;
+        dueDate?: string | Date | null;
     }>;
     _count: { items: number };
 };
@@ -75,6 +84,36 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
         }
     };
 
+    const getPaymentSummary = (order: SerializedSalesOrder) => {
+        const invoices = order.invoices || [];
+        if (invoices.length === 0) {
+            return {
+                label: 'Belum invoice',
+                badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+                outstanding: 0,
+            };
+        }
+
+        const outstanding = invoices.reduce((sum, invoice) => {
+            const remaining = Number(invoice.totalAmount || 0) - Number(invoice.paidAmount || 0);
+            return remaining > 0 ? sum + remaining : sum;
+        }, 0);
+
+        if (outstanding > 0) {
+            return {
+                label: 'Belum lunas',
+                badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+                outstanding,
+            };
+        }
+
+        return {
+            label: 'Lunas',
+            badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            outstanding: 0,
+        };
+    };
+
     return (
         <div className="rounded-md border-none sm:border">
             {/* Desktop Table View */}
@@ -88,20 +127,24 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                 <TableHead>Customer</TableHead>
                                 <TableHead className="hidden md:table-cell">Location</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Pembayaran</TableHead>
                                 <TableHead className="text-right hidden sm:table-cell">Items</TableHead>
                                 <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-right">Outstanding</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {initialData.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={9} className="h-24 text-center">
                                         No sales orders found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                initialData.map((order) => (
-                                    <TableRow
+                                initialData.map((order) => {
+                                    const paymentSummary = getPaymentSummary(order);
+
+                                    return <TableRow
                                         key={order.id}
                                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,6 +177,11 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                                 {order.status.replace(/_/g, ' ')}
                                             </Badge>
                                         </TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className={paymentSummary.badgeClass}>
+                                                {paymentSummary.label}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             <div className="text-sm">{getItemSummary(order)}</div>
                                             <div className="text-xs text-muted-foreground">{order._count.items} item(s)</div>
@@ -141,8 +189,11 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         <TableCell className="text-right font-medium">
                                             {order.totalAmount ? formatRupiah(Number(order.totalAmount)) : '-'}
                                         </TableCell>
-                                    </TableRow>
-                                ))
+                                        <TableCell className="text-right font-medium">
+                                            {paymentSummary.outstanding > 0 ? formatRupiah(paymentSummary.outstanding) : '-'}
+                                        </TableCell>
+                                    </TableRow>;
+                                })
                             )}
                         </TableBody>
                     </Table>
@@ -156,8 +207,10 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                         No sales orders found.
                     </div>
                 ) : (
-                    initialData.map((order) => (
-                        <Card
+                    initialData.map((order) => {
+                        const paymentSummary = getPaymentSummary(order);
+
+                        return <Card
                             key={order.id}
                             className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -196,6 +249,17 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                             </p>
                                         </div>
                                     </div>
+                                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+                                        <span className="text-muted-foreground">Pembayaran</span>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className={`text-[10px] ${paymentSummary.badgeClass}`}>
+                                                {paymentSummary.label}
+                                            </Badge>
+                                            {paymentSummary.outstanding > 0 && (
+                                                <span className="font-medium text-amber-700">{formatRupiah(paymentSummary.outstanding)}</span>
+                                            )}
+                                        </div>
+                                    </div>
                                     <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
                                         <div className="flex items-center gap-1">
                                             <Badge variant="outline" className="h-4 px-1 rounded-sm text-[9px] font-normal">
@@ -209,8 +273,8 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                     </div>
                                 </div>
                             </CardContent>
-                        </Card>
-                    ))
+                        </Card>;
+                    })
                 )}
             </div>
         </div >

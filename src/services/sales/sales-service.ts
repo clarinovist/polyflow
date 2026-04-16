@@ -15,7 +15,15 @@ export class SalesService {
     /**
      * Get All Sales Orders (Optimized)
      */
-    static async getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date, demandType?: 'customer' | 'legacy-internal' }) {
+    static async getOrders(filters?: {
+        customerId?: string,
+        includeItems?: boolean,
+        startDate?: Date,
+        endDate?: Date,
+        demandType?: 'customer' | 'legacy-internal',
+        orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA',
+        paymentState?: 'outstanding'
+    }) {
         return getOrders(filters);
     }
 

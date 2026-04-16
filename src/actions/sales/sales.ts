@@ -16,7 +16,12 @@ import { safeAction } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 
 export const getSalesOrders = withTenant(
-async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Date, endDate?: Date }, demandType?: 'customer' | 'legacy-internal') {
+async function getSalesOrders(
+    includeItems = false,
+    dateRange?: { startDate?: Date, endDate?: Date },
+    demandType?: 'customer' | 'legacy-internal',
+    extraFilters?: { orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA', paymentState?: 'outstanding' }
+) {
     return safeAction(async () => {
         await requireAuth();
         const orders = await SalesService.getOrders({
@@ -24,6 +29,8 @@ async function getSalesOrders(includeItems = false, dateRange?: { startDate?: Da
             startDate: dateRange?.startDate,
             endDate: dateRange?.endDate,
             demandType,
+            orderType: extraFilters?.orderType,
+            paymentState: extraFilters?.paymentState,
         });
         return serializeData(orders);
     });

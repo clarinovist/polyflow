@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
 import { LucideIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
@@ -21,9 +21,33 @@ interface NavGroupProps {
     defaultOpen?: boolean;
 }
 
+function isNavItemActive(
+    href: string,
+    pathname: string,
+    searchParams: URLSearchParams,
+    exact?: boolean
+) {
+    const [targetPath, targetQueryString] = href.split('?');
+    const pathMatches = exact
+        ? pathname === targetPath
+        : (pathname === targetPath || (targetPath !== '/' && pathname.startsWith(targetPath)));
+
+    if (!pathMatches) {
+        return false;
+    }
+
+    if (!targetQueryString) {
+        return true;
+    }
+
+    const targetQuery = new URLSearchParams(targetQueryString);
+    return Array.from(targetQuery.entries()).every(([key, value]) => searchParams.get(key) === value);
+}
+
 export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', exact }: NavItemProps) {
     const pathname = usePathname();
-    const isActive = exact ? pathname === href : (pathname === href || (href !== '/' && pathname.startsWith(href)));
+    const searchParams = useSearchParams();
+    const isActive = isNavItemActive(href, pathname, searchParams, exact);
 
     const activeClasses = {
         primary: 'bg-sidebar-accent text-sidebar-accent-foreground',
@@ -61,8 +85,9 @@ export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary'
 
 export function PortalNavGroup({ heading, items, accentColor = 'primary', defaultOpen = true }: NavGroupProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const isChildActive = items.some(item =>
-        pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+        isNavItemActive(item.href, pathname, searchParams, item.exact)
     );
     const [isOpen, setIsOpen] = useState(defaultOpen || isChildActive);
 

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma, ProductType } from '@prisma/client';
+import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma, ProductType, InvoiceStatus } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { createStockReservation } from '@/services/inventory/reservation-service';
@@ -7,9 +7,21 @@ import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 
-export async function getOrders(filters?: { customerId?: string, includeItems?: boolean, startDate?: Date, endDate?: Date, demandType?: 'customer' | 'legacy-internal' }) {
+export async function getOrders(filters?: {
+    customerId?: string,
+    includeItems?: boolean,
+    startDate?: Date,
+    endDate?: Date,
+    demandType?: 'customer' | 'legacy-internal',
+    orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA',
+    paymentState?: 'outstanding'
+}) {
     const where: Prisma.SalesOrderWhereInput = {};
     if (filters?.customerId) where.customerId = filters.customerId;
+
+    if (filters?.orderType) {
+        where.orderType = filters.orderType;
+    }
 
     if (filters?.demandType === 'customer') {
         where.customerId = { not: null };
@@ -24,9 +36,29 @@ export async function getOrders(filters?: { customerId?: string, includeItems?: 
         };
     }
 
+    if (filters?.paymentState === 'outstanding') {
+        where.invoices = {
+            some: {
+                status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] }
+            }
+        };
+    }
+
     const include: Prisma.SalesOrderInclude = {
         customer: true,
         sourceLocation: true,
+        invoices: {
+            select: {
+                id: true,
+                invoiceNumber: true,
+                status: true,
+                totalAmount: true,
+                paidAmount: true,
+                invoiceDate: true,
+                dueDate: true,
+            },
+            orderBy: { invoiceDate: 'desc' }
+        },
         _count: {
             select: {
                 items: true,

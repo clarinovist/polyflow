@@ -15,7 +15,8 @@ import {
     Wallet,
     Landmark,
     Box,
-    Factory
+    Factory,
+    CircleDollarSign
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -48,6 +49,7 @@ const financeLinks = [
         items: [
             { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
             { href: '/finance/invoices/sales', icon: Receipt, label: 'Receivables' },
+            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: 'MTS Belum Lunas' },
             { href: '/finance/payments/received', icon: CreditCard, label: 'Customer Payments' },
             { href: '/finance/invoices/purchase', icon: FileText, label: 'Payables' },
             { href: '/finance/payments/sent', icon: CreditCard, label: 'Supplier Payments' },

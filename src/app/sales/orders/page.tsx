@@ -6,16 +6,19 @@ import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SalesOrderType } from '@prisma/client';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal', view?: 'mts-unpaid' }> }) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
     const demand = params?.demand || 'customer';
+    const view = params?.view;
+    const activeTab = view === 'mts-unpaid' ? 'mts-unpaid' : demand;
 
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
@@ -28,8 +31,21 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         return `/sales/orders?${query.toString()}`;
     };
 
+    const buildViewHref = (nextView: 'mts-unpaid') => {
+        const query = new URLSearchParams();
+        query.set('view', nextView);
+        if (params?.startDate) query.set('startDate', params.startDate);
+        if (params?.endDate) query.set('endDate', params.endDate);
+        return `/sales/orders?${query.toString()}`;
+    };
+
     // Pass date filter to fetch function
-    const ordersRes = await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, demand);
+    const ordersRes = view === 'mts-unpaid'
+        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, undefined, {
+            orderType: SalesOrderType.MAKE_TO_STOCK,
+            paymentState: 'outstanding'
+        })
+        : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, demand);
     const statsRes = await getSalesOrderStats();
     
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
@@ -105,13 +121,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 <CardHeader>
                     <div className="flex flex-col gap-4">
                         <CardTitle>All Orders</CardTitle>
-                        <Tabs defaultValue={demand} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 md:w-[420px]">
+                        <Tabs value={activeTab} className="w-full">
+                            <TabsList className="grid w-full grid-cols-3 md:w-[640px]">
                                 <TabsTrigger value="customer" asChild>
                                     <Link href={buildDemandHref('customer')}>Customer Demand</Link>
                                 </TabsTrigger>
                                 <TabsTrigger value="legacy-internal" asChild>
                                     <Link href={buildDemandHref('legacy-internal')}>Legacy Internal</Link>
+                                </TabsTrigger>
+                                <TabsTrigger value="mts-unpaid" asChild>
+                                    <Link href={buildViewHref('mts-unpaid')}>MTS Belum Lunas</Link>
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
