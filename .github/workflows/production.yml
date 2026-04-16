@@ -128,7 +128,8 @@ jobs:
             git reset --hard origin/main
             echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull polyflow
-            docker compose up -d polyflow
+            docker rm -f polyflow-app 2>/dev/null || true
+            docker compose up -d --no-deps polyflow
             docker image prune -f
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
