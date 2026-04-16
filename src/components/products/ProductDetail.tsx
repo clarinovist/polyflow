@@ -49,17 +49,18 @@ interface ExtendedCostHistory extends CostHistory {
     createdBy: { name: string | null } | null;
 }
 
-interface ExtendedInventory extends Inventory {
+interface ExtendedInventory {
+    quantity: Inventory['quantity'];
     location: { name: string } | null;
 }
 
-interface ExtendedVariant extends ProductVariant {
+interface ExtendedVariant extends Pick<ProductVariant, 'id' | 'name' | 'skuCode' | 'primaryUnit' | 'price' | 'standardCost'> {
     costHistory: ExtendedCostHistory[];
     inventories: ExtendedInventory[];
     stock?: number; // Calculated field
 }
 
-interface ProductWithDetails extends Product {
+interface ProductWithDetails extends Pick<Product, 'id' | 'name' | 'productType'> {
     variants: ExtendedVariant[];
 }
 
