@@ -22,7 +22,9 @@ export async function markReadyToShip(id: string, userId: string) {
         action: 'UPDATE_SALES_STATUS',
         entityType: 'SalesOrder',
         entityId: id,
-        details: `Sales Order ${order.orderNumber} marked as Ready to Ship`
+        details: order.orderType === 'MAKLON_JASA'
+            ? `Sales Order ${order.orderNumber} marked as Ready for Service Closure`
+            : `Sales Order ${order.orderNumber} marked as Ready to Ship`
     });
 }
 
@@ -37,6 +39,8 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
         throw new Error("Order must be CONFIRMED or READY_TO_SHIP to be shipped");
     }
     if (!order.sourceLocationId) throw new Error("Source location is missing");
+
+    const isMaklonOrder = order.orderType === 'MAKLON_JASA';
 
     await prisma.$transaction(async (tx) => {
         const physicalItems = [];
@@ -88,7 +92,7 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
                     quantity: qty,
                     salesOrderId: order.id,
                     createdById: userId,
-                    reference: `Shipment for ${order.orderNumber}`,
+                    reference: isMaklonOrder ? `Service closure shipment for ${order.orderNumber}` : `Shipment for ${order.orderNumber}`,
                     createdAt: new Date()
                 }
             });
@@ -153,14 +157,19 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
             action: 'SHIP_SALES',
             entityType: 'SalesOrder',
             entityId: id,
-            details: `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${physicalItems.length > 0 ? doNumber : 'N/A (maklon)'}`,
+            details: isMaklonOrder
+                ? `Sales Order ${order.orderNumber} closed as Maklon service order. Delivery Order ${physicalItems.length > 0 ? doNumber : 'not created; service-only flow'}`
+                : `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${physicalItems.length > 0 ? doNumber : 'N/A'}`,
             tx
         });
     });
 }
 
-export async function deliverOrder(orderId: string, _userId: string) {
+export async function deliverOrder(orderId: string, userId: string) {
     await prisma.$transaction(async (tx) => {
+        const order = await tx.salesOrder.findUnique({ where: { id: orderId } });
+        if (!order) throw new Error("Order not found");
+
         await tx.salesOrder.update({
             where: { id: orderId },
             data: { status: SalesOrderStatus.DELIVERED }
@@ -174,6 +183,17 @@ export async function deliverOrder(orderId: string, _userId: string) {
                 status: ReservationStatus.ACTIVE
             },
             data: { status: ReservationStatus.FULFILLED }
+        });
+
+        await logActivity({
+            userId,
+            action: 'UPDATE_SALES_STATUS',
+            entityType: 'SalesOrder',
+            entityId: orderId,
+            details: order.orderType === 'MAKLON_JASA'
+                ? `Sales Order ${order.orderNumber} marked as Service Delivered`
+                : `Sales Order ${order.orderNumber} marked as Delivered`,
+            tx
         });
     });
 }

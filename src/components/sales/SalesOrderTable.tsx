@@ -55,6 +55,33 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
 
     const getCustomerLabel = (order: SerializedSalesOrder) => order.customer?.name || 'Legacy Internal Stock Build';
 
+    const isMaklonOrder = (order: SerializedSalesOrder) => order.orderType === 'MAKLON_JASA';
+
+    const getOrderTypeLabel = (order: SerializedSalesOrder) => {
+        switch (order.orderType) {
+            case 'MAKE_TO_STOCK': return 'MTS';
+            case 'MAKE_TO_ORDER': return 'MTO';
+            case 'MAKLON_JASA': return 'Maklon Jasa';
+            default: return 'Unknown';
+        }
+    };
+
+    const getStatusLabel = (order: SerializedSalesOrder) => {
+        if (!isMaklonOrder(order)) return order.status.replace(/_/g, ' ');
+
+        switch (order.status) {
+            case 'READY_TO_SHIP': return 'READY FOR SERVICE CLOSURE';
+            case 'SHIPPED': return 'SERVICE CLOSED';
+            case 'DELIVERED': return 'SERVICE DELIVERED';
+            default: return order.status.replace(/_/g, ' ');
+        }
+    };
+
+    const getLocationLabel = (order: SerializedSalesOrder) => {
+        const locationName = order.sourceLocation?.name || '-';
+        return isMaklonOrder(order) ? `Prod: ${locationName}` : locationName;
+    };
+
     const getItemSummary = (order: SerializedSalesOrder) => {
         if (!order.items?.length) return `${order._count.items} item`;
 
@@ -125,6 +152,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                 <TableHead>Order #</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Customer</TableHead>
+                                <TableHead>Type</TableHead>
                                 <TableHead className="hidden md:table-cell">Location</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Pembayaran</TableHead>
@@ -136,7 +164,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                         <TableBody>
                             {initialData.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="h-24 text-center">
+                                    <TableCell colSpan={10} className="h-24 text-center">
                                         No sales orders found.
                                     </TableCell>
                                 </TableRow>
@@ -167,14 +195,19 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                                 )}
                                             </div>
                                         </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="font-normal">
+                                                {getOrderTypeLabel(order)}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="hidden md:table-cell">
                                             <Badge variant="outline" className="font-normal">
-                                                {order.sourceLocation?.name || '-'}
+                                                {getLocationLabel(order)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className={getStatusColor(order.status)}>
-                                                {order.status.replace(/_/g, ' ')}
+                                                {getStatusLabel(order)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -228,7 +261,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         </div>
                                     </div>
                                     <Badge variant="secondary" className={`text-[10px] px-1.5 h-5 ${getStatusColor(order.status)}`}>
-                                        {order.status.replace(/_/g, ' ')}
+                                        {getStatusLabel(order)}
                                     </Badge>
                                 </div>
                             </CardHeader>
@@ -250,6 +283,15 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
+                                        <span className="text-muted-foreground">Type</span>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="text-[10px]">
+                                                {getOrderTypeLabel(order)}
+                                            </Badge>
+                                            <span className="text-muted-foreground">{getLocationLabel(order)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
                                         <span className="text-muted-foreground">Pembayaran</span>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className={`text-[10px] ${paymentSummary.badgeClass}`}>
@@ -262,9 +304,6 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                     </div>
                                     <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
                                         <div className="flex items-center gap-1">
-                                            <Badge variant="outline" className="h-4 px-1 rounded-sm text-[9px] font-normal">
-                                                {order.sourceLocation?.name || '-'}
-                                            </Badge>
                                             <span>• {getItemSummary(order)}</span>
                                         </div>
                                         <div className="flex items-center text-primary font-medium">

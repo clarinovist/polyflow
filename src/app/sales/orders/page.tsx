@@ -64,7 +64,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
-                    <p className="text-muted-foreground">Manage customer orders and shipments.</p>
+                    <p className="text-muted-foreground">Manage customer orders, production-linked demand, and maklon service closures.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" />

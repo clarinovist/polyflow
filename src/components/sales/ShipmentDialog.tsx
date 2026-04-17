@@ -30,11 +30,12 @@ import { Truck } from 'lucide-react';
 interface ShipmentDialogProps {
     orderId: string;
     orderNumber: string;
+    isMaklon?: boolean;
     isOpen: boolean;
     onClose: () => void;
 }
 
-export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: ShipmentDialogProps) {
+export function ShipmentDialog({ orderId, orderNumber, isMaklon = false, isOpen, onClose }: ShipmentDialogProps) {
     const [isPending, setIsPending] = useState(false);
     const router = useRouter();
 
@@ -52,11 +53,11 @@ export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: Shipme
         try {
             const result = await shipSalesOrder(values);
             if (result.success) {
-                toast.success('Order shipped successfully');
+                toast.success(isMaklon ? 'Service order closed successfully' : 'Order shipped successfully');
                 onClose();
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to ship order');
+                toast.error(result.error || (isMaklon ? 'Failed to close service order' : 'Failed to ship order'));
             }
         } catch (_error) {
             toast.error('An unexpected error occurred');
@@ -71,10 +72,12 @@ export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: Shipme
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Truck className="h-5 w-5 text-purple-600" />
-                        Ship Order {orderNumber}
+                        {isMaklon ? `Close Service Order ${orderNumber}` : `Ship Order ${orderNumber}`}
                     </DialogTitle>
                     <DialogDescription>
-                        Enter shipment details to confirm delivery dispatch.
+                        {isMaklon
+                            ? 'Gunakan langkah ini untuk menutup order jasa setelah pekerjaan maklon selesai. Isian kurir dan tracking opsional, karena bukan pengiriman stok fisik standar.'
+                            : 'Enter shipment details to confirm delivery dispatch.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -85,7 +88,7 @@ export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: Shipme
                             name="carrier"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Courier / Carrier</FormLabel>
+                                    <FormLabel>{isMaklon ? 'Courier / Carrier (Optional)' : 'Courier / Carrier'}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="e.g. JNE, J&T, Internal Courier" {...field} />
                                     </FormControl>
@@ -98,7 +101,7 @@ export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: Shipme
                             name="trackingNumber"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tracking Number</FormLabel>
+                                    <FormLabel>{isMaklon ? 'Tracking Number (Optional)' : 'Tracking Number'}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Enter AWB or Tracking ID" {...field} />
                                     </FormControl>
@@ -112,7 +115,7 @@ export function ShipmentDialog({ orderId, orderNumber, isOpen, onClose }: Shipme
                                 Cancel
                             </Button>
                             <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={isPending}>
-                                {isPending ? 'Processing...' : 'Confirm Shipment'}
+                                {isPending ? 'Processing...' : (isMaklon ? 'Confirm Service Closure' : 'Confirm Shipment')}
                             </Button>
                         </DialogFooter>
                     </form>

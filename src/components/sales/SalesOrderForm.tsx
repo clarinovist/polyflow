@@ -77,11 +77,13 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     const [openCustomer, setOpenCustomer] = useState(false);
     const [openProduct, setOpenProduct] = useState<Record<number, boolean>>({});
 
-    // Filter locations for MTS constraint (Finished Good, Scrap & Packing)
-    const validLocations = locations.filter(l =>
+    // Filter locations for stock-based sales fulfillment (Finished Good, Scrap & Packing)
+    const stockFulfillmentLocations = locations.filter(l =>
         l.slug?.includes('finished') || l.slug?.includes('scrap') || l.slug?.includes('packing') ||
         l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap') || l.name.toLowerCase().includes('packing')
     );
+
+    const maklonProductionLocations = locations.filter(l => l.locationType !== 'CUSTOMER_OWNED');
 
     // Unified type to satisfy react-hook-form's need for a consistent generic standard
     type SalesOrderFormValues = {
@@ -122,6 +124,22 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     // Unified types and watching
     const selectedSourceLocationId = useWatch({ control: form.control, name: 'sourceLocationId' });
     const selectedOrderType = useWatch({ control: form.control, name: 'orderType' });
+
+    const selectableLocations = selectedOrderType === 'MAKLON_JASA'
+        ? maklonProductionLocations
+        : stockFulfillmentLocations;
+
+    const sourceLocationLabel = selectedOrderType === 'MAKLON_JASA'
+        ? 'Production Location'
+        : 'Source Location (Warehouse)';
+
+    const sourceLocationPlaceholder = selectedOrderType === 'MAKLON_JASA'
+        ? 'Select production location'
+        : 'Select warehouse';
+
+    const sourceLocationDescription = selectedOrderType === 'MAKLON_JASA'
+        ? 'Untuk Maklon Jasa, field ini adalah lokasi produksi/default consumption location untuk work order. Bahan titipan customer tetap dikonsumsi saat Production Execution dari lokasi produksi ini dulu, lalu fallback ke CUSTOMER_OWNED jika stok belum dipindahkan.'
+        : 'Pilih gudang sumber untuk reservasi dan shipment stok fisik.';
 
     const filteredProducts = useMemo(() => {
         let baseProducts = products;
@@ -297,21 +315,24 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         name="sourceLocationId"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Source Location (Warehouse)</FormLabel>
+                                <FormLabel>{sourceLocationLabel}</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
                                         <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select warehouse" />
+                                            <SelectValue placeholder={sourceLocationPlaceholder} />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {validLocations.map((loc) => (
+                                        {selectableLocations.map((loc) => (
                                             <SelectItem key={loc.id} value={loc.id}>
                                                 {loc.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <FormDescription>
+                                    {sourceLocationDescription}
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

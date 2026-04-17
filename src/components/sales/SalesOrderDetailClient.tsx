@@ -120,6 +120,7 @@ export function SalesOrderDetailClient({
     const [isLoading, setIsLoading] = useState(false);
     const [isShipDialogOpen, setIsShipDialogOpen] = useState(false);
     const isLegacyInternalOrder = !order.customerId;
+    const isMaklonOrder = order.orderType === 'MAKLON_JASA';
     const customerLabel = order.customer?.name || 'Legacy Internal Stock Build';
 
 
@@ -224,6 +225,16 @@ export function SalesOrderDetailClient({
                 </Alert>
             )}
 
+            {isMaklonOrder && (
+                <Alert className="border-blue-200 bg-blue-50">
+                    <AlertTriangle className="h-4 w-4 text-blue-700" />
+                    <AlertTitle>Maklon Jasa flow</AlertTitle>
+                    <AlertDescription>
+                        Order ini menagihkan jasa, bukan mengirim stok fisik dari sales order. Bahan titipan customer dikonsumsi saat production execution dari lokasi produksi dulu, lalu fallback ke lokasi customer-owned bila diperlukan.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
@@ -292,7 +303,7 @@ export function SalesOrderDetailClient({
                             disabled={isLoading}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white"
                         >
-                            <Package className="mr-2 h-4 w-4" /> Production Complete
+                            <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Production Complete / Ready for Service Closure' : 'Production Complete'}
                         </Button>
                     )}
 
@@ -302,7 +313,7 @@ export function SalesOrderDetailClient({
                             disabled={isLoading}
                             className="bg-purple-600 hover:bg-purple-700 text-white"
                         >
-                            <Truck className="mr-2 h-4 w-4" /> Ship Order
+                            <Truck className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Close Service Order' : 'Ship Order'}
                         </Button>
                     )}
 
@@ -314,7 +325,7 @@ export function SalesOrderDetailClient({
                                     disabled={isLoading}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
-                                    <Package className="mr-2 h-4 w-4" /> Mark Delivered
+                                    <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Mark Service Delivered' : 'Mark Delivered'}
                                 </Button>
                             )}
 
@@ -369,8 +380,11 @@ export function SalesOrderDetailClient({
                                 <p className="text-sm text-muted-foreground">{order.customer?.phone || ''}</p>
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">Source Warehouse</h3>
+                                <h3 className="font-semibold text-sm text-muted-foreground">{isMaklonOrder ? 'Production Location' : 'Source Warehouse'}</h3>
                                 <p className="text-lg">{order.sourceLocation?.name || 'N/A'}</p>
+                                {isMaklonOrder && (
+                                    <p className="text-sm text-muted-foreground">Dipakai sebagai lokasi produksi/default consumption location untuk work order maklon.</p>
+                                )}
                             </div>
                             <div>
                                 <h3 className="font-semibold text-sm text-muted-foreground">Expected Delivery</h3>
@@ -482,17 +496,17 @@ export function SalesOrderDetailClient({
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Shipment History</CardTitle>
-                            <CardDescription>Stock movements related to this order</CardDescription>
+                            <CardTitle>{isMaklonOrder ? 'Service Closure History' : 'Shipment History'}</CardTitle>
+                            <CardDescription>{isMaklonOrder ? 'Progress closure untuk order jasa maklon' : 'Stock movements related to this order'}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {order.movements.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No shipments yet.</p>
+                                <p className="text-sm text-muted-foreground">{isMaklonOrder ? 'No service-closure stock movements recorded from sales yet. Material consumption is tracked from production execution.' : 'No shipments yet.'}</p>
                             ) : (
                                 <ul className="space-y-4">
                                     {order.movements.map((m) => (
                                         <li key={m.id} className="text-sm border-l-2 border-purple-200 pl-4 py-1">
-                                            <div className="font-medium">Shipped {Number(m.quantity)} units</div>
+                                            <div className="font-medium">{isMaklonOrder ? `Recorded sales shipment movement ${Number(m.quantity)} units` : `Shipped ${Number(m.quantity)} units`}</div>
                                             <div className="text-xs text-muted-foreground">
                                                 {format(new Date(m.createdAt), 'PP p')}
                                             </div>
@@ -509,6 +523,7 @@ export function SalesOrderDetailClient({
             <ShipmentDialog
                 orderId={order.id}
                 orderNumber={order.orderNumber}
+                isMaklon={isMaklonOrder}
                 isOpen={isShipDialogOpen}
                 onClose={() => setIsShipDialogOpen(false)}
             />

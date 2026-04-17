@@ -309,7 +309,7 @@ export class ProductionOrderService {
             plannedEndDate: so.expectedDate || undefined,
             locationId: so.sourceLocationId || '',
             salesOrderId,
-            notes: `Auto-generated from Sales Order shortage${isMaklon ? ' (Maklon)' : ''}.`,
+            notes: `Auto-generated from Sales Order shortage${isMaklon ? ' (Maklon; source location treated as production location/default consumption location)' : ''}.`,
             isMaklon: isMaklon,
             maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
             estimatedConversionCost: 0
