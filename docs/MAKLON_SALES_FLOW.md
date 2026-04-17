@@ -66,3 +66,5 @@ Untuk user operasional:
 - Anggap maklon sebagai flow berbasis produksi, bukan shipment sales biasa.
 - Sales Order maklon dipakai untuk demand jasa dan invoice.
 - Pengeluaran bahan titipan terjadi saat execution produksi, bukan saat confirm atau ship Sales Order.
+
+Jika ada stok maklon lama yang masih tersimpan di lokasi non-maklon, gunakan [Maklon Stock Repair Runbook](./MAKLON_STOCK_REPAIR.md).
