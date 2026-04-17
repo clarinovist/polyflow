@@ -19,7 +19,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "audit:production-voids": "node scripts/audit-duplicate-production-voids.js"
+    "audit:production-voids": "node scripts/audit-duplicate-production-voids.js",
+    "repair:maklon-sales-locations": "node scripts/repair-maklon-sales-order-locations.js"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

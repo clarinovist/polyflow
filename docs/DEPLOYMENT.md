@@ -256,6 +256,35 @@ After purge
 > [!IMPORTANT]
 > Change this password immediately after logging in.
 
+## Repair Maklon Sales Order Locations
+
+If legacy `Maklon Jasa` sales orders still point `sourceLocationId` to an internal warehouse, use the repair script below. The script defaults to dry-run and is safe to execute on a VPS after taking a database backup.
+
+Dry-run from the app container:
+
+```bash
+docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js
+```
+
+Apply the fix to all non-cancelled Maklon sales orders:
+
+```bash
+docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js --execute --yes
+```
+
+Target a single order first if you want a narrower rollout:
+
+```bash
+docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js --order-number SO-2026-0001
+docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js --order-number SO-2026-0001 --execute --yes
+```
+
+If the default customer-owned warehouse slug does not exist yet, create it during execution:
+
+```bash
+docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js --execute --yes --create-missing
+```
+
 ## Troubleshooting
 
 ### Database Schema Not Empty (P3005)

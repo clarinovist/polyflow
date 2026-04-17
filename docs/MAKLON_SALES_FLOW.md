@@ -68,3 +68,5 @@ Untuk user operasional:
 - Pengeluaran bahan titipan terjadi saat execution produksi, bukan saat confirm atau ship Sales Order.
 
 Jika ada stok maklon lama yang masih tersimpan di lokasi non-maklon, gunakan [Maklon Stock Repair Runbook](./MAKLON_STOCK_REPAIR.md).
+
+Jika ada Sales Order `Maklon Jasa` lama yang `sourceLocationId`-nya masih menunjuk ke warehouse internal, audit atau perbaiki dengan script di container: `docker compose exec -T polyflow node scripts/repair-maklon-sales-order-locations.js`.

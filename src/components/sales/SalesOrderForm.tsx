@@ -83,7 +83,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap') || l.name.toLowerCase().includes('packing')
     );
 
-    const maklonProductionLocations = locations.filter(l => l.locationType !== 'CUSTOMER_OWNED');
+    const maklonProductionLocations = locations.filter(l => l.locationType === 'CUSTOMER_OWNED');
 
     // Unified type to satisfy react-hook-form's need for a consistent generic standard
     type SalesOrderFormValues = {
@@ -130,15 +130,15 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         : stockFulfillmentLocations;
 
     const sourceLocationLabel = selectedOrderType === 'MAKLON_JASA'
-        ? 'Production Location'
+        ? 'Customer Warehouse'
         : 'Source Location (Warehouse)';
 
     const sourceLocationPlaceholder = selectedOrderType === 'MAKLON_JASA'
-        ? 'Select production location'
+        ? 'Select customer warehouse'
         : 'Select warehouse';
 
     const sourceLocationDescription = selectedOrderType === 'MAKLON_JASA'
-        ? 'Untuk Maklon Jasa, field ini adalah lokasi produksi/default consumption location untuk work order. Bahan titipan customer tetap dikonsumsi saat Production Execution dari lokasi produksi ini dulu, lalu fallback ke CUSTOMER_OWNED jika stok belum dipindahkan.'
+        ? 'Untuk Maklon Jasa, field ini harus memakai warehouse customer-owned. Lokasi ini menjadi default sumber bahan titipan customer untuk flow maklon, lalu Production Execution tetap memprioritaskan stok yang sudah dipindah ke lokasi proses jika ada.'
         : 'Pilih gudang sumber untuk reservasi dan shipment stok fisik.';
 
     const filteredProducts = useMemo(() => {

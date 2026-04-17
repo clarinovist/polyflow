@@ -7,6 +7,25 @@ import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
 
+async function validateMaklonSourceLocation(sourceLocationId: string, orderType: SalesOrderType) {
+    if (orderType !== SalesOrderType.MAKLON_JASA) {
+        return;
+    }
+
+    const sourceLocation = await prisma.location.findUnique({
+        where: { id: sourceLocationId },
+        select: { id: true, locationType: true, name: true }
+    });
+
+    if (!sourceLocation) {
+        throw new Error('Selected source location was not found');
+    }
+
+    if (sourceLocation.locationType !== 'CUSTOMER_OWNED') {
+        throw new Error(`Maklon Jasa orders must use a customer-owned warehouse. '${sourceLocation.name}' is not a customer-owned location.`);
+    }
+}
+
 export async function getOrders(filters?: {
     customerId?: string,
     includeItems?: boolean,
@@ -131,6 +150,8 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
 
     const orderNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
+    await validateMaklonSourceLocation(data.sourceLocationId, data.orderType);
+
     let totalAmount = 0;
     let totalDiscount = 0;
     let totalTax = 0;
@@ -205,6 +226,17 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
 }
 
 export async function updateOrder(data: UpdateSalesOrderValues, _userId: string) {
+    const currentOrder = await prisma.salesOrder.findUnique({
+        where: { id: data.id },
+        select: { orderType: true }
+    });
+
+    if (!currentOrder) {
+        throw new Error('Order not found');
+    }
+
+    await validateMaklonSourceLocation(data.sourceLocationId, currentOrder.orderType);
+
     let totalAmount = 0;
     let totalDiscount = 0;
     let totalTax = 0;
@@ -217,9 +249,7 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
 
         if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
 
-        // Fetch current order to check orderType since it's not and update payload
-        const currentOrder = await prisma.salesOrder.findUnique({ where: { id: data.id }, select: { orderType: true } });
-        const effectiveOrderType = currentOrder?.orderType;
+        const effectiveOrderType = currentOrder.orderType;
 
         const isService = variant.product.productType === ProductType.SERVICE;
         if (isService && effectiveOrderType !== SalesOrderType.MAKLON_JASA) {
