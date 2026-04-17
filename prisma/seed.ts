@@ -100,6 +100,10 @@ async function main() {
         { name: 'Raw Material Warehouse', slug: 'rm_warehouse', description: 'Storage for incoming raw materials' },
         { name: 'Mixing Area', slug: 'mixing_area', description: 'Production floor for mixing and compounding' },
         { name: 'WIP Storage', slug: 'wip_storage', description: 'Work-in-Progress storage for Roll Film before Converting' },
+        { name: 'Maklon Raw Material Storage', slug: 'maklon_raw_material', description: 'Customer-owned raw materials received for maklon production', locationType: LocationType.CUSTOMER_OWNED },
+        { name: 'Maklon WIP Storage', slug: 'maklon_wip', description: 'Intermediate WIP for maklon production', locationType: LocationType.CUSTOMER_OWNED },
+        { name: 'Maklon Finished Goods Storage', slug: 'maklon_fg', description: 'Finished goods held for maklon orders', locationType: LocationType.CUSTOMER_OWNED },
+        { name: 'Maklon Packing Area', slug: 'maklon_packing', description: 'Packing stage for maklon production', locationType: LocationType.CUSTOMER_OWNED },
         // Extrusion output now goes to FG, so no separate Extrusion Warehouse.
         { name: 'Finished Goods Warehouse', slug: 'fg_warehouse', description: 'Hold Extrusion Output (Jumbo Rolls) and Packing Output (Small Packs)' },
         { name: 'Packing Area', slug: 'packing_area', description: 'Production floor for bag-making and finishing processes' },

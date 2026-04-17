@@ -15,28 +15,26 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createMaklonReturnAction } from '@/actions/maklon/maklon-return';
 import Link from 'next/link';
+import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
 
 type FormProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customers: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    locations: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    products: any[];
+    customers: { id: string; name: string }[];
+    locations: { id: string; name: string; slug?: string }[];
+    products: { id: string; name: string; skuCode: string }[];
     initialData?: CreateMaklonReturnValues & { id?: string };
 };
 
 export function MaklonReturnForm({ customers, locations, products, initialData }: FormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const defaultSourceLocationId = initialData?.sourceLocationId || locations.find(location => location.slug === MAKLON_STAGE_SLUGS.FINISHED_GOOD)?.id || locations[0]?.id || '';
 
     const form = useForm<CreateMaklonReturnValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createMaklonReturnSchema) as any,
+        resolver: zodResolver(createMaklonReturnSchema),
         defaultValues: initialData || {
             returnNumber: `MRT-${new Date().getTime()}`,
             customerId: '',
-            sourceLocationId: '',
+            sourceLocationId: defaultSourceLocationId,
             reason: '',
             notes: '',
             items: [{
@@ -62,9 +60,8 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
             } else {
                 throw new Error(res.error);
             }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to save return');
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to save return');
         } finally {
             setIsSubmitting(false);
         }

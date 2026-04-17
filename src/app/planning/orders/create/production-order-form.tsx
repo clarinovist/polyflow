@@ -3,7 +3,7 @@
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProductionOrderSchema } from '@/lib/schemas/production';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -128,6 +128,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
         return boms.filter(bom => bom.productVariantId === selectedProductVariantId);
     }, [boms, selectedProductVariantId]);
 
+    const locationIdBySlug = useMemo(() => {
+        return new Map(locations.map((location) => [location.slug, location.id]));
+    }, [locations]);
+
     const form = useForm<FormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(formSchema) as any,
@@ -135,7 +139,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             plannedQuantity: 0,
             plannedStartDate: new Date(),
             items: [],
-            locationId: '',
+            locationId: locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING)?.id || '',
             bomId: '',
             machineId: '',
             salesOrderId: salesOrderId || '',
@@ -171,20 +175,54 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
         }
     }, [planningMode, batchCount, watchBomId, boms, form]);
 
-    // Automated Source Location Selection
-    const defaultSourceLocationId = useMemo(() => {
-        const rmLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
-        const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
-        const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
+    const resolveSourceLocationId = (stage: 'mixing' | 'extrusion' | 'packing' | 'rework', isMaklonMode: boolean) => {
+        const rmLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.RAW_MATERIAL) || '';
+        const mixingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.MIXING) || '';
+        const fgLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.FINISHING) || '';
+        const customerOwnedLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.CUSTOMER_OWNED) || '';
+        const maklonRmLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.RAW_MATERIAL) || '';
+        const maklonWipLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.WIP) || '';
+        const maklonFgLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.FINISHED_GOOD) || '';
 
-        if (processType === 'mixing') return rmLoc?.id || '';
-        if (processType === 'extrusion') return mixingLoc?.id || '';
-        if (processType === 'packing') return fgLoc?.id || ''; // Source is Jumbo Roll from FG
-        if (processType === 'rework') return fgLoc?.id || ''; // Rework takes defective FG
+        if (!isMaklonMode) {
+            if (stage === 'mixing') return rmLoc;
+            if (stage === 'extrusion') return mixingLoc;
+            if (stage === 'packing') return fgLoc;
+            if (stage === 'rework') return fgLoc;
+            return '';
+        }
+
+        if (stage === 'mixing') return maklonRmLoc || customerOwnedLoc || rmLoc;
+        if (stage === 'extrusion') return maklonWipLoc || maklonRmLoc || customerOwnedLoc || mixingLoc;
+        if (stage === 'packing') return maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc;
+        if (stage === 'rework') return maklonFgLoc || maklonWipLoc || customerOwnedLoc || fgLoc;
         return '';
-    }, [processType, locations]);
+    };
 
-    const [materialSourceLocationId, setMaterialSourceLocationId] = useState<string>(defaultSourceLocationId);
+    const resolveOutputLocationId = (stage: 'mixing' | 'extrusion' | 'packing' | 'rework', isMaklonMode: boolean) => {
+        const mixingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.MIXING) || '';
+        const fgLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.FINISHING) || '';
+        const packingLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.PACKING_AREA) || '';
+        const maklonWipLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.WIP) || '';
+        const maklonFgLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.FINISHED_GOOD) || '';
+        const maklonPackingLoc = locationIdBySlug.get(MAKLON_STAGE_SLUGS.PACKING) || '';
+
+        if (!isMaklonMode) {
+            if (stage === 'mixing') return mixingLoc;
+            if (stage === 'extrusion') return fgLoc;
+            if (stage === 'packing') return packingLoc;
+            if (stage === 'rework') return fgLoc;
+            return '';
+        }
+
+        if (stage === 'mixing') return maklonWipLoc || mixingLoc;
+        if (stage === 'extrusion') return maklonFgLoc || fgLoc;
+        if (stage === 'packing') return maklonPackingLoc || packingLoc;
+        if (stage === 'rework') return maklonFgLoc || fgLoc;
+        return '';
+    };
+
+    const [materialSourceLocationId, setMaterialSourceLocationId] = useState<string>(() => resolveSourceLocationId('mixing', false));
     const [suggestedSource, setSuggestedSource] = useState<{ id: string; name: string } | null>(null);
 
 
@@ -267,22 +305,6 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             }
         }
     }, [selectedProductVariantId, boms, form]);
-
-    useEffect(() => {
-        const mixingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.MIXING);
-        const fgLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.FINISHING);
-        const packingLoc = locations.find(l => l.slug === WAREHOUSE_SLUGS.PACKING_AREA);
-
-        if (processType === 'mixing') {
-            if (mixingLoc) form.setValue('locationId', mixingLoc.id);
-        } else if (processType === 'extrusion') {
-            if (fgLoc) form.setValue('locationId', fgLoc.id);
-        } else if (processType === 'packing') {
-            if (packingLoc) form.setValue('locationId', packingLoc.id);
-        } else if (processType === 'rework') {
-            if (fgLoc) form.setValue('locationId', fgLoc.id); // Output location = FG (though output will be 0)
-        }
-    }, [processType, locations, form]);
 
     // Available Machines based on Process Type
     const availableMachines = useMemo(() => {
@@ -377,8 +399,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             variant={processType === 'mixing' ? 'default' : 'outline'}
                                             className="rounded-r-none h-9 flex-1 text-xs"
                                             onClick={() => {
-                                                setProcessType('mixing');
-                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'rm_warehouse')?.id || '');
+                                                const nextStage = 'mixing';
+                                                setProcessType(nextStage);
+                                                setMaterialSourceLocationId(resolveSourceLocationId(nextStage, watchIsMaklon));
+                                                form.setValue('locationId', resolveOutputLocationId(nextStage, watchIsMaklon));
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
@@ -395,8 +419,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             variant={processType === 'extrusion' ? 'default' : 'outline'}
                                             className="rounded-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
-                                                setProcessType('extrusion');
-                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'mixing_area')?.id || '');
+                                                const nextStage = 'extrusion';
+                                                setProcessType(nextStage);
+                                                setMaterialSourceLocationId(resolveSourceLocationId(nextStage, watchIsMaklon));
+                                                form.setValue('locationId', resolveOutputLocationId(nextStage, watchIsMaklon));
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
@@ -413,8 +439,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             variant={processType === 'packing' ? 'default' : 'outline'}
                                             className="rounded-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
-                                                setProcessType('packing');
-                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'fg_warehouse')?.id || '');
+                                                const nextStage = 'packing';
+                                                setProcessType(nextStage);
+                                                setMaterialSourceLocationId(resolveSourceLocationId(nextStage, watchIsMaklon));
+                                                form.setValue('locationId', resolveOutputLocationId(nextStage, watchIsMaklon));
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
@@ -431,8 +459,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             variant={processType === 'rework' ? 'default' : 'outline'}
                                             className="rounded-l-none h-9 flex-1 text-xs border-l-0"
                                             onClick={() => {
-                                                setProcessType('rework');
-                                                setMaterialSourceLocationId(locations.find(l => l.slug === 'fg_warehouse')?.id || '');
+                                                const nextStage = 'rework';
+                                                setProcessType(nextStage);
+                                                setMaterialSourceLocationId(resolveSourceLocationId(nextStage, watchIsMaklon));
+                                                form.setValue('locationId', resolveOutputLocationId(nextStage, watchIsMaklon));
                                                 setSelectedProductVariantId('');
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
@@ -657,7 +687,12 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                         <Switch
                                                             id="is-maklon"
                                                             checked={field.value}
-                                                            onCheckedChange={field.onChange}
+                                                            onCheckedChange={(checked) => {
+                                                                field.onChange(checked);
+                                                                setMaterialSourceLocationId(resolveSourceLocationId(processType, checked));
+                                                                form.setValue('locationId', resolveOutputLocationId(processType, checked));
+                                                                setSuggestedSource(null);
+                                                            }}
                                                         />
                                                     </FormControl>
                                                 </FormItem>
@@ -688,7 +723,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                             </SelectContent>
                                                         </Select>
                                                             <FormDescription>
-                                                                Use the same customer that owns the deposited materials. Material consumption will be recorded from the production location first, then fallback to CUSTOMER_OWNED stock when needed.
+                                                                Use the same customer that owns the deposited materials. Material consumption will be recorded from the selected maklon stage location first, then fallback to CUSTOMER_OWNED stock when needed.
                                                             </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>

@@ -5,6 +5,7 @@ import { Metadata } from 'next';
 import { Package } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 import Link from 'next/link';
+import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
 
 export const metadata: Metadata = {
     title: 'Receive Maklon Goods | Warehouse | PolyFlow',
@@ -19,7 +20,7 @@ export default async function CreateMaklonReceiptPage() {
 
     const locations = await prisma.location.findMany({
         where: { locationType: 'CUSTOMER_OWNED' },
-        select: { id: true, name: true },
+        select: { id: true, name: true, slug: true },
         orderBy: { name: 'asc' }
     });
 
@@ -54,7 +55,7 @@ export default async function CreateMaklonReceiptPage() {
                 customers={serializeData(customers)}
                 productVariants={serializeData(formattedVariants)}
                 locations={serializeData(locations)}
-                defaultLocationId={locations[0]?.id}
+                defaultLocationId={locations.find((location: { slug: string }) => location.slug === MAKLON_STAGE_SLUGS.RAW_MATERIAL)?.id || locations[0]?.id}
                 basePath="/warehouse/incoming"
             />
         </div>

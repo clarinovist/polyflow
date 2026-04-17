@@ -13,7 +13,7 @@ import { ProductionCostService } from './cost-service';
 import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { ProductionMaterialService } from './material-service';
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Prisma } from '@prisma/client';
 
 interface BackflushOrder {
@@ -24,21 +24,125 @@ interface BackflushOrder {
 
 export class ProductionExecutionService {
 
+    private static async resolveLocationIdBySlug(tx: Prisma.TransactionClient, slug: string): Promise<string | null> {
+        const location = await tx.location.findUnique({
+            where: { slug },
+            select: { id: true }
+        });
+
+        return location?.id || null;
+    }
+
+    private static async findFirstStockLocation(
+        tx: Prisma.TransactionClient,
+        productVariantId: string,
+        locationSlugs: string[]
+    ): Promise<string | null> {
+        for (const slug of locationSlugs) {
+            const locationId = await this.resolveLocationIdBySlug(tx, slug);
+            if (!locationId) continue;
+
+            const inventory = await tx.inventory.findUnique({
+                where: {
+                    locationId_productVariantId: {
+                        locationId,
+                        productVariantId
+                    }
+                },
+                select: { quantity: true }
+            });
+
+            if (inventory && inventory.quantity.toNumber() > 0) {
+                return locationId;
+            }
+        }
+
+        return null;
+    }
+
+    private static async resolveMaklonMaterialLocation(
+        tx: Prisma.TransactionClient,
+        order: BackflushOrder,
+        productVariantId: string
+    ): Promise<string | null> {
+        const category = order.bom?.category;
+
+        const candidateSlugs =
+            category === 'EXTRUSION'
+                ? [
+                    MAKLON_STAGE_SLUGS.WIP,
+                    MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+                    WAREHOUSE_SLUGS.CUSTOMER_OWNED
+                ]
+                : category === 'PACKING' || category === 'REWORK'
+                    ? [
+                        MAKLON_STAGE_SLUGS.FINISHED_GOOD,
+                        MAKLON_STAGE_SLUGS.WIP,
+                        MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+                        WAREHOUSE_SLUGS.CUSTOMER_OWNED
+                    ]
+                    : [
+                        MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+                        WAREHOUSE_SLUGS.CUSTOMER_OWNED
+                    ];
+
+        const locationId = await this.findFirstStockLocation(tx, productVariantId, candidateSlugs);
+        if (locationId) {
+            return locationId;
+        }
+
+        const orderLocationInventory = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: {
+                    locationId: order.locationId,
+                    productVariantId
+                }
+            },
+            select: { quantity: true }
+        });
+
+        if (orderLocationInventory && orderLocationInventory.quantity.toNumber() > 0) {
+            return order.locationId;
+        }
+
+        const customerOwnedLocation = await tx.inventory.findFirst({
+            where: {
+                productVariantId,
+                location: { locationType: 'CUSTOMER_OWNED' }
+            },
+            select: { locationId: true, quantity: true }
+        });
+
+        if (customerOwnedLocation && customerOwnedLocation.quantity.toNumber() > 0) {
+            return customerOwnedLocation.locationId;
+        }
+
+        return null;
+    }
+
     /**
      * Resolve the source location for material consumption per item.
      * Priorities:
-     * 1. Category overrides (EXTRUSION/MIXING -> Mixing, PACKING/REWORK -> Finishing).
-     * 2. If stock already exists at the order's production location (e.g. materials manually
-     *    transferred there before production), consume from there. This correctly handles
-     *    Maklon orders where materials were transferred from CUSTOMER_OWNED to the production floor.
-     * 3. If Maklon: Fall back to CUSTOMER_OWNED stock.
-     * 4. Fallback to Order's default location.
+        * 1. Maklon stage locations first, using RM/WIP/FG customer-owned stock per stage.
+        * 2. Category overrides for internal production (EXTRUSION/MIXING -> Mixing, PACKING/REWORK -> Finishing).
+        * 3. Stock already present at the order's production location.
+        * 4. CUSTOMER_OWNED fallback for maklon.
+        * 5. Order default location.
      */
     private static async resolveMaterialLocation(
         tx: Prisma.TransactionClient,
         order: BackflushOrder,
         productVariantId: string
     ): Promise<string> {
+        if (order.isMaklon) {
+            const maklonLocation = await this.resolveMaklonMaterialLocation(tx, order, productVariantId);
+            if (maklonLocation) {
+                return maklonLocation;
+            }
+
+            return order.locationId;
+        }
+
         // 1. Category Overrides (highest priority)
         if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
             const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
