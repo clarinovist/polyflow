@@ -128,25 +128,6 @@ async function main() {
   }
 
   await prisma.$transaction(async (tx) => {
-    let targetLocation = await tx.location.findUnique({
-      where: { slug: options.targetSlug },
-      select: { id: true, slug: true, name: true, locationType: true },
-    });
-
-    if (!targetLocation && options.dryRun) {
-      console.log(
-        `Target location slug '${options.targetSlug}' does not exist yet. Dry-run will continue, and execute mode can create it with --create-missing.`
-      );
-      targetLocation = {
-        id: null,
-        slug: options.targetSlug,
-        name: DEFAULT_TARGET_NAME,
-        locationType: LocationType.CUSTOMER_OWNED,
-      };
-    } else if (!targetLocation) {
-      targetLocation = await ensureTargetLocation(tx, options, options.createMissing);
-    }
-
     const orders = await tx.salesOrder.findMany({
       where: {
         orderType: SalesOrderType.MAKLON_JASA,
@@ -165,6 +146,25 @@ async function main() {
     if (invalidOrders.length === 0) {
       console.log('No invalid Maklon Jasa sales orders found.');
       return;
+    }
+
+    let targetLocation = await tx.location.findUnique({
+      where: { slug: options.targetSlug },
+      select: { id: true, slug: true, name: true, locationType: true },
+    });
+
+    if (!targetLocation && options.dryRun) {
+      console.log(
+        `Target location slug '${options.targetSlug}' does not exist yet. Dry-run will continue, and execute mode can create it with --create-missing.`
+      );
+      targetLocation = {
+        id: null,
+        slug: options.targetSlug,
+        name: DEFAULT_TARGET_NAME,
+        locationType: LocationType.CUSTOMER_OWNED,
+      };
+    } else if (!targetLocation) {
+      targetLocation = await ensureTargetLocation(tx, options, options.createMissing);
     }
 
     console.log(`Found ${invalidOrders.length} Maklon Jasa sales orders with non-customer-owned source locations:`);
