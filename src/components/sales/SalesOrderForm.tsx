@@ -337,7 +337,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                     </SelectContent>
                                 </Select>
                                 <FormDescription>
-                                    Make to Stock berarti order customer dipenuhi dari stok lebih dulu. Make to Order berarti demand langsung memicu produksi berdasarkan pesanan.
+                                        Make to Stock berarti order customer dipenuhi dari stok lebih dulu. Make to Order berarti demand langsung memicu produksi berdasarkan pesanan. Maklon Jasa dipakai untuk jasa berbasis bahan titipan customer; item sales harus service dan konsumsi bahan terjadi di Production Execution, bukan shipment sales biasa.
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>

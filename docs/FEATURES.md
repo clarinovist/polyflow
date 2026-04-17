@@ -1,5 +1,10 @@
 # PolyFlow Features Documentation
 
+## Operational Guides
+
+- [Maklon Sales Flow](./MAKLON_SALES_FLOW.md) - Ringkasan flow Sales Order Maklon Jasa, mekanisme konsumsi bahan titipan, dan diagram alur.
+- [SOP Maklon Sales Operasional](./SOP_MAKLON_SALES_OPERASIONAL.md) - Versi SOP formal untuk tim sales, warehouse, planning, dan finance.
+
 ## 📦 Product & Inventory Management
 
 ### Product Management System

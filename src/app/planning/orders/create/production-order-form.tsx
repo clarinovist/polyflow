@@ -341,7 +341,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                         <AlertTitle>Linked customer demand</AlertTitle>
                         <AlertDescription>
                             This work order is being created for Sales Order {linkedSalesOrder.orderNumber}
-                            {linkedSalesOrder.customerName ? ` from ${linkedSalesOrder.customerName}` : ''}. The link will be kept for demand traceability.
+                            {linkedSalesOrder.customerName ? ` from ${linkedSalesOrder.customerName}` : ''}. The link will be kept for demand traceability.{linkedSalesOrder.orderType === 'MAKLON_JASA' ? ' For Maklon Jasa, customer-owned materials are consumed during production execution rather than shipped from the sales order.' : ''}
                         </AlertDescription>
                     </Alert>
                 )}
@@ -645,7 +645,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             </div>
                                             <div>
                                                 <Label htmlFor="is-maklon" className="font-bold text-sm text-blue-900 leading-none">Maklon Order</Label>
-                                                <p className="text-[11px] text-blue-700/70 mt-1">This is a service order based on customer materials</p>
+                                                <p className="text-[11px] text-blue-700/70 mt-1">Use this when the customer supplies the materials and the company charges a conversion or processing service.</p>
                                             </div>
                                         </div>
                                         <FormField
@@ -687,6 +687,9 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
+                                                            <FormDescription>
+                                                                Use the same customer that owns the deposited materials. Material consumption will be recorded from the production location first, then fallback to CUSTOMER_OWNED stock when needed.
+                                                            </FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -704,7 +707,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                                 <Input type="number" className="pl-9" {...field} />
                                                             </div>
                                                         </FormControl>
-                                                        <FormDescription>The fee charged to the customer for the processing service.</FormDescription>
+                                                        <FormDescription>This is the estimated service fee or conversion value for the maklon job. It is separate from the customer-owned material value and supports maklon profitability tracking.</FormDescription>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
