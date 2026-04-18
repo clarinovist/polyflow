@@ -3,6 +3,7 @@
 import { MaklonReturnService } from '@/services/maklon/maklon-return-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { serializeData } from '@/lib/utils/utils';
 
 export async function createMaklonReturnAction(data: {
     returnNumber: string;
@@ -28,7 +29,7 @@ export async function createMaklonReturnAction(data: {
 
         revalidatePath('/dashboard/maklon/returns');
         revalidatePath('/dashboard/inventory');
-        return { success: true, data: ret };
+        return { success: true, data: serializeData(ret) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
@@ -45,7 +46,7 @@ export async function getMaklonReturnsAction(params?: {
         if (!session?.user) throw new Error('Unauthorized');
         
         const returns = await MaklonReturnService.getReturns(params);
-        return { success: true, data: returns };
+        return { success: true, data: serializeData(returns) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
@@ -58,7 +59,7 @@ export async function getMaklonReturnByIdAction(id: string) {
         
         const ret = await MaklonReturnService.getReturnById(id);
         if (!ret) throw new Error('Return not found');
-        return { success: true, data: ret };
+        return { success: true, data: serializeData(ret) };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }

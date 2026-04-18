@@ -19,7 +19,7 @@ type MaklonReturnLocation = {
 
 type MaklonReturnItem = {
     id: string;
-    quantity: string | number;
+    quantity: string | number | { toString(): string };
     notes?: string | null;
     productVariant?: {
         skuCode?: string | null;
@@ -148,7 +148,7 @@ export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.productVariant?.skuCode}</TableCell>
                                         <TableCell>{item.productVariant?.product?.name}</TableCell>
-                                        <TableCell className="text-right">{item.quantity} {item.productVariant?.primaryUnit}</TableCell>
+                                        <TableCell className="text-right">{String(item.quantity)} {item.productVariant?.primaryUnit}</TableCell>
                                         <TableCell>{item.notes || '-'}</TableCell>
                                     </TableRow>
                                 ))}
