@@ -79,8 +79,10 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
     // Filter locations for stock-based sales fulfillment (Finished Good, Scrap & Packing)
     const stockFulfillmentLocations = locations.filter(l =>
-        l.slug?.includes('finished') || l.slug?.includes('scrap') || l.slug?.includes('packing') ||
-        l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap') || l.name.toLowerCase().includes('packing')
+        l.locationType !== 'CUSTOMER_OWNED' && (
+            l.slug?.includes('finished') || l.slug?.includes('scrap') || l.slug?.includes('packing') ||
+            l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap') || l.name.toLowerCase().includes('packing')
+        )
     );
 
     const maklonProductionLocations = locations.filter(l => l.locationType === 'CUSTOMER_OWNED');
@@ -128,6 +130,10 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
     const selectableLocations = selectedOrderType === 'MAKLON_JASA'
         ? maklonProductionLocations
         : stockFulfillmentLocations;
+
+    const productEmptyMessage = selectedOrderType === 'MAKLON_JASA'
+        ? 'Tidak ada service item untuk Maklon Jasa. Stok fisik di Maklon Packing Area dipakai saat production execution, bukan dipilih sebagai item sales.'
+        : 'No product found.';
 
     const sourceLocationLabel = selectedOrderType === 'MAKLON_JASA'
         ? 'Customer Warehouse'
@@ -495,6 +501,12 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         </Button>
                     </div>
 
+                    {selectedOrderType === 'MAKLON_JASA' && (
+                        <p className="text-sm text-muted-foreground">
+                            Maklon Jasa hanya menampilkan service item. Barang fisik di Maklon Packing Area tetap dikonsumsi saat production execution.
+                        </p>
+                    )}
+
                     <div className="border rounded-lg overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
@@ -547,7 +559,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                 <Command>
                                                                     <CommandInput placeholder="Search product..." />
                                                                     <CommandList>
-                                                                        <CommandEmpty>No product found.</CommandEmpty>
+                                                                            <CommandEmpty>{productEmptyMessage}</CommandEmpty>
                                                                         <CommandGroup>
                                                                             {filteredProducts.map((p: SerializedProductVariant) => (
                                                                                 <CommandItem
