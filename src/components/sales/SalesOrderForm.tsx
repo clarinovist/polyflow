@@ -220,7 +220,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <ErrorAlert error={actionError} />
 
-                <Alert className="border-amber-200 bg-amber-50">
+                <Alert className="border-amber-200 bg-amber-50 text-amber-900">
                     <AlertTitle>Sales Order is for customer demand</AlertTitle>
                     <AlertDescription>
                         Use Sales Order for customer transactions, whether fulfilled from stock or made to order. If the goal is only to build stock internally, create a Production Order from Planning instead.
