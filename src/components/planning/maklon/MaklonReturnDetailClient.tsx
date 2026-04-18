@@ -9,13 +9,57 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { MaklonMaterialReturnStatus } from '@prisma/client';
+import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
 
-export function MaklonReturnDetailClient({ 
-    ret 
-}: { 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ret: any 
-}) {
+type MaklonReturnLocation = {
+    id: string;
+    name: string;
+    slug?: string | null;
+};
+
+type MaklonReturnItem = {
+    id: string;
+    quantity: string | number;
+    notes?: string | null;
+    productVariant?: {
+        skuCode?: string | null;
+        primaryUnit?: string | null;
+        product?: {
+            name?: string | null;
+        } | null;
+    } | null;
+};
+
+type MaklonReturnDetail = {
+    returnNumber: string;
+    returnDate: string | Date;
+    status: MaklonMaterialReturnStatus;
+    reason?: string | null;
+    notes?: string | null;
+    customer?: { name?: string | null } | null;
+    sourceLocation?: MaklonReturnLocation | null;
+    createdBy?: { name?: string | null } | null;
+    items: MaklonReturnItem[];
+};
+
+function getMaklonReturnLocationLabel(location?: MaklonReturnLocation | null) {
+    if (!location) return '-';
+
+    switch (location.slug) {
+        case MAKLON_STAGE_SLUGS.PACKING:
+            return 'Maklon Packing Area';
+        case MAKLON_STAGE_SLUGS.FINISHED_GOOD:
+            return 'Maklon Finished Goods Storage';
+        case MAKLON_STAGE_SLUGS.WIP:
+            return 'Maklon WIP Storage';
+        case MAKLON_STAGE_SLUGS.RAW_MATERIAL:
+            return 'Maklon Raw Material Storage';
+        default:
+            return location.name;
+    }
+}
+
+export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
     const getStatusColor = (status: MaklonMaterialReturnStatus) => {
         switch (status) {
             case 'DRAFT': return 'bg-muted text-muted-foreground border-border';
@@ -61,8 +105,11 @@ export function MaklonReturnDetailClient({
                                 <p className="font-medium">{ret.customer?.name || '-'}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Location Dispatch</p>
-                                <p className="font-medium">{ret.sourceLocation?.name || '-'}</p>
+                                <p className="text-sm text-muted-foreground">Source Location</p>
+                                <p className="font-medium">{getMaklonReturnLocationLabel(ret.sourceLocation)}</p>
+                                {ret.sourceLocation?.slug === MAKLON_STAGE_SLUGS.PACKING && (
+                                    <p className="text-xs text-muted-foreground">Linked to Maklon Packing Area</p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Returned By</p>
@@ -97,12 +144,11 @@ export function MaklonReturnDetailClient({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                {ret.items.map((item: any) => (
+                                {ret.items.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.productVariant?.skuCode}</TableCell>
                                         <TableCell>{item.productVariant?.product?.name}</TableCell>
-                                        <TableCell className="text-right">{item.quantity} {item.productVariant?.product?.uom}</TableCell>
+                                        <TableCell className="text-right">{item.quantity} {item.productVariant?.primaryUnit}</TableCell>
                                         <TableCell>{item.notes || '-'}</TableCell>
                                     </TableRow>
                                 ))}

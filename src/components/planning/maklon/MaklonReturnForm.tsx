@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createMaklonReturnSchema, CreateMaklonReturnValues } from '@/lib/schemas/returns';
@@ -17,6 +17,18 @@ import { createMaklonReturnAction } from '@/actions/maklon/maklon-return';
 import Link from 'next/link';
 import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
 
+const maklonReturnLocationPriority = [
+    MAKLON_STAGE_SLUGS.PACKING,
+    MAKLON_STAGE_SLUGS.FINISHED_GOOD,
+    MAKLON_STAGE_SLUGS.WIP,
+    MAKLON_STAGE_SLUGS.RAW_MATERIAL,
+] as const;
+
+function getMaklonReturnLocationPriority(slug?: string) {
+    const priority = maklonReturnLocationPriority.findIndex((value) => value === slug);
+    return priority === -1 ? Number.MAX_SAFE_INTEGER : priority;
+}
+
 type FormProps = {
     customers: { id: string; name: string }[];
     locations: { id: string; name: string; slug?: string }[];
@@ -27,7 +39,26 @@ type FormProps = {
 export function MaklonReturnForm({ customers, locations, products, initialData }: FormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const defaultSourceLocationId = initialData?.sourceLocationId || locations.find(location => location.slug === MAKLON_STAGE_SLUGS.FINISHED_GOOD)?.id || locations[0]?.id || '';
+    const orderedLocations = useMemo(() => {
+        return [...locations].sort((left, right) => {
+            const leftPriority = getMaklonReturnLocationPriority(left.slug);
+            const rightPriority = getMaklonReturnLocationPriority(right.slug);
+
+            if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+            }
+
+            return left.name.localeCompare(right.name);
+        });
+    }, [locations]);
+
+    const defaultSourceLocationId = initialData?.sourceLocationId
+        || orderedLocations.find(location => location.slug === MAKLON_STAGE_SLUGS.PACKING)?.id
+        || orderedLocations.find(location => location.slug === MAKLON_STAGE_SLUGS.FINISHED_GOOD)?.id
+        || orderedLocations.find(location => location.slug === MAKLON_STAGE_SLUGS.WIP)?.id
+        || orderedLocations.find(location => location.slug === MAKLON_STAGE_SLUGS.RAW_MATERIAL)?.id
+        || orderedLocations[0]?.id
+        || '';
 
     const form = useForm<CreateMaklonReturnValues>({
         resolver: zodResolver(createMaklonReturnSchema),
@@ -131,17 +162,20 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
                                 name="sourceLocationId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Dispatch Location *</FormLabel>
+                                        <FormLabel>Return Location *</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select Location" /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Select return location" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {locations.map(loc => (
+                                                {orderedLocations.map(loc => (
                                                     <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Maklon Packing Area diprioritaskan untuk return sisa barang jadi. Jika return berasal dari stage customer-owned lain, pilih lokasi yang sesuai.
+                                        </p>
                                         <FormMessage />
                                     </FormItem>
                                 )}

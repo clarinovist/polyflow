@@ -2,7 +2,7 @@ import { getCustomers } from '@/actions/sales/customer';
 import { getCustomerOwnedLocations } from '@/actions/inventory/locations';
 import { getProductVariants } from '@/actions/inventory/inventory';
 import { MaklonReturnForm } from '@/components/planning/maklon/MaklonReturnForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default async function CreateMaklonReturnPage() {
     // Fetch all required lookup data
@@ -21,6 +21,9 @@ export default async function CreateMaklonReturnPage() {
             <Card className="rounded-xl border bg-white dark:bg-sidebar">
                 <CardHeader>
                     <CardTitle>Create New Maklon Return</CardTitle>
+                    <CardDescription>
+                        Return leftover customer-owned materials from Maklon Packing Area first, or from another customer-owned stage when needed.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <MaklonReturnForm
