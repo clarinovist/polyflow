@@ -73,8 +73,12 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
                 items={items}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 locations={serializedLocations.map((l: any) => ({ id: l.id, name: l.name }))}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                defaultLocationId={serializedLocations.find((l: any) => l.name.toLowerCase().includes('raw material'))?.id}
+                defaultLocationId={
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    serializedLocations.find((l: any) => l.slug === 'rm_warehouse')?.id || 
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    serializedLocations.find((l: any) => l.name.toLowerCase().includes('raw material'))?.id
+                }
                 basePath="/warehouse/incoming/orders"
             />
         </div>

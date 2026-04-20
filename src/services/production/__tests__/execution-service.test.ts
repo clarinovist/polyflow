@@ -58,6 +58,7 @@ vi.mock('./material-service', () => ({
     ProductionMaterialService: {}
 }));
 
+// @ts-expect-error - __mockTx is provided by vi.mock above
 import { prisma, __mockTx as tx } from '@/lib/core/prisma';
 import { ProductionExecutionService } from '../execution-service';
 
