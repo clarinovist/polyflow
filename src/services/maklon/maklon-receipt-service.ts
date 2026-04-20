@@ -38,11 +38,12 @@ export class MaklonReceiptService {
             // 2. Adjust Inventory & Create Movements
             for (const item of data.items) {
                 // Maklon materials enter inventory with 0 cost
-                await InventoryCoreService.incrementStock(
+                await InventoryCoreService.incrementStockWithCost(
                     t,
                     data.locationId,
                     item.productVariantId,
-                    item.receivedQty
+                    item.receivedQty,
+                    0
                 );
 
                 await t.stockMovement.create({

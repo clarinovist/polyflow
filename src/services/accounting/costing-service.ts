@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import type { Prisma } from '@prisma/client';
 
 export interface ProductionCost {
     productionOrderId: string;
@@ -13,6 +14,56 @@ export interface ProductionCost {
 
 export class CostingService {
 
+    private static resolveIssueCost(
+        issue: {
+            id: string;
+            quantity: Prisma.Decimal;
+            issuedAt: Date;
+            productVariantId: string;
+            batchId: string | null;
+            locationId: string | null;
+            productVariant: {
+                standardCost: Prisma.Decimal | null;
+                buyPrice: Prisma.Decimal | null;
+                price: Prisma.Decimal | null;
+            };
+        },
+        stockMovements: Array<{
+            id: string;
+            productVariantId: string;
+            batchId: string | null;
+            fromLocationId: string | null;
+            quantity: Prisma.Decimal;
+            cost: Prisma.Decimal | null;
+            createdAt: Date;
+        }>,
+        usedMovementIds: Set<string>
+    ): number {
+        const matchedMovement = stockMovements.find((movement) => {
+            if (usedMovementIds.has(movement.id)) return false;
+            if (movement.productVariantId !== issue.productVariantId) return false;
+            if ((movement.batchId ?? null) !== (issue.batchId ?? null)) return false;
+            if ((movement.fromLocationId ?? null) !== (issue.locationId ?? null)) return false;
+            if (Number(movement.quantity) !== Number(issue.quantity)) return false;
+
+            return Math.abs(movement.createdAt.getTime() - issue.issuedAt.getTime()) <= 60_000;
+        });
+
+        if (matchedMovement) {
+            usedMovementIds.add(matchedMovement.id);
+            if (matchedMovement.cost !== null && matchedMovement.cost !== undefined) {
+                return matchedMovement.cost.toNumber();
+            }
+        }
+
+        return Number(
+            issue.productVariant.standardCost ??
+            issue.productVariant.buyPrice ??
+            issue.productVariant.price ??
+            0
+        );
+    }
+
     /**
      * Calculate COGM for a single Production Order
      */
@@ -22,7 +73,34 @@ export class CostingService {
             where: { id: productionOrderId },
             include: {
                 materialIssues: {
-                    include: { productVariant: { include: { inventories: true } } } // Need cost info
+                    include: {
+                        productVariant: {
+                            select: {
+                                standardCost: true,
+                                buyPrice: true,
+                                price: true
+                            }
+                        }
+                    }
+                },
+                stockMovements: {
+                    where: {
+                        type: 'OUT',
+                        reference: {
+                            not: {
+                                startsWith: 'VOID:'
+                            }
+                        }
+                    },
+                    select: {
+                        id: true,
+                        productVariantId: true,
+                        batchId: true,
+                        fromLocationId: true,
+                        quantity: true,
+                        cost: true,
+                        createdAt: true
+                    }
                 },
                 executions: {
                     include: {
@@ -37,18 +115,16 @@ export class CostingService {
 
         // 2. Material Cost
         let materialCost = 0;
+        const usedMovementIds = new Set<string>();
         for (const issue of order.materialIssues) {
             if (issue.status === 'VOIDED') continue;
-            // Priority: Average Cost -> Standard Cost -> Buy Price -> Reference Price -> 0
             if (!issue.productVariant) {
                 console.warn(`Missing product variant for issue ${issue.id} in order ${order.orderNumber}`);
                 continue;
             }
-            const avgCost = issue.productVariant.inventories?.[0]?.averageCost ??
-                issue.productVariant.standardCost ??
-                issue.productVariant.buyPrice ??
-                issue.productVariant.price ?? 0;
-            materialCost += Number(issue.quantity) * Number(avgCost);
+
+            const unitCost = this.resolveIssueCost(issue, order.stockMovements, usedMovementIds);
+            materialCost += Number(issue.quantity) * unitCost;
         }
 
         // 3. Machine Cost

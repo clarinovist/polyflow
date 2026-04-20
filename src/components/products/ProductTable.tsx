@@ -39,6 +39,8 @@ type ProductVariant = {
     standardCost: Prisma.Decimal | null;
     buyPrice: Prisma.Decimal | null;
     minStockAlert: Prisma.Decimal | null;
+    currentCost?: number;
+    currentStockValue?: number;
     stock: number;
     _count: {
         inventories: number;
@@ -169,6 +171,21 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                     <>
                                         <TableHead className="text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
+                                                Current Cost
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs text-xs">
+                                                            Weighted average cost from current on-hand stock across locations.
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-1">
                                                 Standard Cost
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
@@ -238,22 +255,38 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                         <>
                                             <TableCell className="text-right font-medium text-sm tabular-nums">
                                                 <div className="flex flex-col items-end">
-                                                    <span className={variant.standardCost ? "text-primary font-bold" : "text-muted-foreground"}>
+                                                    <span className={variant.currentCost ? "text-primary font-bold" : "text-muted-foreground"}>
+                                                        {variant.currentCost ? formatRupiah(Number(variant.currentCost)) : '-'}
+                                                    </span>
+                                                    {variant.currentCost ? (
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1 bg-primary/5 text-primary border-primary/20">
+                                                            AVG COST
+                                                        </Badge>
+                                                    ) : variant.standardCost ? (
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
+                                                            FALLBACK
+                                                        </Badge>
+                                                    ) : null}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-sm tabular-nums">
+                                                <div className="flex flex-col items-end">
+                                                    <span className={variant.standardCost ? "text-foreground font-bold" : "text-muted-foreground"}>
                                                         {variant.standardCost ? formatRupiah(Number(variant.standardCost)) : '-'}
                                                     </span>
                                                     {variant.standardCost && (
-                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1 bg-primary/5 text-primary border-primary/20">
-                                                            VALUED AT
+                                                        <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
+                                                            PLAN COST
                                                         </Badge>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-sm tabular-nums">
                                                 <div className="flex flex-col items-end">
-                                                    <span className={!variant.standardCost && variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
+                                                    <span className={!variant.currentCost && variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
                                                         {variant.buyPrice ? formatRupiah(Number(variant.buyPrice)) : '-'}
                                                     </span>
-                                                    {!variant.standardCost && variant.buyPrice && (
+                                                    {!variant.currentCost && variant.buyPrice && (
                                                         <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
                                                             LAST BUY
                                                         </Badge>
@@ -262,10 +295,10 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-xs tabular-nums">
                                                 <div className="flex flex-col items-end">
-                                                    <span className={!variant.standardCost && !variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
+                                                    <span className={!variant.currentCost && !variant.buyPrice ? "text-foreground font-bold" : "text-muted-foreground"}>
                                                         {variant.price ? formatRupiah(Number(variant.price)) : '-'}
                                                     </span>
-                                                    {!variant.standardCost && !variant.buyPrice && variant.price && (
+                                                    {!variant.currentCost && !variant.buyPrice && variant.price && (
                                                         <Badge variant="outline" className="text-[8px] h-4 py-0 px-1 mt-1">
                                                             CATALOG
                                                         </Badge>

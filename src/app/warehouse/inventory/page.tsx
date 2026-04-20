@@ -8,10 +8,12 @@ import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
 import { canViewPrices } from '@/actions/admin/permissions';
 import { InventoryWithRelations } from '@/types/inventory';
 import { Card, CardContent } from '@/components/ui/card';
-import { InventoryTable, InventoryItem } from '@/components/warehouse/inventory/InventoryTable';
+import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable';
+import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 import { Warehouse } from 'lucide-react';
-import { serializeData } from '@/lib/utils/utils';
+import { formatRupiah, serializeData } from '@/lib/utils/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -158,10 +160,17 @@ export default async function WarehouseInventoryPage({
         : dashboardStats.totalStock;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const liveTotalValue = (displayInventory as any[]).reduce((acc, item) => {
+    const internalDisplayValue = (displayInventory as any[]).reduce((acc, item) => {
         const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
         const cost = item.averageCost ? (typeof item.averageCost === 'number' ? item.averageCost : item.averageCost.toNumber()) : 0;
-        return acc + (qty * cost);
+        return item.location?.locationType === 'CUSTOMER_OWNED' ? acc : acc + (qty * cost);
+    }, 0);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const customerOwnedDisplayValue = (displayInventory as any[]).reduce((acc, item) => {
+        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
+        const cost = item.averageCost ? (typeof item.averageCost === 'number' ? item.averageCost : item.averageCost.toNumber()) : 0;
+        return item.location?.locationType === 'CUSTOMER_OWNED' ? acc + (qty * cost) : acc;
     }, 0);
 
     const serializedInventory = serializeData(displayInventory) as InventoryItem[];
@@ -200,8 +209,22 @@ export default async function WarehouseInventoryPage({
                                 initialCompareDate={params.compareWith}
                                 showPrices={showPrices}
                                 abcMap={abcMap}
+                                topBadges={
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                            <span className="font-bold">{formatRupiah(internalDisplayValue)}</span>
+                                            <span className="opacity-70">internal</span>
+                                        </Badge>
+                                        {customerOwnedDisplayValue > 0 && (
+                                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
+                                                <span className="font-bold">{formatRupiah(customerOwnedDisplayValue)}</span>
+                                                <span className="opacity-70">customer-owned</span>
+                                            </Badge>
+                                        )}
+                                    </div>
+                                }
                                 totalStock={displayedTotalStock}
-                                totalValue={liveTotalValue}
+                                totalValue={internalDisplayValue}
                             />
                         </div>
                     </CardContent>

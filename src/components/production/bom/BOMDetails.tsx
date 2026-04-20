@@ -15,6 +15,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import Link from 'next/link';
+import { calculateBomItemCost, getCurrentUnitCost } from '@/lib/utils/current-cost';
 
 interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,10 +39,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     // Calculate total cost
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalCost = bom.items.reduce((acc: number, item: any) => {
-        const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0);
-        const quantity = Number(item.quantity);
-        const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-        return acc + (cost * quantity * scrap);
+        return acc + calculateBomItemCost(item);
     }, 0);
 
     return (
@@ -124,7 +122,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                 {showPrices && (
                     <Card className="flex flex-col justify-center">
                         <CardContent className="pt-6">
-                            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Cost per {bom.productVariant.primaryUnit}</div>
+                            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Benchmark Cost per {bom.productVariant.primaryUnit}</div>
                             <div className="text-4xl font-bold tracking-tight">
                                 {formatCurrency(totalCost / Number(bom.outputQuantity || 1))}
                             </div>
@@ -135,7 +133,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                 <span className="text-[10px] text-muted-foreground">for {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit} batch</span>
                             </div>
                             <div className="mt-4 pt-4 border-t border-dashed">
-                                <p className="text-[11px] text-muted-foreground italic">Calculated based on current standard costs of ingredients (including scrap).</p>
+                                <p className="text-[11px] text-muted-foreground italic">Calculated from current weighted stock cost of ingredients, with standard cost as fallback.</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -169,7 +167,8 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                     const scrapPct = Number(item.scrapPercentage || 0);
                                     const baseQty = Number(item.quantity);
                                     const totalQty = baseQty * (1 + (scrapPct / 100));
-                                    const lineCost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? 0) * totalQty;
+                                    const unitCost = getCurrentUnitCost(item.productVariant);
+                                    const lineCost = unitCost * totalQty;
 
                                     return (
                                         <TableRow key={index}>
@@ -209,7 +208,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                                             {formatCurrency(lineCost)}
                                                         </span>
                                                         <span className="text-[10px] text-muted-foreground">
-                                                            @ {formatCurrency(Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0))}
+                                                            @ {formatCurrency(unitCost)}
                                                         </span>
                                                     </div>
                                                 </TableCell>

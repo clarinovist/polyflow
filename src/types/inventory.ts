@@ -5,6 +5,7 @@ export type InventoryWithRelations = {
     locationId: string;
     productVariantId: string;
     quantity: Prisma.Decimal;
+    averageCost?: Prisma.Decimal | null;
     updatedAt: Date;
     productVariant: {
         id: string;
@@ -22,6 +23,7 @@ export type InventoryWithRelations = {
     location: {
         id: string;
         name: string;
+        locationType: 'INTERNAL' | 'CUSTOMER_OWNED';
     };
     reservedQuantity?: number;
     waitingQuantity?: number;

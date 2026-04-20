@@ -8,6 +8,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==========================================
+// ACCESS CONTROL AND SHARED ACTORS
+// ==========================================
+
 model User {
   id                      String                 @id @default(uuid())
   email                   String                 @unique
@@ -75,6 +79,10 @@ model ProductionShift {
    productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   helpers           Employee[]      @relation("ShiftHelpers")
 }
+
+// ==========================================
+// MASTER DATA
+// ==========================================
 
 model Supplier {
   id               String            @id @default(uuid())
@@ -159,6 +167,10 @@ model Location {
   purchaseReturns  PurchaseReturn[]       @relation("PurchaseReturnLocation")
   maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnLocation")
 }
+
+// ==========================================
+// INVENTORY, CATALOG, AND MANUFACTURING CORE
+// ==========================================
 
 model Product {
   id                 String           @id @default(uuid())
@@ -612,6 +624,10 @@ model AuditLog {
   user       User     @relation(fields: [userId], references: [id])
 }
 
+// ==========================================
+// SALES, PURCHASING, AND FULFILLMENT
+// ==========================================
+
 model SalesOrder {
   id               String            @id @default(uuid())
   orderNumber      String            @unique
@@ -815,6 +831,10 @@ model PurchasePayment {
   @@index([purchaseInvoiceId])
 }
 
+// ==========================================
+// FINANCE AND ACCOUNTING CORE
+// ==========================================
+
 model Account {
   id                    String                 @id @default(uuid())
   code                  String                 @unique
@@ -996,6 +1016,10 @@ model PurchaseRequestItem {
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
   purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
 }
+
+// ==========================================
+// DOMAIN ENUMS
+// ==========================================
 
 enum BomCategory {
   STANDARD
@@ -1251,6 +1275,10 @@ enum PurchaseRequestStatus {
   CONVERTED
 }
 
+// ==========================================
+// SHARED DOCUMENT SEQUENCES, PAYMENTS, AND RETURNS
+// ==========================================
+
 model SystemSequence {
   id        String   @id @default(uuid())
   key       String   @unique
@@ -1395,7 +1423,7 @@ model PurchaseReturnItem {
 }
 
 // ==========================================
-// TENANT REGISTRY (Multi-Company)
+// PLATFORM AND MULTI-TENANT EXTENSIONS
 // ==========================================
 model Tenant {
   id        String       @id @default(cuid())

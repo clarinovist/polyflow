@@ -19,6 +19,7 @@ import { formatRupiah, cn } from '@/lib/utils/utils';
 import { InvoiceStatus } from '@prisma/client';
 import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';
+import { recordCustomerPayment } from '@/actions/finance/finance';
 import { toast } from 'sonner';
 import {
     Dialog,
@@ -96,32 +97,12 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
     const handlePayment = async () => {
         setIsUpdating(true);
         try {
-            // Determine status based on payment amount
-            const currentPaid = Number(invoice.paidAmount);
-            const total = Number(invoice.totalAmount);
-            const newPaid = currentPaid + paymentAmount;
-
-            let newStatus: InvoiceStatus = invoice.status;
-
-            if (newPaid >= total) {
-                newStatus = 'PAID';
-            } else {
-                // Check if overdue
-                const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < new Date();
-                if (isOverdue) {
-                    newStatus = 'OVERDUE' as InvoiceStatus;
-                } else if (newPaid > 0) {
-                    newStatus = 'PARTIAL';
-                }
-            }
-
-            const result = await updateInvoiceStatus({
-                id: invoice.id,
-                status: newStatus,
-                paidAmount: newPaid // We pass the CUMULATIVE paid amount, or difference? 
-                // Checking usage in invoice-service might be needed, but usually APIs take the new state or the delta.
-                // Looking at action signature: updateInvoiceStatus(data: { id, status, paidAmount })
-                // Assuming it takes the NEW TOTAL paid amount based on standard CRUD patterns.
+            const result = await recordCustomerPayment({
+                invoiceId: invoice.id,
+                amount: paymentAmount,
+                paymentDate: new Date(),
+                method: 'Bank Transfer',
+                notes: 'Recorded from sales invoice detail'
             });
 
             if (result.success) {

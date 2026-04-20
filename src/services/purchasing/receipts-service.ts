@@ -47,38 +47,12 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         });
 
         for (const item of data.items) {
-            const totalInventory = await tx.inventory.aggregate({
-                where: { productVariantId: item.productVariantId },
-                _sum: { quantity: true }
-            });
-
-            const variant = await tx.productVariant.findUnique({
-                where: { id: item.productVariantId },
-                select: { standardCost: true, id: true, name: true }
-            });
-
-            if (variant) {
-                const currentTotalQty = totalInventory._sum.quantity?.toNumber() || 0;
-                const oldWAC = variant.standardCost?.toNumber() || 0;
-                const newQty = item.receivedQty;
-                const newPrice = item.unitCost;
-                const newTotalQty = currentTotalQty + newQty;
-
-                const newWAC = newTotalQty > 0
-                    ? ((currentTotalQty * oldWAC) + (newQty * newPrice)) / newTotalQty
-                    : oldWAC;
-
-                await tx.productVariant.update({
-                    where: { id: variant.id },
-                    data: { standardCost: newWAC }
-                });
-            }
-
-            await InventoryCoreService.incrementStock(
+            await InventoryCoreService.incrementStockWithCost(
                 tx,
                 data.locationId,
                 item.productVariantId,
-                item.receivedQty
+                item.receivedQty,
+                data.isMaklon ? 0 : item.unitCost
             );
 
             const movement = await tx.stockMovement.create({

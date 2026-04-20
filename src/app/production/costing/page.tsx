@@ -21,7 +21,7 @@ export default async function CostingDashboardPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Cost Accounting</h1>
                     <p className="text-muted-foreground">
-                        Production Cost Analysis (COGM)
+                        Production cost analysis based on actual issue movements and execution costs.
                     </p>
                 </div>
                 <div className="flex gap-2">

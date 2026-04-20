@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, FileText, Calendar, Building2, CreditCard, CheckCircle, AlertCircle, History, User } from 'lucide-react';
@@ -31,18 +34,22 @@ interface PurchaseInvoiceDetailProps {
         payments?: {
             id: string;
             amount: number;
-            paymentDate: string;
-            paymentMethod?: string | null;
-            reference?: string | null;
-            createdBy?: { name: string | null } | null;
+            paymentDate: string | Date;
+            method?: string | null;
+            notes?: string | null;
         }[];
     };
 }
+
+const PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Check', 'Credit Card'] as const;
 
 export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+    const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>('Bank Transfer');
+    const [paymentNotes, setPaymentNotes] = useState('');
 
     const remainingAmount = invoice.totalAmount - invoice.paidAmount;
     const isOverdue = new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID';
@@ -62,6 +69,13 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
         );
     };
 
+    const resetPaymentForm = () => {
+        setPaymentAmount('');
+        setPaymentDate(new Date().toISOString().split('T')[0]);
+        setPaymentMethod('Bank Transfer');
+        setPaymentNotes('');
+    };
+
     const handlePayment = async () => {
         const amount = parseFloat(paymentAmount);
         if (isNaN(amount) || amount <= 0) {
@@ -76,9 +90,19 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
 
         setIsLoading(true);
         try {
-            await recordPurchasePayment(invoice.id, amount);
+            const result = await recordPurchasePayment(invoice.id, amount, {
+                paymentDate,
+                method: paymentMethod,
+                notes: paymentNotes.trim() || undefined,
+            });
+
+            if (!result.success) {
+                toast.error(result.error || 'Failed to record payment');
+                return;
+            }
+
             toast.success(`Payment of ${formatRupiah(amount)} recorded successfully`);
-            setPaymentAmount('');
+            resetPaymentForm();
             router.refresh();
         } catch (_error) {
             toast.error('Failed to record payment');
@@ -90,8 +114,19 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
     const handlePayFull = async () => {
         setIsLoading(true);
         try {
-            await recordPurchasePayment(invoice.id, remainingAmount);
+            const result = await recordPurchasePayment(invoice.id, remainingAmount, {
+                paymentDate,
+                method: paymentMethod,
+                notes: paymentNotes.trim() || undefined,
+            });
+
+            if (!result.success) {
+                toast.error(result.error || 'Failed to record payment');
+                return;
+            }
+
             toast.success(`Full payment of ${formatRupiah(remainingAmount)} recorded`);
+            resetPaymentForm();
             router.refresh();
         } catch (_error) {
             toast.error('Failed to record payment');
@@ -178,9 +213,11 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                         <CreditCard className="h-4 w-4" />
                                         Record Payment
                                     </h3>
-                                    <div className="flex gap-3">
-                                        <div className="flex-1">
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="purchase-payment-amount">Payment Amount</Label>
                                             <Input
+                                                id="purchase-payment-amount"
                                                 type="number"
                                                 placeholder="Enter payment amount"
                                                 value={paymentAmount}
@@ -188,12 +225,57 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 className="h-11"
                                             />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="purchase-payment-date">Payment Date</Label>
+                                            <Input
+                                                id="purchase-payment-date"
+                                                type="date"
+                                                value={paymentDate}
+                                                onChange={(e) => setPaymentDate(e.target.value)}
+                                                className="h-11"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="purchase-payment-method">Payment Method</Label>
+                                            <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as (typeof PAYMENT_METHODS)[number])}>
+                                                <SelectTrigger id="purchase-payment-method" className="h-11">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {PAYMENT_METHODS.map((method) => (
+                                                        <SelectItem key={method} value={method}>
+                                                            {method}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="purchase-payment-notes">Notes</Label>
+                                            <Textarea
+                                                id="purchase-payment-notes"
+                                                placeholder="Optional payment notes"
+                                                value={paymentNotes}
+                                                onChange={(e) => setPaymentNotes(e.target.value)}
+                                                rows={3}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
                                         <Button
                                             onClick={handlePayment}
                                             disabled={isLoading || !paymentAmount}
-                                            className="h-11"
+                                            className="h-11 flex-1"
                                         >
                                             Record Payment
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setPaymentAmount(remainingAmount.toString())}
+                                            disabled={isLoading}
+                                            className="h-11"
+                                        >
+                                            Fill Remaining
                                         </Button>
                                     </div>
                                     <Button
@@ -242,9 +324,9 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 </span>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <User className="h-3 w-3" />
-                                                    {payment.createdBy?.name || 'Unknown'}
-                                                    {payment.reference && (
-                                                        <span className="font-mono">• Ref: {payment.reference}</span>
+                                                    <span>{payment.method || 'Unknown method'}</span>
+                                                    {payment.notes && (
+                                                        <span className="truncate max-w-[220px]">• {payment.notes}</span>
                                                     )}
                                                 </div>
                                             </div>

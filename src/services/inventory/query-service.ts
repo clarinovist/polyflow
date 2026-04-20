@@ -49,6 +49,7 @@ export class InventoryQueryService {
                     select: {
                         id: true,
                         name: true,
+                        locationType: true,
                     }
                 },
             },

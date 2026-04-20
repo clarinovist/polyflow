@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BOMActions } from './BOMActions';
+import { calculateBomItemCost } from '@/lib/utils/current-cost';
 
 interface BOMListProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,10 +44,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
     const getUnitCost = (bom: any) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const totalCost = bom.items.reduce((acc: number, item: any) => {
-            const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0);
-            const quantity = Number(item.quantity);
-            const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-            return acc + (cost * quantity * scrap);
+            return acc + calculateBomItemCost(item);
         }, 0);
         return totalCost / Number(bom.outputQuantity || 1);
     };
@@ -142,10 +140,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                             filteredBoms.map((bom) => {
                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                 const totalCost = bom.items.reduce((acc: number, item: any) => {
-                                                    const cost = Number(item.productVariant.standardCost ?? item.productVariant.buyPrice ?? item.productVariant.price ?? 0);
-                                                    const quantity = Number(item.quantity);
-                                                    const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-                                                    return acc + (cost * quantity * scrap);
+                                                    return acc + calculateBomItemCost(item);
                                                 }, 0);
 
                                                 return (

@@ -266,5 +266,32 @@ describe('AccountingService', () => {
             expect(lines.find((l: Record<string, unknown>) => l.debit === 2000 && l.accountId === 'acc-50000')).toBeDefined();
             expect(lines.find((l: Record<string, unknown>) => l.credit === 2000 && l.accountId === 'acc-11330')).toBeDefined();
         });
+
+        it('should prioritize persisted movement cost over current standard cost', async () => {
+            const movement = {
+                id: 'mov-4',
+                type: 'OUT',
+                salesOrderId: 'so-2',
+                quantity: 2,
+                cost: 800,
+                productVariantId: 'pv-4',
+                productVariant: {
+                    id: 'pv-4',
+                    standardCost: 1000,
+                    product: { productType: 'FINISHED_GOOD' }
+                }
+            };
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await AccountingService.recordInventoryMovement(movement as any);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const calls = (prisma.journalEntry.create as any).mock.calls;
+            const createArg = calls[calls.length - 1][0];
+            const lines = createArg.data.lines.create;
+
+            expect(lines.find((l: Record<string, unknown>) => l.debit === 1600 && l.accountId === 'acc-50000')).toBeDefined();
+            expect(lines.find((l: Record<string, unknown>) => l.credit === 1600 && l.accountId === 'acc-11330')).toBeDefined();
+        });
     });
 });

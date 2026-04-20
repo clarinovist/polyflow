@@ -11,6 +11,28 @@ import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from "@/lib/tools/audit";
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { getCurrentUnitCost } from '@/lib/utils/current-cost';
+
+function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & { currentCost: number } {
+    return {
+        ...variant,
+        currentCost: getCurrentUnitCost(variant),
+    };
+}
+
+function enrichBomCurrentCosts<T extends {
+    productVariant: Record<string, unknown> & { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> };
+    items: Array<{ productVariant: Record<string, unknown> & { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } }>;
+}>(bom: T): T {
+    return {
+        ...bom,
+        productVariant: enrichVariantCurrentCost(bom.productVariant),
+        items: bom.items.map((item) => ({
+            ...item,
+            productVariant: enrichVariantCurrentCost(item.productVariant),
+        })),
+    };
+}
 
 export const getBoms = withTenant(
 async function getBoms(category?: string) {
@@ -24,12 +46,36 @@ async function getBoms(category?: string) {
         const boms = await prisma.bom.findMany({
             where,
             include: {
-                productVariant: { include: { product: true } },
-                items: { include: { productVariant: { include: { product: true } } } }
+                productVariant: {
+                    include: {
+                        product: true,
+                        inventories: {
+                            select: {
+                                quantity: true,
+                                averageCost: true,
+                            }
+                        }
+                    }
+                },
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true,
+                                inventories: {
+                                    select: {
+                                        quantity: true,
+                                        averageCost: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
             orderBy: { updatedAt: 'desc' }
         });
-        return serializeData(boms);
+        return serializeData(boms.map(enrichBomCurrentCosts));
     });
 }
 );
@@ -38,10 +84,18 @@ export const getProductVariants = withTenant(
 async function getProductVariants() {
     return safeAction(async () => {
         const variants = await prisma.productVariant.findMany({
-            include: { product: true },
+            include: {
+                product: true,
+                inventories: {
+                    select: {
+                        quantity: true,
+                        averageCost: true,
+                    }
+                }
+            },
             orderBy: { name: 'asc' }
         });
-        return serializeData(variants);
+        return serializeData(variants.map(enrichVariantCurrentCost));
     });
 }
 );
@@ -72,7 +126,22 @@ async function createBom(data: CreateBomValues) {
 
             const createdBom = await prisma.bom.findUnique({
                 where: { id: bom.id },
-                include: { items: { include: { productVariant: true } } }
+                include: {
+                    items: {
+                        include: {
+                            productVariant: {
+                                include: {
+                                    inventories: {
+                                        select: {
+                                            quantity: true,
+                                            averageCost: true,
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
             if (createdBom) {
@@ -106,14 +175,38 @@ async function getBom(id: string) {
         const bom = await prisma.bom.findUnique({
             where: { id },
             include: {
-                productVariant: { include: { product: true } },
-                items: { include: { productVariant: { include: { product: true } } } }
+                productVariant: {
+                    include: {
+                        product: true,
+                        inventories: {
+                            select: {
+                                quantity: true,
+                                averageCost: true,
+                            }
+                        }
+                    }
+                },
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                product: true,
+                                inventories: {
+                                    select: {
+                                        quantity: true,
+                                        averageCost: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
         if (!bom) throw new NotFoundError("Recipe", id);
 
-        return serializeData(bom);
+        return serializeData(enrichBomCurrentCosts(bom));
     });
 }
 );
@@ -150,7 +243,18 @@ async function updateBom(id: string, data: CreateBomValues) {
 
                 const newItemsWithCosts = await tx.bomItem.findMany({
                     where: { bomId: id },
-                    include: { productVariant: true }
+                    include: {
+                        productVariant: {
+                            include: {
+                                inventories: {
+                                    select: {
+                                        quantity: true,
+                                        averageCost: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
 
                 const totalCost = calculateBomCost(newItemsWithCosts);

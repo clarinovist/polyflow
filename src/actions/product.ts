@@ -10,6 +10,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { logActivity } from "@/lib/tools/audit";
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { getCurrentUnitCost } from '@/lib/utils/current-cost';
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -28,6 +29,8 @@ export type ProductWithVariantsAndStock = {
         standardCost: Prisma.Decimal | null;
         buyPrice: Prisma.Decimal | null;
         minStockAlert: Prisma.Decimal | null;
+        currentCost?: number;
+        currentStockValue?: number;
         _count: {
             inventories: number;
         };
@@ -72,6 +75,7 @@ async function getProducts(options?: { type?: ProductType }) {
                         inventories: {
                             select: {
                                 quantity: true,
+                                averageCost: true,
                             },
                         },
                     },
@@ -95,6 +99,12 @@ async function getProducts(options?: { type?: ProductType }) {
                 const variantStock = invs.reduce((vSum, inv) => {
                     return vSum + (inv.quantity?.toNumber ? inv.quantity.toNumber() : Number(inv.quantity || 0));
                 }, 0);
+                const variantStockValue = invs.reduce((vSum, inv) => {
+                    const quantity = inv.quantity?.toNumber ? inv.quantity.toNumber() : Number(inv.quantity || 0);
+                    const averageCost = inv.averageCost?.toNumber ? inv.averageCost.toNumber() : Number(inv.averageCost || 0);
+                    return vSum + (quantity * averageCost);
+                }, 0);
+                const currentCost = getCurrentUnitCost(variant);
 
                 productTotalStock += variantStock;
 
@@ -103,6 +113,8 @@ async function getProducts(options?: { type?: ProductType }) {
                 return {
                     ...variantData,
                     stock: variantStock,
+                    currentCost,
+                    currentStockValue: variantStock > 0 ? variantStockValue : 0,
                 };
             });
 
@@ -128,6 +140,7 @@ async function getProductById(id: string) {
                         inventories: {
                             select: {
                                 quantity: true,
+                                averageCost: true,
                                 location: {
                                     select: { name: true }
                                 }
@@ -159,9 +172,12 @@ async function getProductById(id: string) {
         const enrichedVariants = (product.variants || [] as ProductVariantWithRelations[]).map((variant) => {
             const invs = variant.inventories || [];
             const stock = invs.reduce((sum: number, inv) => sum + Number(inv.quantity), 0);
+            const stockValue = invs.reduce((sum: number, inv) => sum + (Number(inv.quantity) * Number(inv.averageCost || 0)), 0);
             return {
                 ...variant,
-                stock
+                stock,
+                currentCost: getCurrentUnitCost(variant),
+                currentStockValue: stock > 0 ? stockValue : 0,
             };
         });
 

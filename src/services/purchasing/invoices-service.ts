@@ -36,10 +36,17 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
     return invoice;
 }
 
-export async function recordPayment(id: string, amount: number, userId: string) {
+export async function recordPayment(
+    id: string,
+    amount: number,
+    userId: string,
+    options?: { paymentDate?: Date; method?: string; notes?: string }
+) {
     return await prisma.$transaction(async (tx) => {
         const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
         if (!invoice) throw new Error("Invoice not found");
+
+        const { getNextSequence } = await import('@/lib/utils/sequence');
 
         const newPaidAmount = invoice.paidAmount.toNumber() + amount;
         let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
@@ -48,12 +55,16 @@ export async function recordPayment(id: string, amount: number, userId: string) 
             status = PurchaseInvoiceStatus.PAID;
         }
 
-        await tx.purchasePayment.create({
+        const paymentNumber = await getNextSequence('PAYMENT_OUT');
+
+        const payment = await tx.payment.create({
             data: {
                 purchaseInvoiceId: id,
+                paymentNumber,
                 amount,
-                paymentDate: new Date(),
-                createdById: userId
+                paymentDate: options?.paymentDate || new Date(),
+                method: options?.method || 'Bank Transfer',
+                notes: options?.notes,
             }
         });
 
@@ -74,7 +85,10 @@ export async function recordPayment(id: string, amount: number, userId: string) 
             tx
         });
 
-        return updated;
+        return {
+            ...updated,
+            paymentId: payment.id,
+        };
     });
 }
 
@@ -90,10 +104,7 @@ export async function getPurchaseInvoiceById(id: string) {
                     supplier: { select: { name: true, code: true } }
                 }
             },
-            purchasePayments: {
-                include: {
-                    createdBy: { select: { name: true } }
-                },
+            payments: {
                 orderBy: { paymentDate: 'desc' }
             }
         }

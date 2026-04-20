@@ -52,8 +52,8 @@ export class PurchaseService {
         return createInvoice(data);
     }
 
-    static async recordPayment(id: string, amount: number, userId: string) {
-        return recordPayment(id, amount, userId);
+    static async recordPayment(id: string, amount: number, userId: string, options?: { paymentDate?: Date; method?: string; notes?: string }) {
+        return recordPayment(id, amount, userId, options);
     }
 
     static async getPurchaseOrders(filters?: { supplierId?: string, status?: PurchaseOrderStatus }) {

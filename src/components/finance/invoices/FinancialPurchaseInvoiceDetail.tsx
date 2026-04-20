@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatRupiah } from "@/lib/utils/utils";
 import { PurchaseInvoiceStatus } from "@prisma/client";
 import { format } from "date-fns";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CreditCard, History } from "lucide-react";
 
 interface FinancialPurchaseInvoiceDetailProps {
     invoice: {
@@ -20,6 +20,13 @@ interface FinancialPurchaseInvoiceDetailProps {
             supplier: { name: string };
             totalAmount: number;
         };
+        payments?: {
+            id: string;
+            amount: number;
+            paymentDate: Date | string;
+            method?: string | null;
+            notes?: string | null;
+        }[];
     };
 }
 
@@ -131,6 +138,47 @@ export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInv
                     </div>
                 </CardContent>
             </Card>
+
+            {invoice.payments && invoice.payments.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <History className="h-5 w-5" />
+                            Payment History
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {invoice.payments.map((payment, index) => (
+                                <div
+                                    key={payment.id}
+                                    className={`rounded-lg border p-4 ${index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}`}
+                                >
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className="text-sm font-medium">
+                                                {format(new Date(payment.paymentDate), 'PP')}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                <CreditCard className="h-3.5 w-3.5" />
+                                                <span>{payment.method || 'Unknown method'}</span>
+                                            </div>
+                                            {payment.notes && (
+                                                <p className="text-sm text-muted-foreground">{payment.notes}</p>
+                                            )}
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                                                {formatRupiah(Number(payment.amount))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />

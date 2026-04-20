@@ -26,7 +26,7 @@ export default async function CostingPage(props: { searchParams: Promise<{ start
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Costing Dashboard</h1>
                     <p className="text-muted-foreground">
-                        Production cost analysis and COGM tracking.
+                        Production cost analysis using persisted issue cost and actual execution data.
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -94,7 +94,7 @@ export default async function CostingPage(props: { searchParams: Promise<{ start
             <Card>
                 <CardHeader>
                     <CardTitle>Detailed Cost Breakdown</CardTitle>
-                    <CardDescription>Costs per completed production order.</CardDescription>
+                    <CardDescription>Costs per production order based on actual issue movements, labor, and machine time.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">

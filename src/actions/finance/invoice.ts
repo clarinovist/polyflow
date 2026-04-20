@@ -8,7 +8,6 @@ import { InvoiceService } from '@/services/finance/invoice-service';
 import { createInvoiceSchema, updateInvoiceStatusSchema, CreateInvoiceValues } from '@/lib/schemas/invoice';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
-import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError, ValidationError } from '@/lib/errors/errors';
 
@@ -90,11 +89,6 @@ async function createInvoice(data: CreateInvoiceValues) {
         try {
             const invoice = await InvoiceService.createInvoice(result.data, session.user.id);
 
-            // Auto-Journaling Trigger
-            await AutoJournalService.handleSalesInvoiceCreated(invoice.id).catch((error: unknown) => {
-                logger.error('Auto-Journal failed for sales invoice', { error, invoiceId: invoice.id, module: 'AutoJournalService' });
-            });
-
             revalidatePath('/sales'); // Refresh sales to update invoice status if any
             revalidatePath(`/sales/orders/${data.salesOrderId}`);
             return serializeData(invoice);
@@ -125,13 +119,6 @@ async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, pa
             const invoice = await prisma.invoice.findUnique({ where: { id: data.id }, select: { salesOrderId: true } });
             if (invoice) {
                 revalidatePath(`/sales/orders/${invoice.salesOrderId}`);
-            }
-
-            // Auto-Journal: Sales Payment
-            if (data.paidAmount && data.paidAmount > 0) {
-                await AutoJournalService.handleSalesPayment(data.id, data.paidAmount).catch((error: unknown) => {
-                    logger.error('Auto-Journal failed for sales payment', { error, invoiceId: data.id, module: 'AutoJournalService' });
-                });
             }
 
             return { success: true };

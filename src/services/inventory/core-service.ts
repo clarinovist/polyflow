@@ -108,6 +108,47 @@ export class InventoryCoreService {
         });
     }
 
+    static async incrementStockWithCost(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string,
+        quantity: number,
+        unitCost: number
+    ) {
+        const inventory = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId }
+            },
+            select: {
+                quantity: true,
+                averageCost: true
+            }
+        });
+
+        const currentQty = inventory?.quantity.toNumber() || 0;
+        const currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+        const totalQty = currentQty + quantity;
+        const newAvgCost = totalQty > 0
+            ? ((currentQty * currentAvgCost) + (quantity * unitCost)) / totalQty
+            : unitCost;
+
+        await tx.inventory.upsert({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId }
+            },
+            update: {
+                quantity: { increment: quantity },
+                averageCost: newAvgCost
+            },
+            create: {
+                locationId,
+                productVariantId,
+                quantity,
+                averageCost: unitCost
+            }
+        });
+    }
+
     static async calculateWAC(
         productVariantId: string,
         locationId: string,

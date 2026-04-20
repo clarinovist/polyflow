@@ -125,17 +125,28 @@ async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
 );
 
 export const recordPurchasePayment = withTenant(
-async function recordPurchasePayment(id: string, amount: number) {
+async function recordPurchasePayment(
+    id: string,
+    amount: number,
+    options?: { paymentDate?: Date | string; method?: string; notes?: string }
+) {
     return safeAction(async () => {
         const session = await requireAuth();
-        const updated = await PurchaseService.recordPayment(id, amount, session.user.id);
+        const paymentDate = options?.paymentDate ? new Date(options.paymentDate) : new Date();
+        const method = options?.method || 'Bank Transfer';
+
+        const updated = await PurchaseService.recordPayment(id, amount, session.user.id, {
+            paymentDate,
+            method,
+            notes: options?.notes,
+        });
 
         revalidatePath('/finance/invoices/purchase');
         revalidatePath(`/finance/invoices/${id}`);
         revalidatePath(`/finance/invoices/${id}`);
 
         // Auto-Journal: Purchase Payment
-        await AutoJournalService.handlePurchasePayment(id, amount).catch(error => {
+        await AutoJournalService.handlePurchasePayment(updated.paymentId, amount, method).catch(error => {
             logger.error('Auto-Journal failed for purchase payment', { error, invoiceId: id, module: 'AutoJournalService' });
         });
 

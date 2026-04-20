@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
-import { MovementType, Prisma } from '@prisma/client';
+import { LocationType, MovementType, Prisma } from '@prisma/client';
 import { subDays, format } from 'date-fns';
 
 export async function getSuggestedPurchases() {
@@ -26,12 +26,21 @@ export async function getInventoryValuation() {
     const stock = await prisma.inventory.findMany({
         where: { quantity: { gt: 0 } },
         include: {
+            location: {
+                select: {
+                    id: true,
+                    name: true,
+                    locationType: true,
+                }
+            },
             productVariant: {
                 select: { name: true, skuCode: true, buyPrice: true }
             }
         }
     });
 
+    let financeValuation = 0;
+    let customerOwnedValuation = 0;
     let totalValuation = 0;
     const valuationDetails = [];
 
@@ -39,14 +48,22 @@ export async function getInventoryValuation() {
         const quantity = item.quantity.toNumber();
         const unitCost = item.averageCost?.toNumber() || item.productVariant.buyPrice?.toNumber() || 0;
         const value = quantity * unitCost;
+        const isCustomerOwned = item.location.locationType === LocationType.CUSTOMER_OWNED;
 
         totalValuation += value;
+        if (isCustomerOwned) {
+            customerOwnedValuation += value;
+        } else {
+            financeValuation += value;
+        }
 
         valuationDetails.push({
             productVariantId: item.productVariantId,
             name: item.productVariant.name,
             sku: item.productVariant.skuCode,
             locationId: item.locationId,
+            locationName: item.location.name,
+            locationType: item.location.locationType,
             quantity,
             unitCost,
             totalValue: value
@@ -55,6 +72,8 @@ export async function getInventoryValuation() {
 
     return {
         totalValuation,
+        financeValuation,
+        customerOwnedValuation,
         details: valuationDetails
     };
 }
@@ -181,7 +200,7 @@ export async function getInventoryTurnover(periodDays = 30) {
     }, 0);
 
     const currentValuation = await getInventoryValuation();
-    const closingValue = currentValuation.totalValuation;
+    const closingValue = currentValuation.financeValuation;
 
     const inboundMovements = await prisma.stockMovement.findMany({
         where: {

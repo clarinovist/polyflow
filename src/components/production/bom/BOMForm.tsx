@@ -37,6 +37,7 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { ProductCombobox } from '@/components/products/product-combobox';
+import { getCurrentUnitCost } from '@/lib/utils/current-cost';
 
 interface BOMFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -286,7 +287,7 @@ export function BOMForm({
                                             const total = watchedItems.reduce((acc, item) => {
                                                 const variant = productVariants.find(v => v.id === item.productVariantId);
                                                 if (!variant) return acc;
-                                                const cost = Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0);
+                                                const cost = getCurrentUnitCost(variant);
                                                 const quantity = Number(item.quantity ?? 0);
                                                 const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
                                                 return acc + (cost * quantity * scrap);
@@ -298,7 +299,7 @@ export function BOMForm({
                                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                                             <div className="h-full bg-primary w-[60%]" />
                                         </div>
-                                        <p className="text-[11px] text-muted-foreground italic">Calculated based on current material benchmarks.</p>
+                                        <p className="text-[11px] text-muted-foreground italic">Calculated from current weighted stock cost, with standard cost as fallback.</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -343,7 +344,8 @@ export function BOMForm({
 
                                             // Effective quantity considering scrap
                                             const effectiveQty = Number(quantity ?? 0) * (1 + (Number(scrapPct) / 100));
-                                            const lineCost = variant ? Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0) * effectiveQty : 0;
+                                            const unitCost = variant ? getCurrentUnitCost(variant) : 0;
+                                            const lineCost = unitCost * effectiveQty;
 
                                             // Smart Suggestion Logic
                                             const currentCategory = form.watch('category');
@@ -426,7 +428,7 @@ export function BOMForm({
                                                                     {formatCurrency(lineCost)}
                                                                 </span>
                                                                 <span className="text-[10px] text-muted-foreground">
-                                                                    {variant ? `@ ${formatCurrency(Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0))}` : 'Rate Unavailable'}
+                                                                    {variant ? `@ ${formatCurrency(unitCost)}` : 'Rate Unavailable'}
                                                                 </span>
                                                             </div>
                                                         </TableCell>

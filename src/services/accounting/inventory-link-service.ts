@@ -44,8 +44,8 @@ export async function recordInventoryMovement(
     }
 
     const date = movement.createdAt || new Date();
-    // Priority: Standard Cost > Buy Price > Sell Price (Fallback)
-    const currentCost = Number(productVariant.standardCost || productVariant.buyPrice || productVariant.price || 0);
+    // Priority: Persisted movement cost -> Standard Cost -> Buy Price -> Sell Price
+    const currentCost = Number(movement.cost ?? productVariant.standardCost ?? productVariant.buyPrice ?? productVariant.price ?? 0);
     let cost = currentCost;
 
     // If this is a Goods Receipt, try to get the price from the Purchase Order and update Standard Cost
@@ -61,8 +61,9 @@ export async function recordInventoryMovement(
                 where: { productVariantId: movement.productVariantId },
                 _sum: { quantity: true }
             });
-            const currentStock = inventorySum._sum.quantity ? inventorySum._sum.quantity.toNumber() : 0;
+            const currentStockAfterReceipt = inventorySum._sum.quantity ? inventorySum._sum.quantity.toNumber() : 0;
             const receiptQty = Number(movement.quantity);
+            const currentStock = Math.max(0, currentStockAfterReceipt - receiptQty);
 
             // 2. Calculate New Weighted Average
             // Formula: ((currentCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty)

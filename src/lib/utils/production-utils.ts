@@ -1,3 +1,5 @@
+import { calculateBomItemCost } from './current-cost';
+
 // Utility functions for production and costing logic
 
 /**
@@ -10,13 +12,6 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function calculateBomCost(items: any[]): number {
     return items.reduce((acc, item) => {
-        const variant = item.productVariant;
-        if (!variant) return acc;
-
-        const unitCost = Number(variant.standardCost ?? variant.buyPrice ?? variant.price ?? 0);
-        const quantity = Number(item.quantity ?? 0);
-        const scrapAndWaste = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-
-        return acc + (unitCost * quantity * scrapAndWaste);
+        return acc + calculateBomItemCost(item);
     }, 0);
 }

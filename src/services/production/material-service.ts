@@ -13,6 +13,39 @@ import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 
 export class ProductionMaterialService {
 
+    private static async getIssueUnitCost(
+        tx: Prisma.TransactionClient,
+        locationId: string,
+        productVariantId: string
+    ): Promise<number> {
+        const inventory = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: { locationId, productVariantId }
+            },
+            select: {
+                averageCost: true,
+                productVariant: {
+                    select: {
+                        standardCost: true,
+                        buyPrice: true,
+                        price: true
+                    }
+                }
+            }
+        });
+
+        if (inventory?.averageCost !== null && inventory?.averageCost !== undefined) {
+            return inventory.averageCost.toNumber();
+        }
+
+        return Number(
+            inventory?.productVariant?.standardCost ??
+            inventory?.productVariant?.buyPrice ??
+            inventory?.productVariant?.price ??
+            0
+        );
+    }
+
     // --- Material Issues ---
 
     static async batchIssueMaterials(data: BatchMaterialIssueValues & { userId?: string }) {
@@ -138,6 +171,7 @@ export class ProductionMaterialService {
 
                     if (batches.length === 0) {
                         // Fallback: Check if there's stock without batch record
+                        const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                         await InventoryCoreService.validateAndLockStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
                         await InventoryCoreService.deductStock(tx, itemLocationId, item.productVariantId, remainingToDeduct);
 
@@ -159,6 +193,7 @@ export class ProductionMaterialService {
                                 fromLocationId: itemLocationId,
                                 toLocationId: null,
                                 quantity: remainingToDeduct,
+                                cost: unitCost,
                                 reference: `${refPrefix}${idempotencySuffix}`,
                                 createdById: userId,
                                 productionOrderId: productionOrderId // Add structured relation
@@ -166,6 +201,7 @@ export class ProductionMaterialService {
                         });
                         await AccountingService.recordInventoryMovement(moveOut, tx);
                     } else {
+                        const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                         for (const batch of batches) {
                             if (remainingToDeduct <= 0) break;
 
@@ -202,6 +238,7 @@ export class ProductionMaterialService {
                                     fromLocationId: itemLocationId,
                                     toLocationId: null,
                                     quantity: deductFromBatch,
+                                    cost: unitCost,
                                     reference: `${refPrefix}${idempotencySuffix}`,
                                     batchId: batch.id,
                                     createdById: userId,
@@ -219,6 +256,7 @@ export class ProductionMaterialService {
                     }
                 } else {
                     // Manual batchId selected
+                    const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                     const batch = await tx.batch.findUnique({ where: { id: item.batchId } });
                     if (!batch || Number(batch.quantity) < remainingToDeduct) {
                         throw new Error(`Selected batch ${batch?.batchNumber || item.batchId} has insufficient stock or not found.`);
@@ -253,6 +291,7 @@ export class ProductionMaterialService {
                             fromLocationId: itemLocationId,
                             toLocationId: null,
                             quantity: remainingToDeduct,
+                            cost: unitCost,
                             reference: `${refPrefix}${idempotencySuffix}`,
                             batchId: item.batchId,
                             createdById: userId,

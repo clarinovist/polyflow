@@ -51,6 +51,7 @@ interface ExtendedCostHistory extends CostHistory {
 
 interface ExtendedInventory {
     quantity: Inventory['quantity'];
+    averageCost?: Inventory['averageCost'];
     location: { name: string } | null;
 }
 
@@ -58,6 +59,8 @@ interface ExtendedVariant extends Pick<ProductVariant, 'id' | 'name' | 'skuCode'
     costHistory: ExtendedCostHistory[];
     inventories: ExtendedInventory[];
     stock?: number; // Calculated field
+    currentCost?: number;
+    currentStockValue?: number;
 }
 
 interface ProductWithDetails extends Pick<Product, 'id' | 'name' | 'productType'> {
@@ -116,17 +119,27 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Current Cost</CardTitle>
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.currentCost))}</div>
+                            {latestHistory && (
+                                <p className={`text-xs flex items-center mt-1 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}>
+                                    {isCostUp ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
+                                    Weighted average from current stock
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Standard Cost</CardTitle>
                             <Info className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.standardCost))}</div>
-                            {latestHistory && (
-                                <p className={`text-xs flex items-center mt-1 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}>
-                                    {isCostUp ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
-                                    {Math.abs(changePercent)}% from last change
-                                </p>
-                            )}
+                            <p className="text-xs text-muted-foreground">Recipe or planning benchmark</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -149,12 +162,26 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                             <p className="text-xs text-muted-foreground">Across all locations</p>
                         </CardContent>
                     </Card>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium">Sell Price</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.price))}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Current Stock Value</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold" suppressHydrationWarning>
+                                {formatIDR(product.variants.reduce((sum: number, v) => sum + (v.currentStockValue || 0), 0))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Based on current weighted average stock cost</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -169,7 +196,7 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                         <CardContent>
                             <p className="text-sm text-red-600">
                                 The standard cost for <strong>{mainVariant.name}</strong> has changed by <strong>{changePercent}%</strong> on {format(new Date(latestHistory.createdAt), 'PPP')}.
-                                Please review your profit margins.
+                                Review planning margin against current stock cost.
                             </p>
                         </CardContent>
                     </Card>
@@ -177,8 +204,8 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
 
                 <Card className="col-span-4">
                     <CardHeader>
-                        <CardTitle>Cost Trend</CardTitle>
-                        <CardDescription>Price movements over the last 10 changes for primary variant</CardDescription>
+                        <CardTitle>Standard Cost Trend</CardTitle>
+                        <CardDescription>Planning cost movements over the last 10 recorded updates for primary variant</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px] pl-2">
                         {chartData.length > 1 ? (

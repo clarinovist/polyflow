@@ -7,187 +7,18 @@ import {
     ProductionOutputValues,
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MovementType, ProductionMaterial, BomItem, ProductionExecution } from '@prisma/client';
+import { ProductionStatus, MovementType, ProductionExecution } from '@prisma/client';
 import { InventoryCoreService } from '@/services/inventory/core-service';
-import { ProductionCostService } from './cost-service';
-import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
-import { ProductionMaterialService } from './material-service';
-import { MAKLON_STAGE_SLUGS, WAREHOUSE_SLUGS } from '@/lib/constants/locations';
-import { Prisma } from '@prisma/client';
-
-interface BackflushOrder {
-    isMaklon: boolean;
-    locationId: string;
-    bom?: { category: string | null } | null;
-}
+import {
+    backflushMaterials,
+    recordExecutionScrap,
+    recordFinishedGoodsOutput,
+    triggerProductionOutputJournal,
+    type ProductionExecutionOrder,
+} from './execution-helpers';
 
 export class ProductionExecutionService {
-
-    private static async resolveLocationIdBySlug(tx: Prisma.TransactionClient, slug: string): Promise<string | null> {
-        const location = await tx.location.findUnique({
-            where: { slug },
-            select: { id: true }
-        });
-
-        return location?.id || null;
-    }
-
-    private static async findFirstStockLocation(
-        tx: Prisma.TransactionClient,
-        productVariantId: string,
-        locationSlugs: string[]
-    ): Promise<string | null> {
-        for (const slug of locationSlugs) {
-            const locationId = await this.resolveLocationIdBySlug(tx, slug);
-            if (!locationId) continue;
-
-            const inventory = await tx.inventory.findUnique({
-                where: {
-                    locationId_productVariantId: {
-                        locationId,
-                        productVariantId
-                    }
-                },
-                select: { quantity: true }
-            });
-
-            if (inventory && inventory.quantity.toNumber() > 0) {
-                return locationId;
-            }
-        }
-
-        return null;
-    }
-
-    private static async resolveMaklonMaterialLocation(
-        tx: Prisma.TransactionClient,
-        order: BackflushOrder,
-        productVariantId: string
-    ): Promise<string | null> {
-        const category = order.bom?.category;
-
-        const candidateSlugs =
-            category === 'EXTRUSION'
-                ? [
-                    MAKLON_STAGE_SLUGS.WIP,
-                    MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                    WAREHOUSE_SLUGS.CUSTOMER_OWNED
-                ]
-                : category === 'PACKING' || category === 'REWORK'
-                    ? [
-                        MAKLON_STAGE_SLUGS.FINISHED_GOOD,
-                        MAKLON_STAGE_SLUGS.WIP,
-                        MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                        WAREHOUSE_SLUGS.CUSTOMER_OWNED
-                    ]
-                    : [
-                        MAKLON_STAGE_SLUGS.RAW_MATERIAL,
-                        WAREHOUSE_SLUGS.CUSTOMER_OWNED
-                    ];
-
-        const locationId = await this.findFirstStockLocation(tx, productVariantId, candidateSlugs);
-        if (locationId) {
-            return locationId;
-        }
-
-        const orderLocationInventory = await tx.inventory.findUnique({
-            where: {
-                locationId_productVariantId: {
-                    locationId: order.locationId,
-                    productVariantId
-                }
-            },
-            select: { quantity: true }
-        });
-
-        if (orderLocationInventory && orderLocationInventory.quantity.toNumber() > 0) {
-            return order.locationId;
-        }
-
-        const customerOwnedLocation = await tx.inventory.findFirst({
-            where: {
-                productVariantId,
-                location: { locationType: 'CUSTOMER_OWNED' }
-            },
-            select: { locationId: true, quantity: true }
-        });
-
-        if (customerOwnedLocation && customerOwnedLocation.quantity.toNumber() > 0) {
-            return customerOwnedLocation.locationId;
-        }
-
-        return null;
-    }
-
-    /**
-     * Resolve the source location for material consumption per item.
-     * Priorities:
-        * 1. Maklon stage locations first, using RM/WIP/FG customer-owned stock per stage.
-        * 2. Category overrides for internal production (EXTRUSION/MIXING -> Mixing, PACKING/REWORK -> Finishing).
-        * 3. Stock already present at the order's production location.
-        * 4. CUSTOMER_OWNED fallback for maklon.
-        * 5. Order default location.
-     */
-    private static async resolveMaterialLocation(
-        tx: Prisma.TransactionClient,
-        order: BackflushOrder,
-        productVariantId: string
-    ): Promise<string> {
-        if (order.isMaklon) {
-            const maklonLocation = await this.resolveMaklonMaterialLocation(tx, order, productVariantId);
-            if (maklonLocation) {
-                return maklonLocation;
-            }
-
-            return order.locationId;
-        }
-
-        // 1. Category Overrides (highest priority)
-        if (order.bom?.category === 'EXTRUSION' || order.bom?.category === 'MIXING') {
-            const mixingLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.MIXING } });
-            if (mixingLoc) return mixingLoc.id;
-        } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
-            const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
-            if (fgLoc) return fgLoc.id;
-        }
-
-        // 2. Check if stock already exists at the order's production location.
-        //    This handles the case where materials were manually transferred from a CUSTOMER_OWNED
-        //    location (e.g. Saudin Warehouse) to the production floor (e.g. Mixing Area) before
-        //    production started. We should consume from wherever the stock actually is now.
-        const orderLocInv = await tx.inventory.findUnique({
-            where: {
-                locationId_productVariantId: {
-                    locationId: order.locationId,
-                    productVariantId
-                }
-            },
-            select: { quantity: true }
-        });
-
-        if (orderLocInv && orderLocInv.quantity.toNumber() > 0) {
-            return order.locationId;
-        }
-
-        // 3. If Maklon and no stock at production location, fall back to CUSTOMER_OWNED
-        if (order.isMaklon) {
-            const customerInv = await tx.inventory.findFirst({
-                where: {
-                    productVariantId,
-                    location: { locationType: 'CUSTOMER_OWNED' }
-                },
-                select: { locationId: true, quantity: true }
-            });
-
-            if (customerInv && customerInv.quantity.toNumber() > 0) {
-                return customerInv.locationId;
-            }
-        }
-
-        // 4. System Default
-        return order.locationId;
-    }
 
     /**
      * Start Execution
@@ -267,122 +98,26 @@ export class ProductionExecutionService {
                 await AccountingService.recordMaklonCosts(productionOrderId, tx);
             }
 
-            if (quantityProduced > 0) {
-                const locationId = order.locationId;
-                const outputVariantId = order.bom.productVariantId;
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced,
+                reference: `Production Output (Stop): WO#${order.orderNumber}`,
+            });
 
-                await tx.inventory.upsert({
-                    where: {
-                        locationId_productVariantId: { locationId, productVariantId: outputVariantId }
-                    },
-                    update: { quantity: { increment: quantityProduced } },
-                    create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
-                });
-
-                let unitCost = 0;
-                try {
-                    unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
-                } catch (e) {
-                    console.warn("COGM Calc failed", e);
-                }
-
-                const moveIn = await tx.stockMovement.create({
-                    data: {
-                        type: MovementType.IN,
-                        productVariantId: outputVariantId,
-                        toLocationId: locationId,
-                        quantity: quantityProduced,
-                        cost: unitCost,
-                        reference: `Production Output (Stop): WO#${order.orderNumber}`,
-                        productionOrderId: productionOrderId
-                    }
-                });
-                await AccountingService.recordInventoryMovement(moveIn, tx);
-
-                // Update WAC
-                const fgInv = await tx.inventory.findUnique({
-                    where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
-                });
-                if (fgInv && unitCost > 0) {
-                    const currentQty = fgInv.quantity.toNumber();
-                    const oldQty = currentQty - quantityProduced;
-                    const oldCost = fgInv.averageCost?.toNumber() || 0;
-                    const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
-                    const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
-
-                    await tx.inventory.update({
-                        where: { id: fgInv.id },
-                        data: { averageCost: newAvg }
-                    });
-                }
-            }
-
-            // Backflush
             const totalConsumed = quantityProduced + scrapQuantity;
-            if (totalConsumed > 0) {
-                const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
-                const isUsingPlanned = order.plannedMaterials.length > 0;
-
-                if (itemsToBackflush.length > 0) {
-                    for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
-                        // Resolve Location per item
-                        const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
-
-                        let ratio = 0;
-                        if (isUsingPlanned) {
-                            ratio = Number(item.quantity) / Number(order.plannedQuantity);
-                        } else {
-                            ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
-                        }
-                        const qtyToDeduct = totalConsumed * ratio;
-
-                        if (qtyToDeduct > 0.0001) {
-                            await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                            await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                            
-                            // Fetch unit cost from source inventory averageCost for accurate COGM
-                            const srcInv = await tx.inventory.findUnique({
-                                where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
-                                select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
-                            });
-                            let srcUnitCost = Number(srcInv?.averageCost ?? 0);
-                            if (srcUnitCost === 0 && !order.isMaklon) {
-                                srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                                              Number(srcInv?.productVariant?.buyPrice ?? 0);
-                            }
-                            
-                            const moveOut = await tx.stockMovement.create({
-                                data: {
-                                    type: MovementType.OUT,
-                                    productVariantId: item.productVariantId,
-                                    fromLocationId: consumptionLocationId,
-                                    quantity: qtyToDeduct,
-                                    cost: srcUnitCost > 0 ? srcUnitCost : undefined,
-                                    reference: `Backflush (Stop): WO#${order.orderNumber}`,
-                                    productionOrderId: productionOrderId
-                                }
-                            });
-                            await AccountingService.recordInventoryMovement(moveOut, tx);
-
-                            // Also create MaterialIssue record for tracking consumption in the order plan
-                            await tx.materialIssue.create({
-                                data: {
-                                    productionOrderId: productionOrderId,
-                                    productVariantId: item.productVariantId,
-                                    quantity: qtyToDeduct,
-                                    locationId: consumptionLocationId,
-                                    createdById: userId
-                                }
-                            });
-                        }
-                    }
-                }
-            }
+            await backflushMaterials({
+                tx,
+                order: order as ProductionExecutionOrder,
+                productionOrderId,
+                totalConsumed,
+                reference: `Backflush (Stop): WO#${order.orderNumber}`,
+                userId,
+            });
         });
 
-        if (quantityProduced > 0) {
-            await AutoJournalService.handleProductionOutput(executionId);
-        }
+        await triggerProductionOutputJournal(executionId, quantityProduced);
 
         return finalExecution;
     }
@@ -423,118 +158,25 @@ export class ProductionExecutionService {
                 }
             });
 
-            const locationId = order.locationId;
-            const outputVariantId = order.bom.productVariantId;
-
-            await tx.inventory.upsert({
-                where: {
-                    locationId_productVariantId: { locationId, productVariantId: outputVariantId }
-                },
-                update: { quantity: { increment: quantityProduced } },
-                create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced,
+                reference: `Production Partial Output: WO#${order.orderNumber}`,
             });
 
-            let unitCost = 0;
-            try {
-                unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
-            } catch (e) {
-                console.warn("COGM Calc failed", e);
-            }
-
-            const moveIn = await tx.stockMovement.create({
-                data: {
-                    type: MovementType.IN,
-                    productVariantId: outputVariantId,
-                    toLocationId: locationId,
-                    quantity: quantityProduced,
-                    cost: unitCost,
-                    reference: `Production Partial Output: WO#${order.orderNumber}`,
-                    productionOrderId: productionOrderId
-                }
+            await backflushMaterials({
+                tx,
+                order: order as ProductionExecutionOrder,
+                productionOrderId,
+                totalConsumed: quantityProduced + scrapQuantity,
+                reference: `Backflush (Partial): WO#${order.orderNumber}`,
+                userId,
             });
-            await AccountingService.recordInventoryMovement(moveIn, tx);
-
-            // Update WAC
-            const fgInv = await tx.inventory.findUnique({
-                where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
-            });
-            if (fgInv && unitCost > 0) {
-                const currentQty = fgInv.quantity.toNumber();
-                const oldQty = currentQty - quantityProduced;
-                const oldCost = fgInv.averageCost?.toNumber() || 0;
-                const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
-                const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
-
-                await tx.inventory.update({
-                    where: { id: fgInv.id },
-                    data: { averageCost: newAvg }
-                });
-            }
-
-            // Backflush
-            const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
-            const isUsingPlanned = order.plannedMaterials.length > 0;
-
-            if (itemsToBackflush.length > 0) {
-                for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
-                    // Resolve Location per item
-                    const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
-
-                    let ratio = 0;
-                    if (isUsingPlanned) {
-                        ratio = Number(item.quantity) / Number(order.plannedQuantity);
-                    } else {
-                        ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
-                    }
-                    const totalConsumed = quantityProduced + scrapQuantity;
-                    const qtyToDeduct = totalConsumed * ratio;
-
-                    if (qtyToDeduct > 0.0001) {
-                        await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                        await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                        // Fetch unit cost from source inventory averageCost for accurate COGM
-                        const srcInv = await tx.inventory.findUnique({
-                            where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
-                            select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
-                        });
-                        let srcUnitCost = Number(srcInv?.averageCost ?? 0);
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        if (srcUnitCost === 0 && !(order as any).isMaklon) {
-                            srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                                          Number(srcInv?.productVariant?.buyPrice ?? 0);
-                        }
-
-                        const moveOut = await tx.stockMovement.create({
-                            data: {
-                                type: MovementType.OUT,
-                                productVariantId: item.productVariantId,
-                                fromLocationId: consumptionLocationId,
-                                quantity: qtyToDeduct,
-                                cost: srcUnitCost > 0 ? srcUnitCost : undefined,
-                                reference: `Backflush (Partial): WO#${order.orderNumber}`,
-                                productionOrderId: productionOrderId
-                            }
-                        });
-                        await AccountingService.recordInventoryMovement(moveOut, tx);
-
-                        // Also create MaterialIssue record for tracking consumption in the order plan
-                        await tx.materialIssue.create({
-                            data: {
-                                productionOrderId,
-                                productVariantId: item.productVariantId,
-                                quantity: qtyToDeduct,
-                                locationId: consumptionLocationId,
-                                createdById: userId
-                            }
-                        });
-                    }
-                }
-            }
         });
 
-        if (quantityProduced > 0) {
-            await AutoJournalService.handleProductionOutput(executionId);
-        }
+        await triggerProductionOutputJournal(executionId, quantityProduced);
     }
 
     /**
@@ -603,169 +245,32 @@ export class ProductionExecutionService {
                 }
             });
 
-            if (quantityProduced > 0) {
-                const locationId = order.locationId;
-                const outputVariantId = order.bom.productVariantId;
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced,
+                reference: `Production Output: WO#${order.orderNumber}`,
+            });
 
-                await tx.inventory.upsert({
-                    where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } },
-                    update: { quantity: { increment: quantityProduced } },
-                    create: { locationId, productVariantId: outputVariantId, quantity: quantityProduced }
-                });
+            await backflushMaterials({
+                tx,
+                order: order as ProductionExecutionOrder,
+                productionOrderId,
+                totalConsumed: quantityProduced + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0),
+                reference: `Backflush (Batch): WO#${order.orderNumber}`,
+                userId,
+            });
 
-                let unitCost = 0;
-                try {
-                    unitCost = await ProductionCostService.calculateBatchCOGM(productionOrderId, tx);
-                } catch (e) {
-                    console.warn("COGM Calc failed", e);
-                }
-
-                const moveIn = await tx.stockMovement.create({
-                    data: {
-                        type: MovementType.IN,
-                        productVariantId: outputVariantId,
-                        toLocationId: locationId,
-                        quantity: quantityProduced,
-                        cost: unitCost,
-                        reference: `Production Output: WO#${order.orderNumber}`,
-                        productionOrderId: productionOrderId
-                    }
-                });
-                await AccountingService.recordInventoryMovement(moveIn, tx);
-
-                // WAC Update
-                const fgInv = await tx.inventory.findUnique({
-                    where: { locationId_productVariantId: { locationId, productVariantId: outputVariantId } }
-                });
-                if (fgInv && unitCost > 0) {
-                    const currentQty = fgInv.quantity.toNumber();
-                    const oldQty = currentQty - quantityProduced;
-                    const oldCost = fgInv.averageCost?.toNumber() || 0;
-                    const newTotalValue = (oldQty * oldCost) + (quantityProduced * unitCost);
-                    const newAvg = currentQty > 0 ? newTotalValue / currentQty : unitCost;
-                    await tx.inventory.update({ where: { id: fgInv.id }, data: { averageCost: newAvg } });
-                }
-            }
-
-            // Backflush
-            const itemsToBackflush = order.plannedMaterials.length > 0 ? order.plannedMaterials : (order.bom?.items || []);
-            const isUsingPlanned = order.plannedMaterials.length > 0;
-
-            if (itemsToBackflush.length > 0) {
-                for (const item of itemsToBackflush as (ProductionMaterial | BomItem)[]) {
-                    // Resolve Location per item
-                    const consumptionLocationId = await ProductionExecutionService.resolveMaterialLocation(tx, order, item.productVariantId);
-
-                    let ratio = 0;
-                    if (isUsingPlanned) {
-                        ratio = Number(item.quantity) / Number(order.plannedQuantity);
-                    } else {
-                        ratio = Number(item.quantity) / Number(order.bom!.outputQuantity);
-                    }
-                    const totalConsumed = quantityProduced + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0);
-                    const qtyToDeduct = totalConsumed * ratio;
-
-                    if (qtyToDeduct > 0.0001) {
-                        await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-                        await InventoryCoreService.deductStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
-
-                        // Fetch unit cost from source inventory averageCost for accurate COGM
-                        const srcInv = await tx.inventory.findUnique({
-                            where: { locationId_productVariantId: { locationId: consumptionLocationId, productVariantId: item.productVariantId } },
-                            select: { averageCost: true, productVariant: { select: { standardCost: true, buyPrice: true } } }
-                        });
-                        let srcUnitCost = Number(srcInv?.averageCost ?? 0);
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        if (srcUnitCost === 0 && !(order as any).isMaklon) {
-                            srcUnitCost = Number(srcInv?.productVariant?.standardCost ?? 0) ||
-                                          Number(srcInv?.productVariant?.buyPrice ?? 0);
-                        }
-
-                        const moveOut = await tx.stockMovement.create({
-                            data: {
-                                type: MovementType.OUT,
-                                productVariantId: item.productVariantId,
-                                fromLocationId: consumptionLocationId,
-                                quantity: qtyToDeduct,
-                                cost: srcUnitCost > 0 ? srcUnitCost : undefined,
-                                reference: `Backflush (Batch): WO#${order.orderNumber}`,
-                                productionOrderId: productionOrderId
-                            }
-                        });
-                        await AccountingService.recordInventoryMovement(moveOut, tx);
-
-                        // Also create MaterialIssue record for tracking consumption in the order plan
-                        await tx.materialIssue.create({
-                            data: {
-                                productionOrderId,
-                                productVariantId: item.productVariantId,
-                                quantity: qtyToDeduct,
-                                locationId: consumptionLocationId,
-                                createdById: userId
-                            }
-                        });
-                    }
-                }
-            }
-
-            // --- SYSTEM: AUTOMATIC SCRAP RECORDING ---
-            // If prongkol or daun qty is provided, we record them as actual ScrapRecord
-            // so they enter the 'Scrap Warehouse' and become sellable inventory.
-            if (scrapProngkolQty > 0 || scrapDaunQty > 0 || scrapQuantity > 0) {
-                const scrapLocation = await tx.location.findUnique({
-                    where: { slug: WAREHOUSE_SLUGS.SCRAP }
-                });
-
-                if (scrapLocation) {
-                    // Record Prongkol
-                    if (scrapProngkolQty > 0) {
-                        const variant = await tx.productVariant.findUnique({
-                            where: { skuCode: 'SCRAP-PRONGKOL' }
-                        });
-                        if (variant) {
-                            await ProductionMaterialService.recordScrap({
-                                productionOrderId,
-                                productVariantId: variant.id,
-                                locationId: scrapLocation.id,
-                                quantity: scrapProngkolQty,
-                                reason: 'Production Process Waste (Lumps)',
-                                userId
-                            }, tx);
-                            // Link to Execution
-                            await tx.scrapRecord.updateMany({
-                                where: { productionOrderId, productVariantId: variant.id, locationId: scrapLocation.id, quantity: scrapProngkolQty },
-                                data: { productionExecutionId: execution.id }
-                            });
-                        } else {
-                            console.warn(`Scrap variant SCRAP-PRONGKOL not found. Scrap tracking for this run will be recorded as execution data only.`);
-                        }
-                    }
-
-                    // Record Daun
-                    if (scrapDaunQty > 0) {
-                        const variant = await tx.productVariant.findUnique({
-                            where: { skuCode: 'SCRAP-DAUN' }
-                        });
-                        if (variant) {
-                            await ProductionMaterialService.recordScrap({
-                                productionOrderId,
-                                productVariantId: variant.id,
-                                locationId: scrapLocation.id,
-                                quantity: scrapDaunQty,
-                                reason: 'Production Process Waste (Trim)',
-                                userId
-                            }, tx);
-                            // Link to Execution
-                            await tx.scrapRecord.updateMany({
-                                where: { productionOrderId, productVariantId: variant.id, locationId: scrapLocation.id, quantity: scrapDaunQty },
-                                data: { productionExecutionId: execution.id }
-                            });
-                        } else {
-                            console.warn(`Scrap variant SCRAP-DAUN not found. Scrap tracking for this run will be recorded as execution data only.`);
-                        }
-                    }
-                }
-            }
+            await recordExecutionScrap({
+                tx,
+                productionOrderId,
+                executionId: execution.id,
+                scrapQuantity: Number(scrapQuantity),
+                scrapProngkolQty: Number(scrapProngkolQty ?? 0),
+                scrapDaunQty: Number(scrapDaunQty ?? 0),
+                userId,
+            });
         });
     }
 
