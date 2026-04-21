@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Filter, TrendingUp, Package, Users, Settings } from 'lucide-react';
+import { Calculator, FileText, Filter, TrendingUp, Package, Users, Settings } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function CostingPage(props: { searchParams: Promise<{ start?: string; end?: string }> }) {
     const searchParams = await props.searchParams;
@@ -30,6 +31,12 @@ export default async function CostingPage(props: { searchParams: Promise<{ start
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/finance/costing/simulator">
+                            <Calculator className="mr-2 h-4 w-4" />
+                            Pricing Simulator
+                        </Link>
+                    </Button>
                     <Button variant="outline">
                         <Filter className="mr-2 h-4 w-4" />
                         Filters
