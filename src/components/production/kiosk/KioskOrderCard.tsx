@@ -106,6 +106,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                                 <DowntimeDialog
                                     machineId={order.machine.id}
                                     machineName={order.machine.name}
+                                    operatorId={operatorId}
                                     trigger={
                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-amber-500 hover:text-amber-600 hover:bg-amber-100/50">
                                             <AlertTriangle className="h-4 w-4" />

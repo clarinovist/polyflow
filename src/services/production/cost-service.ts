@@ -46,15 +46,12 @@ export class ProductionCostService {
         // 2. Conversion Cost
         let conversionCost = Number(order.estimatedConversionCost || 0);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((order as any).isMaklon) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const maklonCosts = await (client as any).maklonCostItem.findMany({
+        if (order.isMaklon) {
+            const maklonCosts = await client.maklonCostItem.findMany({
                 where: { productionOrderId: order.id }
             });
             conversionCost = maklonCosts.reduce(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (sum: number, item: any) => sum + Number(item.amount), 0
+                (sum, item) => sum + Number(item.amount), 0
             );
         }
 

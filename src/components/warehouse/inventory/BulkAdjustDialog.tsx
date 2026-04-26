@@ -169,9 +169,6 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                                 value={globalType}
                                 onValueChange={(val: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT') => {
                                     setGlobalType(val);
-                                    // Optionally auto-update form:
-                                    // const items = form.getValues('items');
-                                    // items.forEach((_, idx) => form.setValue(`items.${idx}.type`, val));
                                 }}
                             >
                                 <SelectTrigger>

@@ -26,6 +26,41 @@ export interface WipResult {
     }[];
 }
 
+type OrderCostSeed = {
+    id: string;
+    orderNumber: string;
+};
+
+function loadMaterialCostByOrder(movements: Array<{ id: string; productionOrderId: string | null; reference: string | null; cost: Prisma.Decimal | null; quantity: Prisma.Decimal }>, orders: OrderCostSeed[]): Map<string, number> {
+    const costByOrderId = new Map<string, number>();
+    const orderById = new Map(orders.map(order => [order.id, order]));
+
+    const referenceMatchers = orders.map(order => ({
+        orderId: order.id,
+        needle: `PO-${order.orderNumber}`
+    }));
+
+    for (const movement of movements) {
+        let targetOrderId: string | null = null;
+
+        if (movement.productionOrderId && orderById.has(movement.productionOrderId)) {
+            targetOrderId = movement.productionOrderId;
+        } else if (movement.reference) {
+            const matched = referenceMatchers.find(ref => movement.reference?.includes(ref.needle));
+            targetOrderId = matched?.orderId ?? null;
+        }
+
+        if (!targetOrderId) continue;
+
+        const current = costByOrderId.get(targetOrderId) ?? 0;
+        const cost = Number(movement.cost || 0);
+        const qty = Number(movement.quantity);
+        costByOrderId.set(targetOrderId, current + (cost * qty));
+    }
+
+    return costByOrderId;
+}
+
 export class CostReportingService {
     /**
      * Get Costing Report for Finished Goods (Completed Orders)
@@ -56,29 +91,37 @@ export class CostReportingService {
             orderBy: { actualEndDate: 'desc' }
         });
 
+        if (orders.length === 0) return [];
+
+        const orderIds = orders.map(order => order.id);
+        const referenceFilters = orders.map(order => ({ reference: { contains: `PO-${order.orderNumber}` } }));
+
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                type: MovementType.OUT,
+                OR: [
+                    { productionOrderId: { in: orderIds } },
+                    ...referenceFilters
+                ]
+            },
+            select: {
+                id: true,
+                productionOrderId: true,
+                reference: true,
+                cost: true,
+                quantity: true
+            }
+        });
+
+        const materialCostByOrder = loadMaterialCostByOrder(
+            movements,
+            orders.map(order => ({ id: order.id, orderNumber: order.orderNumber }))
+        );
+
         const results: PoCostResult[] = [];
 
         for (const order of orders) {
-            // Calculate actual material cost from Stock Movements
-            // Convention: Reference contains "PO-{orderNumber}"
-            // We look for movements OUT (Materials consumed) related to this PO.
-            // Note: This relies on the convention established in ProductionService.
-            const prefix = order.orderNumber; // Assumes passed reference has this.
-            // Actually, ProductionService uses `PO-${order.orderNumber}`.
-
-            const movements = await prisma.stockMovement.findMany({
-                where: {
-                    reference: { contains: `PO-${prefix}` },
-                    type: MovementType.OUT
-                }
-            });
-
-            let materialCost = 0;
-            movements.forEach(m => {
-                const cost = Number(m.cost || 0);
-                const qty = Number(m.quantity);
-                materialCost += cost * qty;
-            });
+            const materialCost = materialCostByOrder.get(order.id) ?? 0;
 
             const conversionCost = Number(order.estimatedConversionCost || 0);
             const totalCost = materialCost + conversionCost;
@@ -124,25 +167,44 @@ export class CostReportingService {
             }
         });
 
+        if (orders.length === 0) {
+            return {
+                totalWipValue: 0,
+                orderCount: 0,
+                orders: []
+            };
+        }
+
+        const orderIds = orders.map(order => order.id);
+        const referenceFilters = orders.map(order => ({ reference: { contains: `PO-${order.orderNumber}` } }));
+
+        const movements = await prisma.stockMovement.findMany({
+            where: {
+                type: MovementType.OUT,
+                OR: [
+                    { productionOrderId: { in: orderIds } },
+                    ...referenceFilters
+                ]
+            },
+            select: {
+                id: true,
+                productionOrderId: true,
+                reference: true,
+                cost: true,
+                quantity: true
+            }
+        });
+
+        const materialCostByOrder = loadMaterialCostByOrder(
+            movements,
+            orders.map(order => ({ id: order.id, orderNumber: order.orderNumber }))
+        );
+
         let totalWipValue = 0;
         const activeOrders = [];
 
         for (const order of orders) {
-            // Check for material issues (Movements OUT)
-            // Even if just RELEASED, if materials were issued in batch, we count them.
-            const movements = await prisma.stockMovement.findMany({
-                where: {
-                    reference: { contains: `PO-${order.orderNumber}` },
-                    type: MovementType.OUT
-                }
-            });
-
-            let currentMaterialCost = 0;
-            movements.forEach(m => {
-                const cost = Number(m.cost || 0);
-                const qty = Number(m.quantity);
-                currentMaterialCost += cost * qty;
-            });
+            const currentMaterialCost = materialCostByOrder.get(order.id) ?? 0;
 
             // We don't accure conversion cost until completion usually, or maybe partial?
             // Conservative: WIP = Materials Consumed.

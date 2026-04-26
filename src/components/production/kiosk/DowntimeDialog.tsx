@@ -20,10 +20,11 @@ import { logMachineDowntime } from '@/actions/production/downtime';
 interface DowntimeDialogProps {
     machineId: string;
     machineName: string;
+    operatorId?: string;
     trigger?: React.ReactNode;
 }
 
-export function DowntimeDialog({ machineId, machineName, trigger }: DowntimeDialogProps) {
+export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: DowntimeDialogProps) {
     const [open, setOpen] = useState(false);
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ export function DowntimeDialog({ machineId, machineName, trigger }: DowntimeDial
         setLoading(true);
 
         try {
-            const result = await logMachineDowntime(machineId, reason); // Todo: pass User ID
+            const result = await logMachineDowntime(machineId, reason, operatorId);
             if (result.success) {
                 toast.success("Downtime reported. Machine status set to Maintenance.");
                 setOpen(false);

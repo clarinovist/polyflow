@@ -12,6 +12,21 @@ import { safeAction, AuthorizationError, BusinessRuleError } from "@/lib/errors/
 
 const execPromise = util.promisify(exec);
 
+function buildTenantDbName(subdomain: string): string {
+    const normalized = subdomain.replace(/-/g, '_');
+    const dbName = `polyflow_${normalized}`;
+
+    if (!/^[a-z][a-z0-9_]*$/.test(dbName)) {
+        throw new BusinessRuleError("Derived database name is invalid.");
+    }
+
+    return dbName;
+}
+
+function quoteIdentifier(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
+}
+
 export async function createAndProvisionTenant(formData: FormData) {
     return safeAction(async () => {
         const session = await auth();
@@ -46,7 +61,7 @@ export async function createAndProvisionTenant(formData: FormData) {
             throw new BusinessRuleError("Subdomain already exists.");
         }
 
-        const dbName = `polyflow_${subdomain.replace(/-/g, '_')}`;
+        const dbName = buildTenantDbName(subdomain);
 
         // Parse DATABASE_URL from environment to build the new one
         const mainDbUrl = process.env.DATABASE_URL;
@@ -70,9 +85,12 @@ export async function createAndProvisionTenant(formData: FormData) {
                 database: "postgres", // Connect to default postgres DB to create a new one
             });
 
-            await client.connect();
-            await client.query(`CREATE DATABASE ${dbName};`);
-            await client.end();
+            try {
+                await client.connect();
+                await client.query(`CREATE DATABASE ${quoteIdentifier(dbName)};`);
+            } finally {
+                await client.end();
+            }
         } catch (dbError: unknown) {
             logger.error("Failed to create database", { error: dbError, dbName, module: 'AdminActions' });
             throw new BusinessRuleError(`Failed to create database: ${(dbError as Error).message}`);
@@ -122,9 +140,12 @@ export async function createAndProvisionTenant(formData: FormData) {
                     password: urlObj.password,
                     database: "postgres",
                 });
-                await client.connect();
-                await client.query(`DROP DATABASE ${dbName};`);
-                await client.end();
+                try {
+                    await client.connect();
+                    await client.query(`DROP DATABASE ${quoteIdentifier(dbName)};`);
+                } finally {
+                    await client.end();
+                }
             } catch (e) {
                 logger.error("Rollback DROP DATABASE failed", { error: e, dbName, module: 'AdminActions' });
             }

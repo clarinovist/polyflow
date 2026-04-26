@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { enforceGuardrails } from './guardrails';
 import OpenAI from 'openai';
 
+const AGENTIC_DEBUG = process.env.AGENTIC_DEBUG === 'true';
+
 export type VirtualCsRequest = {
   question: string;
   channel: 'telegram' | 'web';
@@ -381,7 +383,9 @@ Aturan Agentic:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const fn = (toolCall as any).function;
           const args = JSON.parse(fn.arguments || '{}');
-          console.log(`[AGENTIC] Calling tool: ${fn.name} with args:`, args);
+          if (AGENTIC_DEBUG) {
+            console.debug(`[AGENTIC] Calling tool: ${fn.name} with args:`, args);
+          }
           const result = await handleToolCall(fn.name, args);
           messages.push({
             role: "tool",

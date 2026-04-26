@@ -1,6 +1,18 @@
 import { prisma } from "@/lib/core/prisma";
 import crypto from "crypto";
 
+const HASH_HEX_REGEX = /^[a-f0-9]{64}$/;
+
+function hashApiKey(key: string): string {
+    return crypto.createHash("sha256").update(key).digest("hex");
+}
+
+function timingSafeEqualString(a: string, b: string): boolean {
+    const aHash = crypto.createHash("sha256").update(a).digest();
+    const bHash = crypto.createHash("sha256").update(b).digest();
+    return crypto.timingSafeEqual(aHash, bHash);
+}
+
 export class ApiKeyService {
     /**
      * Generates a new API key for a user or system.
@@ -12,7 +24,8 @@ export class ApiKeyService {
         // Generate a secure random API key
         // Format: pk_{random_hex_string}
         const randomBytes = crypto.randomBytes(32).toString("hex");
-        const key = `pk_${randomBytes}`;
+        const plainKey = `pk_${randomBytes}`;
+        const hashedKey = hashApiKey(plainKey);
 
         let expiresAt: Date | null = null;
         if (expiresInDays) {
@@ -22,14 +35,18 @@ export class ApiKeyService {
 
         const apiKey = await prisma.apiKey.create({
             data: {
-                key, // In a real production app, we should hash this key before storing!
+                key: hashedKey,
                 name,
                 userId,
                 expiresAt,
             },
         });
 
-        return apiKey;
+        // Return plain key once at creation time. Persisted DB value stays hashed.
+        return {
+            ...apiKey,
+            key: plainKey,
+        };
     }
 
     /**
@@ -37,16 +54,28 @@ export class ApiKeyService {
      *Returns the ApiKey object if valid, or null if invalid/expired.
      */
     static async validateApiKey(key: string) {
-        const apiKey = await prisma.apiKey.findUnique({
-            where: { key },
+        const hashedInput = hashApiKey(key);
+
+        const apiKeys = await prisma.apiKey.findMany({
+            where: { isActive: true },
             include: { user: true },
         });
 
-        if (!apiKey) return null;
-        if (!apiKey.isActive) return null;
-        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
+        for (const apiKey of apiKeys) {
+            const stored = apiKey.key;
+            const isHashed = HASH_HEX_REGEX.test(stored);
 
-        return apiKey;
+            const matched = isHashed
+                ? timingSafeEqualString(stored, hashedInput)
+                : timingSafeEqualString(stored, key);
+
+            if (!matched) continue;
+            if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
+
+            return apiKey;
+        }
+
+        return null;
     }
 
     /**
@@ -64,8 +93,17 @@ export class ApiKeyService {
      */
     static async listApiKeys() {
         return prisma.apiKey.findMany({
+            select: {
+                id: true,
+                name: true,
+                userId: true,
+                createdAt: true,
+                updatedAt: true,
+                expiresAt: true,
+                isActive: true,
+                user: { select: { name: true, email: true } }
+            },
             orderBy: { createdAt: "desc" },
-            include: { user: { select: { name: true, email: true } } },
         });
     }
 }

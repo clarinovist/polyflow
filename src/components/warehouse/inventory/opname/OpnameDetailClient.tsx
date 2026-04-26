@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-// import { useSession } from 'next-auth/react'; 
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +47,6 @@ interface OpnameDetailClientProps {
 }
 
 export function OpnameDetailClient({ session, currentUserId, basePath = '/warehouse/inventory/opname' }: OpnameDetailClientProps) {
-    // const { data: sessionData } = useSession(); // Removed
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createPurchaseReturnSchema, CreatePurchaseReturnValues } from '@/lib/schemas/returns';
 import { Button } from '@/components/ui/button';
@@ -17,15 +17,16 @@ import { createPurchaseReturnAction } from '@/actions/purchasing/purchase-return
 import Link from 'next/link';
 
 // Using partial types for props
+type SupplierOption = { id: string; name: string };
+type LocationOption = { id: string; name: string };
+type ProductOption = { id: string; name: string; skuCode: string; buyPrice?: number | null };
+type PurchaseOrderOption = { id: string; orderNumber: string; supplierId: string; supplier?: { name: string } | null };
+
 type FormProps = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    suppliers: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    locations: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    products: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    purchaseOrders: any[];
+    suppliers: SupplierOption[];
+    locations: LocationOption[];
+    products: ProductOption[];
+    purchaseOrders: PurchaseOrderOption[];
     initialData?: CreatePurchaseReturnValues & { id?: string };
     mode: 'create' | 'edit';
 };
@@ -35,8 +36,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<CreatePurchaseReturnValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(createPurchaseReturnSchema) as any,
+        resolver: zodResolver(createPurchaseReturnSchema) as Resolver<CreatePurchaseReturnValues>,
         defaultValues: initialData || ({
             supplierId: '',
             purchaseOrderId: '',
@@ -222,8 +222,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Returned Items</CardTitle>
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productVariantId: '', returnedQty: 1, unitCost: 0, reason: 'OTHER' } as any)}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ productVariantId: '', returnedQty: 1, unitCost: 0, reason: 'OTHER' })}>
                             <Plus className="h-4 w-4 mr-2" /> Add Item
                         </Button>
                     </CardHeader>

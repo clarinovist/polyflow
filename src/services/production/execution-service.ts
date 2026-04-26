@@ -333,22 +333,13 @@ export class ProductionExecutionService {
             // 1. Isolate the execution's own movement window so nearby executions on the same
             //    work order are not accidentally reversed together.
             const marginMs = 30000;
-            const previousExecution = await tx.productionExecution.findFirst({
-                where: {
-                    productionOrderId,
-                    createdAt: { lt: createdAt }
-                },
-                orderBy: { createdAt: 'desc' },
-                select: { createdAt: true }
-            });
-            const nextExecution = await tx.productionExecution.findFirst({
-                where: {
-                    productionOrderId,
-                    createdAt: { gt: createdAt }
-                },
+            const adjacentExecutions = await tx.productionExecution.findMany({
+                where: { productionOrderId, id: { not: executionId } },
                 orderBy: { createdAt: 'asc' },
                 select: { createdAt: true }
             });
+            const previousExecution = adjacentExecutions.filter(e => e.createdAt < createdAt).at(-1) ?? null;
+            const nextExecution = adjacentExecutions.find(e => e.createdAt > createdAt) ?? null;
 
             const startTime = previousExecution
                 ? new Date((previousExecution.createdAt.getTime() + createdAt.getTime()) / 2)

@@ -5,6 +5,7 @@ vi.mock('@/lib/core/prisma', () => {
         productionExecution: {
             findUnique: vi.fn(),
             findFirst: vi.fn(),
+            findMany: vi.fn(),
             update: vi.fn(),
             count: vi.fn(),
         },
@@ -66,6 +67,7 @@ describe('ProductionExecutionService.voidExecution', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(tx.productionExecution.findFirst).mockResolvedValue(null);
+        vi.mocked(tx.productionExecution.findMany).mockResolvedValue([] as never);
     });
 
     it('rejects executions that were already voided', async () => {
@@ -135,9 +137,8 @@ describe('ProductionExecutionService.voidExecution', () => {
             status: 'COMPLETED',
             productionOrder: { id: 'po-1' },
         } as never);
-        vi.mocked(tx.productionExecution.findFirst)
-            .mockResolvedValueOnce(null as never)
-            .mockResolvedValueOnce({ createdAt: nextCreatedAt } as never);
+        vi.mocked(tx.productionExecution.findMany)
+            .mockResolvedValueOnce([{ createdAt: nextCreatedAt }] as never);
         vi.mocked(tx.stockMovement.findMany).mockResolvedValue([] as never);
         vi.mocked(tx.materialIssue.updateMany).mockResolvedValue({ count: 0 } as never);
         vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({

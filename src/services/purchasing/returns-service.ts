@@ -163,6 +163,16 @@ export class PurchaseReturnService {
       });
 
       // 2. Process Inventory & Movements
+      const movementData = purchaseReturn.items.map(item => ({
+        productVariantId: item.productVariantId,
+        fromLocationId: purchaseReturn.sourceLocationId,
+        toLocationId: null as string | null,
+        quantity: item.returnedQty,
+        type: MovementType.RETURN_OUT,
+        reference: purchaseReturn.returnNumber,
+        createdById: userId,
+      }));
+
       for (const item of purchaseReturn.items) {
         
         // Deduct from inventory (source location)
@@ -182,20 +192,10 @@ export class PurchaseReturnService {
             quantity: 0, // This would be negative, which might violate constraint, but effectively handled by upsert constraints. Ensure we have sufficient qty before allowing ship in real scenario.
           }
         });
-
-        // Record stock movement (RETURN_OUT)
-        await tx.stockMovement.create({
-          data: {
-            productVariantId: item.productVariantId,
-            fromLocationId: purchaseReturn.sourceLocationId,
-            toLocationId: null, // To Supplier
-            quantity: item.returnedQty,
-            type: MovementType.RETURN_OUT,
-            reference: purchaseReturn.returnNumber,
-            createdById: userId,
-          }
-        });
       }
+
+      // Record all stock movements in a single batch
+      await tx.stockMovement.createMany({ data: movementData });
 
       await logActivity({
         userId,

@@ -16,7 +16,6 @@ export default function SessionTimeoutHandler({
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleLogout = useCallback(async () => {
-        console.log('Session inactive. Signing out...');
         await signOut({ redirect: false });
         router.push('/login?reason=timeout');
         router.refresh();

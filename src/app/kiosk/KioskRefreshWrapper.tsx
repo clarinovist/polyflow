@@ -75,7 +75,6 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
 
     // Barcode Listener
     useBarcodeScanner((code) => {
-        console.log("Scanned:", code);
         toast.info(`Scanned: ${code}`);
         const params = new URLSearchParams(searchParams);
         params.set('q', code);

@@ -32,6 +32,12 @@ export default async function CostingPage(props: { searchParams: Promise<{ start
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
+                        <Link href="/finance/costing/hpp-calculator">
+                            <Calculator className="mr-2 h-4 w-4" />
+                            HPP Calculator
+                        </Link>
+                    </Button>
+                    <Button variant="outline" asChild>
                         <Link href="/finance/costing/simulator">
                             <Calculator className="mr-2 h-4 w-4" />
                             Pricing Simulator
