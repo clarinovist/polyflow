@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.7.0](https://github.com/clarinovist/polyflow/compare/v1.6.0...v1.7.0) (2026-04-26)
+
+
+### Features
+
+* add HPP Calculator page, finance actions, and production benchmark service
+* add pure HPP simulation utility with baseline and variance calculation support
+
+
+### Bug Fixes
+
+* **auth:** harden API key handling by storing hashed keys, validating with timing-safe checks, and returning non-sensitive key listing data
+* **admin:** harden tenant database create/drop statements using validated and quoted identifiers
+* **finance:** remove N+1 stock movement queries in finished goods and WIP cost reporting
+* **production:** refactor execution reversal adjacent lookup to single query path
+* **production:** remove `any` casts in cost services for maklon conversion cost flow
+* **purchasing:** batch return stock movement writes using `createMany`
+* **kiosk:** remove unnecessary scanner/session timeout logs and pass operatorId to downtime logging
+* **inventory:** remove obsolete commented blocks in bulk adjust and opname detail clients
+* **support:** guard agentic debug logs behind `AGENTIC_DEBUG=true`
+
+
+### Tests
+
+* add tests for sanitize utility, error mapping, guardrails, formatRupiah, tenant subdomain extraction, and HPP calculator utility
+* add MaklonCostService tests for transaction and non-transaction flows
+* update production execution test mocks for refactored adjacent execution lookup
+
 ## [1.6.0](https://github.com/clarinovist/polyflow/compare/v1.5.0...v1.6.0) (2026-04-09)
 
 
