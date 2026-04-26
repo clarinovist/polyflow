@@ -42,6 +42,8 @@ const financeLinks = [
             { href: '/finance/aging', icon: HistoryIcon, label: 'AR/AP Aging Summary' },
             { href: '/finance/foh-allocation', icon: TrendingUp, label: 'FOH Allocation' },
             { href: '/finance/costing', icon: TrendingUp, label: 'Costing Dashboard' },
+            { href: '/finance/costing/simulator', icon: TrendingUp, label: 'Material Simulator' },
+            { href: '/finance/costing/hpp-calculator', icon: TrendingUp, label: 'HPP Calculator' },
         ],
     },
     {

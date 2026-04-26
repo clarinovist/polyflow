@@ -196,7 +196,17 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                             </Link>
                             <Link href="/finance/costing">
                                 <Button variant="ghost" className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium">
-                                    Costing
+                                    Costing Dashboard
+                                </Button>
+                            </Link>
+                            <Link href="/finance/costing/simulator">
+                                <Button variant="ghost" className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium">
+                                    Material Simulator
+                                </Button>
+                            </Link>
+                            <Link href="/finance/costing/hpp-calculator">
+                                <Button variant="ghost" className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium">
+                                    HPP Calculator
                                 </Button>
                             </Link>
                         </div>
