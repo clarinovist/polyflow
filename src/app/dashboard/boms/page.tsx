@@ -3,8 +3,10 @@ import { canViewPrices } from '@/actions/admin/permissions';
 import { BOMList } from '@/components/production/bom/BOMList';
 import { BOMFieldGuide } from '@/components/production/BOMFieldGuide';
 import { ProductionGlossary } from '@/components/production/ProductionGlossary';
-import { Info } from 'lucide-react';
+import { Info, Calculator } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default async function BomsPage() {
     const [bomsRes, showPrices] = await Promise.all([
@@ -26,6 +28,18 @@ export default async function BomsPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/boms/material-simulator">
+                            <Calculator className="mr-2 h-4 w-4" />
+                            Material Simulator
+                        </Link>
+                    </Button>
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/boms/hpp-calculator">
+                            <Calculator className="mr-2 h-4 w-4" />
+                            HPP Calculator
+                        </Link>
+                    </Button>
                     <ProductionGlossary />
                     <BOMFieldGuide />
                 </div>

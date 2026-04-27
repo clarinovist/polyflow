@@ -20,6 +20,8 @@ import {
 
 interface HppCalculatorClientProps {
     initialData: HppDataset;
+    backHref?: string;
+    backLabel?: string;
 }
 
 function formatPercent(value: number): string {
@@ -32,7 +34,11 @@ function parsePositiveNumber(value: string): number | undefined {
     return parsed;
 }
 
-export default function HppCalculatorClient({ initialData }: HppCalculatorClientProps) {
+export default function HppCalculatorClient({
+    initialData,
+    backHref = '/finance/costing',
+    backLabel = 'Back to Costing',
+}: HppCalculatorClientProps) {
     const [laborInput, setLaborInput] = useState('');
     const [machineInput, setMachineInput] = useState('');
     const [overheadInput, setOverheadInput] = useState('');
@@ -143,9 +149,9 @@ export default function HppCalculatorClient({ initialData }: HppCalculatorClient
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="space-y-2">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/finance/costing">
+                        <Link href={backHref}>
                             <ArrowLeft className="h-4 w-4" />
-                            Back to Costing
+                            {backLabel}
                         </Link>
                     </Button>
                     <div>

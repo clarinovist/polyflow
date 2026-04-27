@@ -14,6 +14,8 @@ import { simulateBomCosts, type BomSimulationDataset } from '@/lib/utils/bom-sim
 
 interface SimulatorClientProps {
     initialData: BomSimulationDataset;
+    backHref?: string;
+    backLabel?: string;
 }
 
 function formatPercent(value: number): string {
@@ -27,7 +29,11 @@ function formatInputPrice(value: number): string {
     return Number(value.toFixed(4)).toString();
 }
 
-export default function SimulatorClient({ initialData }: SimulatorClientProps) {
+export default function SimulatorClient({
+    initialData,
+    backHref = '/finance/costing',
+    backLabel = 'Back to Costing',
+}: SimulatorClientProps) {
     const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
     const [bulkPercent, setBulkPercent] = useState('');
     const [materialSearch, setMaterialSearch] = useState('');
@@ -139,9 +145,9 @@ export default function SimulatorClient({ initialData }: SimulatorClientProps) {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="space-y-2">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/finance/costing">
+                        <Link href={backHref}>
                             <ArrowLeft className="h-4 w-4" />
-                            Back to Costing
+                            {backLabel}
                         </Link>
                     </Button>
                     <div>
