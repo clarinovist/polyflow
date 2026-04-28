@@ -55,9 +55,9 @@ export default function HppCalculatorClient({
                 if (!map.has(item.productVariantId)) {
                     map.set(item.productVariantId, {
                         id: item.productVariantId,
-                        name: item.productVariantId, // fallback; actual names come from action dataset
-                        skuCode: '-',
-                        productName: '-',
+                        name: item.productVariant.name,
+                        skuCode: item.productVariant.skuCode,
+                        productName: item.productVariant.productName,
                         currentCost: item.currentMaterialCost,
                     });
                 }
@@ -350,8 +350,8 @@ export default function HppCalculatorClient({
                                                     >
                                                         <TableCell>
                                                             <div className="space-y-0.5">
-                                                                <div className="font-medium text-sm">{material.name !== material.id ? material.name : '—'}</div>
-                                                                <div className="text-xs text-muted-foreground font-mono">{material.id.slice(0, 8)}…</div>
+                                                                <div className="font-medium text-sm">{material.name}</div>
+                                                                <div className="text-xs text-muted-foreground">{material.productName} · {material.skuCode}</div>
                                                                 {hasOverride && <Badge variant="outline" className="text-xs">Overridden</Badge>}
                                                             </div>
                                                         </TableCell>

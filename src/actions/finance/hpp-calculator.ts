@@ -78,6 +78,12 @@ function normalizeBomForHpp(
         quantity: asNumber(item.quantity),
         scrapPercentage: asNumber(item.scrapPercentage),
         currentMaterialCost: getCurrentUnitCost(item.productVariant),
+        productVariant: {
+            id: item.productVariant?.id ?? item.productVariantId,
+            name: item.productVariant?.name ?? 'Unknown Material',
+            skuCode: item.productVariant?.skuCode ?? '-',
+            productName: item.productVariant?.product?.name ?? '-',
+        },
     }));
 
     const totalMaterial = items.reduce((sum, item) => {

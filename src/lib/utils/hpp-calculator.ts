@@ -8,6 +8,12 @@ export interface HppBomItem {
     quantity: number;
     scrapPercentage: number;
     currentMaterialCost: number;
+    productVariant: {
+        id: string;
+        name: string;
+        skuCode: string;
+        productName: string;
+    };
 }
 
 export interface HppBom {

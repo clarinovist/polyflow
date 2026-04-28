@@ -14,6 +14,12 @@ function makeItem(productVariantId: string, quantity: number, cost: number, scra
         quantity,
         scrapPercentage: scrap,
         currentMaterialCost: cost,
+        productVariant: {
+            id: productVariantId,
+            name: `Material ${productVariantId}`,
+            skuCode: `SKU-${productVariantId}`,
+            productName: 'Raw Material',
+        },
     };
 }
 
