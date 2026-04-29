@@ -12,6 +12,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from "@/lib/tools/audit";
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { getCurrentUnitCost } from '@/lib/utils/current-cost';
+import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
 
 function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & { currentCost: number } {
     return {
@@ -106,6 +107,11 @@ async function createBom(data: CreateBomValues) {
         const session = await requireAuth();
         const validated = createBomSchema.parse(data);
 
+        await BomCostCascadeService.validateNoBomCycle({
+            outputVariantId: validated.productVariantId,
+            itemVariantIds: validated.items.map((item) => item.productVariantId),
+        });
+
         try {
             const bom = await prisma.bom.create({
                 data: {
@@ -148,7 +154,17 @@ async function createBom(data: CreateBomValues) {
                 const totalCost = calculateBomCost(createdBom.items);
                 const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
 
-                await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
+                const rootCostUpdate = await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', bom.id);
+                if (!rootCostUpdate.success) {
+                    throw new BusinessRuleError(rootCostUpdate.error);
+                }
+
+                await BomCostCascadeService.cascadeFromVariants({
+                    rootVariantIds: [validated.productVariantId],
+                    defaultOnly: true,
+                    referenceId: `root-bom:${bom.id}`,
+                    userId: session.user.id,
+                });
             }
 
             await logActivity({
@@ -217,6 +233,12 @@ async function updateBom(id: string, data: CreateBomValues) {
         const session = await requireAuth();
         const validated = createBomSchema.parse(data);
 
+        await BomCostCascadeService.validateNoBomCycle({
+            outputVariantId: validated.productVariantId,
+            itemVariantIds: validated.items.map((item) => item.productVariantId),
+            ignoreBomId: id,
+        });
+
         try {
             const result = await prisma.$transaction(async (tx) => {
                 const updatedBom = await tx.bom.update({
@@ -260,9 +282,19 @@ async function updateBom(id: string, data: CreateBomValues) {
                 const totalCost = calculateBomCost(newItemsWithCosts);
                 const unitCost = totalCost / Number(updatedBom.outputQuantity || 1);
 
-                await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
+                const rootCostUpdate = await updateStandardCost(validated.productVariantId, unitCost, 'BOM_UPDATE', id, tx);
+                if (!rootCostUpdate.success) {
+                    throw new BusinessRuleError(rootCostUpdate.error);
+                }
 
                 return updatedBom;
+            });
+
+            await BomCostCascadeService.cascadeFromVariants({
+                rootVariantIds: [validated.productVariantId],
+                defaultOnly: true,
+                referenceId: `root-bom:${id}`,
+                userId: session.user.id,
             });
 
             await logActivity({
@@ -279,6 +311,78 @@ async function updateBom(id: string, data: CreateBomValues) {
             logger.error("Failed to update BOM", { error, module: 'BomActions' });
             throw new BusinessRuleError("Failed to update Recipe (BOM). Please try again.");
         }
+    });
+}
+);
+
+export const recalculateBomCostChain = withTenant(
+async function recalculateBomCostChain(id: string) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+
+        const bom = await prisma.bom.findUnique({
+            where: { id },
+            include: {
+                items: {
+                    include: {
+                        productVariant: {
+                            include: {
+                                inventories: {
+                                    select: {
+                                        quantity: true,
+                                        averageCost: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!bom) {
+            throw new NotFoundError('Recipe', id);
+        }
+
+        const totalCost = calculateBomCost(bom.items);
+        const unitCost = totalCost / Number(bom.outputQuantity || 1);
+
+        const rootCostUpdate = await updateStandardCost(
+            bom.productVariantId,
+            unitCost,
+            'BOM_UPDATE',
+            `manual-recalc:${id}`,
+            undefined,
+            { skipCascade: true }
+        );
+
+        if (!rootCostUpdate.success) {
+            throw new BusinessRuleError(rootCostUpdate.error);
+        }
+
+        const cascadeResult = await BomCostCascadeService.cascadeFromVariants({
+            rootVariantIds: [bom.productVariantId],
+            defaultOnly: true,
+            referenceId: `manual-recalc:${id}`,
+            userId: session.user.id,
+        });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'RECALCULATE_BOM_COST_CHAIN',
+            entityType: 'Bom',
+            entityId: id,
+            details: `Recalculated cost chain for Recipe (BOM) ${bom.name} with ${cascadeResult.updatedCount} parent updates`
+        });
+
+        revalidatePath('/dashboard/boms');
+        revalidatePath(`/dashboard/boms/${id}`);
+
+        return serializeData({
+            bomId: id,
+            updatedParentCount: cascadeResult.updatedCount,
+            updatedVariants: cascadeResult.updatedVariantIds,
+        });
     });
 }
 );

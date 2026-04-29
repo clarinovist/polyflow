@@ -8,9 +8,9 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Eye, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { deleteBom } from '@/actions/production/boms';
+import { deleteBom, recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import {
@@ -32,6 +32,7 @@ interface BOMActionsProps {
 export function BOMActions({ id, name }: BOMActionsProps) {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isRecalculating, setIsRecalculating] = useState(false);
 
     async function handleDelete() {
         setIsDeleting(true);
@@ -47,6 +48,25 @@ export function BOMActions({ id, name }: BOMActionsProps) {
         } finally {
             setIsDeleting(false);
             setShowDeleteDialog(false);
+        }
+    }
+
+    async function handleRecalculateChain() {
+        setIsRecalculating(true);
+        try {
+            const result = await recalculateBomCostChain(id);
+            if (result.success) {
+                const parentCount = result.data?.updatedParentCount || 0;
+                toast.success('Cost chain recalculated', {
+                    description: `${name}: ${parentCount} parent BOM(s) updated`,
+                });
+            } else {
+                toast.error('Failed to recalculate cost chain', { description: result.error });
+            }
+        } catch (_error) {
+            toast.error('An unexpected error occurred');
+        } finally {
+            setIsRecalculating(false);
         }
     }
 
@@ -72,6 +92,10 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                             View Details
                         </DropdownMenuItem>
                     </Link>
+                    <DropdownMenuItem onClick={handleRecalculateChain} disabled={isRecalculating}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {isRecalculating ? 'Recalculating...' : 'Recalculate Cost Chain'}
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"

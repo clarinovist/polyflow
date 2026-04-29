@@ -6,8 +6,14 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
 import { safeAction, NotFoundError } from '@/lib/errors/errors';
+import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
 
-export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPORT' | 'BOM_UPDATE';
+export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPORT' | 'BOM_UPDATE' | 'BOM_CASCADE';
+
+type UpdateCostOptions = {
+    skipCascade?: boolean;
+    defaultOnlyCascade?: boolean;
+};
 
 // Workaround for missing generated types in the current environment
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,7 +46,8 @@ async function updateStandardCost(
     newCost: number,
     reason: CostChangeReason,
     referenceId?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    options?: UpdateCostOptions,
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
@@ -86,13 +93,27 @@ async function updateStandardCost(
             return serializeData(updatedVariant);
         };
 
-        if (tx) {
-            return await execute(tx as unknown as ExtendedClient);
-        } else {
-            return await prisma.$transaction(async (internalTx) => {
+        const updatedVariant = tx
+            ? await execute(tx as unknown as ExtendedClient)
+            : await prisma.$transaction(async (internalTx) => {
                 return await execute(internalTx as unknown as ExtendedClient);
             });
+
+        const cascadeEligibleReasons: CostChangeReason[] = ['MANUAL', 'PURCHASE_GR', 'STOCK_OPNAME', 'IMPORT'];
+        const shouldCascade = !options?.skipCascade
+            && cascadeEligibleReasons.includes(reason);
+
+        if (shouldCascade) {
+            await BomCostCascadeService.cascadeFromVariants({
+                rootVariantIds: [variantId],
+                defaultOnly: options?.defaultOnlyCascade ?? true,
+                referenceId: `cost-update:${referenceId || variantId}`,
+                userId,
+                tx,
+            });
         }
+
+        return updatedVariant;
     });
 }
 );

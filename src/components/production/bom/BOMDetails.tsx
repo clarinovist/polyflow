@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowLeft, Edit2 } from 'lucide-react';
+import { ArrowLeft, Edit2, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table';
 import Link from 'next/link';
 import { calculateBomItemCost, getCurrentUnitCost } from '@/lib/utils/current-cost';
+import { recalculateBomCostChain } from '@/actions/production/boms';
+import { toast } from 'sonner';
 
 interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,12 +37,32 @@ const formatCurrency = (amount: number) => {
 
 export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     const router = useRouter();
+    const [isRecalculating, setIsRecalculating] = React.useState(false);
 
     // Calculate total cost
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalCost = bom.items.reduce((acc: number, item: any) => {
         return acc + calculateBomItemCost(item);
     }, 0);
+
+    async function handleRecalculateChain() {
+        setIsRecalculating(true);
+        try {
+            const result = await recalculateBomCostChain(bom.id);
+            if (result.success) {
+                const updatedCount = result.data?.updatedParentCount || 0;
+                toast.success('Cost chain recalculated', {
+                    description: `${bom.name}: ${updatedCount} parent BOM(s) updated`,
+                });
+            } else {
+                toast.error('Failed to recalculate cost chain', { description: result.error });
+            }
+        } catch (_error) {
+            toast.error('An unexpected error occurred');
+        } finally {
+            setIsRecalculating(false);
+        }
+    }
 
     return (
         <div className="max-w-7xl mx-auto">
@@ -61,12 +83,18 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         </p>
                     </div>
                 </div>
-                <Link href={`/dashboard/boms/${bom.id}/edit`}>
-                    <Button>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit Recipe
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleRecalculateChain} disabled={isRecalculating}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        {isRecalculating ? 'Recalculating...' : 'Recalculate Cost Chain'}
                     </Button>
-                </Link>
+                    <Link href={`/dashboard/boms/${bom.id}/edit`}>
+                        <Button>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Edit Recipe
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
