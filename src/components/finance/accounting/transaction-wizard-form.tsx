@@ -82,6 +82,11 @@ export default function TransactionWizardForm({
     const values = watch();
 
     const handleSelectType = (config: TransactionTypeConfig) => {
+        if (config.blockedInQuickEntryReason) {
+            toast.error(config.blockedInQuickEntryReason);
+            return;
+        }
+
         setSelectedType(config);
         setValue('transactionTypeId', config.id);
         setValue('description', config.defaultDescription);
@@ -185,10 +190,12 @@ export default function TransactionWizardForm({
                                                     <button
                                                         key={config.id}
                                                         type="button"
+                                                        disabled={Boolean(config.blockedInQuickEntryReason)}
                                                         onClick={() => handleSelectType(config)}
                                                         className={cn(
                                                             "flex flex-col text-left p-4 rounded-lg border transition-all hover:bg-muted/50",
-                                                            values.transactionTypeId === config.id ? "border-primary ring-1 ring-primary" : "border-border"
+                                                            values.transactionTypeId === config.id ? "border-primary ring-1 ring-primary" : "border-border",
+                                                            config.blockedInQuickEntryReason && "opacity-60 cursor-not-allowed hover:bg-transparent"
                                                         )}
                                                     >
                                                         <div className={cn(
@@ -199,6 +206,11 @@ export default function TransactionWizardForm({
                                                         </div>
                                                         <h3 className="font-semibold text-foreground mb-1">{config.label}</h3>
                                                         <p className="text-xs text-muted-foreground leading-relaxed">{config.description}</p>
+                                                        {config.blockedInQuickEntryReason && (
+                                                            <p className="text-[11px] text-amber-700 mt-2">
+                                                                Quick Entry dinonaktifkan: {config.blockedInQuickEntryReason}
+                                                            </p>
+                                                        )}
                                                     </button>
                                                 ))}
                                             </div>

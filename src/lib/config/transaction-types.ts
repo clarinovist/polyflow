@@ -16,6 +16,7 @@ export interface TransactionTypeConfig {
     showPaymentPicker?: boolean; // To select Cash vs Bank or Payable/Debt
     paymentPickerFilter?: string[]; // Filter for payment accounts (default: ['111', '211', '212', '221'])
     requiresInvoice?: 'SALES' | 'PURCHASE';
+    blockedInQuickEntryReason?: string;
 }
 
 export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
@@ -29,7 +30,8 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         debitAccountCode: '11360', // Inventory - Consumables
         creditAccountCode: '21110', // AP Accrual
         defaultDescription: 'Pembelian Consumable/Spares',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        blockedInQuickEntryReason: 'Gunakan modul Inventory/Purchasing agar mutasi persediaan dan jurnal kontrol tetap konsisten.'
     },
     {
         id: 'expense-electricity',

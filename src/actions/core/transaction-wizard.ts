@@ -28,6 +28,10 @@ async function createWizardTransaction(data: TransactionWizardValues) {
             throw new BusinessRuleError("Invalid transaction type");
         }
 
+        if (config.blockedInQuickEntryReason) {
+            throw new BusinessRuleError(config.blockedInQuickEntryReason);
+        }
+
         try {
             if (config.requiresInvoice && data.invoiceId) {
                 const targetAccountId = config.requiresInvoice === 'SALES' ? data.customDebitAccountId : data.customCreditAccountId;
