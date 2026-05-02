@@ -2,6 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import { ChangelogBannerClient } from './changelog-banner-client';
 
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export function AutoChangelogBanner() {
         let bannerProps = null;
         try {
@@ -19,6 +28,7 @@ export function AutoChangelogBanner() {
             const endIndex = nextVersionMatch ? startIndex! + 10 + nextVersionMatch.index! : content.length;
             
             let notes = content.substring(startIndex! + versionMatch[0].length, endIndex).trim();
+            notes = escapeHtml(notes);
             
             // Simplify markdown for the UI rendering since it's naive
             notes = notes

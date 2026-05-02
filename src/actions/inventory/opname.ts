@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { OpnameStatus, MovementType } from '@prisma/client';
+import { OpnameStatus, MovementType, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { safeAction, BusinessRuleError, NotFoundError, AuthenticationError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
@@ -128,17 +128,59 @@ async function saveOpnameCount(
     items: { id: string; countedQuantity: number; notes?: string }[]
 ) {
     return safeAction(async () => {
-        await prisma.$transaction(
-            items.map(item =>
-                prisma.stockOpnameItem.update({
-                    where: { id: item.id },
-                    data: {
-                        countedQuantity: item.countedQuantity,
-                        notes: item.notes
-                    }
-                })
-            )
-        );
+        if (items.length === 0) {
+            revalidatePath(`/warehouse/opname/${opnameId}`);
+            return;
+        }
+
+        const itemIds = items.map(item => item.id);
+        const uniqueItemIds = [...new Set(itemIds)];
+        if (uniqueItemIds.length !== itemIds.length) {
+            throw new BusinessRuleError('Duplicate stock opname item id in request payload');
+        }
+
+        await prisma.$transaction(async (tx) => {
+            const matchedCount = await tx.stockOpnameItem.count({
+                where: {
+                    opnameId,
+                    id: { in: uniqueItemIds },
+                }
+            });
+
+            if (matchedCount !== items.length) {
+                throw new BusinessRuleError('Some stock opname items are invalid for this session');
+            }
+
+            const countedQuantityCase = Prisma.sql`
+                CASE "id"
+                    ${Prisma.join(
+                        items.map(item => Prisma.sql`WHEN ${item.id} THEN ${item.countedQuantity}`),
+                        ' '
+                    )}
+                    ELSE "countedQuantity"
+                END
+            `;
+
+            const notesCase = Prisma.sql`
+                CASE "id"
+                    ${Prisma.join(
+                        items.map(item => Prisma.sql`WHEN ${item.id} THEN ${item.notes ?? null}`),
+                        ' '
+                    )}
+                    ELSE "notes"
+                END
+            `;
+
+            await tx.$executeRaw(Prisma.sql`
+                UPDATE "StockOpnameItem"
+                SET
+                    "countedQuantity" = ${countedQuantityCase},
+                    "notes" = ${notesCase}
+                WHERE
+                    "opnameId" = ${opnameId}
+                    AND "id" IN (${Prisma.join(uniqueItemIds)});
+            `);
+        });
 
         revalidatePath(`/warehouse/opname/${opnameId}`);
     });

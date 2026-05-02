@@ -8,6 +8,22 @@ import { logger } from "@/lib/config/logger";
 
 export class PurchaseReturnService {
 
+  private static isReturnNumberConflict(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+
+    const prismaError = error as { code?: string; meta?: { target?: unknown } };
+    if (prismaError.code !== 'P2002') return false;
+
+    const target = prismaError.meta?.target;
+    if (!target) return false;
+
+    if (Array.isArray(target)) {
+      return target.includes('returnNumber');
+    }
+
+    return String(target).includes('returnNumber');
+  }
+
   static async generateReturnNumber(): Promise<string> {
     const dateStr = format(new Date(), 'yyyyMMdd');
     const prefix = `PR-${dateStr}-`;
@@ -20,7 +36,7 @@ export class PurchaseReturnService {
     let nextSequence = 1;
     if (lastReturn) {
       const parts = lastReturn.returnNumber.split('-');
-      const lastSeq = parseInt(parts[2]);
+      const lastSeq = parseInt(parts[2], 10);
       if (!isNaN(lastSeq)) {
         nextSequence = lastSeq + 1;
       }
@@ -30,39 +46,66 @@ export class PurchaseReturnService {
   }
 
   static async createReturn(data: CreatePurchaseReturnValues, userId: string) {
-    const returnNumber = await this.generateReturnNumber();
-
     let totalAmount = 0;
     for (const item of data.items) {
       totalAmount += item.returnedQty * item.unitCost;
     }
 
-    const purchaseReturn = await prisma.purchaseReturn.create({
-      data: {
-        returnNumber,
-        purchaseOrderId: data.purchaseOrderId,
-        goodsReceiptId: data.goodsReceiptId,
-        supplierId: data.supplierId,
-        sourceLocationId: data.sourceLocationId,
-        reason: data.reason,
-        notes: data.notes,
-        totalAmount,
-        status: PurchaseReturnStatus.DRAFT,
-        createdById: userId,
-        items: {
-          create: data.items.map(item => ({
-            productVariantId: item.productVariantId,
-            returnedQty: item.returnedQty,
-            unitCost: item.unitCost,
-            reason: item.reason,
-            notes: item.notes,
-          }))
+    const maxAttempts = 3;
+    let attempt = 0;
+    let purchaseReturn: Awaited<ReturnType<typeof prisma.purchaseReturn.create>> | null = null;
+    let returnNumber = '';
+
+    while (attempt < maxAttempts && !purchaseReturn) {
+      attempt += 1;
+      returnNumber = await this.generateReturnNumber();
+
+      try {
+        purchaseReturn = await prisma.purchaseReturn.create({
+          data: {
+            returnNumber,
+            purchaseOrderId: data.purchaseOrderId,
+            goodsReceiptId: data.goodsReceiptId,
+            supplierId: data.supplierId,
+            sourceLocationId: data.sourceLocationId,
+            reason: data.reason,
+            notes: data.notes,
+            totalAmount,
+            status: PurchaseReturnStatus.DRAFT,
+            createdById: userId,
+            items: {
+              create: data.items.map(item => ({
+                productVariantId: item.productVariantId,
+                returnedQty: item.returnedQty,
+                unitCost: item.unitCost,
+                reason: item.reason,
+                notes: item.notes,
+              }))
+            }
+          },
+          include: {
+            items: true,
+          }
+        });
+      } catch (error) {
+        if (this.isReturnNumberConflict(error)) {
+          if (attempt < maxAttempts) {
+            logger.warn('Detected Purchase Return number collision, retrying createReturn', {
+              module: 'PurchaseReturnService',
+              attempt,
+            });
+            continue;
+          }
+
+          throw new Error('Failed to create Purchase Return due to repeated return number collisions');
         }
-      },
-      include: {
-        items: true,
+        throw error;
       }
-    });
+    }
+
+    if (!purchaseReturn) {
+      throw new Error('Failed to create Purchase Return due to repeated return number collisions');
+    }
 
     await logActivity({
       userId,

@@ -6,6 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import DOMPurify from 'dompurify';
 
+const CHANGELOG_SANITIZE_CONFIG = {
+    ALLOWED_TAGS: ['h3', 'strong', 'li', 'br'],
+    ALLOWED_ATTR: ['class'],
+    ALLOW_DATA_ATTR: false,
+};
+
 interface ChangelogBannerClientProps {
     version: string;
     notesHtml: string;
@@ -42,7 +48,8 @@ export function ChangelogBannerClient({ version, notesHtml }: ChangelogBannerCli
                     </Button>
                 </div>
                 <div className="p-4 text-xs text-muted-foreground max-h-64 overflow-y-auto">
-                    <div className="space-y-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml) }} />
+                    {/* notesHtml comes from local CHANGELOG.md parser and is sanitized before render as defense-in-depth */}
+                    <div className="space-y-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(notesHtml, CHANGELOG_SANITIZE_CONFIG) }} />
                 </div>
             </Card>
         </div>
