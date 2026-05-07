@@ -335,8 +335,8 @@ export async function generateVirtualCsReply(input: VirtualCsRequest): Promise<V
   }
 
   const openai = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY || 'no-key',
-    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.LLM_API_KEY || '',
+    baseURL: process.env.LLM_BASE_URL || 'http://localhost:11434/v1',
   });
 
   const greeting = input.requesterName ? `Sapa user dengan nama ${input.requesterName} di awal pesan Anda.` : '';
@@ -364,7 +364,7 @@ Aturan Agentic:
     // Agentic Loop (max 4 iteration to avoid infinite loops)
     for (let loop = 0; loop < 4; loop++) {
       const completion = await openai.chat.completions.create({
-        model: 'qwen/qwen3.6-plus:free',
+        model: process.env.LLM_MODEL || 'deepseek-r1:7b',
         messages: messages,
         temperature: 0.2,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
