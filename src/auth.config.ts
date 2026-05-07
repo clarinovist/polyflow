@@ -22,6 +22,21 @@ export const authConfig = {
         },
     },
     callbacks: {
+        // Fix: redirect to relative path when NEXTAUTH_URL is not set (multi-tenant)
+        async redirect({ url, baseUrl }) {
+            // When baseUrl is the Docker fallback (NEXTAUTH_URL not set),
+            // use relative path so user stays on the same tenant domain
+            if (baseUrl.includes('0.0.0.0') || baseUrl.includes('localhost:3000')) {
+                try {
+                    const urlObj = new URL(url);
+                    // Return only pathname + search, keeping tenant domain intact
+                    return urlObj.pathname + (urlObj.search || '');
+                } catch {
+                    return '/login';
+                }
+            }
+            return url;
+        },
         authorized({ auth, request: { nextUrl } }) {
             try {
                 const isLoggedIn = !!auth?.user;
