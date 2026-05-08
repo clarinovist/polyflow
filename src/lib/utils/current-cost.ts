@@ -36,7 +36,7 @@ export function getCurrentUnitCost(variant?: VariantCostLike | null): number {
     }, 0);
     const stockQty = inventories.reduce((sum, inventory) => sum + asNumber(inventory.quantity), 0);
 
-    if (stockQty > 0) {
+    if (stockQty > 0 && stockValue > 0) {
         return stockValue / stockQty;
     }
 
