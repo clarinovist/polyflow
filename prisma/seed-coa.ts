@@ -12,9 +12,8 @@ const accounts = [
     { code: '11120', name: 'Bank BCA - IDR', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11100', isCashAccount: true },
     { code: '11130', name: 'Bank Mandiri - IDR', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11100', isCashAccount: true },
 
-    { code: '11200', name: 'Accounts Receivable', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
-    { code: '11210', name: 'Trade Receivables', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11200' },
-    { code: '11290', name: 'Allowance for Doubtful Accounts', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11200' },
+    { code: '11210', name: 'Accounts Receivable', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
+    { code: '11290', name: 'Allowance for Doubtful Accounts', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11210' },
 
     { code: '11300', name: 'Inventory', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11000' },
     { code: '11310', name: 'Raw Materials', type: AccountType.ASSET, category: AccountCategory.CURRENT_ASSET, parentCode: '11300' },
