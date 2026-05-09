@@ -105,7 +105,7 @@ The system handles:
 ✅ **DevOps & Tooling**
 - Docker Compose setup for local and production environments
 - **CI/CD Pipeline** via GitHub Actions (build, push, deploy)
-- Database sync scripts (`sync-db-prod.sh`, `push-db-to-prod.sh`)
+- Tenant-first database sync & guardrail scripts (`sync-db-prod.sh`, `push-db-to-prod.sh`, `tenant-db.sh`, `tenant-psql-read.sh`, `tenant-psql-write.sh`)
 - Prisma migration management with manual resolve support
 
 ✅ **PolyFlow Design System**
@@ -126,11 +126,14 @@ polyflow/
 │   ├── migrations/            # 44+ migration files
 │   └── seed.ts                # Production cycle seed data
 ├── scripts/
-│   ├── sync-db-prod.sh        # Pull production DB to local
-│   ├── push-db-to-prod.sh     # Push local DB to production
+│   ├── tenant-db.sh           # Resolve tenant slug -> production DB target
+│   ├── tenant-psql-read.sh    # Read-only tenant-targeted psql wrapper
+│   ├── tenant-psql-write.sh   # Write-intent tenant-targeted psql wrapper
+│   ├── sync-db-prod.sh        # Pull production tenant DB(s) to local
+│   ├── push-db-to-prod.sh     # Push local tenant DB to production
 │   ├── migrate-all-tenants.ts # Run migrations for all tenants
 │   ├── provision-tenant.ts    # Provision a new tenant
-│   ├── backup-db.sh           # Automated DB backup (cron)
+│   ├── backup-db.sh           # Tenant-first DB backup (cron/manual)
 │   ├── setup-manufacturing-coa.ts  # Chart of Accounts setup
 │   └── archive/               # One-time fix & debug scripts
 ├── src/
@@ -463,11 +466,14 @@ polyflow/
 
 | Script | Purpose |
 |--------|--------|
-| `scripts/sync-db-prod.sh` | Pull production database to local dev environment |
-| `scripts/push-db-to-prod.sh` | Push local database to production VPS |
+| `scripts/tenant-db.sh` | Resolve tenant slug to production database target |
+| `scripts/tenant-psql-read.sh` | Open read-only production psql by tenant slug |
+| `scripts/tenant-psql-write.sh` | Open write-intent production psql by tenant slug with confirmations |
+| `scripts/sync-db-prod.sh` | Pull production tenant database(s) to local dev environment |
+| `scripts/push-db-to-prod.sh` | Push local tenant database to production VPS |
 | `scripts/migrate-all-tenants.ts` | Run Prisma migrations across all tenant databases |
 | `scripts/provision-tenant.ts` | Provision a new tenant database and seed it |
-| `scripts/backup-db.sh` | Automated daily DB backup (runs via cron on VPS) |
+| `scripts/backup-db.sh` | Tenant-first daily/manual DB backup (all tenants or one tenant) |
 | `scripts/setup-manufacturing-coa.ts` | Initialize Chart of Accounts for manufacturing |
 
 ---

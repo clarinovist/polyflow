@@ -1,51 +1,158 @@
-#!/bin/bash
-# PolyFlow — Automated Database Backup Script
-# Usage: ./scripts/backup-db.sh
-# Cron:  0 2 * * * /opt/polyflow/scripts/backup-db.sh >> /var/log/polyflow-backup.log 2>&1
+#!/usr/bin/env bash
+# PolyFlow — tenant-first production backup script
+# Usage:
+#   ./scripts/backup-db.sh                # backup all active tenant DBs (default)
+#   ./scripts/backup-db.sh all
+#   ./scripts/backup-db.sh melindo
+#   ./scripts/backup-db.sh --dry-run kiyowo
+# Cron example:
+#   0 2 * * * /opt/polyflow/scripts/backup-db.sh >> /var/log/polyflow-backup.log 2>&1
 
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/opt/backups/polyflow}"
 CONTAINER="${DB_CONTAINER:-polyflow-db}"
 DB_USER="${DB_USER:-polyflow}"
-DB_NAME="${DB_NAME:-polyflow}"
-RETENTION_DAYS="${RETENTION_DAYS:-7}"
+MAIN_DB_NAME="${MAIN_DB_NAME:-polyflow}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/polyflow_$TIMESTAMP.sql.gz"
+TARGET="all"
+DRY_RUN=0
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/backup-db.sh [all|tenant-slug] [--dry-run]
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
+Examples:
+  ./scripts/backup-db.sh
+  ./scripts/backup-db.sh all
+  ./scripts/backup-db.sh kiyowo
+  ./scripts/backup-db.sh melindo --dry-run
+EOF
+}
 
-# Ensure backup directory exists
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+fail() { log "ERROR: $*" >&2; exit 1; }
+extract_db_name_from_url() { printf '%s' "$1" | sed -E 's|.*://[^/]+/([^?]+).*|\1|'; }
+sanitize_label() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_-' '_'; }
+
+ensure_container_running() {
+  docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$" || fail "Container '$CONTAINER' is not running"
+}
+
+resolve_tenant_locally() {
+  local tenant="$1"
+  local row
+
+  row=$(docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$MAIN_DB_NAME" -At -F '|' \
+    -c "SELECT subdomain, name, \"dbUrl\" FROM \"Tenant\" WHERE subdomain = '$tenant' LIMIT 1;") \
+    || fail "Failed to resolve tenant '$tenant' from local production database"
+
+  [[ -n "$row" ]] || fail "Tenant '$tenant' was not found in table \"Tenant\""
+
+  IFS='|' read -r RESOLVED_TENANT RESOLVED_NAME RESOLVED_DB_URL <<< "$row"
+  RESOLVED_DB_NAME=$(extract_db_name_from_url "$RESOLVED_DB_URL")
+
+  [[ -n "$RESOLVED_DB_NAME" ]] || fail "Could not extract database name from dbUrl '$RESOLVED_DB_URL'"
+}
+
+backup_one_db() {
+  local label="$1"
+  local db_name="$2"
+  local file_label backup_file backup_size
+
+  file_label=$(sanitize_label "$label")
+  backup_file="$BACKUP_DIR/${file_label}_${db_name}_${TIMESTAMP}.sql.gz"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY RUN: would back up label='$label' db='$db_name' -> $backup_file"
+    return
+  fi
+
+  log "Backing up '$label' (db: $db_name)..."
+  docker exec "$CONTAINER" pg_dump -U "$DB_USER" "$db_name" | gzip > "$backup_file"
+
+  backup_size=$(stat -f%z "$backup_file" 2>/dev/null || stat -c%s "$backup_file" 2>/dev/null)
+  if [[ "$backup_size" -lt 100 ]]; then
+    fail "Backup file is suspiciously small: $backup_file ($backup_size bytes)"
+  fi
+
+  log "Backup created: $backup_file ($(numfmt --to=iec "$backup_size" 2>/dev/null || echo "${backup_size} bytes"))"
+}
+
+declare -a BACKUP_LABELS=()
+declare -a BACKUP_DBS=()
+
+has_db_target() {
+  local candidate="$1"
+  local existing
+
+  for existing in "${BACKUP_DBS[@]:-}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    all) TARGET="all" ;;
+    *)
+      if [[ "$TARGET" != "all" ]]; then
+        fail "Only one tenant slug may be provided"
+      fi
+      TARGET="$arg"
+      ;;
+  esac
+done
+
 mkdir -p "$BACKUP_DIR"
-
-# Check container is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
-    log "${RED}ERROR: Container '$CONTAINER' is not running${NC}"
-    exit 1
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  ensure_container_running
 fi
 
-# Perform backup (compressed)
-log "Starting backup of '$DB_NAME' from container '$CONTAINER'..."
-docker exec "$CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$BACKUP_FILE"
+if [[ "$TARGET" == "all" ]]; then
+  while IFS='|' read -r subdomain name db_url; do
+    [[ -n "$subdomain" ]] || continue
+    db_name=$(extract_db_name_from_url "$db_url")
+    [[ -n "$db_name" ]] || fail "Could not extract db name for tenant '$subdomain'"
 
-# Verify backup
-BACKUP_SIZE=$(stat -f%z "$BACKUP_FILE" 2>/dev/null || stat -c%s "$BACKUP_FILE" 2>/dev/null)
-if [ "$BACKUP_SIZE" -lt 100 ]; then
-    log "${RED}ERROR: Backup file is suspiciously small ($BACKUP_SIZE bytes)${NC}"
-    exit 1
+    if ! has_db_target "$db_name"; then
+      BACKUP_LABELS+=("$subdomain")
+      BACKUP_DBS+=("$db_name")
+    fi
+  done < <(docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$MAIN_DB_NAME" -At -F '|' \
+    -c "SELECT subdomain, name, \"dbUrl\" FROM \"Tenant\" WHERE status = 'ACTIVE' ORDER BY subdomain;")
+
+  if ! has_db_target "$MAIN_DB_NAME"; then
+    BACKUP_LABELS+=("main")
+    BACKUP_DBS+=("$MAIN_DB_NAME")
+  fi
+else
+  resolve_tenant_locally "$TARGET"
+  BACKUP_LABELS+=("$RESOLVED_TENANT")
+  BACKUP_DBS+=("$RESOLVED_DB_NAME")
 fi
 
-log "${GREEN}Backup created: $BACKUP_FILE ($(numfmt --to=iec $BACKUP_SIZE 2>/dev/null || echo "${BACKUP_SIZE} bytes"))${NC}"
+[[ "${#BACKUP_DBS[@]}" -gt 0 ]] || fail "No database targets were resolved"
 
-# Cleanup old backups
-DELETED=$(find "$BACKUP_DIR" -name "polyflow_*.sql.gz" -mtime +$RETENTION_DAYS -delete -print | wc -l)
-if [ "$DELETED" -gt 0 ]; then
-    log "Cleaned up $DELETED backup(s) older than $RETENTION_DAYS days"
+log "Backup mode: $TARGET"
+log "Resolved ${#BACKUP_DBS[@]} database target(s)"
+
+for i in "${!BACKUP_DBS[@]}"; do
+  backup_one_db "${BACKUP_LABELS[$i]}" "${BACKUP_DBS[$i]}"
+done
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  deleted=$(find "$BACKUP_DIR" -maxdepth 1 -name '*.sql.gz' -mtime +"$RETENTION_DAYS" -delete -print | wc -l | tr -d ' ')
+  if [[ "$deleted" -gt 0 ]]; then
+    log "Cleaned up $deleted backup(s) older than $RETENTION_DAYS days"
+  fi
 fi
 
-log "Backup complete. Total backups: $(ls -1 "$BACKUP_DIR"/polyflow_*.sql.gz 2>/dev/null | wc -l)"
+log "Backup script finished successfully"

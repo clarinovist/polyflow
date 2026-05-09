@@ -1,102 +1,157 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Configuration
-# Change these values according to your VPS setup
-VPS_USER="root"
-VPS_IP="173.249.28.105"
-DB_NAME="polyflow"
-DB_CONTAINER="polyflow-db"
-LOCAL_DB_PORT="5434"
-LOCAL_DB_USER="polyflow"
-LOCAL_DB_NAME="polyflow"
-LOCAL_DB_HOST="localhost"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib/tenant-guardrails.sh
+source "$SCRIPT_DIR/lib/tenant-guardrails.sh"
 
-# Create backups directory if it doesn't exist
-mkdir -p backups
-
+LOCAL_DB_CONTAINER="${LOCAL_DB_CONTAINER:-polyflow-db}"
+LOCAL_DB_USER="${LOCAL_DB_USER:-polyflow}"
+LOCAL_MAIN_DB="${LOCAL_MAIN_DB:-polyflow}"
+LOCAL_DB_HOST="${LOCAL_DB_HOST:-localhost}"
+LOCAL_DB_PORT="${LOCAL_DB_PORT:-5434}"
+LOCAL_TENANT_DB_PREFIX="${LOCAL_TENANT_DB_PREFIX:-polyflow_}"
+BACKUP_DIR="${BACKUP_DIR:-backups}"
+ALLOW_SCHEMA_SEED_FALLBACK="${ALLOW_SCHEMA_SEED_FALLBACK:-0}"
+TARGET="all"
+DRY_RUN=0
 TIMESTAMP=$(date +%Y%m%dT%H%M%S)
-BACKUP_FILE="backups/prod-backup-$TIMESTAMP.dump"
 
-echo "🚀 Starting database sync from production VPS ($VPS_IP)..."
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/sync-db-prod.sh [all|tenant-slug] [--dry-run]
 
-# 1. Take a dump from the production DB container and save it locally
-echo "📥 Downloading SQL dump from production (main DB)..."
-ssh $VPS_USER@$VPS_IP "docker exec -t $DB_CONTAINER pg_dump -U $LOCAL_DB_USER -d $DB_NAME --clean --if-exists --no-owner --no-privileges" > $BACKUP_FILE
+Examples:
+  ./scripts/sync-db-prod.sh
+  ./scripts/sync-db-prod.sh all
+  ./scripts/sync-db-prod.sh melindo
+  ./scripts/sync-db-prod.sh kiyowo --dry-run
+EOF
+}
 
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to download dump from VPS. Check your SSH connection."
-    exit 1
-fi
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+ensure_local_container() {
+  docker ps --format '{{.Names}}' | grep -q "^${LOCAL_DB_CONTAINER}$" || fail "Local container '$LOCAL_DB_CONTAINER' is not running"
+}
+local_db_exists() {
+  local db_name="$1"
+  docker exec -i "$LOCAL_DB_CONTAINER" psql -U "$LOCAL_DB_USER" -d postgres -At -c "SELECT 1 FROM pg_database WHERE datname = '$db_name';" | grep -q '^1$'
+}
+create_local_db_if_missing() {
+  local db_name="$1"
+  if ! local_db_exists "$db_name"; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      log "DRY RUN: would create local database '$db_name'"
+    else
+      log "Creating local database '$db_name'"
+      docker exec -i "$LOCAL_DB_CONTAINER" psql -U "$LOCAL_DB_USER" -d postgres -c "CREATE DATABASE \"$db_name\";" >/dev/null
+    fi
+  fi
+}
+restore_main_db() {
+  local backup_file="$1"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY RUN: would restore main DB '$LOCAL_MAIN_DB' from $backup_file"
+    return
+  fi
 
-echo "✅ Dump saved to $BACKUP_FILE"
+  log "Restoring production main DB into local '$LOCAL_MAIN_DB'"
+  cat "$backup_file" | docker exec -i "$LOCAL_DB_CONTAINER" psql -U "$LOCAL_DB_USER" -d "$LOCAL_MAIN_DB"
+}
+restore_tenant_db() {
+  local tenant_slug="$1"
+  local remote_db_name="$2"
+  local local_db_name="$3"
+  local tenant_backup="$BACKUP_DIR/tenant-${tenant_slug}-${TIMESTAMP}.dump"
+  local local_tenant_url="postgresql://${LOCAL_DB_USER}:${LOCAL_DB_USER}@${LOCAL_DB_HOST}:${LOCAL_DB_PORT}/${local_db_name}"
 
-# 2. Restore to the local database
-echo "🔄 Restoring SQL dump to local database..."
-# We use psql directly since it's a plain SQL dump
-cat $BACKUP_FILE | docker exec -i $DB_CONTAINER psql -U $LOCAL_DB_USER -d $LOCAL_DB_NAME
+  log "Tenant: $tenant_slug -> production DB: $remote_db_name -> local DB: $local_db_name"
+  if [[ "$tenant_slug" == "kiyowo" && "$remote_db_name" == "polyflow" ]]; then
+    log "Warning: historical naming trap — production DB 'polyflow' is tenant Kiyowo"
+  fi
 
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to restore dump to local database."
-    exit 1
-fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "DRY RUN: would download tenant DB '$remote_db_name' to $tenant_backup"
+    log "DRY RUN: would restore into local DB '$local_db_name'"
+    log "DRY RUN: would update local Tenant.dbUrl for '$tenant_slug' -> $local_tenant_url"
+    return
+  fi
 
-echo "✅ Main database restored."
+  create_local_db_if_missing "$local_db_name"
 
-# 3. Sync tenant databases and fix dbUrls for local development
-echo "🏢 Syncing tenant databases..."
+  ssh "$POLYFLOW_SSH_HOST" "docker exec -i $POLYFLOW_DB_CONTAINER pg_dump -U $POLYFLOW_DB_USER -d $remote_db_name --clean --if-exists --no-owner --no-privileges" > "$tenant_backup"
 
-# Get all tenants and their dbUrls from the main DB
-TENANTS=$(docker exec -t $DB_CONTAINER psql -U $LOCAL_DB_USER -d $LOCAL_DB_NAME -t -A -F'|' -c "SELECT subdomain, \"dbUrl\" FROM \"Tenant\" WHERE status = 'ACTIVE';" 2>/dev/null | tr -d '\r')
+  if [[ ! -s "$tenant_backup" ]]; then
+    if [[ "$ALLOW_SCHEMA_SEED_FALLBACK" == "1" ]]; then
+      log "Warning: tenant dump empty; running local schema/seed fallback for '$tenant_slug'"
+      DATABASE_URL="$local_tenant_url" npx prisma db push --skip-generate
+      DATABASE_URL="$local_tenant_url" npx tsx prisma/seed-tenant.ts
+    else
+      fail "Tenant dump for '$tenant_slug' is empty. Aborting. Set ALLOW_SCHEMA_SEED_FALLBACK=1 to opt in to schema/seed fallback."
+    fi
+  else
+    cat "$tenant_backup" | docker exec -i "$LOCAL_DB_CONTAINER" psql -U "$LOCAL_DB_USER" -d "$local_db_name" >/dev/null
+  fi
 
-if [ -z "$TENANTS" ]; then
-    echo "  ℹ️  No active tenants found. Skipping tenant sync."
+  docker exec -i "$LOCAL_DB_CONTAINER" psql -U "$LOCAL_DB_USER" -d "$LOCAL_MAIN_DB" \
+    -c "UPDATE \"Tenant\" SET \"dbUrl\" = '$local_tenant_url' WHERE subdomain = '$tenant_slug';" >/dev/null
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    all) TARGET="all" ;;
+    *)
+      if [[ "$TARGET" != "all" ]]; then
+        fail "Only one tenant slug may be provided"
+      fi
+      TARGET="$arg"
+      ;;
+  esac
+done
+
+mkdir -p "$BACKUP_DIR"
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  ensure_local_container
 else
-    while IFS='|' read -r SUBDOMAIN DB_URL; do
-        # Skip empty lines
-        [ -z "$SUBDOMAIN" ] && continue
-
-        TENANT_DB_NAME="polyflow_${SUBDOMAIN}"
-        LOCAL_TENANT_URL="postgresql://${LOCAL_DB_USER}:${LOCAL_DB_USER}@${LOCAL_DB_HOST}:${LOCAL_DB_PORT}/${TENANT_DB_NAME}"
-
-        echo ""
-        echo "  📦 Tenant: $SUBDOMAIN"
-
-        # Extract the database name from the production dbUrl
-        # Format: postgresql://user:pass@host:port/dbname
-        PROD_DB_NAME=$(echo "$DB_URL" | sed -E 's|.*://[^/]+/([^?]+).*|\1|')
-        echo "    Production DB: $PROD_DB_NAME"
-
-        # Create local tenant database if it doesn't exist
-        docker exec -t $DB_CONTAINER psql -U $LOCAL_DB_USER -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$TENANT_DB_NAME'" | grep -q 1
-        if [ $? -ne 0 ]; then
-            echo "    🆕 Creating database $TENANT_DB_NAME..."
-            docker exec -t $DB_CONTAINER psql -U $LOCAL_DB_USER -d postgres -c "CREATE DATABASE $TENANT_DB_NAME;" 2>/dev/null
-        fi
-
-        # Dump tenant database from production and restore locally
-        echo "    📥 Downloading tenant DB dump..."
-        TENANT_BACKUP="backups/tenant-${SUBDOMAIN}-${TIMESTAMP}.dump"
-        ssh $VPS_USER@$VPS_IP "docker exec -t $DB_CONTAINER pg_dump -U $LOCAL_DB_USER -d $PROD_DB_NAME --clean --if-exists --no-owner --no-privileges" > $TENANT_BACKUP 2>/dev/null
-
-        if [ $? -eq 0 ] && [ -s "$TENANT_BACKUP" ]; then
-            echo "    🔄 Restoring tenant DB locally..."
-            cat $TENANT_BACKUP | docker exec -i $DB_CONTAINER psql -U $LOCAL_DB_USER -d $TENANT_DB_NAME 2>/dev/null
-            echo "    ✅ Tenant DB restored."
-        else
-            echo "    ⚠️  Could not dump tenant DB from production. Running schema push + seed instead..."
-            # Push schema and seed as fallback
-            DATABASE_URL="$LOCAL_TENANT_URL" npx prisma db push --skip-generate 2>/dev/null
-            DATABASE_URL="$LOCAL_TENANT_URL" npx tsx prisma/seed-tenant.ts 2>/dev/null
-            echo "    ✅ Tenant DB seeded with defaults."
-        fi
-
-        # Update tenant dbUrl in main DB to point to localhost
-        echo "    🔗 Updating dbUrl to local: $LOCAL_TENANT_URL"
-        docker exec -t $DB_CONTAINER psql -U $LOCAL_DB_USER -d $LOCAL_DB_NAME -c "UPDATE \"Tenant\" SET \"dbUrl\" = '$LOCAL_TENANT_URL' WHERE subdomain = '$SUBDOMAIN';" 2>/dev/null
-
-    done <<< "$TENANTS"
+  if docker ps --format '{{.Names}}' | grep -q "^${LOCAL_DB_CONTAINER}$"; then
+    log "DRY RUN: local container '$LOCAL_DB_CONTAINER' detected"
+  else
+    log "DRY RUN: local container '$LOCAL_DB_CONTAINER' is not running; skipping local container validation"
+  fi
 fi
 
-echo ""
-echo "✨ Sync completed successfully! Your local databases are now synced with production."
-echo "💡 Tenant dbUrls have been automatically updated for local development."
+MAIN_BACKUP_FILE="$BACKUP_DIR/prod-main-${TIMESTAMP}.dump"
+log "Starting tenant-first sync from production host '$POLYFLOW_SSH_HOST'"
+log "Target: $TARGET"
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  log "DRY RUN: would download production main DB '$POLYFLOW_MAIN_DB' into $MAIN_BACKUP_FILE"
+else
+  ssh "$POLYFLOW_SSH_HOST" "docker exec -i $POLYFLOW_DB_CONTAINER pg_dump -U $POLYFLOW_DB_USER -d $POLYFLOW_MAIN_DB --clean --if-exists --no-owner --no-privileges" > "$MAIN_BACKUP_FILE"
+  [[ -s "$MAIN_BACKUP_FILE" ]] || fail "Main database dump is empty: $MAIN_BACKUP_FILE"
+fi
+
+restore_main_db "$MAIN_BACKUP_FILE"
+
+if [[ "$TARGET" == "all" ]]; then
+  tenant_rows=$(list_active_tenants_from_prod) || fail "Failed to list active tenants from production"
+else
+  resolve_tenant_from_prod "$TARGET"
+  tenant_rows="${RESOLVED_TENANT_SLUG}|${RESOLVED_TENANT_NAME}|${RESOLVED_DB_URL}"
+fi
+
+[[ -n "$tenant_rows" ]] || fail "No tenant rows were resolved"
+
+while IFS='|' read -r tenant_slug tenant_name db_url; do
+  [[ -n "$tenant_slug" ]] || continue
+  remote_db_name=$(extract_db_name_from_url "$db_url")
+  [[ -n "$remote_db_name" ]] || fail "Could not extract remote DB name for tenant '$tenant_slug'"
+
+  local_db_name="${LOCAL_TENANT_DB_PREFIX}${tenant_slug}"
+  restore_tenant_db "$tenant_slug" "$remote_db_name" "$local_db_name"
+done <<< "$tenant_rows"
+
+log "Sync completed successfully"
