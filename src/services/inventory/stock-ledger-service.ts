@@ -1,3 +1,4 @@
+import { addDays, startOfDay } from 'date-fns';
 import { prisma } from '@/lib/core/prisma';
 
 
@@ -60,11 +61,13 @@ export async function getStockLedger(
         }
     });
 
-    // 3. Get movements in range with relations
+    // 3. Get movements in range with half-open interval [startDate, endExclusive)
+    const endExclusive = addDays(startOfDay(endDate), 1);
+
     const movements = await prisma.stockMovement.findMany({
         where: {
             productVariantId,
-            createdAt: { gte: startDate, lte: endDate },
+            createdAt: { gte: startDate, lt: endExclusive },
             ...(locationId ? {
                 OR: [
                     { fromLocationId: locationId },

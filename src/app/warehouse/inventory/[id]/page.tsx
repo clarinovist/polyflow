@@ -2,7 +2,7 @@ import { getStockLedgerAction, getLocations } from '@/actions/inventory/inventor
 import { StockLedgerClient } from '@/components/warehouse/StockLedgerClient';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,8 +23,8 @@ export default async function StockLedgerPage({ params, searchParams }: PageProp
     const [ledgerDataRes, locationsRes] = await Promise.all([
         getStockLedgerAction(
             id,
-            startDate ? new Date(startDate) : defaultStart,
-            endDate ? new Date(endDate) : defaultEnd,
+            startDate ? startOfDay(new Date(startDate)) : defaultStart,
+            endDate ? endOfDay(new Date(endDate)) : defaultEnd,
             locationId === 'all' ? undefined : locationId
         ).catch((error) => {
             console.error('Error fetching stock ledger:', error);
