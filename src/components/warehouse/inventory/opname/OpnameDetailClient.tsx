@@ -90,11 +90,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
         }
     }, [addDialogOpen, allVariants.length]);
 
-    // Items already in this session (by variant id) — used to filter out
-    const existingVariantIds = new Set(session.items.map(item => item.productVariant.name + item.productVariant.skuCode));
-    // Actually we need IDs. Since OpnameItem doesn't expose variantId, we use the items list.
-    // But we DO have the productVariant name+sku. The variants list from API has IDs.
-    // For now, we don't filter — user will get a friendly error if they try to add a duplicate.
+    // Items already in this session — deduplication is handled server-side via addItemToOpname validation
 
     const handleAddItem = async (variantId: string) => {
         setIsAddingItem(true);

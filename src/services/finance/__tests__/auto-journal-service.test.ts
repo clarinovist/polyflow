@@ -30,7 +30,7 @@ describe('AutoJournalService payment journals', () => {
         vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: any) => ({
             id: `acc-${where.code}`,
             code: where.code,
-        }) as any);
+        }) as never);
     });
 
     it('uses sales payment id as journal referenceId', async () => {
