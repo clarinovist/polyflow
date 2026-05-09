@@ -30,6 +30,19 @@ import {
 import { format } from 'date-fns';
 import { TrendingUp, TrendingDown, Info, Package, History, LayoutDashboard } from 'lucide-react';
 import { Product, ProductVariant, Inventory, Prisma } from '@prisma/client';
+import {
+    type CostAnomalyFlag,
+    type CostSource,
+} from '@/lib/utils/current-cost';
+import {
+    formatCostGapLabel,
+    getCostAlertMessage,
+    getCostAlertShortLabel,
+    getCostHealthLabel,
+    getCostHealthTone,
+    getCostSourceLabel,
+    getCostSourceTone,
+} from '@/lib/utils/cost-diagnostics';
 
 // Define CostHistory manually since it might not be exported from client yet
 interface CostHistory {
@@ -61,6 +74,20 @@ interface ExtendedVariant extends Pick<ProductVariant, 'id' | 'name' | 'skuCode'
     stock?: number; // Calculated field
     currentCost?: number;
     currentStockValue?: number;
+    costDiagnostics?: {
+        breakdown: {
+            currentCost: number;
+            source: CostSource;
+            stockQty: number;
+            stockValue: number;
+            standardCost: number;
+            buyPrice: number;
+            price: number;
+        };
+        flags: CostAnomalyFlag[];
+        gapPercent: number | null;
+        inventoryCount: number;
+    };
 }
 
 interface ProductWithDetails extends Pick<Product, 'id' | 'name' | 'productType'> {
@@ -96,6 +123,16 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
     const changePercent = latestHistory?.changePercent ? Number(latestHistory.changePercent) : 0;
     const isCostUp = changePercent > 0;
     const isSignificantChange = Math.abs(changePercent) > 10;
+    const mainDiagnostics = mainVariant?.costDiagnostics;
+    const mainGapLabel = mainDiagnostics
+        ? formatCostGapLabel(mainDiagnostics.breakdown.currentCost, mainDiagnostics.breakdown.standardCost)
+        : null;
+    const familyAlerts = product.variants.flatMap((variant) =>
+        (variant.costDiagnostics?.flags || []).map((flag) => ({
+            variantName: variant.name,
+            flag,
+        }))
+    );
 
     const flattenedHistory: FlattenedHistory[] = product.variants.flatMap((v) =>
         (v.costHistory || []).map((h) => ({ ...h, variantName: v.name } as FlattenedHistory))
@@ -124,8 +161,25 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold" suppressHydrationWarning>{formatIDR(Number(mainVariant?.currentCost))}</div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {mainDiagnostics && (
+                                    <>
+                                        <Badge variant={getCostSourceTone(mainDiagnostics.breakdown.source)}>
+                                            {getCostSourceLabel(mainDiagnostics.breakdown.source)}
+                                        </Badge>
+                                        <Badge variant={getCostHealthTone(mainDiagnostics.flags)}>
+                                            {getCostHealthLabel(mainDiagnostics.flags)}
+                                        </Badge>
+                                        {mainGapLabel && (
+                                            <Badge variant={mainDiagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                {mainGapLabel}
+                                            </Badge>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                             {latestHistory && (
-                                <p className={`text-xs flex items-center mt-1 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}>
+                                <p className={`text-xs flex items-center mt-2 ${isCostUp ? 'text-red-500' : 'text-green-500'}`}>
                                     {isCostUp ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
                                     Weighted average from current stock
                                 </p>
@@ -186,6 +240,32 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                     </Card>
                 </div>
 
+                {familyAlerts.length > 0 && (
+                    <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold flex items-center text-amber-700 dark:text-amber-400">
+                                <Info className="mr-2 h-4 w-4" /> Cost Guardrail Alerts
+                            </CardTitle>
+                            <CardDescription>
+                                Variant dalam family ini punya sinyal costing yang perlu direview sebelum dipakai sebagai acuan pricing atau BOM.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {familyAlerts.map(({ variantName, flag }, index) => (
+                                <div key={`${variantName}-${flag}-${index}`} className="flex flex-col gap-1 rounded-md border border-amber-200/60 bg-background/70 p-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Badge variant="outline">{variantName}</Badge>
+                                        <Badge variant="destructive">{getCostAlertShortLabel(flag)}</Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {getCostAlertMessage(flag)}
+                                    </p>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+
                 {isSignificantChange && (
                     <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
                         <CardHeader className="pb-2">
@@ -201,6 +281,90 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                         </CardContent>
                     </Card>
                 )}
+
+                <Card className="col-span-4">
+                    <CardHeader>
+                        <CardTitle>Family Cost Consistency</CardTitle>
+                        <CardDescription>Bandingkan source cost, stock basis, dan gap vs standard antar variant dalam product yang sama.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Variant</TableHead>
+                                    <TableHead>Current Cost</TableHead>
+                                    <TableHead>Source</TableHead>
+                                    <TableHead>Standard Cost</TableHead>
+                                    <TableHead className="text-right">Stock Qty</TableHead>
+                                    <TableHead className="text-right">Gap</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {product.variants.map((variant) => {
+                                    const diagnostics = variant.costDiagnostics;
+                                    const gapLabel = diagnostics
+                                        ? formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost)
+                                        : null;
+
+                                    return (
+                                        <TableRow key={`family-${variant.id}`}>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{variant.name}</span>
+                                                    <span className="text-xs text-muted-foreground">{variant.skuCode}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell suppressHydrationWarning>
+                                                {formatIDR(Number(variant.currentCost || 0))}
+                                            </TableCell>
+                                            <TableCell>
+                                                {diagnostics ? (
+                                                    <Badge variant={getCostSourceTone(diagnostics.breakdown.source)}>
+                                                        {getCostSourceLabel(diagnostics.breakdown.source)}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell suppressHydrationWarning>
+                                                {formatIDR(Number(variant.standardCost || 0))}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {diagnostics ? diagnostics.breakdown.stockQty.toLocaleString('id-ID') : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {gapLabel ? (
+                                                    <Badge variant={diagnostics && diagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                        {gapLabel}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {diagnostics ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        <Badge variant={getCostHealthTone(diagnostics.flags)}>
+                                                            {getCostHealthLabel(diagnostics.flags)}
+                                                        </Badge>
+                                                        {diagnostics.flags.map((flag: CostAnomalyFlag) => (
+                                                            <Badge key={`${variant.id}-${flag}`} variant="outline">
+                                                                {getCostAlertShortLabel(flag)}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">No diagnostics</span>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
 
                 <Card className="col-span-4">
                     <CardHeader>

@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* add Cost Guardrail Phase 1 across Product Detail, BOM screens, and finance costing audit with source badges, anomaly warnings, family consistency review, and variant-level cost diagnostics
+
+### Tests
+
+* add cost audit utility tests and expand costing diagnostics coverage for anomaly review workflows
+
 ## [1.7.0](https://github.com/clarinovist/polyflow/compare/v1.6.0...v1.7.0) (2026-04-26)
 
 

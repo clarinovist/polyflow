@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowLeft, Edit2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Edit2, RefreshCw, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,21 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import Link from 'next/link';
-import { calculateBomItemCost, getCurrentUnitCost } from '@/lib/utils/current-cost';
+import {
+    calculateBomItemCost,
+    getCurrentUnitCost,
+    getVariantCostDiagnostics,
+    type CostAnomalyFlag,
+    type CostSource,
+    type VariantCostLike,
+} from '@/lib/utils/current-cost';
+import {
+    formatCostGapLabel,
+    getCostAlertMessage,
+    getCostAlertShortLabel,
+    getCostSourceLabel,
+    getCostSourceTone,
+} from '@/lib/utils/cost-diagnostics';
 import { recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 
@@ -23,6 +37,30 @@ interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bom: any;
     showPrices?: boolean;
+}
+
+interface CostDiagnosticsView {
+    breakdown: {
+        currentCost: number;
+        source: CostSource;
+        stockQty: number;
+        stockValue: number;
+        standardCost: number;
+        buyPrice: number;
+        price: number;
+    };
+    flags: CostAnomalyFlag[];
+    gapPercent: number | null;
+    inventoryCount?: number;
+}
+
+interface BomIngredientWithDiagnostics {
+    name: string;
+    diagnostics: CostDiagnosticsView;
+}
+
+function resolveIngredientDiagnostics(variant: { costDiagnostics?: CostDiagnosticsView } & VariantCostLike): CostDiagnosticsView {
+    return variant.costDiagnostics || getVariantCostDiagnostics(variant);
 }
 
 // Helper for currency formatting
@@ -38,6 +76,15 @@ const formatCurrency = (amount: number) => {
 export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     const router = useRouter();
     const [isRecalculating, setIsRecalculating] = React.useState(false);
+    const ingredientDiagnostics = bom.items.map((item: { productVariant: { costDiagnostics?: CostDiagnosticsView } & VariantCostLike }) => {
+        return resolveIngredientDiagnostics(item.productVariant);
+    });
+    const outlierItems = bom.items
+        .map((item: { productVariant: { name: string; costDiagnostics?: CostDiagnosticsView } & VariantCostLike }): BomIngredientWithDiagnostics => ({
+            name: item.productVariant.name,
+            diagnostics: resolveIngredientDiagnostics(item.productVariant),
+        }))
+        .filter((entry: BomIngredientWithDiagnostics) => entry.diagnostics.flags.length > 0);
 
     // Calculate total cost
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,9 +201,12 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                             <div className="text-4xl font-bold tracking-tight">
                                 {formatCurrency(totalCost / Number(bom.outputQuantity || 1))}
                             </div>
-                            <div className="mt-2 flex items-center gap-2">
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" className="text-[11px] font-normal border-blue-500/20 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 dark:text-blue-400">
                                     {formatCurrency(totalCost)} total
+                                </Badge>
+                                <Badge variant={outlierItems.length > 0 ? 'destructive' : 'secondary'}>
+                                    {outlierItems.length > 0 ? `${outlierItems.length} ingredient warning` : 'All ingredients within range'}
                                 </Badge>
                                 <span className="text-[10px] text-muted-foreground">for {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit} batch</span>
                             </div>
@@ -167,6 +217,43 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                     </Card>
                 )}
             </div>
+
+            {outlierItems.length > 0 && (
+                <Card className="mb-8 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold flex items-center text-amber-700 dark:text-amber-400">
+                            <Info className="mr-2 h-4 w-4" /> Ingredient Cost Warnings
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        {outlierItems.map((entry: BomIngredientWithDiagnostics) => {
+                            const { name, diagnostics } = entry;
+                            const gapLabel = formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost);
+
+                            return (
+                                <div key={`${name}-${diagnostics.flags.join('-')}`} className="rounded-md border border-amber-200/60 bg-background/70 p-3">
+                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                        <Badge variant="outline">{name}</Badge>
+                                        {diagnostics.flags.map((flag) => (
+                                            <Badge key={`${name}-${flag}`} variant="destructive">
+                                                {getCostAlertShortLabel(flag)}
+                                            </Badge>
+                                        ))}
+                                        {gapLabel && (
+                                            <Badge variant="outline">
+                                                {gapLabel}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {diagnostics.flags.map((flag: CostAnomalyFlag) => getCostAlertMessage(flag)).join(' ')}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Ingredients Table */}
             <Card>
@@ -197,15 +284,34 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                                     const totalQty = baseQty * (1 + (scrapPct / 100));
                                     const unitCost = getCurrentUnitCost(item.productVariant);
                                     const lineCost = unitCost * totalQty;
+                                    const diagnostics = ingredientDiagnostics[index];
+                                    const gapLabel = formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost);
 
                                     return (
                                         <TableRow key={index}>
                                             <TableCell className="py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-sm">{item.productVariant.name}</span>
-                                                    <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded w-fit mt-1">
-                                                        {item.productVariant.skuCode}
-                                                    </span>
+                                                <div className="flex flex-col gap-2">
+                                                    <div>
+                                                        <span className="font-medium text-sm">{item.productVariant.name}</span>
+                                                        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded w-fit mt-1 block">
+                                                            {item.productVariant.skuCode}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        <Badge variant={getCostSourceTone(diagnostics.breakdown.source)}>
+                                                            {getCostSourceLabel(diagnostics.breakdown.source)}
+                                                        </Badge>
+                                                        {gapLabel && (
+                                                            <Badge variant={diagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                                {gapLabel}
+                                                            </Badge>
+                                                        )}
+                                                        {diagnostics.flags.map((flag: CostAnomalyFlag) => (
+                                                            <Badge key={`${item.productVariant.id}-${flag}`} variant="outline">
+                                                                {getCostAlertShortLabel(flag)}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="py-4 text-center">

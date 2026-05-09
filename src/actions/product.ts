@@ -10,7 +10,11 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { logActivity } from "@/lib/tools/audit";
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
-import { getCurrentUnitCost } from '@/lib/utils/current-cost';
+import {
+    getCurrentUnitCost,
+    getVariantCostDiagnostics,
+    type VariantCostDiagnostics,
+} from '@/lib/utils/current-cost';
 
 export type ProductWithVariantsAndStock = {
     id: string;
@@ -43,6 +47,10 @@ type InventoryWithLocation = Inventory & {
     location: { name: string };
 };
 
+type CostDiagnosticsSnapshot = VariantCostDiagnostics & {
+    inventoryCount: number;
+};
+
 type CostHistoryWithCreatedBy = CostHistory & {
     createdBy: { name: string };
 };
@@ -51,6 +59,15 @@ type ProductVariantWithRelations = ProductVariant & {
     inventories: InventoryWithLocation[];
     costHistory: CostHistoryWithCreatedBy[];
 };
+
+function buildCostDiagnosticsSnapshot(variant: { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>): CostDiagnosticsSnapshot {
+    const diagnostics = getVariantCostDiagnostics(variant);
+
+    return {
+        ...diagnostics,
+        inventoryCount: (variant.inventories || []).length,
+    };
+}
 
 export const getProducts = withTenant(
 async function getProducts(options?: { type?: ProductType }) {
@@ -173,11 +190,13 @@ async function getProductById(id: string) {
             const invs = variant.inventories || [];
             const stock = invs.reduce((sum: number, inv) => sum + Number(inv.quantity), 0);
             const stockValue = invs.reduce((sum: number, inv) => sum + (Number(inv.quantity) * Number(inv.averageCost || 0)), 0);
+            const costDiagnostics = buildCostDiagnosticsSnapshot(variant);
             return {
                 ...variant,
                 stock,
                 currentCost: getCurrentUnitCost(variant),
                 currentStockValue: stock > 0 ? stockValue : 0,
+                costDiagnostics,
             };
         });
 

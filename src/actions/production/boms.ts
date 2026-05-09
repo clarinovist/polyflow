@@ -11,13 +11,24 @@ import { logger } from '@/lib/config/logger';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from "@/lib/tools/audit";
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
-import { getCurrentUnitCost } from '@/lib/utils/current-cost';
+import {
+    getCurrentUnitCost,
+    getVariantCostDiagnostics,
+    type VariantCostDiagnostics,
+} from '@/lib/utils/current-cost';
 import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
 
-function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & { currentCost: number } {
+function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & {
+    currentCost: number;
+    costDiagnostics: VariantCostDiagnostics & { inventoryCount: number };
+} {
     return {
         ...variant,
         currentCost: getCurrentUnitCost(variant),
+        costDiagnostics: {
+            ...getVariantCostDiagnostics(variant),
+            inventoryCount: (variant.inventories || []).length,
+        },
     };
 }
 

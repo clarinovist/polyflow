@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2, Save, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, ArrowLeft, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
     Form,
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     Table,
     TableBody,
@@ -37,7 +38,20 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { ProductCombobox } from '@/components/products/product-combobox';
-import { getCurrentUnitCost } from '@/lib/utils/current-cost';
+import {
+    getCurrentUnitCost,
+    getVariantCostDiagnostics,
+    type CostAnomalyFlag,
+    type CostSource,
+    type VariantCostLike,
+} from '@/lib/utils/current-cost';
+import {
+    formatCostGapLabel,
+    getCostAlertMessage,
+    getCostAlertShortLabel,
+    getCostSourceLabel,
+    getCostSourceTone,
+} from '@/lib/utils/cost-diagnostics';
 
 interface BOMFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +59,26 @@ interface BOMFormProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     productVariants: any[];
     showPrices?: boolean;
+}
+
+interface CostDiagnosticsView {
+    breakdown: {
+        currentCost: number;
+        source: CostSource;
+        stockQty: number;
+        stockValue: number;
+        standardCost: number;
+        buyPrice: number;
+        price: number;
+    };
+    flags: CostAnomalyFlag[];
+    gapPercent: number | null;
+    inventoryCount?: number;
+}
+
+function resolveCostDiagnostics(variant?: ({ costDiagnostics?: CostDiagnosticsView } & VariantCostLike) | null): CostDiagnosticsView | null {
+    if (!variant) return null;
+    return variant.costDiagnostics || getVariantCostDiagnostics(variant);
 }
 
 // Helper for currency formatting
@@ -81,6 +115,33 @@ export function BOMForm({
     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: 'items'
+    });
+    const watchedItems = form.watch('items');
+    const selectedOutputVariant = productVariants.find((variant) => variant.id === form.watch('productVariantId'));
+    const outputDiagnostics = resolveCostDiagnostics(selectedOutputVariant);
+    const outputGapLabel = outputDiagnostics
+        ? formatCostGapLabel(outputDiagnostics.breakdown.currentCost, outputDiagnostics.breakdown.standardCost)
+        : null;
+    const formulaTotalInvestment = watchedItems.reduce((acc, item) => {
+        const variant = productVariants.find(v => v.id === item.productVariantId);
+        if (!variant) return acc;
+        const cost = getCurrentUnitCost(variant);
+        const quantity = Number(item.quantity ?? 0);
+        const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
+        return acc + (cost * quantity * scrap);
+    }, 0);
+    const formulaWarnings = watchedItems.flatMap((item) => {
+        const variant = productVariants.find(v => v.id === item.productVariantId);
+        const diagnostics = resolveCostDiagnostics(variant);
+        if (!variant || !diagnostics || diagnostics.flags.length === 0) return [];
+
+        return diagnostics.flags.map((flag: CostAnomalyFlag) => ({
+            variantId: variant.id,
+            variantName: variant.name,
+            flag,
+            message: getCostAlertMessage(flag),
+            gapLabel: formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost),
+        }));
     });
 
     // Reset form when BOM changes (e.g. for editing)
@@ -282,18 +343,24 @@ export function BOMForm({
                                 <CardContent className="pt-6">
                                     <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Total Formula Investment</div>
                                     <div className="text-4xl font-bold tracking-tight">
-                                        {(() => {
-                                            const watchedItems = form.watch('items');
-                                            const total = watchedItems.reduce((acc, item) => {
-                                                const variant = productVariants.find(v => v.id === item.productVariantId);
-                                                if (!variant) return acc;
-                                                const cost = getCurrentUnitCost(variant);
-                                                const quantity = Number(item.quantity ?? 0);
-                                                const scrap = 1 + (Number(item.scrapPercentage ?? 0) / 100);
-                                                return acc + (cost * quantity * scrap);
-                                            }, 0);
-                                            return formatCurrency(total);
-                                        })()}
+                                        {formatCurrency(formulaTotalInvestment)}
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <Badge variant={formulaWarnings.length > 0 ? 'destructive' : 'secondary'}>
+                                            {formulaWarnings.length > 0 ? `${formulaWarnings.length} ingredient warning` : 'All ingredients within range'}
+                                        </Badge>
+                                        {outputDiagnostics && (
+                                            <>
+                                                <Badge variant={getCostSourceTone(outputDiagnostics.breakdown.source)}>
+                                                    Output basis: {getCostSourceLabel(outputDiagnostics.breakdown.source)}
+                                                </Badge>
+                                                {outputGapLabel && (
+                                                    <Badge variant={outputDiagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                        {outputGapLabel}
+                                                    </Badge>
+                                                )}
+                                            </>
+                                        )}
                                     </div>
                                     <div className="mt-4 flex flex-col gap-2">
                                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -305,6 +372,25 @@ export function BOMForm({
                             </Card>
                         )}
                     </div>
+
+                    {showPrices && formulaWarnings.length > 0 && (
+                        <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Ingredient cost warning</AlertTitle>
+                            <AlertDescription className="space-y-2">
+                                {formulaWarnings.map((warning, index) => (
+                                    <div key={`${warning.variantId}-${warning.flag}-${index}`} className="rounded-md border border-amber-200/60 bg-background/70 p-3">
+                                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">{warning.variantName}</Badge>
+                                            <Badge variant="destructive">{getCostAlertShortLabel(warning.flag)}</Badge>
+                                            {warning.gapLabel && <Badge variant="outline">{warning.gapLabel}</Badge>}
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">{warning.message}</p>
+                                    </div>
+                                ))}
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
                     {/* Ingredients Listing (Table Based) */}
                     <Card>
@@ -341,6 +427,10 @@ export function BOMForm({
                                             const quantity = form.watch(`items.${index}.quantity`);
                                             const scrapPct = form.watch(`items.${index}.scrapPercentage`) || 0;
                                             const variant = productVariants.find(v => v.id === materialId);
+                                            const diagnostics = resolveCostDiagnostics(variant);
+                                            const gapLabel = diagnostics
+                                                ? formatCostGapLabel(diagnostics.breakdown.currentCost, diagnostics.breakdown.standardCost)
+                                                : null;
 
                                             // Effective quantity considering scrap
                                             const effectiveQty = Number(quantity ?? 0) * (1 + (Number(scrapPct) / 100));
@@ -376,7 +466,7 @@ export function BOMForm({
                                                             control={form.control}
                                                             name={`items.${index}.productVariantId`}
                                                             render={({ field }) => (
-                                                                <FormItem className="flex flex-col">
+                                                                <FormItem className="flex flex-col gap-2">
                                                                     <FormControl>
                                                                         <ProductCombobox
                                                                             products={displayVariants}
@@ -385,6 +475,23 @@ export function BOMForm({
                                                                             placeholder={hasSuggestions ? "Suggested materials..." : "Search material..."}
                                                                         />
                                                                     </FormControl>
+                                                                    {variant && showPrices && diagnostics && (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            <Badge variant={getCostSourceTone(diagnostics.breakdown.source)}>
+                                                                                {getCostSourceLabel(diagnostics.breakdown.source)}
+                                                                            </Badge>
+                                                                            {gapLabel && (
+                                                                                <Badge variant={diagnostics.flags.length > 0 ? 'destructive' : 'outline'}>
+                                                                                    {gapLabel}
+                                                                                </Badge>
+                                                                            )}
+                                                                            {diagnostics.flags.map((flag: CostAnomalyFlag) => (
+                                                                                <Badge key={`${variant.id}-${flag}`} variant="outline">
+                                                                                    {getCostAlertShortLabel(flag)}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
                                                                     <FormMessage />
                                                                 </FormItem>
                                                             )}
