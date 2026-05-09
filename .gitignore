@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.pytest_cache/
+/.ruff_cache/
 
 # next.js
 /.next/
@@ -22,6 +24,7 @@
 
 # misc
 .DS_Store
+**/.DS_Store
 *.pem
 
 # debug
@@ -38,7 +41,9 @@ yarn-error.log*
 # vercel
 .vercel
 .agent
+.claude/
 .gemini
+.hermes/
 
 # typescript
 *.tsbuildinfo

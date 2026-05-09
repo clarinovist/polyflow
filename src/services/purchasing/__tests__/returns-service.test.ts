@@ -35,7 +35,7 @@ const createInput = {
             productVariantId: 'pv-1',
             returnedQty: 2,
             unitCost: 10000,
-            reason: 'Damaged',
+            reason: 'DAMAGED' as const,
             notes: 'test item',
         }
     ]

@@ -1,18 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle2, AlertTriangle, Calculator, ArrowLeft } from 'lucide-react';
+import {
+    CheckCircle2, AlertTriangle, Calculator, ArrowLeft,
+    Plus, Loader2, Search
+} from 'lucide-react';
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { completeOpname, deleteOpnameSession } from '@/actions/inventory/opname';
+import { completeOpname, deleteOpnameSession, addItemToOpname } from '@/actions/inventory/opname';
+import { getProductVariants } from '@/actions/production/boms';
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 
 export interface OpnameItem {
@@ -50,6 +62,68 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
     const router = useRouter();
+
+    // Add Item dialog
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
+    const [allVariants, setAllVariants] = useState<Array<{
+        id: string;
+        name: string;
+        skuCode: string;
+        primaryUnit: string;
+        product: { name: string };
+    }>>([]);
+    const [isAddingItem, setIsAddingItem] = useState(false);
+
+    // Fetch all variants when dialog opens
+    useEffect(() => {
+        if (addDialogOpen && allVariants.length === 0) {
+            getProductVariants()
+                .then(result => {
+                    if (result.success && result.data) {
+                        setAllVariants(result.data as unknown as typeof allVariants);
+                    } else {
+                        toast.error('Failed to load product variants');
+                    }
+                })
+                .catch(() => toast.error('Failed to load product variants'));
+        }
+    }, [addDialogOpen, allVariants.length]);
+
+    // Items already in this session (by variant id) — used to filter out
+    const existingVariantIds = new Set(session.items.map(item => item.productVariant.name + item.productVariant.skuCode));
+    // Actually we need IDs. Since OpnameItem doesn't expose variantId, we use the items list.
+    // But we DO have the productVariant name+sku. The variants list from API has IDs.
+    // For now, we don't filter — user will get a friendly error if they try to add a duplicate.
+
+    const handleAddItem = async (variantId: string) => {
+        setIsAddingItem(true);
+        try {
+            const result = await addItemToOpname(session.id, variantId);
+            if (result.success) {
+                toast.success('Item added to opname');
+                setAddDialogOpen(false);
+                setProductSearch('');
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Failed to add item');
+            }
+        } catch {
+            toast.error('Failed to add item');
+        } finally {
+            setIsAddingItem(false);
+        }
+    };
+
+    const filteredVariants = allVariants.filter(v => {
+        if (!productSearch) return true;
+        const q = productSearch.toLowerCase();
+        return (
+            v.name.toLowerCase().includes(q) ||
+            v.skuCode.toLowerCase().includes(q) ||
+            v.product.name.toLowerCase().includes(q)
+        );
+    }).slice(0, 30);
 
     const handleFinalize = async () => {
         if (!currentUserId) {
@@ -115,6 +189,14 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
 
                 {isOpen && (
                     <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setAddDialogOpen(true)}
+                            title="Add item not in system inventory"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
                         <Button
                             variant="destructive"
                             size="icon"
@@ -189,6 +271,73 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Add Item Dialog */}
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Plus className="h-5 w-5" />
+                            Add Item to Opname
+                        </DialogTitle>
+                        <DialogDescription>
+                            Search and add items found physically but not yet in the inventory system for this location.
+                            The item will be added with a system quantity of 0.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by name, SKU, or product..."
+                                className="pl-9"
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto border rounded-md divide-y">
+                            {filteredVariants.length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground text-sm">
+                                    {allVariants.length === 0 ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Loading products...
+                                        </div>
+                                    ) : (
+                                        'No products found'
+                                    )}
+                                </div>
+                            ) : (
+                                filteredVariants.map((variant) => (
+                                    <div
+                                        key={variant.id}
+                                        className="p-3 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
+                                        onClick={() => handleAddItem(variant.id)}
+                                    >
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-medium text-sm truncate">{variant.name}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {variant.product.name} · SKU: {variant.skuCode}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                                            <Badge variant="outline" className="text-xs">
+                                                {variant.primaryUnit}
+                                            </Badge>
+                                            {isAddingItem ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Plus className="h-4 w-4 text-muted-foreground" />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 }

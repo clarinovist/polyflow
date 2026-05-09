@@ -213,15 +213,20 @@ async function completeOpname(opnameId: string) {
                 const variance = item.countedQuantity.sub(item.systemQuantity).toNumber();
 
                 if (variance !== 0) {
-                    // 2. Update Inventory
-                    await tx.inventory.update({
+                    // 2. Upsert Inventory (create if doesn't exist — handles items added manually via addItemToOpname)
+                    await tx.inventory.upsert({
                         where: {
                             locationId_productVariantId: {
                                 locationId: opname.locationId,
                                 productVariantId: item.productVariantId
                             }
                         },
-                        data: {
+                        update: {
+                            quantity: item.countedQuantity
+                        },
+                        create: {
+                            locationId: opname.locationId,
+                            productVariantId: item.productVariantId,
                             quantity: item.countedQuantity
                         }
                     });
@@ -264,6 +269,56 @@ async function completeOpname(opnameId: string) {
         });
 
         revalidatePath(`/warehouse/opname/${opnameId}`);
+    });
+}
+);
+
+export const addItemToOpname = withTenant(
+async function addItemToOpname(opnameId: string, productVariantId: string) {
+    return safeAction(async () => {
+        // Validasi sesi harus OPEN
+        const opname = await prisma.stockOpname.findUnique({
+            where: { id: opnameId },
+            select: { status: true, locationId: true }
+        });
+
+        if (!opname) throw new NotFoundError("StockOpname", opnameId);
+        if (opname.status !== 'OPEN') throw new BusinessRuleError("Can only add items to OPEN sessions");
+
+        // Validasi productVariant exists
+        const variant = await prisma.productVariant.findUnique({
+            where: { id: productVariantId },
+            select: { id: true, name: true }
+        });
+
+        if (!variant) throw new NotFoundError("ProductVariant", productVariantId);
+
+        // Cek duplikasi: item sudah ada di sesi ini?
+        const existing = await prisma.stockOpnameItem.findUnique({
+            where: {
+                opnameId_productVariantId: {
+                    opnameId,
+                    productVariantId
+                }
+            }
+        });
+
+        if (existing) {
+            throw new BusinessRuleError(`Item "${variant.name}" already exists in this opname session`);
+        }
+
+        // Insert item baru dengan systemQuantity = 0
+        await prisma.stockOpnameItem.create({
+            data: {
+                opnameId,
+                productVariantId,
+                systemQuantity: 0,
+                countedQuantity: null
+            }
+        });
+
+        revalidatePath(`/warehouse/opname/${opnameId}`);
+        revalidatePath('/warehouse/opname');
     });
 }
 );

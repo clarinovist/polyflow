@@ -64,6 +64,7 @@ describe('createGoodsReceipt', () => {
 
     it('should update inventory average cost from receipt unit cost without directly mutating variant standard cost', async () => {
         await createGoodsReceipt({
+            isMaklon: false,
             receivedDate: new Date('2026-04-20T00:00:00.000Z'),
             locationId: 'loc-1',
             notes: 'receipt test',
