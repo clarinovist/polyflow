@@ -67,22 +67,37 @@ describe('ProductionService', () => {
 
         // Standard Prisma mocks for finding and updating orders
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (prisma.productionOrder.findUnique as any).mockResolvedValue({
-            id: 'po-1',
-            status: 'RELEASED',
-            plannedQuantity: 100,
-            actualQuantity: 0,
-            locationId: 'loc-1',
-            orderNumber: 'WO-001',
-            bom: {
-                productVariantId: 'pv-fg',
-                outputQuantity: 100,
-                category: 'GENERAL',
-                items: [
-                    { productVariantId: 'pv-mat1', quantity: 50 }
-                ]
-            },
-            plannedMaterials: []
+        (prisma.productionOrder.findUnique as any).mockImplementation((args: any) => {
+            // The findUnique for resolveProductionOutputUnit uses a select shape
+            if (args?.select?.bom?.select?.productVariant?.select?.primaryUnit) {
+                return Promise.resolve({
+                    bom: {
+                        productVariant: {
+                            primaryUnit: 'KG',
+                            salesUnit: 'PACK',
+                            conversionFactor: { toNumber: () => 0.25 },
+                        },
+                    },
+                });
+            }
+            // Standard mock
+            return Promise.resolve({
+                id: 'po-1',
+                status: 'RELEASED',
+                plannedQuantity: 100,
+                actualQuantity: 0,
+                locationId: 'loc-1',
+                orderNumber: 'WO-001',
+                bom: {
+                    productVariantId: 'pv-fg',
+                    outputQuantity: 100,
+                    category: 'GENERAL',
+                    items: [
+                        { productVariantId: 'pv-mat1', quantity: 50 }
+                    ]
+                },
+                plannedMaterials: []
+            });
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -268,6 +283,121 @@ describe('ProductionService', () => {
                 c[0].data.reference?.includes('Production Scrap')
             );
             expect(scrapMovementCreated).toBeDefined();
+        });
+    });
+
+    describe('Production Output UOM Conversion', () => {
+        it('should correctly convert PACK to KG when alternate unit is provided', async () => {
+            // Mock to simulate PACKING category order with conversion
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUniqueOrThrow as any).mockResolvedValueOnce({
+                id: 'po-2',
+                status: 'IN_PROGRESS',
+                plannedQuantity: 1000,
+                actualQuantity: 0,
+                locationId: 'loc-2',
+                orderNumber: 'WO-002',
+                bom: {
+                    productVariantId: 'pv-pack',
+                    outputQuantity: 100,
+                    category: 'PACKING',
+                    items: [
+                        { productVariantId: 'pv-mat1', quantity: 50 }
+                    ]
+                },
+                plannedMaterials: []
+            });
+
+            // Mock update response
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.update as any).mockResolvedValueOnce({
+                id: 'po-2',
+                orderNumber: 'WO-002',
+                status: 'IN_PROGRESS',
+                locationId: 'loc-2',
+                bom: { productVariantId: 'pv-pack', outputQuantity: 100, category: 'PACKING', items: [{ productVariantId: 'pv-mat1', quantity: 50 }] },
+                plannedMaterials: []
+            });
+
+            await ProductionService.addProductionOutput({
+                productionOrderId: 'po-2',
+                machineId: 'mach-1',
+                operatorId: 'op-1',
+                shiftId: 'shift-1',
+                cekGram: undefined,
+                quantityProduced: 25, // base qty: 100 PACK * 0.25 = 25 KG
+                enteredQuantity: 100, // 100 PACK entered by operator
+                enteredUnit: 'PACK' as any,
+                baseQuantityProduced: 25,
+                conversionFactorSnapshot: 0.25,
+                scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
+                startTime: new Date(),
+                endTime: new Date(),
+                notes: 'PACK conversion test'
+            });
+
+            // Stock movement should receive base quantity 25, not 100
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const stockMovementCalls = (prisma.stockMovement.create as any).mock.calls;
+            const fgMovementIn = stockMovementCalls.find(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (call: any[]) => call[0].data.productVariantId === 'pv-pack' && call[0].data.type === 'IN'
+            );
+            expect(fgMovementIn).toBeDefined();
+            expect(fgMovementIn[0].data.quantity).toBe(25);
+
+            // Backflush should use base quantity (25)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.any(String),
+                expect.any(String),
+                12.5 // 25 * (50/100)
+            );
+
+            // Execution should include entered fields
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const executionCreateCall = (prisma.productionExecution.create as any).mock.calls[0];
+            expect(executionCreateCall[0].data.enteredQuantity).toBe(100);
+            expect(executionCreateCall[0].data.enteredUnit).toBe('PACK');
+            expect(Number(executionCreateCall[0].data.conversionFactorSnapshot)).toBe(0.25);
+        });
+
+        it('should reject invalid unit mismatch', async () => {
+            // Mock to simulate variant with primaryUnit=KG, salesUnit=PACK
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (prisma.productionOrder.findUnique as any).mockResolvedValueOnce({
+                bom: {
+                    productVariant: {
+                        primaryUnit: 'KG',
+                        salesUnit: 'PACK',
+                        conversionFactor: { toNumber: () => 0.25 },
+                    },
+                },
+            });
+
+            await expect(
+                ProductionService.addProductionOutput({
+                    productionOrderId: 'po-1',
+                    machineId: 'mach-1',
+                    operatorId: 'op-1',
+                    shiftId: 'shift-1',
+                    cekGram: undefined,
+                    quantityProduced: 25,
+                    enteredQuantity: 100,
+                    enteredUnit: 'ROLL' as any, // Not KG or PACK → should fail
+                    baseQuantityProduced: 25,
+                    conversionFactorSnapshot: 0.25,
+                    scrapQuantity: 0,
+                    scrapProngkolQty: 0,
+                    scrapDaunQty: 0,
+                    startTime: new Date(),
+                    endTime: new Date(),
+                    notes: 'Invalid unit test'
+                })
+            ).rejects.toThrow(/not valid for this product/);
         });
     });
 });

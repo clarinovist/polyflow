@@ -7,7 +7,7 @@ import {
     ProductionOutputValues,
     LogMachineDowntimeValues
 } from '@/lib/schemas/production';
-import { ProductionStatus, MovementType, ProductionExecution } from '@prisma/client';
+import { ProductionStatus, MovementType, ProductionExecution, Unit } from '@prisma/client';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { AccountingService } from '../accounting/accounting-service';
 import {
@@ -17,6 +17,7 @@ import {
     triggerProductionOutputJournal,
     type ProductionExecutionOrder,
 } from './execution-helpers';
+import { resolveProductionOutputUnit } from './execution-unit-conversion';
 
 export class ProductionExecutionService {
 
@@ -187,12 +188,33 @@ export class ProductionExecutionService {
             productionOrderId, machineId, operatorId, shiftId, helperIds,
             quantityProduced, scrapQuantity, scrapProngkolQty, scrapDaunQty,
             bruto, bobin, cekGram,
-            startTime, endTime, notes, userId
+            startTime, endTime, notes, userId,
+            enteredQuantity, enteredUnit, baseQuantityProduced, conversionFactorSnapshot
         } = data;
+
+        // Resolve base quantity from entered unit (when UOM audit trail provided)
+        let resolvedBaseQty = Number(quantityProduced);
+        let resolvedEnteredQty: number | null = null;
+        let resolvedEnteredUnit: Unit | null = null;
+        let resolvedConversionSnapshot: number | null = null;
+
+        if (enteredQuantity !== undefined && enteredUnit !== undefined && baseQuantityProduced !== undefined) {
+            // Server-side validation + recomputation
+            const conversion = await resolveProductionOutputUnit({
+                productionOrderId,
+                enteredQuantity: Number(enteredQuantity),
+                enteredUnit: enteredUnit as Unit,
+            });
+
+            resolvedBaseQty = Number(baseQuantityProduced);
+            resolvedEnteredQty = Number(enteredQuantity);
+            resolvedEnteredUnit = enteredUnit as Unit;
+            resolvedConversionSnapshot = conversion.conversionFactorSnapshot;
+        }
 
         await prisma.$transaction(async (tx) => {
             // Validate: qty=0 only allowed for REWORK orders
-            if (quantityProduced === 0) {
+            if (resolvedBaseQty === 0) {
                 const checkOrder = await tx.productionOrder.findUniqueOrThrow({
                     where: { id: productionOrderId },
                     include: { bom: { select: { category: true } } }
@@ -217,10 +239,19 @@ export class ProductionExecutionService {
                 bruto?: number | null;
                 bobin?: number | null;
                 cekGram?: string | null;
+                enteredQuantity?: number | null;
+                enteredUnit?: Unit | null;
+                conversionFactorSnapshot?: number | null;
                 helpers?: { connect: { id: string }[] };
             } = {
                 productionOrderId, machineId, operatorId, shiftId,
-                startTime, endTime, quantityProduced: Number(quantityProduced), scrapQuantity: Number(scrapQuantity), notes
+                startTime, endTime,
+                quantityProduced: resolvedBaseQty,
+                scrapQuantity: Number(scrapQuantity),
+                notes,
+                enteredQuantity: resolvedEnteredQty,
+                enteredUnit: resolvedEnteredUnit,
+                conversionFactorSnapshot: resolvedConversionSnapshot,
             };
             if (scrapProngkolQty !== undefined) executionData.scrapProngkolQty = Number(scrapProngkolQty);
             if (scrapDaunQty !== undefined) executionData.scrapDaunQty = Number(scrapDaunQty);
@@ -234,7 +265,7 @@ export class ProductionExecutionService {
             const execution = await tx.productionExecution.create({ data: executionData });
 
             const currentOrder = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
-            const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + quantityProduced;
+            const newTotal = (currentOrder.actualQuantity ? Number(currentOrder.actualQuantity) : 0) + resolvedBaseQty;
 
             const order = await tx.productionOrder.update({
                 where: { id: productionOrderId },
@@ -249,7 +280,7 @@ export class ProductionExecutionService {
                 tx,
                 productionOrderId,
                 order: order as ProductionExecutionOrder,
-                quantityProduced,
+                quantityProduced: resolvedBaseQty,
                 reference: `Production Output: WO#${order.orderNumber}`,
             });
 
@@ -257,7 +288,7 @@ export class ProductionExecutionService {
                 tx,
                 order: order as ProductionExecutionOrder,
                 productionOrderId,
-                totalConsumed: quantityProduced + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0),
+                totalConsumed: resolvedBaseQty + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0),
                 reference: `Backflush (Batch): WO#${order.orderNumber}`,
                 userId,
             });

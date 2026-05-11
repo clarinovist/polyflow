@@ -432,7 +432,21 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         <td className="p-3">{exec.shift?.name || '-'}</td>
                                                         <td className="p-3">{exec.operator?.name || '-'}</td>
                                                         <td className="p-3 text-right font-medium text-emerald-600">
-                                                            {exec.status === 'VOIDED' ? '-' : `+${Number(exec.quantityProduced)}`}
+                                                            {exec.status === 'VOIDED' ? '-' : (() => {
+                                                                const baseQty = Number(exec.quantityProduced);
+                                                                const entQty = exec.enteredQuantity ? Number(exec.enteredQuantity) : null;
+                                                                const entUnit = exec.enteredUnit || order.bom.productVariant.primaryUnit;
+                                                                const primaryUnit = order.bom.productVariant.primaryUnit;
+                                                                if (entQty !== null && entUnit !== primaryUnit) {
+                                                                    return (
+                                                                        <div className="flex flex-col items-end">
+                                                                            <span className="font-medium">+{entQty} {entUnit}</span>
+                                                                            <span className="text-[10px] text-muted-foreground">posted as {baseQty} {primaryUnit}</span>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return <span>+{baseQty} {primaryUnit}</span>;
+                                                            })()}
                                                         </td>
                                                         <td className="p-3 text-right text-destructive">
                                                             {exec.status === 'VOIDED' ? '-' : (() => {

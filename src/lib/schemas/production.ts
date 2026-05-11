@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Unit } from '@prisma/client';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 // Production Schemas
@@ -113,6 +114,11 @@ export const productionOutputSchema = z.object({
     helperIds: z.array(z.string()).optional(),
     shiftId: z.string().optional().transform(v => v || undefined),
     quantityProduced: z.coerce.number().nonnegative("Quantity cannot be negative"),
+    // UOM audit trail: operator-facing entry details
+    enteredQuantity: z.coerce.number().positive("Entered quantity must be positive").optional(),
+    enteredUnit: z.nativeEnum(Unit).optional(),
+    baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),
+    conversionFactorSnapshot: z.coerce.number().positive("Conversion factor must be positive").optional(),
     scrapQuantity: z.coerce.number().nonnegative().default(0), // Total Aggregated Scrap (Legacy/KPI)
     scrapProngkolQty: z.coerce.number().nonnegative().default(0),
     scrapDaunQty: z.coerce.number().nonnegative().default(0),

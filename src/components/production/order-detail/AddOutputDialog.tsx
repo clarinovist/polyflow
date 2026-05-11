@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Users, Package, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Users, Package, AlertTriangle, Trash2, Loader2, Info } from 'lucide-react';
 import { ExtendedProductionOrder } from './types';
-import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
+import { Location, Employee, WorkShift, Machine, ProductVariant, Unit } from '@prisma/client';
 import { addProductionOutput } from '@/actions/production/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
@@ -66,8 +66,20 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     }, [formData.workShifts, formData.operators, order.shifts]);
 
     // Determine Logic based on UOM
-    const uom = order.bom.productVariant.primaryUnit || 'KG';
-    const itemName = uom === 'ROLL' ? 'Roll' : (uom === 'ZAK' ? 'Sack' : 'Item');
+    const variant = order.bom.productVariant;
+    const primaryUnit = variant.primaryUnit || 'KG';
+    const salesUnit = variant.salesUnit;
+    const conversionFactor = Number(variant.conversionFactor || 1);
+    const isPackingCategory = order.bom.category === 'PACKING';
+    const useAlternateUnit = isPackingCategory && salesUnit && salesUnit !== primaryUnit && conversionFactor > 0;
+    const displayUnit = useAlternateUnit ? salesUnit : primaryUnit;
+    const itemName = primaryUnit === 'ROLL' ? 'Roll' : (primaryUnit === 'ZAK' ? 'Sack' : 'Item');
+
+    // Compute base quantity from entered PACK quantity
+    const totalBaseQty = useAlternateUnit
+        ? rolls.reduce((sum, w) => sum + (w * conversionFactor), 0)
+        : rolls.reduce((sum, w) => sum + w, 0);
+    const totalDisplayQty = rolls.reduce((sum, w) => sum + w, 0);
 
     const handleHelperChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
@@ -93,8 +105,6 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         setRolls(rolls.filter((_, i) => i !== index));
     };
 
-    const totalGoodQty = rolls.reduce((sum, w) => sum + w, 0);
-
     async function doSubmit(fd: FormData) {
         setIsSubmitting(true);
 
@@ -111,28 +121,35 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
 
         // Append Rolls
         if (rolls.length > 0) {
-            finalNotes += `\n[Auto-Generated] Individual Rolls: ${rolls.join(', ')}`;
+            finalNotes += `\n[Auto-Generated] Individual ${salesUnit || 'Rolls'}: ${rolls.join(', ')}`;
         }
 
         const nowIso = new Date().toISOString();
+        const enteredQty = totalDisplayQty;
+        const baseQty = useAlternateUnit ? (enteredQty * conversionFactor) : enteredQty;
 
-        const data = {
+        const data: Record<string, unknown> = {
             productionOrderId: order.id,
             machineId: order.machineId || undefined,
             operatorId: fd.get('operatorId') as string,
             helperIds: selectedHelpers,
             shiftId: fd.get('shiftId') as string,
-            quantityProduced: totalGoodQty,
+            quantityProduced: baseQty,
             scrapProngkolQty: Number(scrapProngkol || 0),
             scrapDaunQty: Number(scrapDaun || 0),
             scrapQuantity: 0, // Legacy/Required by type
             cekGram: undefined, // Not applicable in desktop UI
             startTime: new Date(nowIso), // Always NOW
             endTime: new Date(nowIso),   // Always NOW
-            notes: finalNotes
+            notes: finalNotes,
+            // UOM audit trail
+            enteredQuantity: useAlternateUnit ? enteredQty : undefined,
+            enteredUnit: useAlternateUnit ? displayUnit : undefined,
+            baseQuantityProduced: useAlternateUnit ? baseQty : undefined,
+            conversionFactorSnapshot: useAlternateUnit ? conversionFactor : undefined,
         };
 
-        const result = await addProductionOutput(data);
+        const result = await addProductionOutput(data as any);
         setIsSubmitting(false);
         if (result.success) {
             toast.success("Production output recorded");
@@ -277,15 +294,27 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Good Output</h3>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">Total Good</span>
-                                        <span className="text-2xl font-black text-foreground drop-shadow-sm">{totalGoodQty.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{uom}</span></span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">
+                                            Total Good
+                                            {useAlternateUnit && (
+                                                <span className="text-[9px] font-normal ml-1">(posted as {primaryUnit})</span>
+                                            )}
+                                        </span>
+                                        <span className="text-2xl font-black text-foreground drop-shadow-sm">
+                                            {totalDisplayQty.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{displayUnit}</span>
+                                        </span>
+                                        {useAlternateUnit && totalDisplayQty > 0 && (
+                                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                = {totalBaseQty.toFixed(2)} {primaryUnit}
+                                            </div>
+                                        )}
                                     </div>
                                 </BrandCardHeader>
 
                                 <BrandCardContent className="space-y-5">
                                     <div className="flex gap-3">
                                         <Input
-                                            placeholder={`Enter ${itemName} Size/Qty (${uom})...`}
+                                            placeholder={`Enter ${itemName} Size/Qty (${displayUnit})...`}
                                             type="number"
                                             step="0.01"
                                             className="flex-1 no-stepper bg-background/80 border-brand-border h-11 text-lg font-mono font-bold text-foreground"
@@ -307,7 +336,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             {rolls.map((weight, idx) => (
                                                 <div key={idx} className="group relative flex flex-col items-center justify-center bg-brand-glass backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-sm transition-all hover:bg-brand-glass-heavy hover:border-brand-border-heavy hover:shadow-brand">
                                                     <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1 opacity-70">{itemName} {idx + 1}</span>
-                                                    <span className="text-base font-mono font-bold text-foreground">{weight} <span className="text-[10px] font-normal opacity-70 uppercase">{uom}</span></span>
+                                                    <span className="text-base font-mono font-bold text-foreground">{weight} <span className="text-[10px] font-normal opacity-70 uppercase">{displayUnit}</span></span>
                                                     <button
                                                         type="button"
                                                         className="absolute -top-1.5 -right-1.5 h-6 w-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg z-10"

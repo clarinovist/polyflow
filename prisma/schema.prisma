@@ -561,6 +561,9 @@ model ProductionExecution {
   shiftId           String?
   quantityProduced  Decimal         @db.Decimal(15, 4)
   scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
+  enteredQuantity   Decimal?        @db.Decimal(15, 4)
+  enteredUnit       Unit?
+  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
   bruto             Decimal?        @db.Decimal(15, 4)
   bobin             Decimal?        @db.Decimal(15, 4)
   cekGram           String?
