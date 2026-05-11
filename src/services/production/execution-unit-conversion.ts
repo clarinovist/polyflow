@@ -29,6 +29,21 @@ export interface ConversionResult {
   primaryUnit: Unit;
 }
 
+function toNumericConversionFactor(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return Number(value);
+
+  // Prisma Decimal and test doubles commonly expose toNumber().
+  if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+    const decimalLike = value as { toNumber?: () => number };
+    if (typeof decimalLike.toNumber === 'function') {
+      return decimalLike.toNumber();
+    }
+  }
+
+  return Number(value);
+}
+
 /**
  * Validate and resolve entered quantity/unit to base quantity.
  *
@@ -86,9 +101,9 @@ export async function resolveProductionOutputUnit(
 
   // Alternate unit: must match salesUnit
   if (salesUnit && enteredUnit === salesUnit) {
-    conversionFactorSnapshot = Number(variant.conversionFactor);
+    conversionFactorSnapshot = toNumericConversionFactor(variant.conversionFactor);
 
-    if (conversionFactorSnapshot <= 0) {
+    if (!Number.isFinite(conversionFactorSnapshot) || conversionFactorSnapshot <= 0) {
       throw new Error(
         `Invalid conversion factor (${conversionFactorSnapshot}) for unit ${enteredUnit} on variant`
       );
