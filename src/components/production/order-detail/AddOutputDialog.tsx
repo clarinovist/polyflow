@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Users, Package, AlertTriangle, Trash2, Loader2, Info } from 'lucide-react';
+import { Plus, Users, Package, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { ExtendedProductionOrder } from './types';
-import { Location, Employee, WorkShift, Machine, ProductVariant, Unit } from '@prisma/client';
+import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
 import { addProductionOutput } from '@/actions/production/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
 
@@ -137,19 +137,18 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
             quantityProduced: baseQty,
             scrapProngkolQty: Number(scrapProngkol || 0),
             scrapDaunQty: Number(scrapDaun || 0),
-            scrapQuantity: 0, // Legacy/Required by type
-            cekGram: undefined, // Not applicable in desktop UI
-            startTime: new Date(nowIso), // Always NOW
-            endTime: new Date(nowIso),   // Always NOW
+            scrapQuantity: 0,
+            cekGram: undefined,
+            startTime: new Date(nowIso),
+            endTime: new Date(nowIso),
             notes: finalNotes,
-            // UOM audit trail
             enteredQuantity: useAlternateUnit ? enteredQty : undefined,
-            enteredUnit: useAlternateUnit ? displayUnit : undefined,
+            enteredUnit: useAlternateUnit ? (displayUnit as string) : undefined,
             baseQuantityProduced: useAlternateUnit ? baseQty : undefined,
             conversionFactorSnapshot: useAlternateUnit ? conversionFactor : undefined,
         };
 
-        const result = await addProductionOutput(data as any);
+        const result = await addProductionOutput(data as any); // eslint-disable-line @typescript-eslint/no-explicit-any
         setIsSubmitting(false);
         if (result.success) {
             toast.success("Production output recorded");

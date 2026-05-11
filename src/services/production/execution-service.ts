@@ -189,7 +189,8 @@ export class ProductionExecutionService {
             quantityProduced, scrapQuantity, scrapProngkolQty, scrapDaunQty,
             bruto, bobin, cekGram,
             startTime, endTime, notes, userId,
-            enteredQuantity, enteredUnit, baseQuantityProduced, conversionFactorSnapshot
+            enteredQuantity, enteredUnit, baseQuantityProduced,
+            conversionFactorSnapshot: _conversionFactorSnapshot
         } = data;
 
         // Resolve base quantity from entered unit (when UOM audit trail provided)

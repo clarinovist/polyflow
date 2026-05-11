@@ -327,7 +327,7 @@ describe('ProductionService', () => {
                 cekGram: undefined,
                 quantityProduced: 25, // base qty: 100 PACK * 0.25 = 25 KG
                 enteredQuantity: 100, // 100 PACK entered by operator
-                enteredUnit: 'PACK' as any,
+                enteredUnit: 'PACK' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                 baseQuantityProduced: 25,
                 conversionFactorSnapshot: 0.25,
                 scrapQuantity: 0,
@@ -387,7 +387,7 @@ describe('ProductionService', () => {
                     cekGram: undefined,
                     quantityProduced: 25,
                     enteredQuantity: 100,
-                    enteredUnit: 'ROLL' as any, // Not KG or PACK → should fail
+                    enteredUnit: 'ROLL' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                     baseQuantityProduced: 25,
                     conversionFactorSnapshot: 0.25,
                     scrapQuantity: 0,
