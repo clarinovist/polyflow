@@ -132,6 +132,9 @@ export const getProductionOrders = withTenant(
                 orderNumber: true,
                 status: true,
                 plannedQuantity: true,
+                plannedEnteredQuantity: true,
+                plannedEnteredUnit: true,
+                plannedConversionFactorSnapshot: true,
                 actualQuantity: true,
                 plannedStartDate: true,
                 plannedEndDate: true,
@@ -148,7 +151,9 @@ export const getProductionOrders = withTenant(
                                 id: true,
                                 name: true,
                                 skuCode: true,
-                                primaryUnit: true
+                                primaryUnit: true,
+                                salesUnit: true,
+                                conversionFactor: true
                             }
                         }
                     }
@@ -188,6 +193,8 @@ export const getProductionOrders = withTenant(
         return orders.map(order => ({
             ...order,
             plannedQuantity: order.plannedQuantity.toNumber(),
+            plannedEnteredQuantity: order.plannedEnteredQuantity?.toNumber() ?? null,
+            plannedConversionFactorSnapshot: order.plannedConversionFactorSnapshot?.toNumber() ?? null,
             actualQuantity: order.actualQuantity?.toNumber() ?? null,
         }));
     }

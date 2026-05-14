@@ -36,7 +36,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Customer, ProductVariant, Product } from '@prisma/client';
+import { Customer, ProductVariant, Product, Unit } from '@prisma/client';
+import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -83,6 +84,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
             productVariantId: string;
             quantity: number;
             unitPrice: number;
+            enteredQuantity?: number;
+            enteredUnit?: Unit;
+            conversionFactorSnapshot?: number;
+            enteredUnitPrice?: number;
             discountPercent?: number;
             taxPercent?: number;
         }[];
@@ -111,6 +116,21 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
 
     const watchItems = useWatch({ control: form.control, name: 'items' });
 
+    const getLineVariant = (index: number) => {
+        const productVariantId = form.getValues(`items.${index}.productVariantId`);
+        return products.find((p) => p.id === productVariantId);
+    };
+
+    const getLineUnitMeta = (index: number) => {
+        const variant = getLineVariant(index);
+        return variant ? getProductionUnitMeta(variant) : null;
+    };
+
+    const toDisplayUnitPrice = (variant: SerializedProductVariant, baseUnitPrice: number) => {
+        const meta = getProductionUnitMeta(variant);
+        return meta.hasAlternateUnit ? baseUnitPrice * meta.conversionFactor : baseUnitPrice;
+    };
+
     const totals = watchItems?.reduce((acc, item) => {
         const qty = item.quantity || 0;
         const price = item.unitPrice || 0;
@@ -133,6 +153,33 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
             const payload = {
                 ...data,
                 validUntil: data.validUntil || undefined,
+                items: data.items.map((item) => {
+                    const variant = products.find((p) => p.id === item.productVariantId);
+                    if (!variant) return item;
+
+                    const meta = getProductionUnitMeta(variant);
+                    if (!meta.hasAlternateUnit) {
+                        return {
+                            ...item,
+                            enteredQuantity: undefined,
+                            enteredUnit: undefined,
+                            conversionFactorSnapshot: undefined,
+                            enteredUnitPrice: undefined,
+                        };
+                    }
+
+                    const enteredQuantity = Number(item.quantity);
+                    const enteredUnitPrice = Number(item.unitPrice);
+                    return {
+                        ...item,
+                        quantity: toBaseQuantity(enteredQuantity, meta.conversionFactor),
+                        unitPrice: enteredUnitPrice / meta.conversionFactor,
+                        enteredQuantity,
+                        enteredUnit: meta.salesUnit as Unit,
+                        conversionFactorSnapshot: meta.conversionFactor,
+                        enteredUnitPrice,
+                    };
+                }),
             };
 
             const result = mode === 'create'
@@ -376,7 +423,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 if (selectedPrd) {
                                                                     form.setValue(
                                                                         `items.${index}.unitPrice`, 
-                                                                        selectedPrd.sellPrice || selectedPrd.price || 0,
+                                                                        toDisplayUnitPrice(selectedPrd, selectedPrd.sellPrice || selectedPrd.price || 0),
                                                                         { shouldValidate: true, shouldDirty: true }
                                                                     );
                                                                 }
@@ -417,6 +464,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 {...field}
                                                             />
                                                         </FormControl>
+                                                        {getLineUnitMeta(index) && (
+                                                            <div className="px-2 text-[10px] text-muted-foreground">
+                                                                {getLineUnitMeta(index)?.displayUnit}
+                                                            </div>
+                                                        )}
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -436,6 +488,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 {...field}
                                                             />
                                                         </FormControl>
+                                                        {getLineUnitMeta(index) && (
+                                                            <div className="px-2 text-[10px] text-muted-foreground">
+                                                                per {getLineUnitMeta(index)?.displayUnit}
+                                                            </div>
+                                                        )}
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}

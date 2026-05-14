@@ -18,6 +18,9 @@ export interface Order {
         productVariant: {
             name: string;
             skuCode: string;
+            primaryUnit?: string | null;
+            salesUnit?: string | null;
+            conversionFactor?: unknown;
         };
     };
     machine?: {

@@ -27,10 +27,10 @@ describe('AutoJournalService payment journals', () => {
         vi.clearAllMocks();
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: any) => ({
+        vi.mocked(prisma.account.findUnique).mockImplementation((async ({ where }: any) => ({
             id: `acc-${where.code}`,
             code: where.code,
-        }) as never);
+        })) as never);
     });
 
     it('uses sales payment id as journal referenceId', async () => {

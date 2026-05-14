@@ -16,12 +16,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { stopExecution } from '@/actions/production/production';
+import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import { Unit } from '@prisma/client';
 
 interface KioskStopDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     executionId: string;
     productName: string;
+    primaryUnit?: string | null;
+    salesUnit?: string | null;
+    conversionFactor?: unknown;
     currentProduced: number;
     targetQuantity: number;
     logs: Array<{
@@ -37,6 +42,9 @@ export function KioskStopDialog({
     onOpenChange,
     executionId,
     productName,
+    primaryUnit,
+    salesUnit,
+    conversionFactor,
     currentProduced,
     targetQuantity,
     logs,
@@ -47,12 +55,16 @@ export function KioskStopDialog({
     const [scrap, setScrap] = useState('0');
     const [notes, setNotes] = useState('');
     const [completed, setCompleted] = useState(false);
+    const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const qtyNum = parseFloat(quantity) || 0;
         const scrapNum = parseFloat(scrap) || 0;
+        const baseQty = unitMeta.hasAlternateUnit
+            ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
+            : qtyNum;
 
         if (isNaN(qtyNum) || qtyNum < 0) {
             toast.error("Please enter a valid quantity produced");
@@ -64,7 +76,11 @@ export function KioskStopDialog({
         try {
             const result = await stopExecution({
                 executionId,
-                quantityProduced: qtyNum,
+                quantityProduced: baseQty,
+                enteredQuantity: unitMeta.hasAlternateUnit && qtyNum > 0 ? qtyNum : undefined,
+                enteredUnit: unitMeta.hasAlternateUnit && qtyNum > 0 ? unitMeta.salesUnit as Unit : undefined,
+                baseQuantityProduced: unitMeta.hasAlternateUnit && qtyNum > 0 ? baseQty : undefined,
+                conversionFactorSnapshot: unitMeta.hasAlternateUnit && qtyNum > 0 ? unitMeta.conversionFactor : undefined,
                 scrapQuantity: scrapNum,
                 notes,
                 completed
@@ -97,11 +113,11 @@ export function KioskStopDialog({
                 <div className="grid grid-cols-2 gap-4 p-4 bg-muted/40 rounded-lg border border-border/50">
                     <div className="flex flex-col">
                         <span className="text-xs text-muted-foreground uppercase font-bold">Total Produced</span>
-                        <span className="text-2xl font-black text-primary">{currentProduced}</span>
+                        <span className="text-2xl font-black text-primary">{currentProduced} {unitMeta.primaryUnit}</span>
                     </div>
                     <div className="flex flex-col">
                         <span className="text-xs text-muted-foreground uppercase font-bold">Target</span>
-                        <span className="text-2xl font-black">{targetQuantity}</span>
+                        <span className="text-2xl font-black">{targetQuantity} {unitMeta.primaryUnit}</span>
                     </div>
                 </div>
 
@@ -128,7 +144,7 @@ export function KioskStopDialog({
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="quantity" className="text-sm font-semibold">Any Final Additional Output?</Label>
+                        <Label htmlFor="quantity" className="text-sm font-semibold">Any Final Additional Output? ({unitMeta.displayUnit})</Label>
                         <Input
                             id="quantity"
                             type="number"
@@ -142,7 +158,7 @@ export function KioskStopDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="scrap">Additional Scrap Quantity</Label>
+                        <Label htmlFor="scrap">Additional Scrap Quantity ({unitMeta.primaryUnit})</Label>
                         <Input
                             id="scrap"
                             type="number"

@@ -9,12 +9,17 @@ import { toast } from "sonner";
 import { logRunningOutput } from "@/actions/production/production";
 import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
+import { Unit } from "@prisma/client";
 
 interface KioskLogOutputDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     executionId: string;
     productName: string;
+    primaryUnit?: string | null;
+    salesUnit?: string | null;
+    conversionFactor?: unknown;
     onSuccess?: () => void;
 }
 
@@ -23,6 +28,9 @@ export function KioskLogOutputDialog({
     onOpenChange,
     executionId,
     productName,
+    primaryUnit,
+    salesUnit,
+    conversionFactor,
     onSuccess
 }: KioskLogOutputDialogProps) {
     const [quantity, setQuantity] = useState<string>('');
@@ -30,14 +38,22 @@ export function KioskLogOutputDialog({
     const [notes, setNotes] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
+    const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
     const submitOutput = async () => {
         const qtyNum = parseFloat(quantity);
+        const baseQty = unitMeta.hasAlternateUnit
+            ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
+            : qtyNum;
         setIsLoading(true);
         try {
             const result = await logRunningOutput({
                 executionId,
-                quantityProduced: qtyNum,
+                quantityProduced: baseQty,
+                enteredQuantity: unitMeta.hasAlternateUnit ? qtyNum : undefined,
+                enteredUnit: unitMeta.hasAlternateUnit ? unitMeta.salesUnit as Unit : undefined,
+                baseQuantityProduced: unitMeta.hasAlternateUnit ? baseQty : undefined,
+                conversionFactorSnapshot: unitMeta.hasAlternateUnit ? unitMeta.conversionFactor : undefined,
                 scrapQuantity: parseFloat(scrap) || 0,
                 notes: notes || ''
             });
@@ -94,14 +110,15 @@ export function KioskLogOutputDialog({
                 <DialogHeader>
                     <DialogTitle className="text-xl">Log Output: {productName}</DialogTitle>
                     <DialogDescription>
-                        Record partial output (e.g. 1 Roll) while the machine keeps running.
+                        Record partial output in {unitMeta.displayUnit}
+                        {unitMeta.hasAlternateUnit ? ` (posted internally as ${unitMeta.primaryUnit}).` : ' while the machine keeps running.'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="log-quantity" className="text-base font-semibold">Produced (Qty)</Label>
+                            <Label htmlFor="log-quantity" className="text-base font-semibold">Produced ({unitMeta.displayUnit})</Label>
                             <Input
                                 id="log-quantity"
                                 type="number"
@@ -114,7 +131,7 @@ export function KioskLogOutputDialog({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="log-scrap" className="text-base font-semibold text-amber-500">Scrap (Qty)</Label>
+                            <Label htmlFor="log-scrap" className="text-base font-semibold text-amber-500">Scrap ({unitMeta.primaryUnit})</Label>
                             <Input
                                 id="log-scrap"
                                 type="number"

@@ -11,17 +11,24 @@ import { useRouter } from "next/navigation";
 import { KioskStopDialog } from "./KioskStopDialog";
 import { DowntimeDialog } from "./DowntimeDialog";
 import { KioskLogOutputDialog } from "./KioskLogOutputDialog";
+import { formatProductionQuantity, getEnteredQuantityDisplay, getProductionUnitMeta } from "@/lib/utils/production-units";
 
 interface ProductionOrder {
     id: string;
     orderNumber: string;
     plannedQuantity: number;
+    plannedEnteredQuantity?: number | null;
+    plannedEnteredUnit?: string | null;
+    plannedConversionFactorSnapshot?: number | null;
     actualQuantity: number | null;
     status: string;
     bom: {
         productVariant: {
             name: string;
             skuCode: string;
+            primaryUnit?: string | null;
+            salesUnit?: string | null;
+            conversionFactor?: unknown;
         };
     };
     machine?: {
@@ -54,6 +61,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
     // Check if currently running
     const activeExecution = order.executions.find(e => !e.endTime);
     const isRunning = !!activeExecution;
+    const unitMeta = getProductionUnitMeta(order.bom.productVariant);
 
     const handleStart = async () => {
         if (!activeExecution) {
@@ -121,7 +129,13 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                             {order.bom.productVariant.name}
                         </h3>
                         <div className="text-xs md:text-sm font-medium text-muted-foreground mt-1 uppercase tracking-wider">
-                            TARGET: {order.plannedQuantity}
+                            TARGET: {getEnteredQuantityDisplay({
+                                ...order.bom.productVariant,
+                                quantity: order.plannedQuantity,
+                                enteredQuantity: order.plannedEnteredQuantity,
+                                enteredUnit: order.plannedEnteredUnit,
+                                conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                            })}
                         </div>
                     </div>
                 </div>
@@ -140,11 +154,19 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         <div className="grid grid-cols-2 gap-2">
                             <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
                                 <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Produced</span>
-                                <span className="font-bold text-lg md:text-xl">{order.actualQuantity || 0}</span>
+                                <span className="font-bold text-lg md:text-xl">{formatProductionQuantity(order.actualQuantity || 0, order.bom.productVariant, { showBaseWhenAlternate: false })}</span>
                             </div>
                             <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
                                 <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Target</span>
-                                <span className="font-bold text-lg md:text-xl text-muted-foreground">{order.plannedQuantity}</span>
+                                <span className="font-bold text-lg md:text-xl text-muted-foreground">
+                                    {getEnteredQuantityDisplay({
+                                        ...order.bom.productVariant,
+                                        quantity: order.plannedQuantity,
+                                        enteredQuantity: order.plannedEnteredQuantity,
+                                        enteredUnit: order.plannedEnteredUnit,
+                                        conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                                    }, { showBaseWhenAlternate: false })}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -192,6 +214,9 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         onOpenChange={setStopDialogOpen}
                         executionId={activeExecution.id}
                         productName={order.bom.productVariant.name}
+                        primaryUnit={unitMeta.primaryUnit}
+                        salesUnit={unitMeta.salesUnit}
+                        conversionFactor={unitMeta.conversionFactor}
                         currentProduced={order.actualQuantity || 0}
                         targetQuantity={order.plannedQuantity}
                         logs={order.outputLogs || []}
@@ -204,6 +229,9 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         onOpenChange={setLogDialogOpen}
                         executionId={activeExecution.id}
                         productName={order.bom.productVariant.name}
+                        primaryUnit={unitMeta.primaryUnit}
+                        salesUnit={unitMeta.salesUnit}
+                        conversionFactor={unitMeta.conversionFactor}
                         onSuccess={() => {
                             router.refresh();
                         }}

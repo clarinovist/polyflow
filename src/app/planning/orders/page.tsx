@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BomCategory } from '@prisma/client';
+import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 
 export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string, demand?: 'customer' | 'internal' }> }) {
     const { category, demand = 'customer' } = await searchParams;
@@ -227,7 +228,13 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        {order.plannedQuantity.toLocaleString()} {order.bom.productVariant.primaryUnit}
+                                                        {getEnteredQuantityDisplay({
+                                                            ...order.bom.productVariant,
+                                                            quantity: order.plannedQuantity,
+                                                            enteredQuantity: order.plannedEnteredQuantity,
+                                                            enteredUnit: order.plannedEnteredUnit,
+                                                            conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                                                        })}
                                                     </TableCell>
                                                     <TableCell className="text-muted-foreground">
                                                         {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}

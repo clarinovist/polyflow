@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { deliverSalesOrder } from '@/actions/sales/sales';
 import { toast } from 'sonner';
+import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 
 
 interface DeliveryOrderDetailProps {
@@ -135,7 +136,9 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right font-mono text-xs">{item.productVariant?.skuCode}</td>
-                                                <td className="p-4 text-right font-medium">{Number(item.quantity)}</td>
+                                                <td className="p-4 text-right font-medium">
+                                                    {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

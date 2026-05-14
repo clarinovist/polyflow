@@ -7,6 +7,9 @@ export const createProductionOrderSchema = z.object({
     orderNumber: z.string().optional(), // Auto-generated if empty
     bomId: z.string().min(1, "BOM is required"),
     plannedQuantity: z.coerce.number().positive("Planned quantity must be positive"),
+    plannedEnteredQuantity: z.coerce.number().positive("Entered planned quantity must be positive").optional(),
+    plannedEnteredUnit: z.nativeEnum(Unit).optional(),
+    plannedConversionFactorSnapshot: z.coerce.number().positive("Planning conversion factor must be positive").optional(),
     plannedStartDate: z.date(),
     plannedEndDate: z.date().optional(),
     locationId: z.string().min(1, "Output location is required"),
@@ -142,6 +145,10 @@ export const startExecutionSchema = z.object({
 export const stopExecutionSchema = z.object({
     executionId: z.string().min(1, "Execution ID is required"),
     quantityProduced: z.coerce.number().nonnegative(),
+    enteredQuantity: z.coerce.number().positive("Entered quantity must be positive").optional(),
+    enteredUnit: z.nativeEnum(Unit).optional(),
+    baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),
+    conversionFactorSnapshot: z.coerce.number().positive("Conversion factor must be positive").optional(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional().transform(sanitizeHtml),
     completed: z.boolean().optional(),
@@ -153,6 +160,10 @@ export type StopExecutionValues = z.infer<typeof stopExecutionSchema>;
 export const logRunningOutputSchema = z.object({
     executionId: z.string().min(1, "Execution ID is required"),
     quantityProduced: z.coerce.number().positive("Quantity must be positive"),
+    enteredQuantity: z.coerce.number().positive("Entered quantity must be positive").optional(),
+    enteredUnit: z.nativeEnum(Unit).optional(),
+    baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),
+    conversionFactorSnapshot: z.coerce.number().positive("Conversion factor must be positive").optional(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional().transform(sanitizeHtml),
 });

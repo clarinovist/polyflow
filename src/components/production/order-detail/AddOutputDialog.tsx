@@ -70,8 +70,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
     const primaryUnit = variant.primaryUnit || 'KG';
     const salesUnit = variant.salesUnit;
     const conversionFactor = Number(variant.conversionFactor || 1);
-    const isPackingCategory = order.bom.category === 'PACKING';
-    const useAlternateUnit = isPackingCategory && salesUnit && salesUnit !== primaryUnit && conversionFactor > 0;
+    const useAlternateUnit = Boolean(salesUnit && salesUnit !== primaryUnit && conversionFactor > 0);
     const displayUnit = useAlternateUnit ? salesUnit : primaryUnit;
     const itemName = primaryUnit === 'ROLL' ? 'Roll' : (primaryUnit === 'ZAK' ? 'Sack' : 'Item');
 

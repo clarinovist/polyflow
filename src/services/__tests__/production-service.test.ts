@@ -19,6 +19,7 @@ vi.mock('@/lib/core/prisma', () => {
         productionExecution: {
             create: vi.fn(),
             update: vi.fn(),
+            findUniqueOrThrow: vi.fn(),
         },
         inventory: {
             upsert: vi.fn(),
@@ -142,6 +143,16 @@ describe('ProductionService', () => {
         (prisma.productionExecution.update as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1'
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (prisma.productionExecution.findUniqueOrThrow as any).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            enteredQuantity: null,
+            enteredUnit: null,
+            conversionFactorSnapshot: null,
+            notes: null,
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

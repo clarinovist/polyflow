@@ -46,8 +46,14 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         items: items.map((item: any) => ({
             id: item.id,
             productVariantId: item.productVariantId,
-            quantity: Number(item.quantity),
-            unitPrice: Number(item.unitPrice)
+            quantity: item.enteredQuantity ? Number(item.enteredQuantity) : Number(item.quantity),
+            unitPrice: item.enteredUnitPrice ? Number(item.enteredUnitPrice) : Number(item.unitPrice),
+            enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : undefined,
+            enteredUnit: item.enteredUnit || undefined,
+            conversionFactorSnapshot: item.conversionFactorSnapshot ? Number(item.conversionFactorSnapshot) : undefined,
+            enteredUnitPrice: item.enteredUnitPrice ? Number(item.enteredUnitPrice) : undefined,
+            discountPercent: item.discountPercent ? Number(item.discountPercent) : 0,
+            taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
         }))
     };
 

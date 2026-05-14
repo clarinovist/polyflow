@@ -13,6 +13,8 @@ import { CheckCircle2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import { Unit } from '@prisma/client';
 
 const bulkSchema = z.object({
     reports: z.array(productionOutputSchema)
@@ -22,7 +24,18 @@ type BulkFormValues = z.infer<typeof bulkSchema>;
 
 type Employee = { id: string; name: string; code?: string };
 type Machine = { id: string; name: string };
-type Order = { id: string; orderNumber: string; bom?: { productVariant?: { name: string } } };
+type Order = {
+    id: string;
+    orderNumber: string;
+    bom?: {
+        productVariant?: {
+            name: string;
+            primaryUnit?: string | null;
+            salesUnit?: string | null;
+            conversionFactor?: unknown;
+        }
+    }
+};
 type Shift = { id: string; name: string; startTime: string; endTime: string };
 
 /** Convert Date to `datetime-local` input value in LOCAL timezone (not UTC) */
@@ -77,10 +90,29 @@ export default function HdProductionForm({
     const onSubmit = async (data: BulkFormValues) => {
         setIsSubmitting(true);
         try {
+            const reports = data.reports.map((report) => {
+                const order = orders.find((item) => item.id === report.productionOrderId);
+                const unitMeta = getProductionUnitMeta(order?.bom?.productVariant || {});
+                if (!unitMeta.hasAlternateUnit || Number(report.quantityProduced) <= 0) {
+                    return report;
+                }
+
+                const enteredQty = Number(report.quantityProduced);
+                const baseQty = toBaseQuantity(enteredQty, unitMeta.conversionFactor);
+                return {
+                    ...report,
+                    quantityProduced: baseQty,
+                    enteredQuantity: enteredQty,
+                    enteredUnit: unitMeta.salesUnit as Unit,
+                    baseQuantityProduced: baseQty,
+                    conversionFactorSnapshot: unitMeta.conversionFactor,
+                };
+            });
+
             const res = await fetch('/api/production/daily-report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data.reports)
+                body: JSON.stringify(reports)
             });
 
             const json = await res.json();
@@ -98,7 +130,7 @@ export default function HdProductionForm({
                 throw new Error(json.message || json.error || 'Gagal menyimpan laporan');
             }
 
-            toast.success(`${json.count ?? data.reports.length} laporan berhasil disubmit!`);
+            toast.success(`${json.count ?? reports.length} laporan berhasil disubmit!`);
             form.reset({ reports: [makeEmpty()] });
             router.refresh();
         } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -111,7 +143,11 @@ export default function HdProductionForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                {fields.map((field, index) => (
+                {fields.map((field, index) => {
+                    const selectedOrder = orders.find((order) => order.id === form.watch(`reports.${index}.productionOrderId`));
+                    const unitMeta = getProductionUnitMeta(selectedOrder?.bom?.productVariant || {});
+
+                    return (
                     <div key={field.id} className="relative p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl flex flex-col gap-6 transition-all hover:bg-white/10">
                         {/* Header Panel */}
                         <div className="flex justify-between items-center border-b border-white/10 pb-4">
@@ -291,10 +327,10 @@ export default function HdProductionForm({
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.quantityProduced`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Netto / Valid (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/20 text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)]" {...field} />
-                                </FormControl><FormMessage /></FormItem>
-                            )}/>
+	                                <FormItem><FormLabel className="text-white/70">Netto / Valid ({unitMeta.displayUnit})</FormLabel><FormControl>
+	                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/20 text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)]" {...field} />
+	                                </FormControl><FormMessage /></FormItem>
+	                            )}/>
                             <FormField control={form.control} name={`reports.${index}.cekGram`} render={({ field }) => (
                                 <FormItem><FormLabel className="text-white/70">Cek Gram</FormLabel><FormControl>
                                     <Input {...field} placeholder="Contoh: 12g" className="bg-slate-900/80 border-white/10 text-white" />
@@ -329,8 +365,9 @@ export default function HdProductionForm({
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
-                    </div>
-                ))}
+	                    </div>
+                    );
+                })}
 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/10 p-6 rounded-2xl border-t-4 border-primary/50 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
                     <Button

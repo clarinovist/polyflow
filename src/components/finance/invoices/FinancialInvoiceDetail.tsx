@@ -2,9 +2,28 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatRupiah } from "@/lib/utils/utils";
+import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from "@/lib/utils/production-units";
 import { InvoiceStatus, Invoice } from "@prisma/client";
 import { format } from "date-fns";
 import { AlertCircle } from "lucide-react";
+
+type InvoiceLineItem = {
+    id?: string;
+    quantity?: unknown;
+    unitPrice?: unknown;
+    subtotal?: unknown;
+    enteredQuantity?: unknown;
+    enteredUnit?: string | null;
+    enteredUnitPrice?: unknown;
+    conversionFactorSnapshot?: unknown;
+    productVariant?: {
+        name?: string;
+        primaryUnit?: string | null;
+        salesUnit?: string | null;
+        conversionFactor?: unknown;
+        product?: { name?: string };
+    };
+};
 
 interface FinancialInvoiceDetailProps {
     invoice: Invoice & {
@@ -13,7 +32,7 @@ interface FinancialInvoiceDetailProps {
             orderType: string;
             customer: { name: string } | null;
             taxAmount: unknown;
-            items: unknown[];
+            items: InvoiceLineItem[];
         } | null;
     };
 }
@@ -129,10 +148,30 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                                 <span>Description</span>
                                 <span>Subtotal</span>
                             </div>
-                            <div className="flex justify-between text-sm py-2">
-                                <span>Sales Order Items Total</span>
-                                <span>{formatRupiah(Number(invoice.totalAmount) - taxAmount)}</span>
-                            </div>
+                            {salesOrder?.items?.length ? (
+                                salesOrder.items.map((item, index) => {
+                                    const productVariant = item.productVariant || {};
+                                    const price = getEnteredUnitPriceDisplay({ ...item, ...productVariant });
+                                    return (
+                                        <div key={item.id || index} className="flex justify-between gap-4 text-sm py-2 border-b last:border-0">
+                                            <div>
+                                                <div className="font-medium">
+                                                    {productVariant.product?.name || productVariant.name || 'Sales Item'}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {getEnteredQuantityDisplay({ ...item, ...productVariant })} × {formatRupiah(price.price)}/{price.unit}
+                                                </div>
+                                            </div>
+                                            <span>{formatRupiah(Number(item.subtotal || 0))}</span>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="flex justify-between text-sm py-2">
+                                    <span>Sales Order Items Total</span>
+                                    <span>{formatRupiah(Number(invoice.totalAmount) - taxAmount)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm py-2">
                                 <span>Tax / VAT</span>
                                 <span>{formatRupiah(taxAmount)}</span>

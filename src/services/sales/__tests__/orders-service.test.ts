@@ -3,7 +3,7 @@ import { confirmOrder, createOrder, updateOrder } from '../orders-service';
 import { prisma } from '@/lib/core/prisma';
 import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from '../credit-service';
-import { LocationType, ProductType, SalesOrderStatus, SalesOrderType } from '@prisma/client';
+import { LocationType, ProductType, SalesOrderStatus, SalesOrderType, Unit } from '@prisma/client';
 import { logger } from '@/lib/config/logger';
 
 vi.mock('@/lib/core/prisma', () => ({
@@ -169,5 +169,51 @@ describe('confirmOrder', () => {
 
         // Cleanup
         loggerErrorSpy.mockRestore();
+    });
+
+    it('stores sales-unit snapshot while keeping canonical quantity and price in base unit', async () => {
+        vi.mocked(prisma.productVariant.findUnique).mockResolvedValue({
+            id: 'pv-pack',
+            name: 'Product Pack',
+            primaryUnit: Unit.KG,
+            salesUnit: Unit.PACK,
+            conversionFactor: { toNumber: () => 0.25 } as never,
+            product: { productType: ProductType.FINISHED_GOOD }
+        } as never);
+
+        await createOrder({
+            customerId: 'cust-1',
+            sourceLocationId: 'loc-1',
+            orderDate: new Date('2026-04-17T00:00:00.000Z'),
+            expectedDate: null,
+            orderType: SalesOrderType.MAKE_TO_ORDER,
+            notes: '100 PACK',
+            items: [{
+                productVariantId: 'pv-pack',
+                quantity: 25,
+                unitPrice: 4000,
+                enteredQuantity: 100,
+                enteredUnit: Unit.PACK,
+                conversionFactorSnapshot: 0.25,
+                enteredUnitPrice: 1000,
+                discountPercent: 0,
+                taxPercent: 0,
+            }],
+        }, 'user-1');
+
+        const createCall = vi.mocked(prisma.salesOrder.create).mock.calls.at(-1)?.[0] as never as {
+            data: { totalAmount: number; items: { create: Array<Record<string, unknown>> } };
+        };
+        expect(createCall.data.totalAmount).toBe(100000);
+        expect(createCall.data.items.create[0]).toMatchObject({
+            productVariantId: 'pv-pack',
+            quantity: 25,
+            unitPrice: 4000,
+            enteredQuantity: 100,
+            enteredUnit: Unit.PACK,
+            conversionFactorSnapshot: 0.25,
+            enteredUnitPrice: 1000,
+            subtotal: 100000,
+        });
     });
 });

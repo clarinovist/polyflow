@@ -15,7 +15,7 @@
  */
 
 import { prisma } from '@/lib/core/prisma';
-import { Unit } from '@prisma/client';
+import { Prisma, Unit } from '@prisma/client';
 
 export interface ConversionInput {
   productionOrderId: string;
@@ -28,6 +28,8 @@ export interface ConversionResult {
   conversionFactorSnapshot: number;
   primaryUnit: Unit;
 }
+
+type ProductionOrderUnitClient = Pick<Prisma.TransactionClient, 'productionOrder'>;
 
 function toNumericConversionFactor(value: unknown): number {
   if (typeof value === 'number') return value;
@@ -57,12 +59,13 @@ function toNumericConversionFactor(value: unknown): number {
  * - for primaryUnit input: baseQuantity !== enteredQuantity
  */
 export async function resolveProductionOutputUnit(
-  input: ConversionInput
+  input: ConversionInput,
+  client: ProductionOrderUnitClient = prisma
 ): Promise<ConversionResult> {
   const { productionOrderId, enteredQuantity, enteredUnit } = input;
 
   // Fetch the output variant's unit config
-  const order = await prisma.productionOrder.findUnique({
+  const order = await client.productionOrder.findUnique({
     where: { id: productionOrderId },
     select: {
       bom: {

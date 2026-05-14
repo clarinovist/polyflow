@@ -44,6 +44,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from '@/lib/utils/production-units';
 
 
 // Helper types for client-side usage where Decimals are converted to numbers and Dates to strings
@@ -52,9 +53,14 @@ type SerializedSalesOrderItem = Omit<SalesOrderItem, 'quantity' | 'unitPrice' | 
     unitPrice: number;
     subtotal: number;
     deliveredQty: number;
+    enteredQuantity?: number | null;
+    enteredUnit?: string | null;
+    conversionFactorSnapshot?: number | null;
+    enteredUnitPrice?: number | null;
     createdAt: Date | string;
     updatedAt: Date | string;
     productVariant: Omit<ProductVariant, 'price' | 'buyPrice' | 'sellPrice' | 'conversionFactor' | 'minStockAlert' | 'reorderPoint' | 'reorderQuantity' | 'costingMethod' | 'standardCost' | 'createdAt' | 'updatedAt'> & {
+        conversionFactor: number;
         createdAt: Date | string;
         updatedAt: Date | string;
         product: Product;
@@ -423,13 +429,29 @@ export function SalesOrderDetailClient({
                                                     {item.productVariant.name} - {item.productVariant.skuCode}
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-right">{Number(item.quantity)}</td>
+                                            <td className="p-4 text-right">
+                                                {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
+                                            </td>
                                             <td className="p-4 text-right">
                                                 <span className={Number(item.deliveredQty) > 0 ? "text-emerald-600 font-medium" : "text-muted-foreground"}>
-                                                    {Number(item.deliveredQty)}
+                                                    {getEnteredQuantityDisplay({
+                                                        ...item,
+                                                        ...item.productVariant,
+                                                        quantity: item.deliveredQty,
+                                                        enteredQuantity: item.enteredQuantity && Number(item.quantity) > 0
+                                                            ? (Number(item.enteredQuantity) * Number(item.deliveredQty)) / Number(item.quantity)
+                                                            : null,
+                                                    })}
                                                 </span>
                                             </td>
-                                            {!warehouseMode && <td className="p-4 text-right">{formatRupiah(Number(item.unitPrice))}</td>}
+                                            {!warehouseMode && (
+                                                <td className="p-4 text-right">
+                                                    {(() => {
+                                                        const price = getEnteredUnitPriceDisplay({ ...item, ...item.productVariant });
+                                                        return `${formatRupiah(price.price)}/${price.unit}`;
+                                                    })()}
+                                                </td>
+                                            )}
                                             {!warehouseMode && <td className="p-4 text-right font-medium">{formatRupiah(Number(item.subtotal))}</td>}
                                         </tr>
                                     ))}

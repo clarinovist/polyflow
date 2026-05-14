@@ -1,7 +1,99 @@
 import { prisma } from "@/lib/core/prisma";
 import { Prisma } from '@prisma/client';
 import { CreateSalesQuotationValues, UpdateSalesQuotationValues } from "@/lib/schemas/quotation";
-import { SalesQuotationStatus, SalesOrderStatus, SalesOrderType } from "@prisma/client";
+import { SalesQuotationStatus, SalesOrderStatus, SalesOrderType, Unit } from "@prisma/client";
+
+type QuotationLineInput = {
+    productVariantId: string;
+    quantity: number;
+    unitPrice: number;
+    enteredQuantity?: number;
+    enteredUnit?: Unit;
+    conversionFactorSnapshot?: number;
+    enteredUnitPrice?: number;
+    discountPercent?: number;
+    taxPercent?: number;
+};
+
+function decimalToNumber(value: unknown, fallback = 1) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+        const parsed = (value as { toNumber: () => number }).toNumber();
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function assertNearlyEqual(clientValue: number | undefined, serverValue: number, label: string) {
+    if (clientValue === undefined) return;
+    if (Math.abs(Number(clientValue) - serverValue) > 0.0001) {
+        throw new Error(`${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`);
+    }
+}
+
+function normalizeQuotationLineItem(item: QuotationLineInput, variant: { primaryUnit: Unit; salesUnit: Unit | null; conversionFactor: unknown }) {
+    const payloadCount = [
+        item.enteredQuantity !== undefined,
+        item.enteredUnit !== undefined,
+        item.enteredUnitPrice !== undefined,
+        item.conversionFactorSnapshot !== undefined,
+    ].filter(Boolean).length;
+
+    if (payloadCount > 0 && payloadCount < 4) {
+        throw new Error('Incomplete quotation conversion payload. Send enteredQuantity, enteredUnit, enteredUnitPrice, and conversionFactorSnapshot together.');
+    }
+
+    if (payloadCount === 0) {
+        return {
+            productVariantId: item.productVariantId,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            enteredQuantity: undefined,
+            enteredUnit: undefined,
+            conversionFactorSnapshot: undefined,
+            enteredUnitPrice: undefined,
+            discountPercent: item.discountPercent || 0,
+            taxPercent: item.taxPercent || 0,
+        };
+    }
+
+    let factor = 1;
+    if (item.enteredUnit !== variant.primaryUnit) {
+        if (!variant.salesUnit || item.enteredUnit !== variant.salesUnit) {
+            throw new Error(`Unit ${item.enteredUnit} is not valid for this product variant`);
+        }
+        factor = decimalToNumber(variant.conversionFactor, 1);
+    }
+    if (!Number.isFinite(factor) || factor <= 0) {
+        throw new Error(`Invalid conversion factor for quotation unit ${item.enteredUnit}`);
+    }
+
+    const enteredQuantity = Number(item.enteredQuantity);
+    const enteredUnitPrice = Number(item.enteredUnitPrice);
+    const baseQuantity = enteredQuantity * factor;
+    const baseUnitPrice = enteredUnitPrice / factor;
+
+    assertNearlyEqual(item.quantity, baseQuantity, 'Quotation quantity conversion');
+    assertNearlyEqual(item.unitPrice, baseUnitPrice, 'Quotation unit price conversion');
+    assertNearlyEqual(item.conversionFactorSnapshot, factor, 'Quotation conversion factor');
+
+    return {
+        productVariantId: item.productVariantId,
+        quantity: baseQuantity,
+        unitPrice: baseUnitPrice,
+        enteredQuantity,
+        enteredUnit: item.enteredUnit,
+        conversionFactorSnapshot: factor,
+        enteredUnitPrice,
+        discountPercent: item.discountPercent || 0,
+        taxPercent: item.taxPercent || 0,
+    };
+}
 
 export class QuotationService {
     static async generateQuotationNumber() {
@@ -80,11 +172,18 @@ export class QuotationService {
         let totalDiscount = 0;
         let totalTax = 0;
 
-        const itemsWithTotals = data.items.map(item => {
-            const rawSubtotal = item.quantity * item.unitPrice;
-            const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
+        const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
+            const variant = await prisma.productVariant.findUnique({
+                where: { id: item.productVariantId },
+                select: { id: true, primaryUnit: true, salesUnit: true, conversionFactor: true }
+            });
+            if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+
+            const normalized = normalizeQuotationLineItem(item, variant);
+            const rawSubtotal = normalized.quantity * normalized.unitPrice;
+            const discountAmount = rawSubtotal * (normalized.discountPercent / 100);
             const subtotalAfterDiscount = rawSubtotal - discountAmount;
-            const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
+            const taxAmount = subtotalAfterDiscount * (normalized.taxPercent / 100);
             const flowSubtotal = subtotalAfterDiscount + taxAmount;
 
             totalDiscount += discountAmount;
@@ -92,13 +191,11 @@ export class QuotationService {
             totalAmount += flowSubtotal;
 
             return {
-                ...item,
-                discountPercent: item.discountPercent || 0,
-                taxPercent: item.taxPercent || 0,
+                ...normalized,
                 taxAmount,
                 subtotal: flowSubtotal
             };
-        });
+        }));
 
         return await prisma.salesQuotation.create({
             data: {
@@ -117,6 +214,10 @@ export class QuotationService {
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
+                        enteredQuantity: item.enteredQuantity,
+                        enteredUnit: item.enteredUnit,
+                        conversionFactorSnapshot: item.conversionFactorSnapshot,
+                        enteredUnitPrice: item.enteredUnitPrice,
                         discountPercent: item.discountPercent,
                         taxPercent: item.taxPercent,
                         taxAmount: item.taxAmount,
@@ -141,11 +242,18 @@ export class QuotationService {
         let totalDiscount = 0;
         let totalTax = 0;
 
-        const itemsWithTotals = data.items.map(item => {
-            const rawSubtotal = item.quantity * item.unitPrice;
-            const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
+        const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
+            const variant = await prisma.productVariant.findUnique({
+                where: { id: item.productVariantId },
+                select: { id: true, primaryUnit: true, salesUnit: true, conversionFactor: true }
+            });
+            if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+
+            const normalized = normalizeQuotationLineItem(item, variant);
+            const rawSubtotal = normalized.quantity * normalized.unitPrice;
+            const discountAmount = rawSubtotal * (normalized.discountPercent / 100);
             const subtotalAfterDiscount = rawSubtotal - discountAmount;
-            const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
+            const taxAmount = subtotalAfterDiscount * (normalized.taxPercent / 100);
             const flowSubtotal = subtotalAfterDiscount + taxAmount;
 
             totalDiscount += discountAmount;
@@ -153,13 +261,11 @@ export class QuotationService {
             totalAmount += flowSubtotal;
 
             return {
-                ...item,
-                discountPercent: item.discountPercent || 0,
-                taxPercent: item.taxPercent || 0,
+                ...normalized,
                 taxAmount,
                 subtotal: flowSubtotal
             };
-        });
+        }));
 
         return await prisma.$transaction(async (tx) => {
             await tx.salesQuotationItem.deleteMany({
@@ -182,6 +288,10 @@ export class QuotationService {
                             productVariantId: item.productVariantId,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,
+                            enteredQuantity: item.enteredQuantity,
+                            enteredUnit: item.enteredUnit,
+                            conversionFactorSnapshot: item.conversionFactorSnapshot,
+                            enteredUnitPrice: item.enteredUnitPrice,
                             discountPercent: item.discountPercent,
                             taxPercent: item.taxPercent,
                             taxAmount: item.taxAmount,
@@ -245,6 +355,10 @@ export class QuotationService {
                             productVariantId: item.productVariantId,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,
+                            enteredQuantity: item.enteredQuantity,
+                            enteredUnit: item.enteredUnit,
+                            conversionFactorSnapshot: item.conversionFactorSnapshot,
+                            enteredUnitPrice: item.enteredUnitPrice,
                             discountPercent: item.discountPercent,
                             taxPercent: item.taxPercent,
                             taxAmount: item.taxAmount,

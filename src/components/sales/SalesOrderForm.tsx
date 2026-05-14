@@ -37,10 +37,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Customer, Location, ProductVariant, Product, SalesOrderType, ProductType } from '@prisma/client';
+import { Customer, Location, ProductVariant, Product, SalesOrderType, ProductType, Unit } from '@prisma/client';
 import { useAction } from '@/hooks/use-action';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -101,6 +102,10 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
             productVariantId: string;
             quantity: number;
             unitPrice: number;
+            enteredQuantity?: number;
+            enteredUnit?: Unit;
+            conversionFactorSnapshot?: number;
+            enteredUnitPrice?: number;
             discountPercent?: number;
             taxPercent?: number;
         }[];
@@ -185,6 +190,21 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
     const watchItems = useWatch({ control: form.control, name: 'items' });
 
+    const getLineVariant = (index: number) => {
+        const productVariantId = form.getValues(`items.${index}.productVariantId`);
+        return products.find((p) => p.id === productVariantId);
+    };
+
+    const getLineUnitMeta = (index: number) => {
+        const variant = getLineVariant(index);
+        return variant ? getProductionUnitMeta(variant) : null;
+    };
+
+    const toDisplayUnitPrice = (variant: SerializedProductVariant, baseUnitPrice: number) => {
+        const meta = getProductionUnitMeta(variant);
+        return meta.hasAlternateUnit ? baseUnitPrice * meta.conversionFactor : baseUnitPrice;
+    };
+
     const totals = watchItems?.reduce((acc, item) => {
         const qty = item.quantity || 0;
         const price = item.unitPrice || 0;
@@ -217,8 +237,44 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         }
     );
 
+    function normalizeFormDataForSubmit(data: SalesOrderFormValues): SalesOrderFormValues {
+        return {
+            ...data,
+            items: data.items.map((item) => {
+                const variant = products.find((p) => p.id === item.productVariantId);
+                if (!variant) return item;
+
+                const meta = getProductionUnitMeta(variant);
+                if (!meta.hasAlternateUnit) {
+                    return {
+                        ...item,
+                        enteredQuantity: undefined,
+                        enteredUnit: undefined,
+                        conversionFactorSnapshot: undefined,
+                        enteredUnitPrice: undefined,
+                    };
+                }
+
+                const enteredQuantity = Number(item.quantity);
+                const enteredUnitPrice = Number(item.unitPrice);
+                const baseQuantity = toBaseQuantity(enteredQuantity, meta.conversionFactor);
+                const baseUnitPrice = enteredUnitPrice / meta.conversionFactor;
+
+                return {
+                    ...item,
+                    quantity: baseQuantity,
+                    unitPrice: baseUnitPrice,
+                    enteredQuantity,
+                    enteredUnit: meta.salesUnit as Unit,
+                    conversionFactorSnapshot: meta.conversionFactor,
+                    enteredUnitPrice,
+                };
+            }),
+        };
+    }
+
     async function onSubmit(data: SalesOrderFormValues) {
-        await submitAction(data);
+        await submitAction(normalizeFormDataForSubmit(data));
     }
 
     return (
@@ -570,7 +626,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                                         // Also update unit price if it's 0 or not set
                                                                                         const currentPrice = form.getValues(`items.${index}.unitPrice`);
                                                                                         if (!currentPrice || currentPrice === 0) {
-                                                                                            form.setValue(`items.${index}.unitPrice`, p.sellPrice || 0);
+                                                                                            form.setValue(`items.${index}.unitPrice`, toDisplayUnitPrice(p, p.sellPrice || 0));
                                                                                         }
                                                                                         setOpenProduct(prev => ({ ...prev, [index]: false }));
                                                                                     }}
@@ -585,7 +641,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                                     />
                                                                                     <div className="flex flex-col">
                                                                                         <span>{p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`}</span>
-                                                                                        <span className="text-xs text-muted-foreground">{p.skuCode} • {formatRupiah(p.sellPrice || 0)}</span>
+                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                            {p.skuCode} • {formatRupiah(toDisplayUnitPrice(p, p.sellPrice || 0))}/{getProductionUnitMeta(p).displayUnit}
+                                                                                        </span>
                                                                                     </div>
                                                                                 </CommandItem>
                                                                             ))}
@@ -615,6 +673,11 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                 {...field}
                                                             />
                                                         </FormControl>
+                                                        {getLineUnitMeta(index) && (
+                                                            <FormDescription className="px-2 text-[10px]">
+                                                                {getLineUnitMeta(index)?.displayUnit}
+                                                            </FormDescription>
+                                                        )}
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -634,6 +697,11 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                 {...field}
                                                             />
                                                         </FormControl>
+                                                        {getLineUnitMeta(index) && (
+                                                            <FormDescription className="px-2 text-[10px]">
+                                                                per {getLineUnitMeta(index)?.displayUnit}
+                                                            </FormDescription>
+                                                        )}
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}

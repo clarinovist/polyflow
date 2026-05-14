@@ -416,6 +416,9 @@ model ProductionOrder {
   orderNumber             String                @unique
   bomId                   String
   plannedQuantity         Decimal               @db.Decimal(15, 4)
+  plannedEnteredQuantity  Decimal?              @db.Decimal(15, 4)
+  plannedEnteredUnit      Unit?
+  plannedConversionFactorSnapshot Decimal?      @db.Decimal(10, 4)
   plannedStartDate        DateTime
   plannedEndDate          DateTime?
   actualQuantity          Decimal?              @db.Decimal(15, 4)
@@ -689,6 +692,10 @@ model SalesQuotationItem {
   productVariantId String
   quantity         Decimal        @db.Decimal(15, 4)
   unitPrice        Decimal        @db.Decimal(15, 2)
+  enteredQuantity  Decimal?       @db.Decimal(15, 4)
+  enteredUnit      Unit?
+  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
+  enteredUnitPrice Decimal?       @db.Decimal(15, 2)
   discountPercent  Decimal?       @db.Decimal(5, 2)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
@@ -705,6 +712,10 @@ model SalesOrderItem {
   productVariantId String
   quantity         Decimal        @db.Decimal(15, 4)
   unitPrice        Decimal        @db.Decimal(15, 2)
+  enteredQuantity  Decimal?       @db.Decimal(15, 4)
+  enteredUnit      Unit?
+  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
+  enteredUnitPrice Decimal?       @db.Decimal(15, 2)
   subtotal         Decimal        @db.Decimal(15, 2)
   deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
   createdAt        DateTime       @default(now())
@@ -985,6 +996,9 @@ model DeliveryOrderItem {
   deliveryOrderId  String
   productVariantId String
   quantity         Decimal        @db.Decimal(15, 4)
+  enteredQuantity  Decimal?       @db.Decimal(15, 4)
+  enteredUnit      Unit?
+  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
   notes            String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

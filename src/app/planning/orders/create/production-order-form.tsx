@@ -16,6 +16,8 @@ import { format } from 'date-fns';
 import { createProductionOrder, getBomWithInventory } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { formatProductionQuantity, getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import { Unit } from '@prisma/client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -36,6 +38,8 @@ export interface ProductionOrderFormProps {
         productVariant: {
             name: string;
             primaryUnit: string;
+            salesUnit?: string | null;
+            conversionFactor?: number;
             product: {
                 productType: string;
             };
@@ -161,8 +165,9 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
     const watchItems = useWatch({ control: form.control, name: 'items' });
     const watchIsMaklon = useWatch({ control: form.control, name: 'isMaklon' });
 
-    const [planningMode, setPlanningMode] = useState<'weight' | 'batch'>('weight');
+    const [planningMode, setPlanningMode] = useState<'weight' | 'sales' | 'batch'>('weight');
     const [batchCount, setBatchCount] = useState<number>(1);
+    const [enteredTargetQty, setEnteredTargetQty] = useState<number>(0);
 
     // Update Planned Qty when Batch Count or BOM changes in Batch Mode
     useEffect(() => {
@@ -174,6 +179,16 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             }
         }
     }, [planningMode, batchCount, watchBomId, boms, form]);
+
+    useEffect(() => {
+        if (planningMode === 'sales' && watchBomId) {
+            const bom = boms.find(b => b.id === watchBomId);
+            if (bom) {
+                const meta = getProductionUnitMeta(bom.productVariant);
+                form.setValue('plannedQuantity', toBaseQuantity(Number(enteredTargetQty || 0), meta.conversionFactor));
+            }
+        }
+    }, [planningMode, enteredTargetQty, watchBomId, boms, form]);
 
     const resolveSourceLocationId = (stage: 'mixing' | 'extrusion' | 'packing' | 'rework', isMaklonMode: boolean) => {
         const rmLoc = locationIdBySlug.get(WAREHOUSE_SLUGS.RAW_MATERIAL) || '';
@@ -318,6 +333,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
     }, [machines, processType]);
 
     const selectedBom = boms.find(b => b.id === watchBomId);
+    const selectedBomUnit = selectedBom ? getProductionUnitMeta(selectedBom.productVariant) : null;
 
     async function onSubmit(data: FormValues) {
 
@@ -328,7 +344,18 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                 locationId: data.locationId, // Ensure hidden field value is passed
                 plannedQuantity: planningMode === 'batch' && selectedBom
                     ? batchCount * Number(selectedBom.outputQuantity)
-                    : data.plannedQuantity
+                    : planningMode === 'sales' && selectedBomUnit
+                        ? toBaseQuantity(Number(enteredTargetQty || 0), selectedBomUnit.conversionFactor)
+                    : data.plannedQuantity,
+                plannedEnteredQuantity: planningMode === 'sales' && selectedBomUnit
+                    ? Number(enteredTargetQty || 0)
+                    : undefined,
+                plannedEnteredUnit: planningMode === 'sales' && selectedBomUnit
+                    ? selectedBomUnit.salesUnit as Unit
+                    : undefined,
+                plannedConversionFactorSnapshot: planningMode === 'sales' && selectedBomUnit
+                    ? selectedBomUnit.conversionFactor
+                    : undefined,
             });
 
             setIsSubmitting(false);
@@ -407,6 +434,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                setEnteredTargetQty(0);
+                                                setPlanningMode('weight');
                                                 form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
@@ -427,6 +456,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                setEnteredTargetQty(0);
+                                                setPlanningMode('weight');
                                                 form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
@@ -447,6 +478,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                setEnteredTargetQty(0);
+                                                setPlanningMode('weight');
                                                 form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
@@ -467,6 +500,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 form.setValue('items', []);
                                                 form.setValue('bomId', '');
                                                 form.setValue('plannedQuantity', 0);
+                                                setEnteredTargetQty(0);
+                                                setPlanningMode('weight');
                                                 form.setValue('machineId', '');
                                                 setMaterialInfo({});
                                                 setSuggestedSource(null);
@@ -485,6 +520,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             onValueChange={(value) => {
                                                 setSelectedProductVariantId(value);
                                                 setSuggestedSource(null);
+                                                setEnteredTargetQty(0);
+                                                setPlanningMode('weight');
                                             }}
                                         >
                                             <FormControl>
@@ -510,7 +547,14 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             <FormItem>
                                                 <FormLabel>Recipe</FormLabel>
                                                 <Select
-                                                    onValueChange={field.onChange}
+                                                    onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                        setEnteredTargetQty(0);
+                                                        const nextBom = boms.find((bom) => bom.id === value);
+                                                        if (!getProductionUnitMeta(nextBom?.productVariant || {}).hasAlternateUnit) {
+                                                            setPlanningMode('weight');
+                                                        }
+                                                    }}
                                                     value={field.value}
                                                     disabled={!selectedProductVariantId}
                                                 >
@@ -596,12 +640,22 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 className="rounded-r-none h-9 flex-1 text-xs"
                                                 onClick={() => setPlanningMode('weight')}
                                             >
-                                                By Weight
+                                                By {selectedBomUnit?.primaryUnit || 'Base'}
                                             </Button>
+                                            {selectedBomUnit?.hasAlternateUnit && (
+                                                <Button
+                                                    type="button"
+                                                    variant={planningMode === 'sales' ? 'default' : 'outline'}
+                                                    className="rounded-none h-9 flex-1 text-xs border-l-0"
+                                                    onClick={() => setPlanningMode('sales')}
+                                                >
+                                                    By {selectedBomUnit.salesUnit}
+                                                </Button>
+                                            )}
                                             <Button
                                                 type="button"
                                                 variant={planningMode === 'batch' ? 'default' : 'outline'}
-                                                className="rounded-l-none h-9 flex-1 text-xs"
+                                                className="rounded-l-none h-9 flex-1 text-xs border-l-0"
                                                 onClick={() => setPlanningMode('batch')}
                                             >
                                                 By Batch
@@ -630,7 +684,28 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                     />
                                                 </FormControl>
                                                 <FormDescription>
-                                                    {selectedBom ? `${batchCount} x ${selectedBom.outputQuantity} = ${Number(selectedBom.outputQuantity) * batchCount} ${selectedBom.productVariant.primaryUnit}` : 'Select Recipe first'}
+                                                    {selectedBom ? `${batchCount} x ${selectedBom.outputQuantity} = ${formatProductionQuantity(Number(selectedBom.outputQuantity) * batchCount, selectedBom.productVariant)}` : 'Select Recipe first'}
+                                                </FormDescription>
+                                            </FormItem>
+                                        ) : planningMode === 'sales' && selectedBomUnit ? (
+                                            <FormItem>
+                                                <FormLabel>Target Output ({selectedBomUnit.salesUnit})</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={enteredTargetQty.toString()}
+                                                        onChange={(e) => {
+                                                            const next = e.target.value === '' ? 0 : Number(e.target.value);
+                                                            setEnteredTargetQty(next);
+                                                            form.setValue('plannedQuantity', toBaseQuantity(next, selectedBomUnit.conversionFactor));
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    {enteredTargetQty > 0
+                                                        ? `Posted internally as ${formatProductionQuantity(toBaseQuantity(enteredTargetQty, selectedBomUnit.conversionFactor), selectedBom?.productVariant || {})}`
+                                                        : `1 ${selectedBomUnit.salesUnit} = ${selectedBomUnit.conversionFactor} ${selectedBomUnit.primaryUnit}`}
                                                 </FormDescription>
                                             </FormItem>
                                         ) : (
@@ -639,7 +714,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 name="plannedQuantity"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Target Weight</FormLabel>
+                                                        <FormLabel>Target Output ({selectedBomUnit?.primaryUnit || 'Base Unit'})</FormLabel>
                                                         <FormControl>
                                                             <Input type="number" step="0.01" {...field} />
                                                         </FormControl>

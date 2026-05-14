@@ -1,11 +1,111 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma, ProductType, InvoiceStatus } from '@prisma/client';
+import { SalesOrderStatus, SalesOrderType, ReservationType, ReservationStatus, Prisma, ProductType, InvoiceStatus, Unit } from '@prisma/client';
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { createStockReservation } from '@/services/inventory/reservation-service';
 import { ProductionService } from '@/services/production/production-service';
 import { checkCreditLimit } from './credit-service';
 import { logger } from '@/lib/config/logger';
+
+type SalesLineInput = {
+    productVariantId: string;
+    quantity: number;
+    unitPrice: number;
+    enteredQuantity?: number;
+    enteredUnit?: Unit;
+    conversionFactorSnapshot?: number;
+    enteredUnitPrice?: number;
+    discountPercent?: number;
+    taxPercent?: number;
+};
+
+function decimalToNumber(value: unknown, fallback = 1) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+        const parsed = (value as { toNumber: () => number }).toNumber();
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function assertNearlyEqual(clientValue: number | undefined, serverValue: number, label: string) {
+    if (clientValue === undefined) return;
+    if (Math.abs(Number(clientValue) - serverValue) > 0.0001) {
+        throw new Error(`${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`);
+    }
+}
+
+function resolveSalesEnteredUnitFactor(item: SalesLineInput, variant: { primaryUnit: Unit; salesUnit: Unit | null; conversionFactor: unknown }) {
+    const payloadCount = [
+        item.enteredQuantity !== undefined,
+        item.enteredUnit !== undefined,
+        item.enteredUnitPrice !== undefined,
+        item.conversionFactorSnapshot !== undefined,
+    ].filter(Boolean).length;
+
+    if (payloadCount > 0 && payloadCount < 4) {
+        throw new Error('Incomplete sales conversion payload. Send enteredQuantity, enteredUnit, enteredUnitPrice, and conversionFactorSnapshot together.');
+    }
+
+    if (payloadCount === 0) return null;
+
+    const enteredUnit = item.enteredUnit as Unit;
+    if (enteredUnit === variant.primaryUnit) return 1;
+
+    if (variant.salesUnit && enteredUnit === variant.salesUnit) {
+        const factor = decimalToNumber(variant.conversionFactor, 1);
+        if (!Number.isFinite(factor) || factor <= 0) {
+            throw new Error(`Invalid conversion factor for sales unit ${enteredUnit}`);
+        }
+        return factor;
+    }
+
+    throw new Error(`Unit ${enteredUnit} is not valid for this product variant`);
+}
+
+function normalizeSalesLineItem(item: SalesLineInput, variant: { primaryUnit: Unit; salesUnit: Unit | null; conversionFactor: unknown }) {
+    const factor = resolveSalesEnteredUnitFactor(item, variant);
+
+    if (factor === null) {
+        return {
+            productVariantId: item.productVariantId,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            enteredQuantity: undefined,
+            enteredUnit: undefined,
+            conversionFactorSnapshot: undefined,
+            enteredUnitPrice: undefined,
+            discountPercent: item.discountPercent || 0,
+            taxPercent: item.taxPercent || 0,
+        };
+    }
+
+    const enteredQuantity = Number(item.enteredQuantity);
+    const enteredUnitPrice = Number(item.enteredUnitPrice);
+    const baseQuantity = enteredQuantity * factor;
+    const baseUnitPrice = factor > 0 ? enteredUnitPrice / factor : enteredUnitPrice;
+
+    assertNearlyEqual(item.quantity, baseQuantity, 'Sales quantity conversion');
+    assertNearlyEqual(item.unitPrice, baseUnitPrice, 'Sales unit price conversion');
+    assertNearlyEqual(item.conversionFactorSnapshot, factor, 'Sales conversion factor');
+
+    return {
+        productVariantId: item.productVariantId,
+        quantity: baseQuantity,
+        unitPrice: baseUnitPrice,
+        enteredQuantity,
+        enteredUnit: item.enteredUnit,
+        conversionFactorSnapshot: factor,
+        enteredUnitPrice,
+        discountPercent: item.discountPercent || 0,
+        taxPercent: item.taxPercent || 0,
+    };
+}
 
 async function validateMaklonSourceLocation(sourceLocationId: string, orderType: SalesOrderType) {
     if (orderType !== SalesOrderType.MAKLON_JASA) {
@@ -172,10 +272,11 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
             throw new Error(`Physical item '${variant.name}' is not allowed for Maklon Jasa orders. Use a Service item instead.`);
         }
 
-        const rawSubtotal = item.quantity * item.unitPrice;
-        const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
+        const normalized = normalizeSalesLineItem(item, variant);
+        const rawSubtotal = normalized.quantity * normalized.unitPrice;
+        const discountAmount = rawSubtotal * (normalized.discountPercent / 100);
         const subtotalAfterDiscount = rawSubtotal - discountAmount;
-        const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
+        const taxAmount = subtotalAfterDiscount * (normalized.taxPercent / 100);
         const flowSubtotal = subtotalAfterDiscount + taxAmount;
 
         totalDiscount += discountAmount;
@@ -183,9 +284,7 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
         totalAmount += flowSubtotal;
 
         return {
-            ...item,
-            discountPercent: item.discountPercent || 0,
-            taxPercent: item.taxPercent || 0,
+            ...normalized,
             taxAmount,
             subtotal: flowSubtotal
         };
@@ -214,6 +313,10 @@ export async function createOrder(data: CreateSalesOrderValues, userId: string) 
                     productVariantId: item.productVariantId,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
+                    enteredQuantity: item.enteredQuantity,
+                    enteredUnit: item.enteredUnit,
+                    conversionFactorSnapshot: item.conversionFactorSnapshot,
+                    enteredUnitPrice: item.enteredUnitPrice,
                     discountPercent: item.discountPercent,
                     taxPercent: item.taxPercent,
                     taxAmount: item.taxAmount,
@@ -259,10 +362,11 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
             throw new Error(`Physical item '${variant.name}' is not allowed for Maklon Jasa orders. Use a Service item instead.`);
         }
 
-        const rawSubtotal = item.quantity * item.unitPrice;
-        const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
+        const normalized = normalizeSalesLineItem(item, variant);
+        const rawSubtotal = normalized.quantity * normalized.unitPrice;
+        const discountAmount = rawSubtotal * (normalized.discountPercent / 100);
         const subtotalAfterDiscount = rawSubtotal - discountAmount;
-        const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
+        const taxAmount = subtotalAfterDiscount * (normalized.taxPercent / 100);
         const flowSubtotal = subtotalAfterDiscount + taxAmount;
 
         totalDiscount += discountAmount;
@@ -270,9 +374,7 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
         totalAmount += flowSubtotal;
 
         return {
-            ...item,
-            discountPercent: item.discountPercent || 0,
-            taxPercent: item.taxPercent || 0,
+            ...normalized,
             taxAmount,
             subtotal: flowSubtotal
         };
@@ -303,6 +405,10 @@ export async function updateOrder(data: UpdateSalesOrderValues, _userId: string)
                         productVariantId: item.productVariantId,
                         quantity: item.quantity,
                         unitPrice: item.unitPrice,
+                        enteredQuantity: item.enteredQuantity,
+                        enteredUnit: item.enteredUnit,
+                        conversionFactorSnapshot: item.conversionFactorSnapshot,
+                        enteredUnitPrice: item.enteredUnitPrice,
                         discountPercent: item.discountPercent,
                         taxPercent: item.taxPercent,
                         taxAmount: item.taxAmount,

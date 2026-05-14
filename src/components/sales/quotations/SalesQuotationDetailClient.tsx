@@ -28,6 +28,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Label } from '@/components/ui/label';
+import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from '@/lib/utils/production-units';
 
 // Type definition for serialized props (handling Dates/Decimals as needed or assuming standard object)
 // Since we use prisma objects directly in server component, and if serializeData is used, Decimals might be numbers/strings.
@@ -208,8 +209,15 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                                 <div className="font-medium">{item.productVariant.product.name}</div>
                                                 <div className="text-muted-foreground text-xs">{item.productVariant.name} ({item.productVariant.skuCode})</div>
                                             </td>
-                                            <td className="p-4 text-right">{Number(item.quantity)}</td>
-                                            <td className="p-4 text-right">{formatRupiah(Number(item.unitPrice))}</td>
+                                            <td className="p-4 text-right">
+                                                {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                {(() => {
+                                                    const price = getEnteredUnitPriceDisplay({ ...item, ...item.productVariant });
+                                                    return `${formatRupiah(price.price)}/${price.unit}`;
+                                                })()}
+                                            </td>
                                             <td className="p-4 text-right text-red-600">
                                                 {Number(item.discountPercent) > 0 ? `-${Number(item.discountPercent)}%` : '-'}
                                             </td>

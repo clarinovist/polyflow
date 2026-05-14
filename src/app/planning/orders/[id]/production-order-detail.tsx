@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { Play, CheckCircle, Package, History, Trash2, Calculator, Info, TrendingUp as TrendingUpIcon, Factory } from 'lucide-react';
 import { MaklonCostManager } from '@/components/maklon/MaklonCostManager';
 import { cn, formatRupiah } from '@/lib/utils/utils';
+import { formatProductionQuantity, getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { getOrderCosting } from '@/actions/finance/finance';
 import { useEffect } from 'react';
 import {
@@ -95,6 +96,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
     const plannedQty = Number(order.plannedQuantity);
     const actualQty = Number(order.actualQuantity || 0);
     const progress = Math.min((actualQty / plannedQty) * 100, 100);
+    const outputUnitConfig = order.bom.productVariant;
     const demandSourceLabel = order.salesOrder
         ? order.salesOrder.customer?.name || 'Customer demand'
         : order.isMaklon
@@ -297,7 +299,17 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-2xl font-bold">{actualQty.toFixed(2)} / {plannedQty.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">{order.bom.productVariant.primaryUnit}</span></span>
+                                <span className="text-2xl font-bold">
+                                    {formatProductionQuantity(actualQty, outputUnitConfig)}
+                                    <span className="mx-2 text-muted-foreground">/</span>
+                                    {getEnteredQuantityDisplay({
+                                        ...outputUnitConfig,
+                                        quantity: plannedQty,
+                                        enteredQuantity: order.plannedEnteredQuantity,
+                                        enteredUnit: order.plannedEnteredUnit,
+                                        conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+                                    })}
+                                </span>
                                 <span className="text-sm font-medium text-muted-foreground">{progress.toFixed(1)}%</span>
                             </div>
                             <Progress value={progress} className="h-2" />
@@ -445,7 +457,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                                         </div>
                                                                     );
                                                                 }
-                                                                return <span>+{baseQty} {primaryUnit}</span>;
+                                                                return <span>+{formatProductionQuantity(baseQty, outputUnitConfig)}</span>;
                                                             })()}
                                                         </td>
                                                         <td className="p-3 text-right text-destructive">
@@ -949,6 +961,4 @@ function DetailRow({ label, value }: { label: string, value: string }) {
         </div>
     );
 }
-
-
 

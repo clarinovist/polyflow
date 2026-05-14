@@ -128,10 +128,20 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
                         create: physicalItems.map(item => ({
                             productVariantId: item.productVariantId,
                             quantity: item.quantity,
+                            enteredQuantity: item.enteredQuantity,
+                            enteredUnit: item.enteredUnit,
+                            conversionFactorSnapshot: item.conversionFactorSnapshot,
                             notes: item.id
                         }))
                     }
                 }
+            });
+        }
+
+        for (const item of physicalItems) {
+            await tx.salesOrderItem.update({
+                where: { id: item.id },
+                data: { deliveredQty: { increment: item.quantity } }
             });
         }
 

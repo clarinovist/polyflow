@@ -165,7 +165,8 @@ export class ProductionOrderService {
         const {
             bomId, plannedQuantity, plannedStartDate, plannedEndDate,
             locationId, orderNumber, notes, salesOrderId, userId, machineId,
-            isMaklon, maklonCustomerId, estimatedConversionCost
+            isMaklon, maklonCustomerId, estimatedConversionCost,
+            plannedEnteredQuantity, plannedEnteredUnit, plannedConversionFactorSnapshot
         } = data;
 
         return await prisma.$transaction(async (tx) => {
@@ -239,6 +240,9 @@ export class ProductionOrderService {
                 notes,
                 status: initialStatus,
                 actualQuantity: 0,
+                plannedEnteredQuantity,
+                plannedEnteredUnit,
+                plannedConversionFactorSnapshot,
                 salesOrder: salesOrderId ? { connect: { id: salesOrderId } } : undefined,
                 createdBy: userId ? { connect: { id: userId } } : undefined,
                 machine: machineId ? { connect: { id: machineId } } : undefined,
@@ -305,6 +309,9 @@ export class ProductionOrderService {
         return await this.createOrder({
             bomId: bom.id,
             plannedQuantity: quantity,
+            plannedEnteredQuantity: undefined,
+            plannedEnteredUnit: undefined,
+            plannedConversionFactorSnapshot: undefined,
             plannedStartDate: new Date(),
             plannedEndDate: so.expectedDate || undefined,
             locationId: so.sourceLocationId || '',
