@@ -125,7 +125,9 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                         <div className="flex justify-between items-start">
                             <div>
                                 <CardTitle className="text-2xl">{salesReturn.returnNumber}</CardTitle>
-                                <CardDescription>Returned on {format(new Date(salesReturn.returnDate), 'PPP')}</CardDescription>
+                                <CardDescription>
+                                    Returned on {salesReturn.returnDate ? format(new Date(salesReturn.returnDate), 'PPP') : '-'}
+                                </CardDescription>
                             </div>
                             {getStatusBadge(salesReturn.status)}
                         </div>

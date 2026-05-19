@@ -14,13 +14,13 @@ export default async function PurchaseReturnDetailPage({ params }: PageProps) {
     const { id } = await params;
     const session = await auth();
     const currentUserRole = session?.user?.role;
-    const purchaseReturn = await getPurchaseReturnById(id);
+    const purchaseReturnRes = await getPurchaseReturnById(id);
 
-    if (!purchaseReturn) {
+    if (!purchaseReturnRes.success || !purchaseReturnRes.data) {
         notFound();
     }
 
-    const serializedReturn = serializeData(purchaseReturn);
+    const serializedReturn = serializeData(purchaseReturnRes.data);
 
     return (
         <div className="p-6 max-w-5xl mx-auto">

@@ -14,13 +14,13 @@ export default async function SalesReturnDetailPage({ params }: PageProps) {
     const { id } = await params;
     const session = await auth();
     const currentUserRole = session?.user?.role;
-    const salesReturn = await getSalesReturnById(id);
+    const salesReturnRes = await getSalesReturnById(id);
 
-    if (!salesReturn) {
+    if (!salesReturnRes.success || !salesReturnRes.data) {
         notFound();
     }
 
-    const serializedReturn = serializeData(salesReturn);
+    const serializedReturn = serializeData(salesReturnRes.data);
 
     return (
         <div className="p-6 max-w-5xl mx-auto">

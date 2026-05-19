@@ -124,7 +124,9 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                         <div className="flex justify-between items-start">
                             <div>
                                 <CardTitle className="text-2xl">{purchaseReturn.returnNumber}</CardTitle>
-                                <CardDescription>Returned on {format(new Date(purchaseReturn.returnDate), 'PPP')}</CardDescription>
+                                <CardDescription>
+                                    Returned on {purchaseReturn.returnDate ? format(new Date(purchaseReturn.returnDate), 'PPP') : '-'}
+                                </CardDescription>
                             </div>
                             {getStatusBadge(purchaseReturn.status)}
                         </div>
