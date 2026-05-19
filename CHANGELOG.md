@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.7.0](https://github.com/clarinovist/polyflow/compare/v1.6.0...v1.7.0) (2026-05-19)
+
+
+### Features
+
+* add cost guardrail phase 1 diagnostics ([ed47ed2](https://github.com/clarinovist/polyflow/commit/ed47ed2a0b8797439104f7889f65d9c254e8c9d4))
+* add maklon stage routing ([af9c604](https://github.com/clarinovist/polyflow/commit/af9c6048beba98f3c42a3ccb98c8d11ecf03697a))
+* add raw material price shock simulator ([3b484cc](https://github.com/clarinovist/polyflow/commit/3b484cc6aa1037986212731074af009ac1ae6c44))
+* **bom:** expose hpp calculator and material simulator in BOM workspace ([264f7ed](https://github.com/clarinovist/polyflow/commit/264f7eddd94ff4d55005f8dcf943b4c81d36fd44))
+* **finance:** expose hpp calculator and material simulator in top-level navigation ([53f8e64](https://github.com/clarinovist/polyflow/commit/53f8e64b84a5c17341f485d840033062573d8efb))
+* **finance:** show buyer/supplier on journal metadata (SALES/PURCHASE_INVOICE) ([81b032f](https://github.com/clarinovist/polyflow/commit/81b032f6d1be332e512ebf75acf60a8c24b84438))
+* **finance:** show order notes in journal metadata ([d1dbb70](https://github.com/clarinovist/polyflow/commit/d1dbb7090260cab87055bc4e9f689b70dbed3fba))
+* harden security, optimize costing queries, and expand test coverage ([6cba39f](https://github.com/clarinovist/polyflow/commit/6cba39f65baa32096916017936cddb0edffd84d3))
+* implement BOM tiered cost cascade phases 1-4 ([13ba74c](https://github.com/clarinovist/polyflow/commit/13ba74c5b2ec20171c99620b784b89f9db806c5f))
+* **opname:** add manual item to stock opname + fix pre-existing TS errors ([7329cb7](https://github.com/clarinovist/polyflow/commit/7329cb7f44dce68e687c22876509513fcae59309))
+* **production:** WO Pack output UOM conversion (PACK to KG) ([771278a](https://github.com/clarinovist/polyflow/commit/771278a4da2e511f5f26f7c0426a5df8e6917c4c))
+* sales/delivery UOM audit - snapshot entered qty, unit, conversion ([bb5751f](https://github.com/clarinovist/polyflow/commit/bb5751f0e70e2e62cc5b7ab2cfef3b752af4285c))
+* switch chatbot LLM to Ollama (deepseek-r1:7b) with env config ([395f400](https://github.com/clarinovist/polyflow/commit/395f400afad78b8f871f222bfe633a764f672590))
+
+
+### Bug Fixes
+
+* add maklon stock repair ([85c5b14](https://github.com/clarinovist/polyflow/commit/85c5b140a4384acc4f3d1ded78baec1da3d6af7a))
+* align production order create inputs with Prisma relations ([e5236fb](https://github.com/clarinovist/polyflow/commit/e5236fb19a44af350d6c3e29ab188e61aec43c87))
+* **ci:** handle stale deploy container ([304ffb4](https://github.com/clarinovist/polyflow/commit/304ffb44a57d33035df71cff8354fc524e981b7f))
+* correct backflush location resolution for Maklon orders ([c0ff6ac](https://github.com/clarinovist/polyflow/commit/c0ff6ac68ca2732612ba579a042d84c52fa598d6))
+* **db:** add self-healing mode to entrypoint to resolve migration drift in production ([c6a4333](https://github.com/clarinovist/polyflow/commit/c6a4333e6efe8ad15c0a9e4e6b45d1ad7f0e69eb))
+* fallback to standardCost when inventory value is zero ([f9a12d7](https://github.com/clarinovist/polyflow/commit/f9a12d7d78034f646f3ce35b9e57706fb7fb8008))
+* **finance:** fix GL account 12900 error and align COA with transaction types ([761bd16](https://github.com/clarinovist/polyflow/commit/761bd16a77bcdde9d8b404b3ab282b7800f9297b))
+* lint errors — remove unused variable and no-explicit-any cast ([dfe27b8](https://github.com/clarinovist/polyflow/commit/dfe27b86014e3b282f931202bd6bef20e8e528a7))
+* lint errors — rm unused imports, add eslint-disable comments ([348cca6](https://github.com/clarinovist/polyflow/commit/348cca639d14b613deaccafa500182a0b948c067))
+* make maklon repair script no-op on clean data ([1868bbf](https://github.com/clarinovist/polyflow/commit/1868bbfc983a6d364c68d6a66f7287b87a19fe1d))
+* multi-tenant logout redirect when NEXTAUTH_URL is unset ([47f9529](https://github.com/clarinovist/polyflow/commit/47f952956b757d63ffa4f0a1eaa62883ac7ab8fa))
+* **production:** prioritise machine location and use precise avg cost for maklon ([b19d35c](https://github.com/clarinovist/polyflow/commit/b19d35cd22f348d9d7257f78b85700503fb13a0f))
+* **production:** resolve consumption location per item for Maklon orders ([469badd](https://github.com/clarinovist/polyflow/commit/469badde3e65f7d97717df220a25d688c9c9a8b6))
+* **production:** specify class name for resolveMaterialLocation to avoid this context loss ([8ca182e](https://github.com/clarinovist/polyflow/commit/8ca182edb08d6614a6209e1a419552a0b7cac9b3))
+* **products:** align detail types with action payload ([cf29cd9](https://github.com/clarinovist/polyflow/commit/cf29cd9d86af62398e1005ea04923f9f67d08676))
+* **products:** unwrap edit product action response ([a9bdef6](https://github.com/clarinovist/polyflow/commit/a9bdef69820e5e253510887b00edf2aab2310faa))
+* repair maklon sales order locations ([55aa3ae](https://github.com/clarinovist/polyflow/commit/55aa3ae8761f037e398118f5014c71eac4953c8b))
+* sanitize product.variants and variant.inventories to avoid runtime map/reduce on undefined ([468e615](https://github.com/clarinovist/polyflow/commit/468e6152232f050b0aca5aa149971fcae57bb56b))
+* **stock-ledger:** perbaiki filter tanggal transaksi hari berjalan ([#41](https://github.com/clarinovist/polyflow/issues/41)) ([9455dd9](https://github.com/clarinovist/polyflow/commit/9455dd938852684c97c3af540a840bdd90c3d8ec))
+* unwrap return detail safe action responses ([3943dc4](https://github.com/clarinovist/polyflow/commit/3943dc48c379e7a03fb0712d3e6c2f272bfd071b))
+* use relation connect in child production order create ([22502e9](https://github.com/clarinovist/polyflow/commit/22502e9829dd82eff44471687fe2769d0388c0f3))
+* **vitest:** handle decimal conversionFactor and set default test run mode ([8fee9cc](https://github.com/clarinovist/polyflow/commit/8fee9cce6020c16a59fc83d7e1908e64a90c56dd))
+* **warehouse:** refine goods receipt default location logic and fix build errors ([dbef97d](https://github.com/clarinovist/polyflow/commit/dbef97d8f418efd39f1f0604b6a43ab89e350f80))
+
 ## [Unreleased]
 
 ### Features
