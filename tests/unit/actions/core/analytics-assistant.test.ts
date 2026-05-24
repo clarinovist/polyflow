@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateAndRunQuery } from '@/actions/core/analytics-assistant';
 import { fireworks } from '@/lib/tools/fireworks';
 import { auth } from '@/auth';
-import { BusinessRuleError } from '@/lib/errors/errors';
 
 // Mock fireworks
 vi.mock('@/lib/tools/fireworks', () => ({
@@ -41,13 +40,13 @@ vi.mock('@prisma/client', () => {
 describe('Analytics Assistant Security', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        (auth as any).mockResolvedValue({
+        (auth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
             user: { role: 'ADMIN' },
         });
     });
 
     const mockLLMResponse = (sql: string) => {
-        (fireworks.chat.completions.create as any).mockResolvedValue({
+        (fireworks.chat.completions.create as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
             choices: [{ message: { content: sql } }],
         });
     };
