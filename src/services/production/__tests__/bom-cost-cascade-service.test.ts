@@ -88,6 +88,16 @@ vi.mock('@/lib/core/prisma', () => {
             }),
         },
         productVariant: {
+            findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
+                const ids = where?.id?.in || [];
+                return ids
+                    .map(id => {
+                        const value = standardCostMap[id];
+                        if (value === undefined) return null;
+                        return { id, standardCost: { toNumber: () => value } };
+                    })
+                    .filter(Boolean);
+            }),
             findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
                 const value = standardCostMap[where.id];
                 if (value === undefined) return null;
@@ -102,6 +112,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         costHistory: {
             create: vi.fn(async () => ({ id: 'history-id' })),
+            createMany: vi.fn(async () => ({ count: 2 })),
         },
         $transaction: vi.fn(async (input: unknown) => {
             if (typeof input === 'function') {
@@ -125,10 +136,6 @@ describe('BomCostCascadeService', () => {
     });
 
     it('cascades standard cost updates through parent BOM chain', async () => {
-        vi.mocked(prisma.productVariant.findUnique)
-            .mockResolvedValueOnce({ standardCost: { toNumber: () => 200 } } as never)
-            .mockResolvedValueOnce({ standardCost: { toNumber: () => 500 } } as never);
-
         const result = await BomCostCascadeService.cascadeFromVariants({
             rootVariantIds: ['mix-out'],
             defaultOnly: true,
