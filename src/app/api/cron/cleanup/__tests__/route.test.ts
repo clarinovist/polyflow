@@ -100,13 +100,15 @@ describe('Cleanup Cron Route', () => {
         expect(data.deletedRecords.notifications).toBe(10);
     });
 
-    it('should proceed if CRON_SECRET is not set', async () => {
+    it('should return 401 if CRON_SECRET is not set', async () => {
         delete process.env.CRON_SECRET;
         const req = new Request('http://localhost/api/cron/cleanup', {
             method: 'GET'
         });
 
         const response = await GET(req);
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(401);
+        const body = await response.text();
+        expect(body).toBe('Unauthorized');
     });
 });

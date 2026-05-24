@@ -78,12 +78,28 @@ async function generateAndRunQuery(question: string) {
             logger.debug('Generated SQL', { sql, module: 'AnalyticsAssistant' });
 
             // Basic Safety Validation
-            const forbiddenKeywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE'];
-            if (forbiddenKeywords.some(keyword => sql.toUpperCase().includes(keyword))) {
-                throw new BusinessRuleError("Generated query contains forbidden keywords (Modification detected).");
+
+            // 1. Prohibit multi-statement queries
+            if (sql.includes(';')) {
+                throw new BusinessRuleError("Multi-statement queries are not allowed (semicolon detected).");
             }
 
-            if (!sql.toUpperCase().startsWith('SELECT') && !sql.toUpperCase().startsWith('WITH')) {
+            // 2. Prohibit comments to prevent bypasses
+            if (sql.includes('--') || sql.includes('/*') || sql.includes('*/')) {
+                throw new BusinessRuleError("SQL comments are not allowed.");
+            }
+
+            // 3. Prohibit forbidden keywords with word boundaries (case-insensitive)
+            const forbiddenKeywords = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE', 'CREATE'];
+            for (const keyword of forbiddenKeywords) {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (regex.test(sql)) {
+                    throw new BusinessRuleError(`Generated query contains forbidden keyword: ${keyword}`);
+                }
+            }
+
+            const sqlUpper = sql.trim().toUpperCase();
+            if (!sqlUpper.startsWith('SELECT') && !sqlUpper.startsWith('WITH')) {
                 throw new BusinessRuleError("Only SELECT queries are allowed.");
             }
 

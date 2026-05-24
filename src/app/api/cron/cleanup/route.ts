@@ -6,18 +6,20 @@ import crypto from 'node:crypto';
 // or an internal scheduler, passing a secret token to verify authorization.
 export async function GET(req: Request) {
     try {
+        if (!process.env.CRON_SECRET) {
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
         const authHeader = req.headers.get('authorization');
         // A simple bearer token check to prevent unauthorized execution.
-        if (process.env.CRON_SECRET) {
-            const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-            const providedToken = authHeader || '';
+        const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+        const providedToken = authHeader || '';
 
-            const expectedHash = crypto.createHash('sha256').update(expectedToken).digest();
-            const providedHash = crypto.createHash('sha256').update(providedToken).digest();
+        const expectedHash = crypto.createHash('sha256').update(expectedToken).digest();
+        const providedHash = crypto.createHash('sha256').update(providedToken).digest();
 
-            if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
-                return new NextResponse('Unauthorized', { status: 401 });
-            }
+        if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
+            return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const now = new Date();

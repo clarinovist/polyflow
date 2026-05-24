@@ -112,6 +112,29 @@ export class BomCostCascadeService {
 
             const nextFrontier = new Set<string>();
 
+            // Batch-fetch all existing variants for BOM parents
+            const parentVariantIds = Array.from(new Set(
+                (parentBoms as BomCostPayload[]).map(b => b.productVariantId)
+            ));
+            const existingVariants = parentVariantIds.length > 0
+                ? await db.productVariant.findMany({
+                    where: { id: { in: parentVariantIds } },
+                    select: { id: true, standardCost: true },
+                })
+                : [];
+            const existingVariantMap = new Map(existingVariants.map(v => [v.id, v]));
+
+            const pendingUpdates: Array<{ id: string; standardCost: number }> = [];
+            const pendingCostHistories: Array<{
+                productVariantId: string;
+                previousCost: number | null;
+                newCost: number;
+                changeReason: string;
+                referenceId: string;
+                changePercent: number | null;
+                createdById: string | null;
+            }> = [];
+
             for (const bom of parentBoms as BomCostPayload[]) {
                 if (visitedBomIds.has(bom.id)) {
                     continue;
@@ -122,10 +145,7 @@ export class BomCostCascadeService {
                 const outputQty = Number(bom.outputQuantity || 1);
                 const nextUnitCost = outputQty > 0 ? (totalCost / outputQty) : totalCost;
 
-                const existingVariant = await db.productVariant.findUnique({
-                        where: { id: bom.productVariantId },
-                        select: { standardCost: true },
-                    });
+                const existingVariant = existingVariantMap.get(bom.productVariantId);
 
                 if (!existingVariant) {
                     continue;
@@ -140,29 +160,45 @@ export class BomCostCascadeService {
                     continue;
                 }
 
-                await db.productVariant.update({
-                    where: { id: bom.productVariantId },
-                    data: { standardCost: nextUnitCost },
+                pendingUpdates.push({
+                    id: bom.productVariantId,
+                    standardCost: nextUnitCost,
                 });
 
                 const changePercent = previousCost !== null && previousCost !== 0
                     ? ((nextUnitCost - previousCost) / previousCost) * 100
                     : null;
 
-                await db.costHistory.create({
-                    data: {
-                        productVariantId: bom.productVariantId,
-                        previousCost,
-                        newCost: nextUnitCost,
-                        changeReason: 'BOM_CASCADE',
-                        referenceId: referenceId ? `${referenceId}|bom:${bom.id}|depth:${depth + 1}` : `bom:${bom.id}|depth:${depth + 1}`,
-                        changePercent,
-                        createdById: userId ?? null,
-                    },
+                pendingCostHistories.push({
+                    productVariantId: bom.productVariantId,
+                    previousCost,
+                    newCost: nextUnitCost,
+                    changeReason: 'BOM_CASCADE',
+                    referenceId: referenceId
+                        ? `${referenceId}|bom:${bom.id}|depth:${depth + 1}`
+                        : `bom:${bom.id}|depth:${depth + 1}`,
+                    changePercent,
+                    createdById: userId ?? null,
                 });
 
                 updatedVariantIds.add(bom.productVariantId);
                 nextFrontier.add(bom.productVariantId);
+            }
+
+            // Batch execute all updates and creates
+            if (pendingUpdates.length > 0) {
+                await Promise.all(
+                    pendingUpdates.map(u =>
+                        db.productVariant.update({
+                            where: { id: u.id },
+                            data: { standardCost: u.standardCost },
+                        })
+                    )
+                );
+
+                await db.costHistory.createMany({
+                    data: pendingCostHistories,
+                });
             }
 
             frontier = nextFrontier;

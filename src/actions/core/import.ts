@@ -70,6 +70,21 @@ async function importProducts(products: ImportProduct[]) {
 
             await prisma.$transaction(async (tx) => {
                 const sessionGeneratedSkus = new Set<string>();
+                const allVariants: Array<{
+                    productId: string;
+                    name: string;
+                    skuCode: string;
+                    primaryUnit: Unit;
+                    salesUnit: Unit;
+                    conversionFactor: Prisma.Decimal;
+                    price: Prisma.Decimal | null;
+                    buyPrice: Prisma.Decimal | null;
+                    minStockAlert: Prisma.Decimal | null;
+                    preferredSupplierId: string | null;
+                    attributes: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+                    supplierName?: string;
+                    originalPrice?: number;
+                }> = [];
 
                 for (const productData of products) {
                     const product = await tx.product.create({
@@ -101,35 +116,62 @@ async function importProducts(products: ImportProduct[]) {
                         }
                         sessionGeneratedSkus.add(finalSku);
 
-                        const variant = await tx.productVariant.create({
-                            data: {
-                                productId: product.id,
-                                name: v.name,
-                                skuCode: finalSku,
-                                primaryUnit: v.primaryUnit,
-                                salesUnit: v.salesUnit || v.primaryUnit,
-                                conversionFactor: new Prisma.Decimal(v.conversionFactor || 1),
-                                price: v.price ? new Prisma.Decimal(v.price) : null,
-                                buyPrice: v.price ? new Prisma.Decimal(v.price) : null,
-                                minStockAlert: v.minStockAlert ? new Prisma.Decimal(v.minStockAlert) : null,
-                                preferredSupplierId: supplierId || null,
-                                attributes: v.attributes ? v.attributes as Prisma.InputJsonValue : Prisma.JsonNull
-                            }
+                        allVariants.push({
+                            productId: product.id,
+                            name: v.name,
+                            skuCode: finalSku,
+                            primaryUnit: v.primaryUnit,
+                            salesUnit: v.salesUnit || v.primaryUnit,
+                            conversionFactor: new Prisma.Decimal(v.conversionFactor || 1),
+                            price: v.price ? new Prisma.Decimal(v.price) : null,
+                            buyPrice: v.price ? new Prisma.Decimal(v.price) : null,
+                            minStockAlert: v.minStockAlert ? new Prisma.Decimal(v.minStockAlert) : null,
+                            preferredSupplierId: supplierId || null,
+                            attributes: v.attributes ? v.attributes as Prisma.InputJsonValue : Prisma.JsonNull,
+                            supplierName: v.supplierName?.trim(),
+                            originalPrice: v.price,
                         });
-
-                        if (supplierId) {
-                            await tx.supplierProduct.create({
-                                data: {
-                                    supplierId: supplierId,
-                                    productVariantId: variant.id,
-                                    isPreferred: true,
-                                    unitPrice: v.price ? new Prisma.Decimal(v.price) : null,
-                                }
-                            });
-                        }
 
                         variantCount++;
                     }
+                }
+
+                // Bulk create all product variants
+                const createdVariants = await tx.productVariant.createManyAndReturn({
+                    data: allVariants.map(v => ({
+                        productId: v.productId,
+                        name: v.name,
+                        skuCode: v.skuCode,
+                        primaryUnit: v.primaryUnit,
+                        salesUnit: v.salesUnit,
+                        conversionFactor: v.conversionFactor,
+                        price: v.price,
+                        buyPrice: v.buyPrice,
+                        minStockAlert: v.minStockAlert,
+                        preferredSupplierId: v.preferredSupplierId,
+                        attributes: v.attributes,
+                    })),
+                });
+
+                // Bulk create supplier-product links
+                const supplierProducts = createdVariants
+                    .map((variant, idx) => ({
+                        variant,
+                        supplierName: allVariants[idx].supplierName,
+                        originalPrice: allVariants[idx].originalPrice,
+                    }))
+                    .filter(x => x.supplierName && supplierMap.has(x.supplierName))
+                    .map(x => ({
+                        supplierId: supplierMap.get(x.supplierName!)!,
+                        productVariantId: x.variant.id,
+                        isPreferred: true,
+                        unitPrice: x.originalPrice ? new Prisma.Decimal(x.originalPrice) : null,
+                    }));
+
+                if (supplierProducts.length > 0) {
+                    await tx.supplierProduct.createMany({
+                        data: supplierProducts,
+                    });
                 }
             });
 
