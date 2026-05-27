@@ -368,8 +368,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             }
 
             if (response.data) {
-                toast.success("Work Order Created", {
-                    description: `Order ${response.data.orderNumber} has been created successfully.`,
+                toast.success("Work Order berhasil dibuat", {
+                    description: `Order ${response.data.orderNumber} berhasil dibuat.`,
                 });
                 router.push(`/planning/orders/${response.data.id}`);
             }

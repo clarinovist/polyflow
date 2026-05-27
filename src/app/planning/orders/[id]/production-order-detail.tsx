@@ -842,7 +842,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                             order.id
                                                         );
                                                         if (result.success) {
-                                                            toast.success('Issue resolved');
+                                                            toast.success('Isu terselesaikan');
                                                         } else {
                                                             toast.error('Failed to resolve issue');
                                                         }

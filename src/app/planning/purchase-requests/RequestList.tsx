@@ -81,7 +81,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
         try {
             const result = await consolidatePurchaseRequests(selectedIds, selectedSupplier);
             if (result.success) {
-                toast.success(`Successfully created Purchase Order from ${selectedIds.length} requests`);
+                toast.success(`Berhasil membuat Purchase Order dari ${selectedIds.length} permintaan`);
                 setIsConvertOpen(false);
                 setSelectedIds([]);
             } else {
