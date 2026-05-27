@@ -48,7 +48,7 @@ export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit"
             >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm font-medium">Back to Maklon Receipts</span>
+                <span className="text-sm font-medium">Kembali ke Penerimaan Maklon</span>
             </Link>
 
             {/* Header */}

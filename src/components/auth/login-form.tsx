@@ -30,7 +30,7 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
                 className="group flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6 sm:mb-8"
             >
                 <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                Back to roles
+                Kembali ke pilihan peran
             </button>
 
             {/* Logo */}

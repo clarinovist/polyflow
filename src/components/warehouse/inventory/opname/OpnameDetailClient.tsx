@@ -154,7 +154,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
                 <Link href={basePath} className="hover:text-foreground transition-colors flex items-center gap-1">
                     <ArrowLeft className="h-4 w-4" />
-                    Back to Opname List
+                    Kembali ke Daftar Opname
                 </Link>
                 <span>/</span>
                 <span className="text-foreground font-medium">{session.opnameNumber || 'New Session'}</span>

@@ -322,7 +322,7 @@ export function ImportStockDialog() {
 
                         <div className="flex justify-between items-center pt-4 border-t mt-4">
                             <Button variant="ghost" onClick={() => setStep('upload')}>
-                                Back to Upload
+                                Kembali ke Unggah
                             </Button>
                             <Button
                                 onClick={handleImport}
