@@ -114,7 +114,7 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
             });
 
             if (result.success) {
-                toast.success('Product linked successfully');
+                toast.success('Produk berhasil ditautkan');
                 setOpen(false);
                 form.reset({
                     productVariantId: '',

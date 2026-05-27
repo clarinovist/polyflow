@@ -20,7 +20,7 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
         try {
             const result = await unlinkSupplierFromProduct(id);
             if (result.success) {
-                toast.success('Product unlinked');
+                toast.success('Tautan produk berhasil dilepas');
             } else {
                 toast.error(result.error || 'Failed to unlink');
             }

@@ -73,7 +73,7 @@ export function GoodsReceiptForm({
         try {
             const result = await createGoodsReceipt(data);
             if (result) {
-                toast.success('Goods received successfully');
+                toast.success('Penerimaan Barang berhasil dicatat');
                 router.push(`${basePath}/${purchaseOrderId}`);
                 router.refresh();
             }

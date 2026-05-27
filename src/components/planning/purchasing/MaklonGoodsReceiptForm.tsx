@@ -63,7 +63,7 @@ export function MaklonGoodsReceiptForm({
             }
 
             if (result.data) {
-                toast.success('Maklon Goods received successfully');
+                toast.success('Penerimaan Barang Maklon berhasil dicatat');
                 router.push(`${basePath}/${result.data.id}`);
                 router.refresh();
             }

@@ -109,7 +109,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                 return;
             }
 
-            toast.success(`Payment of ${formatRupiah(amount)} recorded successfully`);
+            toast.success(`Pembayaran sebesar ${formatRupiah(amount)} berhasil dicatat`);
             resetPaymentForm();
             router.refresh();
         } catch (_error) {
@@ -133,7 +133,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                 return;
             }
 
-            toast.success(`Full payment of ${formatRupiah(remainingAmount)} recorded`);
+            toast.success(`Pembayaran lunas sebesar ${formatRupiah(remainingAmount)} berhasil dicatat`);
             resetPaymentForm();
             router.refresh();
         } catch (_error) {

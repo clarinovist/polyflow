@@ -74,7 +74,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             : await updateSupplier(data as UpdateSupplierValues);
 
         if (result.success) {
-            toast.success(`Supplier ${mode === 'create' ? 'created' : 'updated'} successfully`);
+            toast.success(`Supplier berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
             setOpen(false);
             if (mode === 'create') form.reset();
             router.refresh();

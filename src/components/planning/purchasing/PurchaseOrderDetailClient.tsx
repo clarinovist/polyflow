@@ -89,7 +89,7 @@ export function PurchaseOrderDetailClient({
                 PurchaseOrderStatus.SENT
             );
             if (result) {
-                toast.success("Order marked as Sent");
+                toast.success("Purchase Order berhasil ditandai sebagai Terkirim");
                 router.refresh();
             }
         } catch (_error) {
@@ -153,7 +153,7 @@ export function PurchaseOrderDetailClient({
                                         notes: '',
                                     });
                                     if (result) {
-                                        toast.success("Invoice generated");
+                                        toast.success("Invoice berhasil dibuat");
                                         router.refresh();
                                     }
                                 } catch (_error) {
@@ -180,7 +180,7 @@ export function PurchaseOrderDetailClient({
                                 try {
                                     const result = await deletePurchaseOrder(order.id);
                                     if (result.success) {
-                                        toast.success(`${order.orderNumber} deleted`);
+                                        toast.success(`${order.orderNumber} berhasil dihapus`);
                                         router.push(basePath);
                                     } else {
                                         toast.error(result.error || 'Failed to delete order');

@@ -65,7 +65,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                 return;
             }
             if (result.data?.id) {
-                toast.success('Purchase Order created successfully');
+                toast.success('Purchase Order berhasil dibuat');
                 router.push(`/planning/purchase-orders/${result.data.id}`);
                 router.refresh();
             }

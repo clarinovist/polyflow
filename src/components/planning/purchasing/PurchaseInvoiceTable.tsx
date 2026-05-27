@@ -65,7 +65,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
         try {
             const result = await deleteInvoice(id, 'AP');
             if (result.success) {
-                toast.success('Purchase invoice deleted successfully');
+                toast.success('Invoice Pembelian berhasil dihapus');
             } else {
                 toast.error(result.error || 'Failed to delete invoice');
             }

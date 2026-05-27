@@ -63,11 +63,11 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
         try {
             if (mode === 'create') {
                 await createPurchaseReturnAction(data);
-                toast.success('Purchase return created successfully');
+                toast.success('Retur Pembelian berhasil dibuat');
                 router.push('/planning/purchase-returns');
             } else {
                 // await updatePurchaseReturnAction(data);
-                toast.success('Purchase return updated successfully');
+                toast.success('Retur Pembelian berhasil diperbarui');
             }
         } catch (error: unknown) {
             toast.error(error instanceof Error ? error.message : 'Failed to save purchase return');

@@ -67,7 +67,8 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
         setActionLoading(actionName);
         try {
             await actionFn(purchaseReturn.id);
-            toast.success(`Purchase Return successfully ${actionName.toLowerCase()}ed`);
+            const actionText = actionName === 'CONFIRM' ? 'dikonfirmasi' : actionName === 'COMPLETE' ? 'diselesaikan' : 'diproses';
+            toast.success(`Retur Pembelian berhasil ${actionText}`);
             router.refresh();
         } catch (error: unknown) {
             toast.error(error instanceof Error ? error.message : `Failed to ${actionName.toLowerCase()} purchase return`);
