@@ -14,15 +14,22 @@ export function getLabel<T extends Record<string, string>>(
   return (map as Record<string, string>)[key] ?? key;
 }
 
-/** Status helper with domain-specific fallback */
-export function getStatusLabel(status: string): string {
-  for (const map of [
-    productionStatusLabels,
-    warehouseStatusLabels,
-    salesStatusLabels,
-    financeStatusLabels,
-  ]) {
-    if (status in map) return (map as Record<string, string>)[status];
+export type StatusDomain = 'production' | 'warehouse' | 'sales' | 'finance';
+
+const domainMap: Record<StatusDomain, Record<string, string>> = {
+  production: productionStatusLabels as Record<string, string>,
+  warehouse: warehouseStatusLabels as Record<string, string>,
+  sales: salesStatusLabels as Record<string, string>,
+  finance: financeStatusLabels as Record<string, string>,
+};
+
+/**
+ * Status helper with explicit domain parameter.
+ * Domain-specific labels take priority; falls back to commonStatusLabels.
+ */
+export function getStatusLabel(status: string, domain?: StatusDomain): string {
+  if (domain && status in domainMap[domain]) {
+    return domainMap[domain][status];
   }
   return (commonStatusLabels as Record<string, string>)[status] ?? status;
 }
