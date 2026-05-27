@@ -16,6 +16,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatRupiah, cn } from '@/lib/utils/utils';
+import { getStatusLabel } from '@/lib/labels';
 import { InvoiceStatus } from '@prisma/client';
 import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
+import { getStatusLabel } from '@/lib/labels';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { SalesReturn, SalesReturnStatus, Customer } from '@prisma/client';
