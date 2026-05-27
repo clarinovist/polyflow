@@ -78,7 +78,7 @@ export function GoodsReceiptForm({
                 router.refresh();
             }
         } catch (_error) {
-            toast.error('Failed to process receipt');
+            toast.error('Gagal memproses penerimaan barang. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

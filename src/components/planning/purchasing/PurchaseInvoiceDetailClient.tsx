@@ -87,12 +87,12 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
     const handlePayment = async () => {
         const amount = parseFloat(paymentAmount);
         if (isNaN(amount) || amount <= 0) {
-            toast.error('Please enter a valid payment amount');
+            toast.error('Silakan masukkan jumlah pembayaran yang valid.');
             return;
         }
 
         if (amount > remainingAmount) {
-            toast.error(`Payment cannot exceed remaining amount (${formatRupiah(remainingAmount)})`);
+            toast.error(`Jumlah pembayaran tidak boleh melebihi sisa tagihan (${formatRupiah(remainingAmount)})`);
             return;
         }
 
@@ -105,7 +105,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             });
 
             if (!result.success) {
-                toast.error(result.error || 'Failed to record payment');
+                toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
                 return;
             }
 
@@ -113,7 +113,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             resetPaymentForm();
             router.refresh();
         } catch (_error) {
-            toast.error('Failed to record payment');
+            toast.error('Gagal mencatat pembayaran. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }
@@ -129,7 +129,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             });
 
             if (!result.success) {
-                toast.error(result.error || 'Failed to record payment');
+                toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
                 return;
             }
 
@@ -137,7 +137,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             resetPaymentForm();
             router.refresh();
         } catch (_error) {
-            toast.error('Failed to record payment');
+            toast.error('Gagal mencatat pembayaran. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

@@ -70,7 +70,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                 toast.success('Retur Pembelian berhasil diperbarui');
             }
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Failed to save purchase return');
+            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan retur pembelian. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

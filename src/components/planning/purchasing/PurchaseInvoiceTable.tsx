@@ -67,11 +67,11 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
             if (result.success) {
                 toast.success('Invoice Pembelian berhasil dihapus');
             } else {
-                toast.error(result.error || 'Failed to delete invoice');
+                toast.error(result.error || 'Gagal menghapus invoice. Silakan coba lagi.');
             }
         } catch (error) {
             console.error(error);
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
         } finally {
             setIsDeleting(null);
         }

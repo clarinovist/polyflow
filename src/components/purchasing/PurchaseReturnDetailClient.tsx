@@ -71,7 +71,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
             toast.success(`Retur Pembelian berhasil ${actionText}`);
             router.refresh();
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : `Failed to ${actionName.toLowerCase()} purchase return`);
+            toast.error(error instanceof Error ? error.message : 'Gagal memproses retur pembelian. Silakan coba lagi.');
         } finally {
             setActionLoading(null);
         }

@@ -88,7 +88,7 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
             setIsFetchingVariants(true);
             getVariants().then((res) => {
                 if (!res.success) {
-                    toast.error(res.error || 'Failed to fetch variants');
+                    toast.error(res.error || 'Gagal memuat varian produk. Silakan coba lagi.');
                     setIsFetchingVariants(false);
                     return;
                 }
@@ -125,10 +125,10 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                     notes: '',
                 });
             } else {
-                toast.error(result.error || 'Failed to link product');
+                toast.error(result.error || 'Gagal menautkan produk. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

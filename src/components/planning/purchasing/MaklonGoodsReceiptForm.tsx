@@ -58,7 +58,7 @@ export function MaklonGoodsReceiptForm({
         try {
             const result = await createGoodsReceipt(data);
             if (!result.success) {
-                toast.error(result.error || 'Failed to process Maklon receipt');
+                toast.error(result.error || 'Gagal memproses penerimaan maklon. Silakan coba lagi.');
                 return;
             }
 
@@ -68,7 +68,7 @@ export function MaklonGoodsReceiptForm({
                 router.refresh();
             }
         } catch (_error) {
-            toast.error('Failed to process receipt');
+            toast.error('Gagal memproses penerimaan. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

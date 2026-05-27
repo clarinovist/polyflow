@@ -93,7 +93,7 @@ export function PurchaseOrderDetailClient({
                 router.refresh();
             }
         } catch (_error) {
-            toast.error("Failed to update order");
+            toast.error("Gagal memperbarui Purchase Order. Silakan coba lagi.");
         } finally {
             setIsLoading(false);
         }
@@ -157,7 +157,7 @@ export function PurchaseOrderDetailClient({
                                         router.refresh();
                                     }
                                 } catch (_error) {
-                                    toast.error("Failed to generate invoice");
+                                    toast.error("Gagal membuat invoice. Silakan coba lagi.");
                                 } finally {
                                     setIsLoading(false);
                                 }
@@ -183,10 +183,10 @@ export function PurchaseOrderDetailClient({
                                         toast.success(`${order.orderNumber} berhasil dihapus`);
                                         router.push(basePath);
                                     } else {
-                                        toast.error(result.error || 'Failed to delete order');
+                                        toast.error(result.error || 'Gagal menghapus Purchase Order. Silakan coba lagi.');
                                     }
                                 } catch (_error) {
-                                    toast.error('Failed to delete order');
+                                    toast.error('Gagal menghapus Purchase Order. Silakan coba lagi.');
                                 } finally {
                                     setIsLoading(false);
                                 }

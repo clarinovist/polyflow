@@ -61,7 +61,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
         try {
             const result = await createPurchaseOrder(data);
             if (!result.success) {
-                toast.error(result.error || 'Failed to create Purchase Order');
+                toast.error(result.error || 'Gagal membuat Purchase Order. Silakan coba lagi.');
                 return;
             }
             if (result.data?.id) {
@@ -69,7 +69,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                 router.push(`/planning/purchase-orders/${result.data.id}`);
                 router.refresh();
             }
-            toast.error('Failed to create Purchase Order');
+            toast.error('Gagal membuat Purchase Order. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

@@ -22,10 +22,10 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
             if (result.success) {
                 toast.success('Tautan produk berhasil dilepas');
             } else {
-                toast.error(result.error || 'Failed to unlink');
+                toast.error(result.error || 'Gagal melepas tautan produk. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('An error occurred');
+            toast.error('Terjadi kesalahan. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

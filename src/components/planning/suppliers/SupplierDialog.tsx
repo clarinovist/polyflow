@@ -79,7 +79,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             if (mode === 'create') form.reset();
             router.refresh();
         } else {
-            toast.error(result.error || `Failed to ${mode} supplier`);
+            toast.error(result.error || `Gagal ${mode === 'create' ? 'membuat' : 'memperbarui'} supplier. Silakan coba lagi.`);
         }
     }
 
