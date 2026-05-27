@@ -124,7 +124,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
             const result = await transferStockBulk(payload, userId);
 
             if (result.success) {
-                toast.success(`Successfully transferred ${validItems.length} items`);
+                toast.success(`Berhasil mentransfer ${validItems.length} item`);
                 onOpenChange(false);
             } else {
                 toast.error(`Error: ${result.error}`);

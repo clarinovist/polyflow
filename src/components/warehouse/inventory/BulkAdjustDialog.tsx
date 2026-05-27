@@ -109,7 +109,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
             reason: globalReason
         }));
         form.setValue('items', updatedItems);
-        toast.success("Applied global settings to all rows");
+        toast.success("Berhasil menerapkan pengaturan global ke semua baris");
     };
 
     async function onSubmit(data: BulkAdjustStockValues) {
@@ -137,7 +137,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
             const result = await adjustStockBulk(payload, userId);
 
             if (result.success) {
-                toast.success(`Successfully adjusted ${validItems.length} items`);
+                toast.success(`Berhasil menyesuaikan stok ${validItems.length} item`);
                 onOpenChange(false);
             } else {
                 toast.error(`Error: ${result.error}`);

@@ -143,7 +143,7 @@ export function ImportStockDialog() {
                     success: true,
                     imported: result.data.imported
                 });
-                toast.success(`Successfully imported ${result.data.imported} items`);
+                toast.success(`Berhasil mengimpor ${result.data.imported} item`);
             }
 
             // Move to result step

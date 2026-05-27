@@ -84,7 +84,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
             const result = await saveOpnameCount(session.id, updates);
 
             if (result.success) {
-                toast.success("Counts saved successfully");
+                toast.success("Jumlah perhitungan berhasil disimpan");
                 setHasChanges(false);
             } else {
                 toast.error(`Error: ${result.error}`);

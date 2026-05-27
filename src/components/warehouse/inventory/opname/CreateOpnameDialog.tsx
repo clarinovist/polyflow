@@ -66,7 +66,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
                 return;
             }
             if (result.data) {
-                toast.success("Stock Opname session created");
+                toast.success("Sesi Stock Opname berhasil dibuat");
                 setOpen(false);
                 router.push(`${basePath}/${result.data.id}`);
             }

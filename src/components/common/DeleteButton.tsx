@@ -33,7 +33,7 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
         try {
             const result = await onDelete(id);
             if (result.success) {
-                toast.success(`${entityName} deleted successfully`);
+                toast.success(`${entityName} berhasil dihapus`);
                 setOpen(false);
                 router.refresh();
             } else {

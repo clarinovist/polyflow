@@ -97,7 +97,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
         try {
             const result = await addItemToOpname(session.id, variantId);
             if (result.success) {
-                toast.success('Item added to opname');
+                toast.success('Item berhasil ditambahkan ke opname');
                 setAddDialogOpen(false);
                 setProductSearch('');
                 router.refresh();
@@ -135,7 +135,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
         try {
             const result = await completeOpname(session.id);
             if (result.success) {
-                toast.success("Session finalized and inventory updated");
+                toast.success("Sesi berhasil diselesaikan dan inventaris diperbarui");
                 router.refresh();
             } else {
                 toast.error(`Error: ${result.error}`);
@@ -200,7 +200,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                                 if (confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
                                     const result = await deleteOpnameSession(session.id);
                                     if (result.success) {
-                                        toast.success("Session deleted");
+                                        toast.success("Sesi berhasil dihapus");
                                         router.push(basePath);
                                     } else {
                                         toast.error(result.error);

@@ -80,7 +80,7 @@ export function CustomerDialog({ mode, initialData, trigger }: CustomerDialogPro
             : await updateCustomer(data as UpdateCustomerValues);
 
         if (result.success) {
-            toast.success(`Customer ${mode === 'create' ? 'created' : 'updated'} successfully`);
+            toast.success(`Customer berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
             setOpen(false);
             if (mode === 'create') form.reset();
             router.refresh();

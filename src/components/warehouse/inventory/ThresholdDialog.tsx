@@ -39,7 +39,7 @@ export function ThresholdDialog({
         setLoading(false);
 
         if (result.success) {
-            toast.success('Global threshold updated');
+            toast.success('Threshold global berhasil diperbarui');
             setOpen(false);
             router.refresh();
         } else {
