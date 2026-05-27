@@ -31,7 +31,7 @@ export default async function ProductionHistoryPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Output Logs</h2>
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Log Hasil Produksi</h2>
                     <p className="text-muted-foreground">Historical record of production completions and yield.</p>
                 </div>
             </div>
@@ -55,7 +55,7 @@ export default async function ProductionHistoryPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
+                    <CardTitle>Aktivitas Terbaru</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>

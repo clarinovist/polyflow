@@ -31,11 +31,11 @@ interface AddIssueDialogProps {
 }
 
 const ISSUE_CATEGORIES = [
-    { value: 'MACHINE_BREAKDOWN', label: 'Machine Breakdown', description: 'Mesin rusak atau error' },
-    { value: 'MATERIAL_DEFECT', label: 'Material Defect', description: 'Bahan baku bermasalah' },
-    { value: 'QUALITY_ISSUE', label: 'Quality Issue', description: 'Hasil tidak sesuai standar' },
-    { value: 'OPERATOR_ERROR', label: 'Operator Error', description: 'Kesalahan operator' },
-    { value: 'OTHER', label: 'Other', description: 'Masalah lainnya' },
+    { value: 'MACHINE_BREAKDOWN', label: 'Kerusakan Mesin', description: 'Mesin rusak atau error' },
+    { value: 'MATERIAL_DEFECT', label: 'Cacat Material', description: 'Bahan baku bermasalah' },
+    { value: 'QUALITY_ISSUE', label: 'Masalah Kualitas', description: 'Hasil tidak sesuai standar' },
+    { value: 'OPERATOR_ERROR', label: 'Kesalahan Operator', description: 'Kesalahan operator' },
+    { value: 'OTHER', label: 'Lainnya', description: 'Masalah lainnya' },
 ] as const;
 
 export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
@@ -47,7 +47,7 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
 
     const handleSubmit = async () => {
         if (!category || !description.trim()) {
-            toast.error('Please fill all fields');
+            toast.error('Isi semua kolom terlebih dahulu');
             return;
         }
 
@@ -60,17 +60,17 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
             });
 
             if (result.success) {
-                toast.success('Issue recorded successfully');
+                toast.success('Masalah berhasil dicatat');
                 setOpen(false);
                 setCategory('');
                 setDescription('');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to record issue');
+                toast.error(result.error || 'Gagal mencatat masalah');
             }
         } catch (error) {
             console.error(error);
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tidak terduga');
         } finally {
             setIsSubmitting(false);
         }
@@ -81,25 +81,25 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline" disabled={disabled}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Issue
+                    Catat Masalah
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        Record Production Issue
+                        Catat Masalah Produksi
                     </DialogTitle>
                     <DialogDescription>
-                        Log a problem encountered during production. This helps track and resolve issues.
+                        Catat kendala yang terjadi selama produksi untuk dilacak dan diselesaikan.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="category">Issue Category</Label>
+                        <Label htmlFor="category">Kategori Masalah</Label>
                         <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select category..." />
+                                <SelectValue placeholder="Pilih kategori..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {ISSUE_CATEGORIES.map((cat) => (
@@ -114,10 +114,10 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="description">Deskripsi</Label>
                         <Textarea
                             id="description"
-                            placeholder="Describe the issue in detail..."
+                            placeholder="Jelaskan masalah secara detail..."
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             rows={4}
@@ -126,10 +126,10 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
-                        Cancel
+                        Batal
                     </Button>
                     <Button onClick={handleSubmit} disabled={isSubmitting}>
-                        {isSubmitting ? 'Recording...' : 'Record Issue'}
+                        {isSubmitting ? 'Mencatat...' : 'Catat Masalah'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

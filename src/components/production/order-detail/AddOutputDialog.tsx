@@ -10,6 +10,7 @@ import { ExtendedProductionOrder } from './types';
 import { Location, Employee, WorkShift, Machine, ProductVariant } from '@prisma/client';
 import { addProductionOutput } from '@/actions/production/production';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
+import { productionLabels } from '@/lib/labels';
 
 interface OutputFormData {
     locations: Location[];
@@ -150,7 +151,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         const result = await addProductionOutput(data as any); // eslint-disable-line @typescript-eslint/no-explicit-any
         setIsSubmitting(false);
         if (result.success) {
-            toast.success("Production output recorded");
+            toast.success("Hasil produksi berhasil dicatat");
             setOpen(false);
             setRolls([]);
             setScrapProngkol("");
@@ -185,11 +186,11 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus className="w-4 h-4 mr-2" /> Add Output
+                    <Plus className="w-4 h-4 mr-2" /> {productionLabels.productionOutput}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[900px]">
-                <DialogHeader><DialogTitle>Record Production Output</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Catat Hasil Produksi</DialogTitle></DialogHeader>
                 <form onSubmit={onSubmit}>
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 py-6">
                         {/* LEFT COLUMN: Metadata & Team */}
@@ -200,14 +201,14 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                             <Users className="w-4 h-4 text-primary" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Context & Team</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Konteks & Tim</h3>
                                     </div>
                                 </BrandCardHeader>
 
                                 <BrandCardContent className="space-y-5">
                                     <div className="space-y-4">
                                         <div>
-                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">Recorded At</span>
+                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block mb-1">Tercatat Pada</span>
                                             <p className="text-sm font-semibold text-foreground">{new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                                         </div>
 
@@ -238,7 +239,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Lead Operator</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Operator (Ketua)</Label>
                                             <div className="relative">
                                                 <select
                                                     name="operatorId"
@@ -259,7 +260,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Helpers (Hold Ctrl/Cmd to select multiple)</Label>
+                                            <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Helper/Asisten (Tahan Ctrl/Cmd untuk pilih banyak)</Label>
                                             <div className="relative">
                                                 <select
                                                     multiple
@@ -272,7 +273,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                                     ))}
                                                 </select>
                                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                                    {selectedHelpers.length > 0 ? `${selectedHelpers.length} helper(s) selected` : "No helpers selected"}
+                                                    {selectedHelpers.length > 0 ? `${selectedHelpers.length} helper dipilih` : "Belum ada helper dipilih"}
                                                 </p>
                                             </div>
                                         </div>
@@ -289,13 +290,13 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
                                             <Package className="w-4 h-4 text-success" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Good Output</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionLabels.goodQuantity}</h3>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">
-                                            Total Good
+                                            Total {productionLabels.goodQuantity}
                                             {useAlternateUnit && (
-                                                <span className="text-[9px] font-normal ml-1">(posted as {primaryUnit})</span>
+                                                <span className="text-[9px] font-normal ml-1">(dicatat sebagai {primaryUnit})</span>
                                             )}
                                         </span>
                                         <span className="text-2xl font-black text-foreground drop-shadow-sm">
@@ -355,7 +356,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                         <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
                                             <AlertTriangle className="w-4 h-4 text-warning" />
                                         </div>
-                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Production Waste / Scrap</h3>
+                                        <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionLabels.scrap}</h3>
                                     </div>
                                 </BrandCardHeader>
                                 <BrandCardContent className="space-y-5">
@@ -394,7 +395,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                                             <div className="flex items-start gap-3">
                                                 <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                                                 <div>
-                                                    <p className="font-semibold text-amber-800">Scrap quantity is 0</p>
+                                                    <p className="font-semibold text-amber-800">Scrap masih 0</p>
                                                     <p className="text-sm text-amber-700 mt-1">
                                                         Apakah Anda yakin tidak ada affal/scrap dari batch ini?
                                                         Jika ada, silakan isi jumlah scrap terlebih dahulu.
@@ -429,10 +430,10 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                             <BrandCard variant="default" className="shadow-brand">
                                 <BrandCardContent className="pt-8">
                                     <div className="space-y-3">
-                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Notes / Comments</Label>
+                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Catatan / Komentar</Label>
                                         <Textarea
                                             className="h-[80px] bg-background/80 border-brand-border resize-none text-foreground placeholder:text-muted-foreground/50"
-                                            placeholder="Add any specific observations or issues during this production run..."
+                                            placeholder="Tambahkan observasi atau kendala selama produksi..."
                                             name="notes"
                                             value={notes}
                                             onChange={(e) => setNotes(e.target.value)}
@@ -444,7 +445,7 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                     </div>
 
                     <DialogFooter className="mt-8 border-t border-brand-border pt-6 pb-2">
-                        <Button type="button" variant="ghost" className="font-bold tracking-tight italic uppercase" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" className="font-bold tracking-tight italic uppercase" onClick={() => setOpen(false)}>Batal</Button>
                         <Button
                             type="submit"
                             size="lg"
@@ -454,10 +455,10 @@ export function AddOutputDialog({ order, formData }: { order: ExtendedProduction
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Recording...
+                                    Mencatat...
                                 </>
                             ) : (
-                                'Record Output'
+                                'Catat Hasil'
                             )}
                         </Button>
                     </DialogFooter>

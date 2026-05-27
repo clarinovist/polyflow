@@ -18,7 +18,7 @@ export default async function ProductionResourcesPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Team & Resources</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Tim & Sumber Daya</h2>
                     <p className="text-muted-foreground">Manage production staff, shifts, and skill matrices.</p>
                 </div>
                 <Link href="/dashboard/employees/create">
@@ -32,7 +32,7 @@ export default async function ProductionResourcesPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Staff</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Karyawan</CardTitle>
                         <Users className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
@@ -42,7 +42,7 @@ export default async function ProductionResourcesPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Active Members</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Anggota Aktif</CardTitle>
                         <ShieldCheck className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
@@ -52,7 +52,7 @@ export default async function ProductionResourcesPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Active Shift</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Shift Aktif</CardTitle>
                         <Clock className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
@@ -64,7 +64,7 @@ export default async function ProductionResourcesPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Staff Directory</CardTitle>
+                    <CardTitle>Direktori Karyawan</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
