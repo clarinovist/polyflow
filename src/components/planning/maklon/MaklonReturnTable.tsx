@@ -148,10 +148,10 @@ export function MaklonReturnTable({ initialData, basePath = '/dashboard/maklon/r
                                         </div>
                                         <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
                                             <div className="flex items-center gap-1">
-                                                <span>• {itemCount} Items Returning</span>
+                                                <span>• {itemCount} Item Retur</span>
                                             </div>
                                             <div className="flex items-center text-primary font-medium">
-                                                View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                                                Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                                             </div>
                                         </div>
                                     </div>

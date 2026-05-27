@@ -21,14 +21,14 @@ export function PlaceholderPage({ title, description, moduleName }: PlaceholderP
             </div>
             <div className="p-4 border rounded-lg bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/30 dark:border-orange-900 dark:text-orange-400">
                 <p className="text-sm font-medium">
-                    The <strong>{moduleName}</strong> module is currently under development.
+                    Modul <strong>{moduleName}</strong> saat ini sedang dalam pengembangan.
                 </p>
                 <p className="text-xs mt-1 opacity-80">
-                    Check back soon for updates.
+                    Silakan cek kembali dalam waktu dekat untuk pembaruan.
                 </p>
             </div>
             <Button variant="outline" onClick={() => window.history.back()}>
-                Go Back
+                Kembali
             </Button>
         </div>
     );

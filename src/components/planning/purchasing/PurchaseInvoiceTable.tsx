@@ -167,7 +167,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="sm" asChild title="View Details">
+                                                <Button variant="ghost" size="sm" asChild title="Lihat Detail">
                                                     <Link href={`${basePath}/${basePath.includes('finance') ? inv.id : inv.purchaseOrder.id}`}>
                                                         <ArrowRight className="h-4 w-4" />
                                                     </Link>

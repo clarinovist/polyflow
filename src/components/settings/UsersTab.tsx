@@ -138,26 +138,26 @@ export function UsersTab() {
                 <div>
                     <CardTitle>User Management</CardTitle>
                     <CardDescription>
-                        Manage system access and roles.
+                        Kelola akses sistem dan peran.
                     </CardDescription>
                 </div>
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />
-                            Add User
+                            Tambah Pengguna
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Create New User</DialogTitle>
+                            <DialogTitle>Buat Pengguna Baru</DialogTitle>
                             <DialogDescription>
-                                Add a new user to the system. They will use this email to log in.
+                                Tambahkan pengguna baru ke sistem. Pengguna akan memakai email ini untuk login.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Full Name</Label>
+                                <Label htmlFor="name">Nama Lengkap</Label>
                                 <Input
                                     id="name"
                                     value={formData.name}
@@ -189,7 +189,7 @@ export function UsersTab() {
                                     onValueChange={(val: Role) => setFormData({ ...formData, role: val })}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select role" />
+                                        <SelectValue placeholder="Pilih peran" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ADMIN">Admin</SelectItem>
@@ -203,11 +203,11 @@ export function UsersTab() {
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={isSubmitting}>
-                                Cancel
+                                Batal
                             </Button>
                             <Button onClick={handleCreate} disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Create User
+                                Buat Pengguna
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -223,10 +223,10 @@ export function UsersTab() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
+                                    <TableHead>Nama</TableHead>
                                     <TableHead>Email</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead>Peran</TableHead>
+                                    <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -237,7 +237,7 @@ export function UsersTab() {
                                                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
                                                     {user.name?.[0]?.toUpperCase() || 'U'}
                                                 </div>
-                                                {user.name || 'Unknown'}
+                                                {user.name || 'Tidak diketahui'}
                                             </div>
                                         </TableCell>
                                         <TableCell>{user.email}</TableCell>
@@ -273,14 +273,14 @@ export function UsersTab() {
                         <Dialog open={editOpen} onOpenChange={setEditOpen}>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Edit User</DialogTitle>
+                                    <DialogTitle>Ubah Pengguna</DialogTitle>
                                     <DialogDescription>
-                                        Update user information. Leave password blank to keep current password.
+                                        Perbarui informasi pengguna. Kosongkan kata sandi jika tidak ingin mengubah kata sandi saat ini.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-name">Full Name</Label>
+                                        <Label htmlFor="edit-name">Nama Lengkap</Label>
                                         <Input
                                             id="edit-name"
                                             value={editData.name}
@@ -297,7 +297,7 @@ export function UsersTab() {
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-password">New Password (Optional)</Label>
+                                        <Label htmlFor="edit-password">Kata Sandi Baru (Opsional)</Label>
                                         <Input
                                             id="edit-password"
                                             type="password"
@@ -313,7 +313,7 @@ export function UsersTab() {
                                             onValueChange={(val: Role) => setEditData({ ...editData, role: val })}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select role" />
+                                                <SelectValue placeholder="Pilih peran" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="ADMIN">Admin</SelectItem>
@@ -327,11 +327,11 @@ export function UsersTab() {
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
-                                        Cancel
+                                        Batal
                                     </Button>
                                     <Button onClick={handleUpdate} disabled={isSubmitting}>
                                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Save Changes
+                                        Simpan Perubahan
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>

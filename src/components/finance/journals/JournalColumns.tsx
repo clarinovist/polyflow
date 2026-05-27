@@ -103,15 +103,15 @@ export const columns: ColumnDef<JournalEntryWithDetails>[] = [
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
+                            <span className="sr-only">Buka menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                         <Link href={`/finance/journals/${row.original.id}`}>
                             <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" /> View Details
+                                <Eye className="mr-2 h-4 w-4" /> Lihat Detail
                             </DropdownMenuItem>
                         </Link>
                     </DropdownMenuContent>

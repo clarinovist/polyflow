@@ -75,7 +75,7 @@ export function AnalyticsToolbar() {
             toast.dismiss(toastId);
         } catch (error) {
             console.error(error);
-            toast.error('Failed to export report');
+            toast.error('Gagal mengekspor laporan');
         }
     }
 
@@ -86,7 +86,7 @@ export function AnalyticsToolbar() {
                     currentDate={currentDate}
                     onDateChange={handleMonthChange}
                 />
-                {isPending && <span className="text-xs text-muted-foreground animate-pulse">Updating...</span>}
+                {isPending && <span className="text-xs text-muted-foreground animate-pulse">Memperbarui...</span>}
             </div>
 
             <Button variant="outline" onClick={handleExport}>

@@ -154,7 +154,7 @@ export function NotificationBell() {
                                         </span>
                                         {notif.link && (
                                             <Link href={notif.link} className="text-xs text-primary hover:underline">
-                                                View Details
+                                                Lihat Detail
                                             </Link>
                                         )}
                                     </div>
@@ -164,7 +164,7 @@ export function NotificationBell() {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center text-sm text-muted-foreground space-y-3">
                             <Bell className="h-8 w-8 text-zinc-300 opacity-50" />
-                            <p>You&apos;re all caught up!<br/>No new notifications.</p>
+                            <p>Semua notifikasi sudah dibaca!<br/>Belum ada notifikasi baru.</p>
                         </div>
                     )}
                 </ScrollArea>

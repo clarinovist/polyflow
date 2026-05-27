@@ -158,21 +158,21 @@ export default function BankReconciliationPage() {
                                         <td className="p-4 align-middle">
                                             {r.confidence === 100 ? (
                                                 <div className="flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded inline-flex">
-                                                    <CheckCircle className="h-3.5 w-3.5" /> Auto-Matched
+                                                    <CheckCircle className="h-3.5 w-3.5" /> Cocok Otomatis
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded inline-flex">
-                                                    <AlertCircle className="h-3.5 w-3.5" /> Unreconciled
+                                                    <AlertCircle className="h-3.5 w-3.5" /> Belum Direkonsiliasi
                                                 </div>
                                             )}
                                         </td>
                                         <td className="p-4 align-middle text-xs">
                                             {r.confidence === 100 ? (
                                                 <span className="text-muted-foreground">
-                                                    Line ID: {r.matchedJournalLineId?.slice(0, 8)}...
+                                                    ID Baris: {r.matchedJournalLineId?.slice(0, 8)}...
                                                 </span>
                                             ) : (
-                                                <Button variant="outline" size="sm">Find Match</Button>
+                                                <Button variant="outline" size="sm">Cari Kecocokan</Button>
                                             )}
                                         </td>
                                     </tr>
@@ -180,7 +180,7 @@ export default function BankReconciliationPage() {
                             </tbody>
                         </table>
                         <div className="mt-6 flex justify-end">
-                            <Button>Confirm Reconciliation</Button>
+                            <Button>Konfirmasi Rekonsiliasi</Button>
                         </div>
                     </CardContent>
                 </Card>

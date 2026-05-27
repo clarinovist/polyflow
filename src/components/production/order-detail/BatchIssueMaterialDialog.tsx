@@ -531,20 +531,20 @@ export function BatchIssueMaterialDialog({
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
-                            Insufficient stock for <b>{adjustingItem?.name}</b>.
+                            Stok tidak mencukupi untuk <b>{adjustingItem?.name}</b>.
                             <br />
-                            Required: <b>{adjustingItem?.needed}</b>. Available: <b>{adjustingItem?.current}</b>.
+                            Dibutuhkan: <b>{adjustingItem?.needed}</b>. Tersedia: <b>{adjustingItem?.current}</b>.
                             <br />
-                            Adding difference: <b>{adjustingItem ? (adjustingItem.needed - adjustingItem.current).toFixed(2) : 0}</b>
+                            Menambahkan selisih: <b>{adjustingItem ? (adjustingItem.needed - adjustingItem.current).toFixed(2) : 0}</b>
                         </div>
                         <div className="space-y-2">
-                            <Label>Reason</Label>
+                            <Label>Alasan</Label>
                             <Input value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setAdjustingItem(null)}>Cancel</Button>
-                        <Button onClick={handleQuickAdjust}>Confirm Adjustment</Button>
+                        <Button variant="outline" onClick={() => setAdjustingItem(null)}>Batal</Button>
+                        <Button onClick={handleQuickAdjust}>Konfirmasi Penyesuaian</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -43,11 +43,11 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }:
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Customer Payments</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Pembayaran Pelanggan</h1>
                     <p className="text-muted-foreground">
                         {demandType === 'customer'
-                            ? 'Track and manage payments received from customers.'
-                            : 'Review and reconcile legacy internal receipts that still exist in finance history.'}
+                            ? 'Lacak dan kelola pembayaran yang diterima dari pelanggan.'
+                            : 'Tinjau dan rekonsiliasi penerimaan internal lama yang masih tercatat di histori keuangan.'}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -55,15 +55,15 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }:
                     {canRecordPayment && (
                         <Button onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            Record Payment
+                            Catat Pembayaran
                         </Button>
                     )}
                 </div>
             </div>
 
             <SharedPaymentTable
-                title="Incoming Transactions"
-                description="List of verified payments from your customers."
+                title="Transaksi Masuk"
+                description="Daftar pembayaran pelanggan yang telah terverifikasi."
                 payments={payments}
                 type="received"
             />

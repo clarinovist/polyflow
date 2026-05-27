@@ -530,10 +530,10 @@ export default function TransactionWizardForm({
 
                                 <div className="flex justify-between pt-6 border-t">
                                     <Button variant="ghost" type="button" onClick={prevStep}>
-                                        <ChevronLeft className="w-4 h-4 mr-2" /> Back
+                                        <ChevronLeft className="w-4 h-4 mr-2" /> Kembali
                                     </Button>
                                     <Button type="button" onClick={nextStep}>
-                                        Continue to Confirm <ChevronRight className="w-4 h-4 ml-2" />
+                                        Lanjut ke Konfirmasi <ChevronRight className="w-4 h-4 ml-2" />
                                     </Button>
                                 </div>
                             </CardContent>
@@ -544,8 +544,8 @@ export default function TransactionWizardForm({
                     {step === 3 && selectedType && (
                         <Card className="border-t-4 border-t-indigo-500 shadow-sm">
                             <CardHeader>
-                                <CardTitle className="text-xl">Confirm Transaction</CardTitle>
-                                <CardDescription>Please review the details before posting.</CardDescription>
+                                <CardTitle className="text-xl">Konfirmasi Transaksi</CardTitle>
+                                <CardDescription>Silakan tinjau detail sebelum melakukan posting.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid gap-4 p-4 rounded-lg bg-muted/50 border">
@@ -569,13 +569,13 @@ export default function TransactionWizardForm({
 
                                 <div className="flex justify-between pt-6">
                                     <Button variant="ghost" type="button" onClick={prevStep}>
-                                        <ChevronLeft className="w-4 h-4 mr-2" /> Back
+                                        <ChevronLeft className="w-4 h-4 mr-2" /> Kembali
                                     </Button>
                                     <Button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
                                         {loading ? (
                                             <>
                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Processing...
+                                                Memproses...
                                             </>
                                         ) : (
                                             'Post Transaction'

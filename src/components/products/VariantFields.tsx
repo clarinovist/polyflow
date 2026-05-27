@@ -40,7 +40,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
 
     const handleAutoSKU = async () => {
         if (!productType || !productName) {
-            toast.error('Please fill product name and type first');
+            toast.error('Mohon isi nama produk dan tipe terlebih dahulu');
             return;
         }
 
@@ -55,11 +55,11 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                 setValue(`variants.${index}.skuCode`, nextSKUResult.data, { shouldValidate: true });
                 toast.success('SKU berhasil digenerate.');
             } else {
-                toast.error(nextSKUResult.error || 'Failed to generate SKU');
+                toast.error(nextSKUResult.error || 'Gagal membuat SKU');
             }
         } catch (error) {
             console.error('Error generating SKU:', error);
-            toast.error('Failed to generate SKU');
+            toast.error('Gagal membuat SKU');
         } finally {
             setIsGeneratingSKU(false);
         }

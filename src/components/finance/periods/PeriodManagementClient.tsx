@@ -65,7 +65,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                 toast.success(`Periode untuk tahun ${year} berhasil digenerate.`);
                 router.refresh();
             } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : "Failed to generate periods.";
+                const message = error instanceof Error ? error.message : 'Gagal membuat periode.';
                 toast.error(message);
             }
         });
@@ -122,8 +122,8 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Fiscal Periods</h2>
-                    <p className="text-muted-foreground">Manage accounting periods and closing.</p>
+                    <h2 className="text-2xl font-bold tracking-tight">Periode Fiskal</h2>
+                    <p className="text-muted-foreground">Kelola periode akuntansi dan proses penutupan.</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <Select value={year} onValueChange={handleYearChange} disabled={isPending}>
@@ -131,7 +131,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                             {isPending && year !== currentYear.toString() ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
-                                <SelectValue placeholder="Year" />
+                                <SelectValue placeholder="Tahun" />
                             )}
                         </SelectTrigger>
                         <SelectContent>
@@ -152,7 +152,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                 )}
                 <CardHeader>
                     <CardTitle className="flex justify-between items-center">
-                        <span>Periods for {year}</span>
+                        <span>Periode Tahun {year}</span>
                         {(initialPeriods.length === 0 || isYearTransitioning) && (
                             <Button onClick={handleGenerate} disabled={isPending}>
                                 {isPending && !isYearTransitioning ? (
@@ -160,7 +160,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                                 ) : (
                                     <CalendarPlus className="mr-2 h-4 w-4" />
                                 )}
-                                Generate Periods
+                                Buat Periode
                             </Button>
                         )}
                     </CardTitle>
@@ -169,11 +169,11 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Period Name</TableHead>
-                                <TableHead>Start Date</TableHead>
-                                <TableHead>End Date</TableHead>
+                                <TableHead>Nama Periode</TableHead>
+                                <TableHead>Tanggal Mulai</TableHead>
+                                <TableHead>Tanggal Selesai</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -202,9 +202,9 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                                                 disabled={isPending}
                                             >
                                                 {period.status === 'OPEN' ? (
-                                                    <><Lock className="mr-2 h-4 w-4" /> Close</>
+                                                    <><Lock className="mr-2 h-4 w-4" /> Tutup</>
                                                 ) : (
-                                                    <><LockOpen className="mr-2 h-4 w-4" /> Reopen</>
+                                                    <><LockOpen className="mr-2 h-4 w-4" /> Buka Kembali</>
                                                 )}
                                             </Button>
                                         </TableCell>
@@ -228,28 +228,28 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                     {closingSummary && (
                         <div className="py-4 space-y-3">
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Total Revenue</span>
+                                <span className="text-muted-foreground">Total Pendapatan</span>
                                 <span className="font-semibold">{formatRupiah(closingSummary.totalRevenue)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Total Expenses</span>
+                                <span className="text-muted-foreground">Total Beban</span>
                                 <span className="font-semibold text-destructive">({formatRupiah(closingSummary.totalOpEx)})</span>
                             </div>
                             <Separator />
                             <div className="flex justify-between text-base font-bold">
-                                <span>Estimated Net Income</span>
+                                <span>Estimasi Laba Bersih</span>
                                 <span className={closingSummary.netIncome >= 0 ? "text-primary" : "text-destructive"}>
                                     {formatRupiah(closingSummary.netIncome)}
                                 </span>
                             </div>
                             <p className="text-[10px] text-muted-foreground italic">
-                                * Net income will be transferred to Current Year Earnings (33000).
+                                * Laba bersih akan dipindahkan ke Laba Tahun Berjalan (33000).
                             </p>
                         </div>
                     )}
 
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isPending}>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={(e) => {
                                 e.preventDefault();
@@ -259,7 +259,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                             className="bg-primary hover:bg-primary/90"
                         >
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Confirm & Generate Entries
+                            Konfirmasi & Generate Entri
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

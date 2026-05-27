@@ -66,7 +66,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
     const handleAdd = () => {
         const parsedAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
         if (!parsedAmount || parsedAmount <= 0) {
-            toast.error('Please enter a valid amount greater than 0');
+            toast.error('Masukkan nominal valid lebih dari 0');
             return;
         }
 

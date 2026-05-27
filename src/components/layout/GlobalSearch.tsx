@@ -53,14 +53,14 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                 {...props}
             >
                 <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                <span className="hidden lg:inline-flex truncate">Search...</span>
-                <span className="inline-flex lg:hidden truncate">Search...</span>
+                <span className="hidden lg:inline-flex truncate">Cari...</span>
+                <span className="inline-flex lg:hidden truncate">Cari...</span>
             </Button>
             <CommandDialog open={open} onOpenChange={setOpen}>
-                <CommandInput placeholder="Search..." />
+                <CommandInput placeholder="Cari..." />
                 <CommandList>
                     <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
-                    <CommandGroup heading="Switch Application">
+                    <CommandGroup heading="Ganti Aplikasi">
                         <CommandItem onSelect={() => runCommand(() => router.push('/kiosk'))}>
                             <MonitorPlay className="mr-2 h-4 w-4" />
                             <span>Operator Kiosk</span>
@@ -75,14 +75,14 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                         </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />
-                    <CommandGroup heading="Quick Navigation">
+                    <CommandGroup heading="Navigasi Cepat">
                         <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory'))}>
                             <Warehouse className="mr-2 h-4 w-4" />
-                            <span>Inventory</span>
+                            <span>Inventaris</span>
                         </CommandItem>
                         <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/products'))}>
                             <Package className="mr-2 h-4 w-4" />
-                            <span>Products</span>
+                            <span>Produk</span>
                         </CommandItem>
                         <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/opname'))}>
                             <Calculator className="mr-2 h-4 w-4" />
@@ -90,14 +90,14 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
                         </CommandItem>
                         <CommandItem onSelect={() => runCommand(() => router.push('/warehouse/inventory/history'))}>
                             <FileText className="mr-2 h-4 w-4" />
-                            <span>Stock History</span>
+                            <span>Riwayat Stok</span>
                         </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />
-                    <CommandGroup heading="Settings">
+                    <CommandGroup heading="Pengaturan">
                         <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/settings'))}>
                             <Settings className="mr-2 h-4 w-4" />
-                            <span>Settings</span>
+                            <span>Pengaturan</span>
                             <CommandShortcut>⌘S</CommandShortcut>
                         </CommandItem>
                     </CommandGroup>

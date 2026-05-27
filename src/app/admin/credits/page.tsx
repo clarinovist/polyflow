@@ -48,7 +48,7 @@ export default function CreditsManagementPage() {
         const adjustment = type === 'add' ? Number(amount) : -Number(amount);
         
         if (type === 'deduct' && selectedUser.currentBalance < Number(amount)) {
-            return toast.error('Deduction amount exceeds current user balance.');
+            return toast.error('Nominal pengurangan melebihi saldo pengguna saat ini.');
         }
 
         setSelectedUser({

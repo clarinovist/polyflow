@@ -116,7 +116,7 @@ export function ShiftDialog({
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>
-                        {shiftToEdit ? 'Edit Shift' : 'Add New Shift'}
+                        {shiftToEdit ? 'Ubah Shift' : 'Tambah Shift Baru'}
                     </DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
@@ -126,9 +126,9 @@ export function ShiftDialog({
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Shift Name</FormLabel>
+                                    <FormLabel>Nama Shift</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Morning Shift" {...field} />
+                                        <Input placeholder="contoh: Shift Pagi" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -140,7 +140,7 @@ export function ShiftDialog({
                                 name="startTime"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Start Time</FormLabel>
+                                        <FormLabel>Jam Mulai</FormLabel>
                                         <FormControl>
                                             <Input type="time" {...field} />
                                         </FormControl>
@@ -153,7 +153,7 @@ export function ShiftDialog({
                                 name="endTime"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>End Time</FormLabel>
+                                        <FormLabel>Jam Selesai</FormLabel>
                                         <FormControl>
                                             <Input type="time" {...field} />
                                         </FormControl>
@@ -181,7 +181,7 @@ export function ShiftDialog({
                         />
                         <DialogFooter>
                             <Button type="submit" disabled={loading}>
-                                {loading ? 'Saving...' : 'Save Shift'}
+                                {loading ? 'Menyimpan...' : 'Simpan Shift'}
                             </Button>
                         </DialogFooter>
                     </form>

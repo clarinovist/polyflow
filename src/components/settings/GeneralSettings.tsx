@@ -12,21 +12,21 @@ export function GeneralSettings({ tenantName, userName, userEmail }: { tenantNam
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
             <Card className="col-span-1 lg:col-span-2">
                 <CardHeader>
-                    <CardTitle>Active Organization / Tenant</CardTitle>
+                    <CardTitle>Organisasi / Tenant Aktif</CardTitle>
                     <CardDescription>
-                        This shows which Database your session is currently connected to.
+                        Ini menunjukkan database yang sedang terhubung ke sesi Anda saat ini.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
                         <div className="space-y-0.5">
-                            <h3 className="text-base font-semibold text-primary">{tenantName || 'Main Database'}</h3>
+                            <h3 className="text-base font-semibold text-primary">{tenantName || 'Database Utama'}</h3>
                             <p className="text-sm text-muted-foreground">
-                                Data is fully isolated to this tenant.
+                                Data sepenuhnya terisolasi untuk tenant ini.
                             </p>
                         </div>
                         <Button variant="outline" disabled>
-                            Active
+                            Aktif
                         </Button>
                     </div>
                 </CardContent>
@@ -34,25 +34,25 @@ export function GeneralSettings({ tenantName, userName, userEmail }: { tenantNam
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Profile Information</CardTitle>
+                    <CardTitle>Informasi Profil</CardTitle>
                     <CardDescription>
-                        Update your account&apos;s profile information and email address.
+                        Perbarui informasi profil dan alamat email akun Anda.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Name</Label>
-                        <Input id="name" placeholder="Your name" defaultValue={userName || ''} />
+                        <Label htmlFor="name">Nama</Label>
+                        <Input id="name" placeholder="Nama Anda" defaultValue={userName || ''} />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="Email address" defaultValue={userEmail || ''} />
+                        <Input id="email" type="email" placeholder="Alamat email" defaultValue={userEmail || ''} />
                     </div>
                     <div className="flex justify-end">
                         <Button
                             onClick={() => toast.success('Profil berhasil diperbarui.')}
                         >
-                            Save Changes
+                            Simpan Perubahan
                         </Button>
                     </div>
                 </CardContent>
@@ -60,21 +60,21 @@ export function GeneralSettings({ tenantName, userName, userEmail }: { tenantNam
 
             <Card className="flex flex-col">
                 <CardHeader>
-                    <CardTitle>Appearance</CardTitle>
+                    <CardTitle>Tampilan</CardTitle>
                     <CardDescription>
-                        Customize the look and feel of the application.
+                        Sesuaikan tampilan dan nuansa aplikasi.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="space-y-0.5">
-                            <h3 className="text-base font-medium">Theme Preferences</h3>
+                            <h3 className="text-base font-medium">Preferensi Tema</h3>
                             <p className="text-sm text-muted-foreground">
-                                Toggle between light and dark modes.
+                                Beralih antara mode terang dan gelap.
                             </p>
                         </div>
                         <Button variant="outline" disabled>
-                            Managed via ThemeProvider
+                            Dikelola via ThemeProvider
                         </Button>
                     </div>
                 </CardContent>

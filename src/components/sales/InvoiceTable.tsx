@@ -139,7 +139,7 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="sm" asChild title="View Details">
+                                                <Button variant="ghost" size="sm" asChild title="Lihat Detail">
                                                     <Link href={`${basePath}/${basePath.includes('finance') ? invoice.id : (invoice.salesOrderId || invoice.purchaseOrderId || invoice.id)}`}>
                                                         <ArrowRight className="h-4 w-4" />
                                                     </Link>

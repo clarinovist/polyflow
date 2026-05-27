@@ -83,25 +83,25 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                     <Link href={`/dashboard/boms/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
-                            Edit Formula
+                            Ubah Formula
                         </DropdownMenuItem>
                     </Link>
                     <Link href={`/dashboard/boms/${id}`}>
                         <DropdownMenuItem>
                             <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            Lihat Detail
                         </DropdownMenuItem>
                     </Link>
                     <DropdownMenuItem onClick={handleRecalculateChain} disabled={isRecalculating}>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        {isRecalculating ? 'Recalculating...' : 'Recalculate Cost Chain'}
+                        {isRecalculating ? 'Menghitung ulang...' : 'Hitung Ulang Rantai Biaya'}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Recipe
+                        Hapus Resep
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

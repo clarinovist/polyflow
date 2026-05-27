@@ -68,21 +68,21 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
 
             if (result.success) {
                 toast({
-                    title: 'Success',
+                    title: 'Berhasil',
                     description: result.data?.message,
                 });
                 onOpenChange(false);
             } else {
                 toast({
-                    title: 'Error',
+                    title: 'Gagal',
                     description: result.error,
                     variant: 'destructive'
                 });
             }
         } catch (error) {
             toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to record payment',
+                title: 'Gagal',
+                description: error instanceof Error ? error.message : 'Gagal mencatat pembayaran',
                 variant: 'destructive'
             });
         } finally {
@@ -94,18 +94,18 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Record Supplier Payment</DialogTitle>
+                    <DialogTitle>Catat Pembayaran Supplier</DialogTitle>
                     <DialogDescription>
-                        Record a payment sent to a supplier for their invoice.
+                        Catat pembayaran yang dikirim ke supplier untuk invoice mereka.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="invoice">Select Purchase Invoice</Label>
+                        <Label htmlFor="invoice">Pilih Invoice Pembelian</Label>
                         <Select value={selectedInvoiceId} onValueChange={setSelectedInvoiceId} required>
                             <SelectTrigger>
-                                <SelectValue placeholder="Choose an unpaid invoice" />
+                                <SelectValue placeholder="Pilih invoice yang belum lunas" />
                             </SelectTrigger>
                             <SelectContent>
                                 {invoices.map((inv) => {
@@ -123,22 +123,22 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                     {selectedInvoice && (
                         <div className="p-3 bg-muted rounded-md text-sm space-y-1">
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Total Amount:</span>
+                                <span className="text-muted-foreground">Total Tagihan:</span>
                                 <span className="font-medium">{formatRupiah(Number(selectedInvoice.totalAmount))}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Paid Amount:</span>
+                                <span className="text-muted-foreground">Sudah Dibayar:</span>
                                 <span className="font-medium text-emerald-600">{formatRupiah(Number(selectedInvoice.paidAmount))}</span>
                             </div>
                             <div className="flex justify-between border-t pt-1">
-                                <span className="text-muted-foreground font-semibold">Remaining Balance:</span>
+                                <span className="text-muted-foreground font-semibold">Sisa Tagihan:</span>
                                 <span className="font-bold text-red-600">{formatRupiah(remainingBalance)}</span>
                             </div>
                         </div>
                     )}
 
                     <div className="space-y-2">
-                        <Label htmlFor="amount">Payment Amount</Label>
+                        <Label htmlFor="amount">Jumlah Pembayaran</Label>
                         <Input
                             id="amount"
                             type="number"
@@ -152,7 +152,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="paymentDate">Payment Date</Label>
+                        <Label htmlFor="paymentDate">Tanggal Pembayaran</Label>
                         <Input
                             id="paymentDate"
                             type="date"
@@ -163,24 +163,24 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="method">Payment Method</Label>
+                        <Label htmlFor="method">Metode Pembayaran</Label>
                         <Select value={method} onValueChange={setMethod} required>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                                <SelectItem value="Cash">Cash</SelectItem>
-                                <SelectItem value="Check">Check</SelectItem>
+                                <SelectItem value="Bank Transfer">Transfer Bank</SelectItem>
+                                <SelectItem value="Cash">Tunai</SelectItem>
+                                <SelectItem value="Check">Cek</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="notes">Notes (Optional)</Label>
+                        <Label htmlFor="notes">Catatan (Opsional)</Label>
                         <Textarea
                             id="notes"
-                            placeholder="Add any additional notes..."
+                            placeholder="Tambahkan catatan tambahan..."
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             rows={3}
@@ -189,11 +189,11 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                            Cancel
+                            Batal
                         </Button>
                         <Button type="submit" disabled={loading || !selectedInvoiceId}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Record Payment
+                            Catat Pembayaran
                         </Button>
                     </DialogFooter>
                 </form>

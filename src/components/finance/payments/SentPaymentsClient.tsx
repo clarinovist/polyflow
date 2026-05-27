@@ -40,21 +40,21 @@ export function SentPaymentsClient({ payments, unpaidInvoices }: SentPaymentsCli
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Supplier Payments</h1>
-                    <p className="text-muted-foreground">Track and manage payments sent to suppliers.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Pembayaran Supplier</h1>
+                    <p className="text-muted-foreground">Lacak dan kelola pembayaran yang dikirim ke supplier.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
                     <Button onClick={() => setDialogOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Record Payment
+                        Catat Pembayaran
                     </Button>
                 </div>
             </div>
 
             <SharedPaymentTable
-                title="Outgoing Transactions"
-                description="List of completed payments to suppliers."
+                title="Transaksi Keluar"
+                description="Daftar pembayaran ke supplier yang telah selesai diproses."
                 payments={payments}
                 type="sent"
             />
