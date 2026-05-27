@@ -63,7 +63,7 @@ export function AssetForm({ existingAsset, accounts, onSuccess }: AssetFormProps
             form.reset();
             onSuccess?.();
         } catch (error) {
-            toast.error('Failed to save asset');
+            toast.error('Gagal menyimpan aset');
             console.error(error);
         }
     };

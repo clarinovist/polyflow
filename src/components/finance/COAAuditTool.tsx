@@ -24,14 +24,14 @@ export function COAAuditTool() {
         try {
             const result = await auditRequiredAccounts();
             if (!result.success) {
-                toast.error(result.error || 'Failed to run COA audit');
+                toast.error(result.error || 'Gagal menjalankan audit COA');
                 return;
             }
             if (result.data) {
                 setAudit(result.data);
             }
         } catch (error) {
-            toast.error('Failed to run COA audit');
+            toast.error('Gagal menjalankan audit COA');
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -43,13 +43,13 @@ export function COAAuditTool() {
         try {
             const result = await fixMissingAccounts();
             if (!result.success) {
-                toast.error(result.error || 'Failed to initialize accounts');
+                toast.error(result.error || 'Gagal menginisialisasi akun');
                 return;
             }
             toast.success(`${result.data?.count} akun berhasil diinisialisasi.`);
             await runAudit();
         } catch (error) {
-            toast.error('Failed to fix accounts');
+            toast.error('Gagal memperbaiki akun');
             console.error(error);
         } finally {
             setIsFixing(false);

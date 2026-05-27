@@ -37,7 +37,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
             if (result.success) {
                 toast.success('Shift berhasil dihapus.');
             } else {
-                toast.error(result.error || 'Failed to delete shift');
+                toast.error(result.error || 'Gagal menghapus shift');
             }
         }
     };

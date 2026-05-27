@@ -88,7 +88,7 @@ export default function ImportJournalForm({ accounts }: ImportJournalFormProps) 
                 }
             }
         } catch (_err) {
-            toast.error("Failed to parse CSV file");
+            toast.error('Gagal mengurai file CSV');
         } finally {
             setValidating(false);
         }
@@ -146,7 +146,7 @@ export default function ImportJournalForm({ accounts }: ImportJournalFormProps) 
             }
 
         } catch (_error) {
-            toast.error("Import failed");
+            toast.error('Impor gagal');
         } finally {
             setLoading(false);
         }

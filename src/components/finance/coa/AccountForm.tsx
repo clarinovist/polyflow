@@ -87,7 +87,7 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                 if (!account) form.reset();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {
-                toast.error(error.message || "Failed to save account");
+                toast.error(error.message || 'Gagal menyimpan akun');
             }
         });
     };

@@ -75,7 +75,7 @@ export function JournalListClient() {
                 setData(res.data.data as any);
                 setTotal(res.data.meta.total);
             } else if (!res.success) {
-                toast.error(res.error || 'Failed to fetch journals');
+                toast.error(res.error || 'Gagal mengambil jurnal');
             }
         } catch (error) {
             console.error("Failed to fetch journals", error);
@@ -124,11 +124,11 @@ export function JournalListClient() {
                 setRowSelection({});
                 fetchData();
             } else {
-                toast.error(res.error || "Failed to post journals");
+                toast.error(res.error || 'Gagal memposting jurnal');
             }
         } catch (error) {
             console.error("Batch post error", error);
-            toast.error("An unexpected error occurred");
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setBatchLoading(false);
         }

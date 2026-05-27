@@ -37,7 +37,7 @@ export default function CreditsManagementPage() {
             });
             toast.success(`Data akun untuk ${emailSearch} berhasil ditemukan.`);
         } else {
-            toast.error('Please enter a valid email address.');
+            toast.error('Masukkan alamat email yang valid.');
         }
     };
 

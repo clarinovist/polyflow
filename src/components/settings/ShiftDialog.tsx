@@ -105,7 +105,7 @@ export function ShiftDialog({
             }
         } catch (error) {
             console.error(error);
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

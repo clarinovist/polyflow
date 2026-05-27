@@ -41,10 +41,10 @@ export function PeriodFormDialog() {
                 toast.success('Periode fiskal berhasil dibuat.');
                 setOpen(false);
             } else {
-                toast.error(result.error || 'Failed to create period');
+                toast.error(result.error || 'Gagal membuat periode');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

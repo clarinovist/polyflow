@@ -48,10 +48,10 @@ export default function FixedAssetsPage() {
                 toast.success(data.message);
                 fetchData();
             } else {
-                toast.error(res.error || "Failed to run depreciation");
+                toast.error(res.error || 'Gagal menjalankan depresiasi');
             }
         } catch (_e) {
-            toast.error("An error occurred");
+            toast.error('Terjadi kesalahan');
         } finally {
             setRunning(false);
         }

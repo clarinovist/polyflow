@@ -60,10 +60,10 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                 toast.success('Aset berhasil didaftarkan.');
                 setOpen(false);
             } else {
-                toast.error(res.error || 'Failed to create asset');
+                toast.error(res.error || 'Gagal membuat aset');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

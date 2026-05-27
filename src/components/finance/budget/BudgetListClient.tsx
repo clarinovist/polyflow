@@ -80,7 +80,7 @@ export function BudgetListClient({ initialBudgets, accounts, year: initialYear }
             toast.success('Anggaran berhasil disimpan.');
             setEditingCell(null);
         } catch (error) {
-            toast.error("Failed to save");
+            toast.error('Gagal menyimpan');
             console.error(error);
         }
     };

@@ -64,7 +64,7 @@ export function AssetListClient({ initialAssets, accounts }: AssetListClientProp
             toast.success("Aset berhasil dihapus.");
         } catch (error) {
             console.error("Delete failed", error);
-            toast.error("Failed to delete asset");
+            toast.error('Gagal menghapus aset');
         }
     };
 

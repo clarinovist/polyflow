@@ -92,10 +92,10 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                 router.push('/finance/journals');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to create journal');
+                toast.error(result.error || 'Gagal membuat jurnal');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred. Please check your data and try again.');
+            toast.error('Terjadi kesalahan tak terduga. Periksa data Anda dan coba lagi.');
         } finally {
             setLoading(false);
         }

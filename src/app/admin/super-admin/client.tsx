@@ -23,7 +23,7 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
         const result = await updateTenant(tenant.id, formData);
 
         if (!result.success) {
-            toast.error(result.error || 'Unknown error');
+            toast.error(result.error || 'Terjadi kesalahan tidak diketahui');
         } else {
             toast.success(`${name} berhasil diperbarui.`);
             setIsOpen(false);
@@ -94,7 +94,7 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
         const result = await resetTenantAdminPassword(tenant.id, formData);
 
         if (!result.success) {
-            toast.error(result.error || 'Unknown error');
+            toast.error(result.error || 'Terjadi kesalahan tidak diketahui');
         } else {
             toast.success(`Password admin untuk ${tenant.name} berhasil direset.`);
             setIsOpen(false);

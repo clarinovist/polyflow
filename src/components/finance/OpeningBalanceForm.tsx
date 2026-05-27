@@ -95,10 +95,10 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                 });
                 router.refresh();
             } else {
-                toast.error(res.error || 'Failed to save');
+                toast.error(res.error || 'Gagal menyimpan');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsSubmitting(false);
         }

@@ -62,10 +62,10 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                 toast.success('Pembayaran berhasil dihapus dan jurnal dibersihkan.');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to delete payment');
+                toast.error(result.error || 'Gagal menghapus pembayaran');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsDeleting(null);
         }

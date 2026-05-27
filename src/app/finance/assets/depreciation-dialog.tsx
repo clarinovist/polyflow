@@ -37,13 +37,13 @@ export function DepreciationDialog() {
         try {
             const res = await runDepreciation(parseInt(year), parseInt(month));
             if (!res.success) {
-                toast.error(res.error || 'Failed to run depreciation');
+                toast.error(res.error || 'Gagal menjalankan depresiasi');
             } else {
                 toast.success(`Depresiasi untuk ${res.data?.count || 0} aset berhasil diproses.`);
                 setOpen(false);
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

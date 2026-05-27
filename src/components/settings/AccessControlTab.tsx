@@ -102,7 +102,7 @@ export function AccessControlTab() {
                     [resource]: currentVal
                 }
             }));
-            toast.error('Failed to update permission');
+            toast.error('Gagal memperbarui izin');
         }
 
         setUpdating(null);

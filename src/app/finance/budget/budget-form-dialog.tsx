@@ -49,10 +49,10 @@ export function BudgetFormDialog({ accounts, currentYear, currentMonth }: { acco
                 toast.success('Target anggaran berhasil disimpan.');
                 setOpen(false);
             } else {
-                toast.error(res.error || 'Failed to set budget');
+                toast.error(res.error || 'Gagal menetapkan anggaran');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

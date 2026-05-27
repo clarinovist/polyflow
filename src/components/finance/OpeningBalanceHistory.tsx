@@ -56,10 +56,10 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                 toast.success('Saldo awal berhasil dihapus.');
                 router.refresh();
             } else {
-                toast.error(res.error || 'Failed to delete');
+                toast.error(res.error || 'Gagal menghapus');
             }
         } catch {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsDeleting(null);
         }

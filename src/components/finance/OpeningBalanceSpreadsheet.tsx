@@ -106,7 +106,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
 
     const handleSave = async () => {
         if (totalDebit === 0 && totalCredit === 0) {
-            toast.error("Please enter at least one balance.");
+            toast.error('Masukkan setidaknya satu saldo.');
             return;
         }
 
@@ -127,11 +127,11 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
                 // Optional: Redirect or Reset
                 window.location.reload();
             } else {
-                toast.error(result.error || "Failed to save opening balances");
+                toast.error(result.error || 'Gagal menyimpan saldo awal');
             }
         } catch (error) {
             console.error(error);
-            toast.error("An unexpected error occurred");
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsSubmitting(false);
         }
@@ -139,7 +139,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
 
     const addArEntry = () => {
         if (!tempInvoice.entityId || !tempInvoice.invoiceNumber || !tempInvoice.amount) {
-            toast.error("Please fill all required fields");
+            toast.error('Lengkapi semua field wajib.');
             return;
         }
         setArEntries([...arEntries, { ...tempInvoice, type: 'AR', date: date, dueDate: date } as CreateOpeningBalanceInput]);
@@ -148,7 +148,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
 
     const addApEntry = () => {
         if (!tempInvoice.entityId || !tempInvoice.invoiceNumber || !tempInvoice.amount) {
-            toast.error("Please fill all required fields");
+            toast.error('Lengkapi semua field wajib.');
             return;
         }
         setApEntries([...apEntries, { ...tempInvoice, type: 'AP', date: date, dueDate: date } as CreateOpeningBalanceInput]);

@@ -53,7 +53,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                 router.refresh();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {
-                toast.error(error.message || "Failed to delete account");
+                toast.error(error.message || 'Gagal menghapus akun');
             }
         });
     };

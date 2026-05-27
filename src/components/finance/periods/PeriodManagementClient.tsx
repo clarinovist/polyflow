@@ -76,7 +76,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         try {
             const summary = await getIncomeStatementSummary(id);
             if (!summary.success) {
-                toast.error(summary.error || "Failed to fetch period summary");
+                toast.error(summary.error || 'Gagal mengambil ringkasan periode');
                 return;
             }
             if (summary.data) {
@@ -84,7 +84,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                 setIsConfirmOpen(true);
             }
         } catch (_error) {
-            toast.error("Failed to fetch period summary");
+            toast.error('Gagal mengambil ringkasan periode');
         }
     };
 
@@ -113,7 +113,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                 toast.success('Periode fiskal berhasil dibuka kembali.');
                 router.refresh();
             } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
-                toast.error("Failed to update status");
+                toast.error('Gagal memperbarui status');
             }
         });
     };

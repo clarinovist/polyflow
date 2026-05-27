@@ -35,10 +35,10 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
                 toast.success(`Akun ${code} - ${name} berhasil dihapus.`);
                 setOpen(false);
             } else {
-                toast.error(result.error || 'Failed to delete account');
+                toast.error(result.error || 'Gagal menghapus akun');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

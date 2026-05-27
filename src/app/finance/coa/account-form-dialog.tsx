@@ -90,10 +90,10 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
                     setFormData({ code: '', name: '', type: 'ASSET' as AccountType, category: 'CURRENT_ASSET' as AccountCategory, description: '' });
                 }
             } else {
-                toast.error(result.error || 'Failed to save account');
+                toast.error(result.error || 'Gagal menyimpan akun');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

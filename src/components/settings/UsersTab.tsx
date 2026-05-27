@@ -72,7 +72,7 @@ export function UsersTab() {
         if (result.success && result.data) {
             setUsers(result.data);
         } else {
-            toast.error('Failed to load users');
+            toast.error('Gagal memuat pengguna');
         }
         setLoading(false);
     };
@@ -91,7 +91,7 @@ export function UsersTab() {
             setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
             fetchUsers();
         } else {
-            toast.error(result.error || 'Failed to create user');
+            toast.error(result.error || 'Gagal membuat pengguna');
         }
         setIsSubmitting(false);
     };
@@ -104,7 +104,7 @@ export function UsersTab() {
             setEditOpen(false);
             fetchUsers();
         } else {
-            toast.error(result.error || 'Failed to update user');
+            toast.error(result.error || 'Gagal memperbarui pengguna');
         }
         setIsSubmitting(false);
     };
