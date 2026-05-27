@@ -25,6 +25,7 @@ import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { useState } from 'react';
+import { warehouseSidebarLabels } from '@/lib/labels';
 
 interface WarehouseSidebarProps {
     user: {
@@ -49,26 +50,26 @@ const warehouseLinks: SidebarLinkGroup[] = [
     {
         heading: "Operations",
         items: [
-            { title: "Job Queue", href: "/warehouse", icon: LayoutDashboard },
-            { title: "Incoming Receipts", href: "/warehouse/incoming", icon: PackageSearch },
-            { title: "Outgoing Orders", href: "/warehouse/outgoing", icon: ChevronRight },
+            { title: warehouseSidebarLabels.jobQueue, href: "/warehouse", icon: LayoutDashboard },
+            { title: warehouseSidebarLabels.incomingReceipts, href: "/warehouse/incoming", icon: PackageSearch },
+            { title: warehouseSidebarLabels.outgoingOrders, href: "/warehouse/outgoing", icon: ChevronRight },
         ],
     },
     {
         heading: "Inventory",
         items: [
-            { title: "Stock Overview", href: "/warehouse/inventory", icon: Warehouse },
-            { title: "Stock Opname", href: "/warehouse/opname", icon: ClipboardCheck },
-            { title: "Stock Transfer", href: "/warehouse/inventory/transfer", icon: ArrowLeftRight },
-            { title: "Stock Adjustment", href: "/warehouse/inventory/adjustment", icon: PackagePlus },
-            { title: "Stock Aging", href: "/warehouse/inventory/aging", icon: Clock },
-            { title: "History Logs", href: "/warehouse/inventory/history", icon: History },
+            { title: warehouseSidebarLabels.stockOverview, href: "/warehouse/inventory", icon: Warehouse },
+            { title: warehouseSidebarLabels.stockOpname, href: "/warehouse/opname", icon: ClipboardCheck },
+            { title: warehouseSidebarLabels.stockTransfer, href: "/warehouse/inventory/transfer", icon: ArrowLeftRight },
+            { title: warehouseSidebarLabels.stockAdjustment, href: "/warehouse/inventory/adjustment", icon: PackagePlus },
+            { title: warehouseSidebarLabels.stockAging, href: "/warehouse/inventory/aging", icon: Clock },
+            { title: warehouseSidebarLabels.historyLogs, href: "/warehouse/inventory/history", icon: History },
         ],
     },
     {
         heading: "Master Data",
         items: [
-            { title: "Locations", href: "/warehouse/locations", icon: Warehouse },
+            { title: warehouseSidebarLabels.locations, href: "/warehouse/locations", icon: Warehouse },
         ],
     },
 ];

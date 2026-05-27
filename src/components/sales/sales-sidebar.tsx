@@ -12,6 +12,7 @@ import {
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { salesSidebarLabels } from '@/lib/labels';
 
 interface SalesSidebarProps {
     user: {
@@ -25,24 +26,24 @@ const salesLinks = [
     {
         heading: 'Overview',
         items: [
-            { href: '/sales', icon: LayoutDashboard, label: 'Sales Dashboard' },
+            { href: '/sales', icon: LayoutDashboard, label: salesSidebarLabels.salesDashboard },
         ],
     },
     {
         heading: 'Transactions',
         items: [
-            { href: '/sales/quotations', icon: FileText, label: 'Quotations' },
-            { href: '/sales/orders', icon: ShoppingCart, label: 'Sales Orders' },
-            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: 'MTS Belum Lunas' },
-            { href: '/sales/invoices', icon: FileText, label: 'Sales Invoices' },
-            { href: '/sales/deliveries', icon: Truck, label: 'Delivery Tracking' },
-            { href: '/sales/returns', icon: RotateCcw, label: 'Sales Returns' },
+            { href: '/sales/quotations', icon: FileText, label: salesSidebarLabels.quotations },
+            { href: '/sales/orders', icon: ShoppingCart, label: salesSidebarLabels.salesOrders },
+            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: salesSidebarLabels.mtsUnpaid },
+            { href: '/sales/invoices', icon: FileText, label: salesSidebarLabels.salesInvoices },
+            { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
+            { href: '/sales/returns', icon: RotateCcw, label: salesSidebarLabels.salesReturns },
         ],
     },
     {
         heading: 'Customers',
         items: [
-            { href: '/sales/customers', icon: Users2, label: 'Customer Management' },
+            { href: '/sales/customers', icon: Users2, label: salesSidebarLabels.customerManagement },
         ],
     },
 ];

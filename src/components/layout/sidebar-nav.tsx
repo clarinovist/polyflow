@@ -26,6 +26,7 @@ import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useState } from 'react';
+import { mainNavLabels } from '@/lib/labels';
 
 
 interface SidebarNavProps {
@@ -45,21 +46,21 @@ interface NavItemType {
 
 // Flattened links
 export const sidebarLinks: NavItemType[] = [
-    { title: "Sales", href: "/sales", icon: ShoppingCart },
-    { title: "Planning", href: "/planning", icon: Truck },
-    { title: "Production", href: "/production", icon: Factory },
-    { title: "Inventory", href: "/warehouse", icon: PackageSearch },
-    { title: "Accounting", href: "/finance", icon: Calculator },
+    { title: mainNavLabels.sales, href: "/sales", icon: ShoppingCart },
+    { title: mainNavLabels.planning, href: "/planning", icon: Truck },
+    { title: mainNavLabels.production, href: "/production", icon: Factory },
+    { title: mainNavLabels.inventory, href: "/warehouse", icon: PackageSearch },
+    { title: mainNavLabels.accounting, href: "/finance", icon: Calculator },
 
     // Master Data
-    { title: "Product Catalog", href: "/dashboard/products", icon: Package },
-    { title: "BOMs", href: "/dashboard/boms", icon: Files },
-    { title: "Machines", href: "/dashboard/machines", icon: Settings2 },
-    { title: "Employees", href: "/dashboard/employees", icon: Users },
+    { title: mainNavLabels.productCatalog, href: "/dashboard/products", icon: Package },
+    { title: mainNavLabels.boms, href: "/dashboard/boms", icon: Files },
+    { title: mainNavLabels.machines, href: "/dashboard/machines", icon: Settings2 },
+    { title: mainNavLabels.employees, href: "/dashboard/employees", icon: Users },
 
     // Maklon Jasa
-    { title: "Maklon Receipts", href: "/dashboard/maklon/receipts", icon: PackageSearch },
-    { title: "Maklon Returns", href: "/dashboard/maklon/returns", icon: Package },
+    { title: mainNavLabels.maklonReceipts, href: "/dashboard/maklon/receipts", icon: PackageSearch },
+    { title: mainNavLabels.maklonReturns, href: "/dashboard/maklon/returns", icon: Package },
 ];
 
 export function SidebarNav({ user, permissions }: SidebarNavProps) {

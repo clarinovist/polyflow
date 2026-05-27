@@ -22,6 +22,7 @@ import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { useState } from 'react';
+import { productionSidebarLabels } from '@/lib/labels';
 
 interface ProductionSidebarProps {
     user: {
@@ -46,24 +47,24 @@ const productionLinks: SidebarLinkGroup[] = [
     {
         heading: "Floor Management",
         items: [
-            { title: "Overview", href: "/production", icon: LayoutDashboard },
-            { title: "Machine Board", href: "/production/machines", icon: Factory },
+            { title: productionSidebarLabels.overview, href: "/production", icon: LayoutDashboard },
+            { title: productionSidebarLabels.machineBoard, href: "/production/machines", icon: Factory },
         ],
     },
     {
         heading: "Resources & Stock",
         items: [
-            { title: "Floor Stock", href: "/production/inventory", icon: Boxes },
-            { title: "Team / Shifts", href: "/production/resources", icon: Users },
-            { title: "Output Logs", href: "/production/history", icon: History },
-            { title: "Production Costing", href: "/production/costing", icon: Calculator },
-            { title: "Work Shifts", href: "/production/shifts", icon: Clock },
+            { title: productionSidebarLabels.floorStock, href: "/production/inventory", icon: Boxes },
+            { title: productionSidebarLabels.teamShifts, href: "/production/resources", icon: Users },
+            { title: productionSidebarLabels.outputLogs, href: "/production/history", icon: History },
+            { title: productionSidebarLabels.productionCosting, href: "/production/costing", icon: Calculator },
+            { title: productionSidebarLabels.workShifts, href: "/production/shifts", icon: Clock },
         ],
     },
     {
         heading: "Tools",
         items: [
-            { title: "Operator Kiosk", href: "/kiosk", icon: ClipboardCheck },
+            { title: productionSidebarLabels.operatorKiosk, href: "/kiosk", icon: ClipboardCheck },
         ],
     },
 ];

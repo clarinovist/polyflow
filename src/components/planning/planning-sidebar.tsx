@@ -15,6 +15,7 @@ import {
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { planningSidebarLabelsExtended } from '@/lib/labels';
 
 interface PlanningSidebarProps {
     user: {
@@ -28,32 +29,32 @@ const planningLinks = [
     {
         heading: 'Overview',
         items: [
-            { href: '/planning', icon: LayoutDashboard, label: 'Planning Dashboard' },
+            { href: '/planning', icon: LayoutDashboard, label: planningSidebarLabelsExtended.planningDashboard },
         ],
     },
     {
         heading: 'Production Planning',
         items: [
-            { href: '/planning/orders', icon: Factory, label: 'Work Orders' },
-            { href: '/planning/requests', icon: ClipboardCheck, label: 'Incoming Requests' },
-            { href: '/planning/schedule', icon: Calendar, label: 'Production Schedule' },
-            { href: '/planning/mrp', icon: FileText, label: 'Material Requirements' },
+            { href: '/planning/orders', icon: Factory, label: planningSidebarLabelsExtended.workOrders },
+            { href: '/planning/requests', icon: ClipboardCheck, label: planningSidebarLabelsExtended.incomingRequests },
+            { href: '/planning/schedule', icon: Calendar, label: planningSidebarLabelsExtended.productionSchedule },
+            { href: '/planning/mrp', icon: FileText, label: planningSidebarLabelsExtended.materialRequirements },
         ],
     },
     {
         heading: 'Procurement',
         items: [
-            { href: '/planning/purchase-requests', icon: ClipboardList, label: 'Purchase Requests' },
-            { href: '/planning/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
-            { href: '/planning/purchase-returns', icon: RotateCcw, label: 'Purchase Returns' },
-            { href: '/planning/suppliers', icon: Truck, label: 'Supplier Management' },
+            { href: '/planning/purchase-requests', icon: ClipboardList, label: planningSidebarLabelsExtended.purchaseRequests },
+            { href: '/planning/purchase-orders', icon: ShoppingCart, label: planningSidebarLabelsExtended.purchaseOrders },
+            { href: '/planning/purchase-returns', icon: RotateCcw, label: planningSidebarLabelsExtended.purchaseReturns },
+            { href: '/planning/suppliers', icon: Truck, label: planningSidebarLabelsExtended.supplierManagement },
         ],
     },
     {
         heading: 'Analytics',
         items: [
-            { href: '/planning/production-analytics', icon: BarChart3, label: 'Production Analytics' },
-            { href: '/planning/procurement-analytics', icon: BarChart3, label: 'Procurement Analytics' },
+            { href: '/planning/production-analytics', icon: BarChart3, label: planningSidebarLabelsExtended.productionAnalytics },
+            { href: '/planning/procurement-analytics', icon: BarChart3, label: planningSidebarLabelsExtended.procurementAnalytics },
         ],
     },
 ];

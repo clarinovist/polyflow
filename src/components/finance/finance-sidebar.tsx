@@ -21,6 +21,7 @@ import {
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
+import { financeSidebarLabels } from '@/lib/labels';
 
 interface FinanceSidebarProps {
     user: {
@@ -34,54 +35,54 @@ const financeLinks = [
     {
         heading: 'Insights',
         items: [
-            { href: '/finance', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-            { href: '/finance/petty-cash', icon: Wallet, label: 'Petty Cash' },
-            { href: '/finance/bank-reconciliation', icon: Landmark, label: 'Bank Reconciliation' },
-            { href: '/finance/fixed-assets', icon: Box, label: 'Fixed Assets' },
-            { href: '/finance/budgeting', icon: TrendingUp, label: 'Budgeting vs Actuals' },
-            { href: '/finance/aging', icon: HistoryIcon, label: 'AR/AP Aging Summary' },
-            { href: '/finance/foh-allocation', icon: TrendingUp, label: 'FOH Allocation' },
-            { href: '/finance/costing', icon: TrendingUp, label: 'Costing Dashboard' },
-            { href: '/finance/costing/simulator', icon: TrendingUp, label: 'Material Simulator' },
-            { href: '/finance/costing/hpp-calculator', icon: TrendingUp, label: 'HPP Calculator' },
+            { href: '/finance', icon: LayoutDashboard, label: financeSidebarLabels.dashboard, exact: true },
+            { href: '/finance/petty-cash', icon: Wallet, label: financeSidebarLabels.pettyCash },
+            { href: '/finance/bank-reconciliation', icon: Landmark, label: financeSidebarLabels.bankReconciliation },
+            { href: '/finance/fixed-assets', icon: Box, label: financeSidebarLabels.fixedAssets },
+            { href: '/finance/budgeting', icon: TrendingUp, label: financeSidebarLabels.budgeting },
+            { href: '/finance/aging', icon: HistoryIcon, label: financeSidebarLabels.aging },
+            { href: '/finance/foh-allocation', icon: TrendingUp, label: financeSidebarLabels.fohAllocation },
+            { href: '/finance/costing', icon: TrendingUp, label: financeSidebarLabels.costingDashboard },
+            { href: '/finance/costing/simulator', icon: TrendingUp, label: financeSidebarLabels.materialSimulator },
+            { href: '/finance/costing/hpp-calculator', icon: TrendingUp, label: financeSidebarLabels.hppCalculator },
         ],
     },
     {
         heading: 'Cash Flow',
         items: [
-            { href: '/finance/quick-entry', icon: Zap, label: 'Quick Entry' },
-            { href: '/finance/invoices/sales', icon: Receipt, label: 'Receivables' },
-            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: 'MTS Belum Lunas' },
-            { href: '/finance/payments/received', icon: CreditCard, label: 'Customer Payments' },
-            { href: '/finance/invoices/purchase', icon: FileText, label: 'Payables' },
-            { href: '/finance/payments/sent', icon: CreditCard, label: 'Supplier Payments' },
+            { href: '/finance/quick-entry', icon: Zap, label: financeSidebarLabels.quickEntry },
+            { href: '/finance/invoices/sales', icon: Receipt, label: financeSidebarLabels.receivables },
+            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: financeSidebarLabels.mtsUnpaid },
+            { href: '/finance/payments/received', icon: CreditCard, label: financeSidebarLabels.customerPayments },
+            { href: '/finance/invoices/purchase', icon: FileText, label: financeSidebarLabels.payables },
+            { href: '/finance/payments/sent', icon: CreditCard, label: financeSidebarLabels.supplierPayments },
         ],
     },
     {
         heading: 'Accounting Ledger',
         items: [
-            { href: '/finance/journals', icon: BookOpen, label: 'Journal Entries' },
-            { href: '/finance/assets', icon: Building2, label: 'Fixed Assets' },
+            { href: '/finance/journals', icon: BookOpen, label: financeSidebarLabels.journalEntries },
+            { href: '/finance/assets', icon: Building2, label: financeSidebarLabels.fixedAssets },
         ],
     },
     {
         heading: 'Financial Reports',
         items: [
-            { href: '/finance/reports/balance-sheet', icon: FileText, label: 'Balance Sheet' },
-            { href: '/finance/reports/income-statement', icon: FileText, label: 'Income Statement' },
-            { href: '/finance/reports/cash-flow', icon: FileText, label: 'Cash Flow Statement' },
-            { href: '/finance/reports/trial-balance', icon: FileText, label: 'Trial Balance' },
-            { href: '/finance/reports/budget-variance', icon: FileText, label: 'Budget Variance' },
-            { href: '/finance/reports/tax', icon: FileText, label: 'Tax Report' },
-            { href: '/finance/reports/maklon', icon: Factory, label: 'Maklon Profitability' },
+            { href: '/finance/reports/balance-sheet', icon: FileText, label: financeSidebarLabels.balanceSheet },
+            { href: '/finance/reports/income-statement', icon: FileText, label: financeSidebarLabels.incomeStatement },
+            { href: '/finance/reports/cash-flow', icon: FileText, label: financeSidebarLabels.cashFlowStatement },
+            { href: '/finance/reports/trial-balance', icon: FileText, label: financeSidebarLabels.trialBalance },
+            { href: '/finance/reports/budget-variance', icon: FileText, label: financeSidebarLabels.budgetVariance },
+            { href: '/finance/reports/tax', icon: FileText, label: financeSidebarLabels.taxReport },
+            { href: '/finance/reports/maklon', icon: Factory, label: financeSidebarLabels.maklonProfitability },
         ],
     },
     {
         heading: 'Configuration',
         items: [
-            { href: '/finance/coa', icon: Settings2, label: 'Chart of Accounts' },
-            { href: '/finance/periods', icon: Calendar, label: 'Fiscal Periods' },
-            { href: '/finance/opening-balance', icon: HistoryIcon, label: 'Opening Balance Setup' },
+            { href: '/finance/coa', icon: Settings2, label: financeSidebarLabels.chartOfAccounts },
+            { href: '/finance/periods', icon: Calendar, label: financeSidebarLabels.fiscalPeriods },
+            { href: '/finance/opening-balance', icon: HistoryIcon, label: financeSidebarLabels.openingBalance },
         ],
     },
 ];
