@@ -10,6 +10,7 @@
 3. [Beta Plan](./BETA_PLAN.md) — rencana menjalankan 18 beta accounts secara terukur.
 4. [Sales Script](./SALES_SCRIPT.md) — script discovery, demo, objection handling, dan outreach templates.
 5. [Landing Page Copy](./LANDING_PAGE_COPY.md) — copy website siap pakai untuk halaman marketing awal.
+6. [Language Guidelines](./LANGUAGE_GUIDELINES.md) — standar bahasa UI, glossary, tone, error message, dan istilah hybrid Indonesia/English.
 
 ## Prinsip Strategis
 
