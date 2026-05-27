@@ -64,11 +64,11 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
         try {
             if (mode === 'create') {
                 await createSalesReturnAction(data);
-                toast.success('Sales return created successfully');
+                toast.success('Retur Penjualan berhasil dibuat');
                 router.push('/sales/returns');
             } else {
                 // await updateSalesReturnAction(data);
-                toast.success('Sales return updated successfully');
+                toast.success('Retur Penjualan berhasil diperbarui');
             }
         } catch (error: unknown) {
             toast.error(error instanceof Error ? error.message : 'Failed to save sales return');

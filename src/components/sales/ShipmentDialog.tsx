@@ -53,7 +53,7 @@ export function ShipmentDialog({ orderId, orderNumber, isMaklon = false, isOpen,
         try {
             const result = await shipSalesOrder(values);
             if (result.success) {
-                toast.success(isMaklon ? 'Service order closed successfully' : 'Order shipped successfully');
+                toast.success(isMaklon ? 'Order jasa berhasil ditutup' : 'Pesanan berhasil dikirim');
                 onClose();
                 router.refresh();
             } else {

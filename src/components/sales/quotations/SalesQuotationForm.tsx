@@ -188,7 +188,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 : await updateQuotation({ ...payload, id: initialData!.id } as UpdateSalesQuotationValues);
 
             if (result.success) {
-                toast.success(`Quotation ${mode === 'create' ? 'Created' : 'Updated'}`);
+                toast.success(`Quotation berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
                 router.push('/sales/quotations');
             } else {
                 toast.error(result.error || "Failed to save quotation");

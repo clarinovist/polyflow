@@ -62,7 +62,7 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
         try {
             const result = await deleteInvoice(id, type);
             if (result.success) {
-                toast.success('Invoice deleted successfully');
+                toast.success('Invoice berhasil dihapus');
             } else {
                 toast.error(result.error || 'Failed to delete invoice');
             }

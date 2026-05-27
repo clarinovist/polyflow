@@ -107,7 +107,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
             });
 
             if (result.success) {
-                toast.success('Payment recorded successfully');
+                toast.success('Pembayaran berhasil dicatat');
                 setIsPaymentDialogOpen(false);
                 router.refresh();
             } else {
@@ -149,7 +149,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                         status: 'UNPAID'
                                     });
                                     if (result.success) {
-                                        toast.success('Invoice confirmed successfully');
+                                        toast.success('Invoice berhasil dikonfirmasi');
                                         router.refresh();
                                     } else {
                                         toast.error(result.error || 'Failed to confirm invoice');

@@ -28,7 +28,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
         try {
             const result = await deliverSalesOrder(order.salesOrderId);
             if (result.success) {
-                toast.success('Order marked as delivered');
+                toast.success('Pesanan berhasil ditandai sebagai terkirim');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Failed to update status');

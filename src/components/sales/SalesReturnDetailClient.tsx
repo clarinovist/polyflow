@@ -56,7 +56,8 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
         setActionLoading(actionName);
         try {
             await actionFn(salesReturn.id);
-            toast.success(`Sales Return successfully ${actionName.toLowerCase()}ed`);
+            const actionText = actionName === 'CONFIRM' ? 'dikonfirmasi' : actionName === 'COMPLETE' ? 'diselesaikan' : 'diproses';
+            toast.success(`Retur Penjualan berhasil ${actionText}`);
             router.refresh();
         } catch (error: unknown) {
             toast.error(error instanceof Error ? error.message : `Failed to ${actionName.toLowerCase()} sales return`);

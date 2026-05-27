@@ -77,7 +77,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 return;
             }
             if (result.data) {
-                toast.success("Quotation converted to Sales Order successfully!");
+                toast.success('Quotation berhasil dikonversi menjadi Sales Order!');
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 router.push(`/sales/orders/${(result.data as any).id}`);
             }

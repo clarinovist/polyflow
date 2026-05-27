@@ -139,7 +139,8 @@ export function SalesOrderDetailClient({
         try {
             const result = await handler(order.id);
             if (result.success) {
-                toast.success(`Order ${action} successfully`);
+                const actionText = action === 'approve' ? 'disetujui' : action === 'cancel' ? 'dibatalkan' : 'diproses';
+                toast.success(`Pesanan berhasil ${actionText}`);
                 router.refresh();
             } else {
                 toast.error(result.error || `Failed to ${action} order`);
@@ -174,7 +175,7 @@ export function SalesOrderDetailClient({
             });
 
             if (result.success) {
-                toast.success("Invoice generated successfully");
+                toast.success("Invoice berhasil dibuat");
                 router.refresh();
             } else {
                 toast.error(result.error || "Failed to generate invoice");
@@ -191,7 +192,7 @@ export function SalesOrderDetailClient({
         try {
             const result = await deleteSalesOrder(order.id);
             if (result.success) {
-                toast.success("Order deleted");
+                toast.success("Pesanan berhasil dihapus");
                 router.push(basePath);
             } else {
                 toast.error(result.error);
