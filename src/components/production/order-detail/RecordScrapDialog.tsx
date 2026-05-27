@@ -30,7 +30,7 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
         try {
             const result = await recordScrap(data);
             if (result.success) {
-                toast.success('Scrap recorded successfully');
+                toast.success('Scrap berhasil dicatat.');
                 setOpen(false);
             } else {
                 toast.error(result.error || 'Failed to record scrap');

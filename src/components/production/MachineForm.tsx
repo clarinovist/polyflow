@@ -47,8 +47,8 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
             }
 
             if (res.success) {
-                toast.success(initialData ? 'Configuration updated' : 'Machine registered', {
-                    description: `${formData.name} (${formData.code}) has been saved successfully.`
+                toast.success(initialData ? 'Konfigurasi berhasil diperbarui.' : 'Mesin berhasil didaftarkan.', {
+                    description: `${formData.name} (${formData.code}) telah berhasil disimpan.`
                 });
                 router.push('/dashboard/machines');
                 router.refresh();

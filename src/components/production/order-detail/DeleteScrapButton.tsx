@@ -31,7 +31,7 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
         try {
             const result = await deleteScrap(scrapId, orderId);
             if (result.success) {
-                toast.success(`Scrap record for ${productName} deleted and stock adjusted.`);
+                toast.success(`Catatan scrap untuk ${productName} berhasil dihapus dan stok disesuaikan.`);
             } else {
                 toast.error(result.error);
             }

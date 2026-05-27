@@ -149,7 +149,7 @@ export function BatchIssueMaterialDialog({
             });
 
             if (res.success) {
-                toast.success("Stock adjusted successfully");
+                toast.success("Stok berhasil disesuaikan.");
                 setAdjustingItem(null);
                 checkStocks(); // Refresh
             } else {
@@ -288,7 +288,7 @@ export function BatchIssueMaterialDialog({
                         });
                     }
 
-                    toast.success(`Successfully transferred materials to ${order.location.name}`);
+                    toast.success(`Bahan baku berhasil ditransfer ke Gudang ${order.location.name}.`);
                     setOpen(false);
                     router.refresh();
                 } else {
@@ -311,7 +311,7 @@ export function BatchIssueMaterialDialog({
                 });
 
                 if (result.success) {
-                    toast.success("Materials issued and plan updated");
+                    toast.success("Bahan baku berhasil dikeluarkan dan rencana diperbarui.");
                     setOpen(false);
                     router.refresh();
                 } else {

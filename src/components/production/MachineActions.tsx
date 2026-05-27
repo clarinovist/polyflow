@@ -36,7 +36,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
     async function handleDelete() {
         const result = await deleteMachine(id);
         if (result.success) {
-            toast.success('Machine deleted successfully');
+            toast.success('Mesin berhasil dihapus.');
         } else {
             toast.error('Failed to delete machine', { description: result.error });
         }
@@ -45,7 +45,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
     async function handleSetMaintenance() {
         const res = await setMachineStatus(id, 'MAINTENANCE');
         if (res.success) {
-            toast.success('Machine set to MAINTENANCE');
+            toast.success('Status mesin diubah ke MAINTENANCE.');
         } else {
             toast.error('Failed to update status', { description: res.error });
         }
@@ -54,7 +54,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
     async function handleStart() {
         const res = await setMachineStatus(id, 'ACTIVE');
         if (res.success) {
-            toast.success('Machine set to ACTIVE');
+            toast.success('Status mesin diubah ke ACTIVE.');
         } else {
             toast.error('Failed to update status', { description: res.error });
         }

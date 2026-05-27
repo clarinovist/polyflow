@@ -15,7 +15,7 @@ export function AcknowledgeHandoverButton({ movementId }: { movementId: string }
         try {
             const res = await acknowledgeHandover(movementId);
             if (res.success) {
-                toast.success('Handover acknowledged');
+                toast.success('Serah terima berhasil dikonfirmasi.');
             } else {
                 toast.error(res.error || 'Failed to acknowledge');
             }

@@ -90,7 +90,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
             });
 
             if (result) {
-                toast.success("Purchase Request created successfully!");
+                toast.success("Purchase Request berhasil dibuat!");
                 setIsOpen(false);
                 // Reset form
                 setItems(items.map(i => ({ ...i, procureQty: 0, selected: false })));

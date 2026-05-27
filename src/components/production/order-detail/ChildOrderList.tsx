@@ -67,7 +67,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
         try {
             const result = await createChildProductionOrder(order.id, materialId, quantity);
             if (result.success) {
-                toast.success(`Work Order created for ${variantName}`);
+                toast.success(`Work Order berhasil dibuat untuk ${variantName}.`);
                 router.refresh();
             } else {
                 toast.error(result.error || "Failed to create sub-order");

@@ -63,7 +63,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             setFormData({ ...formData, role: res.data.name });
             setOpenRole(false);
             setSearchValue('');
-            toast.success('Job role created successfully');
+            toast.success('Peran pekerjaan berhasil dibuat.');
         } else {
             toast.error('Failed to create job role');
         }
@@ -82,8 +82,8 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             }
 
             if (res.success) {
-                toast.success(initialData ? 'Personnel record updated' : 'Personnel onboarded', {
-                    description: `${formData.name} has been saved successfully.`
+                toast.success(initialData ? 'Data personel berhasil diperbarui.' : 'Personel baru berhasil ditambahkan.', {
+                    description: `${formData.name} telah berhasil disimpan.`
                 });
                 router.push('/dashboard/employees');
                 router.refresh();

@@ -36,8 +36,8 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
     async function handleDelete() {
         const result = await deleteEmployee(id);
         if (result.success) {
-            toast.success('Personnel record removed', {
-                description: `${name} has been deleted from the directory.`
+            toast.success('Data personel berhasil dihapus.', {
+                description: `${name} telah dihapus dari direktori.`
             });
         } else {
             toast.error('Deletion Failed', {

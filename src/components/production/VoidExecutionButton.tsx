@@ -31,7 +31,7 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
             setIsLoading(true);
             const result = await voidProductionOutput(executionId, productionOrderId);
             if (result.success) {
-                toast.success(`Execution for ${orderNumber} voided successfully`);
+                toast.success(`Realisasi produksi untuk ${orderNumber} berhasil dibatalkan.`);
             } else {
                 toast.error(result.error || 'Failed to void execution');
             }
