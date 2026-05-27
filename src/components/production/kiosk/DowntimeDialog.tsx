@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logMachineDowntime } from '@/actions/production/downtime';
+import { kioskLabels } from '@/lib/labels';
 
 interface DowntimeDialogProps {
     machineId: string;
@@ -33,7 +34,7 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
         e.preventDefault();
 
         if (!reason.trim()) {
-            toast.error("Please enter a reason");
+            toast.error("Masukkan alasan kerusakan");
             return;
         }
 
@@ -42,14 +43,14 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
         try {
             const result = await logMachineDowntime(machineId, reason, operatorId);
             if (result.success) {
-                toast.success("Downtime reported. Machine status set to Maintenance.");
+                toast.success("Downtime tercatat. Status mesin diubah ke Maintenance.");
                 setOpen(false);
                 setReason('');
             } else {
                 toast.error(result.error);
             }
         } catch {
-            toast.error("Failed to report downtime");
+            toast.error("Gagal mencatat downtime");
         } finally {
             setLoading(false);
         }
@@ -60,36 +61,36 @@ export function DowntimeDialog({ machineId, machineName, operatorId, trigger }: 
             <DialogTrigger asChild>
                 {trigger ? trigger : (
                     <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100">
-                        <AlertTriangle className="mr-2 h-4 w-4" /> Report Issue
+                        <AlertTriangle className="mr-2 h-4 w-4" /> {kioskLabels.logDowntime}
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center">
-                        <AlertTriangle className="mr-2 h-5 w-5" /> Report Machine Issue
+                        <AlertTriangle className="mr-2 h-5 w-5" /> Laporkan Masalah Mesin
                     </DialogTitle>
                     <DialogDescription>
-                        Reporting breakdown for: <span className="font-bold">{machineName}</span>
+                        Melaporkan kerusakan untuk: <span className="font-bold">{machineName}</span>
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="reason">Reason / Issue Description</Label>
+                        <Label htmlFor="reason">Alasan / Deskripsi Masalah</Label>
                         <Textarea
                             id="reason"
-                            placeholder="e.g. Motor overheating, Belt snapped..."
+                            placeholder="contoh: Motor panas, Belt putus..."
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             required
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Batal</Button>
                         <Button type="submit" variant="destructive" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Report Breakdown
+                            Laporkan Kerusakan
                         </Button>
                     </DialogFooter>
                 </form>

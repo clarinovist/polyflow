@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { stopExecution } from '@/actions/production/production';
 import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
+import { kioskLabels } from '@/lib/labels';
 
 interface KioskStopDialogProps {
     open: boolean;
@@ -67,7 +68,7 @@ export function KioskStopDialog({
             : qtyNum;
 
         if (isNaN(qtyNum) || qtyNum < 0) {
-            toast.error("Please enter a valid quantity produced");
+            toast.error("Masukkan jumlah hasil yang valid");
             return;
         }
 
@@ -87,14 +88,14 @@ export function KioskStopDialog({
             });
 
             if (result.success) {
-                toast.success("Job stopped successfully!");
+                toast.success("SPK berhasil diselesaikan!");
                 onOpenChange(false);
                 onSuccess();
             } else {
-                toast.error(result.error || "Failed to stop job");
+                toast.error(result.error || "Gagal menyelesaikan SPK");
             }
         } catch {
-            toast.error("An error occurred");
+            toast.error("Terjadi kesalahan");
         } finally {
             setLoading(false);
         }
@@ -104,19 +105,19 @@ export function KioskStopDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Finish Job & Summary</DialogTitle>
+                    <DialogTitle>{kioskLabels.completeJob} & Ringkasan</DialogTitle>
                     <DialogDescription>
-                        Reviewing production for: <span className="font-semibold text-primary">{productName}</span>.
+                        Meninjau produksi untuk: <span className="font-semibold text-primary">{productName}</span>.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-2 gap-4 p-4 bg-muted/40 rounded-lg border border-border/50">
                     <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground uppercase font-bold">Total Produced</span>
+                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.produced.toUpperCase()}</span>
                         <span className="text-2xl font-black text-primary">{currentProduced} {unitMeta.primaryUnit}</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground uppercase font-bold">Target</span>
+                        <span className="text-xs text-muted-foreground uppercase font-bold">{kioskLabels.target.toUpperCase()}</span>
                         <span className="text-2xl font-black">{targetQuantity} {unitMeta.primaryUnit}</span>
                     </div>
                 </div>
@@ -124,7 +125,7 @@ export function KioskStopDialog({
                 {logs.length > 0 && (
                     <div className="mt-4 border rounded-md overflow-hidden">
                         <div className="bg-muted px-3 py-2 text-xs font-bold uppercase tracking-wider border-b">
-                            Partial Output Logs
+                            Log Hasil Parsial
                         </div>
                         <div className="max-h-[150px] overflow-y-auto divide-y">
                             {logs.map((log, idx) => (
@@ -144,7 +145,7 @@ export function KioskStopDialog({
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="quantity" className="text-sm font-semibold">Any Final Additional Output? ({unitMeta.displayUnit})</Label>
+                        <Label htmlFor="quantity" className="text-sm font-semibold">Tambah Hasil Akhir? ({unitMeta.displayUnit})</Label>
                         <Input
                             id="quantity"
                             type="number"
@@ -154,11 +155,11 @@ export function KioskStopDialog({
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground italic">If you&apos;ve already logged everything, leave this as 0.</p>
+                        <p className="text-xs text-muted-foreground italic">Kosongkan jika semua hasil sudah dicatat sebelumnya.</p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="scrap">Additional Scrap Quantity ({unitMeta.primaryUnit})</Label>
+                        <Label htmlFor="scrap">Tambah Scrap ({unitMeta.primaryUnit})</Label>
                         <Input
                             id="scrap"
                             type="number"
@@ -169,10 +170,10 @@ export function KioskStopDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="notes">Notes</Label>
+                        <Label htmlFor="notes">Catatan</Label>
                         <Textarea
                             id="notes"
-                            placeholder="Any issues encountered?"
+                            placeholder="Ada kendala selama produksi?"
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
@@ -186,17 +187,17 @@ export function KioskStopDialog({
                             onChange={(e) => setCompleted(e.target.checked)}
                         />
                         <Label htmlFor="completed" className="font-normal cursor-pointer">
-                            Mark Order as Complete (Remove from Kiosk)
+                            Tandai SPK Selesai (Hapus dari Kiosk)
                         </Label>
                     </div>
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                            Cancel
+                            Batal
                         </Button>
                         <Button type="submit" disabled={loading} size="lg" className="w-full sm:w-auto">
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Stop & Save Record
+                            Hentikan & Simpan
                         </Button>
                     </DialogFooter>
                 </form>

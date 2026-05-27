@@ -12,6 +12,7 @@ import { KioskStopDialog } from "./KioskStopDialog";
 import { DowntimeDialog } from "./DowntimeDialog";
 import { KioskLogOutputDialog } from "./KioskLogOutputDialog";
 import { formatProductionQuantity, getEnteredQuantityDisplay, getProductionUnitMeta } from "@/lib/utils/production-units";
+import { kioskLabels } from "@/lib/labels";
 
 interface ProductionOrder {
     id: string;
@@ -75,13 +76,13 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                 });
 
                 if (result.success) {
-                    toast.success("Production started!");
+                    toast.success("Produksi dimulai!");
                     router.refresh();
                 } else {
-                    toast.error(result.error || "Failed to start");
+                    toast.error(result.error || "Gagal memulai produksi");
                 }
             } catch {
-                toast.error("System error");
+                toast.error("Terjadi kesalahan sistem");
             } finally {
                 setIsLoading(false);
             }
@@ -106,7 +107,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                 <div className="p-3 md:p-4 pb-2 border-b-0 space-y-2">
                     <div className="flex justify-between items-start">
                         <Badge variant={isRunning ? "default" : "secondary"} className={`${isRunning ? "bg-emerald-600 animate-pulse" : ""} text-[10px] md:text-sm`}>
-                            {isRunning ? "RUNNING" : order.status}
+                            {isRunning ? kioskLabels.running.toUpperCase() : order.status}
                         </Badge>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground font-mono">{order.orderNumber}</span>
@@ -145,19 +146,19 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         <div className="bg-muted/30 p-2.5 md:p-3 rounded-md flex flex-col gap-1 md:gap-2">
                             <div className="flex justify-between items-start">
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Machine</span>
-                                    <span className="font-bold text-sm md:text-base">{order.machine?.name || "Unassigned"}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.machine.toUpperCase()}</span>
+                                    <span className="font-bold text-sm md:text-base">{order.machine?.name || kioskLabels.unassigned}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
                             <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Produced</span>
+                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.produced.toUpperCase()}</span>
                                 <span className="font-bold text-lg md:text-xl">{formatProductionQuantity(order.actualQuantity || 0, order.bom.productVariant, { showBaseWhenAlternate: false })}</span>
                             </div>
                             <div className="bg-muted/30 p-2.5 md:p-3 rounded-md">
-                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Target</span>
+                                <span className="block text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{kioskLabels.target.toUpperCase()}</span>
                                 <span className="font-bold text-lg md:text-xl text-muted-foreground">
                                     {getEnteredQuantityDisplay({
                                         ...order.bom.productVariant,
@@ -181,7 +182,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                                 onClick={handleLogOutput}
                                 disabled={isLoading}
                             >
-                                <PlusCircle className="mr-2 h-5 w-5 md:h-6 md:w-6" /> <span className="text-xs md:text-base">LOG OUTPUT</span>
+                                <PlusCircle className="mr-2 h-5 w-5 md:h-6 md:w-6" /> <span className="text-xs md:text-base">{kioskLabels.logOutput.toUpperCase()}</span>
                             </Button>
                             <Button
                                 variant="destructive"
@@ -189,7 +190,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                                 className="h-12 w-12 md:h-14 md:w-14 shrink-0 shadow-sm active:scale-95"
                                 onClick={handleStop}
                                 disabled={isLoading}
-                                title="Stop Job"
+                                title={kioskLabels.stopJob}
                             >
                                 <Square className="h-5 w-5 md:h-6 md:w-6 fill-current" />
                             </Button>
@@ -201,7 +202,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                             onClick={handleStart}
                             disabled={isLoading || order.status === 'COMPLETED'}
                         >
-                            <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" /> START JOB
+                            <Play className="mr-2 h-5 w-5 md:h-6 md:w-6 fill-current" /> {kioskLabels.startJob.toUpperCase()}
                         </Button>
                     )}
                 </div>

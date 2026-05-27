@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { StopCircle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { kioskLabels } from "@/lib/labels";
 
 interface ActiveExecutionBannerProps {
     executions: Array<{
@@ -56,7 +57,7 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
                 <div>
                     <p className="font-mono text-xl font-bold">{elapsed}</p>
                     <p className="text-sm text-slate-400">
-                        Running: <span className="text-white">{active.productionOrder.bom.productVariant.name}</span>
+                        {kioskLabels.running}: <span className="text-white">{active.productionOrder.bom.productVariant.name}</span>
                     </p>
                 </div>
             </div>
@@ -67,11 +68,11 @@ export function ActiveExecutionBanner({ executions }: ActiveExecutionBannerProps
                 onClick={() => {
                     // Redirect to order detail for proper stop
                     // We need the order ID.
-                    toast.info("Please go to order details to stop and record output.");
+                    toast.info("Buka detail SPK untuk menghentikan dan mencatat hasil.");
                 }}
             >
                 <StopCircle className="mr-2 h-5 w-5" />
-                Record Output & Stop
+                Catat Hasil & Hentikan
             </Button>
         </div>
     );

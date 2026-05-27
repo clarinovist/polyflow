@@ -11,6 +11,7 @@ import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
+import { kioskLabels } from "@/lib/labels";
 
 interface KioskLogOutputDialogProps {
     open: boolean;
@@ -59,7 +60,7 @@ export function KioskLogOutputDialog({
             });
 
             if (result.success) {
-                toast.success("Output logged successfully!");
+                toast.success("Hasil berhasil dicatat!");
                 setQuantity('');
                 setScrap('');
                 setNotes('');
@@ -67,10 +68,10 @@ export function KioskLogOutputDialog({
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
             } else {
-                toast.error(result.error || "Failed to log output");
+                toast.error(result.error || "Gagal mencatat hasil");
             }
         } catch (error) {
-            toast.error("An unexpected error occurred");
+            toast.error("Terjadi kesalahan tidak terduga");
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -82,7 +83,7 @@ export function KioskLogOutputDialog({
 
         const qtyNum = parseFloat(quantity);
         if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
-            toast.error("Please enter a valid quantity produced");
+            toast.error("Masukkan jumlah hasil yang valid");
             return;
         }
 
@@ -108,17 +109,17 @@ export function KioskLogOutputDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="text-xl">Log Output: {productName}</DialogTitle>
+                    <DialogTitle className="text-xl">{kioskLabels.logOutput}: {productName}</DialogTitle>
                     <DialogDescription>
-                        Record partial output in {unitMeta.displayUnit}
-                        {unitMeta.hasAlternateUnit ? ` (posted internally as ${unitMeta.primaryUnit}).` : ' while the machine keeps running.'}
+                        Catat hasil parsial dalam {unitMeta.displayUnit}
+                        {unitMeta.hasAlternateUnit ? ` (dicatat internal sebagai ${unitMeta.primaryUnit}).` : ' sementara mesin tetap berjalan.'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="log-quantity" className="text-base font-semibold">Produced ({unitMeta.displayUnit})</Label>
+                            <Label htmlFor="log-quantity" className="text-base font-semibold">{kioskLabels.goodQuantity} ({unitMeta.displayUnit})</Label>
                             <Input
                                 id="log-quantity"
                                 type="number"
@@ -131,7 +132,7 @@ export function KioskLogOutputDialog({
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="log-scrap" className="text-base font-semibold text-amber-500">Scrap ({unitMeta.primaryUnit})</Label>
+                            <Label htmlFor="log-scrap" className="text-base font-semibold text-amber-500">{kioskLabels.scrap} ({unitMeta.primaryUnit})</Label>
                             <Input
                                 id="log-scrap"
                                 type="number"
@@ -193,10 +194,10 @@ export function KioskLogOutputDialog({
                     )}
 
                     <div className="space-y-2">
-                        <Label htmlFor="log-notes">Notes (Optional)</Label>
+                        <Label htmlFor="log-notes">Catatan (Opsional)</Label>
                         <Textarea
                             id="log-notes"
-                            placeholder="e.g. Batch Number, Roll ID..."
+                            placeholder="contoh: Nomor Batch, ID Roll..."
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             className="bg-muted border-border"
@@ -205,7 +206,7 @@ export function KioskLogOutputDialog({
 
                     <DialogFooter className="gap-4 sm:gap-4">
                         <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} className="h-12 text-lg">
-                            Cancel
+                            Batal
                         </Button>
                         <Button
                             type="submit"
@@ -213,7 +214,7 @@ export function KioskLogOutputDialog({
                             className="h-12 text-lg bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                         >
                             {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                            Log Output
+                                {kioskLabels.logOutput}
                         </Button>
                     </DialogFooter>
                 </form>

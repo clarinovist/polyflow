@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
 import { Unit } from '@prisma/client';
+import { productionLabels } from '@/lib/labels';
 
 const bulkSchema = z.object({
     reports: z.array(productionOutputSchema)
@@ -169,7 +170,7 @@ export default function HdProductionForm({
                                 name={`reports.${index}.productionOrderId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-white/70">Work Order (SPK)</FormLabel>
+                                        <FormLabel className="text-white/70">{productionLabels.workOrder}</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger className="bg-slate-900/50 border-white/10 text-white">
@@ -388,9 +389,9 @@ export default function HdProductionForm({
                         className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:scale-105 active:scale-95 transition-all"
                     >
                         {isSubmitting ? (
-                            <div className="flex items-center"><div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2" /> Memproses...</div>
+                            <div className="flex items-center"><div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2" /> Mengirim...</div>
                         ) : (
-                            <><CheckCircle2 className="h-6 w-6 mr-2" /> SUBMIT SEMUA LAPORAN</>
+                            <><CheckCircle2 className="h-6 w-6 mr-2" /> KIRIM SEMUA LAPORAN</>
                         )}
                     </Button>
                 </div>

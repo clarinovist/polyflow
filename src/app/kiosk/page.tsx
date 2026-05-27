@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import KioskRefreshWrapper, { Order } from "./KioskRefreshWrapper";
+import { kioskLabels } from "@/lib/labels";
 
 export default async function KioskPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
     const params = await searchParams;
@@ -91,8 +92,8 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
         <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-card p-4 md:p-6 rounded-xl border-2 shadow-sm gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">JOB LIST</h1>
-                    <p className="text-xs md:text-base text-muted-foreground font-medium">Select a job to start or manage production.</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">{kioskLabels.jobList}</h1>
+                    <p className="text-xs md:text-base text-muted-foreground font-medium">{kioskLabels.selectJob}</p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     {searchQuery && (
@@ -104,7 +105,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
                     <form action={refreshData} className="w-full md:w-auto">
                         <Button variant="secondary" size="lg" className="w-full md:w-auto h-12 md:h-14 md:px-8 text-base md:text-lg font-bold border-2 active:scale-95">
                             <RefreshCcw className="mr-2 h-5 w-5 md:h-6 md:w-6" />
-                            REFRESH
+                                {kioskLabels.refresh.toUpperCase()}
                         </Button>
                     </form>
                 </div>
