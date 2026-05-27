@@ -70,3 +70,10 @@ TOOLS.md
 USER.md
 MEMORY.md
 memory/
+
+# local codex/import working files
+.codex/
+import_production.py
+import_rafia_hasil_produksi_safe.py
+rafia-import-log-*.md
+rafra-spreadsheet-mapping.md
