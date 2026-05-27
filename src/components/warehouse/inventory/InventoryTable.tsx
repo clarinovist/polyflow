@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { ProductType } from '@prisma/client';
 import { BulkTransferDialog } from './BulkTransferDialog';
+import { warehouseLabels } from '@/lib/labels';
 import { BulkAdjustDialog } from './BulkAdjustDialog';
 import { InventoryDesktopTable } from './InventoryDesktopTable';
 import { InventoryMobileCards } from './InventoryMobileCards';
@@ -197,7 +198,7 @@ export function InventoryTable({
             ? processedInventory.filter(i => selectedItems.has(i.id))
             : processedInventory;
 
-        const headers = ['Product Name', 'SKU', 'Product Type', 'Location', 'Current Stock', 'Unit', 'Min Stock Alert', 'Status'];
+        const headers = ['Nama Produk', 'SKU', 'Tipe Produk', 'Lokasi', warehouseLabels.stock, 'Unit', 'Stok Min', 'Status'];
         const rows = itemsToExport.map(item => {
             const isLowStock = isGlobalLowStock(item);
             const totalStock = variantTotals[item.productVariantId];
@@ -211,7 +212,7 @@ export function InventoryTable({
                 item.quantity,
                 item.productVariant.primaryUnit,
                 threshold,
-                isLowStock ? `Low Stock (${totalStock}/${threshold})` : 'In Stock'
+                isLowStock ? `Stok Menipis (${totalStock}/${threshold})` : 'Tersedia'
             ];
         });
 
@@ -297,15 +298,15 @@ export function InventoryTable({
                                     disabled={!isSameLocation}
                                     onClick={() => setShowBulkTransfer(true)}
                                 >
-                                    Bulk Transfer
-                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                                    Transfer Massal
+                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Campur Lokasi)</span>}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     disabled={!isSameLocation}
                                     onClick={() => setShowBulkAdjust(true)}
                                 >
-                                    Bulk Adjust
-                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Mix Locs)</span>}
+                                    Penyesuaian Massal
+                                    {!isSameLocation && <span className="ml-2 text-xs text-muted-foreground">(Campur Lokasi)</span>}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -334,13 +335,13 @@ export function InventoryTable({
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value={ProductType.RAW_MATERIAL}>RAW_MATERIAL</SelectItem>
-                            <SelectItem value={ProductType.INTERMEDIATE}>INTERMEDIATE</SelectItem>
-                            <SelectItem value={ProductType.PACKAGING}>PACKAGING</SelectItem>
+                            <SelectItem value="all">Semua Tipe</SelectItem>
+                            <SelectItem value={ProductType.RAW_MATERIAL}>Bahan Baku</SelectItem>
+                            <SelectItem value={ProductType.INTERMEDIATE}>Intermediate / WIP</SelectItem>
+                            <SelectItem value={ProductType.PACKAGING}>Packaging</SelectItem>
                             <SelectItem value={ProductType.WIP}>WIP</SelectItem>
-                            <SelectItem value={ProductType.FINISHED_GOOD}>FINISHED_GOOD</SelectItem>
-                            <SelectItem value={ProductType.SCRAP}>SCRAP</SelectItem>
+                            <SelectItem value={ProductType.FINISHED_GOOD}>Barang Jadi</SelectItem>
+                            <SelectItem value={ProductType.SCRAP}>Scrap / Reject</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -354,13 +355,13 @@ export function InventoryTable({
                     {totalStock !== undefined && (
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                             <span className="font-bold text-foreground">{formatQuantity(totalStock)}</span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">total stock</span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">total stok</span>
                         </div>
                     )}
                     {totalValue !== undefined && (
                         <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap border-l border-border pl-4">
                             <span className="font-bold text-foreground text-blue-600 dark:text-blue-400">{formatRupiah(totalValue)}</span>
-                            <span className="text-[11px] uppercase tracking-wider opacity-70">internal value</span>
+                            <span className="text-[11px] uppercase tracking-wider opacity-70">nilai internal</span>
                         </div>
                     )}
                 </div>
@@ -397,7 +398,7 @@ export function InventoryTable({
             {/* Pagination Footer */}
             <div className="flex items-center justify-between px-2 shrink-0 py-2 border-t">
                 <div className="text-xs text-muted-foreground">
-                    Showing {processedInventory.length > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + ITEMS_PER_PAGE, processedInventory.length)} of {processedInventory.length} items
+                    Menampilkan {processedInventory.length > 0 ? startIndex + 1 : 0} sampai {Math.min(startIndex + ITEMS_PER_PAGE, processedInventory.length)} dari {processedInventory.length} item
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
@@ -410,7 +411,7 @@ export function InventoryTable({
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="text-xs font-medium min-w-[3rem] text-center">
-                        Page {currentPage} of {Math.max(totalPages, 1)}
+                        Halaman {currentPage} dari {Math.max(totalPages, 1)}
                     </div>
                     <Button
                         variant="outline"

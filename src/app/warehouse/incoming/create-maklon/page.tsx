@@ -47,7 +47,7 @@ export default async function CreateMaklonReceiptPage() {
                     <Package className="h-3 w-3" />
                     <span>Receive Maklon</span>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight">Receive Maklon Goods</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Penerimaan Barang Maklon</h1>
                 <p className="text-muted-foreground">Register raw materials and items supplied by customers for maklon orders.</p>
             </div>
 

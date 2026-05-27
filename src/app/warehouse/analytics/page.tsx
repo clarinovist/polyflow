@@ -186,8 +186,8 @@ export default async function InventoryDashboard({
             {/* Professional Strategic Header */}
             <div className="flex items-end justify-between shrink-0 mb-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Inventory Analysis</h1>
-                    <p className="text-sm text-muted-foreground mt-1 font-geist">Strategic oversight of performance & stock health</p>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Analisis Inventaris</h1>
+                    <p className="text-sm text-muted-foreground mt-1 font-geist">Tinjauan performa dan kesehatan stok</p>
                 </div>
 
                 <div className="flex items-center gap-10">

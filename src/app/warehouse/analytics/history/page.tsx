@@ -12,8 +12,8 @@ export default async function HistoryPage() {
         <div className="p-6 space-y-6">
             {/* Page Header */}
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Stock Movement History</h1>
-                <p className="text-muted-foreground mt-2">Track all inventory transactions and movements</p>
+                <h1 className="text-3xl font-bold text-foreground">Riwayat Mutasi Stok</h1>
+                <p className="text-muted-foreground mt-2">Lacak semua transaksi dan pergerakan inventaris</p>
             </div>
 
             <Card className="border shadow-sm">

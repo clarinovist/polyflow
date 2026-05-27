@@ -58,7 +58,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <span>Incoming / PO {(serializedOrder as any).orderNumber} / Post Receipt</span>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight">Post Goods Receipt</h1>
+                <h1 className="text-2xl font-bold tracking-tight">Buat Penerimaan Barang</h1>
                 <p className="text-muted-foreground">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     Record incoming stock items for Purchase Order <span className="font-bold text-blue-600">#{(serializedOrder as any).orderNumber}</span>.

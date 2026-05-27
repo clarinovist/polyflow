@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+import { warehouseLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,8 +59,8 @@ export default async function WarehousePage() {
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Warehouse Operations</h1>
-                    <p className="text-muted-foreground">Manage inventory, material issues, and receipts.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{warehouseLabels.warehouse}</h1>
+                    <p className="text-muted-foreground">Kelola stok, pengambilan bahan, dan penerimaan barang.</p>
                 </div>
             </div>
 

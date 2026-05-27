@@ -183,8 +183,8 @@ export default async function WarehouseInventoryPage({
                         <Warehouse className="h-3 w-3" />
                         <span>Warehouse / Stock Overview</span>
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight">Inventory Control</h1>
-                    <p className="text-muted-foreground mt-1">Monitor stock levels and warehouse status</p>
+                    <h1 className="text-2xl font-bold tracking-tight">Kontrol Stok</h1>
+                    <p className="text-muted-foreground mt-1">Pantau level stok dan status gudang</p>
                 </div>
             </div>
 

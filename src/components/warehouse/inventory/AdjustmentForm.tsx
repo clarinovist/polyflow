@@ -16,6 +16,7 @@ import { Plus, Trash2, Package, ClipboardList, AlertCircle, ArrowUpCircle, Arrow
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductCombobox } from '@/components/products/product-combobox';
+import { warehouseLabels } from '@/lib/labels';
 
 interface SerializedInventory {
     locationId: string;
@@ -94,17 +95,17 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
     const handleAddItem = () => {
         if (!selectedLocationId) {
-            toast.error("Please select a location first.");
+            toast.error("Pilih lokasi terlebih dahulu.");
             return;
         }
         if (!newItem.productVariantId || !newItem.quantity) {
-            toast.error("Please select a product and enter a quantity.");
+            toast.error("Pilih produk dan masukkan jumlah.");
             return;
         }
 
         const qty = parseFloat(newItem.quantity);
         if (isNaN(qty) || qty <= 0) {
-            toast.error("Please enter a valid positive quantity.");
+            toast.error("Masukkan jumlah positif yang valid.");
             return;
         }
 
@@ -112,7 +113,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
         if (newItem.type === 'ADJUSTMENT_OUT') {
             const currentStock = availableProducts.find(p => p.id === newItem.productVariantId)?.quantity || 0;
             if (qty > currentStock) {
-                toast.error(`Insufficient stock for reduction. Max available: ${currentStock}`);
+                toast.error(`Stok tidak cukup. Maksimal tersedia: ${currentStock}`);
                 return;
             }
         }
@@ -121,7 +122,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
             productVariantId: newItem.productVariantId,
             type: newItem.type,
             quantity: qty,
-            reason: newItem.reason || 'Stock Adjustment', // Default reason
+            reason: newItem.reason || 'Penyesuaian Stok', // Default reason
             unitCost: newItem.unitCost ? parseFloat(newItem.unitCost) : undefined
         });
 
@@ -138,7 +139,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
     const onSubmit: SubmitHandler<BulkAdjustStockValues> = async (data) => {
         const result = await adjustStockBulk(data);
         if (result.success) {
-            toast.success('Stock adjusted successfully');
+            toast.success('Stok berhasil disesuaikan');
             form.reset({
                 locationId: '',
                 items: [],
@@ -152,7 +153,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
             });
             router.refresh();
         } else {
-            toast.error(result.error || 'Failed to adjust stock');
+            toast.error(result.error || 'Gagal menyesuaikan stok');
         }
     };
 
@@ -199,7 +200,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-11 bg-background">
-                                                        <SelectValue placeholder="Select Warehouse Location" />
+                                                        <SelectValue placeholder="Pilih Lokasi Gudang" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -230,7 +231,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                         value={newItem.productVariantId}
                                         onValueChange={(val) => setNewItem(prev => ({ ...prev, productVariantId: val }))}
                                         disabled={!selectedLocationId}
-                                        placeholder="Search product by name or SKU..."
+                                        placeholder="Cari produk berdasarkan nama atau SKU..."
                                         emptyMessage="No products found in this location."
                                     />
                                 </FormItem>
@@ -290,7 +291,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                         type="number"
                                         step="any"
                                         min="0"
-                                        placeholder="Optional"
+                                        placeholder="Opsional"
                                         value={newItem.unitCost}
                                         onChange={(e) => setNewItem(prev => ({ ...prev, unitCost: e.target.value }))}
                                         className="h-11 bg-background"

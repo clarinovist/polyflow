@@ -16,6 +16,7 @@ import { Plus, Trash2, ArrowRight, Package, ClipboardList } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductCombobox } from '@/components/products/product-combobox';
+import { warehouseLabels } from '@/lib/labels';
 
 interface TransferFormProps {
     locations: { id: string; name: string }[];
@@ -66,7 +67,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
     useEffect(() => {
         if (sourceLocationId && destinationLocationId && sourceLocationId === destinationLocationId) {
             form.setValue('destinationLocationId', '', { shouldValidate: true });
-            toast.error("Source and destination cannot be the same");
+            toast.error("Lokasi asal dan tujuan tidak boleh sama");
         }
     }, [sourceLocationId, destinationLocationId, form]);
 
@@ -97,7 +98,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
         }
         const existingIndex = fields.findIndex(f => f.productVariantId === newItem.productVariantId);
         if (existingIndex >= 0) {
-            toast.error("Product already in transfer list. Remove it first to update quantity.");
+            toast.error("Produk sudah ada di daftar transfer. Hapus dulu untuk ubah jumlah.");
             return;
         }
         append({ productVariantId: newItem.productVariantId, quantity: qty });
@@ -107,12 +108,12 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
     const onSubmit: SubmitHandler<BulkTransferStockValues> = async (data) => {
         const result = await transferStockBulk(data);
         if (result.success) {
-            toast.success('Stock transferred successfully');
+            toast.success('Stok berhasil ditransfer');
             form.reset({ sourceLocationId: '', destinationLocationId: '', items: [], notes: '', date: new Date() });
             setNewItem({ productVariantId: '', quantity: '' });
             router.refresh();
         } else {
-            toast.error(result.error || 'Failed to transfer stock');
+            toast.error(result.error || 'Gagal mentransfer stok');
         }
     }
 
@@ -162,7 +163,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                                     <Select onValueChange={field.onChange} value={field.value}>
                                                         <FormControl>
                                                             <SelectTrigger className="h-10 bg-background border-input">
-                                                                <SelectValue placeholder="From..." />
+                                                                <SelectValue placeholder={warehouseLabels.sourceLocation + "..."} />
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
@@ -184,7 +185,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                                     <Select onValueChange={field.onChange} value={field.value}>
                                                         <FormControl>
                                                             <SelectTrigger className="h-10 bg-background border-input">
-                                                                <SelectValue placeholder="To..." />
+                                                                <SelectValue placeholder={warehouseLabels.destinationLocation + "..."} />
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
@@ -262,7 +263,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                         <ClipboardList className="h-4 w-4 text-primary" />
                                         Manifest
                                     </h3>
-                                    <p className="text-xs text-muted-foreground mt-0.5">Items to be transferred</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Item yang akan ditransfer</p>
                                 </div>
                                 <Badge variant="secondary" className="font-mono font-bold text-xs">{fields.length}</Badge>
                             </div>
@@ -284,7 +285,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                     {fields.length === 0 ? (
                                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border/40 rounded-lg p-6">
                                             <Package className="h-8 w-8 mb-2 opacity-20" />
-                                            <p className="text-xs font-medium">List is empty</p>
+                                            <p className="text-xs font-medium">Daftar masih kosong</p>
                                         </div>
                                     ) : (
                                         fields.map((field, index) => {
@@ -326,7 +327,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                                 <FormControl>
                                                     <Textarea
                                                         {...field}
-                                                        placeholder="Add optional notes..."
+                                                        placeholder="Tambahkan catatan..."
                                                         className="resize-none h-20 text-xs bg-muted/20 min-h-0"
                                                     />
                                                 </FormControl>
@@ -339,7 +340,7 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
                                         disabled={form.formState.isSubmitting || fields.length === 0 || !destinationLocationId}
                                         className="w-full mt-4"
                                     >
-                                        {form.formState.isSubmitting ? 'Processing...' : 'Confirm Transfer'}
+                                        {form.formState.isSubmitting ? 'Memproses...' : 'Konfirmasi Transfer'}
                                     </Button>
 
                                     {form.formState.errors.items && (

@@ -36,8 +36,8 @@ export default async function WarehouseIncomingPage({ searchParams }: { searchPa
                         <PackageSearch className="h-3 w-3" />
                         <span>Warehouse / Incoming Receipts</span>
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight">Incoming Stock Receipts</h1>
-                    <p className="text-muted-foreground">View and manage all incoming stock deliveries from suppliers.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Penerimaan Barang</h1>
+                    <p className="text-muted-foreground">Lihat dan kelola semua penerimaan barang dari supplier.</p>
                 </div>
                 <div>
                     <div className="flex gap-2">

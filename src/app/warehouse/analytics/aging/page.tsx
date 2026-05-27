@@ -21,8 +21,8 @@ export default async function StockAgingPage() {
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Stock Aging Report</h1>
-                        <p className="text-muted-foreground">Analyze inventory age based on batch receiving dates.</p>
+                        <h1 className="text-2xl font-bold tracking-tight">Laporan Aging Stok</h1>
+                        <p className="text-muted-foreground">Analisis umur inventaris berdasarkan tanggal penerimaan batch.</p>
                     </div>
                 </div>
                 <Button variant="outline" size="sm" asChild>
