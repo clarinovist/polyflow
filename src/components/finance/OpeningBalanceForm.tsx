@@ -83,7 +83,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
         try {
             const res = await createOpeningBalance(values);
             if (res.success) {
-                toast.success('Opening Balance recorded successfully');
+                toast.success('Saldo awal berhasil dicatat.');
                 form.reset({
                     type: values.type, // Keep same type for rapid entry
                     entityId: '',

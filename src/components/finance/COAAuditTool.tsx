@@ -46,7 +46,7 @@ export function COAAuditTool() {
                 toast.error(result.error || 'Failed to initialize accounts');
                 return;
             }
-            toast.success(`Successfully initialized ${result.data?.count} accounts`);
+            toast.success(`${result.data?.count} akun berhasil diinisialisasi.`);
             await runAudit();
         } catch (error) {
             toast.error('Failed to fix accounts');

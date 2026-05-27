@@ -53,7 +53,7 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
         try {
             const res = await deleteOpeningBalance(id, type);
             if (res.success) {
-                toast.success('Opening balance deleted');
+                toast.success('Saldo awal berhasil dihapus.');
                 router.refresh();
             } else {
                 toast.error(res.error || 'Failed to delete');

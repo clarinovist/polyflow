@@ -85,7 +85,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
                 return;
             }
 
-            toast.success(`Location ${isEditing ? 'updated' : 'created'} successfully`);
+            toast.success(`Lokasi berhasil ${isEditing ? 'diperbarui' : 'dibuat'}.`);
             setOpen(false);
             router.refresh();
         } catch (_error) {

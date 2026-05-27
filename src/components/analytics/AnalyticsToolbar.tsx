@@ -70,7 +70,7 @@ export function AnalyticsToolbar() {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                toast.success('Report downloaded successfully');
+                toast.success('Laporan berhasil diunduh.');
             }
             toast.dismiss(toastId);
         } catch (error) {

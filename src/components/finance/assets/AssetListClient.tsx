@@ -61,7 +61,7 @@ export function AssetListClient({ initialAssets, accounts }: AssetListClientProp
         try {
             await deleteAsset(id);
             setData(prev => prev.filter(a => a.id !== id));
-            toast.success("Asset deleted");
+            toast.success("Aset berhasil dihapus.");
         } catch (error) {
             console.error("Delete failed", error);
             toast.error("Failed to delete asset");

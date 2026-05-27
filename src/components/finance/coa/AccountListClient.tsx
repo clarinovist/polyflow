@@ -49,7 +49,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
         startTransition(async () => {
             try {
                 await deleteAccount(id);
-                toast.success(`Account ${code} deleted.`);
+                toast.success(`Akun ${code} berhasil dihapus.`);
                 router.refresh();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {

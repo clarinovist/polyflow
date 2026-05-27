@@ -81,7 +81,7 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                     ...values,
                     parentId: (values.parentId === 'null' || !values.parentId) ? null : values.parentId
                 });
-                toast.success(account ? "Account updated" : "Account created");
+                toast.success(account ? 'Akun berhasil diperbarui.' : 'Akun berhasil dibuat.');
                 setOpen(false);
                 router.refresh();
                 if (!account) form.reset();

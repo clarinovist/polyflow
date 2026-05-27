@@ -32,7 +32,7 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
         try {
             const result = await deleteAccount(id);
             if (result.success) {
-                toast.success(`Account ${code} - ${name} deleted successfully`);
+                toast.success(`Akun ${code} - ${name} berhasil dihapus.`);
                 setOpen(false);
             } else {
                 toast.error(result.error || 'Failed to delete account');

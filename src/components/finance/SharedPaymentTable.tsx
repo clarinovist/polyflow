@@ -59,7 +59,7 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
         try {
             const result = await deletePayment(id);
             if (result.success) {
-                toast.success('Payment deleted and journals cleaned up');
+                toast.success('Pembayaran berhasil dihapus dan jurnal dibersihkan.');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Failed to delete payment');

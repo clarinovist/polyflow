@@ -120,7 +120,7 @@ export function JournalListClient() {
             const ids = selectedRows.map(r => r.original.id);
             const res = await batchPostJournals(ids);
             if (res.success) {
-                toast.success(`Successfully posted ${ids.length} journals`);
+                toast.success(`${ids.length} jurnal berhasil diposting.`);
                 setRowSelection({});
                 fetchData();
             } else {

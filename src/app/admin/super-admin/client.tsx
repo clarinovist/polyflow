@@ -25,7 +25,7 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
         if (!result.success) {
             toast.error(result.error || 'Unknown error');
         } else {
-            toast.success(`${name} updated successfully!`);
+            toast.success(`${name} berhasil diperbarui.`);
             setIsOpen(false);
             onUpdated();
         }
@@ -96,7 +96,7 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
         if (!result.success) {
             toast.error(result.error || 'Unknown error');
         } else {
-            toast.success(`Admin password for ${tenant.name} has been reset!`);
+            toast.success(`Password admin untuk ${tenant.name} berhasil direset.`);
             setIsOpen(false);
         }
         setIsSubmitting(false);

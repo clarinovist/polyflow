@@ -35,7 +35,7 @@ export default function CreditsManagementPage() {
                 currentBalance: 12500,
                 lastTopup: new Date().toISOString()
             });
-            toast.success(`Successfully located records for ${emailSearch}`);
+            toast.success(`Data akun untuk ${emailSearch} berhasil ditemukan.`);
         } else {
             toast.error('Please enter a valid email address.');
         }
@@ -56,7 +56,7 @@ export default function CreditsManagementPage() {
             currentBalance: selectedUser.currentBalance + adjustment
         });
         
-        toast.success(`Successfully ${type === 'add' ? 'added' : 'deducted'} ${amount} API credits.`);
+        toast.success(`${amount} kredit API berhasil ${type === 'add' ? 'ditambahkan' : 'dikurangi'}.`);
         
         setAmount('');
     };

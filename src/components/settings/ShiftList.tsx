@@ -35,7 +35,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
         if (confirm('Are you sure you want to delete this shift?')) {
             const result = await deleteWorkShift(id);
             if (result.success) {
-                toast.success('Shift deleted');
+                toast.success('Shift berhasil dihapus.');
             } else {
                 toast.error(result.error || 'Failed to delete shift');
             }

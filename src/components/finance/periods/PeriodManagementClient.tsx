@@ -62,7 +62,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         startTransition(async () => {
             try {
                 await generatePeriodsForYear(parseInt(year));
-                toast.success(`Periods for ${year} generated successfully.`);
+                toast.success(`Periode untuk tahun ${year} berhasil digenerate.`);
                 router.refresh();
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : "Failed to generate periods.";
@@ -94,7 +94,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         startTransition(async () => {
             try {
                 await closePeriod(selectedPeriod.id, userId);
-                toast.success(`Fiscal period ${selectedPeriod.name} closed with generated journal entries.`);
+                toast.success(`Periode fiskal ${selectedPeriod.name} berhasil ditutup dengan jurnal penutup.`);
                 setIsConfirmOpen(false);
                 router.refresh();
             } catch (error: unknown) {
@@ -110,7 +110,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
         startTransition(async () => {
             try {
                 await reopenPeriod(id);
-                toast.success("Fiscal period reopened.");
+                toast.success('Periode fiskal berhasil dibuka kembali.');
                 router.refresh();
             } catch (error) { // eslint-disable-line @typescript-eslint/no-unused-vars
                 toast.error("Failed to update status");

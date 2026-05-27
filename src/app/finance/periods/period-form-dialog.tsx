@@ -38,7 +38,7 @@ export function PeriodFormDialog() {
         try {
             const result = await createFiscalPeriod(parseInt(year), parseInt(month));
             if (result.success) {
-                toast.success('Fiscal period created successfully');
+                toast.success('Periode fiskal berhasil dibuat.');
                 setOpen(false);
             } else {
                 toast.error(result.error || 'Failed to create period');

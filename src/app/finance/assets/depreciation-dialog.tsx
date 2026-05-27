@@ -39,7 +39,7 @@ export function DepreciationDialog() {
             if (!res.success) {
                 toast.error(res.error || 'Failed to run depreciation');
             } else {
-                toast.success(`Processed depreciation for ${res.data?.count || 0} assets`);
+                toast.success(`Depresiasi untuk ${res.data?.count || 0} aset berhasil diproses.`);
                 setOpen(false);
             }
         } catch (_error) {

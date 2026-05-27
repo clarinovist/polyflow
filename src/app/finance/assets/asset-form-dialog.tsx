@@ -57,7 +57,7 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                 usefulLifeMonths: Number(formData.usefulLifeMonths),
             });
             if (res.success) {
-                toast.success('Asset registered successfully');
+                toast.success('Aset berhasil didaftarkan.');
                 setOpen(false);
             } else {
                 toast.error(res.error || 'Failed to create asset');

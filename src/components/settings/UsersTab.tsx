@@ -86,7 +86,7 @@ export function UsersTab() {
         setIsSubmitting(true);
         const result = await createUser(formData);
         if (result.success) {
-            toast.success('User created successfully');
+            toast.success('Pengguna berhasil dibuat.');
             setCreateOpen(false);
             setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
             fetchUsers();
@@ -100,7 +100,7 @@ export function UsersTab() {
         setIsSubmitting(true);
         const result = await updateUser(editData);
         if (result.success) {
-            toast.success('User updated successfully');
+            toast.success('Pengguna berhasil diperbarui.');
             setEditOpen(false);
             fetchUsers();
         } else {
@@ -114,7 +114,7 @@ export function UsersTab() {
 
         const result = await deleteUser(userId);
         if (result.success) {
-            toast.success('User deleted');
+            toast.success('Pengguna berhasil dihapus.');
             fetchUsers();
         } else {
             toast.error(result.error);

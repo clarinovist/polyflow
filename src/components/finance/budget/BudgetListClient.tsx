@@ -77,7 +77,7 @@ export function BudgetListClient({ initialBudgets, accounts, year: initialYear }
                 });
             }
             setBudgets(newBudgets);
-            toast.success("Budget saved");
+            toast.success('Anggaran berhasil disimpan.');
             setEditingCell(null);
         } catch (error) {
             toast.error("Failed to save");

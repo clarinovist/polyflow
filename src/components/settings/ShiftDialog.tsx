@@ -95,7 +95,7 @@ export function ShiftDialog({
 
             if (result.success) {
                 toast.success(
-                    shiftToEdit ? 'Shift updated successfully' : 'Shift created successfully'
+                    shiftToEdit ? 'Shift berhasil diperbarui.' : 'Shift berhasil dibuat.'
                 );
                 onOpenChange(false);
                 form.reset();

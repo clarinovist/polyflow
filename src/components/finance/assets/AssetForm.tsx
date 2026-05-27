@@ -54,10 +54,10 @@ export function AssetForm({ existingAsset, accounts, onSuccess }: AssetFormProps
         try {
             if (existingAsset) {
                 await updateAsset(existingAsset.id, data);
-                toast.success('Asset updated successfully');
+                toast.success('Aset berhasil diperbarui.');
             } else {
                 await createAsset(data);
-                toast.success('Asset created successfully');
+                toast.success('Aset berhasil dibuat.');
             }
             setOpen(false);
             form.reset();

@@ -123,7 +123,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             });
 
             if (result.success) {
-                toast.success("Opening balances saved successfully!");
+                toast.success('Saldo awal berhasil disimpan.');
                 // Optional: Redirect or Reset
                 window.location.reload();
             } else {

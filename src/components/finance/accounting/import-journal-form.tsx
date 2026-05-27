@@ -138,7 +138,7 @@ export default function ImportJournalForm({ accounts }: ImportJournalFormProps) 
             const result = await createBulkJournals(entries);
 
             if (result.success) {
-                toast.success(`Successfully imported ${result.data?.count} journal entries`);
+                toast.success(`${result.data?.count} entri jurnal berhasil diimpor.`);
                 router.push('/finance/reports/trial-balance');
                 router.refresh();
             } else {

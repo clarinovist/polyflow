@@ -50,7 +50,7 @@ export function GeneralSettings({ tenantName, userName, userEmail }: { tenantNam
                     </div>
                     <div className="flex justify-end">
                         <Button
-                            onClick={() => toast.success('Profile updated')}
+                            onClick={() => toast.success('Profil berhasil diperbarui.')}
                         >
                             Save Changes
                         </Button>

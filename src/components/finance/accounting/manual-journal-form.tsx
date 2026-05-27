@@ -80,7 +80,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
         replace(newLines);
         form.setValue('description', template.name);
         setTemplateOpen(false);
-        toast.success(`Template "${template.name}" applied`);
+        toast.success(`Template "${template.name}" berhasil diterapkan.`);
     };
 
     async function onSubmit(data: ManualJournalValues, post: boolean) {
@@ -88,7 +88,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
         try {
             const result = await createManualJournal(data, post);
             if (result.success) {
-                toast.success(post ? 'Journal Entry created and posted successfully' : 'Journal Entry created as DRAFT');
+                toast.success(post ? 'Jurnal Entri berhasil dibuat dan diposting.' : 'Jurnal Entri disimpan sebagai DRAFT.');
                 router.push('/finance/journals');
                 router.refresh();
             } else {

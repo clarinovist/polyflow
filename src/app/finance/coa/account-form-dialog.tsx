@@ -84,7 +84,7 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
                 : await updateAccount(account!.id, data);
 
             if (result.success) {
-                toast.success(mode === 'create' ? 'Account created successfully' : 'Account updated successfully');
+                toast.success(mode === 'create' ? 'Akun berhasil dibuat.' : 'Akun berhasil diperbarui.');
                 setOpen(false);
                 if (mode === 'create') {
                     setFormData({ code: '', name: '', type: 'ASSET' as AccountType, category: 'CURRENT_ASSET' as AccountCategory, description: '' });

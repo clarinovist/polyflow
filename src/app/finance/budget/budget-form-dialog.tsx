@@ -46,7 +46,7 @@ export function BudgetFormDialog({ accounts, currentYear, currentMonth }: { acco
                 amount: parseFloat(formData.amount)
             });
             if (res.success) {
-                toast.success('Budget target set');
+                toast.success('Target anggaran berhasil disimpan.');
                 setOpen(false);
             } else {
                 toast.error(res.error || 'Failed to set budget');
