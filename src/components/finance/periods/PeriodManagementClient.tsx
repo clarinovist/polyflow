@@ -219,9 +219,9 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
             <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Close Fiscal Period: {selectedPeriod?.name}</AlertDialogTitle>
+                        <AlertDialogTitle>Tutup Periode Fiskal: {selectedPeriod?.name}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Closing this period will automatically generate closing journal entries to reset Revenue and Expense accounts. This action is critical for financial integrity.
+                            Menutup periode ini akan otomatis membuat jurnal penutupan untuk mereset akun Revenue dan Expense. Tindakan ini penting untuk menjaga integritas keuangan.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 

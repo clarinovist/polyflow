@@ -148,18 +148,18 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            This will permanently delete the opening balance record for <strong>{item.entityName}</strong> ({item.invoiceNumber}) and its associated journal entries.
+                                                            Ini akan menghapus permanen catatan saldo awal untuk <strong>{item.entityName}</strong> ({item.invoiceNumber}) beserta jurnal terkait.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
                                                         <AlertDialogAction
                                                             onClick={() => handleDelete(item.id, item.type)}
                                                             className="bg-rose-600 hover:bg-rose-700"
                                                         >
-                                                            Delete
+                                                            Hapus
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>

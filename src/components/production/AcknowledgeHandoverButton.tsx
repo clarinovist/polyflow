@@ -10,7 +10,7 @@ export function AcknowledgeHandoverButton({ movementId }: { movementId: string }
     const [loading, setLoading] = useState(false);
 
     const handleAck = async () => {
-        if (!confirm('Acknowledge this handover and mark as received?')) return;
+        if (!confirm('Konfirmasi serah terima ini dan tandai sebagai diterima?')) return;
         setLoading(true);
         try {
             const res = await acknowledgeHandover(movementId);

@@ -87,7 +87,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                 onClick={async () => {
                                     if (!variantId) return;
                                     // confirm
-                                    if (!confirm('Delete this variant permanently? This action cannot be undone.')) return;
+                                    if (!confirm('Hapus varian ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return;
                                     try {
                                         const res = await deleteVariant(variantId);
                                         if (res.success) {
@@ -95,14 +95,14 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                             router.push('/dashboard/products');
                                             router.refresh();
                                         } else {
-                                            toast.error(res.error || 'Failed to delete variant');
+                                            toast.error(res.error || 'Gagal menghapus varian');
                                         }
                                     } catch {
-                                        toast.error('Failed to delete variant');
+                                        toast.error('Gagal menghapus varian');
                                     }
                                 }}
                             >
-                                Delete
+                                Hapus
                             </Button>
                         )}
 

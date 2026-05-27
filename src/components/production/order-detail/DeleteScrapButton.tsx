@@ -58,19 +58,19 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete the scrap record for <strong>{productName}</strong>.
-                        The inventory will be deducted from the scrap location and the accounting journal will be voided.
+                        Ini akan menghapus permanen catatan scrap untuk <strong>{productName}</strong>.
+                        Inventaris akan dikurangi dari lokasi scrap dan jurnal akuntansinya akan di-void.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleDelete}
                         className="bg-destructive hover:bg-destructive/90 text-white"
                     >
-                        Delete
+                        Hapus
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

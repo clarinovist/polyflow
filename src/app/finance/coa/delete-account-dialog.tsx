@@ -53,14 +53,14 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete the account <strong>{code} - {name}</strong>.
-                        This action cannot be undone. You can only delete accounts that have no transactions.
+                        Ini akan menghapus permanen akun <strong>{code} - {name}</strong>.
+                        Tindakan ini tidak dapat dibatalkan. Anda hanya bisa menghapus akun yang belum memiliki transaksi.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={loading}>Batal</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={(e) => {
                             e.preventDefault();

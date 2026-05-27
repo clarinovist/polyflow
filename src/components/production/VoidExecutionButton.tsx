@@ -51,21 +51,21 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Void Production Output</AlertDialogTitle>
+                    <AlertDialogTitle>Void Output Produksi</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Are you sure you want to void this production output for <strong>{orderNumber}</strong>?
-                        This will reverse stock movements and update the production order totals.
-                        This action is permanent.
+                        Yakin ingin mem-void output produksi untuk <strong>{orderNumber}</strong>?
+                        Ini akan membalik mutasi stok dan memperbarui total order produksi.
+                        Tindakan ini bersifat permanen.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={handleVoid}
                         disabled={isLoading}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
-                        {isLoading ? 'Voiding...' : 'Void Execution'}
+                        {isLoading ? 'Memproses void...' : 'Void Eksekusi'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

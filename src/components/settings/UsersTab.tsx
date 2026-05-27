@@ -110,7 +110,7 @@ export function UsersTab() {
     };
 
     const handleDelete = async (userId: string) => {
-        if (!confirm('Are you sure you want to delete this user?')) return;
+        if (!confirm('Yakin ingin menghapus pengguna ini?')) return;
 
         const result = await deleteUser(userId);
         if (result.success) {

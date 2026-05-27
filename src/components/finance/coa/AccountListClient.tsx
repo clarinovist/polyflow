@@ -44,7 +44,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
     });
 
     const handleDelete = (id: string, code: string) => {
-        if (!confirm(`Are you sure you want to delete account ${code}? This cannot be undone.`)) return;
+        if (!confirm(`Yakin ingin menghapus akun ${code}? Tindakan ini tidak dapat dibatalkan.`)) return;
 
         startTransition(async () => {
             try {

@@ -109,14 +109,14 @@ export function BOMActions({ id, name }: BOMActionsProps) {
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete the recipe <strong>{name}</strong>.
-                            This action cannot be undone and may affect active production planning.
+                            Ini akan menghapus permanen resep <strong>{name}</strong>.
+                            Tindakan ini tidak dapat dibatalkan dan dapat memengaruhi perencanaan produksi aktif.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={(e) => {
                                 e.preventDefault();

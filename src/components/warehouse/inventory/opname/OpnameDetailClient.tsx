@@ -197,7 +197,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                             variant="destructive"
                             size="icon"
                             onClick={async () => {
-                                if (confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
+                                if (confirm('Yakin ingin menghapus sesi ini? Tindakan ini tidak dapat dibatalkan.')) {
                                     const result = await deleteOpnameSession(session.id);
                                     if (result.success) {
                                         toast.success("Sesi berhasil dihapus");

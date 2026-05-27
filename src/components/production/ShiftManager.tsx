@@ -49,7 +49,7 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
     const [_isAdding, _setIsAdding] = useState(false);
 
     async function handleDelete(shiftId: string) {
-        if (!confirm('Are you sure you want to delete this shift?')) return;
+        if (!confirm('Yakin ingin menghapus shift ini?')) return;
         const result = await deleteProductionShift(shiftId, orderId);
         if (result.success) {
             toast.success('Shift berhasil dihapus.');

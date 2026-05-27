@@ -55,14 +55,14 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the {entityName.toLowerCase()}
-                        {entityName !== 'Item' ? '' : ''} and remove it from our servers.
+                        Tindakan ini tidak dapat dibatalkan. Ini akan menghapus permanen {entityName.toLowerCase()}
+                        {entityName !== 'Item' ? '' : ''} dan menghapusnya dari server kami.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={(e) => {
                             e.preventDefault();

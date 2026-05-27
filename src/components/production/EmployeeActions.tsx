@@ -75,16 +75,16 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete the staff member <strong>{name}</strong>.
-                            This action cannot be undone.
+                            Ini akan menghapus permanen data staff <strong>{name}</strong>.
+                            Tindakan ini tidak dapat dibatalkan.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            Delete
+                            Hapus
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

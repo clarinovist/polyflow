@@ -130,19 +130,19 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle>Delete Payment Record?</AlertDialogTitle>
+                                                    <AlertDialogTitle>Hapus Catatan Pembayaran?</AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This will delete the payment and its associated General Ledger journal entries.
-                                                        The invoice status will be recalculated. This action cannot be undone.
+                                                        Ini akan menghapus pembayaran beserta entri jurnal General Ledger terkait.
+                                                        Status invoice akan dihitung ulang. Tindakan ini tidak dapat dibatalkan.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogCancel>Batal</AlertDialogCancel>
                                                     <AlertDialogAction
                                                         onClick={() => handleDelete(payment.id)}
                                                         className="bg-red-600 hover:bg-red-700"
                                                     >
-                                                        Delete
+                                                        Hapus
                                                     </AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>

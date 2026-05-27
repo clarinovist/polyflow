@@ -159,14 +159,14 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the production order and its material requirements.
+                                            Tindakan ini tidak dapat dibatalkan. Ini akan menghapus permanen order produksi beserta kebutuhan materialnya.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -182,23 +182,23 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                                            Cancel Order
+                                            Batalkan Order
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Cancel Work Order?</AlertDialogTitle>
+                                            <AlertDialogTitle>Batalkan Work Order?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This will move the order to CANCELLED status. Since no materials have been issued and no output recorded, this is a safe way to close a duplicate or unwanted order.
+                                                Ini akan mengubah status order menjadi CANCELLED. Karena belum ada material yang dikeluarkan dan belum ada output yang dicatat, ini aman untuk menutup order duplikat atau yang tidak diperlukan.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel>Go Back</AlertDialogCancel>
+                                            <AlertDialogCancel>Kembali</AlertDialogCancel>
                                             <AlertDialogAction
                                                 onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
                                                 className="bg-red-600 hover:bg-red-700"
                                             >
-                                                Confirm Cancellation
+                                                Konfirmasi Pembatalan
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
@@ -216,23 +216,23 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
-                                            Cancel Order
+                                            Batalkan Order
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Cancel Work Order?</AlertDialogTitle>
+                                            <AlertDialogTitle>Batalkan Work Order?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This will move the order to CANCELLED status. Since no materials have been issued and no output recorded, this is a safe way to close a duplicate or unwanted order.
+                                                Ini akan mengubah status order menjadi CANCELLED. Karena belum ada material yang dikeluarkan dan belum ada output yang dicatat, ini aman untuk menutup order duplikat atau yang tidak diperlukan.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel>Go Back</AlertDialogCancel>
+                                            <AlertDialogCancel>Kembali</AlertDialogCancel>
                                             <AlertDialogAction
                                                 onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
                                                 className="bg-red-600 hover:bg-red-700"
                                             >
-                                                Confirm Cancellation
+                                                Konfirmasi Pembatalan
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
