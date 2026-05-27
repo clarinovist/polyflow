@@ -57,10 +57,10 @@ export function ShipmentDialog({ orderId, orderNumber, isMaklon = false, isOpen,
                 onClose();
                 router.refresh();
             } else {
-                toast.error(result.error || (isMaklon ? 'Failed to close service order' : 'Failed to ship order'));
+                toast.error(result.error || (isMaklon ? 'Gagal menutup order jasa. Silakan coba lagi.' : 'Gagal mengirim pesanan. Silakan coba lagi.'));
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }

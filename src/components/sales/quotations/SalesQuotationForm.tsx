@@ -191,10 +191,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 toast.success(`Quotation berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}`);
                 router.push('/sales/quotations');
             } else {
-                toast.error(result.error || "Failed to save quotation");
+                toast.error(result.error || "Gagal menyimpan quotation. Silakan coba lagi.");
             }
         } catch (_error) {
-            toast.error("An unexpected error occurred");
+            toast.error("Terjadi kesalahan yang tidak terduga. Silakan coba lagi.");
         } finally {
             setIsSubmitting(false);
         }

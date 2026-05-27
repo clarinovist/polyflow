@@ -71,7 +71,7 @@ export function SalesReturnForm({ customers, locations, products, salesOrders, i
                 toast.success('Retur Penjualan berhasil diperbarui');
             }
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Failed to save sales return');
+            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan retur penjualan. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

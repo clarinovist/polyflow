@@ -31,10 +31,10 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                 toast.success('Pesanan berhasil ditandai sebagai terkirim');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to update status');
+                toast.error(result.error || 'Gagal memperbarui status. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

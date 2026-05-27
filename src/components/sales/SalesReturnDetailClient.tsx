@@ -60,7 +60,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
             toast.success(`Retur Penjualan berhasil ${actionText}`);
             router.refresh();
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : `Failed to ${actionName.toLowerCase()} sales return`);
+            toast.error(error instanceof Error ? error.message : 'Gagal memproses retur penjualan. Silakan coba lagi.');
         } finally {
             setActionLoading(null);
         }

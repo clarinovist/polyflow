@@ -143,10 +143,10 @@ export function SalesOrderDetailClient({
                 toast.success(`Pesanan berhasil ${actionText}`);
                 router.refresh();
             } else {
-                toast.error(result.error || `Failed to ${action} order`);
+                toast.error(result.error || 'Gagal memproses tindakan pada pesanan. Silakan coba lagi.');
             }
         } catch {
-            toast.error("An error occurred");
+            toast.error("Terjadi kesalahan. Silakan coba lagi.");
         } finally {
             setIsLoading(false);
         }
@@ -156,12 +156,12 @@ export function SalesOrderDetailClient({
 
     const handleGenerateInvoice = async () => {
         if (isLegacyInternalOrder) {
-            toast.error('Invoice is blocked for Sales Orders without customer. Use Production Order for internal stock build.');
+            toast.error('Invoice diblokir untuk Sales Order tanpa customer. Gunakan Perintah Produksi untuk pembuatan stok internal.');
             return;
         }
 
         if (order.status !== 'SHIPPED' && order.status !== 'DELIVERED') {
-            toast.error("Order must be shipped or delivered to generate invoice");
+            toast.error("Pesanan harus dikirim atau terkirim untuk membuat invoice.");
             return;
         }
 
@@ -178,10 +178,10 @@ export function SalesOrderDetailClient({
                 toast.success("Invoice berhasil dibuat");
                 router.refresh();
             } else {
-                toast.error(result.error || "Failed to generate invoice");
+                toast.error(result.error || "Gagal membuat invoice. Silakan coba lagi.");
             }
         } catch (_error) {
-            toast.error("An error occurred");
+            toast.error("Terjadi kesalahan. Silakan coba lagi.");
         } finally {
             setIsLoading(false);
         }
@@ -195,10 +195,10 @@ export function SalesOrderDetailClient({
                 toast.success("Pesanan berhasil dihapus");
                 router.push(basePath);
             } else {
-                toast.error(result.error);
+                toast.error(result.error || "Gagal menghapus pesanan. Silakan coba lagi.");
             }
         } catch (_error) {
-            toast.error("Failed to delete order");
+            toast.error("Gagal menghapus pesanan. Silakan coba lagi.");
         } finally {
             setIsLoading(false);
         }

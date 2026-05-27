@@ -65,7 +65,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
 
     const handleConvert = async () => {
         if (!selectedLocationId) {
-            toast.error("Please select a source location for the order.");
+            toast.error("Silakan pilih lokasi gudang sumber untuk pesanan.");
             return;
         }
 
@@ -73,7 +73,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
         try {
             const result = await convertToOrder(quotation.id, selectedLocationId);
             if (!result.success) {
-                toast.error(result.error || "Failed to convert quotation");
+                toast.error(result.error || "Gagal mengonversi quotation. Silakan coba lagi.");
                 return;
             }
             if (result.data) {
@@ -82,7 +82,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 router.push(`/sales/orders/${(result.data as any).id}`);
             }
         } catch {
-            toast.error("Failed to convert quotation");
+            toast.error("Gagal mengonversi quotation. Silakan coba lagi.");
         } finally {
             setIsConverting(false);
             setIsConvertDialogOpen(false);

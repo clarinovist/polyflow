@@ -111,10 +111,10 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                 setIsPaymentDialogOpen(false);
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to update invoice');
+                toast.error(result.error || 'Gagal memperbarui invoice. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
         } finally {
             setIsUpdating(false);
         }
@@ -152,10 +152,10 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                         toast.success('Invoice berhasil dikonfirmasi');
                                         router.refresh();
                                     } else {
-                                        toast.error(result.error || 'Failed to confirm invoice');
+                                        toast.error(result.error || 'Gagal mengonfirmasi invoice. Silakan coba lagi.');
                                     }
                                 } catch (_error) {
-                                    toast.error('An unexpected error occurred');
+                                    toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
                                 } finally {
                                     setIsUpdating(false);
                                 }
