@@ -97,7 +97,7 @@ export default async function EmployeesPage({
                                     {filteredEmployees.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                                No personnel found for this status.
+                                                Tidak ada personel ditemukan untuk status ini.
                                             </TableCell>
                                         </TableRow>
                                     ) : (

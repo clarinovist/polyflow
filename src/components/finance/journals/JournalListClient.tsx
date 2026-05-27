@@ -268,7 +268,7 @@ export function JournalListClient() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                                            No transactions found for the selected criteria.
+                                            Tidak ada transaksi yang ditemukan untuk kriteria terpilih.
                                         </TableCell>
                                     </TableRow>
                                 )}

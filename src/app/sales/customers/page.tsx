@@ -63,9 +63,9 @@ export default async function CustomersPage() {
                                                 <Users className="h-6 w-6 text-muted-foreground" />
                                             </div>
                                             <div className="space-y-1">
-                                                <h3 className="text-lg font-medium">No customers found</h3>
+                                                <h3 className="text-lg font-medium">Tidak ada pelanggan ditemukan</h3>
                                                 <p className="text-muted-foreground">
-                                                    Get started by creating a new customer.
+                                                    Mulai dengan membuat pelanggan baru.
                                                 </p>
                                             </div>
                                             <CustomerDialog

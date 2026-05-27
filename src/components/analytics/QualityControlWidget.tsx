@@ -125,7 +125,7 @@ export function QualityControlWidget({ data }: Props) {
                     <CardContent>
                         <div className="space-y-4">
                             {data.scrapByReason.length === 0 ? (
-                                <p className="text-muted-foreground text-center py-10">No scrap records found.</p>
+                                <p className="text-muted-foreground text-center py-10">Tidak ada catatan scrap ditemukan.</p>
                             ) : (
                                 data.scrapByReason.map((item, idx) => (
                                     <div key={idx} className="space-y-1">

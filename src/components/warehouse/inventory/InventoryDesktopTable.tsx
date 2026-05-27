@@ -278,7 +278,7 @@ export function InventoryDesktopTable({
                                 <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
                                         <Search className="h-6 w-6" />
-                                        <p className="text-sm">No items found.</p>
+                                        <p className="text-sm">Tidak ada item ditemukan.</p>
                                     </div>
                                 </TableCell>
                             </TableRow>

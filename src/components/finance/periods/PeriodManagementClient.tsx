@@ -180,7 +180,7 @@ export function PeriodManagementClient({ initialPeriods, currentYear, userId }: 
                             {initialPeriods.length === 0 && !isYearTransitioning ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                        No periods found for {year}. Click generate to start.
+                                        Tidak ada periode untuk {year}. Klik generate untuk memulai.
                                     </TableCell>
                                 </TableRow>
                             ) : (

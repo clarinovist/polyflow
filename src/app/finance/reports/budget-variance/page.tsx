@@ -117,7 +117,7 @@ export default function BudgetVariancePage() {
                                     </TableRow>
                                 ) : data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">No budget found for this period.</TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center">Tidak ada budget untuk periode ini.</TableCell>
                                     </TableRow>
                                 ) : (
                                     data.map((item) => {

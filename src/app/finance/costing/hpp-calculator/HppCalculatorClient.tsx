@@ -336,7 +336,7 @@ export default function HppCalculatorClient({
                                             <TableRow>
                                                 <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                                                     {materialDetails.length === 0
-                                                        ? 'No BOM materials found.'
+                                                        ? 'Tidak ada material BOM ditemukan.'
                                                         : 'No materials match the search.'}
                                                 </TableCell>
                                             </TableRow>
@@ -429,7 +429,7 @@ export default function HppCalculatorClient({
                                         <TableRow>
                                             <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                                 {results.length === 0
-                                                    ? 'No BOM data available.'
+                                                    ? 'Tidak ada data BOM tersedia.'
                                                     : 'No BOMs match the current filters.'}
                                             </TableCell>
                                         </TableRow>

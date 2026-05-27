@@ -31,7 +31,7 @@ export function MachinePerformanceCard({ data }: MachinePerformanceCardProps) {
                         </div>
                     ))}
                     {topMachines.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No machine data available.</p>
+                        <p className="text-sm text-muted-foreground">Tidak ada data mesin tersedia.</p>
                     )}
                 </div>
             </CardContent>

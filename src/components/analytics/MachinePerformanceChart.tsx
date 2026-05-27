@@ -26,7 +26,7 @@ export function MachinePerformanceChart({ data }: Props) {
                 </CardHeader>
                 <CardContent>
                     {data.length === 0 ? (
-                        <p className="text-muted-foreground py-8 text-center text-sm">No machine data available.</p>
+                        <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data mesin tersedia.</p>
                     ) : (
                         <div className="h-[400px] w-full" style={{ height: 400, minHeight: 400 }}>
                             {isMounted ? (

@@ -301,7 +301,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                                             Loading products...
                                         </div>
                                     ) : (
-                                        'No products found'
+                                        'Tidak ada produk ditemukan'
                                     )}
                                 </div>
                             ) : (

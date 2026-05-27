@@ -59,7 +59,7 @@ export function GlobalSearch({ className, ...props }: GlobalSearchProps) {
             <CommandDialog open={open} onOpenChange={setOpen}>
                 <CommandInput placeholder="Search..." />
                 <CommandList>
-                    <CommandEmpty>No results found.</CommandEmpty>
+                    <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
                     <CommandGroup heading="Switch Application">
                         <CommandItem onSelect={() => runCommand(() => router.push('/kiosk'))}>
                             <MonitorPlay className="mr-2 h-4 w-4" />

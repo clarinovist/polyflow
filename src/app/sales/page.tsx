@@ -61,7 +61,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
                     <CardContent>
                         <div className="text-2xl font-bold">{formatRupiah(stats.totalRevenue)}</div>
                         <p className="text-xs text-muted-foreground">
-                            {stats.revenueTrend.length > 0 ? 'Based on selected period' : 'No data'}
+                            {stats.revenueTrend.length > 0 ? 'Berdasarkan periode terpilih' : 'Tidak ada data'}
                         </p>
                     </CardContent>
                 </Card>

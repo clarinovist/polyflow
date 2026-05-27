@@ -74,7 +74,7 @@ export default function AuditLogTable({
                                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center justify-center space-y-2">
                                         <Clock className="h-6 w-6 text-gray-400" />
-                                        <span>No audit logs found matching criteria.</span>
+                                        <span>Tidak ada log audit yang cocok dengan kriteria.</span>
                                     </div>
                                 </TableCell>
                             </TableRow>

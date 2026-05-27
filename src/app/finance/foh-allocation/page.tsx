@@ -115,7 +115,7 @@ export default function FOHAllocationPage() {
                     {loading ? (
                         <div className="py-8 text-center text-muted-foreground">Calculating allocation...</div>
                     ) : !data || data.allocations.length === 0 ? (
-                        <div className="py-8 text-center text-muted-foreground">No completed production orders found for this period.</div>
+                        <div className="py-8 text-center text-muted-foreground">Tidak ada order produksi selesai untuk periode ini.</div>
                     ) : (
                         <div className="relative w-full overflow-auto">
                             <table className="w-full text-sm">

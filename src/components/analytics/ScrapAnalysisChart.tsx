@@ -52,7 +52,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
                             </ResponsiveContainer>
                         ) : (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
-                                No scrap data available
+                                Tidak ada data scrap tersedia
                             </div>
                         )}
                     </div>
@@ -78,7 +78,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
                             </ResponsiveContainer>
                         ) : (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
-                                No product data available
+                                Tidak ada data produk tersedia
                             </div>
                         )}
                     </div>

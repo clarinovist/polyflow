@@ -101,7 +101,7 @@ export function AccountListClient({ initialAccounts }: AccountListClientProps) {
                                 {filteredAccounts.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center">
-                                            No accounts found.
+                                            Tidak ada akun ditemukan.
                                         </TableCell>
                                     </TableRow>
                                 ) : (

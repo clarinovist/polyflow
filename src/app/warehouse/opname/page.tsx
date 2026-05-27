@@ -27,7 +27,7 @@ export default async function WarehouseOpnameListPage() {
                 {sessions.length === 0 ? (
                     <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/10 text-muted-foreground">
                         <History className="h-10 w-10 mb-3 opacity-50" />
-                        <p className="font-medium">No stock opname sessions found</p>
+                        <p className="font-medium">Tidak ada sesi stock opname ditemukan</p>
                         <p className="text-sm mt-1">Start a new audit session to track inventory.</p>
                     </div>
                 ) : (

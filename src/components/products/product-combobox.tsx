@@ -42,7 +42,7 @@ export function ProductCombobox({
     value,
     onValueChange,
     placeholder = "Select product...",
-    emptyMessage = "No product found.",
+    emptyMessage = "Tidak ada produk ditemukan.",
     disabled = false,
     className,
 }: ProductComboboxProps) {

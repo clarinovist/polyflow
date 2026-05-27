@@ -551,10 +551,10 @@ export function MaklonReportClient({ initialReport, customers }: MaklonReportCli
                         <CardContent className="py-16 text-center">
                             <Factory className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                             <p className="text-muted-foreground font-medium">
-                                No Maklon orders found
+                                Tidak ada order Maklon ditemukan
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Try adjusting the date range or customer filter.
+                                Coba sesuaikan rentang tanggal atau filter pelanggan.
                             </p>
                         </CardContent>
                     </Card>

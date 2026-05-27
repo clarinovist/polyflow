@@ -132,7 +132,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                             <TableRow>
                                                 <TableCell colSpan={showPrices ? 6 : 5} className="h-24 text-center text-muted-foreground">
                                                     <div className="flex flex-col items-center gap-2">
-                                                        <span>No recipes found in {activeTab}</span>
+                                                        <span>Tidak ada resep ditemukan di {activeTab}</span>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

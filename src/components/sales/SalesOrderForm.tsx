@@ -139,7 +139,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
     const productEmptyMessage = selectedOrderType === 'MAKLON_JASA'
         ? 'Tidak ada service item untuk Maklon Jasa. Stok fisik di Maklon Packing Area dipakai saat production execution, bukan dipilih sebagai item sales.'
-        : 'No product found.';
+        : 'Tidak ada produk ditemukan.';
 
     const sourceLocationLabel = selectedOrderType === 'MAKLON_JASA'
         ? salesLabels.customerWarehouse

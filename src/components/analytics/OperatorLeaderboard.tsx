@@ -146,7 +146,7 @@ export function OperatorLeaderboard({ data }: Props) {
                             {sortedData.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        No operator data available.
+                                        Tidak ada data operator tersedia.
                                     </TableCell>
                                 </TableRow>
                             )}

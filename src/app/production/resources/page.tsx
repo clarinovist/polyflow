@@ -93,7 +93,7 @@ export default async function ProductionResourcesPage() {
                     </div>
                     {employees.length === 0 && (
                         <div className="text-center py-12 text-muted-foreground italic border-2 border-dashed rounded-lg">
-                            No production personnel found in the directory.
+                            Tidak ada personel produksi ditemukan di direktori.
                         </div>
                     )}
                 </CardContent>

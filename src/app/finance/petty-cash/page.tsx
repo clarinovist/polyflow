@@ -128,7 +128,7 @@ export default function PettyCashPage() {
                         </div>
                     ) : transactions.length === 0 ? (
                         <div className="py-8 text-center text-muted-foreground text-sm">
-                            No petty cash transactions found.
+                            Tidak ada transaksi kas kecil ditemukan.
                         </div>
                     ) : (
                         <div className="relative w-full overflow-auto">

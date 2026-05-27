@@ -91,7 +91,7 @@ export default async function LocationsPage() {
                 {locations.length === 0 && (
                     <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
                         <Warehouse className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                        <h3 className="text-lg font-medium text-foreground">No locations found</h3>
+                        <h3 className="text-lg font-medium text-foreground">Tidak ada lokasi ditemukan</h3>
                         <p className="text-muted-foreground mb-4">You haven&apos;t added any warehouse locations yet.</p>
                         <LocationFormDialog />
                     </div>

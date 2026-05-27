@@ -171,7 +171,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                     {orders.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
-                                                No orders found.
+                                                Tidak ada order ditemukan.
                                             </TableCell>
                                         </TableRow>
                                     ) : (

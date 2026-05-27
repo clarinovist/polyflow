@@ -90,7 +90,7 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
                             <SelectContent>
                                 {releasedOrders.length === 0 ? (
                                     <div className="p-4 text-center text-xs text-muted-foreground">
-                                        No released orders available.
+                                        Tidak ada order released yang tersedia.
                                     </div>
                                 ) : (
                                     releasedOrders.map((order) => {

@@ -82,7 +82,7 @@ export default async function ProductionInventoryPage() {
                                 {floorInventory.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                            No stock found in Mixing Area.
+                                            Tidak ada stok ditemukan di Mixing Area.
                                         </TableCell>
                                     </TableRow>
                                 ) : (

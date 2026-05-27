@@ -231,7 +231,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                         onValueChange={(val) => setNewItem(prev => ({ ...prev, productVariantId: val }))}
                                         disabled={!selectedLocationId}
                                         placeholder="Cari produk berdasarkan nama atau SKU..."
-                                        emptyMessage="No products found in this location."
+                                        emptyMessage="Tidak ada produk ditemukan di lokasi ini."
                                     />
                                 </FormItem>
 

@@ -283,7 +283,7 @@ export default function SimulatorClient({
                                         <TableRow>
                                             <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                                                 {initialData.materials.length === 0
-                                                    ? 'No BOM materials available for simulation.'
+                                                    ? 'Tidak ada material BOM yang tersedia untuk simulasi.'
                                                     : 'No materials match the current search.'}
                                             </TableCell>
                                         </TableRow>
@@ -388,7 +388,7 @@ export default function SimulatorClient({
                                         <TableRow>
                                             <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                                                 {impacts.length === 0
-                                                    ? 'No BOMs available for simulation.'
+                                                    ? 'Tidak ada BOM yang tersedia untuk simulasi.'
                                                     : 'No BOMs match the current filters.'}
                                             </TableCell>
                                         </TableRow>

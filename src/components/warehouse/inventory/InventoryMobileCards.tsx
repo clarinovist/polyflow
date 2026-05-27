@@ -31,7 +31,7 @@ export function InventoryMobileCards({
             {paginatedInventory.length === 0 ? (
                 <div className="text-center py-8 flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-50" />
-                    <p>No inventory items found.</p>
+                    <p>Tidak ada item inventori ditemukan.</p>
                 </div>
             ) : (
                 paginatedInventory.map((item) => {

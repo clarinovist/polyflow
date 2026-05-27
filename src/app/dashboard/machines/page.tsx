@@ -99,7 +99,7 @@ export default async function MachinesPage({
                                     {filteredByStatus.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                                No machines found for this status.
+                                                Tidak ada mesin ditemukan untuk status ini.
                                             </TableCell>
                                         </TableRow>
                                     ) : (

@@ -153,7 +153,7 @@ export function SharedPaymentTable({ title, description, payments, type }: Compo
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                    No payment records found.
+                                    Tidak ada catatan pembayaran.
                                 </TableCell>
                             </TableRow>
                         )}

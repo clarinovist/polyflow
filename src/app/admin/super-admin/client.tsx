@@ -250,7 +250,7 @@ export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] 
                         {tenants.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                    No tenants found. Start onboarding!
+                                    Tidak ada tenant ditemukan. Mulai onboarding!
                                 </TableCell>
                             </TableRow>
                         )}

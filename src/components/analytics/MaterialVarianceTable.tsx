@@ -19,7 +19,7 @@ export function MaterialVarianceTable({ data }: Props) {
             </CardHeader>
             <CardContent>
                 {data.length === 0 ? (
-                    <p className="text-muted-foreground py-8 text-center text-sm">No material usage data found.</p>
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data penggunaan material ditemukan.</p>
                 ) : (
                     <div className="rounded-md border">
                         <Table>

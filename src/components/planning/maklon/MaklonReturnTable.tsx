@@ -60,7 +60,7 @@ export function MaklonReturnTable({ initialData, basePath = '/dashboard/maklon/r
                             {initialData.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center">
-                                        No Maklon returns found.
+                                        Tidak ada retur Maklon ditemukan.
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -105,7 +105,7 @@ export function MaklonReturnTable({ initialData, basePath = '/dashboard/maklon/r
             <div className="md:hidden space-y-3">
                 {initialData.length === 0 ? (
                     <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-                        No Maklon returns found.
+                        Tidak ada retur Maklon ditemukan.
                     </div>
                 ) : (
                     initialData.map((ret) => {

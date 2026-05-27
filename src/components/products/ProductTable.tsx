@@ -135,8 +135,8 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                 <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mb-4">
                     <Package className="h-6 w-6 text-muted-foreground/50" />
                 </div>
-                <p className="text-lg font-medium">No products found</p>
-                <p className="text-sm mt-1 max-w-xs mx-auto">Try changing your filters or create your first product to get started.</p>
+                <p className="text-lg font-medium">Tidak ada produk ditemukan</p>
+                <p className="text-sm mt-1 max-w-xs mx-auto">Coba ubah filter Anda atau buat produk pertama untuk memulai.</p>
             </div>
         );
     }

@@ -227,7 +227,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                                 {entries.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                            No transactions found
+                                            Tidak ada transaksi ditemukan
                                         </TableCell>
                                     </TableRow>
                                 ) : (

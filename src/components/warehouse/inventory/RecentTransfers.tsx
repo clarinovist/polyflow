@@ -30,7 +30,7 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
             <CardContent className="px-0">
                 {transfers.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground text-xs italic">
-                        No recent transfers found
+                        Tidak ada transfer terbaru ditemukan
                     </div>
                 ) : (
                     <div className="divide-y divide-border/40">

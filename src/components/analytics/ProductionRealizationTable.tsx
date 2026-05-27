@@ -21,7 +21,7 @@ export function ProductionRealizationTable({ data }: Props) {
             </CardHeader>
             <CardContent>
                 {data.length === 0 ? (
-                    <p className="text-muted-foreground py-8 text-center text-sm">No production data found for this period.</p>
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data produksi untuk periode ini.</p>
                 ) : (
                     <div className="rounded-md border">
                         <Table>

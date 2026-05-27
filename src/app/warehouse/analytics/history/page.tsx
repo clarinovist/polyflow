@@ -63,7 +63,7 @@ export default async function HistoryPage() {
                             {movements.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
-                                        No movements found.
+                                        Tidak ada mutasi ditemukan.
                                     </TableCell>
                                 </TableRow>
                             )}

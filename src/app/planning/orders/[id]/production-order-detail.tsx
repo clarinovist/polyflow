@@ -941,7 +941,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     ) : (
                         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
                             <Calculator className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            <p>No costing data available for this order yet.</p>
+                            <p>Belum ada data costing untuk order ini.</p>
                             <p className="text-xs mt-1">Costs are aggregated once materials are issued or output is recorded.</p>
                         </div>
                     )}

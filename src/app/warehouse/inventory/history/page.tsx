@@ -87,7 +87,7 @@ export default async function WarehouseHistoryPage({ searchParams }: { searchPar
                                     <TableCell colSpan={7} className="text-center h-48 text-muted-foreground">
                                         <div className="flex flex-col items-center justify-center gap-2">
                                             <History className="h-8 w-8 opacity-20" />
-                                            <p>No stock movements found.</p>
+                                            <p>Tidak ada mutasi stok ditemukan.</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>

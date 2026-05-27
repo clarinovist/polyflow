@@ -63,8 +63,8 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-2">
                                         <Edit className="h-5 w-5 text-muted-foreground" />
                                     </div>
-                                    <p className="text-base font-medium text-foreground">No shifts found</p>
-                                    <p className="text-sm text-muted-foreground">Add a new shift to define working hours.</p>
+                                    <p className="text-base font-medium text-foreground">Tidak ada shift ditemukan</p>
+                                    <p className="text-sm text-muted-foreground">Tambahkan shift baru untuk menentukan jam kerja.</p>
                                 </div>
                             </TableCell>
                         </TableRow>

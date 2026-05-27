@@ -59,7 +59,7 @@ export function ProductionRequestsClient({ orders }: ProductionRequestsClientPro
                 <CardContent>
                     {orders.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
-                            No pending requests found.
+                            Tidak ada permintaan pending ditemukan.
                         </div>
                     ) : (
                         <Table>

@@ -260,7 +260,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                                 {entries.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                            No movements found in this period.
+                                            Tidak ada mutasi ditemukan pada periode ini.
                                         </TableCell>
                                     </TableRow>
                                 ) : (

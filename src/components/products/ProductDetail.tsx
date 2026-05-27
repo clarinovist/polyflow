@@ -460,7 +460,7 @@ export function ProductDetail({ product }: { product: ProductWithDetails }) {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                            No cost history found for this product.
+                                            Tidak ada riwayat biaya untuk produk ini.
                                         </TableCell>
                                     </TableRow>
                                 )}

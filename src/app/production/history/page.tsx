@@ -109,7 +109,7 @@ export default async function ProductionHistoryPage() {
                             {completions.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
-                                        No historical production records found.
+                                        Tidak ada catatan produksi historis ditemukan.
                                     </TableCell>
                                 </TableRow>
                             )}

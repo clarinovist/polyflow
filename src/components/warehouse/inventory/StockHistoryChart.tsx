@@ -29,7 +29,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
     if (!data || data.length === 0) {
         return (
             <Card className="w-full h-[400px] flex items-center justify-center text-muted-foreground">
-                No historical data available for this range
+                Tidak ada data historis tersedia untuk rentang ini
             </Card>
         );
     }

@@ -154,7 +154,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                                         <div className="p-2 text-center text-sm text-muted-foreground">
                                             {searchValue ? (
                                                 <>
-                                                    <p className="mb-2">No role found.</p>
+                                                    <p className="mb-2">Tidak ada peran ditemukan.</p>
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
@@ -166,7 +166,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                                                     </Button>
                                                 </>
                                             ) : (
-                                                <p>No role found.</p>
+                                                <p>Tidak ada peran ditemukan.</p>
                                             )}
                                         </div>
                                     </CommandEmpty>

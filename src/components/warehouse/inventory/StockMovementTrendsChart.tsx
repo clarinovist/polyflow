@@ -39,7 +39,7 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
     if (!data || data.length === 0) {
         return (
             <Card className="h-full flex items-center justify-center min-h-[300px]">
-                <p className="text-muted-foreground">No movement data available</p>
+                <p className="text-muted-foreground">Tidak ada data mutasi tersedia</p>
             </Card>
         );
     }

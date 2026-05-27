@@ -41,7 +41,7 @@ export function AccountCombobox({
     value,
     onValueChange,
     placeholder = "Select account...",
-    emptyMessage = "No account found.",
+    emptyMessage = "Tidak ada akun ditemukan.",
     disabled = false,
     className,
 }: AccountComboboxProps) {

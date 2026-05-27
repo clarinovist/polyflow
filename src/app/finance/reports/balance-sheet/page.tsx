@@ -138,7 +138,7 @@ export default function BalanceSheetPage() {
                                     </TableRow>
                                 ) : !data ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">No Data</TableCell>
+                                        <TableCell colSpan={3} className="h-24 text-center">Tidak ada data</TableCell>
                                     </TableRow>
                                 ) : (
                                     <>

@@ -184,7 +184,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                 {items.length === 0 && (
                                     <tr>
                                         <td colSpan={4} className="p-8 text-center text-muted-foreground italic">
-                                            No planned materials found for this order.
+                                            Tidak ada material terencana ditemukan untuk order ini.
                                         </td>
                                     </tr>
                                 )}

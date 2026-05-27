@@ -25,7 +25,7 @@ const AgingTable = ({ data, loading, title, description, partnerNameHeader }: { 
             {loading ? (
                 <div className="py-8 text-center text-muted-foreground">Loading aging summary...</div>
             ) : data.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">No outstanding balances found.</div>
+                <div className="py-8 text-center text-muted-foreground">Tidak ada saldo outstanding ditemukan.</div>
             ) : (
                 <div className="relative w-full overflow-auto">
                     <table className="w-full text-sm">

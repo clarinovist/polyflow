@@ -199,7 +199,7 @@ export function AssistantInterface() {
                                                 </TableBody>
                                             </Table>
                                         ) : (
-                                            <div className="text-center py-8 text-muted-foreground text-sm">No data found.</div>
+                                            <div className="text-center py-8 text-muted-foreground text-sm">Tidak ada data ditemukan.</div>
                                         )}
                                     </CardContent>
                                 </Card>

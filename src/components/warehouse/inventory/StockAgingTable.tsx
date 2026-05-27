@@ -59,7 +59,7 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                         {sortedData.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                                    No aging stock found matching your search.
+                                    Tidak ada stok aging yang cocok dengan pencarian Anda.
                                 </TableCell>
                             </TableRow>
                         ) : (

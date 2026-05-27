@@ -189,7 +189,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                             ))}
                                             {costData.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={5} className="p-8 text-center text-zinc-500 italic">No data found within selected range</td>
+                                                    <td colSpan={5} className="p-8 text-center text-zinc-500 italic">Tidak ada data dalam rentang terpilih</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -229,7 +229,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                         ))}
                                         {(!wipData?.orders || wipData.orders.length === 0) && (
                                             <tr>
-                                                <td colSpan={4} className="p-8 text-center text-zinc-500 italic">No active WIP found</td>
+                                                <td colSpan={4} className="p-8 text-center text-zinc-500 italic">Tidak ada WIP aktif ditemukan</td>
                                             </tr>
                                         )}
                                     </tbody>

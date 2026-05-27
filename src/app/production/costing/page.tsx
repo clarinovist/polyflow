@@ -54,7 +54,7 @@ export default async function CostingDashboardPage() {
                             {costs.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
-                                        No production data found for analysis.
+                                        Tidak ada data produksi ditemukan untuk analisis.
                                     </TableCell>
                                 </TableRow>
                             ) : (
