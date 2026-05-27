@@ -39,9 +39,9 @@ export default async function CreateMaklonReturnPage() {
         <div className="flex flex-col gap-6">
             <Card className="rounded-xl border bg-white dark:bg-sidebar">
                 <CardHeader>
-                    <CardTitle>Create New Maklon Return</CardTitle>
+                    <CardTitle>Buat Retur Maklon Baru</CardTitle>
                     <CardDescription>
-                        Return leftover customer-owned materials from Maklon Packing Area first, or from another customer-owned stage when needed.
+                        Kembalikan sisa bahan milik customer dari Area Packing Maklon terlebih dahulu, atau dari tahap customer-owned lain jika diperlukan.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

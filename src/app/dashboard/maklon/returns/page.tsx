@@ -38,7 +38,7 @@ export default async function MaklonReturnsPage({
                 </div>
             ) : (
                 <Alert variant="destructive">
-                    <AlertDescription>{res.error || 'Failed to load Maklon returns.'}</AlertDescription>
+                    <AlertDescription>{res.error || 'Gagal memuat retur Maklon.'}</AlertDescription>
                 </Alert>
             )}
         </div>

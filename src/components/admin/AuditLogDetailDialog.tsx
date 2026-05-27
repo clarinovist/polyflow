@@ -139,7 +139,7 @@ export default function AuditLogDetailDialog({
                         </>
                     ) : (
                         <div className="h-40 flex items-center justify-center text-muted-foreground">
-                            Failed to load detail.
+                            Gagal memuat detail.
                         </div>
                     )}
                 </div>

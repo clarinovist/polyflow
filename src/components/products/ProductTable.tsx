@@ -338,12 +338,12 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Delete Product Item</DialogTitle>
+                        <DialogTitle>Hapus Item Produk</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete <strong>{variantToDelete?.productName} {variantToDelete?.name !== variantToDelete?.productName ? `(${variantToDelete?.name})` : ''}</strong>?
+                            Yakin ingin menghapus <strong>{variantToDelete?.productName} {variantToDelete?.name !== variantToDelete?.productName ? `(${variantToDelete?.name})` : ''}</strong>?
                             <br />
                             <span className="text-red-500 mt-2 block font-medium">SKU: {variantToDelete?.skuCode}</span>
-                            This action cannot be undone and will fail if there is existing inventory or transaction history.
+                            Aksi ini tidak dapat dibatalkan dan akan gagal jika masih ada stok atau riwayat transaksi.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -352,14 +352,14 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                             onClick={() => setDeleteDialogOpen(false)}
                             disabled={isDeleting}
                         >
-                            Cancel
+                            Batal
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleDeleteConfirm}
                             disabled={isDeleting}
                         >
-                            {isDeleting ? 'Deleting...' : 'Delete SKU'}
+                            {isDeleting ? 'Menghapus...' : 'Hapus SKU'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

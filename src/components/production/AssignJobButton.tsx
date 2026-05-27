@@ -69,23 +69,23 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
                 size="sm"
                 className="mt-4 h-8 text-[10px] font-black uppercase tracking-widest border-emerald-500/50 text-emerald-600 hover:bg-emerald-50 bg-emerald-50/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
             >
-                <Plus className="mr-1.5 h-3 w-3" /> Assign Job
+                <Plus className="mr-1.5 h-3 w-3" /> Alokasikan Pekerjaan
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Assign Job to {machineCode}</DialogTitle>
+                        <DialogTitle>Alokasikan Pekerjaan ke {machineCode}</DialogTitle>
                         <DialogDescription>
-                            Select a released work order to begin production on this station.
+                            Pilih work order yang sudah dirilis untuk mulai produksi di stasiun ini.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="py-4">
-                        <Label>Released Orders</Label>
+                        <Label>Order Dirilis</Label>
                         <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
                             <SelectTrigger className="mt-2">
-                                <SelectValue placeholder="Select an order..." />
+                                <SelectValue placeholder="Pilih order..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {releasedOrders.length === 0 ? (
@@ -103,10 +103,10 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold">{order.orderNumber}</span>
                                                         {isPlannedForThis && (
-                                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded font-black uppercase tracking-tighter">Planned for here</span>
+                                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded font-black uppercase tracking-tighter">Direncanakan di sini</span>
                                                         )}
                                                         {otherMachineCode && (
-                                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded font-black uppercase tracking-tighter">Planned for {otherMachineCode}</span>
+                                                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded font-black uppercase tracking-tighter">Direncanakan untuk {otherMachineCode}</span>
                                                         )}
                                                     </div>
                                                     <span className="text-[10px] text-muted-foreground truncate">{order.bom.productVariant.name}</span>
@@ -120,10 +120,10 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Batal</Button>
                         <Button onClick={handleAssign} disabled={isPending || !selectedOrderId}>
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Confirm Assignment
+                            Konfirmasi Alokasi
                         </Button>
                     </DialogFooter>
                 </DialogContent>

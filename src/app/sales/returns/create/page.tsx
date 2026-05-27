@@ -22,7 +22,7 @@ export default async function CreateSalesReturnPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>Create New Sales Return</CardTitle>
+                    <CardTitle>Buat Retur Penjualan Baru</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <SalesReturnForm

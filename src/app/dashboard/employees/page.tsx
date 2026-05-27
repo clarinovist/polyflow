@@ -31,12 +31,12 @@ export default async function EmployeesPage({
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed rounded-xl p-8 text-center bg-muted/5">
                 <AlertCircle className="h-12 w-12 text-destructive mb-4 animate-pulse" />
-                <h3 className="text-xl font-bold text-foreground">Failed to Load Personnel</h3>
+                <h3 className="text-xl font-bold text-foreground">Gagal Memuat Personel</h3>
                 <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
                     {result.error}
                 </p>
                 <Button variant="outline" className="mt-6" onClick={() => window.location.reload()}>
-                    Try Again
+                    Coba Lagi
                 </Button>
             </div>
         );

@@ -16,7 +16,7 @@ export default async function CreateSalesQuotationPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>Create New Quotation</CardTitle>
+                    <CardTitle>Buat Penawaran Baru</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <SalesQuotationForm

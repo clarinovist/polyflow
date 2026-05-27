@@ -16,7 +16,7 @@ export default async function CreateProductPage() {
         <div className="p-6">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Create New Product</CardTitle>
+                    <CardTitle>Buat Produk Baru</CardTitle>
                     <ProductGlossary />
                 </CardHeader>
                 <CardContent>

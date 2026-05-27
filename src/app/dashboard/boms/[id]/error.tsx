@@ -25,11 +25,11 @@ export default function Error({
                     </div>
 
                     <h2 className="text-xl font-black text-red-600 dark:text-red-400 mb-2">
-                        Failed to load recipe
+                        Gagal memuat resep
                     </h2>
 
                     <p className="text-sm text-muted-foreground mb-6">
-                        We encountered an unexpected error while trying to load the BOM details.
+                        Terjadi kesalahan tak terduga saat memuat detail BOM.
                         {error.message && <span className="block mt-2 font-mono text-xs opacity-70">{error.message}</span>}
                     </p>
 

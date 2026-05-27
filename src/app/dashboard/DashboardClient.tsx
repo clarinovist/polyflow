@@ -43,10 +43,10 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
         return (
             <div className="p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[50vh] space-y-4">
                 <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-                <h2 className="text-xl font-semibold">Failed to load dashboard statistics</h2>
+                <h2 className="text-xl font-semibold">Gagal memuat statistik dashboard</h2>
                 <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    Retry
+                    Coba Lagi
                 </Button>
             </div>
         );

@@ -171,12 +171,12 @@ export function BOMForm({
 
         if (output > totalInput) {
             const confirmed = window.confirm(
-                `⚠️ PHYSICAL IMPOSSIBILITY DETECTED ⚠️\n\n` +
-                `Total Material Input: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
+                `⚠️ OUTPUT TIDAK MUNGKIN SECARA FISIK ⚠️\n\n` +
+                `Total Input Material: ${totalInput.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n` +
                 `Target Output: ${output.toLocaleString()} ${productVariants[0]?.primaryUnit || 'Unit'}\n\n` +
-                `PROHIBITED: You cannot produce MORE items than your input materials. This will cause negative COGS.\n` +
-                `Likely error: Basis Output is too high.\n\n` +
-                `Are you sure you want to proceed?`
+                `DILARANG: Output tidak boleh lebih besar dari input material karena akan menyebabkan COGS negatif.\n` +
+                `Kemungkinan error: Basis Output terlalu tinggi.\n\n` +
+                `Yakin ingin melanjutkan?`
             );
             if (!confirmed) return;
         }

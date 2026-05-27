@@ -26,7 +26,7 @@ export default async function CreateSalesOrderPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>Create New Sales Order</CardTitle>
+                    <CardTitle>Buat Sales Order Baru</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <SalesOrderForm

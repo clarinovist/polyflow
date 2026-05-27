@@ -22,7 +22,7 @@ export default async function CreatePurchaseReturnPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>Create New Purchase Return</CardTitle>
+                    <CardTitle>Buat Retur Pembelian Baru</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <PurchaseReturnForm
