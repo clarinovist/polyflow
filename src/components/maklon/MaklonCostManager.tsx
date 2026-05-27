@@ -93,7 +93,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                 setAmount('');
                 setDescription('');
             } else {
-                toast.error(result?.error || 'Failed to add cost item');
+                toast.error(result?.error || 'Gagal menambahkan item biaya.');
             }
         });
     };
@@ -105,7 +105,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                 setItems(prev => prev.filter(item => item.id !== id));
                 toast.success('Item biaya berhasil dihapus.');
             } else {
-                toast.error(result?.error || 'Failed to remove cost item');
+                toast.error(result?.error || 'Gagal menghapus item biaya.');
             }
         });
     };

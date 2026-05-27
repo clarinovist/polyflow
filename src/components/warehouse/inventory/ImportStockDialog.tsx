@@ -181,12 +181,12 @@ export function ImportStockDialog() {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-                        Import Stock Data
+                        Impor Data Stok
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 'upload' && 'Upload a CSV file with your stock inventory data'}
-                        {step === 'preview' && 'Review and validate your stock data before importing'}
-                        {step === 'result' && 'Import process completed'}
+                        {step === 'upload' && 'Unggah file CSV berisi data stok'}
+                        {step === 'preview' && 'Tinjau dan validasi data stok sebelum impor'}
+                        {step === 'result' && 'Proses impor selesai'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -196,9 +196,9 @@ export function ImportStockDialog() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-4">
                                 <div>
-                                    <h3 className="font-semibold text-sm mb-2">1. Download Template</h3>
+                                    <h3 className="font-semibold text-sm mb-2">1. Unduh Template</h3>
                                     <p className="text-xs text-muted-foreground mb-3">
-                                        Use our CSV template to ensure your data is formatted correctly.
+                                        Gunakan template CSV agar format data sesuai.
                                     </p>
                                     <Button
                                         variant="outline"
@@ -207,21 +207,21 @@ export function ImportStockDialog() {
                                         className="w-full justify-start"
                                     >
                                         <Download className="h-4 w-4 mr-2" />
-                                        Download CSV Template
+                                        Unduh Template CSV
                                     </Button>
                                     <div className="mt-4 p-3 bg-muted/30 rounded text-xs space-y-1 text-muted-foreground">
-                                        <p className="font-semibold text-foreground">Required Columns:</p>
+                                        <p className="font-semibold text-foreground">Kolom Wajib:</p>
                                         <ul className="list-disc pl-4 space-y-0.5">
-                                            <li><span className="font-mono text-foreground">sku_code</span> (Must exist in system)</li>
-                                            <li><span className="font-mono text-foreground">location</span> (Must exist in system)</li>
-                                            <li><span className="font-mono text-foreground">quantity</span> (Positive number)</li>
+                                            <li><span className="font-mono text-foreground">sku_code</span> (harus sudah ada di sistem)</li>
+                                            <li><span className="font-mono text-foreground">location</span> (harus sudah ada di sistem)</li>
+                                            <li><span className="font-mono text-foreground">quantity</span> (angka positif)</li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-sm mb-2">2. Upload File</h3>
+                                <h3 className="font-semibold text-sm mb-2">2. Unggah File</h3>
                                 <div
                                     className={`border-2 border-dashed border-border rounded-lg p-8 text-center hover:bg-muted/10 transition-colors cursor-pointer flex flex-col items-center justify-center h-[200px] ${isProcessing ? 'pointer-events-none opacity-50' : ''}`}
                                     onClick={() => document.getElementById('stock-file-upload')?.click()}
@@ -315,7 +315,7 @@ export function ImportStockDialog() {
                                     className="text-xs text-muted-foreground hover:text-foreground"
                                 >
                                     <FileDown className="h-3.5 w-3.5 mr-2" />
-                                    Download Error Report
+                                    Unduh Laporan Error
                                 </Button>
                             </div>
                         )}

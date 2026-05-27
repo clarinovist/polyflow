@@ -96,7 +96,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
             router.push('/dashboard/products');
             router.refresh();
         } else {
-            toast.error(result.error || `Failed to ${mode} product`);
+            toast.error(result.error || `Gagal ${mode === 'create' ? 'membuat' : 'memperbarui'} produk.`);
         }
     }
 

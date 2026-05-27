@@ -140,19 +140,19 @@ export function ImportDialog() {
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                     <Upload className="h-4 w-4 mr-2" />
-                    Import Products
+                    Impor Produk
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-                        Import Products
+                        Impor Produk
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 'upload' && 'Upload a CSV file with your product data'}
-                        {step === 'preview' && 'Review and validate your import data'}
-                        {step === 'result' && 'Import completed'}
+                        {step === 'upload' && 'Unggah file CSV berisi data produk'}
+                        {step === 'preview' && 'Tinjau dan validasi data impor'}
+                        {step === 'result' && 'Impor selesai'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -160,9 +160,9 @@ export function ImportDialog() {
                 {step === 'upload' && (
                     <div className="space-y-6">
                         <div>
-                            <h3 className="font-semibold mb-2">Step 1: Download Template</h3>
+                            <h3 className="font-semibold mb-2">Langkah 1: Unduh Template</h3>
                             <p className="text-sm text-muted-foreground mb-3">
-                                First time? Download our template with example data
+                                Pertama kali impor? Unduh template dengan contoh data
                             </p>
                             <div className="flex gap-2">
                                 <Button
@@ -271,13 +271,13 @@ export function ImportDialog() {
                                 onClick={() => downloadErrorReport(validationResults)}
                             >
                                 <FileDown className="h-4 w-4 mr-2" />
-                                Download Error Report
+                                Unduh Laporan Error
                             </Button>
                         )}
 
                         <div className="flex justify-between pt-4">
                             <Button variant="outline" onClick={() => setStep('upload')}>
-                                ← Back
+                                ← Kembali
                             </Button>
                             <Button
                                 onClick={handleImport}

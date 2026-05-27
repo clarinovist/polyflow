@@ -120,7 +120,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
             setVariantToDelete(null);
             router.refresh();
         } else {
-            toast.error(result.error || 'Failed to delete variant');
+            toast.error(result.error || 'Gagal menghapus varian produk.');
         }
         setIsDeleting(false);
     };

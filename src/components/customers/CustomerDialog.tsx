@@ -85,7 +85,7 @@ export function CustomerDialog({ mode, initialData, trigger }: CustomerDialogPro
             if (mode === 'create') form.reset();
             router.refresh();
         } else {
-            toast.error(result.error || `Failed to ${mode} customer`);
+            toast.error(result.error || `Gagal ${mode === 'create' ? 'membuat' : 'memperbarui'} customer.`);
         }
     }
 

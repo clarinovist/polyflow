@@ -67,7 +67,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
             setSelectedIds([id]);
         }
         if (selectedIds.length === 0 && !id) {
-            toast.error("Please select at least one request");
+            toast.error('Pilih minimal satu permintaan.');
             return;
         }
         setSelectedSupplier('');
@@ -88,7 +88,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                 toast.error(result.error);
             }
         } catch (error) {
-            toast.error("Failed to consolidate requests");
+            toast.error('Gagal menggabungkan permintaan pembelian. Silakan coba lagi.');
             console.error(error);
         } finally {
             setIsConverting(false);
