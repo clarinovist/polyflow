@@ -53,15 +53,15 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                 router.push('/dashboard/machines');
                 router.refresh();
             } else {
-                toast.error('System Error', {
-                    description: res.error || 'Failed to save machine configuration'
+                toast.error('Kesalahan sistem', {
+                    description: res.error || 'Gagal menyimpan konfigurasi mesin'
                 });
                 setLoading(false);
             }
         } catch (err) {
             console.error('[MACHINE_FORM_SUBMIT_ERROR]', err);
-            toast.error('Unexpected failure', {
-                description: 'An unexpected error occurred. Please check your connection and try again.'
+            toast.error('Kegagalan tak terduga', {
+                description: 'Terjadi kesalahan tak terduga. Periksa koneksi Anda dan coba lagi.'
             });
             setLoading(false);
         }

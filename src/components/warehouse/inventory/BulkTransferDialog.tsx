@@ -98,7 +98,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
 
             getLocations().then(res => {
                 if (!res.success) {
-                    toast.error(res.error || "Failed to load locations");
+                    toast.error(res.error || 'Gagal memuat lokasi');
                     return;
                 }
                 if (res.data) {
@@ -115,7 +115,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
             const validItems = data.items.filter(i => i.quantity > 0);
 
             if (validItems.length === 0) {
-                toast.error("Please enter quantity to transfer for at least one item");
+                toast.error('Masukkan jumlah transfer untuk minimal satu item');
                 setIsSubmitting(false);
                 return;
             }
@@ -127,10 +127,10 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                 toast.success(`Berhasil mentransfer ${validItems.length} item`);
                 onOpenChange(false);
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`Terjadi kesalahan: ${result.error}`);
             }
         } catch (_error) {
-            toast.error("Failed to execute bulk transfer");
+            toast.error('Gagal menjalankan transfer massal');
         } finally {
             setIsSubmitting(false);
         }

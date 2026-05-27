@@ -83,10 +83,10 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                     if (result.success && result.data) {
                         setAllVariants(result.data as unknown as typeof allVariants);
                     } else {
-                        toast.error('Failed to load product variants');
+                        toast.error('Gagal memuat varian produk');
                     }
                 })
-                .catch(() => toast.error('Failed to load product variants'));
+                .catch(() => toast.error('Gagal memuat varian produk'));
         }
     }, [addDialogOpen, allVariants.length]);
 
@@ -102,10 +102,10 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 setProductSearch('');
                 router.refresh();
             } else {
-                toast.error(result.error || 'Failed to add item');
+                toast.error(result.error || 'Gagal menambahkan item');
             }
         } catch {
-            toast.error('Failed to add item');
+            toast.error('Gagal menambahkan item');
         } finally {
             setIsAddingItem(false);
         }
@@ -123,11 +123,11 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
 
     const handleFinalize = async () => {
         if (!currentUserId) {
-            toast.error("Authentication error: User ID not found.");
+            toast.error('Kesalahan autentikasi: User ID tidak ditemukan.');
             return;
         }
 
-        if (!confirm("Are you sure you want to finalize this session? This will create stock adjustments for all variances.")) {
+        if (!confirm('Yakin ingin menyelesaikan sesi ini? Tindakan ini akan membuat penyesuaian stok untuk semua selisih.')) {
             return;
         }
 
@@ -138,10 +138,10 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 toast.success("Sesi berhasil diselesaikan dan inventaris diperbarui");
                 router.refresh();
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`Terjadi kesalahan: ${result.error}`);
             }
         } catch {
-            toast.error("Failed to finalize session");
+            toast.error('Gagal menyelesaikan sesi');
         } finally {
             setIsFinalizing(false);
         }

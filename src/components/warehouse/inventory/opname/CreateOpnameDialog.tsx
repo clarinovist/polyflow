@@ -42,7 +42,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
         if (open) {
             getLocations().then(res => {
                 if (!res.success) {
-                    toast.error(res.error || "Failed to load locations");
+                    toast.error(res.error || 'Gagal memuat lokasi');
                     return;
                 }
                 if (res.data) {
@@ -54,7 +54,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
 
     const handleSubmit = async () => {
         if (!locationId) {
-            toast.error("Please select a location");
+            toast.error('Pilih lokasi terlebih dahulu');
             return;
         }
 
@@ -62,7 +62,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
         try {
             const result = await createOpnameSession(locationId, remarks);
             if (!result.success) {
-                toast.error(`Error: ${result.error || "Unknown error"}`);
+                toast.error(`Terjadi kesalahan: ${result.error || 'Unknown error'}`);
                 return;
             }
             if (result.data) {
@@ -71,7 +71,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
                 router.push(`${basePath}/${result.data.id}`);
             }
         } catch {
-            toast.error("An unexpected error occurred");
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsLoading(false);
         }

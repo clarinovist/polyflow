@@ -54,7 +54,7 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
         if (result.success) {
             toast.success('Shift berhasil dihapus.');
         } else {
-            toast.error('Failed to delete shift', { description: result.error });
+            toast.error('Gagal menghapus shift', { description: result.error });
         }
     }
 
@@ -216,7 +216,7 @@ function AddShiftDialog({
             setStartTime('');
             setEndTime('');
         } else {
-            toast.error('Failed to add shift', { description: result.error });
+            toast.error('Gagal menambahkan shift', { description: result.error });
         }
     }
 

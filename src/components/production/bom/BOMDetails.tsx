@@ -102,10 +102,10 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                     description: `${bom.name}: ${updatedCount} BOM induk diperbarui`,
                 });
             } else {
-                toast.error('Failed to recalculate cost chain', { description: result.error });
+                toast.error('Gagal menghitung ulang cost chain', { description: result.error });
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsRecalculating(false);
         }

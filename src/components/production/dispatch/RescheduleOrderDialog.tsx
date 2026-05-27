@@ -34,7 +34,7 @@ export function RescheduleOrderDialog({
 
     const handleReschedule = async () => {
         if (!date) {
-            toast.error('Please select a date');
+            toast.error('Pilih tanggal terlebih dahulu');
             return;
         }
 
@@ -49,11 +49,11 @@ export function RescheduleOrderDialog({
                 toast.success('Jadwal order berhasil diperbarui.');
                 onOpenChange(false);
             } else {
-                toast.error(result.error || 'Failed to reschedule order');
+                toast.error(result.error || 'Gagal menjadwalkan ulang order');
             }
         } catch (err) {
             console.error(err);
-            toast.error('An error occurred during rescheduling');
+            toast.error('Terjadi kesalahan saat menjadwalkan ulang');
         } finally {
             setIsPending(false);
         }

@@ -36,7 +36,7 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
                 toast.error(result.error);
             }
         } catch (error) {
-            toast.error("Failed to delete scrap record");
+            toast.error('Gagal menghapus catatan scrap');
             console.error(error);
         } finally {
             setLoading(false);

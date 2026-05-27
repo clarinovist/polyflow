@@ -31,7 +31,7 @@ export function ReassignMachineDialog({
 
     const handleReassign = async () => {
         if (!selectedMachineId) {
-            toast.error('Please select a machine');
+            toast.error('Pilih mesin terlebih dahulu');
             return;
         }
 
@@ -46,11 +46,11 @@ export function ReassignMachineDialog({
                 toast.success('Mesin berhasil dipindahkan.');
                 onOpenChange(false);
             } else {
-                toast.error(result.error || 'Failed to reassign machine');
+                toast.error(result.error || 'Gagal memindahkan mesin');
             }
         } catch (err) {
             console.error(err);
-            toast.error('An error occurred during reassignment');
+            toast.error('Terjadi kesalahan saat memindahkan mesin');
         } finally {
             setIsPending(false);
         }

@@ -114,7 +114,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     throw new Error(result.error);
                 }
             },
-            error: (err) => `Failed to delete: ${err.message}`
+            error: (err) => `Gagal menghapus: ${err.message}`
         });
     };
 
@@ -844,7 +844,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         if (result.success) {
                                                             toast.success('Isu terselesaikan');
                                                         } else {
-                                                            toast.error('Failed to resolve issue');
+                                                            toast.error('Gagal menyelesaikan isu');
                                                         }
                                                     }}
                                                 >

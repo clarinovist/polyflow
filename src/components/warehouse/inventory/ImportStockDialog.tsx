@@ -62,7 +62,7 @@ export function ImportStockDialog() {
             const rows = await parseStockCSVFile(selectedFile);
 
             if (rows.length === 0) {
-                toast.error("File is empty or contains no valid data");
+                toast.error('File kosong atau tidak berisi data valid');
                 setIsProcessing(false);
                 return;
             }
@@ -72,12 +72,12 @@ export function ImportStockDialog() {
             setStatusMessage('Fetching system data...');
             const lookups = await getStockImportLookups();
             if (!lookups.success) {
-                toast.error(lookups.error || "Failed to fetch system data");
+                toast.error(lookups.error || 'Gagal mengambil data sistem');
                 setIsProcessing(false);
                 return;
             }
             if (!lookups.data) {
-                toast.error("Failed to fetch system data");
+                toast.error('Gagal mengambil data sistem');
                 setIsProcessing(false);
                 return;
             }
@@ -100,7 +100,7 @@ export function ImportStockDialog() {
             setStatusMessage('');
             setStep('preview');
         } catch (error) {
-            toast.error(`Error processing file: ${error instanceof Error ? error.message : "Unknown error"}`);
+            toast.error(`Terjadi kesalahan saat memproses file: ${error instanceof Error ? error.message : 'Unknown error'}`);
             setFile(null); // Reset
         } finally {
             setIsProcessing(false);
@@ -121,7 +121,7 @@ export function ImportStockDialog() {
             }));
 
             if (importItems.length === 0) {
-                toast.error("No valid items to import");
+                toast.error('Tidak ada item valid untuk diimpor');
                 setIsProcessing(false);
                 return;
             }
@@ -134,7 +134,7 @@ export function ImportStockDialog() {
                     imported: 0,
                     errors: result.error ? [result.error] : ['Unknown import error']
                 });
-                toast.error("Import failed with errors");
+                toast.error('Impor gagal dengan error');
                 setStep('result');
                 return;
             }
@@ -149,7 +149,7 @@ export function ImportStockDialog() {
             // Move to result step
             setStep('result');
         } catch (error) {
-            toast.error(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+            toast.error(`Impor gagal: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setIsProcessing(false);
         }
@@ -232,7 +232,7 @@ export function ImportStockDialog() {
                                         if (droppedFile?.name.toLowerCase().endsWith('.csv')) {
                                             handleFileSelect(droppedFile);
                                         } else {
-                                            toast.error('Please upload a .csv file');
+                                            toast.error('Unggah file .csv');
                                         }
                                     }}
                                 >

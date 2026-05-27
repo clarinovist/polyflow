@@ -40,8 +40,8 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                 description: `${name} telah dihapus dari direktori.`
             });
         } else {
-            toast.error('Deletion Failed', {
-                description: result.error || 'Could not remove personnel record. Please ensure they are not linked to active production orders.'
+            toast.error('Gagal menghapus', {
+                description: result.error || 'Tidak dapat menghapus data personel. Pastikan data tersebut tidak terhubung ke order produksi aktif.'
             });
         }
     }

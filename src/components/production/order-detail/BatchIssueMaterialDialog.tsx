@@ -153,10 +153,10 @@ export function BatchIssueMaterialDialog({
                 setAdjustingItem(null);
                 checkStocks(); // Refresh
             } else {
-                toast.error(res.error || "Failed to adjust stock");
+                toast.error(res.error || 'Gagal menyesuaikan stok');
             }
         } catch (_e) {
-            toast.error("Error adjusting stock");
+            toast.error('Terjadi kesalahan saat menyesuaikan stok');
         }
     };
 
@@ -222,7 +222,7 @@ export function BatchIssueMaterialDialog({
         }));
 
         if (validItems.length === 0 && removedPlannedMaterialIds.length === 0 && addedPlannedMaterials.length === 0) {
-            toast.error("No changes to process");
+            toast.error('Tidak ada perubahan untuk diproses');
             return;
         }
 
@@ -230,7 +230,7 @@ export function BatchIssueMaterialDialog({
         try {
             if (isTransferMode) {
                 if (selectedLocation === order.location.id) {
-                    toast.error("Source and destination locations must be different for transfer.");
+                    toast.error('Lokasi asal dan tujuan harus berbeda untuk transfer.');
                     setLoading(false);
                     return;
                 }
@@ -247,7 +247,7 @@ export function BatchIssueMaterialDialog({
                 
                 // Validate destination
                 if (Object.keys(transfersByLocation).includes(order.location.id)) {
-                    toast.error("Source and destination locations must be different for transfer.");
+                    toast.error('Lokasi asal dan tujuan harus berbeda untuk transfer.');
                     setLoading(false);
                     return;
                 }
@@ -293,7 +293,7 @@ export function BatchIssueMaterialDialog({
                     router.refresh();
                 } else {
                     const firstError = results.find(r => !r.success)?.error;
-                    toast.error(firstError || "Failed to transfer materials");
+                    toast.error(firstError || 'Gagal mentransfer material');
                 }
             } else {
                 // STANDARD MODE: Issue Logic
@@ -315,11 +315,11 @@ export function BatchIssueMaterialDialog({
                     setOpen(false);
                     router.refresh();
                 } else {
-                    toast.error(result.error || "Failed to update materials");
+                    toast.error(result.error || 'Gagal memperbarui material');
                 }
             }
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "An unexpected error occurred");
+            toast.error(err instanceof Error ? err.message : 'Terjadi kesalahan tak terduga');
         } finally {
             setLoading(false);
         }

@@ -121,14 +121,14 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
             const validItems = data.items.filter(i => i.quantity > 0);
 
             if (validItems.length === 0) {
-                toast.error("Please enter quantity for at least one item");
+                toast.error('Masukkan jumlah untuk minimal satu item');
                 setIsSubmitting(false);
                 return;
             }
 
             // Ensure reason is filled
             if (validItems.some(i => !i.reason || i.reason.length < 3)) {
-                toast.error("Reason is required (min 3 chars) for all adjusted items");
+                toast.error('Alasan wajib diisi (min 3 karakter) untuk semua item yang disesuaikan');
                 setIsSubmitting(false);
                 return;
             }
@@ -140,10 +140,10 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                 toast.success(`Berhasil menyesuaikan stok ${validItems.length} item`);
                 onOpenChange(false);
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`Terjadi kesalahan: ${result.error}`);
             }
         } catch (_error) {
-            toast.error("Failed to execute bulk adjustment");
+            toast.error('Gagal menjalankan penyesuaian massal');
         } finally {
             setIsSubmitting(false);
         }

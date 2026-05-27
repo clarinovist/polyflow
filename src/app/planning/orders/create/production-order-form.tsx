@@ -281,7 +281,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                         setSuggestedSource(null);
                     }
                 } else {
-                    toast.error("Failed to calculate recipe", { description: (result as { error?: string }).error || 'Unknown error' });
+                    toast.error('Gagal menghitung resep', { description: (result as { error?: string }).error || 'Unknown error' });
                 }
             }
         };
@@ -361,8 +361,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             setIsSubmitting(false);
 
             if (!response.success) {
-                toast.error("Error", {
-                    description: response.error || "Something went wrong",
+                toast.error('Terjadi kesalahan', {
+                    description: response.error || 'Terjadi kesalahan yang tidak diketahui',
                 });
                 return;
             }
@@ -375,7 +375,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             }
         } catch {
             setIsSubmitting(false);
-            toast.error("Error", {
+            toast.error('Terjadi kesalahan', {
             });
         }
     }

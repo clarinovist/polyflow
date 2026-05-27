@@ -34,7 +34,7 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
 
     const handleAssign = async () => {
         if (!selectedOrderId) {
-            toast.error('Please select an order');
+            toast.error('Pilih order terlebih dahulu');
             return;
         }
 
@@ -51,11 +51,11 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
                 toast.success('Pekerjaan berhasil dialokasikan ke mesin.');
                 setOpen(false);
             } else {
-                toast.error(result.error || 'Failed to assign job');
+                toast.error(result.error || 'Gagal menugaskan pekerjaan');
             }
         } catch (err) {
             console.error(err);
-            toast.error('An error occurred');
+            toast.error('Terjadi kesalahan');
         } finally {
             setIsPending(false);
         }

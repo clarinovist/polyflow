@@ -87,10 +87,10 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                 toast.success("Jumlah perhitungan berhasil disimpan");
                 setHasChanges(false);
             } else {
-                toast.error(`Error: ${result.error}`);
+                toast.error(`Terjadi kesalahan: ${result.error}`);
             }
         } catch {
-            toast.error("Failed to save counts");
+            toast.error('Gagal menyimpan perhitungan');
         } finally {
             setIsSaving(false);
         }

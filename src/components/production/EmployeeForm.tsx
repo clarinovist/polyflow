@@ -65,7 +65,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             setSearchValue('');
             toast.success('Peran pekerjaan berhasil dibuat.');
         } else {
-            toast.error('Failed to create job role');
+            toast.error('Gagal membuat peran pekerjaan');
         }
     };
 
@@ -88,15 +88,15 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                 router.push('/dashboard/employees');
                 router.refresh();
             } else {
-                toast.error('System Error', {
-                    description: res.error || 'Failed to save personnel record'
+                toast.error('Kesalahan sistem', {
+                    description: res.error || 'Gagal menyimpan data personel'
                 });
                 setLoading(false);
             }
         } catch (err) {
             console.error('[EMPLOYEE_FORM_SUBMIT_ERROR]', err);
-            toast.error('Unexpected failure', {
-                description: 'An unexpected error occurred. Please try again later.'
+            toast.error('Kegagalan tak terduga', {
+                description: 'Terjadi kesalahan tak terduga. Silakan coba lagi nanti.'
             });
             setLoading(false);
         }

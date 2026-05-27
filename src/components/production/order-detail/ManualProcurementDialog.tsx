@@ -72,7 +72,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
         const selectedItems = items.filter(i => i.selected && i.procureQty > 0);
 
         if (selectedItems.length === 0) {
-            toast.error("Please select at least one material to procure.");
+            toast.error('Pilih minimal satu material untuk pengadaan.');
             return;
         }
 
@@ -96,7 +96,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                 setItems(items.map(i => ({ ...i, procureQty: 0, selected: false })));
             }
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Failed to create Purchase Request");
+            toast.error(error instanceof Error ? error.message : 'Gagal membuat Purchase Request');
         } finally {
             setLoading(false);
         }

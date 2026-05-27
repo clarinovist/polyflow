@@ -33,10 +33,10 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
             if (result.success) {
                 toast.success(`Realisasi produksi untuk ${orderNumber} berhasil dibatalkan.`);
             } else {
-                toast.error(result.error || 'Failed to void execution');
+                toast.error(result.error || 'Gagal membatalkan eksekusi');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsLoading(false);
         }

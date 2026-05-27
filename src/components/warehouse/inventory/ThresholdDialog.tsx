@@ -43,7 +43,7 @@ export function ThresholdDialog({
             setOpen(false);
             router.refresh();
         } else {
-            toast.error(result.error || 'Failed to update threshold');
+            toast.error(result.error || 'Gagal memperbarui threshold');
         }
     };
 

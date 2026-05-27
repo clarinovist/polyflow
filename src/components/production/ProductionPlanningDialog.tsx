@@ -59,7 +59,7 @@ export function ProductionPlanningDialog({
         try {
             const result = await simulateMrp(salesOrderId);
             if (!result.success) {
-                toast.error(result.error || "Failed to run simulation");
+                toast.error(result.error || 'Gagal menjalankan simulasi');
                 return;
             }
             if (result.data) {
@@ -68,7 +68,7 @@ export function ProductionPlanningDialog({
                 setHasSimulated(true);
             }
         } catch (_error) {
-            toast.error("An error occurred during simulation");
+            toast.error('Terjadi kesalahan saat simulasi');
         } finally {
             setIsLoading(false);
         }
@@ -103,10 +103,10 @@ export function ProductionPlanningDialog({
                 onClose();
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                toast.error((result as any).error || "Failed to generate Work Order");
+                toast.error((result as any).error || 'Gagal membuat Work Order');
             }
         } catch (_error) {
-            toast.error("Failed to generate Work Order");
+            toast.error('Gagal membuat Work Order');
         } finally {
             setIsLoading(false);
         }

@@ -208,10 +208,10 @@ export function BOMForm({
                 router.push('/dashboard/boms');
                 router.refresh();
             } else {
-                toast.error(res.error || 'Failed to save BOM');
+                toast.error(res.error || 'Gagal menyimpan BOM');
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsSubmitting(false);
         }

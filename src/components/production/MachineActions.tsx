@@ -38,7 +38,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
         if (result.success) {
             toast.success('Mesin berhasil dihapus.');
         } else {
-            toast.error('Failed to delete machine', { description: result.error });
+            toast.error('Gagal menghapus mesin', { description: result.error });
         }
     }
 
@@ -47,7 +47,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
         if (res.success) {
             toast.success('Status mesin diubah ke MAINTENANCE.');
         } else {
-            toast.error('Failed to update status', { description: res.error });
+            toast.error('Gagal memperbarui status', { description: res.error });
         }
     }
 
@@ -56,7 +56,7 @@ export function MachineActions({ id, name }: MachineActionsProps) {
         if (res.success) {
             toast.success('Status mesin diubah ke ACTIVE.');
         } else {
-            toast.error('Failed to update status', { description: res.error });
+            toast.error('Gagal memperbarui status', { description: res.error });
         }
     }
 

@@ -70,10 +70,10 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                 toast.success(`Work Order berhasil dibuat untuk ${variantName}.`);
                 router.refresh();
             } else {
-                toast.error(result.error || "Failed to create sub-order");
+                toast.error(result.error || 'Gagal membuat sub-order');
             }
         } catch (_error) {
-            toast.error("An unexpected error occurred");
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsCreating(null);
         }

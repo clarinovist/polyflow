@@ -33,10 +33,10 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                 toast.success('Scrap berhasil dicatat.');
                 setOpen(false);
             } else {
-                toast.error(result.error || 'Failed to record scrap');
+                toast.error(result.error || 'Gagal mencatat scrap');
             }
         } catch (error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
             console.error(error);
         } finally {
             setIsPending(false);

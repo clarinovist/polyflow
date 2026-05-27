@@ -81,7 +81,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
                 : await createLocation(data);
 
             if (!res.success) {
-                toast.error(res.error || `Failed to ${isEditing ? 'update' : 'create'} location`);
+                toast.error(res.error || `Gagal ${isEditing ? 'memperbarui' : 'membuat'} lokasi`);
                 return;
             }
 
@@ -89,7 +89,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
             setOpen(false);
             router.refresh();
         } catch (_error) {
-            toast.error(`An unexpected error occurred`);
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsLoading(false);
         }

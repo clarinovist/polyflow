@@ -17,11 +17,11 @@ export function AcknowledgeHandoverButton({ movementId }: { movementId: string }
             if (res.success) {
                 toast.success('Serah terima berhasil dikonfirmasi.');
             } else {
-                toast.error(res.error || 'Failed to acknowledge');
+                toast.error(res.error || 'Gagal mengonfirmasi serah terima');
             }
         } catch (error) {
             console.error(error);
-            toast.error('An error occurred');
+            toast.error('Terjadi kesalahan');
         } finally {
             setLoading(false);
         }

@@ -79,21 +79,21 @@ export function TransferForm({ locations, products, inventory }: TransferFormPro
 
     const handleAddItem = () => {
         if (!newItem.productVariantId || !newItem.quantity) {
-            toast.error("Please select a product and enter a quantity.");
+            toast.error('Pilih produk dan masukkan jumlah.');
             return;
         }
         const qty = parseFloat(newItem.quantity);
         if (isNaN(qty) || qty <= 0) {
-            toast.error("Please enter a valid positive quantity.");
+            toast.error('Masukkan jumlah positif yang valid.');
             return;
         }
         const selectedProduct = availableProducts.find(p => p.id === newItem.productVariantId);
         if (!selectedProduct) {
-            toast.error("Selected product not found or not available at source location.");
+            toast.error('Produk yang dipilih tidak ditemukan atau tidak tersedia di lokasi asal.');
             return;
         }
         if (qty > selectedProduct.quantity) {
-            toast.error(`Insufficient stock. Max available: ${selectedProduct.quantity}`);
+            toast.error(`Stok tidak cukup. Maksimal tersedia: ${selectedProduct.quantity}`);
             return;
         }
         const existingIndex = fields.findIndex(f => f.productVariantId === newItem.productVariantId);

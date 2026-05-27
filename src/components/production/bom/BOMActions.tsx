@@ -41,10 +41,10 @@ export function BOMActions({ id, name }: BOMActionsProps) {
             if (result.success) {
                 toast.success('Recipe berhasil dihapus.');
             } else {
-                toast.error('Failed to delete recipe', { description: result.error });
+                toast.error('Gagal menghapus resep', { description: result.error });
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsDeleting(false);
             setShowDeleteDialog(false);
@@ -61,10 +61,10 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                     description: `${name}: ${parentCount} BOM induk diperbarui`,
                 });
             } else {
-                toast.error('Failed to recalculate cost chain', { description: result.error });
+                toast.error('Gagal menghitung ulang cost chain', { description: result.error });
             }
         } catch (_error) {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga');
         } finally {
             setIsRecalculating(false);
         }
