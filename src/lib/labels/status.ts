@@ -38,7 +38,10 @@ export const warehouseStatusLabels = {
 export const salesStatusLabels = {
   DRAFT: 'Draft',
   CONFIRMED: 'Terkonfirmasi',
-  SHIPPED: 'Service Closed',
+  IN_PRODUCTION: 'Dalam Produksi',
+  READY_TO_SHIP: 'Siap Kirim',
+  SHIPPED: 'Dikirim',
+  DELIVERED: 'Terkirim',
   PARTIALLY_SHIPPED: 'Dikirim Sebagian',
   INVOICED: 'Tertagih',
   PAID: 'Lunas',

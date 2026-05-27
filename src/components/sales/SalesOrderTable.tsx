@@ -16,7 +16,7 @@ import { SalesOrder, SalesOrderStatus, Customer, Location, InvoiceStatus } from 
 import { FileText, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-import { getStatusLabel } from '@/lib/labels';
+import { getStatusLabel as getLocalizedStatusLabel } from '@/lib/labels';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
@@ -67,14 +67,14 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
         }
     };
 
-    const getStatusLabel = (order: SerializedSalesOrder) => {
-        if (!isMaklonOrder(order)) return getStatusLabel(order.status, 'sales');
+    const getSalesOrderStatusLabel = (order: SerializedSalesOrder) => {
+        if (!isMaklonOrder(order)) return getLocalizedStatusLabel(order.status, 'sales');
 
         switch (order.status) {
-            case 'READY_TO_SHIP': return 'SIAP SERVICE CLOSURE';
-            case 'SHIPPED': return 'SERVICE CLOSED';
-            case 'DELIVERED': return 'SERVICE DELIVERED';
-            default: return getStatusLabel(order.status, 'sales');
+            case 'READY_TO_SHIP': return 'Siap Service Closure';
+            case 'SHIPPED': return 'Service Closed';
+            case 'DELIVERED': return 'Service Delivered';
+            default: return getLocalizedStatusLabel(order.status, 'sales');
         }
     };
 
@@ -208,7 +208,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className={getStatusColor(order.status)}>
-                                                {getStatusLabel(order)}
+                                                {getSalesOrderStatusLabel(order)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -262,7 +262,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         </div>
                                     </div>
                                     <Badge variant="secondary" className={`text-[10px] px-1.5 h-5 ${getStatusColor(order.status)}`}>
-                                        {getStatusLabel(order)}
+                                        {getSalesOrderStatusLabel(order)}
                                     </Badge>
                                 </div>
                             </CardHeader>
