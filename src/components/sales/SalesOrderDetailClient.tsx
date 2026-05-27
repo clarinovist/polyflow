@@ -13,7 +13,8 @@ import {
     StockMovement
 } from '@prisma/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getStatusLabel } from '@/lib/labels';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';

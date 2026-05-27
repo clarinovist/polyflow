@@ -1,12 +1,13 @@
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
+import { getStatusLabel } from '@/lib/labels';
 
 export function OrderWorkflowStepper({ status }: { status: string }) {
     const steps = [
-        { id: 'DRAFT', label: 'Draft', description: 'Planning' },
-        { id: 'RELEASED', label: 'Released', description: 'Preparation' },
-        { id: 'IN_PROGRESS', label: 'In Progress', description: 'Execution' },
-        { id: 'COMPLETED', label: 'Completed', description: 'Finished' },
+        { id: 'DRAFT', label: getStatusLabel('DRAFT', 'production'), description: 'Perencanaan' },
+        { id: 'RELEASED', label: getStatusLabel('RELEASED', 'production'), description: 'Persiapan' },
+        { id: 'IN_PROGRESS', label: getStatusLabel('IN_PROGRESS', 'production'), description: 'Eksekusi' },
+        { id: 'COMPLETED', label: getStatusLabel('COMPLETED', 'production'), description: 'Selesai' },
     ];
 
     const currentStepIndex = steps.findIndex(s => s.id === status);
@@ -15,7 +16,7 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
         return (
             <div className="w-full p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 text-destructive">
                 <XCircle className="w-5 h-5" />
-                <span className="font-medium">Order Cancelled</span>
+                <span className="font-medium">{getStatusLabel('CANCELLED', 'production')}</span>
             </div>
         )
     }
@@ -60,10 +61,10 @@ export function OrderWorkflowStepper({ status }: { status: string }) {
                     <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div>
-                    {status === 'DRAFT' && "Plan your order. Check BOM recipe and quantity. When ready, click 'Release Order'."}
-                    {status === 'RELEASED' && "Order is ready for preparation. Please Issue Materials and Assign Shifts/Machines before starting."}
-                    {status === 'IN_PROGRESS' && "Production is running. Record your output, scrap, and quality inspections properly."}
-                    {status === 'COMPLETED' && "Order is finished. Inventory has been updated. No further actions required."}
+                    {status === 'DRAFT' && "Rencanakan SPK. Periksa BOM dan kuantitas. Jika sudah siap, klik 'Rilis SPK'."}
+                    {status === 'RELEASED' && "SPK siap dipersiapkan. Ambil bahan dan tetapkan Shift/Mesin sebelum memulai."}
+                    {status === 'IN_PROGRESS' && "Produksi sedang berjalan. Catat hasil, scrap, dan inspeksi kualitas dengan benar."}
+                    {status === 'COMPLETED' && "SPK selesai. Inventaris sudah diperbarui. Tidak ada tindakan lebih lanjut."}
                 </div>
             </div>
         </div>
