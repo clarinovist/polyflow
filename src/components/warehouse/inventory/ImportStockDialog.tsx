@@ -100,7 +100,7 @@ export function ImportStockDialog() {
             setStatusMessage('');
             setStep('preview');
         } catch (error) {
-            toast.error(`Terjadi kesalahan saat memproses file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            toast.error(`Terjadi kesalahan saat memproses file: ${error instanceof Error ? error.message : 'Error tidak diketahui'}`);
             setFile(null); // Reset
         } finally {
             setIsProcessing(false);
@@ -149,7 +149,7 @@ export function ImportStockDialog() {
             // Move to result step
             setStep('result');
         } catch (error) {
-            toast.error(`Impor gagal: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            toast.error(`Impor gagal: ${error instanceof Error ? error.message : 'Error tidak diketahui'}`);
         } finally {
             setIsProcessing(false);
         }

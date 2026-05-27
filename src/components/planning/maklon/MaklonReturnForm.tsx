@@ -92,7 +92,7 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
                 throw new Error(res.error);
             }
         } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Failed to save return');
+            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan retur Maklon');
         } finally {
             setIsSubmitting(false);
         }

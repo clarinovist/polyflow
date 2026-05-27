@@ -281,7 +281,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                         setSuggestedSource(null);
                     }
                 } else {
-                    toast.error('Gagal menghitung resep', { description: (result as { error?: string }).error || 'Unknown error' });
+                    toast.error('Gagal menghitung resep', { description: (result as { error?: string }).error || 'Error tidak diketahui' });
                 }
             }
         };

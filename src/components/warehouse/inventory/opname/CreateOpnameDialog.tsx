@@ -62,7 +62,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
         try {
             const result = await createOpnameSession(locationId, remarks);
             if (!result.success) {
-                toast.error(`Terjadi kesalahan: ${result.error || 'Unknown error'}`);
+                toast.error(`Terjadi kesalahan: ${result.error || 'Error tidak diketahui'}`);
                 return;
             }
             if (result.data) {

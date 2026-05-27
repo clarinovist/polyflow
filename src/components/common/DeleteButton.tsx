@@ -37,10 +37,10 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
                 setOpen(false);
                 router.refresh();
             } else {
-                toast.error(result.error || `Failed to delete ${entityName}`);
+                toast.error(result.error || `Gagal menghapus ${entityName}.`);
             }
         } catch {
-            toast.error('An unexpected error occurred');
+            toast.error('Terjadi kesalahan tak terduga. Silakan coba lagi.');
         } finally {
             setIsDeleting(false);
         }
