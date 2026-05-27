@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { BrandCard, BrandCardContent, BrandCardHeader, BrandGradientText } from '@/components/brand/BrandCard';
 import { PageHeader } from '@/components/ui/page-header';
-import { productionLabels } from '@/lib/labels';
-
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionDashboardPage() {

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check } from 'lucide-react';
 import Link from 'next/link';
+import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { deliverSalesOrder } from '@/actions/sales/sales';
@@ -54,9 +55,9 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
     };
 
     const statusSteps = [
-        { status: 'PENDING', icon: Clock, label: 'Order Confirmed' },
-        { status: 'SHIPPED', icon: Truck, label: 'Dispatched' },
-        { status: 'DELIVERED', icon: CheckCircle2, label: 'Delivered' },
+        { status: 'PENDING', icon: Clock, label: 'Pesanan Terkonfirmasi' },
+        { status: 'SHIPPED', icon: Truck, label: 'Dikirim' },
+        { status: 'DELIVERED', icon: CheckCircle2, label: 'Terkirim' },
     ];
 
     const currentStatusIndex = statusSteps.findIndex(s => s.status === order.status);
@@ -66,11 +67,11 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="sm" asChild>
                     <Link href="/sales/deliveries">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                        <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                     </Link>
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Delivery {order.orderNumber}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
                     <div className="flex items-center gap-3 mt-1">
                         {getStatusBadge(order.status)}
                         {order.status === 'SHIPPED' && (
@@ -80,11 +81,11 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                                 onClick={handleDeliver}
                                 disabled={isLoading}
                             >
-                                <Check className="mr-1 h-3.5 w-3.5" /> Mark as Delivered
+                                <Check className="mr-1 h-3.5 w-3.5" /> Tandai Terkirim
                             </Button>
                         )}
                         <span className="text-muted-foreground text-sm">
-                            Related to <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 hover:underline">{order.salesOrder?.orderNumber}</Link>
+                            Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 hover:underline">{order.salesOrder?.orderNumber}</Link>
                         </span>
                     </div>
                 </div>
@@ -97,11 +98,11 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                         <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-blue-900 dark:text-blue-300">Shipment in Transit</h3>
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-300">Pengiriman dalam Perjalanan</h3>
                         <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                            {order.carrier ? `${order.carrier}` : 'Carrier information available.'}
+                            {order.carrier ? `${order.carrier}` : 'Informasi kurir tersedia.'}
                             {order.trackingNumber && (
-                                <> Tracking Number: <span className="font-mono font-bold">{order.trackingNumber}</span></>
+                                <> No. Resi: <span className="font-mono font-bold">{order.trackingNumber}</span></>
                             )}
                         </p>
                     </div>
@@ -112,17 +113,17 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                 <div className="md:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Shipment Items</CardTitle>
-                            <CardDescription>Items included in this delivery batch</CardDescription>
+                            <CardTitle>Item Pengiriman</CardTitle>
+                            <CardDescription>Item yang termasuk dalam batch pengiriman ini</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="border rounded-lg overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
-                                            <th className="h-10 px-4 text-left font-medium">Product</th>
+                                            <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
                                             <th className="h-10 px-4 text-right font-medium">SKU</th>
-                                            <th className="h-10 px-4 text-right font-medium">Quantity</th>
+                                            <th className="h-10 px-4 text-right font-medium">{formLabels.qty}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -169,7 +170,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                                                     )}
                                                 </div>
                                                 <div className="text-slate-500">
-                                                    {isCompleted ? `Status reached: ${step.status}` : 'Pending...'}
+                                                    {isCompleted ? `Status tercapai: ${getStatusLabel(step.status, 'sales')}` : 'Menunggu...'}
                                                 </div>
                                             </div>
                                         </div>
@@ -183,7 +184,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Shipping Info</CardTitle>
+                            <CardTitle>Informasi Pengiriman</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
@@ -196,23 +197,23 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" /> Origin
+                                    <MapPin className="h-3 w-3" /> Asal Gudang
                                 </label>
                                 <p className="font-medium text-sm">{order.sourceLocation?.name}</p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" /> Dispatch Date
+                                    <Calendar className="h-3 w-3" /> {salesLabels.deliveryDate}
                                 </label>
                                 <p className="font-medium text-sm">{format(new Date(order.deliveryDate), 'PPP')}</p>
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                    <User className="h-3 w-3" /> Prepared By
+                                    <User className="h-3 w-3" /> Disiapkan Oleh
                                 </label>
-                                <p className="font-medium text-sm">{order.createdBy?.name || 'System'}</p>
+                                <p className="font-medium text-sm">{order.createdBy?.name || 'Sistem'}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -220,7 +221,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                     {order.notes && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Notes</CardTitle>
+                                <CardTitle>{formLabels.notes}</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <p className="text-sm border-l-2 border-yellow-400 pl-3 italic">

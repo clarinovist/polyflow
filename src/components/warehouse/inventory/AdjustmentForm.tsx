@@ -16,7 +16,6 @@ import { Plus, Trash2, Package, ClipboardList, AlertCircle, ArrowUpCircle, Arrow
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductCombobox } from '@/components/products/product-combobox';
-import { warehouseLabels } from '@/lib/labels';
 
 interface SerializedInventory {
     locationId: string;

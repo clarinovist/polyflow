@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { convertToOrder } from '@/actions/sales/quotations'; // We need updateQuotation to change status?
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import {
     Dialog,
     DialogContent,
@@ -104,32 +105,32 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <Button variant="ghost" className="gap-2" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" /> Back to Quotations
+                    <ArrowLeft className="h-4 w-4" /> Kembali ke Penawaran
                 </Button>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" className="gap-2">
-                        <Printer className="h-4 w-4" /> Print / PDF
+                        <Printer className="h-4 w-4" /> Cetak / PDF
                     </Button>
                     {quotation.status !== 'CONVERTED' && quotation.status !== 'REJECTED' && quotation.status !== 'EXPIRED' && (
                         <Dialog open={isConvertDialogOpen} onOpenChange={setIsConvertDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button className="gap-2">
-                                    <ArrowRight className="h-4 w-4" /> Convert to Order
+                                    <ArrowRight className="h-4 w-4" /> Konversi ke Sales Order
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Convert to Sales Order</DialogTitle>
+                                    <DialogTitle>Konversi ke Sales Order</DialogTitle>
                                     <DialogDescription>
-                                        This will create a new Sales Order from this quotation. Please select the source warehouse.
+                                        Aksi ini akan membuat Sales Order baru dari penawaran ini. Silakan pilih gudang sumber.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="location">Source Location</Label>
+                                        <Label htmlFor="location">{salesLabels.sourceWarehouse}</Label>
                                         <Select onValueChange={setSelectedLocationId} value={selectedLocationId}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select warehouse" />
+                                                <SelectValue placeholder="Pilih gudang" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {validLocations.map((loc) => (
@@ -142,10 +143,10 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsConvertDialogOpen(false)}>Cancel</Button>
+                                    <Button variant="outline" onClick={() => setIsConvertDialogOpen(false)}>{actionLabels.cancel}</Button>
                                     <Button onClick={handleConvert} disabled={isConverting || !selectedLocationId}>
                                         {isConverting && <CheckCircle2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Confirm Conversion
+                                        Konfirmasi Konversi
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -163,7 +164,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                 {quotation.quotationNumber}
                             </CardTitle>
                             <Badge variant="secondary" className={getStatusColor(quotation.status)}>
-                                {quotation.status}
+                                {getStatusLabel(quotation.status, 'sales')}
                             </Badge>
                         </div>
                     </CardHeader>
@@ -171,20 +172,20 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                         {/* Order Details Grid */}
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <p className="text-muted-foreground">Quotation Date</p>
+                                <p className="text-muted-foreground">{salesLabels.quotationDate}</p>
                                 <p className="font-medium flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                     {format(new Date(quotation.quotationDate), 'PPP')}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground">Valid Until</p>
+                                <p className="text-muted-foreground">{salesLabels.validUntil}</p>
                                 <p className="font-medium">
                                     {quotation.validUntil ? format(new Date(quotation.validUntil), 'PPP') : '-'}
                                 </p>
                             </div>
                             <div className="col-span-2">
-                                <p className="text-muted-foreground">Notes</p>
+                                <p className="text-muted-foreground">{formLabels.notes}</p>
                                 <p className="mt-1">{quotation.notes || '-'}</p>
                             </div>
                         </div>
@@ -194,12 +195,12 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50">
                                     <tr className="border-b">
-                                        <th className="h-10 px-4 text-left font-medium">Product Item</th>
-                                        <th className="h-10 px-4 text-right font-medium">Qty</th>
-                                        <th className="h-10 px-4 text-right font-medium">Unit Price</th>
-                                        <th className="h-10 px-4 text-right font-medium">Disc</th>
-                                        <th className="h-10 px-4 text-right font-medium">Tax</th>
-                                        <th className="h-10 px-4 text-right font-medium">Total</th>
+                                        <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
+                                        <th className="h-10 px-4 text-right font-medium">{formLabels.qty}</th>
+                                        <th className="h-10 px-4 text-right font-medium">{formLabels.unitPrice}</th>
+                                        <th className="h-10 px-4 text-right font-medium">Diskon</th>
+                                        <th className="h-10 px-4 text-right font-medium">Pajak</th>
+                                        <th className="h-10 px-4 text-right font-medium">{formLabels.total}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -230,7 +231,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                 </tbody>
                                 <tfoot className="bg-muted/50 font-medium">
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
+                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">{formLabels.subtotal}</td>
                                         <td className="px-4 py-2 text-right">
                                             {formatRupiah(
                                                 (Number(quotation.totalAmount) || 0) + (Number(quotation.discountAmount) || 0) - (Number(quotation.taxAmount) || 0)
@@ -238,19 +239,19 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Discount</td>
+                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Diskon</td>
                                         <td className="px-4 py-2 text-right text-red-600">
                                             -{formatRupiah(Number(quotation.discountAmount) || 0)}
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Tax</td>
+                                        <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Pajak</td>
                                         <td className="px-4 py-2 text-right">
                                             {formatRupiah(Number(quotation.taxAmount) || 0)}
                                         </td>
                                     </tr>
                                     <tr className="border-t border-muted-foreground/20 text-base">
-                                        <td colSpan={5} className="px-4 py-3 text-right">Total Amount</td>
+                                        <td colSpan={5} className="px-4 py-3 text-right">Total Keseluruhan</td>
                                         <td className="px-4 py-3 text-right font-bold">
                                             {formatRupiah(Number(quotation.totalAmount) || 0)}
                                         </td>
@@ -264,7 +265,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Customer Details</CardTitle>
+                            <CardTitle>Detail Customer</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -273,14 +274,14 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                         <UserIcon className="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <div className="font-medium">{quotation.customer?.name || 'Prospect Customer'}</div>
+                                        <div className="font-medium">{quotation.customer?.name || 'Prospek Customer'}</div>
                                         <div className="text-sm text-muted-foreground">{quotation.customer?.email || '-'}</div>
                                     </div>
                                 </div>
                                 {quotation.customer && (
                                     <>
                                         <div className="text-sm">
-                                            <p className="text-muted-foreground mb-1">Shipping Address</p>
+                                            <p className="text-muted-foreground mb-1">Alamat Pengiriman</p>
                                             <p>{quotation.customer.shippingAddress || '-'}</p>
                                         </div>
                                     </>
@@ -291,7 +292,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Created By</CardTitle>
+                            <CardTitle>Dibuat Oleh</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center gap-3">
@@ -299,7 +300,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                                     <UserIcon className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <div className="text-sm">
-                                    <p className="font-medium">{quotation.createdBy?.name || 'System'}</p>
+                                    <p className="font-medium">{quotation.createdBy?.name || 'Sistem'}</p>
                                     <p className="text-muted-foreground text-xs">
                                         {format(new Date(quotation.createdAt), 'PP p')}
                                     </p>
@@ -311,7 +312,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                     {quotation.salesOrders.length > 0 && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Related Orders</CardTitle>
+                                <CardTitle>Pesanan Terkait</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">

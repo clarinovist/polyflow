@@ -42,6 +42,7 @@ import { useAction } from '@/hooks/use-action';
 import { ErrorAlert } from '@/components/ui/error-alert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -141,12 +142,12 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
         : 'No product found.';
 
     const sourceLocationLabel = selectedOrderType === 'MAKLON_JASA'
-        ? 'Customer Warehouse'
-        : 'Source Location (Warehouse)';
+        ? salesLabels.customerWarehouse
+        : `${salesLabels.sourceWarehouse} (Warehouse)`;
 
     const sourceLocationPlaceholder = selectedOrderType === 'MAKLON_JASA'
-        ? 'Select customer warehouse'
-        : 'Select warehouse';
+        ? 'Pilih gudang customer'
+        : 'Pilih gudang';
 
     const sourceLocationDescription = selectedOrderType === 'MAKLON_JASA'
         ? 'Untuk Maklon Jasa, field ini harus memakai warehouse customer-owned. Lokasi ini menjadi default sumber bahan titipan customer untuk flow maklon, lalu Production Execution tetap memprioritaskan stok yang sudah dipindah ke lokasi proses jika ada.'
@@ -283,9 +284,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                 <ErrorAlert error={actionError} />
 
                 <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                    <AlertTitle>Sales Order is for customer demand</AlertTitle>
+                    <AlertTitle>Sales Order untuk kebutuhan customer</AlertTitle>
                     <AlertDescription>
-                        Use Sales Order for customer transactions, whether fulfilled from stock or made to order. If the goal is only to build stock internally, create a Production Order from Planning instead.
+                        Gunakan Sales Order untuk transaksi customer, baik dipenuhi dari stok maupun made to order. Jika tujuan order hanya untuk build stock internal, gunakan Production Order dari menu Planning.
                     </AlertDescription>
                 </Alert>
 
@@ -300,7 +301,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
                             return (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Customer</FormLabel>
+                                    <FormLabel>{salesLabels.customer}</FormLabel>
                                     <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
                                         <PopoverTrigger asChild>
                                             <FormControl>
@@ -315,16 +316,16 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 >
                                                     {field.value
                                                         ? customers.find((customer) => customer.id === field.value)?.name
-                                                        : "Select customer"}
+                                                        : "Pilih customer"}
                                                     <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                             <Command>
-                                                <CommandInput placeholder="Search customer..." />
+                                                <CommandInput placeholder="Cari customer..." />
                                                 <CommandList>
-                                                    <CommandEmpty>No customer found.</CommandEmpty>
+                                                    <CommandEmpty>Customer tidak ditemukan.</CommandEmpty>
                                                     <CommandGroup>
                                                         {customers.map((customer) => (
                                                             <CommandItem
@@ -406,11 +407,11 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         name="orderType"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Order Type</FormLabel>
+                                <FormLabel>{salesLabels.orderType}</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value || 'MAKE_TO_STOCK'}>
                                     <FormControl>
                                         <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select order type" />
+                                            <SelectValue placeholder="Pilih tipe order" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
@@ -433,7 +434,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         name="orderDate"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Order Date</FormLabel>
+                                <FormLabel>{salesLabels.orderDate}</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -447,7 +448,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                 {field.value ? (
                                                     format(field.value, "PPP")
                                                 ) : (
-                                                    <span>Pick a date</span>
+                                                    <span>Pilih tanggal</span>
                                                 )}
                                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                             </Button>
@@ -485,7 +486,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                             name="expectedDate"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Estimated Delivery Date</FormLabel>
+                                    <FormLabel>{salesLabels.expectedDate}</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <FormControl>
@@ -499,7 +500,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                     {field.value ? (
                                                         format(field.value, "PPP")
                                                     ) : (
-                                                        <span>Pick a date</span>
+                                                        <span>Pilih tanggal</span>
                                                     )}
                                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                 </Button>
@@ -532,9 +533,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         name="notes"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Notes</FormLabel>
+                                <FormLabel>{formLabels.notes}</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Optional notes..." {...field} value={field.value || ''} />
+                                    <Input placeholder="Catatan opsional..." {...field} value={field.value || ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -546,14 +547,14 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                 {/* Line Items */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Order Items</h3>
+                        <h3 className="text-lg font-semibold">{salesLabels.items} Pesanan</h3>
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => append({ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 })}
                         >
-                            <Plus className="mr-2 h-4 w-4" /> Add Item
+                            <Plus className="mr-2 h-4 w-4" /> {actionLabels.add} Item
                         </Button>
                     </div>
 
@@ -567,12 +568,12 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr className="border-b">
-                                    <th className="h-10 px-4 text-left font-medium w-[300px]">Product</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[120px]">Qty</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[150px]">Unit Price</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Disc %</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Tax %</th>
-                                    <th className="h-10 px-4 text-right font-medium w-[150px]">Subtotal</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[300px]">{formLabels.product}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[120px]">{formLabels.qty}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[150px]">{formLabels.unitPrice}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Diskon %</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Pajak %</th>
+                                    <th className="h-10 px-4 text-right font-medium w-[150px]">{formLabels.subtotal}</th>
                                     <th className="h-10 px-4 w-[50px]"></th>
                                 </tr>
                             </thead>
@@ -603,9 +604,9 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                                             {field.value
                                                                                 ? (() => {
                                                                                     const p = filteredProducts.find((p: SerializedProductVariant) => p.id === field.value);
-                                                                                    return p ? (p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`) : "Select Product";
+                                                                                    return p ? (p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`) : "Pilih Produk";
                                                                                 })()
-                                                                                : "Select Product"}
+                                                                                : "Pilih Produk"}
                                                                         </div>
                                                                         <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                                     </Button>
@@ -613,7 +614,7 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                                                             </PopoverTrigger>
                                                             <PopoverContent className="w-[400px] p-0" align="start">
                                                                 <Command>
-                                                                    <CommandInput placeholder="Search product..." />
+                                                                    <CommandInput placeholder="Cari produk..." />
                                                                     <CommandList>
                                                                             <CommandEmpty>{productEmptyMessage}</CommandEmpty>
                                                                         <CommandGroup>
@@ -782,22 +783,22 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
                             </tbody>
                             <tfoot className="bg-muted/50 font-medium">
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">{formLabels.subtotal}</td>
                                     <td className="px-4 py-2 text-right">{formatRupiah(totals.gross)}</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Discount</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Diskon</td>
                                     <td className="px-4 py-2 text-right text-red-500">-{formatRupiah(totals.discount)}</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Tax</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Pajak</td>
                                     <td className="px-4 py-2 text-right">{formatRupiah(totals.tax)}</td>
                                     <td></td>
                                 </tr>
                                 <tr className="border-t border-muted-foreground/20">
-                                    <td colSpan={5} className="px-4 py-3 text-right text-lg font-bold">Total Amount</td>
+                                    <td colSpan={5} className="px-4 py-3 text-right text-lg font-bold">Total Keseluruhan</td>
                                     <td className="px-4 py-3 text-right text-lg font-bold">{formatRupiah(totals.net)}</td>
                                     <td></td>
                                 </tr>
@@ -808,11 +809,11 @@ export function SalesOrderForm({ customers, locations, products, mode, initialDa
 
                 <div className="flex justify-end gap-4">
                     <Button variant="outline" type="button" onClick={() => router.back()}>
-                        Cancel
+                        {actionLabels.cancel}
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {mode === 'create' ? 'Create Order' : 'Update Order'}
+                        {mode === 'create' ? `${actionLabels.create} Order` : `${actionLabels.update} Order`}
                     </Button>
                 </div>
             </form>

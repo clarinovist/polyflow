@@ -15,6 +15,7 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowRight, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { salesLabels, formLabels, getStatusLabel } from '@/lib/labels';
 import { InvoiceStatus } from '@prisma/client';
 import { deleteInvoice } from '@/actions/finance/invoices';
 import { toast } from 'sonner';
@@ -83,7 +84,7 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.UNPAID}>
-                {status.replace(/_/g, ' ')}
+                {getStatusLabel(status, 'finance')}
             </Badge>
         );
     };
@@ -94,21 +95,21 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Invoice #</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead>Entity</TableHead>
-                            <TableHead>Reference Order</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead>No. {salesLabels.invoice}</TableHead>
+                            <TableHead>{formLabels.date}</TableHead>
+                            <TableHead>{salesLabels.dueDate}</TableHead>
+                            <TableHead>Entitas</TableHead>
+                            <TableHead>Order Referensi</TableHead>
+                            <TableHead>{formLabels.status}</TableHead>
+                            <TableHead className="text-right">{formLabels.total}</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {invoices.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={8} className="h-24 text-center">
-                                    No invoices found.
+                                    {salesLabels.emptyInvoices}
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -152,18 +153,18 @@ export function InvoiceTable({ invoices, basePath = '/sales/orders' }: InvoiceTa
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                This will permanently delete invoice <strong>{invoice.invoiceNumber}</strong> and its associated accounting journals from the ledger. This action cannot be undone.
+                                                                Tindakan ini akan menghapus invoice secara permanen <strong>{invoice.invoiceNumber}</strong> beserta jurnal akuntansinya dari buku besar. Tindakan ini tidak dapat dibatalkan.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
                                                             <AlertDialogAction
                                                                 onClick={() => handleDelete(invoice.id, isAR ? 'AR' : 'AP')}
                                                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                             >
-                                                                Delete Invoice & Journals
+                                                                Hapus Invoice & Jurnal
                                                             </AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>

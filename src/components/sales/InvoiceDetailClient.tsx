@@ -16,7 +16,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { formatRupiah, cn } from '@/lib/utils/utils';
-import { getStatusLabel } from '@/lib/labels';
+import { getStatusLabel, salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { InvoiceStatus } from '@prisma/client';
 import { Printer, CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import { updateInvoiceStatus } from '@/actions/finance/invoice';
@@ -133,7 +133,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">{invoice.invoiceNumber}</h1>
                         <p className="text-muted-foreground">
-                            Created on {format(new Date(invoice.createdAt), 'PPP')}
+                            {formLabels.createdOn} {format(new Date(invoice.createdAt), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -163,13 +163,13 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                             disabled={isUpdating}
                         >
                             <CheckCircle className="mr-2 h-4 w-4" />
-                            Confirm Invoice
+                            Konfirmasi Invoice
                         </Button>
                     )}
 
                     <Button variant="outline" onClick={() => window.print()}>
                         <Printer className="mr-2 h-4 w-4" />
-                        Print
+                        Cetak
                     </Button>
 
                     {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
@@ -177,20 +177,20 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                             <DialogTrigger asChild>
                                 <Button>
                                     <CreditCard className="mr-2 h-4 w-4" />
-                                    Record Payment
+                                    Catat Pembayaran
                                 </Button>
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Record Payment</DialogTitle>
+                                    <DialogTitle>Catat Pembayaran</DialogTitle>
                                     <DialogDescription>
-                                        Enter the payment amount received for this invoice.
+                                        Masukkan jumlah pembayaran yang diterima untuk invoice ini.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid grid-cols-4 items-center gap-4">
                                         <Label htmlFor="amount" className="text-right">
-                                            Amount
+                                            Jumlah
                                         </Label>
                                         <Input
                                             id="amount"
@@ -201,16 +201,16 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                         />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label className="text-right">Remaining</Label>
+                                        <Label className="text-right">{salesLabels.remainingAmount}</Label>
                                         <div className="col-span-3 font-medium">
                                             {formatRupiah(remainingAmount)}
                                         </div>
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>Cancel</Button>
+                                    <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>{actionLabels.cancel}</Button>
                                     <Button onClick={handlePayment} disabled={isUpdating || paymentAmount <= 0}>
-                                        {isUpdating ? 'Saving...' : 'Confirm Payment'}
+                                        {isUpdating ? 'Menyimpan...' : 'Konfirmasi Pembayaran'}
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -224,16 +224,16 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                 <div className="md:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Invoice Items</CardTitle>
+                            <CardTitle>Item Invoice</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead className="text-right">Qty</TableHead>
-                                        <TableHead className="text-right">Unit Price</TableHead>
-                                        <TableHead className="text-right">Subtotal</TableHead>
+                                        <TableHead>{formLabels.product}</TableHead>
+                                        <TableHead className="text-right">{formLabels.qty}</TableHead>
+                                        <TableHead className="text-right">{formLabels.unitPrice}</TableHead>
+                                        <TableHead className="text-right">{formLabels.subtotal}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -257,13 +257,13 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                         </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-right font-medium text-muted-foreground">Paid Amount</TableCell>
+                                        <TableCell colSpan={3} className="text-right font-medium text-muted-foreground">{salesLabels.paidAmount}</TableCell>
                                         <TableCell className="text-right font-medium">
                                             {formatRupiah(Number(invoice.paidAmount))}
                                         </TableCell>
                                     </TableRow>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-right font-bold text-red-600">Balance Due</TableCell>
+                                        <TableCell colSpan={3} className="text-right font-bold text-red-600">{salesLabels.remainingAmount}</TableCell>
                                         <TableCell className="text-right font-bold text-red-600">
                                             {formatRupiah(Number(invoice.totalAmount) - Number(invoice.paidAmount))}
                                         </TableCell>
@@ -283,19 +283,19 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                         <CardContent>
                             <div className="flex flex-col gap-4">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium">Payment Status</span>
+                                    <span className="text-sm font-medium">Status Pembayaran</span>
                                     <Badge className={cn("capitalize", getStatusColor(invoice.status))}>
-                                        {invoice.status.replace('_', ' ')}
+                                        {getStatusLabel(invoice.status, 'finance')}
                                     </Badge>
                                 </div>
                                 <Separator />
                                 <div className="grid gap-2 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Invoice Date</span>
+                                        <span className="text-muted-foreground">{salesLabels.invoiceDate}</span>
                                         <span>{format(new Date(invoice.invoiceDate), 'MMM dd, yyyy')}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Due Date</span>
+                                        <span className="text-muted-foreground">{salesLabels.dueDate}</span>
                                         <span>{invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM dd, yyyy') : '-'}</span>
                                     </div>
                                 </div>
@@ -305,12 +305,12 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Customer Information</CardTitle>
+                            <CardTitle>{formLabels.customerInfo}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">Customer</div>
+                                    <div className="text-sm font-medium text-muted-foreground">{salesLabels.customer}</div>
                                     <div className="text-lg font-semibold">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</div>
                                     <div className="text-sm font-medium text-muted-foreground mt-2">Sales Order</div>
                                     <div className="font-medium underline decoration-dotted">
@@ -318,19 +318,19 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                     </div>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Customer</h3>
+                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">{salesLabels.customer}</h3>
                                     <p className="font-medium">{invoice.salesOrder.customer?.name || 'Legacy Internal Stock Build'}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.email || ''}</p>
                                     <p className="text-sm text-muted-foreground">{invoice.salesOrder.customer?.phone || ''}</p>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Billing Address</h3>
+                                    <h3 className="font-semibold text-sm text-muted-foreground mb-1">Alamat Penagihan</h3>
                                     <p className="text-sm text-muted-foreground">
                                         {invoice.salesOrder.customer?.billingAddress || 'N/A'}
                                     </p>
                                 </div>
                                 <div>
-                                    <div className="text-sm font-medium text-muted-foreground">Shipping Address</div>
+                                    <div className="text-sm font-medium text-muted-foreground">Alamat Pengiriman</div>
                                     <div className="text-sm whitespace-pre-wrap">{invoice.salesOrder.customer?.shippingAddress || 'N/A'}</div>
                                 </div>
                             </div>

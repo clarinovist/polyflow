@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { SalesQuotation, SalesQuotationStatus, Customer } from '@prisma/client';
 import { FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { salesLabels, formLabels, getStatusLabel } from '@/lib/labels';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesQuotation = Omit<SalesQuotation, 'totalAmount'> & {
@@ -47,20 +48,20 @@ export function SalesQuotationTable({ initialData, basePath = '/sales/quotations
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Quotation #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Valid Until</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Items</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead>{salesLabels.quotationNumber}</TableHead>
+                        <TableHead>{formLabels.date}</TableHead>
+                        <TableHead>{salesLabels.validUntil}</TableHead>
+                        <TableHead>{salesLabels.customer}</TableHead>
+                        <TableHead>{formLabels.status}</TableHead>
+                        <TableHead className="text-right">{salesLabels.items}</TableHead>
+                        <TableHead className="text-right">{formLabels.total}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {initialData.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
-                                No quotations found.
+                                {salesLabels.emptyQuotations}
                             </TableCell>
                         </TableRow>
                     ) : (
@@ -86,7 +87,7 @@ export function SalesQuotationTable({ initialData, basePath = '/sales/quotations
                                 <TableCell>{quotation.customer?.name || 'Prospect'}</TableCell>
                                 <TableCell>
                                     <Badge variant="secondary" className={getStatusColor(quotation.status)}>
-                                        {quotation.status}
+                                        {getStatusLabel(quotation.status, 'sales')}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground">

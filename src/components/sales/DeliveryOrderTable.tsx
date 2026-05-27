@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { Eye } from 'lucide-react';
 import Link from 'next/link';
+import { salesLabels, formLabels, getStatusLabel } from '@/lib/labels';
 
 interface DeliveryOrderTableProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +32,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.PENDING}>
-                {status}
+                {getStatusLabel(status, 'sales')}
             </Badge>
         );
     };
@@ -42,21 +43,21 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>DO Number</TableHead>
-                            <TableHead>Sales Order</TableHead>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Delivery Date</TableHead>
-                            <TableHead>Source Location</TableHead>
-                            <TableHead>Carrier</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead>No. {salesLabels.deliveryOrder}</TableHead>
+                            <TableHead>{salesLabels.salesOrder}</TableHead>
+                            <TableHead>{salesLabels.customer}</TableHead>
+                            <TableHead>{salesLabels.deliveryDate}</TableHead>
+                            <TableHead>{salesLabels.sourceWarehouse}</TableHead>
+                            <TableHead>{salesLabels.carrier}</TableHead>
+                            <TableHead>{formLabels.status}</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {initialData.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={8} className="h-24 text-center">
-                                    No delivery orders found.
+                                    {salesLabels.emptyDeliveries}
                                 </TableCell>
                             </TableRow>
                         ) : (

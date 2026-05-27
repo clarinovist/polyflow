@@ -13,6 +13,7 @@ export const commonStatusLabels = {
   RELEASED: 'Dirilis',
   POSTED: 'Diposting',
   VOID: 'Void',
+  RECEIVED: 'Diterima',
 } as const;
 
 export const productionStatusLabels = {
@@ -46,6 +47,10 @@ export const salesStatusLabels = {
   INVOICED: 'Tertagih',
   PAID: 'Lunas',
   CANCELLED: 'Dibatalkan',
+  SENT: 'Terkirim',
+  ACCEPTED: 'Diterima',
+  EXPIRED: 'Kedaluwarsa',
+  CONVERTED: 'Dikonversi',
 } as const;
 
 export const financeStatusLabels = {

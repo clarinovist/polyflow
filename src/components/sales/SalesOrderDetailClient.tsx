@@ -14,7 +14,7 @@ import {
 } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getStatusLabel } from '@/lib/labels';
+import { getStatusLabel, salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
@@ -215,7 +215,7 @@ export function SalesOrderDetailClient({
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.DRAFT}>
-                {status.replace(/_/g, ' ')}
+                {getStatusLabel(status, 'sales')}
             </Badge>
         );
     };
@@ -225,7 +225,7 @@ export function SalesOrderDetailClient({
             {isLegacyInternalOrder && (
                 <Alert className="border-amber-200 bg-amber-50">
                     <AlertTriangle className="h-4 w-4 text-amber-700" />
-                    <AlertTitle>Legacy internal order</AlertTitle>
+                    <AlertTitle>{formLabels.legacyInternalOrder}</AlertTitle>
                     <AlertDescription>
                         This Sales Order has no customer and is treated as a legacy internal stock build. New invoicing is blocked. Use Production Order for internal replenishment, or assign a customer before continuing with customer billing.
                     </AlertDescription>
@@ -248,7 +248,7 @@ export function SalesOrderDetailClient({
                     <Button variant="outline" size="sm" asChild>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <Link href={basePath as any}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                            <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                         </Link>
                     </Button>
                     <div>
@@ -257,7 +257,7 @@ export function SalesOrderDetailClient({
                             {getStatusBadge(order.status)}
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            Created on {format(new Date(order.orderDate), 'PPP')}
+                            {formLabels.createdOn} {format(new Date(order.orderDate), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -270,25 +270,25 @@ export function SalesOrderDetailClient({
                             <Button variant="outline" asChild>
                                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 <Link href={`${basePath}/${order.id}/edit` as any}>
-                                    <Edit className="mr-2 h-4 w-4" /> Edit
+                                    <Edit className="mr-2 h-4 w-4" /> {actionLabels.edit}
                                 </Link>
                             </Button>
 
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" disabled={isLoading}>Delete</Button>
+                                    <Button variant="destructive" disabled={isLoading}>{actionLabels.delete}</Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the draft order.
+                                            Aksi ini tidak dapat dibatalkan. Ini akan menghapus draf order secara permanen.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogCancel>{actionLabels.cancel}</AlertDialogCancel>
                                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                                            Delete
+                                            {actionLabels.delete}
                                         </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -299,7 +299,7 @@ export function SalesOrderDetailClient({
                                 disabled={isLoading || isLegacyInternalOrder}
                                 className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                                <CheckCircle className="mr-2 h-4 w-4" /> Confirm Order
+                                <CheckCircle className="mr-2 h-4 w-4" /> Konfirmasi Order
                             </Button>
                         </>
                     )}
@@ -310,7 +310,7 @@ export function SalesOrderDetailClient({
                             disabled={isLoading}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white"
                         >
-                            <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Production Complete / Ready for Service Closure' : 'Production Complete'}
+                            <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Produksi Selesai / Siap Tutup Jasa' : 'Produksi Selesai'}
                         </Button>
                     )}
 
@@ -320,7 +320,7 @@ export function SalesOrderDetailClient({
                             disabled={isLoading}
                             className="bg-purple-600 hover:bg-purple-700 text-white"
                         >
-                            <Truck className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Close Service Order' : 'Ship Order'}
+                            <Truck className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Tutup Order Jasa' : 'Kirim Order'}
                         </Button>
                     )}
 
@@ -332,7 +332,7 @@ export function SalesOrderDetailClient({
                                     disabled={isLoading}
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                 >
-                                    <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Mark Service Delivered' : 'Mark Delivered'}
+                                    <Package className="mr-2 h-4 w-4" /> {isMaklonOrder ? 'Tandai Jasa Selesai' : 'Tandai Terkirim'}
                                 </Button>
                             )}
 
@@ -342,7 +342,7 @@ export function SalesOrderDetailClient({
                                     disabled={isLoading || isLegacyInternalOrder}
                                     className="bg-sky-600 hover:bg-sky-700 text-white"
                                 >
-                                    <Receipt className="mr-2 h-4 w-4" /> Generate Invoice
+                                    <Receipt className="mr-2 h-4 w-4" /> Buat Invoice
                                 </Button>
                             )}
                             {!warehouseMode && order.invoices.length > 0 && order.invoices.some(i => i.status === 'DRAFT') && (
@@ -352,7 +352,7 @@ export function SalesOrderDetailClient({
                                     asChild
                                 >
                                     <Link href={`/finance/invoices/sales/${order.invoices.find(i => i.status === 'DRAFT')?.id}`}>
-                                        <Receipt className="mr-2 h-4 w-4" /> View Draft Invoice
+                                        <Receipt className="mr-2 h-4 w-4" /> Lihat Draf Invoice
                                     </Link>
                                 </Button>
                             )}
@@ -366,7 +366,7 @@ export function SalesOrderDetailClient({
                             onClick={() => handleAction('cancelled', cancelSalesOrder)}
                             disabled={isLoading}
                         >
-                            <XCircle className="mr-2 h-4 w-4" /> Cancel
+                            <XCircle className="mr-2 h-4 w-4" /> {actionLabels.cancel}
                         </Button>
                     )}
                 </div>
@@ -376,36 +376,36 @@ export function SalesOrderDetailClient({
                 {/* Main Order Info */}
                 <Card className="md:col-span-2">
                     <CardHeader>
-                        <CardTitle>Order Details</CardTitle>
+                        <CardTitle>Detail Pesanan</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">Customer</h3>
+                                <h3 className="font-semibold text-sm text-muted-foreground">{salesLabels.customer}</h3>
                                 <p className="text-lg">{customerLabel}</p>
                                 <p className="text-sm text-muted-foreground">{order.customer?.email || (isLegacyInternalOrder ? 'No customer assigned' : 'No email')}</p>
                                 <p className="text-sm text-muted-foreground">{order.customer?.phone || ''}</p>
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">{isMaklonOrder ? 'Production Location' : 'Source Warehouse'}</h3>
+                                <h3 className="font-semibold text-sm text-muted-foreground">{isMaklonOrder ? 'Lokasi Produksi' : salesLabels.sourceWarehouse}</h3>
                                 <p className="text-lg">{order.sourceLocation?.name || 'N/A'}</p>
                                 {isMaklonOrder && (
                                     <p className="text-sm text-muted-foreground">Dipakai sebagai lokasi produksi/default consumption location untuk work order maklon.</p>
                                 )}
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">Expected Delivery</h3>
+                                <h3 className="font-semibold text-sm text-muted-foreground">{salesLabels.expectedDate}</h3>
                                 <p>{order.expectedDate ? format(new Date(order.expectedDate), 'PPP') : '-'}</p>
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm text-muted-foreground">Order Type</h3>
+                                <h3 className="font-semibold text-sm text-muted-foreground">{salesLabels.orderType}</h3>
                                 <Badge variant="outline">{order.orderType.replace(/_/g, ' ')}</Badge>
                             </div>
                         </div>
 
                         {order.notes && (
                             <div className="bg-muted/50 p-4 rounded-md">
-                                <h3 className="font-semibold text-sm mb-1">Notes</h3>
+                                <h3 className="font-semibold text-sm mb-1">{formLabels.notes}</h3>
                                 <p className="text-sm whitespace-pre-wrap">{order.notes}</p>
                             </div>
                         )}
@@ -414,11 +414,11 @@ export function SalesOrderDetailClient({
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/50 border-b">
                                     <tr>
-                                        <th className="h-10 px-4 text-left font-medium">Product</th>
-                                        <th className="h-10 px-4 text-right font-medium">Quantity</th>
-                                        <th className="h-10 px-4 text-right font-medium">Delivered</th>
-                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">Unit Price</th>}
-                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">Subtotal</th>}
+                                        <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
+                                        <th className="h-10 px-4 text-right font-medium">{formLabels.qty}</th>
+                                        <th className="h-10 px-4 text-right font-medium">Terkirim</th>
+                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">{formLabels.unitPrice}</th>}
+                                        {!warehouseMode && <th className="h-10 px-4 text-right font-medium">{formLabels.subtotal}</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -460,7 +460,7 @@ export function SalesOrderDetailClient({
                                 {!warehouseMode && (
                                     <tfoot className="bg-muted/50 border-t">
                                         <tr>
-                                            <td colSpan={4} className="p-4 text-right font-bold">Total Amount</td>
+                                            <td colSpan={4} className="p-4 text-right font-bold">Total Keseluruhan</td>
                                             <td className="p-4 text-right font-bold text-lg">
                                                 {formatRupiah(Number(order.totalAmount))}
                                             </td>
@@ -478,8 +478,8 @@ export function SalesOrderDetailClient({
                     {!warehouseMode && (
                         <Card>
                             <CardHeader>
-                                <CardTitle>Invoices</CardTitle>
-                                <CardDescription>Generated invoices for this order</CardDescription>
+                                <CardTitle>{salesLabels.invoice}</CardTitle>
+                                <CardDescription>Invoice yang diterbitkan untuk order ini</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {order.invoices && order.invoices.length > 0 ? (
@@ -490,7 +490,7 @@ export function SalesOrderDetailClient({
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="font-medium text-blue-600 hover:underline">{inv.invoiceNumber}</span>
                                                         <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
-                                                            {inv.status}
+                                                            {getStatusLabel(inv.status, 'finance')}
                                                         </Badge>
                                                     </div>
                                                     <div className="text-sm text-muted-foreground mb-1">
@@ -504,7 +504,7 @@ export function SalesOrderDetailClient({
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-sm text-muted-foreground">No invoices generated.</p>
+                                    <p className="text-sm text-muted-foreground">{salesLabels.emptyInvoices}</p>
                                 )}
                             </CardContent>
                         </Card>
@@ -519,12 +519,12 @@ export function SalesOrderDetailClient({
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>{isMaklonOrder ? 'Service Closure History' : 'Shipment History'}</CardTitle>
-                            <CardDescription>{isMaklonOrder ? 'Progress closure untuk order jasa maklon' : 'Stock movements related to this order'}</CardDescription>
+                            <CardTitle>{isMaklonOrder ? 'Riwayat Penutupan Jasa' : 'Riwayat Pengiriman'}</CardTitle>
+                            <CardDescription>{isMaklonOrder ? 'Progres penutupan untuk order jasa maklon' : 'Mutasi stok terkait order ini'}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {order.movements.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">{isMaklonOrder ? 'No service-closure stock movements recorded from sales yet. Material consumption is tracked from production execution.' : 'No shipments yet.'}</p>
+                                <p className="text-sm text-muted-foreground">{isMaklonOrder ? 'Belum ada mutasi stok penutupan jasa yang tercatat dari sales. Konsumsi bahan dilacak dari eksekusi produksi.' : 'Belum ada pengiriman.'}</p>
                             ) : (
                                 <ul className="space-y-4">
                                     {order.movements.map((m) => (

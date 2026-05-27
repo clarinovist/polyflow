@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Customer, ProductVariant, Product, Unit } from '@prisma/client';
 import { getProductionUnitMeta, toBaseQuantity } from '@/lib/utils/production-units';
+import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 
 type SerializedCustomer = Omit<Customer, 'creditLimit' | 'discountPercent'> & {
     creditLimit: number | null;
@@ -211,7 +212,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="customerId"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Customer (Optional)</FormLabel>
+                                <FormLabel>{salesLabels.customer} (Opsional)</FormLabel>
                                 <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -225,16 +226,16 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                             >
                                                 {field.value
                                                     ? customers.find((customer) => customer.id === field.value)?.name
-                                                    : "Select customer OR leave empty for prospect"}
+                                                    : "Pilih customer ATAU kosongkan untuk prospek"}
                                                 <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                                         <Command>
-                                            <CommandInput placeholder="Search customer..." />
+                                            <CommandInput placeholder="Cari customer..." />
                                             <CommandList>
-                                                <CommandEmpty>No customer found.</CommandEmpty>
+                                                <CommandEmpty>Customer tidak ditemukan.</CommandEmpty>
                                                 <CommandGroup>
                                                     {customers.map((customer) => (
                                                         <CommandItem
@@ -272,7 +273,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="quotationDate"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Quotation Date</FormLabel>
+                                <FormLabel>{salesLabels.quotationDate}</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -286,7 +287,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                 {field.value ? (
                                                     format(field.value, "PPP")
                                                 ) : (
-                                                    <span>Pick a date</span>
+                                                    <span>Pilih tanggal</span>
                                                 )}
                                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                             </Button>
@@ -320,7 +321,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="validUntil"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Valid Until</FormLabel>
+                                <FormLabel>{salesLabels.validUntil}</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -334,7 +335,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                 {field.value ? (
                                                     format(field.value, "PPP")
                                                 ) : (
-                                                    <span>Pick a date</span>
+                                                    <span>Pilih tanggal</span>
                                                 )}
                                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                             </Button>
@@ -369,9 +370,9 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         name="notes"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Notes</FormLabel>
+                                <FormLabel>{formLabels.notes}</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Optional notes..." {...field} value={field.value || ''} />
+                                    <Input placeholder="Catatan opsional..." {...field} value={field.value || ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -383,14 +384,14 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 {/* Line Items */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Order Items</h3>
+                        <h3 className="text-lg font-semibold">{salesLabels.items} Pesanan</h3>
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => append({ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 })}
                         >
-                            <Plus className="mr-2 h-4 w-4" /> Add Item
+                            <Plus className="mr-2 h-4 w-4" /> {actionLabels.add} Item
                         </Button>
                     </div>
 
@@ -398,12 +399,12 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         <table className="w-full text-sm">
                             <thead className="bg-muted/50">
                                 <tr className="border-b">
-                                    <th className="h-10 px-4 text-left font-medium w-[300px]">Product</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[120px]">Qty</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[150px]">Unit Price</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Disc %</th>
-                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Tax %</th>
-                                    <th className="h-10 px-4 text-right font-medium w-[150px]">Subtotal</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[300px]">{formLabels.product}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[120px]">{formLabels.qty}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[150px]">{formLabels.unitPrice}</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Diskon %</th>
+                                    <th className="h-10 px-4 text-left font-medium w-[100px]">Pajak %</th>
+                                    <th className="h-10 px-4 text-right font-medium w-[150px]">{formLabels.subtotal}</th>
                                     <th className="h-10 px-4 w-[50px]"></th>
                                 </tr>
                             </thead>
@@ -432,7 +433,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                         >
                                                             <SelectTrigger className="border-0 shadow-none bg-transparent h-auto p-2 w-[300px]">
                                                                 <div className="truncate text-left font-medium">
-                                                                    <SelectValue placeholder="Select Product" />
+                                                                    <SelectValue placeholder="Pilih Produk" />
                                                                 </div>
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -573,22 +574,22 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                             </tbody>
                             <tfoot className="bg-muted/50 font-medium">
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">{formLabels.subtotal}</td>
                                     <td className="px-4 py-2 text-right">{formatRupiah(totals.gross)}</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Discount</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Diskon</td>
                                     <td className="px-4 py-2 text-right text-red-500">-{formatRupiah(totals.discount)}</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Tax</td>
+                                    <td colSpan={5} className="px-4 py-2 text-right text-muted-foreground">Pajak</td>
                                     <td className="px-4 py-2 text-right">{formatRupiah(totals.tax)}</td>
                                     <td></td>
                                 </tr>
                                 <tr className="border-t border-muted-foreground/20">
-                                    <td colSpan={5} className="px-4 py-3 text-right text-lg font-bold">Total Amount</td>
+                                    <td colSpan={5} className="px-4 py-3 text-right text-lg font-bold">Total Keseluruhan</td>
                                     <td className="px-4 py-3 text-right text-lg font-bold">{formatRupiah(totals.net)}</td>
                                     <td></td>
                                 </tr>
@@ -599,11 +600,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
 
                 <div className="flex justify-end gap-4">
                     <Button variant="outline" type="button" onClick={() => router.back()}>
-                        Cancel
+                        {actionLabels.cancel}
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {mode === 'create' ? 'Create Quotation' : 'Update Quotation'}
+                        {mode === 'create' ? `${actionLabels.create} Penawaran` : `${actionLabels.update} Penawaran`}
                     </Button>
                 </div>
             </form>

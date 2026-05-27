@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
-import { getStatusLabel } from '@/lib/labels';
+import { getStatusLabel, salesLabels, formLabels } from '@/lib/labels';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { SalesReturn, SalesReturnStatus, Customer } from '@prisma/client';
@@ -55,21 +55,21 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Return #</TableHead>
-                                <TableHead>Date</TableHead>
+                                <TableHead>{salesLabels.returnNumber}</TableHead>
+                                <TableHead>{formLabels.date}</TableHead>
                                 <TableHead>Ref SO</TableHead>
-                                <TableHead>Customer</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right hidden sm:table-cell">Items</TableHead>
-                                <TableHead className="text-right">Total Amount</TableHead>
+                                <TableHead>{salesLabels.customer}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">{salesLabels.items}</TableHead>
+                                <TableHead className="text-right">Total Keseluruhan</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {initialData.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
-                                        No sales returns found.
-                                    </TableCell>
+                                        <TableCell colSpan={7} className="h-24 text-center">
+                                            {salesLabels.emptyReturns}
+                                        </TableCell>
                                 </TableRow>
                             ) : (
                                 initialData.map((sr) => (
@@ -95,7 +95,7 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className={getStatusColor(sr.status)}>
-                                                {sr.status.replace(/_/g, ' ')}
+                                                {getStatusLabel(sr.status, 'sales')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
@@ -116,7 +116,7 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
             <div className="md:hidden space-y-3">
                 {initialData.length === 0 ? (
                     <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-                        No sales returns found.
+                        {salesLabels.emptyReturns}
                     </div>
                 ) : (
                     initialData.map((sr) => (
@@ -137,7 +137,7 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
                                         </div>
                                     </div>
                                     <Badge variant="secondary" className={`text-[10px] px-1.5 h-5 ${getStatusColor(sr.status)}`}>
-                                        {sr.status.replace(/_/g, ' ')}
+                                        {getStatusLabel(sr.status, 'sales')}
                                     </Badge>
                                 </div>
                             </CardHeader>
@@ -145,11 +145,11 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Customer</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">{salesLabels.customer}</p>
                                             <p className="font-medium truncate">{sr.customer?.name || '-'}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total Amount</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total Keseluruhan</p>
                                             <p className="font-semibold text-primary">
                                                 {sr.totalAmount ? formatRupiah(Number(sr.totalAmount)) : '-'}
                                             </p>
@@ -160,10 +160,10 @@ export function SalesReturnTable({ initialData, basePath = '/sales/returns' }: S
                                             <Badge variant="outline" className="h-4 px-1 rounded-sm text-[9px] font-normal">
                                                 SO: {sr.salesOrder?.orderNumber || '-'}
                                             </Badge>
-                                            <span>• {sr._count.items} Items</span>
+                                            <span>• {sr._count.items} {salesLabels.items}</span>
                                         </div>
                                         <div className="flex items-center text-primary font-medium">
-                                            View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                                            Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                                         </div>
                                     </div>
                                 </div>

@@ -5,8 +5,8 @@ import { SalesReturn, Customer, Location } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getStatusLabel } from '@/lib/labels';
-import { formatRupiah, cn } from '@/lib/utils/utils';
+import { getStatusLabel, salesLabels, formLabels, actionLabels } from '@/lib/labels';
+import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, CheckCircle, PackageCheck, Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -43,12 +43,12 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
 
     const getStatusBadge = (status: string) => {
         switch (status) {
-            case 'DRAFT': return <Badge variant="secondary" className="bg-slate-100 text-slate-800">Draft</Badge>;
-            case 'CONFIRMED': return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Confirmed</Badge>;
-            case 'RECEIVED': return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Received</Badge>;
-            case 'COMPLETED': return <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Completed</Badge>;
-            case 'CANCELLED': return <Badge variant="secondary" className="bg-red-100 text-red-800">Cancelled</Badge>;
-            default: return <Badge>{status}</Badge>;
+            case 'DRAFT': return <Badge variant="secondary" className="bg-slate-100 text-slate-800">{getStatusLabel('DRAFT', 'sales')}</Badge>;
+            case 'CONFIRMED': return <Badge variant="secondary" className="bg-amber-100 text-amber-800">{getStatusLabel('CONFIRMED', 'sales')}</Badge>;
+            case 'RECEIVED': return <Badge variant="secondary" className="bg-blue-100 text-blue-800">{getStatusLabel('RECEIVED', 'sales')}</Badge>;
+            case 'COMPLETED': return <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">{getStatusLabel('COMPLETED', 'sales')}</Badge>;
+            case 'CANCELLED': return <Badge variant="secondary" className="bg-red-100 text-red-800">{getStatusLabel('CANCELLED', 'sales')}</Badge>;
+            default: return <Badge>{getStatusLabel(status, 'sales')}</Badge>;
         }
     };
 
@@ -71,7 +71,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                 <Button variant="ghost" asChild>
                     <Link href={basePath}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Returns
+                        {actionLabels.back}
                     </Link>
                 </Button>
                 
@@ -82,7 +82,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                             onClick={() => handleAction(confirmSalesReturnAction, 'Confirm')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Confirm' ? 'Processing...' : <><CheckCircle className="mr-2 h-4 w-4" /> Confirm Return</>}
+                            {actionLoading === 'Confirm' ? 'Memproses...' : <><CheckCircle className="mr-2 h-4 w-4" /> Konfirmasi Retur</>}
                         </Button>
                     )}
                     
@@ -93,7 +93,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                             onClick={() => handleAction(receiveSalesReturnAction, 'Receive')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Receive' ? 'Processing...' : <><PackageCheck className="mr-2 h-4 w-4" /> Receive Items</>}
+                            {actionLoading === 'Receive' ? 'Memproses...' : <><PackageCheck className="mr-2 h-4 w-4" /> Terima Item</>}
                         </Button>
                     )}
 
@@ -104,7 +104,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                             onClick={() => handleAction(completeSalesReturnAction, 'Complete')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Complete' ? 'Processing...' : <><CheckCircle className="mr-2 h-4 w-4" /> Complete Return</>}
+                            {actionLoading === 'Complete' ? 'Memproses...' : <><CheckCircle className="mr-2 h-4 w-4" /> Selesaikan Retur</>}
                         </Button>
                     )}
 
@@ -114,7 +114,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                             onClick={() => handleAction(cancelSalesReturnAction, 'Cancel')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Cancel' ? 'Processing...' : <><Ban className="mr-2 h-4 w-4" /> Cancel Return</>}
+                            {actionLoading === 'Cancel' ? 'Memproses...' : <><Ban className="mr-2 h-4 w-4" /> Batalkan Retur</>}
                         </Button>
                     )}
                 </div>
@@ -127,7 +127,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                             <div>
                                 <CardTitle className="text-2xl">{salesReturn.returnNumber}</CardTitle>
                                 <CardDescription>
-                                    Returned on {salesReturn.returnDate ? format(new Date(salesReturn.returnDate), 'PPP') : '-'}
+                                    Diretur pada {salesReturn.returnDate ? format(new Date(salesReturn.returnDate), 'PPP') : '-'}
                                 </CardDescription>
                             </div>
                             {getStatusBadge(salesReturn.status)}
@@ -136,43 +136,43 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Customer</h4>
-                                <p className="font-medium">{salesReturn.customer?.name || 'Unknown'}</p>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{salesLabels.customer}</h4>
+                                <p className="font-medium">{salesReturn.customer?.name || 'Tidak Diketahui'}</p>
                             </div>
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Return Location</h4>
-                                <p className="font-medium">{salesReturn.returnLocation?.name || 'Unknown'}</p>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{salesLabels.returnLocation}</h4>
+                                <p className="font-medium">{salesReturn.returnLocation?.name || 'Tidak Diketahui'}</p>
                             </div>
                             {salesReturn.salesOrder && (
                                 <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Reference SO</h4>
+                                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Referensi SO</h4>
                                     <p className="font-medium">{salesReturn.salesOrder.orderNumber}</p>
                                 </div>
                             )}
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Reason</h4>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{salesLabels.reason}</h4>
                                 <p className="font-medium truncate">{salesReturn.reason?.replace(/_/g, ' ') || '-'}</p>
                             </div>
                         </div>
 
                         {salesReturn.notes && (
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Notes</h4>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{formLabels.notes}</h4>
                                 <p className="text-sm bg-muted/50 p-3 rounded-md">{salesReturn.notes}</p>
                             </div>
                         )}
 
                         <div>
-                            <h4 className="text-lg font-semibold mb-3">Returned Items</h4>
+                            <h4 className="text-lg font-semibold mb-3">Item Diretur</h4>
                             <div className="border rounded-md overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left font-medium">Product</th>
-                                            <th className="px-4 py-3 text-center font-medium">Condition</th>
-                                            <th className="px-4 py-3 text-right font-medium">Qty</th>
-                                            <th className="px-4 py-3 text-right font-medium">Unit Price</th>
-                                            <th className="px-4 py-3 text-right font-medium">Total</th>
+                                            <th className="px-4 py-3 text-left font-medium">{formLabels.product}</th>
+                                            <th className="px-4 py-3 text-center font-medium">{salesLabels.condition}</th>
+                                            <th className="px-4 py-3 text-right font-medium">{formLabels.qty}</th>
+                                            <th className="px-4 py-3 text-right font-medium">{formLabels.unitPrice}</th>
+                                            <th className="px-4 py-3 text-right font-medium">{formLabels.total}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -193,7 +193,7 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                                             </tr>
                                         ))}
                                         <tr className="bg-muted/20">
-                                            <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Amount</td>
+                                            <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Keseluruhan</td>
                                             <td className="px-4 py-3 text-right font-bold text-primary">
                                                 {salesReturn.totalAmount ? formatRupiah(Number(salesReturn.totalAmount)) : '-'}
                                             </td>
@@ -208,30 +208,30 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-sm">Summary</CardTitle>
+                            <CardTitle className="text-sm">Ringkasan</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4 text-sm">
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Created By</span>
-                                <span className="font-medium">{salesReturn.createdBy?.name || 'System'}</span>
+                                <span className="text-muted-foreground">Dibuat Oleh</span>
+                                <span className="font-medium">{salesReturn.createdBy?.name || 'Sistem'}</span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Total Items</span>
-                                <span className="font-medium">{salesReturn.items.length} variants</span>
+                                <span className="text-muted-foreground">Total Item</span>
+                                <span className="font-medium">{salesReturn.items.length} varian</span>
                             </div>
                             <div className="flex justify-between items-center py-2">
-                                <span className="text-muted-foreground">Total Value</span>
-                                <span className="font-bold text-lg">{salesReturn.totalAmount ? formatRupiah(Number(salesReturn.totalAmount)) : 'RP 0'}</span>
+                                <span className="text-muted-foreground">Total Nilai</span>
+                                <span className="font-bold text-lg">{salesReturn.totalAmount ? formatRupiah(Number(salesReturn.totalAmount)) : 'Rp 0'}</span>
                             </div>
                         </CardContent>
                     </Card>
                     
                     <Card className="bg-muted/30 border-dashed">
                         <CardContent className="p-4 text-xs text-muted-foreground space-y-2">
-                            <p><strong>DRAFT:</strong> Initial state. Can be edited or cancelled.</p>
-                            <p><strong>CONFIRMED:</strong> Ready to receive physical items.</p>
-                            <p><strong>RECEIVED:</strong> Items returned to inventory (if good). Auto-journal generated for credit note.</p>
-                            <p><strong>COMPLETED:</strong> End of lifecycle.</p>
+                            <p><strong>DRAFT:</strong> Status awal. Dapat diedit atau dibatalkan.</p>
+                            <p><strong>TERKONFIRMASI:</strong> Siap untuk menerima barang fisik.</p>
+                            <p><strong>DITERIMA:</strong> Item dikembalikan ke inventaris (jika kondisi baik). Jurnal otomatis dibuat untuk nota kredit.</p>
+                            <p><strong>SELESAI:</strong> Akhir dari siklus retur.</p>
                         </CardContent>
                     </Card>
                 </div>

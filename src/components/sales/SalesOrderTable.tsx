@@ -16,7 +16,7 @@ import { SalesOrder, SalesOrderStatus, Customer, Location, InvoiceStatus } from 
 import { FileText, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-import { getStatusLabel as getLocalizedStatusLabel } from '@/lib/labels';
+import { getStatusLabel as getLocalizedStatusLabel, formLabels, salesLabels } from '@/lib/labels';
 
 // Helper types that match the structure of what's passed from server page
 type SerializedSalesOrder = Omit<SalesOrder, 'totalAmount'> & {
@@ -54,7 +54,7 @@ interface SalesOrderTableProps {
 export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: SalesOrderTableProps) {
     const router = useRouter();
 
-    const getCustomerLabel = (order: SerializedSalesOrder) => order.customer?.name || 'Legacy Internal Stock Build';
+    const getCustomerLabel = (order: SerializedSalesOrder) => order.customer?.name || formLabels.legacyInternalOrder;
 
     const isMaklonOrder = (order: SerializedSalesOrder) => order.orderType === 'MAKLON_JASA';
 
@@ -63,7 +63,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
             case 'MAKE_TO_STOCK': return 'MTS';
             case 'MAKE_TO_ORDER': return 'MTO';
             case 'MAKLON_JASA': return 'Maklon Jasa';
-            default: return 'Unknown';
+            default: return formLabels.unknown;
         }
     };
 
@@ -150,23 +150,23 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Order #</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Customer</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="hidden md:table-cell">Location</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Pembayaran</TableHead>
-                                <TableHead className="text-right hidden sm:table-cell">Items</TableHead>
-                                <TableHead className="text-right">Total</TableHead>
-                                <TableHead className="text-right">Outstanding</TableHead>
+                                <TableHead>{salesLabels.orderNumber}</TableHead>
+                                <TableHead>{formLabels.date}</TableHead>
+                                <TableHead>{salesLabels.customer}</TableHead>
+                                <TableHead>{formLabels.type}</TableHead>
+                                <TableHead className="hidden md:table-cell">{salesLabels.location}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead>{salesLabels.payment}</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">{salesLabels.items}</TableHead>
+                                <TableHead className="text-right">{formLabels.total}</TableHead>
+                                <TableHead className="text-right">{salesLabels.outstanding}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {initialData.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={10} className="h-24 text-center">
-                                        No sales orders found.
+                                        {salesLabels.emptyOrders}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -192,7 +192,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                             <div>
                                                 <div className="font-medium">{getCustomerLabel(order)}</div>
                                                 {!order.customer && (
-                                                    <div className="text-xs text-amber-700">Legacy internal order, not eligible for new invoicing</div>
+                                                    <div className="text-xs text-amber-700">{formLabels.legacyInternalOrderHint}</div>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -238,7 +238,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
             <div className="md:hidden space-y-3">
                 {initialData.length === 0 ? (
                     <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-                        No sales orders found.
+                        {salesLabels.emptyOrders}
                     </div>
                 ) : (
                     initialData.map((order) => {
@@ -270,21 +270,21 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Customer</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">{salesLabels.customer}</p>
                                             <p className="font-medium truncate">{getCustomerLabel(order)}</p>
                                             {!order.customer && (
                                                 <p className="text-[10px] text-amber-700">Legacy internal order</p>
                                             )}
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">{formLabels.total}</p>
                                             <p className="font-semibold text-primary">
                                                 {order.totalAmount ? formatRupiah(Number(order.totalAmount)) : '-'}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
-                                        <span className="text-muted-foreground">Type</span>
+                                        <span className="text-muted-foreground">{formLabels.type}</span>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="outline" className="text-[10px]">
                                                 {getOrderTypeLabel(order)}
@@ -293,7 +293,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-xs">
-                                        <span className="text-muted-foreground">Pembayaran</span>
+                                        <span className="text-muted-foreground">{salesLabels.payment}</span>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className={`text-[10px] ${paymentSummary.badgeClass}`}>
                                                 {paymentSummary.label}
@@ -308,7 +308,7 @@ export function SalesOrderTable({ initialData, basePath = '/sales/orders' }: Sal
                                             <span>• {getItemSummary(order)}</span>
                                         </div>
                                         <div className="flex items-center text-primary font-medium">
-                                            View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                                            Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                                         </div>
                                     </div>
                                 </div>
