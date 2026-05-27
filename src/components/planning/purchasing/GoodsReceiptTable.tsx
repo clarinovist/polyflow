@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { getStatusLabel, purchasingLabels } from '@/lib/labels';
 
 type ReceiptWithRelations = {
     id: string;
@@ -79,7 +80,7 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search receipt, PO number or customer..."
+                    placeholder="Cari No. Penerimaan, PO, atau customer..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
@@ -91,14 +92,14 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="w-[150px]">Receipt No</TableHead>
-                                <TableHead>PO Reference / Type</TableHead>
-                                <TableHead>PO Status</TableHead>
+                                <TableHead className="w-[150px]">{purchasingLabels.grNumber}</TableHead>
+                                <TableHead>Referensi PO / Tipe</TableHead>
+                                <TableHead>Status PO</TableHead>
                                 <TableHead>Supplier / Customer</TableHead>
-                                <TableHead>Received Date</TableHead>
-                                <TableHead>Location</TableHead>
-                                <TableHead>Items</TableHead>
-                                <TableHead>Received By</TableHead>
+                                <TableHead>{purchasingLabels.grDate}</TableHead>
+                                <TableHead>Lokasi</TableHead>
+                                <TableHead>Item</TableHead>
+                                <TableHead>Diterima Oleh</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -130,7 +131,7 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                                     variant={gr.purchaseOrder.status === 'COMPLETED' ? 'default' : gr.purchaseOrder.status === 'PARTIAL_RECEIVED' ? 'secondary' : 'outline'}
                                                     className={gr.purchaseOrder.status === 'COMPLETED' ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 border-none' : ''}
                                                 >
-                                                    {gr.purchaseOrder.status.replace(/_/g, ' ')}
+                                                    {getStatusLabel(gr.purchaseOrder.status, 'purchasing')}
                                                 </Badge>
                                             ) : (
                                                 <Badge variant="outline" className="text-muted-foreground">-</Badge>
@@ -146,7 +147,7 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                                 ) : (
                                                     <>
                                                         <User className="h-3 w-3 text-muted-foreground" />
-                                                        {gr.customer?.name || 'Unknown Maklon'}
+                                                        {gr.customer?.name || 'Maklon Tidak Diketahui'}
                                                     </>
                                                 )}
                                             </div>
@@ -168,16 +169,16 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                                 <PopoverTrigger asChild>
                                                     <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
                                                         <Badge variant="secondary" className="font-normal cursor-pointer hover:bg-muted-foreground/20">
-                                                            {gr._count.items} items
+                                                            {gr._count.items} item
                                                         </Badge>
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-80 p-0" align="start">
                                                     <div className="p-4 space-y-3">
                                                         <div className="space-y-1">
-                                                            <h4 className="font-medium leading-none">Received Items</h4>
+                                                            <h4 className="font-medium leading-none">Item Diterima</h4>
                                                             <p className="text-xs text-muted-foreground">
-                                                                Items in receipt {gr.receiptNumber}
+                                                                Daftar item untuk penerimaan {gr.receiptNumber}
                                                             </p>
                                                         </div>
                                                         <div className="grid gap-3">
@@ -207,8 +208,8 @@ export function GoodsReceiptTable({ receipts, basePath = '/warehouse/incoming' }
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                        No goods receipts found.
+                                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                        {purchasingLabels.emptyReceipts}
                                     </TableCell>
                                 </TableRow>
                             )}

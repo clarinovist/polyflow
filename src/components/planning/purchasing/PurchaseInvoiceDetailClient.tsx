@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { recordPurchasePayment } from '@/actions/purchasing/purchasing';
+import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
 
 interface PurchaseInvoiceDetailProps {
     invoice: {
@@ -43,6 +44,13 @@ interface PurchaseInvoiceDetailProps {
 
 const PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Check', 'Credit Card'] as const;
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+    'Bank Transfer': 'Transfer Bank',
+    'Cash': 'Tunai',
+    'Check': 'Cek',
+    'Credit Card': 'Kartu Kredit',
+};
+
 export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +72,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
         };
         return (
             <Badge variant="outline" className={styles[status] || styles.UNPAID}>
-                {status}
+                {getStatusLabel(status, 'purchasing')}
             </Badge>
         );
     };
@@ -141,7 +149,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href="/finance/invoices/purchase">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                            <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                         </Link>
                     </Button>
                     <div>
@@ -151,7 +159,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             {getStatusBadge(invoice.status)}
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            Invoice Date: {format(new Date(invoice.invoiceDate), 'PPP')}
+                            {purchasingLabels.invoiceDate}: {format(new Date(invoice.invoiceDate), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -162,14 +170,14 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                     {/* Amount Summary Card */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Payment Summary</CardTitle>
-                            <CardDescription>Track payments for this invoice</CardDescription>
+                            <CardTitle>Ringkasan Pembayaran</CardTitle>
+                            <CardDescription>Pantau pembayaran untuk invoice ini</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             {/* Progress Bar */}
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Payment Progress</span>
+                                    <span className="text-muted-foreground">Kemajuan Pembayaran</span>
                                     <span className="font-medium">{progressPercent.toFixed(0)}%</span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -183,15 +191,15 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             {/* Amount Breakdown */}
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="p-4 bg-muted/50 rounded-lg text-center">
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Amount</p>
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Tagihan</p>
                                     <p className="text-xl font-bold">{formatRupiah(invoice.totalAmount)}</p>
                                 </div>
                                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg text-center">
-                                    <p className="text-xs text-emerald-600 uppercase tracking-wider mb-1">Paid</p>
+                                    <p className="text-xs text-emerald-600 uppercase tracking-wider mb-1">Dibayar</p>
                                     <p className="text-xl font-bold text-emerald-600">{formatRupiah(invoice.paidAmount)}</p>
                                 </div>
                                 <div className={`p-4 rounded-lg text-center ${isOverdue ? 'bg-red-50 dark:bg-red-950/20' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
-                                    <p className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>Remaining</p>
+                                    <p className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>Sisa Tagihan</p>
                                     <p className={`text-xl font-bold ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>{formatRupiah(remainingAmount)}</p>
                                 </div>
                             </div>
@@ -201,7 +209,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                 <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
                                     <AlertCircle className="h-5 w-5 shrink-0" />
                                     <div className="text-sm">
-                                        <span className="font-semibold">Overdue!</span> This invoice was due on {format(new Date(invoice.dueDate), 'PPP')}.
+                                        <span className="font-semibold">Lewat Jatuh Tempo!</span> Jatuh tempo invoice ini adalah pada {format(new Date(invoice.dueDate), 'PPP')}.
                                     </div>
                                 </div>
                             )}
@@ -211,22 +219,22 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                 <div className="pt-4 border-t space-y-4">
                                     <h3 className="font-semibold flex items-center gap-2">
                                         <CreditCard className="h-4 w-4" />
-                                        Record Payment
+                                        Catat Pembayaran
                                     </h3>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="purchase-payment-amount">Payment Amount</Label>
+                                            <Label htmlFor="purchase-payment-amount">Jumlah Pembayaran</Label>
                                             <Input
                                                 id="purchase-payment-amount"
                                                 type="number"
-                                                placeholder="Enter payment amount"
+                                                placeholder="Masukkan jumlah pembayaran"
                                                 value={paymentAmount}
                                                 onChange={(e) => setPaymentAmount(e.target.value)}
                                                 className="h-11"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="purchase-payment-date">Payment Date</Label>
+                                            <Label htmlFor="purchase-payment-date">Tanggal Pembayaran</Label>
                                             <Input
                                                 id="purchase-payment-date"
                                                 type="date"
@@ -236,7 +244,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="purchase-payment-method">Payment Method</Label>
+                                            <Label htmlFor="purchase-payment-method">Metode Pembayaran</Label>
                                             <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as (typeof PAYMENT_METHODS)[number])}>
                                                 <SelectTrigger id="purchase-payment-method" className="h-11">
                                                     <SelectValue />
@@ -244,17 +252,17 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 <SelectContent>
                                                     {PAYMENT_METHODS.map((method) => (
                                                         <SelectItem key={method} value={method}>
-                                                            {method}
+                                                            {PAYMENT_METHOD_LABELS[method] ?? method}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="purchase-payment-notes">Notes</Label>
+                                            <Label htmlFor="purchase-payment-notes">Catatan</Label>
                                             <Textarea
                                                 id="purchase-payment-notes"
-                                                placeholder="Optional payment notes"
+                                                placeholder="Catatan pembayaran opsional"
                                                 value={paymentNotes}
                                                 onChange={(e) => setPaymentNotes(e.target.value)}
                                                 rows={3}
@@ -267,7 +275,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                             disabled={isLoading || !paymentAmount}
                                             className="h-11 flex-1"
                                         >
-                                            Record Payment
+                                            Catat Pembayaran
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -275,7 +283,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                             disabled={isLoading}
                                             className="h-11"
                                         >
-                                            Fill Remaining
+                                            Isi Sisa Pembayaran
                                         </Button>
                                     </div>
                                     <Button
@@ -285,7 +293,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                         className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                     >
                                         <CheckCircle className="mr-2 h-4 w-4" />
-                                        Pay Full Amount ({formatRupiah(remainingAmount)})
+                                        Bayar Lunas ({formatRupiah(remainingAmount)})
                                     </Button>
                                 </div>
                             )}
@@ -293,7 +301,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             {invoice.status === 'PAID' && (
                                 <div className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg">
                                     <CheckCircle className="h-6 w-6 text-emerald-600" />
-                                    <span className="font-semibold text-emerald-600">Fully Paid</span>
+                                    <span className="font-semibold text-emerald-600">Lunas</span>
                                 </div>
                             )}
                         </CardContent>
@@ -305,10 +313,10 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <History className="h-5 w-5" />
-                                    Payment History
+                                    Riwayat Pembayaran
                                 </CardTitle>
                                 <CardDescription>
-                                    {invoice.payments.length} payment(s) recorded
+                                    {invoice.payments.length} pembayaran tercatat
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -324,7 +332,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 </span>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <User className="h-3 w-3" />
-                                                    <span>{payment.method || 'Unknown method'}</span>
+                                                    <span>{PAYMENT_METHOD_LABELS[payment.method || ''] ?? payment.method ?? 'Metode tidak diketahui'}</span>
                                                     {payment.notes && (
                                                         <span className="truncate max-w-[220px]">• {payment.notes}</span>
                                                     )}
@@ -345,7 +353,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                     {/* Invoice Details */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Invoice Details</CardTitle>
+                            <CardTitle className="text-base">Detail Invoice</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex items-start gap-3">
@@ -364,7 +372,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             <div className="flex items-start gap-3">
                                 <Building2 className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Supplier</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.supplier}</h3>
                                     <p className="font-medium">{invoice.purchaseOrder.supplier.name}</p>
                                     {invoice.purchaseOrder.supplier.code && (
                                         <p className="text-xs text-muted-foreground font-mono">
@@ -377,7 +385,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             <div className="flex items-start gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Invoice Date</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.invoiceDate}</h3>
                                     <p className="font-medium">{format(new Date(invoice.invoiceDate), 'PPP')}</p>
                                 </div>
                             </div>
@@ -385,7 +393,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             <div className="flex items-start gap-3">
                                 <Calendar className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`} />
                                 <div>
-                                    <h3 className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>Due Date</h3>
+                                    <h3 className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>{formLabels.dueDate}</h3>
                                     <p className={`font-medium ${isOverdue ? 'text-red-600' : ''}`}>
                                         {format(new Date(invoice.dueDate), 'PPP')}
                                     </p>

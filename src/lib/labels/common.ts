@@ -57,6 +57,7 @@ export const formLabels = {
   product: 'Produk',
   unitPrice: 'Harga Satuan',
   subtotal: 'Subtotal',
+  dueDate: 'Jatuh Tempo',
   action: 'Aksi',
   actions: 'Aksi',
   createdOn: 'Dibuat pada',

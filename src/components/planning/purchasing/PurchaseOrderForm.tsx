@@ -17,6 +17,7 @@ import { Plus, Trash2, ShoppingBag, Calculator } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
 import { ProductCombobox } from '@/components/products/product-combobox';
 import { Badge } from '@/components/ui/badge';
+import { purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
 
 interface PurchaseOrderFormProps {
     suppliers: { id: string; name: string; code: string | null }[];
@@ -93,22 +94,22 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                     <div className="space-y-1">
                                         <CardTitle className="text-base font-semibold flex items-center gap-2">
                                             <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                                            Order Items
+                                            Item PO
                                         </CardTitle>
-                                        <CardDescription>Select products and quantities.</CardDescription>
+                                        <CardDescription>Pilih produk dan kuantitas.</CardDescription>
                                     </div>
                                     <Badge variant="outline" className="bg-white">
-                                        {fields.length} Items
+                                        {fields.length} Item
                                     </Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {/* Desktop Header */}
                                 <div className="hidden md:grid md:grid-cols-[1fr_100px_140px_140px_48px] gap-4 px-6 py-3 bg-muted/20 text-[10px] uppercase font-bold text-muted-foreground tracking-wider border-b">
-                                    <div>Product / Material</div>
-                                    <div className="text-center">Qty</div>
-                                    <div>Unit Cost</div>
-                                    <div className="text-right">Total</div>
+                                    <div>{formLabels.product}</div>
+                                    <div className="text-center">{formLabels.qty}</div>
+                                    <div>{formLabels.unitPrice}</div>
+                                    <div className="text-right">{formLabels.total}</div>
                                     <div />
                                 </div>
 
@@ -118,7 +119,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                             <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_140px_140px_48px] gap-4 items-center">
                                                 {/* Product */}
                                                 <div className="w-full">
-                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">PRODUCT</div>
+                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">{formLabels.product}</div>
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.productVariantId`}
@@ -132,7 +133,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                                                             field.onChange(val);
                                                                             handleProductChange(index, val);
                                                                         }}
-                                                                        placeholder="Select product..."
+                                                                        placeholder="Pilih produk..."
                                                                         className="h-10 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
                                                                     />
                                                                 </FormControl>
@@ -144,7 +145,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
 
                                                 {/* Qty */}
                                                 <div>
-                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">QTY</div>
+                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">{formLabels.qty}</div>
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.quantity`}
@@ -169,7 +170,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
 
                                                 {/* Price */}
                                                 <div>
-                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">PRICE</div>
+                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">{formLabels.unitPrice}</div>
                                                     <FormField
                                                         control={form.control}
                                                         name={`items.${index}.unitPrice`}
@@ -194,7 +195,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
 
                                                 {/* Subtotal */}
                                                 <div className="text-right font-mono text-sm font-medium">
-                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">TOTAL</div>
+                                                    <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">{formLabels.total}</div>
                                                     {formatRupiah((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0))}
                                                 </div>
 
@@ -223,7 +224,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                         onClick={() => append({ productVariantId: '', quantity: 1, unitPrice: 0 })}
                                         className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-solid hover:bg-white"
                                     >
-                                        <Plus className="h-4 w-4 mr-2" /> Add Item
+                                        <Plus className="h-4 w-4 mr-2" /> {actionLabels.add} Item
                                     </Button>
                                 </div>
                             </CardContent>
@@ -235,11 +236,11 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                 name="notes"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Internal Notes</FormLabel>
+                                        <FormLabel className="text-xs uppercase font-bold text-muted-foreground">{formLabels.notes}</FormLabel>
                                         <FormControl>
                                             <Textarea
                                                 {...field}
-                                                placeholder="Add any internal notes, payment terms reminder, or special instructions..."
+                                                placeholder="Tambahkan catatan internal, pengingat termin pembayaran, atau instruksi khusus..."
                                                 className="resize-none bg-white dark:bg-zinc-900 min-h-[100px]"
                                             />
                                         </FormControl>
@@ -255,7 +256,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                         <Card className="sticky top-6 border-zinc-200 shadow-lg overflow-hidden">
                             <div className="bg-zinc-900 text-white p-6">
                                 <div className="flex items-center gap-2 text-zinc-400 text-xs uppercase tracking-widest font-bold mb-4">
-                                    <Calculator className="h-3 w-3" /> Estimate Total
+                                    <Calculator className="h-3 w-3" /> Estimasi Total
                                 </div>
                                 <div className="text-3xl font-bold font-mono tracking-tight">
                                     {formatRupiah(totalAmount)}
@@ -268,11 +269,11 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                     name="supplierId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Select Supplier</FormLabel>
+                                            <FormLabel>Pilih Supplier</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-11">
-                                                        <SelectValue placeholder="Choose vendor..." />
+                                                        <SelectValue placeholder="Pilih supplier..." />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -297,7 +298,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                         name="orderDate"
                                         render={({ field }) => (
                                             <FormItem className="flex flex-col">
-                                                <FormLabel>Order Date</FormLabel>
+                                                <FormLabel>{purchasingLabels.poDate}</FormLabel>
                                                 <Input
                                                     type="date"
                                                     value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
@@ -314,7 +315,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                         name="expectedDate"
                                         render={({ field }) => (
                                             <FormItem className="flex flex-col">
-                                                <FormLabel>Due Date</FormLabel>
+                                                <FormLabel>Estimasi Pengiriman</FormLabel>
                                                 <Input
                                                     type="date"
                                                     value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
@@ -336,12 +337,12 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
                                         {isLoading ? (
                                             <span className="flex items-center gap-2">
                                                 <span className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                                                Creating...
+                                                Membuat...
                                             </span>
-                                        ) : "Confirm Purchase Order"}
+                                        ) : "Konfirmasi Purchase Order"}
                                     </Button>
                                     <p className="text-center text-xs text-muted-foreground mt-3">
-                                        Creates a draft order. Approval may be required.
+                                        Membuat pesanan draft. Persetujuan mungkin diperlukan.
                                     </p>
                                 </div>
                             </CardContent>

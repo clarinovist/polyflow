@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { consolidatePurchaseRequests } from '@/actions/purchasing/purchasing';
 import { toast } from 'sonner';
 import { Loader2, Merge } from 'lucide-react';
+import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
 
 type RequestWithRelations = PurchaseRequest & {
     items: (PurchaseRequestItem & {
@@ -99,14 +100,14 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div className="space-y-1">
-                        <CardTitle>Purchase Requests</CardTitle>
-                        <CardDescription>Manage internal requests for materials.</CardDescription>
+                        <CardTitle>{purchasingLabels.purchaseRequest}</CardTitle>
+                        <CardDescription>Kelola permintaan pembelian bahan baku internal.</CardDescription>
                     </div>
                     <div>
                         {selectedIds.length > 0 && (
                             <Button onClick={() => handleActionClick()} className="gap-2">
                                 <Merge className="h-4 w-4" />
-                                Consolidate ({selectedIds.length})
+                                Konsolidasi ({selectedIds.length})
                             </Button>
                         )}
                     </div>
@@ -122,13 +123,13 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                         disabled={openRequests.length === 0}
                                     />
                                 </TableHead>
-                                <TableHead>Request #</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Items</TableHead>
-                                <TableHead>Source</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Priority</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead>{purchasingLabels.prNumber}</TableHead>
+                                <TableHead>{formLabels.date}</TableHead>
+                                <TableHead>{purchasingLabels.itemsCount}</TableHead>
+                                <TableHead>{purchasingLabels.source}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead>Prioritas</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -159,7 +160,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={req.status === 'OPEN' ? 'default' : 'secondary'}>
-                                            {req.status}
+                                            {getStatusLabel(req.status, 'purchasing')}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -167,10 +168,10 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         {req.status === 'OPEN' && (
-                                            <Button size="sm" variant="ghost" onClick={() => handleActionClick(req.id)}>Convert</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => handleActionClick(req.id)}>Konversi</Button>
                                         )}
                                         {req.status === 'CONVERTED' && (
-                                            <Button size="sm" variant="ghost" disabled>Converted</Button>
+                                            <Button size="sm" variant="ghost" disabled>{getStatusLabel('CONVERTED', 'purchasing')}</Button>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -178,7 +179,7 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                             {requests.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                        No open purchase requests found.
+                                        {purchasingLabels.emptyRequests}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -191,19 +192,19 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {selectedIds.length > 1 ? `Consolidate ${selectedIds.length} Requests` : 'Convert to Purchase Order'}
+                            {selectedIds.length > 1 ? `Konsolidasi ${selectedIds.length} Permintaan` : 'Konversi ke Purchase Order'}
                         </DialogTitle>
                         <DialogDescription>
-                            Select a supplier to create a Purchase Order for the selected requests.
-                            Items will be aggregated by product variant.
+                            Pilih supplier untuk membuat Purchase Order dari permintaan yang dipilih.
+                            Item akan digabungkan berdasarkan varian produk.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="py-4">
-                        <label className="text-sm font-medium mb-2 block">Supplier</label>
+                        <label className="text-sm font-medium mb-2 block">{purchasingLabels.supplier}</label>
                         <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select supplier..." />
+                                <SelectValue placeholder="Pilih supplier..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {suppliers.map(s => (
@@ -214,10 +215,10 @@ export function RequestList({ requests, suppliers }: RequestListProps) {
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsConvertOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setIsConvertOpen(false)}>{actionLabels.cancel}</Button>
                         <Button onClick={handleConfirmConvert} disabled={!selectedSupplier || isConverting}>
                             {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Create Draft PO
+                            Buat Draft PO
                         </Button>
                     </DialogFooter>
                 </DialogContent>

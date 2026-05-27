@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createPurchaseReturnAction } from '@/actions/purchasing/purchase-returns';
 import Link from 'next/link';
+import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 
 // Using partial types for props
 type SupplierOption = { id: string; name: string };
@@ -91,31 +92,31 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                     <Button type="button" variant="ghost" asChild>
                         <Link href="/planning/purchase-returns">
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Returns
+                            Kembali ke Retur
                         </Link>
                     </Button>
                     <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => router.back()}>{actionLabels.cancel}</Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : (mode === 'create' ? 'Create Return' : 'Save Changes')}
+                            {isSubmitting ? 'Menyimpan...' : (mode === 'create' ? 'Buat Retur' : 'Simpan Perubahan')}
                         </Button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card>
-                        <CardHeader><CardTitle>General Information</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Informasi Umum</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <FormField
                                 control={form.control}
                                 name="purchaseOrderId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Reference Purchase Order (Optional)</FormLabel>
+                                        <FormLabel>Referensi Purchase Order (Opsional)</FormLabel>
                                         <Select onValueChange={handlePurchaseOrderChange} value={field.value || ''}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select Purchase Order" />
+                                                    <SelectValue placeholder="Pilih Purchase Order" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -136,11 +137,11 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                 name="supplierId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Supplier *</FormLabel>
+                                        <FormLabel>{purchasingLabels.supplier} *</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select Supplier" />
+                                                    <SelectValue placeholder="Pilih Supplier" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -159,10 +160,10 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                 name="sourceLocationId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Dispatch Location *</FormLabel>
+                                        <FormLabel>Lokasi Pengiriman *</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select Location" /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Pilih Lokasi" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {locations.map(loc => (
@@ -178,24 +179,24 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                     </Card>
 
                     <Card>
-                        <CardHeader><CardTitle>Return Details</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Detail Retur</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <FormField
                                 control={form.control}
                                 name="reason"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>General Reason *</FormLabel>
+                                        <FormLabel>Alasan Umum *</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                                             <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select Reason" /></SelectTrigger>
+                                                <SelectTrigger><SelectValue placeholder="Pilih Alasan" /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="DEFECTIVE">Defective</SelectItem>
-                                                <SelectItem value="WRONG_ITEM">Wrong Item</SelectItem>
-                                                <SelectItem value="NOT_NEEDED">Not Needed</SelectItem>
-                                                <SelectItem value="DAMAGE_IN_TRANSIT">Damage In Transit</SelectItem>
-                                                <SelectItem value="OTHER">Other</SelectItem>
+                                                <SelectItem value="DEFECTIVE">Cacat / Rusak</SelectItem>
+                                                <SelectItem value="WRONG_ITEM">Salah Barang</SelectItem>
+                                                <SelectItem value="NOT_NEEDED">Tidak Dibutuhkan</SelectItem>
+                                                <SelectItem value="DAMAGE_IN_TRANSIT">Rusak Selama Pengiriman</SelectItem>
+                                                <SelectItem value="OTHER">Lainnya</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -207,9 +208,9 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                 name="notes"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Notes</FormLabel>
+                                        <FormLabel>{formLabels.notes}</FormLabel>
                                         <FormControl>
-                                            <Textarea {...field} placeholder="Additional details..." value={field.value || ''} />
+                                            <Textarea {...field} placeholder="Detail tambahan..." value={field.value || ''} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -221,9 +222,9 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Returned Items</CardTitle>
+                        <CardTitle>Item Diretur</CardTitle>
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ productVariantId: '', returnedQty: 1, unitCost: 0, reason: 'OTHER' })}>
-                            <Plus className="h-4 w-4 mr-2" /> Add Item
+                            <Plus className="h-4 w-4 mr-2" /> Tambah Item
                         </Button>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -235,7 +236,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         name={`items.${index}.productVariantId`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Product *</FormLabel>
+                                                <FormLabel>{formLabels.product} *</FormLabel>
                                                 <Select 
                                                     onValueChange={(val) => {
                                                         field.onChange(val);
@@ -248,7 +249,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                                     value={field.value}
                                                 >
                                                     <FormControl>
-                                                        <SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger>
+                                                        <SelectTrigger><SelectValue placeholder="Pilih Produk" /></SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
                                                         {products.map(p => (
@@ -269,7 +270,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         name={`items.${index}.returnedQty`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Qty *</FormLabel>
+                                                <FormLabel>{formLabels.qty} *</FormLabel>
                                                 <FormControl>
                                                     <Input type="number" min="0.01" step="0.01" className="no-stepper" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                                                 </FormControl>
@@ -284,7 +285,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         name={`items.${index}.unitCost`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Unit Cost *</FormLabel>
+                                                <FormLabel>Biaya Satuan *</FormLabel>
                                                 <FormControl>
                                                     <Input type="number" min="0" step="100" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
                                                 </FormControl>
@@ -300,9 +301,9 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                                         name={`items.${index}.reason`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Item Reason</FormLabel>
+                                                <FormLabel>Alasan Per Item</FormLabel>
                                                 <FormControl>
-                                                    <Input {...field} placeholder="Optional" value={field.value || ''} />
+                                                    <Input {...field} placeholder="Opsional" value={field.value || ''} />
                                                 </FormControl>
                                             </FormItem>
                                         )}

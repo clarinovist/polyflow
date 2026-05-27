@@ -65,3 +65,22 @@ export const financeStatusLabels = {
   OVERDUE: 'Lewat Jatuh Tempo',
   CANCELLED: 'Dibatalkan',
 } as const;
+
+export const purchasingStatusLabels = {
+  OPEN: 'Open',
+  APPROVED: 'Disetujui',
+  REJECTED: 'Ditolak',
+  CONVERTED: 'Dikonversi',
+  DRAFT: 'Draft',
+  SENT: 'Dikirim ke Supplier',
+  PARTIAL_RECEIVED: 'Diterima Sebagian',
+  RECEIVED: 'Diterima',
+  UNPAID: 'Belum Dibayar',
+  PARTIAL: 'Dibayar Sebagian',
+  PAID: 'Lunas',
+  OVERDUE: 'Lewat Jatuh Tempo',
+  CONFIRMED: 'Terkonfirmasi',
+  SHIPPED: 'Dikirim',
+  COMPLETED: 'Selesai',
+  CANCELLED: 'Dibatalkan',
+} as const;

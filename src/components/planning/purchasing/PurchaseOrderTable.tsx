@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils/utils';
 import { PurchaseOrderStatus } from '@prisma/client';
+import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 
 type POWithRelations = {
     id: string;
@@ -62,17 +63,17 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
     const getStatusBadge = (status: PurchaseOrderStatus) => {
         switch (status) {
             case 'DRAFT':
-                return <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200">Draft</Badge>;
+                return <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200">{getStatusLabel('DRAFT', 'purchasing')}</Badge>;
             case 'SENT':
-                return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">Sent</Badge>;
+                return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">{getStatusLabel('SENT', 'purchasing')}</Badge>;
             case 'PARTIAL_RECEIVED':
-                return <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">Partial</Badge>;
+                return <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200">{getStatusLabel('PARTIAL_RECEIVED', 'purchasing')}</Badge>;
             case 'RECEIVED':
-                return <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200">Received</Badge>;
+                return <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200">{getStatusLabel('RECEIVED', 'purchasing')}</Badge>;
             case 'CANCELLED':
-                return <Badge variant="destructive">Cancelled</Badge>;
+                return <Badge variant="destructive">{getStatusLabel('CANCELLED', 'purchasing')}</Badge>;
             default:
-                return <Badge variant="outline">{status}</Badge>;
+                return <Badge variant="outline">{getStatusLabel(status, 'purchasing')}</Badge>;
         }
     };
 
@@ -82,7 +83,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search PO number or supplier..."
+                        placeholder="Cari No. PO atau supplier..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-9"
@@ -94,15 +95,17 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="h-9 w-[150px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                        <option value="all">All Status</option>
+                        <option value="all">Semua Status</option>
                         {Object.values(PurchaseOrderStatus).map(status => (
-                            <option key={status} value={status}>{status}</option>
+                            <option key={status} value={status}>
+                                {getStatusLabel(status, 'purchasing')}
+                            </option>
                         ))}
                     </select>
                     <Link href="/planning/purchase-orders/create">
                         <Button className="bg-blue-600 hover:bg-blue-700">
                             <Plus className="mr-2 h-4 w-4" />
-                            Create PO
+                            Buat PO
                         </Button>
                     </Link>
                 </div>
@@ -113,14 +116,14 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="w-[150px]">PO Number</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead>Order Date</TableHead>
-                                <TableHead>Expected</TableHead>
-                                <TableHead className="text-right">Total Amount</TableHead>
-                                <TableHead className="text-center">Items</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                                <TableHead className="w-[150px]">{purchasingLabels.poNumber}</TableHead>
+                                <TableHead>{purchasingLabels.supplier}</TableHead>
+                                <TableHead>{purchasingLabels.poDate}</TableHead>
+                                <TableHead>Estimasi Pengiriman</TableHead>
+                                <TableHead className="text-right">Total Keseluruhan</TableHead>
+                                <TableHead className="text-center">{purchasingLabels.itemsCount}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead className="w-[100px] text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -151,7 +154,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant="secondary" className="font-normal">
-                                                {order._count.items} items
+                                                {order._count.items} item
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -169,7 +172,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                                        No purchase orders found.
+                                        {purchasingLabels.emptyOrders}
                                     </TableCell>
                                 </TableRow>
                             )}

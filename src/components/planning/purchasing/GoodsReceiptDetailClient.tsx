@@ -8,6 +8,7 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { ArrowLeft, Package, MapPin, Calendar, User, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 
 interface GoodsReceiptItem {
     id: string;
@@ -55,7 +56,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`${basePath}/receipts`}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                            <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
                         </Link>
                     </Button>
                     <div>
@@ -64,7 +65,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             {receipt.receiptNumber}
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            Received on {format(new Date(receipt.receivedDate), 'PPP')}
+                            Diterima pada {format(new Date(receipt.receivedDate), 'PPP')}
                         </p>
                     </div>
                 </div>
@@ -73,7 +74,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                     <Button variant="outline" asChild>
                         <Link href={`${basePath}/orders/${receipt.purchaseOrder.orderNumber.replace('PO-', '')}`}>
                             <FileText className="mr-2 h-4 w-4" />
-                            View PO {receipt.purchaseOrder.orderNumber}
+                            Lihat PO {receipt.purchaseOrder.orderNumber}
                         </Link>
                     </Button>
                 )}
@@ -83,17 +84,17 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                 <div className="md:col-span-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Received Items</CardTitle>
-                            <CardDescription>Items received in this goods receipt</CardDescription>
+                            <CardTitle>Item Diterima</CardTitle>
+                            <CardDescription>Daftar item yang diterima dalam penerimaan barang ini</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="border rounded-lg overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50 border-b">
                                         <tr>
-                                            <th className="h-10 px-4 text-left font-medium">Product</th>
-                                            <th className="h-10 px-4 text-right font-medium">Quantity</th>
-                                            <th className="h-10 px-4 text-right font-medium">Unit Cost</th>
+                                            <th className="h-10 px-4 text-left font-medium">{formLabels.product}</th>
+                                            <th className="h-10 px-4 text-right font-medium">Kuantitas</th>
+                                            <th className="h-10 px-4 text-right font-medium">Biaya Satuan</th>
                                             <th className="h-10 px-4 text-right font-medium">Total</th>
                                         </tr>
                                     </thead>
@@ -121,7 +122,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <tfoot className="bg-muted/50 border-t">
                                         <tr>
                                             <td colSpan={3} className="p-4 text-right font-bold">
-                                                Total Value
+                                                Total Nilai
                                             </td>
                                             <td className="p-4 text-right font-bold text-lg text-emerald-600 tabular-nums">
                                                 {formatRupiah(totalValue)}
@@ -137,7 +138,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Receipt Details</CardTitle>
+                            <CardTitle className="text-base">Detail Penerimaan</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {receipt.purchaseOrder ? (
@@ -158,7 +159,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <div className="flex items-start gap-3">
                                         <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Supplier</h3>
+                                            <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.supplier}</h3>
                                             <p className="font-medium">{receipt.purchaseOrder.supplier.name}</p>
                                             {receipt.purchaseOrder.supplier.code && (
                                                 <p className="text-xs text-muted-foreground font-mono">
@@ -173,15 +174,15 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                                     <div className="flex items-start gap-3">
                                         <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Receipt Type</h3>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Tipe Penerimaan</h3>
                                             <Badge variant="outline" className="border-purple-500/20 text-purple-600 dark:text-purple-400 bg-purple-500/10">Maklon Jasa</Badge>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
                                         <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                                         <div>
-                                            <h3 className="text-xs font-medium text-muted-foreground">Customer (Owner)</h3>
-                                            <p className="font-medium">{receipt.customer?.name || 'Unknown Maklon Customer'}</p>
+                                            <h3 className="text-xs font-medium text-muted-foreground">Customer (Pemilik)</h3>
+                                            <p className="font-medium">{receipt.customer?.name || 'Customer Maklon Tidak Diketahui'}</p>
                                             {receipt.customer?.code && (
                                                 <p className="text-xs text-muted-foreground font-mono">
                                                     {receipt.customer.code}
@@ -195,7 +196,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <div className="flex items-start gap-3">
                                 <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Received at</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">Diterima di</h3>
                                     <p className="font-medium">{receipt.location.name}</p>
                                 </div>
                             </div>
@@ -203,7 +204,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <div className="flex items-start gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Received Date</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">{purchasingLabels.grDate}</h3>
                                     <p className="font-medium">
                                         {format(new Date(receipt.receivedDate), 'PPP')}
                                     </p>
@@ -213,7 +214,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                             <div className="flex items-start gap-3">
                                 <User className="h-4 w-4 text-muted-foreground mt-0.5" />
                                 <div>
-                                    <h3 className="text-xs font-medium text-muted-foreground">Received By</h3>
+                                    <h3 className="text-xs font-medium text-muted-foreground">Diterima Oleh</h3>
                                     <p className="font-medium">{receipt.createdBy.name}</p>
                                 </div>
                             </div>
@@ -223,7 +224,7 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                     {receipt.notes && (
                         <Card>
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm">Notes</CardTitle>
+                                <CardTitle className="text-sm">{formLabels.notes}</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <p className="text-sm whitespace-pre-wrap text-muted-foreground">
@@ -237,10 +238,10 @@ export function GoodsReceiptDetailClient({ receipt, basePath = '/warehouse/incom
                         <CardContent className="p-4">
                             <div className="text-center">
                                 <Badge className="bg-emerald-600 text-white mb-2">
-                                    {receipt.items.length} Items
+                                    {receipt.items.length} Item
                                 </Badge>
                                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                                    Items have been added to inventory
+                                    Item telah ditambahkan ke inventaris
                                 </p>
                             </div>
                         </CardContent>

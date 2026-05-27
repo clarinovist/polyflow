@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Calendar, Trash2, Loader2, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatRupiah } from '@/lib/utils/utils';
+import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
 import { deleteInvoice } from '@/actions/finance/invoices';
@@ -93,7 +94,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
         };
         return (
             <Badge variant="outline" className={styles[status]}>
-                {status}
+                {getStatusLabel(status, 'purchasing')}
             </Badge>
         );
     };
@@ -103,7 +104,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                    placeholder="Search invoice, PO, or supplier..."
+                    placeholder="Cari invoice, PO, atau supplier..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
@@ -115,15 +116,15 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="w-[150px]">Invoice No</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead>PO Ref</TableHead>
-                                <TableHead>Invoice Date</TableHead>
-                                <TableHead>Due Date</TableHead>
-                                <TableHead className="text-right">Total Amount</TableHead>
-                                <TableHead className="text-right">Paid Amount</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="w-[150px]">{purchasingLabels.invoiceNumber}</TableHead>
+                                <TableHead>{purchasingLabels.supplier}</TableHead>
+                                <TableHead>Referensi PO</TableHead>
+                                <TableHead>{purchasingLabels.invoiceDate}</TableHead>
+                                <TableHead>{formLabels.dueDate}</TableHead>
+                                <TableHead className="text-right">Total Keseluruhan</TableHead>
+                                <TableHead className="text-right">Jumlah Dibayar</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -174,24 +175,24 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
 
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isDeleting === inv.id} title="Delete/Void">
+                                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isDeleting === inv.id} title="Hapus/Batal">
                                                             {isDeleting === inv.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                                         </Button>
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogTitle>Apakah Anda benar-benar yakin?</AlertDialogTitle>
                                                             <AlertDialogDescription>
-                                                                This will permanently delete purchase invoice <strong>{inv.invoiceNumber}</strong> and its associated accounting journals from the ledger. This action cannot be undone.
+                                                                Tindakan ini akan menghapus invoice pembelian <strong>{inv.invoiceNumber}</strong> secara permanen beserta jurnal akuntansi terkait dari buku besar. Tindakan ini tidak dapat dibatalkan.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogCancel>{actionLabels.cancel}</AlertDialogCancel>
                                                             <AlertDialogAction
                                                                 onClick={() => handleDelete(inv.id)}
                                                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                             >
-                                                                Delete Bill & Journals
+                                                                Hapus Tagihan & Jurnal
                                                             </AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
@@ -203,7 +204,7 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
-                                        No purchase invoices found.
+                                        {purchasingLabels.emptyInvoices}
                                     </TableCell>
                                 </TableRow>
                             )}

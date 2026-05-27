@@ -4,6 +4,7 @@ import {
   warehouseStatusLabels,
   salesStatusLabels,
   financeStatusLabels,
+  purchasingStatusLabels,
 } from './status';
 
 /** Fallback helper: returns mapped label or raw value if not found */
@@ -14,13 +15,14 @@ export function getLabel<T extends Record<string, string>>(
   return (map as Record<string, string>)[key] ?? key;
 }
 
-export type StatusDomain = 'production' | 'warehouse' | 'sales' | 'finance';
+export type StatusDomain = 'production' | 'warehouse' | 'sales' | 'finance' | 'purchasing';
 
 const domainMap: Record<StatusDomain, Record<string, string>> = {
   production: productionStatusLabels as Record<string, string>,
   warehouse: warehouseStatusLabels as Record<string, string>,
   sales: salesStatusLabels as Record<string, string>,
   finance: financeStatusLabels as Record<string, string>,
+  purchasing: purchasingStatusLabels as Record<string, string>,
 };
 
 /**

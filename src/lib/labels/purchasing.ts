@@ -13,4 +13,42 @@ export const purchasingLabels = {
   leadTime: 'Lead Time',
   receivedQty: 'Qty Diterima',
   orderedQty: 'Qty Pesanan',
+  
+  // Document identifiers
+  prNumber: 'No. PR',
+  prDate: 'Tanggal PR',
+  poNumber: 'No. PO',
+  poDate: 'Tanggal PO',
+  grNumber: 'No. Penerimaan',
+  grDate: 'Tanggal Penerimaan',
+  invoiceNumber: 'No. Invoice',
+  invoiceDate: 'Tanggal Invoice',
+  returnNumber: 'No. Retur',
+  returnDate: 'Tanggal Retur',
+  
+  // Custom metadata / labels
+  requestedBy: 'Diminta Oleh',
+  source: 'Sumber',
+  itemsCount: 'Jumlah Item',
+  destinationWarehouse: 'Gudang Tujuan',
+  sourceWarehouse: 'Gudang Sumber',
+  condition: 'Kondisi',
+  reason: 'Alasan',
+  supplierCode: 'Kode Supplier',
+  supplierName: 'Nama Supplier',
+  taxId: 'NPWP',
+  paymentTermDays: 'Termin Pembayaran',
+  bankName: 'Nama Bank',
+  bankAccount: 'Rekening Bank',
+  preferredSupplier: 'Supplier Pilihan',
+  minOrderQty: 'Min. Order Qty',
+  productsSupplied: 'Produk yang Disuplai',
+  
+  // Empty states
+  emptyRequests: 'Tidak ada permintaan pembelian.',
+  emptyOrders: 'Tidak ada purchase order.',
+  emptyReceipts: 'Tidak ada penerimaan barang.',
+  emptyInvoices: 'Tidak ada invoice pembelian.',
+  emptyReturns: 'Tidak ada retur pembelian.',
+  emptySuppliers: 'Tidak ada supplier.',
 } as const;

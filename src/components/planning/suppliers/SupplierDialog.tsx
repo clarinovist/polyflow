@@ -27,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Loader2, Plus, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { purchasingLabels, actionLabels, formLabels } from '@/lib/labels';
 
 interface SupplierDialogProps {
     mode: 'create' | 'edit';
@@ -90,7 +91,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                         {mode === 'create' ? (
                             <>
                                 <Plus className="h-4 w-4 mr-2" />
-                                Add Supplier
+                                Tambah Supplier
                             </>
                         ) : (
                             <Pencil className="h-4 w-4" />
@@ -100,7 +101,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle>{mode === 'create' ? 'Add Supplier' : 'Edit Supplier'}</DialogTitle>
+                    <DialogTitle>{mode === 'create' ? 'Tambah Supplier' : 'Edit Supplier'}</DialogTitle>
                 </DialogHeader>
 
                 <Form {...form}>
@@ -111,9 +112,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Name *</FormLabel>
+                                        <FormLabel>{formLabels.name} *</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Supplier Name" {...field} />
+                                            <Input placeholder="Nama Supplier" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -125,16 +126,16 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 render={({ field }) => (
                                     <FormItem>
                                         <div className="flex justify-between items-center">
-                                            <FormLabel>Code</FormLabel>
+                                            <FormLabel>{purchasingLabels.supplierCode}</FormLabel>
                                             {mode === 'create' && (
                                                 <span className="text-[0.8rem] text-muted-foreground">
-                                                    (Auto-generated if empty)
+                                                    (Otomatis dibuat jika kosong)
                                                 </span>
                                             )}
                                         </div>
                                         <FormControl>
                                             <Input
-                                                placeholder={mode === 'create' ? "Auto-generated" : "SUP-XXX"}
+                                                placeholder={mode === 'create' ? "Otomatis dibuat" : "SUP-XXX"}
                                                 {...field}
                                                 disabled={mode === 'edit'}
                                             />
@@ -151,7 +152,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="phone"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Phone</FormLabel>
+                                        <FormLabel>{formLabels.phone}</FormLabel>
                                         <FormControl>
                                             <Input placeholder="+62..." {...field} />
                                         </FormControl>
@@ -179,9 +180,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                             name="address"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Address</FormLabel>
+                                    <FormLabel>{formLabels.address}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Full Address" {...field} />
+                                        <Textarea placeholder="Alamat Lengkap" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -194,7 +195,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="taxId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Tax ID (NPWP)</FormLabel>
+                                        <FormLabel>{purchasingLabels.taxId}</FormLabel>
                                         <FormControl>
                                             <Input placeholder="" {...field} />
                                         </FormControl>
@@ -207,7 +208,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="paymentTermDays"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Terms (Days)</FormLabel>
+                                        <FormLabel>{purchasingLabels.paymentTermDays}</FormLabel>
                                         <FormControl>
                                             <Input type="number" {...field} />
                                         </FormControl>
@@ -220,7 +221,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                                 name="bankName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Bank Name</FormLabel>
+                                        <FormLabel>{purchasingLabels.bankName}</FormLabel>
                                         <FormControl>
                                             <Input placeholder="BCA" {...field} />
                                         </FormControl>
@@ -235,7 +236,7 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                             name="bankAccount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Bank Account Number</FormLabel>
+                                    <FormLabel>{purchasingLabels.bankAccount}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="" {...field} />
                                     </FormControl>
@@ -249,9 +250,9 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
                             name="notes"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Notes</FormLabel>
+                                    <FormLabel>{formLabels.notes}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Internal notes..." {...field} />
+                                        <Textarea placeholder="Catatan internal..." {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -260,11 +261,11 @@ export function SupplierDialog({ mode, initialData, trigger }: SupplierDialogPro
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                                Cancel
+                                {actionLabels.cancel}
                             </Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                {mode === 'create' ? 'Create Supplier' : 'Save Changes'}
+                                {mode === 'create' ? 'Tambah Supplier' : 'Simpan Perubahan'}
                             </Button>
                         </div>
                     </form>

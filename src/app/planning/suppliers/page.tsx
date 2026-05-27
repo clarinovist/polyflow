@@ -15,6 +15,7 @@ import { Truck, Phone, MapPin, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Supplier } from '@prisma/client';
+import { purchasingLabels, formLabels } from '@/lib/labels';
 
 export default async function SuppliersPage() {
     const suppliersRes = await getSuppliers();
@@ -24,9 +25,9 @@ export default async function SuppliersPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Suppliers</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Supplier</h1>
                     <p className="text-muted-foreground">
-                        Manage your raw material and service providers
+                        Kelola penyedia bahan baku dan jasa Anda
                     </p>
                 </div>
                 <SupplierDialog mode="create" />
@@ -36,29 +37,29 @@ export default async function SuppliersPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Truck className="h-5 w-5" />
-                        All Suppliers
+                        Semua Supplier
                     </CardTitle>
                     <CardDescription>
-                        List of active suppliers in the system.
+                        Daftar supplier aktif di sistem.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Phone</TableHead>
-                                <TableHead>Address</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                                <TableHead>{purchasingLabels.supplierCode}</TableHead>
+                                <TableHead>{formLabels.name}</TableHead>
+                                <TableHead>{formLabels.phone}</TableHead>
+                                <TableHead>{formLabels.address}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead className="w-[120px] text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {suppliers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        No suppliers found. Add your first supplier!
+                                        {purchasingLabels.emptySuppliers} Tambahkan supplier pertama Anda!
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -71,7 +72,7 @@ export default async function SuppliersPage() {
                                             <div>{supplier.name}</div>
                                             <div className="flex items-center gap-1 mt-1">
                                                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-emerald-200 text-emerald-700 bg-emerald-50">
-                                                    Reliable
+                                                    Terpercaya
                                                 </Badge>
                                             </div>
                                         </TableCell>
@@ -97,7 +98,7 @@ export default async function SuppliersPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={supplier.isActive ? 'default' : 'secondary'}>
-                                                {supplier.isActive ? 'Active' : 'Inactive'}
+                                                {supplier.isActive ? 'Aktif' : 'Nonaktif'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">

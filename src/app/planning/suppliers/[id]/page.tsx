@@ -16,6 +16,7 @@ import { ChevronLeft, Phone, MapPin, Package, Clock, DollarSign, Star, Building2
 import Link from 'next/link';
 import { LinkProductDialog } from '@/components/planning/suppliers/LinkProductDialog';
 import { UnlinkProductButton } from '@/components/planning/suppliers/UnlinkProductButton';
+import { formLabels } from '@/lib/labels';
 // Note: UnlinkProductButton is still in contacts folder, I should move it too.
 
 interface SupplierProduct {
@@ -57,10 +58,10 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                     <h1 className="text-3xl font-bold tracking-tight">{supplier.name}</h1>
                     <div className="flex gap-2 mt-1">
                         <Badge variant="outline">
-                            {supplier.code || 'No Code'}
+                            {supplier.code || 'Tanpa Kode'}
                         </Badge>
                         <Badge variant={supplier.isActive ? 'default' : 'secondary'}>
-                            {supplier.isActive ? 'Active' : 'Inactive'}
+                            {supplier.isActive ? 'Aktif' : 'Nonaktif'}
                         </Badge>
                     </div>
                 </div>
@@ -72,7 +73,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Building2 className="h-5 w-5" />
-                            Overview
+                            Ikhtisar
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -93,7 +94,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                                     <Phone className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground">Phone</p>
+                                    <p className="text-xs text-muted-foreground">{formLabels.phone}</p>
                                     <p className="font-medium">{supplier.phone}</p>
                                 </div>
                             </div>
@@ -104,7 +105,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                                     <MapPin className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <div>
-                                    <p className="text-xs text-muted-foreground">Address</p>
+                                    <p className="text-xs text-muted-foreground">{formLabels.address}</p>
                                     <p className="font-medium text-sm">{supplier.address}</p>
                                 </div>
                             </div>
@@ -117,22 +118,22 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <CreditCard className="h-5 w-5" />
-                            Financial Details
+                            Detail Keuangan
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs text-muted-foreground">Tax ID</p>
+                                <p className="text-xs text-muted-foreground">NPWP</p>
                                 <p className="font-medium">{supplier.taxId || '-'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Payment Terms</p>
-                                <p className="font-medium">{supplier.paymentTermDays ? `${supplier.paymentTermDays} Days` : '-'}</p>
+                                <p className="text-xs text-muted-foreground">Termin Pembayaran</p>
+                                <p className="font-medium">{supplier.paymentTermDays ? `${supplier.paymentTermDays} Hari` : '-'}</p>
                             </div>
                         </div>
                         <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                            <p className="text-xs text-muted-foreground mb-1">Bank Information</p>
+                            <p className="text-xs text-muted-foreground mb-1">Informasi Bank</p>
                             <div className="text-sm">
                                 {supplier.bankName ? (
                                     <div className="font-medium">
@@ -144,7 +145,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                         </div>
                         {supplier.notes && (
                             <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                                <p className="text-xs text-muted-foreground mb-1">{formLabels.notes}</p>
                                 <p className="text-sm italic">{supplier.notes}</p>
                             </div>
                         )}
@@ -154,12 +155,12 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                 {/* Statistics Card */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Supplied Items</CardTitle>
+                        <CardTitle>Item yang Disuplai</CardTitle>
                     </CardHeader>
                     <CardContent className="flex items-center justify-center py-6">
                         <div className="text-center">
                             <p className="text-4xl font-bold">{supplierProducts.length}</p>
-                            <p className="text-sm text-muted-foreground">Active Products</p>
+                            <p className="text-sm text-muted-foreground">Produk Aktif</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -171,10 +172,10 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                     <div>
                         <CardTitle className="flex items-center gap-2">
                             <Package className="h-5 w-5" />
-                            Products Supplied
+                            Produk yang Disuplai
                         </CardTitle>
                         <CardDescription>
-                            List of product variants this supplier provides.
+                            Daftar varian produk yang disediakan oleh supplier ini.
                         </CardDescription>
                     </div>
                     <LinkProductDialog supplierId={id} supplierName={supplier.name} />
@@ -183,11 +184,11 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Product / Variant</TableHead>
+                                <TableHead>Produk / Varian</TableHead>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Price</TableHead>
+                                <TableHead>Harga</TableHead>
                                 <TableHead>Lead Time</TableHead>
-                                <TableHead>Min Order</TableHead>
+                                <TableHead>Min. Order</TableHead>
                                 <TableHead className="w-[100px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -195,7 +196,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                             {supplierProducts.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        No products linked to this supplier yet.
+                                        Belum ada produk yang ditautkan ke supplier ini.
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -220,7 +221,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
                                         <TableCell>
                                             <div className="flex items-center gap-1">
                                                 <Clock className="h-3 w-3 text-muted-foreground" />
-                                                {sp.leadTimeDays ? `${sp.leadTimeDays} days` : '-'}
+                                                {sp.leadTimeDays ? `${sp.leadTimeDays} hari` : '-'}
                                             </div>
                                         </TableCell>
                                         <TableCell>

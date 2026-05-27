@@ -16,6 +16,7 @@ import { PurchaseReturn, PurchaseReturnStatus, Supplier } from '@prisma/client';
 import { RotateCcw, ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 
 type SerializedPurchaseReturn = Omit<PurchaseReturn, 'totalAmount'> & {
     totalAmount: number | null;
@@ -51,20 +52,20 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Return #</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Ref PO</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right hidden sm:table-cell">Items</TableHead>
-                                <TableHead className="text-right">Total Amount</TableHead>
+                                <TableHead>{purchasingLabels.returnNumber}</TableHead>
+                                <TableHead>{formLabels.date}</TableHead>
+                                <TableHead>Referensi PO</TableHead>
+                                <TableHead>{purchasingLabels.supplier}</TableHead>
+                                <TableHead>{formLabels.status}</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">Item</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {initialData.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
-                                        No purchase returns found.
+                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                        {purchasingLabels.emptyReturns}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -91,7 +92,7 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className={getStatusColor(pr.status)}>
-                                                {pr.status.replace(/_/g, ' ')}
+                                                {getStatusLabel(pr.status, 'purchasing')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right text-muted-foreground hidden sm:table-cell">
@@ -112,7 +113,7 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
             <div className="md:hidden space-y-3">
                 {initialData.length === 0 ? (
                     <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-                        No purchase returns found.
+                        {purchasingLabels.emptyReturns}
                     </div>
                 ) : (
                     initialData.map((pr) => (
@@ -133,7 +134,7 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
                                         </div>
                                     </div>
                                     <Badge variant="secondary" className={`text-[10px] px-1.5 h-5 ${getStatusColor(pr.status)}`}>
-                                        {pr.status.replace(/_/g, ' ')}
+                                        {getStatusLabel(pr.status, 'purchasing')}
                                     </Badge>
                                 </div>
                             </CardHeader>
@@ -141,11 +142,11 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Supplier</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">{purchasingLabels.supplier}</p>
                                             <p className="font-medium truncate">{pr.supplier?.name || '-'}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total Amount</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total</p>
                                             <p className="font-semibold text-primary">
                                                 {pr.totalAmount ? formatRupiah(Number(pr.totalAmount)) : '-'}
                                             </p>
@@ -156,10 +157,10 @@ export function PurchaseReturnTable({ initialData, basePath = '/planning/purchas
                                             <Badge variant="outline" className="h-4 px-1 rounded-sm text-[9px] font-normal">
                                                 PO: {pr.purchaseOrder?.orderNumber || '-'}
                                             </Badge>
-                                            <span>• {pr._count.items} Items</span>
+                                            <span>• {pr._count.items} Item</span>
                                         </div>
                                         <div className="flex items-center text-primary font-medium">
-                                            View Details <ChevronRight className="h-3 w-3 ml-0.5" />
+                                            Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
                                         </div>
                                     </div>
                                 </div>

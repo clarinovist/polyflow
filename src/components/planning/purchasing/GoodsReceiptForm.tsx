@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Package, Download, Info, CheckCircle } from 'lucide-react';
+import { purchasingLabels, formLabels } from '@/lib/labels';
 
 interface GoodsReceiptFormProps {
     purchaseOrderId: string;
@@ -53,7 +54,7 @@ export function GoodsReceiptForm({
             purchaseOrderId,
             receivedDate: new Date(),
             locationId: defaultLocationId || '',
-            notes: `Receipt for order ${orderNumber}`,
+            notes: `Penerimaan untuk pesanan ${orderNumber}`,
             items: pendingItems.map(item => ({
                 productVariantId: item.productVariantId,
                 receivedQty: item.orderedQty - item.receivedQty,
@@ -92,9 +93,9 @@ export function GoodsReceiptForm({
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2">
                                     <Package className="h-5 w-5 text-blue-500" />
-                                    Receive Items
+                                    Penerimaan Item
                                 </CardTitle>
-                                <CardDescription>Verify quantities and costs for items being received.</CardDescription>
+                                <CardDescription>Verifikasi kuantitas dan biaya untuk item yang diterima.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
@@ -106,8 +107,8 @@ export function GoodsReceiptForm({
                                                     <p className="font-semibold text-sm">{originalItem?.productName}</p>
                                                     <p className="text-xs text-muted-foreground font-mono">{originalItem?.skuCode}</p>
                                                     <div className="mt-1 flex gap-2">
-                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">Ordered: {originalItem?.orderedQty}</span>
-                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">Prev. Recv: {originalItem?.receivedQty}</span>
+                                                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">Dipesan: {originalItem?.orderedQty}</span>
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded">Diterima Sblm: {originalItem?.receivedQty}</span>
                                                     </div>
                                                 </div>
 
@@ -116,7 +117,7 @@ export function GoodsReceiptForm({
                                                     name={`items.${index}.receivedQty`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Incoming Qty</FormLabel>
+                                                            <FormLabel className="text-xs">Qty Masuk</FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="number"
@@ -135,7 +136,7 @@ export function GoodsReceiptForm({
                                                     name={`items.${index}.unitCost`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-xs">Actual Unit Cost (Rp)</FormLabel>
+                                                            <FormLabel className="text-xs">Biaya Satuan Aktual (Rp)</FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="number"
@@ -154,7 +155,7 @@ export function GoodsReceiptForm({
 
                                     {fields.length === 0 && (
                                         <div className="py-8 text-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                            All items have been fully received.
+                                            Semua item telah diterima sepenuhnya.
                                         </div>
                                     )}
                                 </div>
@@ -163,7 +164,7 @@ export function GoodsReceiptForm({
 
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Additional Information</CardTitle>
+                                <CardTitle className="text-sm">Informasi Tambahan</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <FormField
@@ -171,9 +172,9 @@ export function GoodsReceiptForm({
                                     name="notes"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs">Notes</FormLabel>
+                                            <FormLabel className="text-xs">{formLabels.notes}</FormLabel>
                                             <FormControl>
-                                                <Textarea {...field} className="h-20" placeholder="Condition of goods, deviations, etc." />
+                                                <Textarea {...field} className="h-20" placeholder="Kondisi barang, deviasi, dll." />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -186,37 +187,37 @@ export function GoodsReceiptForm({
                     <div className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-sm">Receipt Header</CardTitle>
-                                <CardDescription>Basic information for this entry.</CardDescription>
+                                <CardTitle className="text-sm">Header Penerimaan</CardTitle>
+                                <CardDescription>Informasi dasar untuk entri ini.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField
                                     control={form.control}
                                     name="locationId"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs font-bold">Receive into Warehouse</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select location" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {locations.map(loc => (
-                                                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
+                                         <FormItem>
+                                             <FormLabel className="text-xs font-bold">{purchasingLabels.destinationWarehouse}</FormLabel>
+                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                 <FormControl>
+                                                     <SelectTrigger>
+                                                         <SelectValue placeholder="Pilih lokasi" />
+                                                     </SelectTrigger>
+                                                 </FormControl>
+                                                 <SelectContent>
+                                                     {locations.map(loc => (
+                                                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                                                     ))}
+                                                 </SelectContent>
+                                             </Select>
+                                             <FormMessage />
+                                         </FormItem>
                                     )}
                                 />
 
                                 <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md border border-amber-200 dark:border-amber-800 flex gap-3">
                                     <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                     <div className="text-[11px] text-amber-800 dark:text-amber-200">
-                                        Confirming this receipt will automatically update stock levels and recalculate the <strong>Weighted Average Cost (WAC)</strong> for each item.
+                                         Konfirmasi penerimaan ini akan memperbarui tingkat stok secara otomatis dan menghitung kembali <strong>Weighted Average Cost (WAC)</strong> untuk setiap item.
                                     </div>
                                 </div>
 
@@ -225,10 +226,10 @@ export function GoodsReceiptForm({
                                     disabled={isLoading || fields.length === 0}
                                     className="w-full bg-blue-600 hover:bg-blue-700 h-11"
                                 >
-                                    {isLoading ? "Processing..." : (
+                                    {isLoading ? "Memproses..." : (
                                         <>
                                             <Download className="mr-2 h-4 w-4" />
-                                            Post Goods Receipt
+                                             Simpan Penerimaan Barang
                                         </>
                                     )}
                                 </Button>
@@ -240,12 +241,12 @@ export function GoodsReceiptForm({
                                 <CardContent className="p-4">
                                     <div className="flex items-center gap-2 text-emerald-600 font-bold mb-2">
                                         <CheckCircle className="h-4 w-4" />
-                                        <span className="text-xs uppercase tracking-wider">Verification Checklist</span>
+                                        <span className="text-xs uppercase tracking-wider">Checklist Verifikasi</span>
                                     </div>
                                     <ul className="text-xs space-y-2 text-muted-foreground">
-                                        <li>• Quantity matches physical count</li>
-                                        <li>• Unit cost matches supplier invoice</li>
-                                        <li>• Batch quality is acceptable</li>
+                                        <li>• Kuantitas sesuai dengan hitungan fisik</li>
+                                        <li>• Biaya satuan sesuai dengan invoice supplier</li>
+                                        <li>• Kualitas batch dapat diterima</li>
                                     </ul>
                                 </CardContent>
                             </Card>

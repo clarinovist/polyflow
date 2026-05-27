@@ -17,6 +17,7 @@ import {
     cancelPurchaseReturnAction 
 } from '@/actions/purchasing/purchase-returns';
 import Link from 'next/link';
+import { getStatusLabel, purchasingLabels, formLabels } from '@/lib/labels';
 
 // Detailed type including relations
 type ReturnDetail = PurchaseReturn & {
@@ -34,20 +35,32 @@ interface PurchaseReturnDetailClientProps {
     basePath?: string;
 }
 
+const REASON_LABELS: Record<string, string> = {
+    DEFECTIVE: 'Cacat / Rusak',
+    WRONG_ITEM: 'Salah Barang',
+    NOT_NEEDED: 'Tidak Dibutuhkan',
+    DAMAGE_IN_TRANSIT: 'Rusak Selama Pengiriman',
+    OTHER: 'Lainnya',
+};
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, basePath = '/planning/purchase-returns' }: PurchaseReturnDetailClientProps) {
     const router = useRouter();
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'DRAFT': return <Badge variant="secondary" className="bg-slate-100 text-slate-800">Draft</Badge>;
-            case 'CONFIRMED': return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Confirmed</Badge>;
-            case 'SHIPPED': return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Shipped</Badge>;
-            case 'COMPLETED': return <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Completed</Badge>;
-            case 'CANCELLED': return <Badge variant="secondary" className="bg-red-100 text-red-800">Cancelled</Badge>;
-            default: return <Badge>{status}</Badge>;
-        }
+        const styles: Record<string, string> = {
+            DRAFT: 'bg-slate-100 text-slate-800',
+            CONFIRMED: 'bg-amber-100 text-amber-800',
+            SHIPPED: 'bg-blue-100 text-blue-800',
+            COMPLETED: 'bg-emerald-100 text-emerald-800',
+            CANCELLED: 'bg-red-100 text-red-800',
+        };
+        return (
+            <Badge variant="secondary" className={styles[status] || 'bg-slate-100 text-slate-800'}>
+                {getStatusLabel(status, 'purchasing')}
+            </Badge>
+        );
     };
 
     const handleAction = async (actionFn: (id: string) => Promise<unknown>, actionName: string) => {
@@ -69,7 +82,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                 <Button variant="ghost" asChild>
                     <Link href={basePath}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Returns
+                        Kembali ke Retur
                     </Link>
                 </Button>
                 
@@ -80,7 +93,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                             onClick={() => handleAction(confirmPurchaseReturnAction, 'Confirm')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Confirm' ? 'Processing...' : <><CheckCircle className="mr-2 h-4 w-4" /> Confirm Return</>}
+                            {actionLoading === 'Confirm' ? 'Memproses...' : <><CheckCircle className="mr-2 h-4 w-4" /> Konfirmasi Retur</>}
                         </Button>
                     )}
                     
@@ -91,7 +104,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                             onClick={() => handleAction(shipPurchaseReturnAction, 'Ship')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Ship' ? 'Processing...' : <><PackageCheck className="mr-2 h-4 w-4" /> Ship Items</>}
+                            {actionLoading === 'Ship' ? 'Memproses...' : <><PackageCheck className="mr-2 h-4 w-4" /> Kirim Item</>}
                         </Button>
                     )}
 
@@ -102,7 +115,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                             onClick={() => handleAction(completePurchaseReturnAction, 'Complete')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Complete' ? 'Processing...' : <><CheckCircle className="mr-2 h-4 w-4" /> Complete Return</>}
+                            {actionLoading === 'Complete' ? 'Memproses...' : <><CheckCircle className="mr-2 h-4 w-4" /> Selesaikan Retur</>}
                         </Button>
                     )}
 
@@ -112,7 +125,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                             onClick={() => handleAction(cancelPurchaseReturnAction, 'Cancel')}
                             disabled={!!actionLoading}
                         >
-                            {actionLoading === 'Cancel' ? 'Processing...' : <><Ban className="mr-2 h-4 w-4" /> Cancel Return</>}
+                            {actionLoading === 'Cancel' ? 'Memproses...' : <><Ban className="mr-2 h-4 w-4" /> Batalkan Retur</>}
                         </Button>
                     )}
                 </div>
@@ -125,7 +138,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                             <div>
                                 <CardTitle className="text-2xl">{purchaseReturn.returnNumber}</CardTitle>
                                 <CardDescription>
-                                    Returned on {purchaseReturn.returnDate ? format(new Date(purchaseReturn.returnDate), 'PPP') : '-'}
+                                    Diretur pada {purchaseReturn.returnDate ? format(new Date(purchaseReturn.returnDate), 'PPP') : '-'}
                                 </CardDescription>
                             </div>
                             {getStatusBadge(purchaseReturn.status)}
@@ -134,42 +147,42 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Supplier</h4>
-                                <p className="font-medium">{purchaseReturn.supplier?.name || 'Unknown'}</p>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{purchasingLabels.supplier}</h4>
+                                <p className="font-medium">{purchaseReturn.supplier?.name || 'Tidak Diketahui'}</p>
                             </div>
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Dispatch Location</h4>
-                                <p className="font-medium">{purchaseReturn.sourceLocation?.name || 'Unknown'}</p>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Lokasi Pengiriman</h4>
+                                <p className="font-medium">{purchaseReturn.sourceLocation?.name || 'Tidak Diketahui'}</p>
                             </div>
                             {purchaseReturn.purchaseOrder && (
                                 <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Reference PO</h4>
+                                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Referensi PO</h4>
                                     <p className="font-medium">{purchaseReturn.purchaseOrder.orderNumber}</p>
                                 </div>
                             )}
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Reason</h4>
-                                <p className="font-medium truncate">{purchaseReturn.reason?.replace(/_/g, ' ') || '-'}</p>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Alasan</h4>
+                                <p className="font-medium truncate">{(purchaseReturn.reason && REASON_LABELS[purchaseReturn.reason]) || purchaseReturn.reason?.replace(/_/g, ' ') || '-'}</p>
                             </div>
                         </div>
 
                         {purchaseReturn.notes && (
                             <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-1">Notes</h4>
+                                <h4 className="text-sm font-medium text-muted-foreground mb-1">{formLabels.notes}</h4>
                                 <p className="text-sm bg-muted/50 p-3 rounded-md">{purchaseReturn.notes}</p>
                             </div>
                         )}
 
                         <div>
-                            <h4 className="text-lg font-semibold mb-3">Returned Items</h4>
+                            <h4 className="text-lg font-semibold mb-3">Item Diretur</h4>
                             <div className="border rounded-md overflow-hidden">
                                 <table className="w-full text-sm">
                                     <thead className="bg-muted/50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left font-medium">Product</th>
-                                            <th className="px-4 py-3 text-center font-medium">Condition</th>
-                                            <th className="px-4 py-3 text-right font-medium">Qty</th>
-                                            <th className="px-4 py-3 text-right font-medium">Unit Cost</th>
+                                            <th className="px-4 py-3 text-left font-medium">{formLabels.product}</th>
+                                            <th className="px-4 py-3 text-center font-medium">Kondisi</th>
+                                            <th className="px-4 py-3 text-right font-medium">{formLabels.qty}</th>
+                                            <th className="px-4 py-3 text-right font-medium">Biaya Satuan</th>
                                             <th className="px-4 py-3 text-right font-medium">Total</th>
                                         </tr>
                                     </thead>
@@ -191,7 +204,7 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                                             </tr>
                                         ))}
                                         <tr className="bg-muted/20">
-                                            <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Amount</td>
+                                            <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Keseluruhan</td>
                                             <td className="px-4 py-3 text-right font-bold text-primary">
                                                 {purchaseReturn.totalAmount ? formatRupiah(Number(purchaseReturn.totalAmount)) : '-'}
                                             </td>
@@ -206,30 +219,30 @@ export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, ba
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-sm">Summary</CardTitle>
+                            <CardTitle className="text-sm">Ringkasan</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4 text-sm">
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Created By</span>
+                                <span className="text-muted-foreground">Dibuat Oleh</span>
                                 <span className="font-medium">{purchaseReturn.createdBy?.name || 'System'}</span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Total Items</span>
-                                <span className="font-medium">{purchaseReturn.items.length} variants</span>
+                                <span className="text-muted-foreground">Total Item</span>
+                                <span className="font-medium">{purchaseReturn.items.length} varian</span>
                             </div>
                             <div className="flex justify-between items-center py-2">
-                                <span className="text-muted-foreground">Total Value</span>
-                                <span className="font-bold text-lg">{purchaseReturn.totalAmount ? formatRupiah(Number(purchaseReturn.totalAmount)) : 'RP 0'}</span>
+                                <span className="text-muted-foreground">Total Nilai</span>
+                                <span className="font-bold text-lg">{purchaseReturn.totalAmount ? formatRupiah(Number(purchaseReturn.totalAmount)) : 'Rp 0'}</span>
                             </div>
                         </CardContent>
                     </Card>
                     
                     <Card className="bg-muted/30 border-dashed">
                         <CardContent className="p-4 text-xs text-muted-foreground space-y-2">
-                            <p><strong>DRAFT:</strong> Initial state. Can be edited or cancelled.</p>
-                            <p><strong>CONFIRMED:</strong> Ready to dispatch physical items.</p>
-                            <p><strong>SHIPPED:</strong> Items returned to supplier. Auto-journal generated for debit note.</p>
-                            <p><strong>COMPLETED:</strong> End of lifecycle.</p>
+                            <p><strong>DRAFT:</strong> Status awal. Dapat diedit atau dibatalkan.</p>
+                            <p><strong>CONFIRMED:</strong> Siap untuk mengirimkan item fisik.</p>
+                            <p><strong>SHIPPED:</strong> Item dikembalikan ke supplier. Jurnal otomatis dibuat untuk debit note.</p>
+                            <p><strong>COMPLETED:</strong> Siklus selesai.</p>
                         </CardContent>
                     </Card>
                 </div>

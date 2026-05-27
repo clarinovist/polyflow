@@ -14,7 +14,7 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     async function handleUnlink() {
-        if (!confirm('Are you sure you want to unlink this product?')) return;
+        if (!confirm('Apakah Anda yakin ingin melepas tautan produk ini?')) return;
 
         setIsLoading(true);
         try {
