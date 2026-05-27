@@ -403,9 +403,9 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                     size="lg"
                                 >
                                     {form.formState.isSubmitting ? (
-                                        <span className="flex items-center gap-2"><span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin" /> Processing...</span>
+                                        <span className="flex items-center gap-2"><span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin" /> Memproses...</span>
                                     ) : (
-                                        `Confirm Adjustment (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
+                                        `Konfirmasi Penyesuaian (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
                                     )}
                                 </Button>
                                 {form.formState.errors.items && (

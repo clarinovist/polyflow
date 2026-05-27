@@ -235,7 +235,7 @@ export function AccountForm({ account, parentOptions, trigger }: AccountFormProp
                         <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={isPending}>
                                 {isPending && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>}
-                                Save Changes
+                                Simpan Perubahan
                             </Button>
                         </div>
                     </form>

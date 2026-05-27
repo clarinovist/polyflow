@@ -76,7 +76,7 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Saving..." : "Save Changes"}
+                            {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
                         </Button>
                     </DialogFooter>
                 </form>

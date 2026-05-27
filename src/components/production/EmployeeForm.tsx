@@ -138,7 +138,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                                 aria-expanded={openRole}
                                 className="w-full justify-between bg-background/50 h-9"
                             >
-                                {formData.role || "Select role..."}
+                                {formData.role || 'Pilih peran...'}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                         </PopoverTrigger>
@@ -230,10 +230,10 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
 
             <div className="flex items-center gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
-                    Cancel
+                    Batal
                 </Button>
                 <Button type="submit" disabled={loading} className="min-w-[140px]">
-                    {loading ? 'Processing...' : initialData ? 'Update Worker' : 'Add Worker'}
+                    {loading ? 'Memproses...' : initialData ? 'Perbarui Pekerja' : 'Tambah Pekerja'}
                 </Button>
             </div>
         </form>

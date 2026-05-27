@@ -63,7 +63,7 @@ export default async function MachinesPage({
                 <Link href="/dashboard/machines/create">
                     <Button>
                         <Plus className="h-4 w-4 mr-2" />
-                        Register Machine
+                        Daftarkan Mesin
                     </Button>
                 </Link>
             </div>

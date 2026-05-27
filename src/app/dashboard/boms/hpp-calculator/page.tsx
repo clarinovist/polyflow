@@ -14,7 +14,7 @@ export default async function BomHppCalculatorPage() {
         <HppCalculatorClient
             initialData={result.data ?? { boms: [] }}
             backHref="/dashboard/boms"
-            backLabel="Back to BOMs"
+            backLabel="Kembali ke BOM"
         />
     );
 }

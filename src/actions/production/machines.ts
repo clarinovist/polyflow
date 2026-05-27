@@ -69,7 +69,7 @@ async function createMachine(data: {
             return machine;
         } catch (error) {
             logger.error('Failed to create machine', { error, module: 'MachineActions' });
-            throw new BusinessRuleError('Failed to register machine. Please verify the input data.');
+            throw new BusinessRuleError('Gagal mendaftarkan mesin. Mohon periksa kembali data yang diinput.');
         }
     });
 }

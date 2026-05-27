@@ -74,14 +74,14 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="mr-2 h-4 w-4" />
-                    Register Asset
+                    Daftarkan Aset
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Register Fixed Asset</DialogTitle>
-                        <DialogDescription>Enter acquisition details and accounting mappings.</DialogDescription>
+                        <DialogTitle>Daftarkan Aset Tetap</DialogTitle>
+                        <DialogDescription>Masukkan detail perolehan dan pemetaan akun akuntansi.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -147,7 +147,7 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Register'}</Button>
+                        <Button type="submit" disabled={loading}>{loading ? 'Menyimpan...' : 'Daftarkan'}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

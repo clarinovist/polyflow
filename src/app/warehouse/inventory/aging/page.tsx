@@ -36,7 +36,7 @@ export default async function WarehouseStockAgingPage() {
                         </Button>
                         <Button variant="ghost" size="sm" asChild className="h-8 text-xs">
                             <Link href="/warehouse/inventory">
-                                <ArrowLeft className="mr-2 h-3 w-3" /> Back to Inventory
+                                <ArrowLeft className="mr-2 h-3 w-3" /> Kembali ke Inventaris
                             </Link>
                         </Button>
                     </div>

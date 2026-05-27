@@ -97,7 +97,7 @@ export function DepreciationDialog() {
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
-                            {loading ? 'Processing...' : 'Run Now'}
+                            {loading ? 'Memproses...' : 'Jalankan Sekarang'}
                         </Button>
                     </DialogFooter>
                 </form>

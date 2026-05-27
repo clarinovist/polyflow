@@ -98,7 +98,7 @@ export function BudgetFormDialog({ accounts, currentYear, currentMonth }: { acco
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Target'}</Button>
+                        <Button type="submit" disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Target'}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

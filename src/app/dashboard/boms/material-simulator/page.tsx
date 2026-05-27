@@ -14,7 +14,7 @@ export default async function BomMaterialSimulatorPage() {
         <SimulatorClient
             initialData={simulationDataResult.data ?? { materials: [], boms: [] }}
             backHref="/dashboard/boms"
-            backLabel="Back to BOMs"
+            backLabel="Kembali ke BOM"
         />
     );
 }

@@ -77,7 +77,7 @@ export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
                     <Button variant="ghost" asChild className="mb-2 -ml-4">
                         <Link href="/dashboard/maklon/returns">
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Maklon Returns
+                            Kembali ke Retur Maklon
                         </Link>
                     </Button>
                     <div className="flex items-center gap-3">

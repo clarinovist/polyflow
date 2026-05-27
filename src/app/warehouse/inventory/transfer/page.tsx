@@ -41,12 +41,12 @@ export default async function WarehouseTransferPage() {
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-foreground tracking-tight">Stock Transfer</h2>
-                        <p className="text-xs text-muted-foreground">Move stock between locations</p>
+                        <p className="text-xs text-muted-foreground">Pindahkan stok antar lokasi</p>
                     </div>
                 </div>
                 <Button variant="outline" size="sm" asChild className="h-8 text-xs gap-2">
                     <Link href="/warehouse/inventory">
-                        <ArrowLeft className="h-3.5 w-3.5" /> Back to Inventory
+                        <ArrowLeft className="h-3.5 w-3.5" /> Kembali ke Inventaris
                     </Link>
                 </Button>
             </div>

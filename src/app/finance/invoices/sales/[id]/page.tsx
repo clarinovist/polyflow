@@ -31,7 +31,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                 <Button variant="outline" size="sm" asChild>
                     <Link href="/finance/invoices/sales">
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to List
+                        Kembali ke Daftar
                     </Link>
                 </Button>
                 <div>

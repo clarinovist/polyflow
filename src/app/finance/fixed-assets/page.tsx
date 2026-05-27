@@ -61,8 +61,8 @@ export default function FixedAssetsPage() {
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Fixed Assets</h1>
-                    <p className="text-muted-foreground">Manage assets and automated depreciation</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Aset Tetap</h1>
+                    <p className="text-muted-foreground">Kelola aset dan depresiasi otomatis</p>
                 </div>
                 <Button 
                     onClick={handleRunDepreciation} 
@@ -70,23 +70,23 @@ export default function FixedAssetsPage() {
                     className="gap-2 bg-indigo-600 hover:bg-indigo-700"
                 >
                     <Play className="h-4 w-4" />
-                    {running ? 'Processing...' : 'Run Monthly Depreciation'}
+                    {running ? 'Memproses...' : 'Jalankan Depresiasi Bulanan'}
                 </Button>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Asset Register</CardTitle>
-                    <CardDescription>All company fixed assets</CardDescription>
+                    <CardTitle>Daftar Aset</CardTitle>
+                    <CardDescription>Seluruh aset tetap perusahaan</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
                         <div className="py-8 text-center text-muted-foreground text-sm flex justify-center items-center gap-2">
-                            Loading assets...
+                            Memuat aset...
                         </div>
                     ) : assets.length === 0 ? (
                         <div className="py-8 text-center text-muted-foreground text-sm">
-                            No active fixed assets tracked.
+                            Belum ada aset tetap aktif yang tercatat.
                         </div>
                     ) : (
                         <div className="relative w-full overflow-auto">

@@ -32,7 +32,7 @@ function formatInputPrice(value: number): string {
 export default function SimulatorClient({
     initialData,
     backHref = '/finance/costing',
-    backLabel = 'Back to Costing',
+    backLabel = 'Kembali ke Costing',
 }: SimulatorClientProps) {
     const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
     const [bulkPercent, setBulkPercent] = useState('');

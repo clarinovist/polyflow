@@ -74,16 +74,16 @@ export function ThresholdDialog({
                             placeholder="e.g. 50"
                         />
                         <p className="text-[0.8rem] text-slate-500 whitespace-pre-wrap">
-                            Automated alerts will be triggered when stock falls below this value.
+                            Peringatan otomatis akan dipicu saat stok turun di bawah nilai ini.
                         </p>
                     </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
-                        Cancel
+                        Batal
                     </Button>
                     <Button onClick={handleSave} disabled={loading}>
-                        {loading ? 'Saving...' : 'Save Settings'}
+                        {loading ? 'Menyimpan...' : 'Simpan Pengaturan'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

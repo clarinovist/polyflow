@@ -112,10 +112,10 @@ export function ShipmentDialog({ orderId, orderNumber, isMaklon = false, isOpen,
 
                         <DialogFooter className="mt-6">
                             <Button variant="outline" type="button" onClick={onClose} disabled={isPending}>
-                                Cancel
+                                Batal
                             </Button>
                             <Button type="submit" className="bg-purple-600 hover:bg-purple-700" disabled={isPending}>
-                                {isPending ? 'Processing...' : (isMaklon ? 'Confirm Service Closure' : 'Confirm Shipment')}
+                                {isPending ? 'Memproses...' : (isMaklon ? 'Konfirmasi Penutupan Layanan' : 'Konfirmasi Pengiriman')}
                             </Button>
                         </DialogFooter>
                     </form>

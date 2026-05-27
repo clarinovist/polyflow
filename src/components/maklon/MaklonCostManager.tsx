@@ -181,13 +181,13 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
-                                    Cancel
+                                    Batal
                                 </Button>
                                 <Button
                                     onClick={handleAdd}
                                     disabled={isPending || !amount}
                                 >
-                                    {isPending ? 'Saving...' : 'Save Cost'}
+                                    {isPending ? 'Menyimpan...' : 'Simpan Biaya'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

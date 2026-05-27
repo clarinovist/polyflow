@@ -75,11 +75,12 @@ export function BOMActions({ id, name }: BOMActionsProps) {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                        <span className="sr-only">Buka menu aksi</span>
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                     <Link href={`/dashboard/boms/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
@@ -125,7 +126,7 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                             disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isDeleting ? 'Deleting...' : 'Delete Recipe'}
+                            {isDeleting ? 'Menghapus...' : 'Hapus Resep'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -284,11 +284,11 @@ export function CustomerDialog({ mode, initialData, trigger }: CustomerDialogPro
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                                Cancel
+                                Batal
                             </Button>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                {mode === 'create' ? 'Create Customer' : 'Save Changes'}
+                                {mode === 'create' ? 'Buat Pelanggan' : 'Simpan Perubahan'}
                             </Button>
                         </div>
                     </form>

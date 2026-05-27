@@ -515,9 +515,9 @@ export function BatchIssueMaterialDialog({
                     </div>
 
                     <DialogFooter className="mt-6">
-                        <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
                         <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
-                            {loading ? "Processing..." : (isTransferMode ? "Move Stock" : "Save & Update Plan")}
+                            {loading ? 'Memproses...' : (isTransferMode ? 'Pindahkan Stok' : 'Simpan & Perbarui Rencana')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

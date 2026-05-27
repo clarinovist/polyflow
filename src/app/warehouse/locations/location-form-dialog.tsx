@@ -197,16 +197,16 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
 
                         <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
-                                Cancel
+                                Batal
                             </Button>
                             <Button type="submit" disabled={isLoading}>
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
+                                        Menyimpan...
                                     </>
                                 ) : (
-                                    'Save Location'
+                                    'Simpan Lokasi'
                                 )}
                             </Button>
                         </DialogFooter>

@@ -37,7 +37,7 @@ function parsePositiveNumber(value: string): number | undefined {
 export default function HppCalculatorClient({
     initialData,
     backHref = '/finance/costing',
-    backLabel = 'Back to Costing',
+    backLabel = 'Kembali ke Costing',
 }: HppCalculatorClientProps) {
     const [laborInput, setLaborInput] = useState('');
     const [machineInput, setMachineInput] = useState('');

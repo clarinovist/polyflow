@@ -171,10 +171,10 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
 
             <div className="flex items-center gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
-                    Cancel
+                    Batal
                 </Button>
                 <Button type="submit" disabled={loading} className="min-w-[140px]">
-                    {loading ? 'Processing...' : initialData ? 'Update Machine' : 'Register Machine'}
+                    {loading ? 'Memproses...' : initialData ? 'Perbarui Mesin' : 'Daftarkan Mesin'}
                 </Button>
             </div>
         </form >

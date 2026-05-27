@@ -105,13 +105,13 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
                     <Button type="button" variant="ghost" asChild>
                         <Link href="/dashboard/maklon/returns">
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Returns
+                            Kembali ke Daftar Retur
                         </Link>
                     </Button>
                     <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={() => router.back()}>Batal</Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : 'Create Return'}
+                            {isSubmitting ? 'Menyimpan...' : 'Buat Retur'}
                         </Button>
                     </div>
                 </div>

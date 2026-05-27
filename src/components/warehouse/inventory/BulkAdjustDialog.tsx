@@ -302,11 +302,11 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                                Cancel
+                                Batal
                             </Button>
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Confirm Adjustment
+                                Konfirmasi Penyesuaian
                             </Button>
                         </DialogFooter>
                     </form>
