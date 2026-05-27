@@ -43,7 +43,7 @@ export function ReassignMachineDialog({
             });
 
             if (result.success) {
-                toast.success('Machine reassigned successfully');
+                toast.success('Mesin berhasil dipindahkan.');
                 onOpenChange(false);
             } else {
                 toast.error(result.error || 'Failed to reassign machine');

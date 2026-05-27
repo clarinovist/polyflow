@@ -39,7 +39,7 @@ export function BOMActions({ id, name }: BOMActionsProps) {
         try {
             const result = await deleteBom(id);
             if (result.success) {
-                toast.success('Recipe deleted successfully');
+                toast.success('Recipe berhasil dihapus.');
             } else {
                 toast.error('Failed to delete recipe', { description: result.error });
             }
@@ -57,8 +57,8 @@ export function BOMActions({ id, name }: BOMActionsProps) {
             const result = await recalculateBomCostChain(id);
             if (result.success) {
                 const parentCount = result.data?.updatedParentCount || 0;
-                toast.success('Cost chain recalculated', {
-                    description: `${name}: ${parentCount} parent BOM(s) updated`,
+                toast.success('Cost chain berhasil dihitung ulang.', {
+                    description: `${name}: ${parentCount} BOM induk diperbarui`,
                 });
             } else {
                 toast.error('Failed to recalculate cost chain', { description: result.error });

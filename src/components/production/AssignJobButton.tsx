@@ -48,7 +48,7 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
             });
 
             if (result.success) {
-                toast.success('Job assigned to machine');
+                toast.success('Pekerjaan berhasil dialokasikan ke mesin.');
                 setOpen(false);
             } else {
                 toast.error(result.error || 'Failed to assign job');

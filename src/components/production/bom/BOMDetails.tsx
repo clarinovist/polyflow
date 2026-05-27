@@ -98,8 +98,8 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
             const result = await recalculateBomCostChain(bom.id);
             if (result.success) {
                 const updatedCount = result.data?.updatedParentCount || 0;
-                toast.success('Cost chain recalculated', {
-                    description: `${bom.name}: ${updatedCount} parent BOM(s) updated`,
+                toast.success('Cost chain berhasil dihitung ulang.', {
+                    description: `${bom.name}: ${updatedCount} BOM induk diperbarui`,
                 });
             } else {
                 toast.error('Failed to recalculate cost chain', { description: result.error });

@@ -83,15 +83,15 @@ export function ProductionPlanningDialog({
                 const data = result as any;
 
                 if (data.orderCount > 0) {
-                    toast.success(`${data.orderCount} Work Order(s) created! Status: ${data.status}`);
+                    toast.success(`${data.orderCount} Work Order berhasil dibuat. Status: ${data.status}`);
                 } else if (data.prCreated) {
-                    toast.success("Purchase Request(s) created for shortages. No Work Order needed.");
+                    toast.success('Purchase Request dibuat untuk kekurangan stok. Work Order tidak diperlukan.');
                 } else {
-                    toast.info("Stock allocated from inventory. No Work Order needed.");
+                    toast.info('Stok dialokasikan dari inventori. Work Order tidak diperlukan.');
                 }
 
                 if (data.prCreated && data.orderCount > 0) {
-                    toast.info("Purchase Request(s) created for shortages.", { duration: 5000 });
+                    toast.info('Purchase Request dibuat untuk kekurangan stok.', { duration: 5000 });
                 }
 
                 if (onOrderCreated) {

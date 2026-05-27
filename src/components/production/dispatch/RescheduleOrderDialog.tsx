@@ -46,7 +46,7 @@ export function RescheduleOrderDialog({
             });
 
             if (result.success) {
-                toast.success('Order rescheduled successfully');
+                toast.success('Jadwal order berhasil diperbarui.');
                 onOpenChange(false);
             } else {
                 toast.error(result.error || 'Failed to reschedule order');

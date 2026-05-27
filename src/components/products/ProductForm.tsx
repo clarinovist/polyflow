@@ -92,7 +92,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
             : await updateProduct(data as UpdateProductValues);
 
         if (result.success) {
-            toast.success(`Product ${mode === 'create' ? 'created' : 'updated'} successfully`);
+            toast.success(`Produk berhasil ${mode === 'create' ? 'dibuat' : 'diperbarui'}.`);
             router.push('/dashboard/products');
             router.refresh();
         } else {

@@ -87,7 +87,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
                     amount: parsedAmount,
                 };
                 setItems(prev => [...prev, tempItem]);
-                toast.success('Cost item added successfully');
+                toast.success('Item biaya berhasil ditambahkan.');
                 setOpen(false);
                 setCostType('LABOR');
                 setAmount('');
@@ -103,7 +103,7 @@ export function MaklonCostManager({ productionOrderId, initialItems }: MaklonCos
             const result = await removeMaklonCostAction(id, productionOrderId);
             if (result?.success) {
                 setItems(prev => prev.filter(item => item.id !== id));
-                toast.success('Cost item removed');
+                toast.success('Item biaya berhasil dihapus.');
             } else {
                 toast.error(result?.error || 'Failed to remove cost item');
             }

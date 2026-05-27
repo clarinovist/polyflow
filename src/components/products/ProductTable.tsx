@@ -115,7 +115,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
         const result = await deleteVariant(variantToDelete.id);
 
         if (result.success) {
-            toast.success('Product variant deleted successfully');
+            toast.success('Variant produk berhasil dihapus.');
             setDeleteDialogOpen(false);
             setVariantToDelete(null);
             router.refresh();

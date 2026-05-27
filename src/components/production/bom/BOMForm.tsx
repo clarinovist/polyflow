@@ -204,7 +204,7 @@ export function BOMForm({
                 : await createBom(values);
 
             if (res.success) {
-                toast.success(bom ? 'BOM updated successfully' : 'BOM created successfully');
+                toast.success(bom ? 'BOM berhasil diperbarui.' : 'BOM berhasil dibuat.');
                 router.push('/dashboard/boms');
                 router.refresh();
             } else {

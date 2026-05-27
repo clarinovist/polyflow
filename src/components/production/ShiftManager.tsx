@@ -52,7 +52,7 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
         if (!confirm('Are you sure you want to delete this shift?')) return;
         const result = await deleteProductionShift(shiftId, orderId);
         if (result.success) {
-            toast.success('Shift deleted');
+            toast.success('Shift berhasil dihapus.');
         } else {
             toast.error('Failed to delete shift', { description: result.error });
         }
@@ -207,7 +207,7 @@ function AddShiftDialog({
         setLoading(false);
 
         if (result.success) {
-            toast.success('Shift added successfully');
+            toast.success('Shift berhasil ditambahkan.');
             setOpen(false);
             onOpenChange(false);
             setSelectedHelpers([]);

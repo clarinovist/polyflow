@@ -53,7 +53,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
             const nextSKUResult = await getNextSKU(productType as ProductType, productName, currentSkus);
             if (nextSKUResult.success && nextSKUResult.data) {
                 setValue(`variants.${index}.skuCode`, nextSKUResult.data, { shouldValidate: true });
-                toast.success('SKU generated successfully');
+                toast.success('SKU berhasil digenerate.');
             } else {
                 toast.error(nextSKUResult.error || 'Failed to generate SKU');
             }
@@ -91,7 +91,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     try {
                                         const res = await deleteVariant(variantId);
                                         if (res.success) {
-                                            toast.success('Variant deleted');
+                                            toast.success('Variant berhasil dihapus.');
                                             router.push('/dashboard/products');
                                             router.refresh();
                                         } else {
