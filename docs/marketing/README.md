@@ -28,3 +28,5 @@ PolyFlow tidak diposisikan sebagai ERP umum. PolyFlow diposisikan sebagai **ERP 
 2. Jalankan beta cohort kecil, jangan full rollout sekaligus.
 3. Pakai paket `Stock Control` atau `Production Control` sebagai entry point.
 4. Baru upsell ke costing, finance, dan maklon setelah data operasional mulai disiplin.
+
+7. [Localization Final Audit](./LOCALIZATION_FINAL_AUDIT.md) — ringkasan akhir fase localization UI, coverage, sisa non-UI English, dan maintenance rules.
