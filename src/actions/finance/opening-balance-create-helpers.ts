@@ -178,6 +178,7 @@ export async function createAPOpeningBalance(
             dueDate: data.dueDate,
             status: PurchaseInvoiceStatus.UNPAID,
             totalAmount: data.amount,
+            termOfPaymentDays: 0,
             notes: data.notes || 'Opening Balance Transfer',
         }
     });

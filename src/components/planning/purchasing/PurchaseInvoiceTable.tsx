@@ -151,9 +151,9 @@ export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-
                                             {format(new Date(inv.invoiceDate), 'dd MMM yyyy')}
                                         </TableCell>
                                         <TableCell className="text-sm">
-                                            <div className={`flex items-center gap-2 ${new Date(inv.dueDate) < new Date() && inv.status !== 'PAID' ? 'text-red-600 font-bold' : ''}`}>
+                                            <div className={`flex items-center gap-2 ${inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'PAID' ? 'text-red-600 font-bold' : ''}`}>
                                                 <Calendar className="h-3 w-3" />
-                                                {format(new Date(inv.dueDate), 'dd MMM yyyy')}
+                                                {inv.dueDate ? format(new Date(inv.dueDate), 'dd MMM yyyy') : '-'}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">
