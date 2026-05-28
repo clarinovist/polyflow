@@ -29,6 +29,11 @@ const handler = auth((req) => {
 		requestHeaders.set('x-tenant-subdomain', tenant);
 	}
 
+	// Tenant subdomain: root path should redirect to login, not landing page
+	if (tenant && tenant !== 'www' && tenant !== 'app' && req.nextUrl.pathname === '/') {
+		return NextResponse.redirect(new URL('/login', req.url));
+	}
+
 	// Rate Limiting Logic - Temporarily disabled for standard navigation
 	// Next.js middleware fires for prefetching, images, and API calls. 100 req/min is easily exceeded.
 	// const forwardedFor = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip');
