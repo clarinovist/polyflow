@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { FinanceSidebar } from '@/components/finance/finance-sidebar';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function FinanceLayout({
     children,
@@ -13,9 +14,7 @@ export default async function FinanceLayout({
         redirect('/login');
     }
 
-    // Only allow FINANCE and ADMIN roles
-    const role = session.user.role?.toUpperCase();
-    if (role !== 'FINANCE' && role !== 'ADMIN') {
+    if (!canAccessWorkspace(session.user, 'finance')) {
         redirect('/dashboard?error=Unauthorized');
     }
 

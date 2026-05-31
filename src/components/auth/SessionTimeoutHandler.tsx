@@ -3,13 +3,14 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { SESSION_POLICY } from '@/lib/auth/session-policy';
 
 interface SessionTimeoutHandlerProps {
     timeoutMs?: number; // Timeout in milliseconds
 }
 
 export default function SessionTimeoutHandler({
-    timeoutMs = 30 * 60 * 1000 // Default 30 minutes
+    timeoutMs = SESSION_POLICY.idleTimeoutMs
 }: SessionTimeoutHandlerProps) {
     const { status } = useSession();
     const router = useRouter();

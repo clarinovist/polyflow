@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { WarehouseSidebar } from '@/components/warehouse/warehouse-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function WarehouseLayout({
     children,
@@ -20,13 +21,7 @@ export default async function WarehouseLayout({
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
 
-    // Check for PRODUCTION, WAREHOUSE, PPIC, or ADMIN role
-    const isAuthorized = user.role === 'ADMIN' ||
-        user.role === 'PRODUCTION' ||
-        user.role === 'WAREHOUSE' ||
-        user.role === 'PLANNING';
-
-    if (!isAuthorized) {
+    if (!canAccessWorkspace(session.user, 'warehouse')) {
         redirect('/dashboard');
     }
 

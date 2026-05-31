@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { SalesSidebar } from '@/components/sales/sales-sidebar';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function SalesLayout({
     children,
@@ -13,9 +14,7 @@ export default async function SalesLayout({
         redirect('/login');
     }
 
-    // Only allow SALES and ADMIN roles
-    const role = session.user.role?.toUpperCase();
-    if (role !== 'SALES' && role !== 'ADMIN') {
+    if (!canAccessWorkspace(session.user, 'sales')) {
         redirect('/dashboard?error=Unauthorized');
     }
 

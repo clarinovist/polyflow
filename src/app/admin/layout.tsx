@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
-import { getMyPermissions } from '@/actions/admin/permissions';
 import { AdminNav } from '@/components/layout/admin-nav';
 import { redirect } from 'next/navigation';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function AdminLayout({
     children,
@@ -14,16 +14,15 @@ export default async function AdminLayout({
         redirect('/login');
     }
 
+    if (!canAccessWorkspace(session.user, 'admin')) {
+        redirect('/dashboard');
+    }
+
     const user = {
         name: session.user?.name,
         email: session.user?.email,
         role: (session.user as { role?: string }).role || 'WAREHOUSE',
     };
-
-    // Fetch permissions for the sidebar
-    // Admin gets 'ALL' by default from the action logic, but let's be explicit if needed
-    // The getMyPermissions action handles the 'ALL' logic for admins.
-    await getMyPermissions();
 
     return (
         <div className="min-h-screen bg-secondary/30">

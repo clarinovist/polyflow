@@ -51,31 +51,40 @@ export class ApiKeyService {
 
     /**
      * Validates an API key.
-     *Returns the ApiKey object if valid, or null if invalid/expired.
+     * Returns the ApiKey object if valid, or null if invalid/expired.
      */
     static async validateApiKey(key: string) {
         const hashedInput = hashApiKey(key);
 
-        const apiKeys = await prisma.apiKey.findMany({
-            where: { isActive: true },
+        // 1. Try direct lookup using hashed key (O(1) index lookup)
+        let apiKey = await prisma.apiKey.findUnique({
+            where: { key: hashedInput },
             include: { user: true },
         });
 
-        for (const apiKey of apiKeys) {
-            const stored = apiKey.key;
-            const isHashed = HASH_HEX_REGEX.test(stored);
-
-            const matched = isHashed
-                ? timingSafeEqualString(stored, hashedInput)
-                : timingSafeEqualString(stored, key);
-
-            if (!matched) continue;
-            if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
-
-            return apiKey;
+        // 2. Fallback to direct lookup using plaintext key (for legacy plaintext keys)
+        if (!apiKey) {
+            apiKey = await prisma.apiKey.findUnique({
+                where: { key: key },
+                include: { user: true },
+            });
         }
 
-        return null;
+        if (!apiKey) return null;
+
+        // 3. Verify key with timing-safe comparison as defense-in-depth
+        const stored = apiKey.key;
+        const isHashed = HASH_HEX_REGEX.test(stored);
+
+        const matched = isHashed
+            ? timingSafeEqualString(stored, hashedInput)
+            : timingSafeEqualString(stored, key);
+
+        if (!matched) return null;
+        if (!apiKey.isActive) return null;
+        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
+
+        return apiKey;
     }
 
     /**

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
 import { extractSubdomain } from '@/lib/core/tenant';
 import * as bcrypt from 'bcryptjs';
+import { SESSION_POLICY } from '@/lib/auth/session-policy';
 
 async function getUser(email: string) {
     try {
@@ -20,7 +21,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     ...authConfig,
     session: {
         strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: SESSION_POLICY.defaultMaxAgeSeconds,
     },
     providers: [
         Credentials({

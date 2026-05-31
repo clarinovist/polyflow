@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { ProductionSidebar } from '@/components/production/production-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function ProductionLayout({
     children,
@@ -20,12 +21,7 @@ export default async function ProductionLayout({
         role: (session.user as { role?: string }).role || 'PRODUCTION',
     };
 
-    // Check for PRODUCTION, PPIC, or ADMIN role
-    const isAuthorized = user.role === 'ADMIN' ||
-        user.role === 'PRODUCTION' ||
-        user.role === 'PLANNING';
-
-    if (!isAuthorized) {
+    if (!canAccessWorkspace(session.user, 'production')) {
         redirect('/dashboard');
     }
 

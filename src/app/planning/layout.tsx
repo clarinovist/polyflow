@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { PlanningSidebar } from '@/components/planning/planning-sidebar';
+import { canAccessWorkspace } from '@/lib/auth/access-policy';
 
 export default async function PlanningLayout({
     children,
@@ -13,10 +14,7 @@ export default async function PlanningLayout({
         redirect('/login');
     }
 
-    // Allow PPIC, PROCUREMENT, and ADMIN roles
-    const role = session.user.role?.toUpperCase();
-    const allowedRoles = ['PLANNING', 'PROCUREMENT', 'ADMIN'];
-    if (!role || !allowedRoles.includes(role)) {
+    if (!canAccessWorkspace(session.user, 'planning')) {
         redirect('/dashboard?error=Unauthorized');
     }
 
