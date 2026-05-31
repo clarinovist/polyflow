@@ -37,21 +37,25 @@ export class AutoJournalService {
         return handlePurchaseReturnShipped(returnId);
     }
 
+    // DELEGATED: Auto-journaling for material issues is handled directly via AccountingService.recordInventoryMovement.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     static async handleMaterialIssue(issueId: string) {
         return;
     }
 
+    // DELEGATED: Auto-journaling for production output is handled directly via AccountingService.recordInventoryMovement.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     static async handleProductionOutput(executionId: string) {
         return;
     }
 
+    // DELEGATED: Auto-journaling for scrap output is handled directly via AccountingService.recordInventoryMovement.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     static async handleScrapOutput(scrapId: string) {
         return;
     }
 
+    // DELEGATED: Auto-journaling for general stock movements is handled directly via AccountingService.recordInventoryMovement.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     static async handleStockMovement(movementId: string) {
         return;

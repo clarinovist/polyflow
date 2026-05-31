@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, ReservationStatus, NotificationType } from '@prisma/client';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryCoreService {
     /**
@@ -30,7 +31,7 @@ export class InventoryCoreService {
                 tx.location.findUnique({ where: { id: locationId }, select: { name: true } })
             ]);
 
-            throw new Error(
+            throw new InsufficientStockError(
                 `Insufficient physical stock at location "${location?.name || locationId}".\n` +
                 `Product: ${variant?.name || 'Unknown Item'}\n` +
                 `Required: ${quantity} ${variant?.primaryUnit || ''}\n` +
@@ -58,7 +59,7 @@ export class InventoryCoreService {
                 tx.location.findUnique({ where: { id: locationId }, select: { name: true } })
             ]);
 
-            throw new Error(
+            throw new InsufficientStockError(
                 `Stock is reserved at location "${location?.name || locationId}".\n` +
                 `Product: ${variant?.name || 'Unknown Item'}\n` +
                 `Physical Stock: ${currentQty}\n` +

@@ -1,11 +1,32 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { extractSubdomain } from './tenant';
+import { extractSubdomain, resolveTenantContext } from './tenant';
+
+const { mockPrisma, mockGetTenantDb } = vi.hoisted(() => {
+    return {
+        mockPrisma: {
+            tenant: {
+                findUnique: vi.fn(),
+            }
+        },
+        mockGetTenantDb: vi.fn((url) => ({ isMockTenantDb: true, url } as never))
+    };
+});
+
+vi.mock('@/lib/core/prisma', () => ({
+    prisma: mockPrisma,
+    getTenantDb: mockGetTenantDb,
+    tenantContext: {
+        run: vi.fn((_db, cb) => cb()),
+        getStore: vi.fn(),
+    }
+}));
 
 const ORIGINAL_ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
 afterEach(() => {
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = ORIGINAL_ROOT_DOMAIN;
+    vi.clearAllMocks();
 });
 
 describe('extractSubdomain', () => {
@@ -31,5 +52,61 @@ describe('extractSubdomain', () => {
     it('returns null for invalid host', () => {
         expect(extractSubdomain('localhost:3000')).toBeNull();
         expect(extractSubdomain('')).toBeNull();
+    });
+});
+
+describe('resolveTenantContext', () => {
+    it('returns NONE if no subdomain is present in headers', async () => {
+        const headers = {
+            get: vi.fn((key: string) => {
+                if (key === 'host') return 'polyflow.uk';
+                return null;
+            })
+        };
+
+        const result = await resolveTenantContext(headers);
+        expect(result).toEqual({ type: 'NONE' });
+    });
+
+    it('returns NOT_FOUND if subdomain is detected but tenant not found in DB', async () => {
+        const headers = {
+            get: vi.fn((key: string) => {
+                if (key === 'x-tenant-subdomain') return 'invalid-tenant';
+                return null;
+            })
+        };
+
+        mockPrisma.tenant.findUnique.mockResolvedValue(null);
+
+        const result = await resolveTenantContext(headers);
+        expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith({
+            where: { subdomain: 'invalid-tenant' }
+        });
+        expect(result).toEqual({ type: 'NOT_FOUND', subdomain: 'invalid-tenant' });
+    });
+
+    it('returns RESOLVED with tenantDb if tenant is found in DB', async () => {
+        const headers = {
+            get: vi.fn((key: string) => {
+                if (key === 'x-tenant-subdomain') return 'valid-tenant';
+                return null;
+            })
+        };
+
+        mockPrisma.tenant.findUnique.mockResolvedValue({
+            subdomain: 'valid-tenant',
+            dbUrl: 'postgresql://user:pass@localhost:5432/tenant_db'
+        });
+
+        const result = await resolveTenantContext(headers);
+        expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith({
+            where: { subdomain: 'valid-tenant' }
+        });
+        expect(mockGetTenantDb).toHaveBeenCalledWith('postgresql://user:pass@localhost:5432/tenant_db');
+        expect(result).toEqual({
+            type: 'RESOLVED',
+            subdomain: 'valid-tenant',
+            tenantDb: { isMockTenantDb: true, url: 'postgresql://user:pass@localhost:5432/tenant_db' }
+        });
     });
 });

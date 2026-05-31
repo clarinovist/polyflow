@@ -2,6 +2,8 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, StockMovement, JournalStatus } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { updateStandardCost } from '@/actions/finance/cost-history';
+import { NotFoundError } from '@/lib/errors/errors';
+import { resolveAccountCode } from './account-mapping-policy';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } }
@@ -88,31 +90,19 @@ export async function recordInventoryMovement(
 
     const productType = productVariant.product.productType;
 
-    const getInventoryAccount = (pType: string) => {
-        switch (pType) {
-            case 'RAW_MATERIAL': return '11310';
-            case 'FINISHED_GOOD': return '11330';
-            case 'WIP': return '11320';
-            case 'SCRAP': return '11350';
-            case 'INTERMEDIATE': return '11320';
-            case 'PACKAGING': return '11340';
-            default: return '11300';
-        }
-    };
-
     const lines = [];
 
     if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
-        const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
+        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
         lines.push(
             { accountId: (await getAccountId(invAccount, db)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
-            { accountId: (await getAccountId('21110', db)), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
+            { accountId: (await getAccountId(resolveAccountCode(productType, 'trade-payable'), db)), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
         );
     }
 
     else if (movement.type === 'OUT' && movement.salesOrderId) {
-        const invAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        const cogsAccount = productVariant.product.cogsAccountId || '50000';
+        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
+        const cogsAccount = productVariant.product.cogsAccountId || resolveAccountCode(productType, 'cogs');
         lines.push(
             { accountId: (await getAccountId(cogsAccount, db)), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
             { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: totalAmount, description: `Shipment: ${productVariant.name}` }
@@ -120,8 +110,8 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'OUT' && !movement.salesOrderId) {
-        const creditAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        const wipAccount = productVariant.product.wipAccountId || '11320';
+        const creditAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
+        const wipAccount = productVariant.product.wipAccountId || resolveAccountCode(productType, 'wip');
         lines.push(
             { accountId: (await getAccountId(wipAccount, db)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
             { accountId: (await getAccountId(creditAccount, db)), debit: 0, credit: totalAmount, description: `Material Consumed` }
@@ -129,8 +119,8 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'IN' && !movement.goodsReceiptId) {
-        const debitAccount = productVariant.product.inventoryAccountId || getInventoryAccount(productType);
-        const wipAccount = productVariant.product.wipAccountId || '11320';
+        const debitAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
+        const wipAccount = productVariant.product.wipAccountId || resolveAccountCode(productType, 'wip');
         lines.push(
             { accountId: (await getAccountId(debitAccount, db)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
             { accountId: (await getAccountId(wipAccount, db)), debit: 0, credit: totalAmount, description: `WIP Relief` }
@@ -138,18 +128,18 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'ADJUSTMENT') {
-        const invAccount = getInventoryAccount(productType);
+        const invAccount = resolveAccountCode(productType, 'inventory');
         const absAmt = Math.abs(totalAmount);
 
         // If toLocationId is present, stock went IN (Gain). If it's null, stock went OUT (Loss).
         if (movement.toLocationId !== null) {
             lines.push(
                 { accountId: (await getAccountId(invAccount, db)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
-                { accountId: (await getAccountId('81100', db)), debit: 0, credit: absAmt, description: `Adj Gain` }
+                { accountId: (await getAccountId(resolveAccountCode(productType, 'adjustment-gain'), db)), debit: 0, credit: absAmt, description: `Adj Gain` }
             );
         } else {
             lines.push(
-                { accountId: (await getAccountId('91100', db)), debit: absAmt, credit: 0, description: `Adj Loss` },
+                { accountId: (await getAccountId(resolveAccountCode(productType, 'adjustment-loss'), db)), debit: absAmt, credit: 0, description: `Adj Loss` },
                 { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
             );
         }
@@ -181,7 +171,7 @@ async function getAccountId(code: string, db: Prisma.TransactionClient): Promise
     if (accountCache.has(code)) return accountCache.get(code)!;
 
     const acc = await db.account.findUnique({ where: { code } });
-    if (!acc) throw new Error(`GL Account code ${code} not found during auto-journal.`);
+    if (!acc) throw new NotFoundError('Account', code);
 
     accountCache.set(code, acc.id);
     return acc.id;
@@ -197,10 +187,10 @@ export async function recordMaklonCosts(productionOrderId: string, tx: Prisma.Tr
     if (!order || !order.isMaklon || !order.maklonCostItems || order.maklonCostItems.length === 0) return;
 
     // Accounts
-    const overheadAccount = await getAccountId('51100', db); // Manufacturing Overhead
-    const payableAccount = await getAccountId('21200', db); // Accrued Liabilities (AP / Accruals)
-    const rawMaterialExpense = await getAccountId('50000', db); // COGS / RM Consumed
-    const invAccount = await getAccountId('11310', db); // RM Inventory
+    const overheadAccount = await getAccountId(resolveAccountCode(null, 'manufacturing-overhead'), db); // Manufacturing Overhead
+    const payableAccount = await getAccountId(resolveAccountCode(null, 'accrued-liabilities'), db); // Accrued Liabilities (AP / Accruals)
+    const rawMaterialExpense = await getAccountId(resolveAccountCode(null, 'cogs'), db); // COGS / RM Consumed
+    const invAccount = await getAccountId(resolveAccountCode('RAW_MATERIAL', 'inventory'), db); // RM Inventory
 
     const lines = [];
     for (const item of order.maklonCostItems) {

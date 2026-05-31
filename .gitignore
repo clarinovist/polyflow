@@ -77,3 +77,7 @@ import_production.py
 import_rafia_hasil_produksi_safe.py
 rafia-import-log-*.md
 rafra-spreadsheet-mapping.md
+
+# generated code graph / Graphify artifacts
+.codegraph/
+graphify-out/

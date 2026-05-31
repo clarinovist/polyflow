@@ -84,8 +84,26 @@ export class ConflictError extends ApplicationError {
 
 /** Business rule violation */
 export class BusinessRuleError extends ApplicationError {
+    constructor(
+        message: string,
+        details?: Record<string, unknown>,
+        code: string = 'BUSINESS_RULE_VIOLATION'
+    ) {
+        super(message, code, 422, details);
+    }
+}
+
+/** Insufficient stock for inventory transactions */
+export class InsufficientStockError extends BusinessRuleError {
     constructor(message: string, details?: Record<string, unknown>) {
-        super(message, 'BUSINESS_RULE_VIOLATION', 422, details);
+        super(message, details, 'INSUFFICIENT_STOCK');
+    }
+}
+
+/** Production-specific business rule violation */
+export class ProductionRuleViolationError extends BusinessRuleError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, details, 'PRODUCTION_RULE_VIOLATION');
     }
 }
 

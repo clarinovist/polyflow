@@ -1,5 +1,11 @@
 import { getTenantDb, tenantContext } from '@/lib/core/prisma';
+import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
+
+export type TenantResolutionResult =
+    | { type: 'NONE' }
+    | { type: 'NOT_FOUND'; subdomain: string }
+    | { type: 'RESOLVED'; tenantDb: PrismaClient; subdomain: string };
 
 /**
  * Robust utility to extract tenant subdomain from a host string.
@@ -27,54 +33,61 @@ export function extractSubdomain(host: string): string | null {
 }
 
 /**
+ * Unified helper to resolve tenant DB target from standard HTTP Headers.
+ */
+export async function resolveTenantContext(
+    reqHeaders: { get: (name: string) => string | null }
+): Promise<TenantResolutionResult> {
+    let subdomain = reqHeaders.get('x-tenant-subdomain');
+
+    if (!subdomain) {
+        const host = reqHeaders.get('host') || '';
+        subdomain = extractSubdomain(host);
+    }
+
+    if (!subdomain) {
+        return { type: 'NONE' };
+    }
+
+    let targetDbUrl: string | null = null;
+    try {
+        const { prisma } = await import('@/lib/core/prisma');
+        const tenant = await prisma.tenant.findUnique({
+            where: { subdomain }
+        });
+        targetDbUrl = tenant?.dbUrl || null;
+    } catch (error) {
+        console.error('[resolveTenantContext] Error fetching tenant:', error);
+    }
+
+    if (!targetDbUrl) {
+        return { type: 'NOT_FOUND', subdomain };
+    }
+
+    const tenantDb = getTenantDb(targetDbUrl);
+    return { type: 'RESOLVED', tenantDb, subdomain };
+}
+
+/**
  * Higher Order Function to wrap Next.js Server Actions.
- * It extracts the `x-tenant-subdomain` header (set by our Proxy Middleware),
- * fetches the corresponding Tenant DB URL, and runs the action within an `AsyncLocalStorage` context.
+ * It extracts the subdomain from headers and runs the action within an `AsyncLocalStorage` context.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T): T {
     return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
         const reqHeaders = await headers();
-        let subdomain = reqHeaders.get('x-tenant-subdomain');
+        const result = await resolveTenantContext(reqHeaders);
 
-        // Fallback: If Proxy Middleware doesn't fire, infer from host using centralized logic
-        if (!subdomain) {
-            const host = reqHeaders.get('host') || '';
-            subdomain = extractSubdomain(host);
-        }
-
-        // If no subdomain is detected (e.g. running on main domain or localhost directly),
-        // we can just run the action normally against the main database.
-        if (!subdomain) {
+        if (result.type === 'NONE') {
             return action(...args);
         }
 
-        // Ideally, we look up the DB URL from the 'Tenant' table in the main DB here.
-        // For demonstration (Phase 1/2), let's assume we fetch it. 
-        // We will need a proper query to Main DB. Let's do that:
-        // Note: Using a direct Prisma query here uses the fallback/Main DB because 
-        // we haven't entered the tenant context yet!
-
-        let targetDbUrl: string | null = null;
-        try {
-            // dynamic import to avoid circular dependency
-            const { prisma } = await import('@/lib/core/prisma');
-            const tenant = await prisma.tenant.findUnique({
-                where: { subdomain }
-            });
-            targetDbUrl = tenant?.dbUrl || null;
-        } catch (error) {
-            console.error('[TenantWrapper] Error fetching tenant:', error);
+        if (result.type === 'NOT_FOUND') {
+            throw new Error(`Tenant database not found for subdomain: ${result.subdomain}`);
         }
-
-        if (!targetDbUrl) {
-            throw new Error(`Tenant database not found for subdomain: ${subdomain}`);
-        }
-
-        const tenantDb = getTenantDb(targetDbUrl);
 
         // Run the action inside the AsyncLocalStorage context
-        return tenantContext.run(tenantDb, () => {
+        return tenantContext.run(result.tenantDb, () => {
             return action(...args);
         });
     }) as T;
@@ -91,38 +104,20 @@ export function withTenantRoute(
 ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return async (req: NextRequest, ...args: any[]) => {
-        let subdomain = req.headers.get('x-tenant-subdomain');
+        const result = await resolveTenantContext(req.headers);
 
-        if (!subdomain) {
-            const host = req.headers.get('host') || '';
-            subdomain = extractSubdomain(host);
-        }
-
-        if (!subdomain) {
+        if (result.type === 'NONE') {
             return handler(req, ...args);
         }
 
-        let targetDbUrl: string | null = null;
-        try {
-            const { prisma } = await import('@/lib/core/prisma');
-            const tenant = await prisma.tenant.findUnique({
-                where: { subdomain }
-            });
-            targetDbUrl = tenant?.dbUrl || null;
-        } catch (error) {
-            console.error('[TenantRouteWrapper] Error fetching tenant:', error);
-        }
-
-        if (!targetDbUrl) {
+        if (result.type === 'NOT_FOUND') {
             return NextResponse.json(
-                { error: `Tenant database not found for subdomain: ${subdomain}` },
+                { error: `Tenant database not found for subdomain: ${result.subdomain}` },
                 { status: 404 }
             );
         }
 
-        const tenantDb = getTenantDb(targetDbUrl);
-
-        return tenantContext.run(tenantDb, () => {
+        return tenantContext.run(result.tenantDb, () => {
             return handler(req, ...args);
         });
     };

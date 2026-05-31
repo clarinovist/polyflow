@@ -1,5 +1,6 @@
 
 import { prisma } from '@/lib/core/prisma';
+import { NotFoundError, ConflictError, ProductionRuleViolationError } from '@/lib/errors/errors';
 import {
     StartExecutionValues,
     StopExecutionValues,
@@ -14,7 +15,6 @@ import {
     backflushMaterials,
     recordExecutionScrap,
     recordFinishedGoodsOutput,
-    triggerProductionOutputJournal,
     type ProductionExecutionOrder,
 } from './execution-helpers';
 import { resolveProductionOutputUnit } from './execution-unit-conversion';
@@ -31,7 +31,7 @@ function assertClientBaseQuantityMatches(clientBaseQty: number | undefined, serv
 
     const delta = Math.abs(Number(clientBaseQty) - serverBaseQty);
     if (delta > 0.0001) {
-        throw new Error(
+        throw new ProductionRuleViolationError(
             `Output conversion mismatch. Client sent ${clientBaseQty}, server calculated ${serverBaseQty}.`
         );
     }
@@ -42,7 +42,7 @@ function assertClientConversionFactorMatches(clientFactor: number | undefined, s
 
     const delta = Math.abs(Number(clientFactor) - serverFactor);
     if (delta > 0.0001) {
-        throw new Error(
+        throw new ProductionRuleViolationError(
             `Output conversion factor mismatch. Client sent ${clientFactor}, server calculated ${serverFactor}.`
         );
     }
@@ -75,7 +75,7 @@ async function resolveOutputQuantity(params: {
     ].filter(Boolean).length;
 
     if (conversionPayloadCount > 0 && conversionPayloadCount < 4) {
-        throw new Error('Incomplete output conversion payload. Send enteredQuantity, enteredUnit, baseQuantityProduced, and conversionFactorSnapshot together.');
+        throw new ProductionRuleViolationError('Incomplete output conversion payload. Send enteredQuantity, enteredUnit, baseQuantityProduced, and conversionFactorSnapshot together.');
     }
 
     if (enteredQuantity !== undefined && enteredUnit !== undefined) {
@@ -275,7 +275,7 @@ export class ProductionExecutionService {
             });
         });
 
-        await triggerProductionOutputJournal(executionId, resolvedBaseQty);
+        // DELEGATED: Auto-journal posting is recorded under the transaction via recordFinishedGoodsOutput -> AccountingService.recordInventoryMovement
 
         return finalExecution;
     }
@@ -363,7 +363,7 @@ export class ProductionExecutionService {
             });
         });
 
-        await triggerProductionOutputJournal(executionId, resolvedBaseQty);
+        // DELEGATED: Auto-journal posting is recorded under the transaction via recordFinishedGoodsOutput -> AccountingService.recordInventoryMovement
     }
 
     /**
@@ -398,7 +398,7 @@ export class ProductionExecutionService {
                     include: { bom: { select: { category: true } } }
                 });
                 if (checkOrder.bom?.category !== 'REWORK') {
-                    throw new Error('Output quantity must be greater than 0 for non-Rework orders');
+                    throw new ProductionRuleViolationError('Output quantity must be greater than 0 for non-Rework orders');
                 }
             }
 
@@ -533,9 +533,9 @@ export class ProductionExecutionService {
                 include: { productionOrder: true }
             });
 
-            if (!execution) throw new Error("Execution record not found");
-            if (execution.status === 'VOIDED') throw new Error("Execution has already been voided");
-            if (execution.status !== 'COMPLETED') throw new Error("Only completed executions can be voided");
+            if (!execution) throw new NotFoundError("ProductionExecution", executionId);
+            if (execution.status === 'VOIDED') throw new ConflictError("Execution has already been voided");
+            if (execution.status !== 'COMPLETED') throw new ProductionRuleViolationError("Only completed executions can be voided");
 
             const { productionOrderId, quantityProduced, createdAt } = execution;
 

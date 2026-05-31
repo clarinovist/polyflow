@@ -10,6 +10,7 @@ import { InventoryCoreService } from '@/services/inventory/core-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { ValidationError, NotFoundError, InsufficientStockError, ProductionRuleViolationError } from '@/lib/errors/errors';
 
 export class ProductionMaterialService {
 
@@ -94,7 +95,7 @@ export class ProductionMaterialService {
                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                         if (issued > 0.001) {
-                            throw new Error(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
+                            throw new ProductionRuleViolationError(`Cannot remove ${planItem.productVariant.name} because it has already been partially issued.`);
                         }
                         idsToDelete.push(id);
                     }
@@ -137,7 +138,7 @@ export class ProductionMaterialService {
 
             for (const item of items) {
                 const itemLocationId = item.sourceLocationId || locationId;
-                if (!itemLocationId) throw new Error("Source location is required");
+                if (!itemLocationId) throw new ValidationError("Source location is required");
                 // 2. Server-side Capping
                 const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
                 const plannedQty = planItem ? Number(planItem.quantity) : 0;
@@ -251,7 +252,7 @@ export class ProductionMaterialService {
                         }
 
                         if (remainingToDeduct > 0.0001) {
-                            throw new Error(`Insufficient stock in batches for ${item.productVariantId}. Missing: ${remainingToDeduct}`);
+                            throw new InsufficientStockError(`Insufficient stock in batches for ${item.productVariantId}. Missing: ${remainingToDeduct}`);
                         }
                     }
                 } else {
@@ -259,7 +260,7 @@ export class ProductionMaterialService {
                     const unitCost = await this.getIssueUnitCost(tx, itemLocationId, item.productVariantId);
                     const batch = await tx.batch.findUnique({ where: { id: item.batchId } });
                     if (!batch || Number(batch.quantity) < remainingToDeduct) {
-                        throw new Error(`Selected batch ${batch?.batchNumber || item.batchId} has insufficient stock or not found.`);
+                        throw new InsufficientStockError(`Selected batch ${batch?.batchNumber || item.batchId} has insufficient stock or not found.`);
                     }
 
                     await tx.batch.update({
@@ -375,13 +376,13 @@ export class ProductionMaterialService {
             const issue = await tx.materialIssue.findUnique({
                 where: { id: issueId }
             });
-            if (!issue) throw new Error("Material Issue record not found");
+            if (!issue) throw new NotFoundError("MaterialIssue", issueId);
 
             // ROBUST: Use saved locationId or fallback to rm_warehouse slug only if record is old (NULL locationId)
             let refundLocationId = issue.locationId;
             if (!refundLocationId) {
                 const legacyLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } });
-                if (!legacyLoc) throw new Error(`Could not determine refund location (${WAREHOUSE_SLUGS.RAW_MATERIAL} slug not found)`);
+                if (!legacyLoc) throw new NotFoundError("Location", WAREHOUSE_SLUGS.RAW_MATERIAL);
                 refundLocationId = legacyLoc.id;
             }
 
@@ -480,7 +481,7 @@ export class ProductionMaterialService {
                 include: { productVariant: true }
             });
 
-            if (!scrap) throw new Error("Scrap record not found");
+            if (!scrap) throw new NotFoundError("ScrapRecord", scrapId);
 
             // ROBUST: Use saved locationId
             let locationId = scrap.locationId;
@@ -500,7 +501,7 @@ export class ProductionMaterialService {
 
             if (!locationId) {
                 const scrapLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.SCRAP } });
-                if (!scrapLoc) throw new Error("Could not determine location to reverse scrap from.");
+                if (!scrapLoc) throw new NotFoundError("Location", WAREHOUSE_SLUGS.SCRAP);
                 locationId = scrapLoc.id;
             }
 

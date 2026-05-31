@@ -1,7 +1,6 @@
 import { MovementType, Prisma } from '@prisma/client';
 
 import { AccountingService } from '@/services/accounting/accounting-service';
-import { AutoJournalService } from '@/services/finance/auto-journal-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 import { ProductionCostService } from './cost-service';
@@ -49,8 +48,12 @@ export async function recordFinishedGoodsOutput(params: {
     await AccountingService.recordInventoryMovement(movement, tx);
 }
 
-export async function triggerProductionOutputJournal(executionId: string, quantityProduced: number) {
-    if (quantityProduced > 0) {
-        await AutoJournalService.handleProductionOutput(executionId);
-    }
+/**
+ * @deprecated DELEGATED: Inventory/Production journal entries are recorded as a single source of truth
+ * directly under the Prisma transaction in `recordFinishedGoodsOutput` using `AccountingService.recordInventoryMovement`.
+ * This method is now a no-op to prevent duplicate posting risks.
+ */
+export async function triggerProductionOutputJournal(_executionId: string, _quantityProduced: number) {
+    // No-op: delegated to AccountingService.recordInventoryMovement inside transaction.
+    return;
 }
