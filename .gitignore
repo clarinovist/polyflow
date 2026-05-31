@@ -81,3 +81,7 @@ rafra-spreadsheet-mapping.md
 # generated code graph / Graphify artifacts
 .codegraph/
 graphify-out/
+
+# local planning/working docs
+/docs/plans/
+/docs/marketing/
