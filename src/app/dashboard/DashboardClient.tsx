@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ExecutiveStats } from '@/actions/dashboard/dashboard';
+import { type ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import {
     TrendingUp,
