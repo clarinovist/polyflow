@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { getProductionFormData } from '@/actions/production/production';
 import WarehouseRefreshWrapper from './WarehouseRefreshWrapper';
-import { revalidatePath } from 'next/cache';
 import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
@@ -50,11 +49,6 @@ export default async function WarehousePage() {
     const formDataRes = await getProductionFormData();
     const formData = formDataRes.success && formDataRes.data ? formDataRes.data : { locations: [], operators: [], helpers: [], workShifts: [], boms: [], machines: [], rawMaterials: [] };
 
-    async function refreshData() {
-        'use server';
-        revalidatePath('/warehouse');
-    }
-
     return (
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -68,7 +62,6 @@ export default async function WarehousePage() {
             <div className="grid gap-4 h-[calc(100vh-140px)]">
                 <WarehouseRefreshWrapper
                     initialOrders={serializeData(orders) as unknown as ExtendedProductionOrder[]}
-                    refreshData={refreshData}
                     formData={serializeData(formData)}
                 />
             </div>

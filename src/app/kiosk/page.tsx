@@ -3,9 +3,9 @@ import { serializeData } from "@/lib/utils/utils";
 import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search } from "lucide-react";
-import { revalidatePath } from "next/cache";
 import KioskRefreshWrapper, { Order } from "./KioskRefreshWrapper";
 import { kioskLabels } from "@/lib/labels";
+import { refreshKioskData } from "@/actions/app/refresh-actions";
 
 export default async function KioskPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
     const params = await searchParams;
@@ -83,11 +83,6 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
         orderBy: { name: 'asc' }
     });
 
-    async function refreshData() {
-        'use server';
-        revalidatePath('/kiosk');
-    }
-
     return (
         <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-card p-4 md:p-6 rounded-xl border-2 shadow-sm gap-4">
@@ -102,7 +97,7 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
                             FILTER: {searchQuery}
                         </div>
                     )}
-                    <form action={refreshData} className="w-full md:w-auto">
+                    <form action={refreshKioskData} className="w-full md:w-auto">
                         <Button variant="secondary" size="lg" className="w-full md:w-auto h-12 md:h-14 md:px-8 text-base md:text-lg font-bold border-2 active:scale-95">
                             <RefreshCcw className="mr-2 h-5 w-5 md:h-6 md:w-6" />
                                 {kioskLabels.refresh.toUpperCase()}

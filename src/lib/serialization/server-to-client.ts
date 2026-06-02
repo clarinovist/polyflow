@@ -17,17 +17,30 @@ export function serializeData<T>(obj: T): T {
         return (obj as { toISOString: () => string }).toISOString() as unknown as T;
     }
 
-    // Handle Prisma Decimal objects or other custom decimal/bignumber classes safely
+    // Handle Prisma Decimal objects or other custom decimal/bignumber classes safely.
+    // NOTE: Do NOT rely on constructor.name — it gets minified in production builds.
     const potentialDecimal = obj as {
         toNumber?: () => number;
         toString?: () => string;
-        constructor?: { name?: string };
-        _hex?: unknown
+        _hex?: unknown;
+        d?: unknown;
     };
-    if (typeof potentialDecimal.toNumber === 'function' && potentialDecimal.constructor?.name === 'Decimal') {
-        return potentialDecimal.toNumber() as unknown as T;
+
+    // Duck-type Decimal: has toNumber() that returns a valid number
+    if (typeof potentialDecimal.toNumber === 'function') {
+        try {
+            const num = potentialDecimal.toNumber();
+            if (typeof num === 'number' && !isNaN(num)) {
+                return num as unknown as T;
+            }
+        } catch {
+            // Fall through to toString fallback
+        }
     }
-    if (typeof potentialDecimal.toString === 'function' && (potentialDecimal.constructor?.name === 'Decimal' || potentialDecimal._hex !== undefined)) {
+
+    // Fallback: has toString() plus Prisma Decimal internal markers (_hex or digit array d)
+    if (typeof potentialDecimal.toString === 'function' &&
+        (Array.isArray(potentialDecimal.d) || potentialDecimal._hex !== undefined)) {
         const val = parseFloat(potentialDecimal.toString());
         return (isNaN(val) ? potentialDecimal.toString() : val) as unknown as T;
     }

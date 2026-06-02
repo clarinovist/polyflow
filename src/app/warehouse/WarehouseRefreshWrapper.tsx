@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { Clock, MapPin, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +17,6 @@ import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
-    refreshData: () => Promise<void>;
     formData: {
         locations: Location[];
         operators: PrismaEmployee[];
@@ -29,16 +29,17 @@ interface WarehouseRefreshWrapperProps {
 
 export default function WarehouseRefreshWrapper({
     initialOrders,
-    refreshData,
     formData
 }: WarehouseRefreshWrapperProps) {
+    const router = useRouter();
+
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
         const interval = setInterval(() => {
-            refreshData();
+            router.refresh();
         }, 30000);
         return () => clearInterval(interval);
-    }, [refreshData]);
+    }, [router]);
 
     const filteredOrders = initialOrders;
 
