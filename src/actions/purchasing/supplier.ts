@@ -44,14 +44,11 @@ async function getNextSupplierCode(): Promise<string> {
     await requireAuth();
     const prefix = 'SUP-';
 
-    const lastSupplier = await prisma.supplier.findFirst({
+    const suppliers = await prisma.supplier.findMany({
         where: {
             code: {
                 startsWith: prefix,
             },
-        },
-        orderBy: {
-            code: 'desc',
         },
         select: {
             code: true,
@@ -60,10 +57,11 @@ async function getNextSupplierCode(): Promise<string> {
 
     let nextNumber = 1;
 
-    if (lastSupplier?.code) {
-        const numPart = lastSupplier.code.substring(prefix.length);
+    for (const s of suppliers) {
+        if (!s.code) continue;
+        const numPart = s.code.substring(prefix.length);
         const parsed = parseInt(numPart, 10);
-        if (!isNaN(parsed)) {
+        if (!isNaN(parsed) && parsed >= nextNumber) {
             nextNumber = parsed + 1;
         }
     }
