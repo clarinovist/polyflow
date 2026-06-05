@@ -53,20 +53,52 @@ export class InventoryMovementService {
                 data: { quantity: { decrement: quantity } },
             });
 
-            await tx.inventory.upsert({
+            const sourceInventory = await tx.inventory.findUnique({
                 where: {
                     locationId_productVariantId: {
-                        locationId: destinationLocationId,
+                        locationId: sourceLocationId,
                         productVariantId: productVariantId,
                     },
                 },
-                update: { quantity: { increment: quantity } },
-                create: {
-                    locationId: destinationLocationId,
-                    productVariantId: productVariantId,
-                    quantity: quantity,
-                },
+                select: {
+                    averageCost: true,
+                    productVariant: {
+                        select: {
+                            standardCost: true,
+                            buyPrice: true
+                        }
+                    }
+                }
             });
+
+            const unitCost = Number(sourceInventory?.averageCost ?? 0) ||
+                Number(sourceInventory?.productVariant?.standardCost ?? 0) ||
+                Number(sourceInventory?.productVariant?.buyPrice ?? 0);
+
+            if (unitCost > 0) {
+                await InventoryCoreService.incrementStockWithCost(
+                    tx,
+                    destinationLocationId,
+                    productVariantId,
+                    quantity,
+                    unitCost
+                );
+            } else {
+                await tx.inventory.upsert({
+                    where: {
+                        locationId_productVariantId: {
+                            locationId: destinationLocationId,
+                            productVariantId: productVariantId,
+                        },
+                    },
+                    update: { quantity: { increment: quantity } },
+                    create: {
+                        locationId: destinationLocationId,
+                        productVariantId: productVariantId,
+                        quantity: quantity,
+                    },
+                });
+            }
 
             await tx.stockMovement.create({
                 data: {
@@ -75,6 +107,7 @@ export class InventoryMovementService {
                     fromLocationId: sourceLocationId,
                     toLocationId: destinationLocationId,
                     quantity,
+                    cost: unitCost > 0 ? unitCost : undefined,
                     reference: notes,
                     createdAt: date,
                     createdById: userId,
@@ -130,6 +163,32 @@ export class InventoryMovementService {
                 reservationMap.set(r.productVariantId, r._sum.quantity?.toNumber() || 0);
             });
 
+            // 2.5. Fetch costs for transfer items to preserve cost at destination
+            const sourceInventories = await tx.inventory.findMany({
+                where: {
+                    locationId: sourceLocationId,
+                    productVariantId: { in: productVariantIds }
+                },
+                select: {
+                    productVariantId: true,
+                    averageCost: true,
+                    productVariant: {
+                        select: {
+                            standardCost: true,
+                            buyPrice: true
+                        }
+                    }
+                }
+            });
+
+            const costMap = new Map<string, number>();
+            sourceInventories.forEach(inv => {
+                const cost = Number(inv.averageCost ?? 0) ||
+                    Number(inv.productVariant?.standardCost ?? 0) ||
+                    Number(inv.productVariant?.buyPrice ?? 0);
+                costMap.set(inv.productVariantId, cost);
+            });
+
             // 3. Process Transfers
             for (const item of items) {
                 const { productVariantId, quantity } = item;
@@ -160,20 +219,32 @@ export class InventoryMovementService {
                     data: { quantity: { decrement: quantity } },
                 });
 
-                await tx.inventory.upsert({
-                    where: {
-                        locationId_productVariantId: {
+                const unitCost = costMap.get(productVariantId) || 0;
+
+                if (unitCost > 0) {
+                    await InventoryCoreService.incrementStockWithCost(
+                        tx,
+                        destinationLocationId,
+                        productVariantId,
+                        quantity,
+                        unitCost
+                    );
+                } else {
+                    await tx.inventory.upsert({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId: destinationLocationId,
+                                productVariantId: productVariantId,
+                            },
+                        },
+                        update: { quantity: { increment: quantity } },
+                        create: {
                             locationId: destinationLocationId,
                             productVariantId: productVariantId,
+                            quantity: quantity,
                         },
-                    },
-                    update: { quantity: { increment: quantity } },
-                    create: {
-                        locationId: destinationLocationId,
-                        productVariantId: productVariantId,
-                        quantity: quantity,
-                    },
-                });
+                    });
+                }
 
                 await tx.stockMovement.create({
                     data: {
@@ -182,6 +253,7 @@ export class InventoryMovementService {
                         fromLocationId: sourceLocationId,
                         toLocationId: destinationLocationId,
                         quantity,
+                        cost: unitCost > 0 ? unitCost : undefined,
                         reference: notes,
                         createdAt: date,
                         createdById: userId,

@@ -256,14 +256,6 @@ export class ProductionExecutionService {
                 await AccountingService.recordMaklonCosts(productionOrderId, tx);
             }
 
-            await recordFinishedGoodsOutput({
-                tx,
-                productionOrderId,
-                order: order as ProductionExecutionOrder,
-                quantityProduced: resolvedBaseQty,
-                reference: `Production Output (Stop): WO#${order.orderNumber}`,
-            });
-
             const totalConsumed = resolvedBaseQty + scrapQuantity;
             await backflushMaterials({
                 tx,
@@ -272,6 +264,14 @@ export class ProductionExecutionService {
                 totalConsumed,
                 reference: `Backflush (Stop): WO#${order.orderNumber}`,
                 userId,
+            });
+
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced: resolvedBaseQty,
+                reference: `Production Output (Stop): WO#${order.orderNumber}`,
             });
         });
 
@@ -345,14 +345,6 @@ export class ProductionExecutionService {
                 }
             });
 
-            await recordFinishedGoodsOutput({
-                tx,
-                productionOrderId,
-                order: order as ProductionExecutionOrder,
-                quantityProduced: resolvedBaseQty,
-                reference: `Production Partial Output: WO#${order.orderNumber}`,
-            });
-
             await backflushMaterials({
                 tx,
                 order: order as ProductionExecutionOrder,
@@ -360,6 +352,14 @@ export class ProductionExecutionService {
                 totalConsumed: resolvedBaseQty + scrapQuantity,
                 reference: `Backflush (Partial): WO#${order.orderNumber}`,
                 userId,
+            });
+
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced: resolvedBaseQty,
+                reference: `Production Partial Output: WO#${order.orderNumber}`,
             });
         });
 
@@ -454,14 +454,6 @@ export class ProductionExecutionService {
                 }
             });
 
-            await recordFinishedGoodsOutput({
-                tx,
-                productionOrderId,
-                order: order as ProductionExecutionOrder,
-                quantityProduced: resolvedBaseQty,
-                reference: `Production Output: WO#${order.orderNumber}`,
-            });
-
             await backflushMaterials({
                 tx,
                 order: order as ProductionExecutionOrder,
@@ -469,6 +461,14 @@ export class ProductionExecutionService {
                 totalConsumed: resolvedBaseQty + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0),
                 reference: `Backflush (Batch): WO#${order.orderNumber}`,
                 userId,
+            });
+
+            await recordFinishedGoodsOutput({
+                tx,
+                productionOrderId,
+                order: order as ProductionExecutionOrder,
+                quantityProduced: resolvedBaseQty,
+                reference: `Production Output: WO#${order.orderNumber}`,
             });
 
             await recordExecutionScrap({

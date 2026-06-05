@@ -12,7 +12,8 @@ import {
     Users,
     Menu,
     X,
-    ClipboardCheck
+    ClipboardCheck,
+    FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -57,6 +58,7 @@ const productionLinks: SidebarLinkGroup[] = [
             { title: productionSidebarLabels.floorStock, href: "/production/inventory", icon: Boxes },
             { title: productionSidebarLabels.teamShifts, href: "/production/resources", icon: Users },
             { title: productionSidebarLabels.outputLogs, href: "/production/history", icon: History },
+            { title: productionSidebarLabels.packingMonthlyReport, href: "/production/packing-monthly", icon: FileText },
             { title: productionSidebarLabels.productionCosting, href: "/production/costing", icon: Calculator },
             { title: productionSidebarLabels.workShifts, href: "/production/shifts", icon: Clock },
         ],

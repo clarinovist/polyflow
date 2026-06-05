@@ -121,12 +121,53 @@ export async function resolveMaterialLocation(
         if (mixingLoc) {
             return mixingLoc.id;
         }
-    } else if (order.bom?.category === 'PACKING' || order.bom?.category === 'REWORK') {
+    } else if (order.bom?.category === 'PACKING') {
+        const orderLocStock = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: {
+                    locationId: order.locationId,
+                    productVariantId
+                }
+            },
+            select: { quantity: true }
+        });
+        if (orderLocStock && orderLocStock.quantity.toNumber() > 0) {
+            return order.locationId;
+        }
+
+        const candidateLocationId = await findFirstStockLocation(tx, productVariantId, [
+            WAREHOUSE_SLUGS.FINISHING,
+            WAREHOUSE_SLUGS.RAW_MATERIAL,
+            WAREHOUSE_SLUGS.PACKING_AREA
+        ]);
+        if (candidateLocationId) {
+            return candidateLocationId;
+        }
+
+        const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
+        if (fgLoc) {
+            return fgLoc.id;
+        }
+    } else if (order.bom?.category === 'REWORK') {
+        const orderLocStock = await tx.inventory.findUnique({
+            where: {
+                locationId_productVariantId: {
+                    locationId: order.locationId,
+                    productVariantId
+                }
+            },
+            select: { quantity: true }
+        });
+        if (orderLocStock && orderLocStock.quantity.toNumber() > 0) {
+            return order.locationId;
+        }
+
         const fgLoc = await tx.location.findUnique({ where: { slug: WAREHOUSE_SLUGS.FINISHING } });
         if (fgLoc) {
             return fgLoc.id;
         }
     }
+
 
     const orderLocationInventory = await tx.inventory.findUnique({
         where: {
