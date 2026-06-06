@@ -4,7 +4,7 @@ import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 import { resolveMaterialLocation } from './execution-material-location';
-import type { MaterialLike, ProductionExecutionOrder } from './execution-types';
+import type { MaterialLike, OutputBackflushContext, ProductionExecutionOrder } from './execution-types';
 
 async function resolveSourceUnitCost(
     tx: Prisma.TransactionClient,
@@ -26,6 +26,45 @@ async function resolveSourceUnitCost(
     return sourceUnitCost;
 }
 
+export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
+    const productType = item.productVariant?.product?.productType;
+    const primaryUnit = item.productVariant?.primaryUnit;
+    const materialName = item.productVariant?.name?.toLowerCase() || '';
+    const skuCode = item.productVariant?.skuCode?.toLowerCase() || '';
+
+    return productType === 'PACKAGING' &&
+        primaryUnit === 'PACK' &&
+        (materialName.includes('karung') || skuCode.includes('kar'));
+}
+
+export function resolveBackflushQuantity(params: {
+    item: MaterialLike;
+    order: ProductionExecutionOrder;
+    totalConsumed: number;
+    isUsingPlanned: boolean;
+    outputContext?: OutputBackflushContext;
+}) {
+    const { item, order, totalConsumed, isUsingPlanned, outputContext } = params;
+
+    const ratio = isUsingPlanned
+        ? Number(item.quantity) / Number(order.plannedQuantity)
+        : Number(item.quantity) / Number(order.bom.outputQuantity);
+
+    const enteredQuantity = outputContext?.enteredQuantity;
+
+    if (
+        order.bom?.category === 'PACKING' &&
+        outputContext?.enteredUnit === 'BAL' &&
+        typeof enteredQuantity === 'number' &&
+        Number.isFinite(enteredQuantity) &&
+        isWholeBalPackagingMaterial(item)
+    ) {
+        return Math.floor(enteredQuantity);
+    }
+
+    return totalConsumed * ratio;
+}
+
 export async function backflushMaterials(params: {
     tx: Prisma.TransactionClient;
     order: ProductionExecutionOrder;
@@ -33,8 +72,9 @@ export async function backflushMaterials(params: {
     totalConsumed: number;
     reference: string;
     userId?: string;
+    outputContext?: OutputBackflushContext;
 }) {
-    const { tx, order, productionOrderId, totalConsumed, reference, userId } = params;
+    const { tx, order, productionOrderId, totalConsumed, reference, userId, outputContext } = params;
     if (totalConsumed <= 0) {
         return;
     }
@@ -48,10 +88,13 @@ export async function backflushMaterials(params: {
 
     for (const item of itemsToBackflush as MaterialLike[]) {
         const consumptionLocationId = await resolveMaterialLocation(tx, order, item.productVariantId);
-        const ratio = isUsingPlanned
-            ? Number(item.quantity) / Number(order.plannedQuantity)
-            : Number(item.quantity) / Number(order.bom.outputQuantity);
-        const qtyToDeduct = totalConsumed * ratio;
+        const qtyToDeduct = resolveBackflushQuantity({
+            item,
+            order,
+            totalConsumed,
+            isUsingPlanned,
+            outputContext,
+        });
 
         if (qtyToDeduct <= 0.0001) {
             continue;

@@ -246,8 +246,24 @@ export class ProductionExecutionService {
                     status: data.completed ? ProductionStatus.COMPLETED : undefined
                 },
                 include: {
-                    bom: { include: { items: true } },
-                    plannedMaterials: true
+                    bom: {
+                        include: {
+                            items: {
+                                include: {
+                                    productVariant: {
+                                        include: { product: true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    plannedMaterials: {
+                        include: {
+                            productVariant: {
+                                include: { product: true }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -264,6 +280,11 @@ export class ProductionExecutionService {
                 totalConsumed,
                 reference: `Backflush (Stop): WO#${order.orderNumber}`,
                 userId,
+                outputContext: {
+                    enteredQuantity: resolved.enteredQty,
+                    enteredUnit: resolved.enteredUnit,
+                    baseQuantity: resolvedBaseQty,
+                }
             });
 
             await recordFinishedGoodsOutput({
@@ -340,8 +361,24 @@ export class ProductionExecutionService {
                 where: { id: productionOrderId },
                 data: { actualQuantity: newTotal },
                 include: {
-                    bom: { include: { items: true } },
-                    plannedMaterials: true
+                    bom: {
+                        include: {
+                            items: {
+                                include: {
+                                    productVariant: {
+                                        include: { product: true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    plannedMaterials: {
+                        include: {
+                            productVariant: {
+                                include: { product: true }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -352,6 +389,11 @@ export class ProductionExecutionService {
                 totalConsumed: resolvedBaseQty + scrapQuantity,
                 reference: `Backflush (Partial): WO#${order.orderNumber}`,
                 userId,
+                outputContext: {
+                    enteredQuantity: resolved.enteredQty,
+                    enteredUnit: resolved.enteredUnit,
+                    baseQuantity: resolvedBaseQty,
+                }
             });
 
             await recordFinishedGoodsOutput({
@@ -449,8 +491,24 @@ export class ProductionExecutionService {
                 where: { id: productionOrderId },
                 data: { actualQuantity: newTotal },
                 include: {
-                    bom: { include: { items: true } },
-                    plannedMaterials: true
+                    bom: {
+                        include: {
+                            items: {
+                                include: {
+                                    productVariant: {
+                                        include: { product: true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    plannedMaterials: {
+                        include: {
+                            productVariant: {
+                                include: { product: true }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -461,6 +519,11 @@ export class ProductionExecutionService {
                 totalConsumed: resolvedBaseQty + Number(scrapQuantity) + Number(scrapProngkolQty ?? 0) + Number(scrapDaunQty ?? 0),
                 reference: `Backflush (Batch): WO#${order.orderNumber}`,
                 userId,
+                outputContext: {
+                    enteredQuantity: resolved.enteredQty,
+                    enteredUnit: resolved.enteredUnit,
+                    baseQuantity: resolvedBaseQty,
+                }
             });
 
             await recordFinishedGoodsOutput({

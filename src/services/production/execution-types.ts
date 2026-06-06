@@ -1,4 +1,4 @@
-import { BomItem, Prisma, ProductionMaterial } from '@prisma/client';
+import { BomItem, Prisma, ProductType, ProductionMaterial, Unit } from '@prisma/client';
 
 export interface BackflushOrder {
     isMaklon: boolean;
@@ -6,7 +6,25 @@ export interface BackflushOrder {
     bom?: { category: string | null } | null;
 }
 
-export type MaterialLike = Pick<ProductionMaterial, 'productVariantId' | 'quantity'> | Pick<BomItem, 'productVariantId' | 'quantity'>;
+export type MaterialLike = (
+    Pick<ProductionMaterial, 'productVariantId' | 'quantity'> |
+    Pick<BomItem, 'productVariantId' | 'quantity'>
+) & {
+    productVariant?: {
+        name?: string | null;
+        skuCode?: string | null;
+        primaryUnit?: Unit | null;
+        product?: {
+            productType?: ProductType | null;
+        } | null;
+    } | null;
+};
+
+export interface OutputBackflushContext {
+    enteredQuantity: number | null;
+    enteredUnit: Unit | null;
+    baseQuantity: number;
+}
 
 export interface ProductionExecutionOrder extends BackflushOrder {
     id: string;
