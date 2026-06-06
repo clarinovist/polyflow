@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveMaterialLocation } from '../execution-material-location';
+import { resolveBackflushQuantity } from '../execution-material-consumption';
 import { PackingReportService } from '../packing-report-service';
 import { prisma } from '@/lib/core/prisma';
 
@@ -172,6 +173,66 @@ describe('Packing and Costing Resolution Logic', () => {
                 averageHpp: 16650,
                 totalCost: 1665000
             });
+        });
+    });
+
+    describe('backflush quantity for whole-BAL packaging materials', () => {
+        const baseOrder: any = {
+            plannedQuantity: 100,
+            bom: {
+                category: 'PACKING',
+                outputQuantity: 100,
+            }
+        };
+
+        it('uses floor(entered BAL) for karung packaging material', () => {
+            const qty = resolveBackflushQuantity({
+                item: {
+                    productVariantId: 'pv-karung',
+                    quantity: 1,
+                    productVariant: {
+                        name: 'Karung Besar',
+                        skuCode: 'RMKAR001',
+                        primaryUnit: 'PACK',
+                        product: { productType: 'PACKAGING' }
+                    }
+                } as any,
+                order: baseOrder,
+                totalConsumed: 62,
+                isUsingPlanned: false,
+                outputContext: {
+                    enteredQuantity: 6.2,
+                    enteredUnit: 'BAL',
+                    baseQuantity: 62
+                }
+            });
+
+            expect(qty).toBe(6);
+        });
+
+        it('keeps proportional quantity for non-karung material', () => {
+            const qty = resolveBackflushQuantity({
+                item: {
+                    productVariantId: 'pv-roll',
+                    quantity: 44.63,
+                    productVariant: {
+                        name: 'Roll Merah 28',
+                        skuCode: 'FGROL041',
+                        primaryUnit: 'KG',
+                        product: { productType: 'INTERMEDIATE' }
+                    }
+                } as any,
+                order: baseOrder,
+                totalConsumed: 81.75,
+                isUsingPlanned: false,
+                outputContext: {
+                    enteredQuantity: 6.2,
+                    enteredUnit: 'BAL',
+                    baseQuantity: 81.75
+                }
+            });
+
+            expect(qty).toBeCloseTo(81.75 * (44.63 / 100), 6);
         });
     });
 });
