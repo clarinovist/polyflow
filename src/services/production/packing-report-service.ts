@@ -7,8 +7,17 @@ export interface PackingReportItem {
     totalQuantity: number;
     primaryUnit: string;
     workOrderCount: number;
+    karungConsumed: number;
+    karungCost: number;
     averageHpp: number;
     totalCost: number;
+}
+
+function hasFloorEnteredBalRule(attributes: unknown): boolean {
+    return !!attributes
+        && typeof attributes === 'object'
+        && !Array.isArray(attributes)
+        && (attributes as Record<string, unknown>).consumptionRule === 'FLOOR_ENTERED_BAL';
 }
 
 export class PackingReportService {
@@ -54,10 +63,14 @@ export class PackingReportService {
                         },
                         stockMovements: {
                             where: {
-                                type: 'IN',
                                 createdAt: {
                                     gte: startDate,
                                     lte: endDate
+                                }
+                            },
+                            include: {
+                                productVariant: {
+                                    include: { product: true }
                                 }
                             }
                         }
@@ -73,6 +86,9 @@ export class PackingReportService {
             primaryUnit: string;
             orderIds: Set<string>;
             totalCost: number;
+            karungConsumed: number;
+            karungCost: number;
+            countedKarungMovementKeys: Set<string>;
         }>();
 
         for (const exec of executions) {
@@ -105,7 +121,10 @@ export class PackingReportService {
                     totalQty: 0,
                     primaryUnit: variant.primaryUnit,
                     orderIds: new Set<string>(),
-                    totalCost: 0
+                    totalCost: 0,
+                    karungConsumed: 0,
+                    karungCost: 0,
+                    countedKarungMovementKeys: new Set<string>()
                 });
             }
 
@@ -113,6 +132,22 @@ export class PackingReportService {
             current.totalQty += qtyProduced;
             current.orderIds.add(exec.productionOrderId);
             current.totalCost += execCost;
+
+            const karungMovements = exec.productionOrder.stockMovements.filter((movement) => (
+                movement.type === 'OUT'
+                && hasFloorEnteredBalRule(movement.productVariant?.attributes)
+            ));
+
+            for (const movement of karungMovements) {
+                const movementKey = movement.id ?? `${exec.productionOrderId}:${movement.productVariantId}:${movement.createdAt.toISOString()}`;
+                if (current.countedKarungMovementKeys.has(movementKey)) {
+                    continue;
+                }
+
+                current.countedKarungMovementKeys.add(movementKey);
+                current.karungConsumed += Number(movement.quantity);
+                current.karungCost += Number(movement.quantity) * Number(movement.cost || 0);
+            }
         }
 
         const results: PackingReportItem[] = [];
@@ -125,6 +160,8 @@ export class PackingReportService {
                 totalQuantity: data.totalQty,
                 primaryUnit: data.primaryUnit,
                 workOrderCount: data.orderIds.size,
+                karungConsumed: data.karungConsumed,
+                karungCost: data.karungCost,
                 averageHpp,
                 totalCost: data.totalCost
             });

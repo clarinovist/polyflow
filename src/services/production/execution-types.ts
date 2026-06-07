@@ -1,5 +1,7 @@
 import { BomItem, Prisma, ProductType, ProductionMaterial, Unit } from '@prisma/client';
 
+export type ConsumptionRule = 'PROPORTIONAL' | 'FLOOR_ENTERED_BAL' | 'CEIL_ENTERED_BAL';
+
 export interface BackflushOrder {
     isMaklon: boolean;
     locationId: string;
@@ -14,6 +16,7 @@ export type MaterialLike = (
         name?: string | null;
         skuCode?: string | null;
         primaryUnit?: Unit | null;
+        attributes?: Prisma.JsonValue | null;
         product?: {
             productType?: ProductType | null;
         } | null;

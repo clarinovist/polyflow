@@ -4,7 +4,7 @@ import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 
 import { resolveMaterialLocation } from './execution-material-location';
-import type { MaterialLike, OutputBackflushContext, ProductionExecutionOrder } from './execution-types';
+import type { ConsumptionRule, MaterialLike, OutputBackflushContext, ProductionExecutionOrder } from './execution-types';
 
 async function resolveSourceUnitCost(
     tx: Prisma.TransactionClient,
@@ -26,15 +26,19 @@ async function resolveSourceUnitCost(
     return sourceUnitCost;
 }
 
-export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
-    const productType = item.productVariant?.product?.productType;
-    const primaryUnit = item.productVariant?.primaryUnit;
-    const materialName = item.productVariant?.name?.toLowerCase() || '';
-    const skuCode = item.productVariant?.skuCode?.toLowerCase() || '';
+function resolveConsumptionRule(item: MaterialLike): ConsumptionRule {
+    const attributes = item.productVariant?.attributes;
 
-    return productType === 'PACKAGING' &&
-        primaryUnit === 'PACK' &&
-        (materialName.includes('karung') || skuCode.includes('kar'));
+    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+        return 'PROPORTIONAL';
+    }
+
+    const rule = (attributes as Record<string, unknown>).consumptionRule;
+    if (rule === 'FLOOR_ENTERED_BAL' || rule === 'CEIL_ENTERED_BAL') {
+        return rule;
+    }
+
+    return 'PROPORTIONAL';
 }
 
 export function resolveBackflushQuantity(params: {
@@ -51,15 +55,23 @@ export function resolveBackflushQuantity(params: {
         : Number(item.quantity) / Number(order.bom.outputQuantity);
 
     const enteredQuantity = outputContext?.enteredQuantity;
+    const rule = resolveConsumptionRule(item);
 
     if (
         order.bom?.category === 'PACKING' &&
         outputContext?.enteredUnit === 'BAL' &&
         typeof enteredQuantity === 'number' &&
         Number.isFinite(enteredQuantity) &&
-        isWholeBalPackagingMaterial(item)
+        enteredQuantity > 0 &&
+        enteredQuantity <= 10000
     ) {
-        return Math.floor(enteredQuantity);
+        if (rule === 'FLOOR_ENTERED_BAL') {
+            return Math.floor(enteredQuantity);
+        }
+
+        if (rule === 'CEIL_ENTERED_BAL') {
+            return Math.ceil(enteredQuantity);
+        }
     }
 
     return totalConsumed * ratio;
@@ -98,6 +110,27 @@ export async function backflushMaterials(params: {
 
         if (qtyToDeduct <= 0.0001) {
             continue;
+        }
+
+        const resolvedRule = resolveConsumptionRule(item);
+        if (resolvedRule !== 'PROPORTIONAL' && outputContext?.enteredUnit === 'BAL' && outputContext.enteredQuantity != null) {
+            const entered = outputContext.enteredQuantity;
+            const expected = Math.floor(entered);
+            if (qtyToDeduct > expected * 1.1) {
+                console.warn(
+                    `[Backflush] Variance warning: deducted ${qtyToDeduct} > expected ${expected} ` +
+                    `(+${((qtyToDeduct / expected - 1) * 100).toFixed(0)}%) | ` +
+                    `Material: ${item.productVariant?.name ?? item.productVariantId} | ` +
+                    `Entered: ${entered} BAL | WO: ${order.orderNumber}`
+                );
+            }
+            console.log(
+                `[Backflush] Rule: ${resolvedRule} | ` +
+                `Material: ${item.productVariant?.name ?? item.productVariantId} | ` +
+                `Entered: ${entered} ${outputContext.enteredUnit} | ` +
+                `Deducted: ${qtyToDeduct} ${item.productVariant?.primaryUnit ?? 'units'} | ` +
+                `WO: ${order.orderNumber}`
+            );
         }
 
         await InventoryCoreService.validateAndLockStock(tx, consumptionLocationId, item.productVariantId, qtyToDeduct);
