@@ -7,6 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  REPO: ${{ github.repository }}
 
 permissions:
   contents: write
@@ -44,7 +45,7 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
-        
+
       - name: Run ESLint
         run: npm run lint
 
@@ -54,7 +55,7 @@ jobs:
       - name: Build Next.js
         run: npm run build
         env:
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/polyflow_test"
+          DATABASE_URL: "postgresql://postgres:***@localhost:5432/polyflow_test"
 
       - name: Validate Nginx configuration
         run: |
@@ -89,12 +90,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Lowercase Repo Name
-        run: echo "REPO=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -120,16 +115,16 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: CR_PAT
+          envs: GITHUB_TOKEN
           script: |
             set -e
             cd /root/polyflow
             git fetch origin main
             git reset --hard origin/main
-            echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull polyflow
             docker rm -f polyflow-app 2>/dev/null || true
             docker compose up -d --no-deps polyflow
             docker image prune -f
         env:
-          CR_PAT: ${{ secrets.CR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
