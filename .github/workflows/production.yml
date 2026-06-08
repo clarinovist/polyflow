@@ -91,7 +91,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -124,16 +124,16 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GITHUB_TOKEN
+          envs: CR_PAT
           script: |
             set -e
             cd /root/polyflow
             git fetch origin main
             git reset --hard origin/main
-            echo "$GITHUB_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull polyflow
             docker rm -f polyflow-app 2>/dev/null || true
             docker compose up -d --no-deps polyflow
             docker image prune -f
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CR_PAT: ${{ secrets.CR_PAT }}
