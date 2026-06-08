@@ -87,7 +87,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lowercase Repo Name
         run: echo "REPO=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
