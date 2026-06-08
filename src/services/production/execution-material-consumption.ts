@@ -26,15 +26,28 @@ async function resolveSourceUnitCost(
     return sourceUnitCost;
 }
 
+function hasFloorEnteredBalRule(attributes: unknown): boolean {
+    return !!attributes &&
+        typeof attributes === 'object' &&
+        !Array.isArray(attributes) &&
+        (attributes as Record<string, unknown>).consumptionRule === 'FLOOR_ENTERED_BAL';
+}
+
 export function isWholeBalPackagingMaterial(item: MaterialLike): boolean {
     const productType = item.productVariant?.product?.productType;
     const primaryUnit = item.productVariant?.primaryUnit;
+    const attributes = item.productVariant?.attributes;
     const materialName = item.productVariant?.name?.toLowerCase() || '';
     const skuCode = item.productVariant?.skuCode?.toLowerCase() || '';
+    const isKarungLike = materialName.includes('karung') || skuCode.includes('kar');
 
-    return productType === 'PACKAGING' &&
-        primaryUnit === 'PACK' &&
-        (materialName.includes('karung') || skuCode.includes('kar'));
+    if (hasFloorEnteredBalRule(attributes)) {
+        return true;
+    }
+
+    return primaryUnit === 'PACK' &&
+        isKarungLike &&
+        (productType === 'PACKAGING' || productType === 'RAW_MATERIAL' || !productType);
 }
 
 export function resolveBackflushQuantity(params: {

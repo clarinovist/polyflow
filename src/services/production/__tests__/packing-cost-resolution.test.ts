@@ -212,6 +212,57 @@ describe('Packing and Costing Resolution Logic', () => {
             expect(qty).toBe(6);
         });
 
+        it('uses floor(entered BAL) for karung stored as raw material', () => {
+            const qty = resolveBackflushQuantity({
+                item: {
+                    productVariantId: 'pv-karung-raw',
+                    quantity: 50,
+                    productVariant: {
+                        name: 'Karung Besar',
+                        skuCode: 'RMKAR001',
+                        primaryUnit: 'PACK',
+                        product: { productType: 'RAW_MATERIAL' }
+                    }
+                } as any,
+                order: baseOrder,
+                totalConsumed: 250,
+                isUsingPlanned: false,
+                outputContext: {
+                    enteredQuantity: 10,
+                    enteredUnit: 'BAL',
+                    baseQuantity: 250
+                }
+            });
+
+            expect(qty).toBe(10);
+        });
+
+        it('uses explicit FLOOR_ENTERED_BAL rule even without karung product type', () => {
+            const qty = resolveBackflushQuantity({
+                item: {
+                    productVariantId: 'pv-explicit-rule',
+                    quantity: 50,
+                    productVariant: {
+                        name: 'Outer Bag Large',
+                        skuCode: 'PKG001',
+                        primaryUnit: 'PACK',
+                        attributes: { consumptionRule: 'FLOOR_ENTERED_BAL' },
+                        product: { productType: 'SERVICE' }
+                    }
+                } as any,
+                order: baseOrder,
+                totalConsumed: 175,
+                isUsingPlanned: false,
+                outputContext: {
+                    enteredQuantity: 7,
+                    enteredUnit: 'BAL',
+                    baseQuantity: 175
+                }
+            });
+
+            expect(qty).toBe(7);
+        });
+
         it('keeps proportional quantity for non-karung material', () => {
             const qty = resolveBackflushQuantity({
                 item: {
