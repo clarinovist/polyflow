@@ -170,6 +170,8 @@ describe('Packing and Costing Resolution Logic', () => {
                 totalQuantity: 100,
                 primaryUnit: 'PACK',
                 workOrderCount: 1,
+                karungConsumed: 0,
+                karungCost: 0,
                 averageHpp: 16650,
                 totalCost: 1665000
             });
