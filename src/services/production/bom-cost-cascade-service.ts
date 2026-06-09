@@ -31,7 +31,6 @@ type BomCostPayload = {
             standardCost?: unknown;
             buyPrice?: unknown;
             price?: unknown;
-            inventories?: Array<{ quantity?: unknown; averageCost?: unknown }>;
         } | null;
     }>;
 };
@@ -93,12 +92,6 @@ export class BomCostCascadeService {
                                     standardCost: true,
                                     buyPrice: true,
                                     price: true,
-                                    inventories: {
-                                        select: {
-                                            quantity: true,
-                                            averageCost: true,
-                                        },
-                                    },
                                 },
                             },
                         },
