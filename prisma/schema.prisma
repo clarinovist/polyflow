@@ -47,6 +47,10 @@ model User {
   notifications           Notification[]
   pettyCashTransactions   PettyCashTransaction[] @relation("PettyCashCreator")
   maklonReturns           MaklonMaterialReturn[] @relation("MaklonReturnCreator")
+  createdPettyCashReports                  PettyCashDailyReport[] @relation("PettyCashReportCreator")
+  readyToPrintPettyCashReports             PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
+  physicalSignedPettyCashReports           PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
+  finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
 }
 
 model Employee {
@@ -1509,9 +1513,12 @@ model PettyCashTransaction {
   expenseAccount Account?      @relation(fields: [expenseAccountId], references: [id])
   createdBy      User          @relation("PettyCashCreator", fields: [createdById], references: [id])
   journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  pettyCashDailyReportId String?
+  pettyCashDailyReport   PettyCashDailyReport? @relation(fields: [pettyCashDailyReportId], references: [id])
 
   @@index([createdById])
   @@index([status, date])
+  @@index([pettyCashDailyReportId])
 }
 
 enum LocationType {
@@ -1582,4 +1589,41 @@ enum MaklonMaterialReturnStatus {
   CONFIRMED
   COMPLETED
   CANCELLED
+}
+
+model PettyCashDailyReport {
+  id                         String   @id @default(uuid())
+  reportDate                 DateTime @unique
+  reportNumber               String   @unique
+
+  openingBalance             Decimal  @db.Decimal(15, 2)
+  totalIn                    Decimal  @db.Decimal(15, 2)
+  totalOut                   Decimal  @db.Decimal(15, 2)
+  closingBalance             Decimal  @db.Decimal(15, 2)
+
+  status                     String   @default("DRAFT") // DRAFT, READY_TO_PRINT, SIGNED_PHYSICAL, FINALIZED, VOIDED
+  notes                      String?
+  signedDocumentUrl          String?
+
+  createdById                  String
+  readyToPrintById             String?
+  physicalSignedConfirmedById  String?
+  finalizedById                String?
+
+  readyToPrintAt             DateTime?
+  physicalSignedConfirmedAt  DateTime?
+  finalizedAt                DateTime?
+
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  createdBy                  User     @relation("PettyCashReportCreator", fields: [createdById], references: [id])
+  readyToPrintBy             User?    @relation("PettyCashReportReadyToPrintMarker", fields: [readyToPrintById], references: [id])
+  physicalSignedConfirmedBy  User?    @relation("PettyCashReportPhysicalSignedConfirmer", fields: [physicalSignedConfirmedById], references: [id])
+  finalizedBy                User?    @relation("PettyCashReportFinalizer", fields: [finalizedById], references: [id])
+
+  transactions               PettyCashTransaction[]
+
+  @@index([reportDate])
+  @@index([status, reportDate])
 }

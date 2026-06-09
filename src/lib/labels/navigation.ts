@@ -46,6 +46,7 @@ export const warehouseSidebarLabels = {
 export const financeSidebarLabels = {
   dashboard: 'Dashboard',
   pettyCash: 'Petty Cash',
+  pettyCashDailyReport: 'Petty Cash Daily Report',
   bankReconciliation: 'Rekonsiliasi Bank',
   fixedAssets: 'Aset Tetap',
   budgeting: 'Anggaran vs Aktual',

@@ -75,6 +75,7 @@ const financeLinks = [
             { href: '/finance/reports/budget-variance', icon: FileText, label: financeSidebarLabels.budgetVariance },
             { href: '/finance/reports/tax', icon: FileText, label: financeSidebarLabels.taxReport },
             { href: '/finance/reports/maklon', icon: Factory, label: financeSidebarLabels.maklonProfitability },
+            { href: '/finance/petty-cash/reports/daily', icon: FileText, label: financeSidebarLabels.pettyCashDailyReport },
         ],
     },
     {
