@@ -7,14 +7,18 @@ Tidak butuh psycopg2 — jalan via docker exec psql.
 
 import subprocess
 import sys
+import os
 from datetime import datetime, timedelta, timezone
 
 # --- config ----------------------------------------------------------------
 CONTAINER  = "polyflow-db"
 DB_USER    = "polyflow"
 DB_NAME    = "polyflow"
-DB_PASS    = ""  # kosong = trust auth / pgpass
 REPORT_TYPE = sys.argv[1] if len(sys.argv) > 1 else "daily"  # daily | weekly
+
+# Telegram config (set via env vars)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT  = os.environ.get("TELEGRAM_CHAT_ID", "-5255163640")  # grup polyflow-report
 
 def psql(query: str) -> list[dict]:
     """Jalankan SQL via docker exec psql, return list of dict."""
@@ -188,7 +192,31 @@ def main():
 
     report = "\n".join(out)
     print(report)
+
+    # kirim ke Telegram jika token tersedia
+    if TELEGRAM_TOKEN:
+        send_telegram(report)
+
     return report
+
+
+def send_telegram(text: str):
+    """Kirim pesan ke grup Telegram via Bot API."""
+    import requests
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    # Telegram max 4096 chars per message; split if needed
+    chunks = [text[i:i+4096] for i in range(0, len(text), 4096)]
+    for chunk in chunks:
+        try:
+            resp = requests.post(url, json={
+                "chat_id": TELEGRAM_CHAT,
+                "text": chunk,
+                "parse_mode": "HTML"
+            }, timeout=15)
+            if resp.status_code != 200:
+                print(f"[TELEGRAM ERROR] {resp.status_code}: {resp.text}", file=sys.stderr)
+        except Exception as e:
+            print(f"[TELEGRAM ERROR] {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
