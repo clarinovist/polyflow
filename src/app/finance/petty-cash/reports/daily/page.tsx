@@ -18,6 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/utils";
 import { format } from "date-fns";
+import { useToast } from '@/hooks/use-toast';
 
 interface Transaction {
     id: string;
@@ -47,6 +48,7 @@ export default function DailyPettyCashReportPage() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [date, setDate] = useState<Date>(new Date());
+    const { toast } = useToast();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -77,16 +79,26 @@ export default function DailyPettyCashReportPage() {
         window.print();
     };
 
-    const runReportAction = async (action: (reportId: string) => Promise<unknown>) => {
+    const runReportAction = async (actionName: string, action: (reportId: string) => Promise<unknown>) => {
         const reportId = data?.savedReport?.id;
         if (!reportId) return;
 
         setActionLoading(true);
         try {
-            await action(reportId);
-            await fetchData();
+            const result = await action(reportId) as Record<string, unknown> | null;
+            if (result && 'success' in result && result.success) {
+                toast({ title: 'Berhasil', description: `${actionName} berhasil.` });
+                await fetchData();
+            } else {
+                const errorMsg = result && 'error' in result ? String(result.error) : `${actionName} gagal.`;
+                toast({ title: 'Gagal', description: errorMsg, variant: 'destructive' });
+            }
         } catch (error) {
-            console.error(error);
+            toast({
+                title: 'Gagal',
+                description: error instanceof Error ? error.message : `${actionName} gagal.`,
+                variant: 'destructive'
+            });
         } finally {
             setActionLoading(false);
         }
@@ -179,12 +191,18 @@ export default function DailyPettyCashReportPage() {
                                         try {
                                             const result = await createPettyCashDailyReportAction(format(date, "yyyy-MM-dd"));
                                             if (result && 'success' in result && result.success) {
+                                                toast({ title: 'Berhasil', description: 'Laporan kas kecil berhasil dibuat.' });
                                                 await fetchData();
                                             } else {
-                                                console.error('Create report failed', result);
+                                                const errorMsg = result && 'error' in result ? String(result.error) : 'Gagal membuat laporan.';
+                                                toast({ title: 'Gagal', description: errorMsg, variant: 'destructive' });
                                             }
                                         } catch (e) {
-                                            console.error(e);
+                                            toast({
+                                                title: 'Gagal',
+                                                description: e instanceof Error ? e.message : 'Gagal membuat laporan.',
+                                                variant: 'destructive'
+                                            });
                                         } finally {
                                             setActionLoading(false);
                                         }
@@ -198,7 +216,7 @@ export default function DailyPettyCashReportPage() {
                             {data.savedReport && data.status === 'DRAFT' && (
                                 <Button
                                     variant="default"
-                                    onClick={() => runReportAction(markPettyCashDailyReportReadyToPrintAction)}
+                                    onClick={() => runReportAction('Siap Cetak', markPettyCashDailyReportReadyToPrintAction)}
                                     disabled={actionLoading}
                                 >
                                     Siap Cetak
@@ -208,7 +226,7 @@ export default function DailyPettyCashReportPage() {
                             {data.savedReport && data.status === 'READY_TO_PRINT' && (
                                 <Button
                                     variant="default"
-                                    onClick={() => runReportAction(confirmPettyCashDailyReportPhysicalSignatureAction)}
+                                    onClick={() => runReportAction('Konfirmasi TTD Basah', confirmPettyCashDailyReportPhysicalSignatureAction)}
                                     disabled={actionLoading}
                                 >
                                     Tandai Sudah TTD Basah
@@ -218,7 +236,7 @@ export default function DailyPettyCashReportPage() {
                             {data.savedReport && data.status === 'SIGNED_PHYSICAL' && (
                                 <Button
                                     variant="default"
-                                    onClick={() => runReportAction(finalizePettyCashDailyReportAction)}
+                                    onClick={() => runReportAction('Finalisasi', finalizePettyCashDailyReportAction)}
                                     disabled={actionLoading}
                                 >
                                     Finalisasi Arsip
@@ -235,9 +253,22 @@ export default function DailyPettyCashReportPage() {
                                         setActionLoading(true);
                                         try {
                                             const res = await voidPettyCashDailyReportAction(reportId);
-                                            if (res && 'success' in res && res.success) await fetchData();
-                                        } catch (e) { console.error(e); }
-                                        finally { setActionLoading(false); }
+                                            if (res && 'success' in res && res.success) {
+                                                toast({ title: 'Berhasil', description: 'Laporan berhasil di-void.' });
+                                                await fetchData();
+                                            } else {
+                                                const errorMsg = res && 'error' in res ? String(res.error) : 'Gagal void laporan.';
+                                                toast({ title: 'Gagal', description: errorMsg, variant: 'destructive' });
+                                            }
+                                        } catch (e) {
+                                            toast({
+                                                title: 'Gagal',
+                                                description: e instanceof Error ? e.message : 'Gagal void laporan.',
+                                                variant: 'destructive'
+                                            });
+                                        } finally {
+                                            setActionLoading(false);
+                                        }
                                     }}
                                     disabled={actionLoading}
                                 >

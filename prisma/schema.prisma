@@ -51,6 +51,7 @@ model User {
   readyToPrintPettyCashReports             PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
   physicalSignedPettyCashReports           PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
   finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
+  voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
 }
 
 model Employee {
@@ -1609,10 +1610,12 @@ model PettyCashDailyReport {
   readyToPrintById             String?
   physicalSignedConfirmedById  String?
   finalizedById                String?
+  voidedById                   String?
 
   readyToPrintAt             DateTime?
   physicalSignedConfirmedAt  DateTime?
   finalizedAt                DateTime?
+  voidedAt                   DateTime?
 
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
@@ -1621,6 +1624,7 @@ model PettyCashDailyReport {
   readyToPrintBy             User?    @relation("PettyCashReportReadyToPrintMarker", fields: [readyToPrintById], references: [id])
   physicalSignedConfirmedBy  User?    @relation("PettyCashReportPhysicalSignedConfirmer", fields: [physicalSignedConfirmedById], references: [id])
   finalizedBy                User?    @relation("PettyCashReportFinalizer", fields: [finalizedById], references: [id])
+  voidedBy                   User?    @relation("PettyCashReportVoider", fields: [voidedById], references: [id])
 
   transactions               PettyCashTransaction[]
 

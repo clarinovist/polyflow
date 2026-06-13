@@ -90,6 +90,7 @@ export class PettyCashReportService {
                 readyToPrintBy: { select: { id: true, name: true } },
                 physicalSignedConfirmedBy: { select: { id: true, name: true } },
                 finalizedBy: { select: { id: true, name: true } },
+                voidedBy: { select: { id: true, name: true } },
                 transactions: {
                     include: {
                         expenseAccount: true,
@@ -239,13 +240,18 @@ export class PettyCashReportService {
     }
 
     /** Any non-FINALIZED → VOIDED */
-    static async voidDailyReport(id: string, _userId: string) {
+    static async voidDailyReport(id: string, userId: string) {
         const report = await prisma.pettyCashDailyReport.findUnique({ where: { id } });
         if (!report) throw new Error('Laporan tidak ditemukan.');
         if (report.status === 'FINALIZED') throw new Error('Laporan yang sudah FINALIZED tidak dapat di-void.');
+        if (report.status === 'VOIDED') throw new Error('Laporan sudah VOIDED.');
         return await prisma.pettyCashDailyReport.update({
             where: { id },
-            data: { status: 'VOIDED' }
+            data: {
+                status: 'VOIDED',
+                voidedById: userId,
+                voidedAt: new Date()
+            }
         });
     }
 }
