@@ -1,0 +1,2 @@
+nama_customer,nomor_invoice,tanggal_invoice,tanggal_jatuh_tempo,nilai_piutang,keterangan
+PT Contoh Pelanggan,INV-001,2026-05-15,2026-06-14,15000000,Isi dengan saldo piutang yang masih outstanding per customer / invoice

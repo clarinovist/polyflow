@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     getDailyPettyCashReportAction,
 } from '@/actions/finance/petty-cash-report-actions';
-import { Card, CardContent } from "@/components/ui/card";
-import { formatRupiah } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Printer, CalendarIcon } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
@@ -223,6 +221,10 @@ export default function CashOpnamePage() {
                         </div>
                         <div>sampai tgl</div>
                         <div className="flex justify-between">
+                            <span>KAS BON s/d tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span>&nbsp;</span>
+                        </div>
+                        <div className="flex justify-between">
                             <span>Uang Masuk Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
                             <span className="font-mono">{formatNumber(totalIn)}</span>
                         </div>
@@ -294,6 +296,10 @@ export default function CashOpnamePage() {
                         <div className="flex justify-between">
                             <span>UANG MASUK Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
                             <span className="font-mono">{formatNumber(totalIn)} +</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>PENGEMBALIAN KAS BON tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono">{formatNumber(0)} -</span>
                         </div>
                         <div className="flex justify-between">
                             <span>SALDO AKHIR Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>

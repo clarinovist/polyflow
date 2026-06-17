@@ -1,0 +1,2 @@
+sheet,row,sheet_code,sheet_name,amount,code_norm,mapped_db_code,mapped_db_name,db_type,db_category,match_status,match_basis,similarity_score,opening_method,decision_note
+NERACA MEI,12,1-115,Piutang Dagang,192527866.0,1-115,1-115b,Piutang Dagang Rafia,ASSET,CURRENT_ASSET,MAPPED,SUGGESTED,1.0,AR_MODULE,

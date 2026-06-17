@@ -1,0 +1,11 @@
+{
+  "total_rows": 335,
+  "safe_existing_update": 300,
+  "safe_new_insert_candidate": 0,
+  "manual_review_required": 35,
+  "treated_as_existing_name_typo": 42,
+  "remaining_missing_product_code": 20,
+  "remaining_duplicate_product_code_in_sheet": 15,
+  "remaining_sku_already_used_by_other_existing_variant": 10,
+  "unit_needs_normalization": 44
+}

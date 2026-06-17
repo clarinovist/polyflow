@@ -1,0 +1,2 @@
+nama_aset,kategori_aset,tanggal_perolehan,harga_perolehan,akumulasi_penyusutan,umur_manfaat_bulan,metode_penyusutan,keterangan
+Mesin Extruder A,Mesin,2023-01-15,350000000,50000000,120,Garis Lurus,Isi satu baris per aset tetap

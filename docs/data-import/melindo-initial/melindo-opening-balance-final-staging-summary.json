@@ -1,0 +1,19 @@
+{
+  "active_rows_before_suspense": 37,
+  "final_rows_after_suspense": 37,
+  "sum_assets_before_suspense": "3497041721.59",
+  "sum_liability_and_equity_before_suspense": "3497041721.59",
+  "difference_before_suspense": "0.00",
+  "suspense_amount_posted_to_1_199": "0.00",
+  "sum_assets_after_suspense": "3497041721.59",
+  "sum_liability_and_equity_after_suspense": "3497041721.59",
+  "difference_after_suspense": "0.00",
+  "bucket_counts": {
+    "journal_only": 19,
+    "ar_module": 1,
+    "ap_module": 1,
+    "inventory_module": 6,
+    "fixed_asset_module": 9,
+    "review_owner_liability": 1
+  }
+}

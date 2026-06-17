@@ -1,0 +1,54 @@
+sheet,row,code_raw,code_norm,name_sheet,amount,suggested_db_code,suggested_db_name,similarity_score,suggestion_quality
+NERACA MEI,12,1-115,1-115,Piutang Dagang,,1-115b,Piutang Dagang Rafia,1.0,HIGH
+NERACA MEI,13,1-116,1-116,Pajak Dibayar Dimuka,,1-116b,Pajak Dibayar Dimuka Rafia,1.0,HIGH
+NERACA MEI,15,1-121,1-121,Konstruksi dalam Pengerjaan,,4-201,Diskon Penjualan,0.512,MEDIUM
+NERACA MEI,16,1-122,1-122,Asuransi Dibayar Dimuka,,1-124b,Asuransi Dibayar Dimuka Rafia,1.0,HIGH
+NERACA MEI,17,1-123,1-123,Sewa Dibayar Dimuka,,1-125,Sewa Dibayar Dimuka,1.0,HIGH
+NERACA MEI,18,1-124,1-124,Persediaan Hadiah,,1-124b,Asuransi Dibayar Dimuka Rafia,0.5,MEDIUM
+NERACA MEI,29,1-212,1-212,Bangunan,,1-212b,Bangunan Rafia,1.0,HIGH
+NERACA MEI,30,1-213,1-213,Mesin,,1-213b,Mesin Rafia,1.0,HIGH
+NERACA MEI,32,1-215,1-215,Peralatan Kantor,,1-215b,Peralatan Kantor Rafia,1.0,HIGH
+NERACA MEI,33,1-216,1-216,Akum. Penyusutan Bangunan,,1-216b,Akum. Penyusutan Bangunan Rafia,1.0,HIGH
+NERACA MEI,34,1-217,1-217,Akum. Penyusutan Mesin,,1-217b,Akum. Penyusutan Mesin Rafia,1.0,HIGH
+NERACA MEI,36,1-219,1-219,Akum. Penyusutan Peralatan Kantor,,1-219b,Akum. Penyusutan Peralatan Kantor Rafia,1.0,HIGH
+NERACA MEI,41,2-110,2-110,Hutang Dagang,,2-110b,Hutang Dagang Rafia,1.0,HIGH
+NERACA MEI,44,2-120,2-120,PPN Keluaran,,2-120b,PPN Keluaran Rafia,1.0,HIGH
+NERACA MEI,45,2-130,2-130,PPN Masukan,,2-130b,PPN Masukan Rafia,1.0,HIGH
+NERACA MEI,46,2-131,2-131,Hutang Pajak,,2-131b,Hutang Pajak Rafia,1.0,HIGH
+NERACA MEI,47,2-140,2-140,Hutang Lancar Lainnya,,2-140b,Hutang Lancar Lainnya Rafia,1.0,HIGH
+NERACA MEI,50,2-210,2-210,Hutang Jangka Panjang,,2-210b,Hutang Jangka Panjang Rafia,1.0,HIGH
+NERACA MEI,53,3-100b,3-100,Modal Saham,,3-100b,Modal Saham Rafia,1.0,HIGH
+NERACA MEI,54,3-201b,3-201,Laba Tahun Berjalan,,3-200b,Laba Ditahan Rafia,0.645,MEDIUM
+NERACA MEI,55,3-200b,3-200,Laba Ditahan,,3-200b,Laba Ditahan Rafia,1.0,HIGH
+LABA RUGI MEI,22,4-500b,4-500,Potongan PPh Psl 4 (2),,4-500b,Potongan PPh Psl 4(2) Rafia,1.0,HIGH
+LABA RUGI MEI,27,5-011b,5-011,Pemakaian Bahan Baku,,5-011b,Pemakaian Bahan Baku Rafia,1.0,HIGH
+LABA RUGI MEI,28,5-012b,5-012,Tenaga Kerja Langsung,,5-012b,Tenaga Kerja Langsung Rafia,1.0,HIGH
+LABA RUGI MEI,29,5-013b,5-013,Biaya Penyusutan Mesin,,5-013b,Biaya Penyusutan Mesin Rafia,1.0,HIGH
+LABA RUGI MEI,30,5-022b,5-022,Pemakaian Bahan Kemasan,,5-022b,Pemakaian Bahan Kemasan Rafia,1.0,HIGH
+LABA RUGI MEI,31,5-022c,5-022,Pemakaian Bahan Penolong,,5-022c,Pemakaian Bahan Penolong,1.0,HIGH
+LABA RUGI MEI,33,5-024b,5-024,Ongkos Angkut,,5-024b,Ongkos Angkut Rafia,1.0,HIGH
+LABA RUGI MEI,34,5-024c,5-024,Ongkos Pelet,,5-024c,Ongkos Pelet,1.0,HIGH
+LABA RUGI MEI,35,5-025,5-025,Retur Pembelian,,4-302,Retur Penjualan,0.733,MEDIUM
+LABA RUGI MEI,40,6-022b,6-022,Biaya Spare Part Mesin,,6-022b,Biaya Spare Part Mesin,1.0,HIGH
+LABA RUGI MEI,41,6-023b,6-023,Biaya Service & Ongkos Mesin,,6-023b,Biaya Service & Ongkos Mesin Rafia,1.0,HIGH
+LABA RUGI MEI,47,6-001b,6-001,Biaya Kunjungan Pelanggan,,6-001b,Biaya Kunjungan Pelanggan Rafia,1.0,HIGH
+LABA RUGI MEI,48,6-002b,6-002,Biaya Kirim Barang ke Pelanggan,,6-002b,Biaya Kirim Barang ke Pelanggan,1.0,HIGH
+LABA RUGI MEI,49,6-002b,6-002,Biaya Overhead Pabrik,,6-002b,Biaya Kirim Barang ke Pelanggan,0.385,LOW
+LABA RUGI MEI,50,6-003a,6-003,Biaya Fee Penjualan Agus Supriyanto,,6-003a,Biaya Fee Penjualan Agus Supriyanto,1.0,HIGH
+LABA RUGI MEI,51,6-003b,6-003,Biaya Fee Penjualan Rudi Hartopo,,6-003b,Biaya Fee Penjualan Rudi Hartopo,1.0,HIGH
+LABA RUGI MEI,52,6-004b,6-004,Biaya Operasional Truck Box,,6-004b,Biaya Operasional Truck Box Rafia,1.0,HIGH
+LABA RUGI MEI,55,6-026a,6-026,Biaya Kirim / Beli Sample Barang,,6-026a,Biaya Kirim/Beli Sample Barang,1.0,HIGH
+LABA RUGI MEI,56,6-026b,6-026,Biaya Kirim Paket / Dokumen,,6-026b,Biaya Kirim Paket/Dokumen Rafia,1.0,HIGH
+LABA RUGI MEI,57,6-027b,6-027,Biaya Service & Ongkos Kendaraan,,6-027b,Biaya Service & Ongkos Kendaraan Rafia,1.0,HIGH
+LABA RUGI MEI,68,6-011b,6-011,Gaji Rafia,,6-011b,Gaji Rafia,1.0,HIGH
+LABA RUGI MEI,69,6-012b,6-012,Alat Tulis Kantor,,6-012b,Alat Tulis Kantor Rafia,1.0,HIGH
+LABA RUGI MEI,70,6-013b,6-013,Transport / Perjalanan Dinas Kantor,,6-013b,Transport/Perjalanan Dinas Kantor,1.0,HIGH
+LABA RUGI MEI,71,6-014b,6-014,PDAM & Telkom,,6-014b,PDAM & Telkom Rafia,1.0,HIGH
+LABA RUGI MEI,73,6-018b,6-018,Biaya Usaha Lainnya,,6-018b,Biaya Usaha Lainnya Rafia,1.0,HIGH
+LABA RUGI MEI,74,6-019b,6-019,Biaya Kebutuhan Imlek,,6-019b,Biaya Kebutuhan Imlek Rafia,1.0,HIGH
+LABA RUGI MEI,75,6-020b,6-020,Biaya Perlengkapan & Kebutuhan Kantor,,6-020b,Biaya Perlengkapan & Kebutuhan Kantor Rafia,1.0,HIGH
+LABA RUGI MEI,76,6-021b,6-021,Biaya Retribusi Parkir Umum,,6-021b,Biaya Retribusi Parkir Umum,1.0,HIGH
+LABA RUGI MEI,77,6-024b,6-024,Biaya Cetakan Kantor,,6-024b,Biaya Cetakan Kantor Rafia,1.0,HIGH
+LABA RUGI MEI,78,6-028b,6-028,Biaya Materai Rafia,,6-028b,Biaya Materai Rafia,1.0,HIGH
+LABA RUGI MEI,86,6-015b,6-015,Biaya Penyusutan Kantor,,6-015b,Biaya Penyusutan Kantor Rafia,1.0,HIGH
+LABA RUGI MEI,90,6-025b,6-025,Biaya Pajak Air Tanah,,6-025b,Biaya Pajak Air Tanah Rafia,1.0,HIGH

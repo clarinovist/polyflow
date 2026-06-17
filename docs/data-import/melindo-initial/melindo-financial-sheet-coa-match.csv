@@ -1,0 +1,125 @@
+sheet,row,code_raw,name_sheet,amount,code_norm,db_code,db_name,db_type,db_category,match_status
+NERACA MEI,8,1-111,Kas Besar,,1-111,1-111,Kas Besar,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,9,1-112,Kas Kecil,,1-112,1-112,Kas Kecil,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,10,1-113,MANDIRI,,1-113,1-113,Bank Mandiri,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,11,1-114,BCA,,1-114,1-114,Bank BCA,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,12,1-115,Piutang Dagang,,1-115,,,,,NO_MATCH
+NERACA MEI,13,1-116,Pajak Dibayar Dimuka,,1-116,,,,,NO_MATCH
+NERACA MEI,14,1-117,Piutang Karyawan,,1-117,1-117,Piutang Karyawan,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,15,1-121,Konstruksi dalam Pengerjaan,,1-121,,,,,NO_MATCH
+NERACA MEI,16,1-122,Asuransi Dibayar Dimuka,,1-122,,,,,NO_MATCH
+NERACA MEI,17,1-123,Sewa Dibayar Dimuka,,1-123,,,,,NO_MATCH
+NERACA MEI,18,1-124,Persediaan Hadiah,,1-124,,,,,NO_MATCH
+NERACA MEI,19,1-125,Persediaan Bahan Penolong,,1-125,1-125,Sewa Dibayar Dimuka,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,20,1-126,Persediaan Barang Jadi,,1-126,1-126,Persediaan Hadiah,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,21,1-127,Persediaan Affal Rafia,,1-127,1-127,Persediaan Bahan Penolong,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,22,1-130,Persediaan Bahan Baku,,1-130,1-130,Persediaan Bahan Baku Rafia,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,23,1-131,Persediaan Bahan Kemasan,,1-131,1-131,Persediaan Bahan Kemasan Rafia,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,24,1-132,Persediaan Barang dalam Proses,,1-132,1-132,Persediaan Barang dalam Proses Rafia,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,25,1-133,Uang Muka ke Supplier,,1-133,1-133,Uang Muka ke Supplier,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,26,1-134,Persediaan Alat Tulis,,1-134,1-134,Persediaan Alat Tulis,ASSET,CURRENT_ASSET,MATCH
+NERACA MEI,28,1-211,Tanah,,1-211,1-211,Tanah,ASSET,FIXED_ASSET,MATCH
+NERACA MEI,29,1-212,Bangunan,,1-212,,,,,NO_MATCH
+NERACA MEI,30,1-213,Mesin,,1-213,,,,,NO_MATCH
+NERACA MEI,31,1-214,Kendaraan,,1-214,1-214,Kendaraan,ASSET,FIXED_ASSET,MATCH
+NERACA MEI,32,1-215,Peralatan Kantor,,1-215,,,,,NO_MATCH
+NERACA MEI,33,1-216,Akum. Penyusutan Bangunan,,1-216,,,,,NO_MATCH
+NERACA MEI,34,1-217,Akum. Penyusutan Mesin,,1-217,,,,,NO_MATCH
+NERACA MEI,35,1-218,Akum. Penyusutan Kendaraan,,1-218,1-218,Akum. Penyusutan Kendaraan,ASSET,FIXED_ASSET,MATCH
+NERACA MEI,36,1-219,Akum. Penyusutan Peralatan Kantor,,1-219,,,,,NO_MATCH
+NERACA MEI,41,2-110,Hutang Dagang,,2-110,,,,,NO_MATCH
+NERACA MEI,42,2-111,Uang Muka Cust,,2-111,2-111,Uang Muka Cust,LIABILITY,CURRENT_LIABILITY,MATCH
+NERACA MEI,43,2-112,Hutang Biaya,,2-112,2-112,Hutang Biaya,LIABILITY,CURRENT_LIABILITY,MATCH
+NERACA MEI,44,2-120,PPN Keluaran,,2-120,,,,,NO_MATCH
+NERACA MEI,45,2-130,PPN Masukan,,2-130,,,,,NO_MATCH
+NERACA MEI,46,2-131,Hutang Pajak,,2-131,,,,,NO_MATCH
+NERACA MEI,47,2-140,Hutang Lancar Lainnya,,2-140,,,,,NO_MATCH
+NERACA MEI,48,2-150,Tabungan Karyawan,,2-150,2-150,Tabungan Karyawan,LIABILITY,CURRENT_LIABILITY,MATCH
+NERACA MEI,50,2-210,Hutang Jangka Panjang,,2-210,,,,,NO_MATCH
+NERACA MEI,51,2-390,Hutang ke Nugroho Pramono,,2-390,2-390,Hutang ke Nugroho Pramono,LIABILITY,LONG_TERM_LIABILITY,MATCH
+NERACA MEI,53,3-100b,Modal Saham,,3-100,,,,,NO_MATCH
+NERACA MEI,54,3-201b,Laba Tahun Berjalan,,3-201,,,,,NO_MATCH
+NERACA MEI,55,3-200b,Laba Ditahan,,3-200,,,,,NO_MATCH
+LABA RUGI MEI,6,4-101,Penjualan Rafia Bal,,4-101,4-101,Penjualan Rafia Bal,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,7,4-102,Penjualan Rafia Super,,4-102,4-102,Penjualan Rafia Super,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,8,4-104,Penjualan Rafia Kw,,4-104,4-104,Penjualan Rafia Kw,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,9,4-105,Penjualan Sedotan Los,,4-105,4-105,Penjualan Sedotan Los,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,10,4-106,Penjualan Bahan,,4-106,4-106,Penjualan Bahan,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,11,4-107,Penjualan Rafia Tampar,,4-107,4-107,Penjualan Rafia Tampar,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,12,4-108,Penjualan Rafia Maklon,,4-108,4-108,Penjualan Rafia Maklon,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,13,4-109,Penjualan Sedotan Maklon,,4-109,4-109,Penjualan Sedotan Maklon,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,14,4-110,Penjualan Sedotan Tekuk,,4-110,4-110,Penjualan Sedotan Tekuk,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,15,4-111,Penjualan Lakop Pel Air,,4-111,4-111,Penjualan Lakop Pel Air,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,16,4-112,Penjualan Sedotan Pack,,4-112,4-112,Penjualan Sedotan Pack,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,17,4-114,Penjualan Sedotan Steril,,4-114,4-114,Penjualan Sedotan Steril,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,18,4-115,Penjualan Plastik Maklon,,4-115,4-115,Penjualan Plastik Maklon,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,19,4-116,Penjualan Rafia Kw Super,,4-116,4-116,Penjualan Rafia Kw Super,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,20,4-117,Potongan Penjualan,,4-117,4-117,Potongan Penjualan,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,21,4-302,Retur Penjualan,,4-302,4-302,Retur Penjualan,REVENUE,OPERATING_REVENUE,MATCH
+LABA RUGI MEI,22,4-500b,Potongan PPh Psl 4 (2),,4-500,,,,,NO_MATCH
+LABA RUGI MEI,26,5-001,Harga Pokok Penjualan,,5-001,5-001,Harga Pokok Penjualan,EXPENSE,COGS,MATCH
+LABA RUGI MEI,27,5-011b,Pemakaian Bahan Baku,,5-011,,,,,NO_MATCH
+LABA RUGI MEI,28,5-012b,Tenaga Kerja Langsung,,5-012,,,,,NO_MATCH
+LABA RUGI MEI,29,5-013b,Biaya Penyusutan Mesin,,5-013,,,,,NO_MATCH
+LABA RUGI MEI,30,5-022b,Pemakaian Bahan Kemasan,,5-022,,,,,NO_MATCH
+LABA RUGI MEI,31,5-022c,Pemakaian Bahan Penolong,,5-022,,,,,NO_MATCH
+LABA RUGI MEI,32,5-023,Overhead Sewa Gudang,,5-023,5-023,Overhead Sewa Gudang,EXPENSE,COGS,MATCH
+LABA RUGI MEI,33,5-024b,Ongkos Angkut,,5-024,,,,,NO_MATCH
+LABA RUGI MEI,34,5-024c,Ongkos Pelet,,5-024,,,,,NO_MATCH
+LABA RUGI MEI,35,5-025,Retur Pembelian,,5-025,,,,,NO_MATCH
+LABA RUGI MEI,36,5-031,Pemakaian Listrik,,5-031,5-031,Pemakaian Listrik,EXPENSE,COGS,MATCH
+LABA RUGI MEI,37,5-032,Ongkos kirim rafia,,5-032,5-032,Ongkos Kirim Rafia,EXPENSE,COGS,MATCH
+LABA RUGI MEI,38,5-033,Maintenance Mesin Produksi,,5-033,5-033,Maintenance Mesin Produksi,EXPENSE,COGS,MATCH
+LABA RUGI MEI,39,5-034,Maintenance Kendaraan,,5-034,5-034,Maintenance Kendaraan,EXPENSE,COGS,MATCH
+LABA RUGI MEI,40,6-022b,Biaya Spare Part Mesin,,6-022,,,,,NO_MATCH
+LABA RUGI MEI,41,6-023b,Biaya Service & Ongkos Mesin,,6-023,,,,,NO_MATCH
+LABA RUGI MEI,47,6-001b,Biaya Kunjungan Pelanggan,,6-001,,,,,NO_MATCH
+LABA RUGI MEI,48,6-002b,Biaya Kirim Barang ke Pelanggan,,6-002,,,,,NO_MATCH
+LABA RUGI MEI,49,6-002b,Biaya Overhead Pabrik,,6-002,,,,,NO_MATCH
+LABA RUGI MEI,50,6-003a,Biaya Fee Penjualan Agus Supriyanto,,6-003,,,,,NO_MATCH
+LABA RUGI MEI,51,6-003b,Biaya Fee Penjualan Rudi Hartopo,,6-003,,,,,NO_MATCH
+LABA RUGI MEI,52,6-004b,Biaya Operasional Truck Box,,6-004,,,,,NO_MATCH
+LABA RUGI MEI,53,6-006,Biaya Pajak STNK Mobil Box,,6-006,6-006,Biaya Pajak STNK Mobil Box,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,54,6-009,Biaya Alat2 Bengkel,,6-009,6-009,Biaya Alat-alat Bengkel,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,55,6-026a,Biaya Kirim / Beli Sample Barang,,6-026,,,,,NO_MATCH
+LABA RUGI MEI,56,6-026b,Biaya Kirim Paket / Dokumen,,6-026,,,,,NO_MATCH
+LABA RUGI MEI,57,6-027b,Biaya Service & Ongkos Kendaraan,,6-027,,,,,NO_MATCH
+LABA RUGI MEI,58,6-032,Biaya Parcel Lebaran Pelanggan,,6-032,6-032,Biaya Parcel Lebaran Pelanggan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,59,6-034,Biaya KIR Mobil Box,,6-034,6-034,Biaya KIR Mobil Box,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,60,6-036,Biaya Iklan Lowongan Kerja,,6-036,6-036,Biaya Iklan Lowongan Kerja,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,61,6-039,Biaya Karangan Bunga,,6-039,6-039,Biaya Karangan Bunga,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,62,6-042,Biaya Donasi/Sponsor,,6-042,6-042,Biaya Donasi/Sponsor,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,63,6-043,Biaya Operasional dan Perbaikan Viar,,6-043,6-043,Biaya Operasional dan Perbaikan Viar,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,67,6-010,Biaya Kesehatan dan Keselamatan Kerja (K3),,6-010,6-010,Biaya K3,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,68,6-011b,Gaji Rafia,,6-011,,,,,NO_MATCH
+LABA RUGI MEI,69,6-012b,Alat Tulis Kantor,,6-012,,,,,NO_MATCH
+LABA RUGI MEI,70,6-013b,Transport / Perjalanan Dinas Kantor,,6-013,,,,,NO_MATCH
+LABA RUGI MEI,71,6-014b,PDAM & Telkom,,6-014,,,,,NO_MATCH
+LABA RUGI MEI,72,6-017,Biaya Tunjangan Hari Raya,,6-017,6-017,Biaya Tunjangan Hari Raya,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,73,6-018b,Biaya Usaha Lainnya,,6-018,,,,,NO_MATCH
+LABA RUGI MEI,74,6-019b,Biaya Kebutuhan Imlek,,6-019,,,,,NO_MATCH
+LABA RUGI MEI,75,6-020b,Biaya Perlengkapan & Kebutuhan Kantor,,6-020,,,,,NO_MATCH
+LABA RUGI MEI,76,6-021b,Biaya Retribusi Parkir Umum,,6-021,,,,,NO_MATCH
+LABA RUGI MEI,77,6-024b,Biaya Cetakan Kantor,,6-024,,,,,NO_MATCH
+LABA RUGI MEI,78,6-028b,Biaya Materai Rafia,,6-028,,,,,NO_MATCH
+LABA RUGI MEI,79,6-035,Biaya Peringatan Kemerdekaan NKRI,,6-035,6-035,Biaya Peringatan Kemerdekaan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,85,6-007,Biaya Penyusutan Asuransi Manufaktur Plastik,,6-007,6-007,Biaya Penyusutan Asuransi Manufaktur Plastik,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,86,6-015b,Biaya Penyusutan Kantor,,6-015,,,,,NO_MATCH
+LABA RUGI MEI,87,6-016,Biaya Penyusutan Sewa Gudang,,6-016,6-016,Biaya Penyusutan Sewa Gudang,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,88,6-017c,Biaya PPh Psl 21/26,,6-017,6-017,Biaya Tunjangan Hari Raya,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,89,6-017b,Biaya PPh Psl 4 (2),,6-017,6-017,Biaya Tunjangan Hari Raya,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,90,6-025b,Biaya Pajak Air Tanah,,6-025,,,,,NO_MATCH
+LABA RUGI MEI,91,6-029,Biaya PPh Pasal 23,,6-029,6-029,Biaya PPh Pasal 23,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,92,6-030,Biaya Pajak Bumi Bangunan,,6-030,6-030,Biaya Pajak Bumi Bangunan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,93,6-031,Biaya Premi BPJS Kesehatan,,6-031,6-031,Biaya Premi BPJS Kesehatan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,94,6-033,Biaya Premi BPJS Ketenagakerjaan,,6-033,6-033,Biaya Premi BPJS Ketenagakerjaan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,95,6-037,Biaya Ppn Masa,,6-037,6-037,Biaya PPN Masa,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,96,6-038,Biaya PPh Pasal 25 Badan,,6-038,6-038,Biaya PPh Pasal 25 Badan,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,97,6-040,Biaya Penyusutan Platform Aplikasi,,6-040,6-040,Biaya Penyusutan Platform Aplikasi,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,98,6-041,Biaya Penyusutan Bangunan,,6-041,6-041,Biaya Penyusutan Bangunan Rafia,EXPENSE,OPERATING_EXPENSE,MATCH
+LABA RUGI MEI,104,7-100,Pendapatan Bunga Bank,,7-100,7-100,Pendapatan Bunga Bank,REVENUE,OTHER_REVENUE,MATCH
+LABA RUGI MEI,105,7-101,Pendapatan Lain-lain Diluar Usaha,,7-101,7-101,Pendapatan Lain-lain Diluar Usaha,REVENUE,OTHER_REVENUE,MATCH
+LABA RUGI MEI,106,7-102,Penjualan Aktiva,,7-102,7-102,Penjualan Aktiva,REVENUE,OTHER_REVENUE,MATCH
+LABA RUGI MEI,107,8-200,Biaya Admin Bank,,8-200,8-200,Biaya Admin Bank,EXPENSE,OTHER_EXPENSE,MATCH
+LABA RUGI MEI,108,8-201,Pajak Bunga Bank,,8-201,8-201,Pajak Bunga Bank,EXPENSE,OTHER_EXPENSE,MATCH
+LABA RUGI MEI,109,8-202,Biaya Lain-lain Diluar Usaha,,8-202,8-202,Biaya Lain-lain Diluar Usaha,EXPENSE,OTHER_EXPENSE,MATCH

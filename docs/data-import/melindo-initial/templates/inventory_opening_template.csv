@@ -1,0 +1,2 @@
+kode_barang,nama_barang,lokasi_gudang,kuantitas,satuan,harga_satuan,total_nilai,kategori,keterangan
+BJ-001,Rafia Bening Super 0,75 (6),Gudang Utama,100,BAL,25000,2500000,Barang Jadi,Isi satu baris per item stok opening

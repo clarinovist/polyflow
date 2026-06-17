@@ -1,0 +1,65 @@
+sourceRow,name,productCode,unit,dibeli,dijual,category,issueTypes
+80,Rafia Merah Super 1 (6),,Bal,,4-101 Penjualan Rafia Bal,BARANG JADI,MISSING_PRODUCT_CODE
+82,Rafia Netral,,Kg,,4-104 Penjualan Rafia Kw,BARANG JADI,MISSING_PRODUCT_CODE
+89,"Rafia Warna KW 0,2 (10)",,Bal,,4-101 Penjualan Rafia Bal,BARANG JADI,MISSING_PRODUCT_CODE
+120,Sedotan Bening Lurik Double Lancip,SBLD0ST6-02,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+138,Sedotan Bening Lurik Merah Dop Lancip Lubang 6,SBLMDSL6,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,DUPLICATE_PRODUCT_CODE
+144,Sedotan Bening Lurik Merah Putih Lancip Lubang 6,SBLMDSL6,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,DUPLICATE_PRODUCT_CODE
+164,Sedotan Bening Steril,SBP00WL-11,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+165,Sedotan Bening Steril Full Printing,SBP00SL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+177,"Sedotan Biru Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+194,"Sedotan Hijau Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+196,Sedotan Hijau Steril Full Printing,SJS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+202,Sedotan Hitam Lancip,,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+203,Sedotan Hitam Lancip Lubang 12,BJ000015,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,DUPLICATE_PRODUCT_CODE
+206,Sedotan Hitam Lurik Dop Luban 6 Jasa,,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+207,Sedotan Hitam Steril,SHS00WL-20,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+208,Sedotan Hitam Steril Bal Dalam Printing Luar Polos,,Bal,,4-114 Penjualan Sedotan Steril,BARANG JADI,MISSING_PRODUCT_CODE
+209,Sedotan Hitam Steril Bal Full Polos Isi 250,SHS00WL-00,Bal,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE
+210,Sedotan Hitam Steril Bal Full Polos Isi 500,,Bal,,4-114 Penjualan Sedotan Steril,BARANG JADI,MISSING_PRODUCT_CODE
+211,Sedotan Hitam Steril Dalam Polos Luar Printing,SHS00WL-01,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+212,Sedotan Hitam Steril Dalam Printing Luar Polos,SHS00WL-10,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+213,Sedotan Hitam Steril Full Polos,SHS00WL-00,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+214,Sedotan Hitam Steril Full Polos Isi 250,SHS00WL-00,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+215,Sedotan Hitam Steril Full Polos Isi 500,SHS00WL-00,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+217,Sedotan Hitam Steril Full Printing,SHS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+218,Sedotan Hitam Steril Full Printing Isi 250,SHS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+219,Sedotan Hitam Steril Full Printing Isi 500,SHS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+221,Sedotan Hitam Steril Kura Isi 250,SHS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+222,Sedotan Hitam Steril Kura Isi 500,SHS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+223,Sedotan Hitam Steril Pack Polos Isi 250,SHS00WL-20,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+224,Sedotan Hitam Steril Pack Printing Isi 250,SHS00WL-22,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+225,Sedotan Hitam Steril Polos Pack Isi 200,BJ000011,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+226,Sedotan Hitam Steril Printing Pack Isi 200,BJ000012,Pack,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+227,Sedotan Hitam Steril Zak Full Polos,,Zak,,4-114 Penjualan Sedotan Steril,BARANG JADI,MISSING_PRODUCT_CODE
+245,"Sedotan Kuning Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+246,Sedotan Kuning Lurik Hijau 200gr,BJ000013,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+247,Sedotan Kuning Steril Full Printing,SKS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+274,"Sedotan Merah Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+277,"Sedotan Merah Super 0,95 (10)",,Bal,,4-101 Penjualan Rafia Bal,BARANG JADI,MISSING_PRODUCT_CODE
+284,Sedotan Orange Steril Full Printing,SOS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+294,"Sedotan Pink Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+296,Sedotan Pink Steril Full Printing,SPS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+302,Sedotan Putih Dop Super 90gr,,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,MISSING_PRODUCT_CODE;UNSUPPORTED_UNIT
+311,"Sedotan Ungu Lurik Dop Lubang 6,5",,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+314,Sedotan Ungu Super Jasa,,Kg,,4-105 Penjualan Sedotan Los,BARANG JADI,MISSING_PRODUCT_CODE
+316,Sedotan Warna KW,SWP00KT6,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+317,Sedotan Warna KW 175gr,SWK175T-02,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+318,Sedotan Warna KW 70gr,SWK700T-02,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+319,Sedotan Warna KW Polos,SWP00KT-02,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+321,Sedotan Warna Lurik Dop 100gr,SWLD0KT10,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+322,Sedotan Warna Lurik Dop 120gr,BJ000003,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+323,Sedotan Warna Lurik Dop 170gr,,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,MISSING_PRODUCT_CODE;UNSUPPORTED_UNIT
+324,Sedotan Warna Lurik Dop 175gr,BJ000004,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+325,Sedotan Warna Lurik Dop 200gr,,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,MISSING_PRODUCT_CODE;UNSUPPORTED_UNIT
+326,Sedotan Warna Lurik Dop 60gr,BJ000005,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+327,Sedotan Warna Lurik Dop 70gr,BJ000006,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+328,Sedotan Warna Lurik Dop 75gr,BJ000007,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+329,Sedotan Warna Lurik Dop 80gr,BJ000008,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+330,Sedotan Warna Lurik Dop 95gr,BJ000009,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+331,Sedotan Warna Lurik Dop Super,SWLD0ST-02,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+332,Sedotan Warna Lurik Double 70gr,BJ000015,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,DUPLICATE_PRODUCT_CODE;UNSUPPORTED_UNIT
+333,Sedotan Warna Pop Ice Tumpul,BJ000010,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,UNSUPPORTED_UNIT
+334,Sedotan Warna Pop Ice Tumpul 130gr,,Pack,,4-112 Penjualan Sedotan Pack,BARANG JADI,MISSING_PRODUCT_CODE;UNSUPPORTED_UNIT
+335,Sedotan Warna Steril Dalam Printing Luar Polos,SWS00WL-10,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT
+336,Sedotan Warna Steril Full Printing,SWS00WL-11,Karton,,4-114 Penjualan Sedotan Steril,BARANG JADI,UNSUPPORTED_UNIT

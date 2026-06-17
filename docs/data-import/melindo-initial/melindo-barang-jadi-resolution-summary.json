@@ -1,0 +1,17 @@
+{
+  "total_rows": 335,
+  "exists_by_name": 263,
+  "new_by_name": 72,
+  "missing_product_code": 20,
+  "duplicate_product_code_in_sheet": 15,
+  "unit_needs_normalization": 44,
+  "sku_already_used_by_other_existing_variant": 52,
+  "sku_differs_from_existing_name_match": 0,
+  "unit_differs_from_existing_name_match": 0,
+  "suggested_unit_counts": {
+    "KG": 210,
+    "PCS": 49,
+    "BAL": 75,
+    "ZAK": 1
+  }
+}

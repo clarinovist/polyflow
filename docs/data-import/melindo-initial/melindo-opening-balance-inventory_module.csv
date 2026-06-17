@@ -1,0 +1,7 @@
+sheet,row,sheet_code,sheet_name,amount,code_norm,mapped_db_code,mapped_db_name,db_type,db_category,match_status,match_basis,similarity_score,opening_method,decision_note
+NERACA MEI,20,1-126,Persediaan Barang Jadi,308169440.86,1-126,1-126,Persediaan Hadiah,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,
+NERACA MEI,21,1-127,Persediaan Affal Rafia,0.0,1-127,1-127,Persediaan Bahan Penolong,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,
+NERACA MEI,22,1-130,Persediaan Bahan Baku,415619552.22,1-130,1-130,Persediaan Bahan Baku Rafia,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,
+NERACA MEI,23,1-131,Persediaan Bahan Kemasan,118213685.54,1-131,1-131,Persediaan Bahan Kemasan Rafia,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,
+NERACA MEI,24,1-132,Persediaan Barang dalam Proses,26546600.12,1-132,1-132,Persediaan Barang dalam Proses Rafia,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,
+NERACA MEI,26,1-134,Persediaan Alat Tulis,4994322.62,1-134,1-134,Persediaan Alat Tulis,ASSET,CURRENT_ASSET,MAPPED,DIRECT_CODE,1.0,INVENTORY_MODULE,

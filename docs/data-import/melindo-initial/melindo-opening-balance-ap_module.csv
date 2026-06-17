@@ -1,0 +1,2 @@
+sheet,row,sheet_code,sheet_name,amount,code_norm,mapped_db_code,mapped_db_name,db_type,db_category,match_status,match_basis,similarity_score,opening_method,decision_note
+NERACA MEI,41,2-110,Hutang Dagang,1619674261.42,2-110,2-110b,Hutang Dagang Rafia,LIABILITY,CURRENT_LIABILITY,MAPPED,SUGGESTED,1.0,AP_MODULE,

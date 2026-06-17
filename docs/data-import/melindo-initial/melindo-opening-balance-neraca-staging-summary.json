@@ -1,0 +1,13 @@
+{
+  "rows": 41,
+  "mapped": 38,
+  "review_required": 7,
+  "opening_method_counts": {
+    "AP_MODULE": 1,
+    "AR_MODULE": 1,
+    "FIXED_ASSET_MODULE": 9,
+    "INVENTORY_MODULE": 6,
+    "JOURNAL_ONLY": 19,
+    "REVIEW_REQUIRED": 5
+  }
+}

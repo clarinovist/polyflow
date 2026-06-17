@@ -1,0 +1,2 @@
+sheet,row,sheet_code,sheet_name,amount,code_norm,mapped_db_code,mapped_db_name,db_type,db_category,match_status,match_basis,similarity_score,opening_method,decision_note
+NERACA MEI,51,2-390,Hutang ke Nugroho Pramono,681000000.0,2-390,2-390,Hutang ke Nugroho Pramono,LIABILITY,LONG_TERM_LIABILITY,APPROVED_AS_IS,DIRECT_CODE,1.0,REVIEW_REQUIRED_OWNER_LIABILITY,Tetap sebagai hutang owner/related party sesuai sheet.

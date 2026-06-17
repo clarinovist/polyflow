@@ -1,0 +1,21 @@
+{
+  "customer_csv": "/Users/nugroho/Documents/polyflow/docs/data-import/melindo-initial/melindo-customers-staging.csv",
+  "customer_count": 146,
+  "supplier_csv": "/Users/nugroho/Documents/polyflow/docs/data-import/melindo-initial/melindo-suppliers-staging.csv",
+  "supplier_count": 53,
+  "product_issue_csv": "/Users/nugroho/Documents/polyflow/docs/data-import/melindo-initial/melindo-barang-jadi-issue-report.csv",
+  "product_issue_count": 64,
+  "missing_product_code_count": 20,
+  "duplicate_product_code_count": 5,
+  "duplicate_product_codes": [
+    "BJ000015",
+    "SBLMDSL6",
+    "SHS00WL-00",
+    "SHS00WL-11",
+    "SHS00WL-20"
+  ],
+  "unsupported_unit_counts": {
+    "Pack": 27,
+    "Karton": 17
+  }
+}

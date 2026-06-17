@@ -1,0 +1,13 @@
+SELECT 'JournalEntry' AS table_name, COUNT(*) AS row_count FROM "JournalEntry"
+UNION ALL SELECT 'JournalLine', COUNT(*) FROM "JournalLine"
+UNION ALL SELECT 'SalesOrder', COUNT(*) FROM "SalesOrder"
+UNION ALL SELECT 'Invoice', COUNT(*) FROM "Invoice"
+UNION ALL SELECT 'Payment', COUNT(*) FROM "Payment"
+UNION ALL SELECT 'PurchaseOrder', COUNT(*) FROM "PurchaseOrder"
+UNION ALL SELECT 'PurchaseInvoice', COUNT(*) FROM "PurchaseInvoice"
+UNION ALL SELECT 'PurchasePayment', COUNT(*) FROM "PurchasePayment"
+UNION ALL SELECT 'Inventory', COUNT(*) FROM "Inventory"
+UNION ALL SELECT 'StockMovement', COUNT(*) FROM "StockMovement"
+UNION ALL SELECT 'StockOpname', COUNT(*) FROM "StockOpname"
+UNION ALL SELECT 'FixedAsset', COUNT(*) FROM "FixedAsset"
+ORDER BY table_name;
