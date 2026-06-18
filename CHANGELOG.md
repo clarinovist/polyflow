@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.8.0](https://github.com/clarinovist/polyflow/compare/v1.7.0...v1.8.0) (2026-06-18)
+
+
+### Features
+
+* add Berita Acara Cash Opname page with print layout ([3602f7e](https://github.com/clarinovist/polyflow/commit/3602f7e48b417444e6e3e61e8ecf0e37725dfd2e))
+* add polyflow audit log monitor script ([1d58749](https://github.com/clarinovist/polyflow/commit/1d587494db966712552154d366b19ac7884c28be))
+* add telegram notification to audit monitor ([d4e753d](https://github.com/clarinovist/polyflow/commit/d4e753de5129f8a0352611d3c68b677a37c5d331))
+* **auth:** centralize access/session policy and optimize api key validation ([af0a19b](https://github.com/clarinovist/polyflow/commit/af0a19b12b3cfe8d4fb003475636b8f733e0c7c6))
+* balance sheet summary view with grouped accounts and Cash/Bank expansion ([9b8b66a](https://github.com/clarinovist/polyflow/commit/9b8b66a257a94ec9dc869fcd696136cb430a88a4))
+* **finance:** add daily petty cash report workflow ([0d0abb1](https://github.com/clarinovist/polyflow/commit/0d0abb1bf1e5c0475cad4e4c16c661bb20bb5092))
+* **production:** karung per-BAL backflush + monthly packing report ([76499a7](https://github.com/clarinovist/polyflow/commit/76499a78198649c9499c507cb0a6567db213ea06))
+
+
+### Bug Fixes
+
+* accounting audit — tenant-aware account resolver, validation, audit trails, tests ([5e35b91](https://github.com/clarinovist/polyflow/commit/5e35b9193c6f4fd4454ad279def1f2f981384258))
+* add dark mode variants to 48 components for full dark mode support ([21ef87a](https://github.com/clarinovist/polyflow/commit/21ef87a9dd5c4bf151467828d4844ee0a3f8c8b5))
+* add missing createJournalEntry import in reports-service.ts ([7e5d385](https://github.com/clarinovist/polyflow/commit/7e5d38515f403ef86d6e381a1979b654e91af680))
+* auto-detect and fast-forward entryNumber sequence when behind actual entries ([8aa11c8](https://github.com/clarinovist/polyflow/commit/8aa11c8cbda2fc557aea7c8de67f32a4b8bdee22))
+* BOM cascade must use standardCost, not inventory average ([2a28aad](https://github.com/clarinovist/polyflow/commit/2a28aad446f2c30fae9abb93b097274ee789f6ed))
+* cash opname cleanup — remove unused imports, add KAS BON and PENGEMBALIAN lines ([c3a5e61](https://github.com/clarinovist/polyflow/commit/c3a5e618057d454835ecb7b62339c688d30dcf35))
+* **ci:** add back docker/setup-buildx-action for cache support ([277a189](https://github.com/clarinovist/polyflow/commit/277a1898edc203d1ff487887e7e635c03473932f))
+* **ci:** add explicit packages:write permission to build-and-push and deploy jobs ([f76d6a6](https://github.com/clarinovist/polyflow/commit/f76d6a66bd08567849f08432bcbacb4fde74195e))
+* **ci:** use CR_PAT for ghcr.io push/pull instead of GITHUB_TOKEN ([98589d0](https://github.com/clarinovist/polyflow/commit/98589d07ada1a1fffa624eca4918aec42b9f5222))
+* **ci:** use GITHUB_TOKEN instead of CR_PAT for ghcr.io auth ([c8d9a94](https://github.com/clarinovist/polyflow/commit/c8d9a949acd4790c258bd85d64a1858aed4a7772))
+* code review fixes for petty cash report — role auth, void audit trail, toast feedback ([464bfcb](https://github.com/clarinovist/polyflow/commit/464bfcbd5cc087c0ac9e574a95b8cad3b16cab4a))
+* **dashboard:** remove type export from server action file to prevent Turbopack build failure ([d16fd31](https://github.com/clarinovist/polyflow/commit/d16fd31ba2ce201e908d3592a2c40bc0a696655f))
+* fetch all SUP-* codes, parse numeric parts, find max in JS. ([8a28f18](https://github.com/clarinovist/polyflow/commit/8a28f18342acb663d2578573a20d9769e9c5cc60))
+* getNextSupplierCode use numeric max instead of lexicographic sort ([8a28f18](https://github.com/clarinovist/polyflow/commit/8a28f18342acb663d2578573a20d9769e9c5cc60))
+* production RSC serialization errors caused by minified Decimal class detection ([7f735b0](https://github.com/clarinovist/polyflow/commit/7f735b0eee7e382d776226e4836f65e7767b0bd2))
+* **purchasing:** handle null dueDate in PurchaseInvoiceTable and set termOfPaymentDays for opening balance AP entries ([29b5c1d](https://github.com/clarinovist/polyflow/commit/29b5c1d5d335315df7dbc3f18e9cd958375306aa))
+* record COGS on sales shipment and fallback standardCost for first production output ([05fdbca](https://github.com/clarinovist/polyflow/commit/05fdbca10615328d5b7ee1fecb9053e35e2aeb87))
+* redirect tenant subdomain root path to /login instead of landing page ([228dc11](https://github.com/clarinovist/polyflow/commit/228dc115c42974a825d7e23933aae652f558180d))
+* replace 'as any' with proper types in balance sheet tests ([e18bc37](https://github.com/clarinovist/polyflow/commit/e18bc37bc7228aacb93e0d0911d68d42d65b7014))
+* **test:** update PackingReportItem expectation with karungConsumed + karungCost fields ([c6a1059](https://github.com/clarinovist/polyflow/commit/c6a1059b64f71b8914a23854b68075fb8e9107d8))
+* use GITHUB_TOKEN for ghcr.io auth in build-and-push job ([6fd25d5](https://github.com/clarinovist/polyflow/commit/6fd25d540abd10323d488b286710d6d04ad43dea))
+* use GITHUB_TOKEN for ghcr.io login instead of CR_PAT ([7e2cc27](https://github.com/clarinovist/polyflow/commit/7e2cc277ff2de4c0552ba7795b3541082e371a24))
+
 ## [1.7.0](https://github.com/clarinovist/polyflow/compare/v1.6.0...v1.7.0) (2026-05-27)
 
 
