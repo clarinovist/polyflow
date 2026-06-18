@@ -3,7 +3,7 @@ import { JournalStatus, ReferenceType } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AccountingService } from '../accounting/accounting-service';
 
-import { getAccountByCode } from './auto-journal-shared';
+import { getAccountByRole } from './auto-journal-shared';
 
 export async function handleSalesInvoiceCreated(invoiceId: string) {
     const invoice = await prisma.invoice.findUnique({
@@ -13,20 +13,22 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
 
     if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
 
-    const arAccount = await getAccountByCode('11210');
-    const revenueAccount = await getAccountByCode('41100');
-    const vatAccount = await getAccountByCode('21310');
+    const arAccount = await getAccountByRole('accounts-receivable');
+    const revenueAccount = await getAccountByRole('sales-revenue');
+    const vatAccount = await getAccountByRole('vat-output');
 
     const totalAmount = Number(invoice.totalAmount);
     const soTotal = Number(invoice.salesOrder.totalAmount || 0);
     const soTax = Number(invoice.salesOrder.taxAmount || 0);
 
     let taxAmount = 0;
-    if (soTotal > 0 && soTax > 0) {
+    // FIX: Guard against division by zero (soTotal === soTax)
+    if (soTotal > 0 && soTax > 0 && soTotal > soTax) {
         const taxRate = soTax / (soTotal - soTax);
         const netAmount = totalAmount / (1 + taxRate);
         taxAmount = totalAmount - netAmount;
     }
+    // else: taxAmount stays 0 (no tax info, or edge case where soTotal === soTax)
 
     const subtotal = totalAmount - taxAmount;
     const journalStatus = invoice.status === 'DRAFT' ? JournalStatus.DRAFT : JournalStatus.POSTED;

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { JournalStatus, ReferenceType } from '@prisma/client';
 import { CreateJournalEntryInput } from '@/services/accounting/types';
 import { createJournalEntry, postJournal } from '@/services/accounting/journals-service';
+import { resolveAccount } from '@/services/accounting/account-resolver';
 
 export interface CreatePettyCashValues {
     date: Date;
@@ -28,9 +29,8 @@ export class PettyCashService {
      * Get petty cash balance (from Chart of Accounts: 11110)
      */
     static async getBalance() {
-        const account = await prisma.account.findFirst({
-            where: { code: '11110' }
-        });
+        const resolvedAccount = await resolveAccount('petty-cash');
+        const account = await prisma.account.findUnique({ where: { id: resolvedAccount.id } });
 
         if (!account) return 0;
 
@@ -92,11 +92,9 @@ export class PettyCashService {
         if (transaction.status !== 'DRAFT') throw new Error("Only draft transactions can be approved");
         if (!transaction.expenseAccountId) throw new Error("Expense account must be selected");
 
-        const pettyCashAccount = await prisma.account.findFirst({
-            where: { code: '11110' } // Default standard CoA code for Petty Cash
-        });
-
-        if (!pettyCashAccount) throw new Error("Petty Cash account (11110) not found");
+        const resolvedPettyCash = await resolveAccount('petty-cash');
+        const pettyCashAccount = await prisma.account.findUnique({ where: { id: resolvedPettyCash.id } });
+        if (!pettyCashAccount) throw new Error("Petty Cash account not found");
 
         return await prisma.$transaction(async (tx) => {
             // Update status
@@ -145,11 +143,9 @@ export class PettyCashService {
      * Replenish Petty Cash from Bank Account
      */
     static async replenish(amount: number, bankAccountId: string, userId: string) {
-        const pettyCashAccount = await prisma.account.findFirst({
-            where: { code: '11110' }
-        });
-
-        if (!pettyCashAccount) throw new Error("Petty Cash account (11110) not found");
+        const resolvedPettyCash = await resolveAccount('petty-cash');
+        const pettyCashAccount = await prisma.account.findUnique({ where: { id: resolvedPettyCash.id } });
+        if (!pettyCashAccount) throw new Error("Petty Cash account not found");
 
         const yearMonth = new Date().toISOString().slice(0, 7).replace('-', '');
         const count = await prisma.pettyCashTransaction.count({

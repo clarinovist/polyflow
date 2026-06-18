@@ -19,6 +19,7 @@ vi.mock('@/lib/core/prisma', () => {
             create: vi.fn(),
             update: vi.fn(),
             findUnique: vi.fn(),
+            findFirst: vi.fn(),
         },
         account: {
             findUnique: vi.fn(),
@@ -45,6 +46,29 @@ vi.mock('../accounting/periods-service', async (importOriginal) => {
         isPeriodOpen: vi.fn().mockResolvedValue(true)
     };
 });
+
+vi.mock('../accounting/account-resolver', () => ({
+    resolveAccount: vi.fn().mockImplementation(async (role: string) => {
+        const map: Record<string, { id: string; code: string; name: string }> = {
+            'accounts-receivable': { id: 'acc-ar', code: '11210', name: 'Accounts Receivable' },
+            'accounts-payable': { id: 'acc-ap', code: '21110', name: 'Accounts Payable' },
+            'sales-revenue': { id: 'acc-rev', code: '41100', name: 'Sales Revenue' },
+            'vat-output': { id: 'acc-vat', code: '21310', name: 'VAT Output' },
+            'inventory': { id: 'acc-inv', code: '11300', name: 'Inventory' },
+            'wip': { id: 'acc-wip', code: '11320', name: 'WIP' },
+            'cogs': { id: 'acc-cogs', code: '51100', name: 'COGS' },
+            'raw-material': { id: 'acc-rm', code: '11310', name: 'Raw Material' },
+            'adjustment-gain': { id: 'acc-adj-g', code: '81100', name: 'Adj Gain' },
+            'adjustment-loss': { id: 'acc-adj-l', code: '91100', name: 'Adj Loss' },
+            'manufacturing-overhead': { id: 'acc-moh', code: '51100', name: 'MOH' },
+            'accrued-liabilities': { id: 'acc-accr', code: '21200', name: 'Accrued' },
+            'current-year-earnings': { id: 'acc-cye', code: '33000', name: 'CYE' },
+            'retained-earnings': { id: 'acc-re', code: '32000', name: 'RE' },
+            'petty-cash': { id: 'acc-pc', code: '11110', name: 'Petty Cash' },
+        };
+        return map[role] || { id: 'acc-unknown', code: '00000', name: 'Unknown' };
+    }),
+}));
 
 
 
@@ -150,7 +174,7 @@ describe('AccountingService', () => {
             expect(prisma.journalEntry.findUnique).toHaveBeenCalledWith({ where: { id: 'je-1' } });
             expect(prisma.journalEntry.update).toHaveBeenCalledWith({
                 where: { id: 'je-1' },
-                data: { status: 'VOIDED' }
+                data: { status: 'VOIDED', approvedById: 'user-1', approvedAt: expect.any(Date) }
             });
         });
 

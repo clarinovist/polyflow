@@ -3,7 +3,11 @@ import { JournalStatus, ReferenceType } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AccountingService } from '../accounting/accounting-service';
 
-import { getAccountByCode } from './auto-journal-shared';
+import { getAccountByRole } from './auto-journal-shared';
+
+// Configurable restock valuation rate for returned goods in GOOD condition.
+// 0.7 = 70% of original price (conservative estimate for resellable returns).
+const RESTOCK_VALUATION_RATE = 0.7;
 
 export async function handleSalesReturnReceived(returnId: string) {
     const salesReturn = await prisma.salesReturn.findUnique({
@@ -12,8 +16,8 @@ export async function handleSalesReturnReceived(returnId: string) {
     });
     if (!salesReturn || !salesReturn.totalAmount) return;
 
-    const returnAcc = await getAccountByCode('41900');
-    const arAcc = await getAccountByCode('11210');
+    const returnAcc = await getAccountByRole('sales-return');
+    const arAcc = await getAccountByRole('accounts-receivable');
 
     const lines = [
         { accountId: returnAcc.id, debit: Number(salesReturn.totalAmount), credit: 0, description: 'Sales Return' },
@@ -23,13 +27,13 @@ export async function handleSalesReturnReceived(returnId: string) {
     let restockValue = 0;
     for (const item of salesReturn.items) {
         if (item.condition === 'GOOD') {
-            restockValue += Number(item.returnedQty) * Number(item.unitPrice) * 0.7;
+            restockValue += Number(item.returnedQty) * Number(item.unitPrice) * RESTOCK_VALUATION_RATE;
         }
     }
 
     if (restockValue > 0) {
-        const invAcc = await getAccountByCode('11310');
-        const cogsAcc = await getAccountByCode('51100');
+        const invAcc = await getAccountByRole('raw-material');
+        const cogsAcc = await getAccountByRole('cogs');
         lines.push(
             { accountId: invAcc.id, debit: restockValue, credit: 0, description: 'Inventory Restock' },
             { accountId: cogsAcc.id, debit: 0, credit: restockValue, description: 'COGS Reversal' }
@@ -55,8 +59,8 @@ export async function handlePurchaseReturnShipped(returnId: string) {
     });
     if (!purchaseReturn || !purchaseReturn.totalAmount) return;
 
-    const apAcc = await getAccountByCode('21110');
-    const invAcc = await getAccountByCode('11310');
+    const apAcc = await getAccountByRole('accounts-payable');
+    const invAcc = await getAccountByRole('raw-material');
 
     await AccountingService.createJournalEntry({
         entryDate: purchaseReturn.returnDate,

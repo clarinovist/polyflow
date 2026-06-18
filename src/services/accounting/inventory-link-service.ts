@@ -160,7 +160,14 @@ export async function recordInventoryMovement(
     }
 }
 
-const accountCache = new Map<string, string>();
+interface CacheEntry {
+    id: string;
+    timestamp: number;
+}
+
+const ACCOUNT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 200;
+const accountCache = new Map<string, CacheEntry>();
 
 async function getAccountId(code: string, db: Prisma.TransactionClient): Promise<string> {
     // If code is already a UUID (e.g. from Product account mappings), return it directly
@@ -168,12 +175,21 @@ async function getAccountId(code: string, db: Prisma.TransactionClient): Promise
         return code;
     }
 
-    if (accountCache.has(code)) return accountCache.get(code)!;
+    const cached = accountCache.get(code);
+    if (cached && Date.now() - cached.timestamp < ACCOUNT_CACHE_TTL_MS) {
+        return cached.id;
+    }
 
     const acc = await db.account.findUnique({ where: { code } });
     if (!acc) throw new NotFoundError('Account', code);
 
-    accountCache.set(code, acc.id);
+    // Evict oldest if at capacity
+    if (accountCache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = accountCache.keys().next().value;
+        if (oldestKey) accountCache.delete(oldestKey);
+    }
+
+    accountCache.set(code, { id: acc.id, timestamp: Date.now() });
     return acc.id;
 }
 

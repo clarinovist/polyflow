@@ -1,3 +1,7 @@
+/**
+ * Kiyowo default account codes. For new code, use resolveAccount() from
+ * '@/services/accounting/account-resolver' for tenant compatibility.
+ */
 export const OPENING_BALANCE_ACCOUNT_CODE = '30000';
 export const AR_ACCOUNT_CODE = '11210';
 export const AP_ACCOUNT_CODE = '21110';

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { JournalStatus } from '@prisma/client';
+import { resolveAccount } from '@/services/accounting/account-resolver';
 
 export type DailyReportStatus =
     | 'DRAFT'
@@ -24,8 +25,9 @@ export class PettyCashReportService {
      * Get the default Petty Cash account (11110) or throw
      */
     private static async getPettyCashAccount() {
-        const account = await prisma.account.findFirst({ where: { code: '11110' } });
-        if (!account) throw new Error('Petty Cash account (11110) not found');
+        const resolvedAccount = await resolveAccount('petty-cash');
+        const account = await prisma.account.findUnique({ where: { id: resolvedAccount.id } });
+        if (!account) throw new Error('Petty Cash account not found');
         return account;
     }
 

@@ -3,18 +3,27 @@ import { JournalStatus, ReferenceType } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { AccountingService } from '../accounting/accounting-service';
 
-import { getAccountByCode, getAccountCodeByMethod } from './auto-journal-shared';
+import { getAccountByRole, getPaymentAccountRole } from './auto-journal-shared';
 
 export async function handleSalesPayment(paymentId: string, amount: number, method: string = 'Bank Transfer') {
+    // Validate amount
+    if (!amount || amount <= 0 || !isFinite(amount)) {
+        console.warn(`[AutoJournal] Invalid payment amount: ${amount} for paymentId=${paymentId}`);
+        return;
+    }
+
     const payment = await prisma.payment.findUnique({
         where: { id: paymentId },
         include: { invoice: true }
     });
     const invoice = payment?.invoice;
-    if (!payment || !invoice) return;
+    if (!payment || !invoice) {
+        console.warn(`[AutoJournal] Payment or invoice not found for paymentId=${paymentId}`);
+        return;
+    }
 
-    const paymentAcc = await getAccountByCode(getAccountCodeByMethod(method));
-    const arAcc = await getAccountByCode('11210');
+    const paymentAcc = await getAccountByRole(getPaymentAccountRole(method));
+    const arAcc = await getAccountByRole('accounts-receivable');
 
     await AccountingService.createJournalEntry({
         entryDate: payment.paymentDate,
@@ -32,15 +41,24 @@ export async function handleSalesPayment(paymentId: string, amount: number, meth
 }
 
 export async function handlePurchasePayment(paymentId: string, amount: number, method: string = 'Bank Transfer') {
+    // Validate amount
+    if (!amount || amount <= 0 || !isFinite(amount)) {
+        console.warn(`[AutoJournal] Invalid payment amount: ${amount} for paymentId=${paymentId}`);
+        return;
+    }
+
     const payment = await prisma.payment.findUnique({
         where: { id: paymentId },
         include: { purchaseInvoice: true }
     });
     const invoice = payment?.purchaseInvoice;
-    if (!payment || !invoice) return;
+    if (!payment || !invoice) {
+        console.warn(`[AutoJournal] Purchase payment or invoice not found for paymentId=${paymentId}`);
+        return;
+    }
 
-    const paymentAcc = await getAccountByCode(getAccountCodeByMethod(method));
-    const apAcc = await getAccountByCode('21110');
+    const paymentAcc = await getAccountByRole(getPaymentAccountRole(method));
+    const apAcc = await getAccountByRole('accounts-payable');
 
     await AccountingService.createJournalEntry({
         entryDate: payment.paymentDate,

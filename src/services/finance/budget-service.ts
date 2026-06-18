@@ -51,8 +51,7 @@ export class BudgetService {
             // For Balance Sheet accounts, get total balance as of end date
             // For P&L accounts, get period movement
             // getAccountBalance currently returns movement (debit - credit)
-
-            const actualVal = Math.abs(actual); // Simplified for reporting
+            const actualVal = actual; // Preserve sign for direction (negative = underspend/under-earn)
             const budgetVal = Number(b.amount);
             const variance = actualVal - budgetVal;
             const variancePercent = budgetVal !== 0 ? (variance / budgetVal) * 100 : 0;
