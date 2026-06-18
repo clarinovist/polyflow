@@ -42,7 +42,7 @@ export default async function PpicSchedulePage() {
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         Month View
                     </Button>
-                    <Button className="bg-zinc-900 hover:bg-zinc-800 flex-1 sm:flex-none">
+                    <Button className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 flex-1 sm:flex-none">
                         <Layers className="mr-2 h-4 w-4" />
                         Optimize Batches
                     </Button>
@@ -51,13 +51,13 @@ export default async function PpicSchedulePage() {
 
             <div className="grid grid-cols-1 gap-6">
                 {/* Machine Schedule Matrix */}
-                <Card className="overflow-hidden border-zinc-200">
+                <Card className="overflow-hidden border-zinc-200 dark:border-zinc-700">
                     <CardHeader className="bg-muted/30 border-b py-3 px-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <CardTitle className="text-base font-semibold">Machine Allocation Board</CardTitle>
                                 <div className="flex gap-2">
-                                    <Badge variant="outline" className="bg-white">Next 7 Days</Badge>
+                                    <Badge variant="outline" className="bg-white dark:bg-zinc-900 dark:bg-zinc-950">Next 7 Days</Badge>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
@@ -77,7 +77,7 @@ export default async function PpicSchedulePage() {
                                         </th>
                                         {timelineDays.map(day => (
                                             <th key={day.toISOString()} className="border-b border-r p-3 text-center min-w-[140px] bg-muted/30">
-                                                <div className="text-xs font-semibold text-zinc-900">{format(day, 'EEE')}</div>
+                                                <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{format(day, 'EEE')}</div>
                                                 <div className="text-lg font-bold text-foreground leading-none">{format(day, 'dd')}</div>
                                             </th>
                                         ))}
@@ -87,11 +87,11 @@ export default async function PpicSchedulePage() {
                                     {machines.map(machine => (
                                         <tr key={machine.id} className="group hover:bg-zinc-50/50">
                                             <td className="sticky left-0 z-10 bg-background group-hover:bg-muted/50 border-b border-r p-3">
-                                                <div className="font-bold text-sm text-zinc-900">{machine.code}</div>
-                                                <div className="text-[10px] font-medium text-zinc-500 uppercase tracking-tighter">{machine.type}</div>
+                                                <div className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{machine.code}</div>
+                                                <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 dark:text-zinc-500 uppercase tracking-tighter">{machine.type}</div>
                                                 <Badge variant="outline" className={cn(
                                                     "mt-1 text-[9px] px-1.5 py-0",
-                                                    machine.status === 'ACTIVE' ? "text-emerald-600 bg-emerald-50 border-emerald-100" : "text-amber-600 bg-amber-50 border-amber-100"
+                                                    machine.status === 'ACTIVE' ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50" : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                                 )}>
                                                     {machine.status}
                                                 </Badge>
@@ -112,8 +112,8 @@ export default async function PpicSchedulePage() {
                                                                             <div className={cn(
                                                                                 "p-1.5 rounded text-[10px] leading-tight border transition-all cursor-pointer",
                                                                                 order.status === 'IN_PROGRESS'
-                                                                                    ? "bg-blue-50 border-blue-200 text-blue-700 font-medium"
-                                                                                    : "bg-white border-zinc-200 text-zinc-600 shadow-sm hover:border-zinc-300"
+                                                                                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-400 font-medium"
+                                                                                    : "bg-white dark:bg-zinc-900 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 dark:text-zinc-500 shadow-sm hover:border-zinc-300 dark:border-zinc-600"
                                                                             )}>
                                                                                 <div className="truncate font-bold">{order.orderNumber}</div>
                                                                                 <div className="truncate">{order.bom.name}</div>
@@ -138,7 +138,7 @@ export default async function PpicSchedulePage() {
                                                             ))}
                                                             {dayOrders.length === 0 && (
                                                                 <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full bg-zinc-100 text-zinc-400">+</Button>
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500">+</Button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -157,7 +157,7 @@ export default async function PpicSchedulePage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                            <List className="h-5 w-5 text-zinc-500" />
+                            <List className="h-5 w-5 text-zinc-500 dark:text-zinc-400 dark:text-zinc-500" />
                             Pending Dispatch Queue
                         </CardTitle>
                     </CardHeader>
@@ -166,13 +166,13 @@ export default async function PpicSchedulePage() {
                             {orders.filter(o => !o.machineId).map(order => (
                                 <div key={order.id} className="w-[200px] p-3 rounded-lg border bg-muted/50 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-zinc-700">{order.orderNumber}</span>
+                                        <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">{order.orderNumber}</span>
                                         <Badge variant="outline" className="text-[9px] uppercase">{order.status}</Badge>
                                     </div>
                                     <div className="text-[11px] font-medium line-clamp-1">{order.bom.name}</div>
                                     <div className="flex items-center justify-between mt-auto pt-2 border-t">
                                         <span className="text-[10px] text-muted-foreground">{format(new Date(order.plannedStartDate), 'MMM dd')}</span>
-                                        <Button size="sm" variant="ghost" className="h-7 text-[10px] py-0 px-2 text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100">
+                                        <Button size="sm" variant="ghost" className="h-7 text-[10px] py-0 px-2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:bg-zinc-800">
                                             Assign Machine
                                         </Button>
                                     </div>

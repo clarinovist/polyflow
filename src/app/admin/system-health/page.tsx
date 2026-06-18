@@ -62,7 +62,7 @@ export default function SystemHealthPage() {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
                 <h2 className="text-3xl font-bold tracking-tight mb-4">System Health</h2>
-                <div className="bg-red-50 text-red-600 p-4 rounded-md border border-red-200 flex items-center gap-3">
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md border border-red-200 dark:border-red-800/50 flex items-center gap-3">
                     <AlertCircle className="h-5 w-5" />
                     <p>{error || 'Diagnostics unavailable at this time.'}</p>
                 </div>
@@ -96,7 +96,7 @@ export default function SystemHealthPage() {
                         <Database className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600">{db.status}</div>
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{db.status}</div>
                         <p className="text-xs text-muted-foreground mt-1">Latency: {db.latencyMs}ms</p>
                     </CardContent>
                 </Card>
@@ -157,9 +157,9 @@ export default function SystemHealthPage() {
                                 <div key={env.key} className="flex items-center justify-between">
                                     <span className="font-mono text-sm">{env.key}</span>
                                     {env.isSet ? (
-                                        <Badge variant="outline" className="text-emerald-600 bg-emerald-50"><CheckCircle2 className="h-3 w-3 mr-1"/> Configured</Badge>
+                                        <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"><CheckCircle2 className="h-3 w-3 mr-1"/> Configured</Badge>
                                     ) : (
-                                        <Badge variant="outline" className="text-orange-600 bg-orange-50"><AlertCircle className="h-3 w-3 mr-1"/> Missing</Badge>
+                                        <Badge variant="outline" className="text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20"><AlertCircle className="h-3 w-3 mr-1"/> Missing</Badge>
                                     )}
                                 </div>
                             ))}

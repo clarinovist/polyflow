@@ -44,9 +44,9 @@ export default function TestimonialSection() {
                     transition={{ duration: 0.6 }}
                     className="text-center mb-16"
                 >
-                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">Testimonials</span>
+                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-4 block">Testimonials</span>
                     <h2 className="text-3xl md:text-5xl font-bold text-white mb-5">Trusted by Industry Leaders</h2>
-                    <p className="text-zinc-400 max-w-2xl mx-auto text-lg">
+                    <p className="text-zinc-400 dark:text-zinc-500 max-w-2xl mx-auto text-lg">
                         See how manufacturing teams are scaling their operations with PolyFlow.
                     </p>
                 </motion.div>
@@ -62,7 +62,7 @@ export default function TestimonialSection() {
                             className="group relative p-8 rounded-2xl border border-white/5 bg-zinc-900/20 hover:bg-zinc-900/40 flex flex-col justify-between h-full transition-all duration-500"
                         >
                             <div>
-                                <Quote className="w-8 h-8 text-zinc-700 mb-5 group-hover:text-zinc-500 transition-colors duration-300" />
+                                <Quote className="w-8 h-8 text-zinc-700 dark:text-zinc-300 mb-5 group-hover:text-zinc-500 group-hover:dark:text-zinc-400 transition-colors duration-300" />
                                 <p className="text-zinc-300 mb-8 leading-relaxed">
                                     {t.quote}
                                 </p>
@@ -73,7 +73,7 @@ export default function TestimonialSection() {
                                 </div>
                                 <div>
                                     <p className="text-white font-semibold text-sm">{t.author}</p>
-                                    <p className="text-zinc-500 text-xs">{t.title}, {t.company}</p>
+                                    <p className="text-zinc-500 dark:text-zinc-400 text-xs">{t.title}, {t.company}</p>
                                 </div>
                             </div>
                         </motion.div>

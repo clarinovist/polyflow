@@ -71,10 +71,10 @@ export default function FeaturesSection() {
     return (
         <section id="features" className="py-28 relative overflow-hidden">
             {/* Section background */}
-            <div className="absolute inset-0 bg-zinc-950" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.1),transparent_60%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.06]" />
-            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="absolute inset-0 bg-zinc-50 dark:bg-zinc-950" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.1),transparent_60%)] dark:bg-[radial-gradient(ellipse_at_bottom,rgba(120,119,198,0.1),transparent_60%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(0,0,0,0.05)_1px,transparent_1px)] dark:bg-[radial-gradient(circle,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.06]" />
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-zinc-300/50 dark:via-white/10 to-transparent" />
             <div className="absolute bottom-1/3 right-0 w-96 h-96 bg-emerald-500/[0.06] rounded-full blur-[120px] pointer-events-none" />
 
             <div className="container mx-auto px-6 max-w-6xl relative z-10">
@@ -86,8 +86,8 @@ export default function FeaturesSection() {
                     className="text-center mb-16"
                 >
                     <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">Modules</span>
-                    <h2 className="text-3xl md:text-5xl font-bold text-white mb-5">Everything You Need</h2>
-                    <p className="text-zinc-400 max-w-2xl mx-auto text-lg">
+                    <h2 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5">Everything You Need</h2>
+                    <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg">
                         Built from the ground up for plastic converting operations. Every module works together seamlessly.
                     </p>
                 </motion.div>
@@ -103,17 +103,17 @@ export default function FeaturesSection() {
                         <motion.div
                             key={index}
                             variants={itemVariants}
-                            className={`group relative p-7 rounded-2xl border border-white/5 bg-zinc-900/20 ${feature.borderColor} hover:bg-zinc-900/40 transition-all duration-500 cursor-default`}
+                            className={`group relative p-7 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-zinc-900/20 ${feature.borderColor} hover:bg-zinc-100 dark:hover:bg-zinc-900/40 transition-all duration-500 cursor-default`}
                         >
                             {/* Gradient glow on hover */}
                             <div className={`absolute inset-0 rounded-2xl bg-gradient-to-b ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
                             <div className="relative z-10">
-                                <div className={`w-11 h-11 rounded-xl bg-zinc-800/80 group-hover:bg-zinc-800 flex items-center justify-center mb-5 transition-colors duration-300`}>
+                                <div className={`w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-800 flex items-center justify-center mb-5 transition-colors duration-300`}>
                                     <feature.icon className={`h-5 w-5 ${feature.iconColor}`} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-white transition-colors">{feature.title}</h3>
-                                <p className="text-zinc-500 group-hover:text-zinc-400 leading-relaxed text-sm transition-colors duration-300">
+                                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">{feature.title}</h3>
+                                <p className="text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-400 leading-relaxed text-sm transition-colors duration-300">
                                     {feature.description}
                                 </p>
                             </div>

@@ -96,7 +96,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                         <p className="text-xs text-muted-foreground">{costData.length} Completed Orders</p>
                     </CardContent>
                 </Card>
-                <Card className="rounded-xl border border-zinc-200 shadow-sm">
+                <Card className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Current WIP Value</CardTitle>
                         <Package className="h-4 w-4 text-muted-foreground" />
@@ -104,7 +104,7 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                     <CardContent>
                         {wipData ? (
                             <>
-                                <div className="text-2xl font-bold text-[#3b82f6]">{formatRupiah(wipData.totalWipValue)}</div>
+                                <div className="text-2xl font-bold text-[#3b82f6] dark:text-[#60a5fa]">{formatRupiah(wipData.totalWipValue)}</div>
                                 <p className="text-xs text-muted-foreground">{wipData.orderCount} Active Orders</p>
                             </>
                         ) : (
@@ -134,14 +134,14 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
 
                 <TabsContent value="cogm" className="space-y-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <Card className="rounded-xl border border-zinc-200 shadow-sm">
+                        <Card className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                             <CardHeader>
                                 <CardTitle>Cost Composition (Last 10 Orders)</CardTitle>
                             </CardHeader>
                             <CardContent className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" className="dark:[&>line]:stroke-zinc-700" />
                                         <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                                         <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(value) => `${value / 1000}k`} />
                                         <Tooltip
@@ -157,39 +157,39 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
-                        <Card className="rounded-xl border border-zinc-200 shadow-sm">
+                        <Card className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                             <CardHeader>
                                 <CardTitle>Cost Detail Breakdown</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 shadow-sm custom-scrollbar">
+                                <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm custom-scrollbar">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-zinc-50 border-b border-zinc-200">
+                                        <thead className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
                                             <tr>
-                                                <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>
-                                                <th className="p-3 text-left font-semibold text-zinc-900">Product</th>
-                                                <th className="p-3 text-right font-semibold text-zinc-900">Qty</th>
-                                                <th className="p-3 text-right font-semibold text-zinc-900">Unit Cost</th>
-                                                <th className="p-3 text-right font-semibold text-zinc-900">Total Cost</th>
+                                                <th className="p-3 text-left font-semibold text-zinc-900 dark:text-zinc-100">PO #</th>
+                                                <th className="p-3 text-left font-semibold text-zinc-900 dark:text-zinc-100">Product</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900 dark:text-zinc-100">Qty</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900 dark:text-zinc-100">Unit Cost</th>
+                                                <th className="p-3 text-right font-semibold text-zinc-900 dark:text-zinc-100">Total Cost</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-zinc-100">
+                                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
                                             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                             {costData.map((item: any) => (
-                                                <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors">
-                                                    <td className="p-3 font-medium text-zinc-900">{item.orderNumber}</td>
+                                                <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors">
+                                                    <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{item.orderNumber}</td>
                                                     <td className="p-3">
                                                         <div className="font-medium">{item.productName}</div>
-                                                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{item.skuCode}</div>
+                                                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{item.skuCode}</div>
                                                     </td>
                                                     <td className="p-3 text-right">{item.quantity}</td>
-                                                    <td className="p-3 text-right text-[#22c55e] font-bold">{formatRupiah(item.unitCost)}</td>
+                                                    <td className="p-3 text-right text-[#22c55e] dark:text-[#34d399] font-bold">{formatRupiah(item.unitCost)}</td>
                                                     <td className="p-3 text-right font-medium">{formatRupiah(item.totalCost)}</td>
                                                 </tr>
                                             ))}
                                             {costData.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={5} className="p-8 text-center text-zinc-500 italic">Tidak ada data dalam rentang terpilih</td>
+                                                    <td colSpan={5} className="p-8 text-center text-zinc-500 dark:text-zinc-400 italic">Tidak ada data dalam rentang terpilih</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -201,35 +201,35 @@ export function CostingDashboardClient({ initialDateRange: _initialDateRange }: 
                 </TabsContent>
 
                 <TabsContent value="wip">
-                    <Card className="rounded-xl border border-zinc-200 shadow-sm">
+                    <Card className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                         <CardHeader>
                             <CardTitle>Active Work In Progress</CardTitle>
                             <CardDescription>Value of raw materials consumed in currently active orders</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 shadow-sm">
+                            <ResponsiveTable minWidth={800} className="rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-zinc-50 border-b border-zinc-200">
+                                    <thead className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
                                         <tr>
-                                            <th className="p-3 text-left font-semibold text-zinc-900">PO #</th>
-                                            <th className="p-3 text-left font-semibold text-zinc-900">Product</th>
-                                            <th className="p-3 text-left font-semibold text-zinc-900">Start Date</th>
-                                            <th className="p-3 text-right font-semibold text-zinc-900">Running Material Cost</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900 dark:text-zinc-100">PO #</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900 dark:text-zinc-100">Product</th>
+                                            <th className="p-3 text-left font-semibold text-zinc-900 dark:text-zinc-100">Start Date</th>
+                                            <th className="p-3 text-right font-semibold text-zinc-900 dark:text-zinc-100">Running Material Cost</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-zinc-100">
+                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-700">
                                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                         {wipData?.orders.map((item: any) => (
-                                            <tr key={item.id} className="hover:bg-zinc-50/50 transition-colors">
-                                                <td className="p-3 font-medium text-zinc-900">{item.orderNumber}</td>
+                                            <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors">
+                                                <td className="p-3 font-medium text-zinc-900 dark:text-zinc-100">{item.orderNumber}</td>
                                                 <td className="p-3">{item.productName}</td>
                                                 <td className="p-3">{item.startDate ? format(new Date(item.startDate), 'PP') : '-'}</td>
-                                                <td className="p-3 text-right font-bold text-[#3b82f6]">{formatRupiah(item.currentMaterialCost)}</td>
+                                                <td className="p-3 text-right font-bold text-[#3b82f6] dark:text-[#60a5fa]">{formatRupiah(item.currentMaterialCost)}</td>
                                             </tr>
                                         ))}
                                         {(!wipData?.orders || wipData.orders.length === 0) && (
                                             <tr>
-                                                <td colSpan={4} className="p-8 text-center text-zinc-500 italic">Tidak ada WIP aktif ditemukan</td>
+                                                <td colSpan={4} className="p-8 text-center text-zinc-500 dark:text-zinc-400 italic">Tidak ada WIP aktif ditemukan</td>
                                             </tr>
                                         )}
                                     </tbody>

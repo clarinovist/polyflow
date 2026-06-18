@@ -105,7 +105,7 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50">
+                <Button variant="ghost" size="sm" className="h-8 shadow-none border gap-2 text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50 hover:dark:bg-orange-900/30">
                     <KeyRound className="h-4 w-4" /> Reset Pwd
                 </Button>
             </DialogTrigger>

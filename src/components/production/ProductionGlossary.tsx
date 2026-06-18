@@ -27,7 +27,7 @@ export function ProductionGlossary() {
                     <div className="flex-none bg-background border-b px-6 pt-6">
                         <DialogHeader className="pb-3 pr-10">
                             <DialogTitle className="flex items-center gap-2">
-                                <Info className="h-5 w-5 text-blue-600" />
+                                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                 Work Order Guide
                             </DialogTitle>
                             <DialogDescription>
@@ -138,7 +138,7 @@ export function ProductionGlossary() {
 
                         {/* Status Flow Tab */}
                         <TabsContent value="status" className="space-y-6 mt-6">
-                            <div className="bg-slate-50 p-6 rounded-lg border">
+                            <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg border">
                                 <h3 className="font-semibold text-lg mb-4">Work Order Lifecycle</h3>
                                 <div className="space-y-3">
                                     <StatusFlowItem
@@ -148,7 +148,7 @@ export function ProductionGlossary() {
                                         actions="Review details → Release for production"
                                     />
                                     <div className="flex items-center justify-center">
-                                        <div className="h-8 w-0.5 bg-slate-300"></div>
+                                        <div className="h-8 w-0.5 bg-slate-300 dark:bg-slate-600"></div>
                                     </div>
                                     <StatusFlowItem
                                         status="RELEASED"
@@ -157,7 +157,7 @@ export function ProductionGlossary() {
                                         actions="Assign machine/operator → Start production"
                                     />
                                     <div className="flex items-center justify-center">
-                                        <div className="h-8 w-0.5 bg-slate-300"></div>
+                                        <div className="h-8 w-0.5 bg-slate-300 dark:bg-slate-600"></div>
                                     </div>
                                     <StatusFlowItem
                                         status="IN_PROGRESS"
@@ -166,7 +166,7 @@ export function ProductionGlossary() {
                                         actions="Issue materials → Record scrap → Inspect → Complete"
                                     />
                                     <div className="flex items-center justify-center">
-                                        <div className="h-8 w-0.5 bg-slate-300"></div>
+                                        <div className="h-8 w-0.5 bg-slate-300 dark:bg-slate-600"></div>
                                     </div>
                                     <StatusFlowItem
                                         status="COMPLETED"
@@ -176,14 +176,14 @@ export function ProductionGlossary() {
                                     />
                                 </div>
 
-                                <div className="mt-6 pt-4 border-t border-slate-200">
+                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
                                     <StatusFlowItem
                                         status="CANCELLED"
                                         color="red"
                                         description="Order cancelled or aborted"
                                         actions="Document cancellation reason"
                                     />
-                                    <p className="text-xs text-slate-500 mt-2 italic">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 italic">
                                         * Can be cancelled from DRAFT, RELEASED, or IN_PROGRESS status
                                     </p>
                                 </div>
@@ -212,9 +212,9 @@ export function ProductionGlossary() {
                                 title="Material Issue"
                                 description="Recording raw material consumption during production"
                             >
-                                <div className="bg-slate-50 p-4 rounded-lg border mb-4">
+                                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border mb-4">
                                     <h4 className="font-semibold text-sm mb-2">What Happens:</h4>
-                                    <ol className="text-sm text-slate-700 space-y-1 list-decimal list-inside">
+                                    <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-decimal list-inside">
                                         <li>Material consumption is recorded</li>
                                         <li>Inventory stock is automatically reduced</li>
                                         <li>Stock movement (OUT) is created for audit trail</li>
@@ -257,10 +257,10 @@ export function ProductionGlossary() {
                                         example="16 KG scrap from 500 KG planned = 3.2%"
                                     />
                                 </div>
-                                <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 mt-4">
+                                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50 mt-4">
                                     <div className="flex items-start gap-2">
-                                        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                                        <div className="text-sm text-amber-800">
+                                        <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-amber-800 dark:text-amber-400">
                                             <span className="font-semibold">Best Practice:</span> Record scrap immediately
                                             as it occurs, with specific reasons for analysis
                                         </div>
@@ -268,26 +268,26 @@ export function ProductionGlossary() {
                                 </div>
                             </GlossarySection>
 
-                            <div className="bg-slate-50 p-4 rounded-lg border">
+                            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border">
                                 <h4 className="font-semibold mb-3">Example: Raffia Production Flow</h4>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-sm">
-                                        <Badge className="bg-blue-100 text-blue-700 border-0">Stage 1</Badge>
+                                        <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-0">Stage 1</Badge>
                                         <span className="font-semibold">Mixing:</span>
-                                        <span className="text-slate-600">Raw Materials → Mixed Granules (INTERMEDIATE)</span>
+                                        <span className="text-slate-600 dark:text-slate-400">Raw Materials → Mixed Granules (INTERMEDIATE)</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                        <Badge className="bg-purple-100 text-purple-700 border-0">Stage 2</Badge>
+                                        <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-0">Stage 2</Badge>
                                         <span className="font-semibold">Extrusion:</span>
-                                        <span className="text-slate-600">Mixed Granules → Raffia Roll (WIP)</span>
+                                        <span className="text-slate-600 dark:text-slate-400">Mixed Granules → Raffia Roll (WIP)</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                        <Badge className="bg-green-100 text-green-700 border-0">Stage 3</Badge>
+                                        <Badge className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-0">Stage 3</Badge>
                                         <span className="font-semibold">Converting:</span>
-                                        <span className="text-slate-600">Raffia Roll → Raffia Bales (FINISHED_GOOD)</span>
+                                        <span className="text-slate-600 dark:text-slate-400">Raffia Roll → Raffia Bales (FINISHED_GOOD)</span>
                                     </div>
                                 </div>
-                                <p className="text-xs text-slate-600 italic mt-3">
+                                <p className="text-xs text-slate-600 dark:text-slate-400 italic mt-3">
                                     * Each stage requires its own work order and BOM<br />
                                     * Transfer material between locations as needed
                                 </p>
@@ -341,12 +341,12 @@ export function ProductionGlossary() {
                                 />
                             </div>
 
-                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800/50">
                                 <div className="flex items-start gap-2">
-                                    <Info className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                                    <Info className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <h4 className="font-semibold text-green-900 mb-2">Quality Best Practices</h4>
-                                        <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
+                                        <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">Quality Best Practices</h4>
+                                        <ul className="text-sm text-green-800 dark:text-green-300 space-y-1 list-disc list-inside">
                                             <li>Inspect at critical process points, not just at the end</li>
                                             <li>Document specific measurements and findings in notes</li>
                                             <li>Use QUARANTINE when uncertain rather than passing questionable product</li>
@@ -357,8 +357,8 @@ export function ProductionGlossary() {
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                <div className="text-sm text-blue-800">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800/50">
+                                <div className="text-sm text-blue-800 dark:text-blue-300">
                                     <span className="font-semibold">Note:</span> Multiple inspections can be recorded
                                     for a single work order. Include inspector name and timestamp for accountability.
                                 </div>
@@ -380,12 +380,12 @@ interface GlossarySectionProps {
 
 function GlossarySection({ icon: Icon, title, description, children }: GlossarySectionProps) {
     return (
-        <div className="border-l-4 border-slate-300 pl-4 py-2">
+        <div className="border-l-4 border-slate-300 dark:border-slate-600 pl-4 py-2">
             <div className="flex items-center gap-2 mb-2">
-                <Icon className="h-5 w-5 text-slate-600" />
-                <h3 className="font-semibold text-lg text-slate-900">{title}</h3>
+                <Icon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100">{title}</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4">{description}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">{description}</p>
             {children}
         </div>
     );
@@ -422,16 +422,16 @@ function StatusFlowItem({ status, color, description, actions }: StatusFlowItemP
     // Map colors to semantic variants if possible, or just use neutral
     // We'll stick to a clean, single-style card for all flow items with a small colored indicator
     const indicatorColors: Record<string, string> = {
-        slate: 'bg-zinc-200',
-        blue: 'bg-blue-500',
-        amber: 'bg-amber-500',
-        emerald: 'bg-emerald-500',
+        slate: 'bg-zinc-200 dark:bg-zinc-700',
+        blue: 'bg-blue-500 dark:bg-blue-400',
+        amber: 'bg-amber-500 dark:bg-amber-400',
+        emerald: 'bg-emerald-500 dark:bg-emerald-400',
         red: 'bg-destructive',
     };
 
     return (
         <div className="p-4 rounded-lg border bg-card relative overflow-hidden">
-            <div className={cn("absolute left-0 top-0 bottom-0 w-1", indicatorColors[color] || 'bg-zinc-200')} />
+            <div className={cn("absolute left-0 top-0 bottom-0 w-1", indicatorColors[color] || 'bg-zinc-200 dark:bg-zinc-700')} />
             <div className="pl-2">
                 <div className="font-bold text-base mb-1 text-foreground">{status}</div>
                 <div className="text-sm mb-2 text-muted-foreground">{description}</div>
@@ -451,9 +451,9 @@ interface InspectionResultCardProps {
 
 function InspectionResultCard({ result, icon: Icon, color, description, action }: InspectionResultCardProps) {
     const indicatorColors: Record<string, string> = {
-        green: 'text-emerald-600',
+        green: 'text-emerald-600 dark:text-emerald-400',
         red: 'text-destructive',
-        amber: 'text-amber-500',
+        amber: 'text-amber-500 dark:text-amber-400',
     };
 
     const textColor = indicatorColors[color] || 'text-muted-foreground';

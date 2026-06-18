@@ -147,11 +147,11 @@ export default function PotongPlongProductionForm({
                     const unitMeta = getProductionUnitMeta(selectedOrder?.bom?.productVariant || {});
 
                     return (
-                    <div key={field.id} className="relative p-6 rounded-2xl bg-white/5 border border-purple-500/20 backdrop-blur-md shadow-2xl flex flex-col gap-6 transition-all hover:bg-purple-900/10">
+                    <div key={field.id} className="relative p-6 rounded-2xl bg-white/5 dark:bg-zinc-900/5 border border-purple-500/20 dark:border-purple-500/30 backdrop-blur-md shadow-2xl flex flex-col gap-6 transition-all hover:bg-purple-900/10 dark:hover:bg-purple-900/20">
                         {/* Header Panel */}
-                        <div className="flex justify-between items-center border-b border-purple-500/20 pb-4">
-                            <h3 className="text-xl font-bold text-purple-400 flex items-center gap-2">
-                                <span className="bg-purple-500/20 text-purple-300 h-8 w-8 rounded-full flex items-center justify-center text-sm">{index + 1}</span>
+                        <div className="flex justify-between items-center border-b border-purple-500/20 dark:border-purple-500/30 pb-4">
+                            <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                                <span className="bg-purple-500/20 dark:bg-purple-500/30 text-purple-600 dark:text-purple-300 h-8 w-8 rounded-full flex items-center justify-center text-sm">{index + 1}</span>
                                 Laporan Potong/Plong
                             </h3>
                             {fields.length > 1 && (
@@ -168,10 +168,10 @@ export default function PotongPlongProductionForm({
                                 name={`reports.${index}.productionOrderId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-purple-200/70">Work Order (SPK)</FormLabel>
+                                        <FormLabel className="text-purple-600 dark:text-purple-200/70">Work Order (SPK)</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-purple-500/20 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
                                                     <SelectValue placeholder="Pilih WO..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -191,10 +191,10 @@ export default function PotongPlongProductionForm({
                                 name={`reports.${index}.machineId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-purple-200/70">Mesin</FormLabel>
+                                        <FormLabel className="text-purple-600 dark:text-purple-200/70">Mesin</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-purple-500/20 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
                                                     <SelectValue placeholder="Pilih Mesin..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -214,10 +214,10 @@ export default function PotongPlongProductionForm({
                                 name={`reports.${index}.operatorId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-purple-200/70">Operator (Ketua)</FormLabel>
+                                        <FormLabel className="text-purple-600 dark:text-purple-200/70">Operator (Ketua)</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-purple-500/20 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
                                                     <SelectValue placeholder="Pilih Operator..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -238,10 +238,10 @@ export default function PotongPlongProductionForm({
                                 name={`reports.${index}.shiftId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-purple-200/70">Shift</FormLabel>
+                                        <FormLabel className="text-purple-600 dark:text-purple-200/70">Shift</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-purple-500/20 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-zinc-800/50 border-purple-500/20 dark:border-purple-500/30 text-white">
                                                     <SelectValue placeholder="Pilih Shift..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -277,34 +277,34 @@ export default function PotongPlongProductionForm({
 
                                 return (
                                     <FormItem>
-                                        <FormLabel className="text-purple-200/70 flex items-center gap-2">
+                                        <FormLabel className="text-purple-600 dark:text-purple-200/70 flex items-center gap-2">
                                             <Users className="h-4 w-4" /> Helper / Asisten
                                             {currentHelpers.length > 0 && (
-                                                <span className="bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                                                <span className="bg-purple-500/20 dark:bg-purple-500/30 text-purple-600 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full font-bold">
                                                     {currentHelpers.length} dipilih
                                                 </span>
                                             )}
                                         </FormLabel>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-purple-950/20 rounded-lg border border-purple-500/10">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-purple-950/20 dark:bg-purple-950/30 rounded-lg border border-purple-500/10 dark:border-purple-500/20">
                                             {eligibleHelpers.map(e => (
                                                 <label
                                                     key={e.id}
                                                     className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm border ${
                                                         currentHelpers.includes(e.id)
-                                                            ? 'bg-purple-500/20 border-purple-400/50 text-white font-semibold'
-                                                            : 'border-purple-500/10 text-purple-200/50 hover:bg-purple-500/10 hover:text-white'
+                                                            ? 'bg-purple-500/20 dark:bg-purple-500/30 border-purple-400/50 dark:border-purple-400/60 text-white font-semibold'
+                                                            : 'border-purple-500/10 dark:border-purple-500/20 text-purple-600 dark:text-purple-200/50 hover:bg-purple-500/10 dark:hover:bg-purple-500/20 hover:text-white'
                                                     }`}
                                                 >
                                                     <Checkbox
                                                         checked={currentHelpers.includes(e.id)}
                                                         onCheckedChange={() => toggleHelper(e.id)}
-                                                        className="border-purple-400/30"
+                                                        className="border-purple-400/30 dark:border-purple-400/50"
                                                     />
                                                     {e.name}
                                                 </label>
                                             ))}
                                             {eligibleHelpers.length === 0 && (
-                                                <p className="text-purple-200/30 text-xs col-span-4">Pilih operator terlebih dahulu</p>
+                                                <p className="text-purple-400 dark:text-purple-200/30 text-xs col-span-4">Pilih operator terlebih dahulu</p>
                                             )}
                                         </div>
                                         <FormMessage />
@@ -314,42 +314,42 @@ export default function PotongPlongProductionForm({
                         />
 
                         {/* Mid Data row */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-purple-950/20 p-4 rounded-xl border border-purple-500/10">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-purple-950/20 dark:bg-purple-950/30 p-4 rounded-xl border border-purple-500/10 dark:border-purple-500/20">
                             <FormField control={form.control} name={`reports.${index}.quantityProduced`} render={({ field }) => (
-	                                <FormItem><FormLabel className="text-purple-200/70">Netto / Valid ({unitMeta.displayUnit})</FormLabel><FormControl>
-	                                    <Input type="number" step="any" className="bg-slate-900/80 border-purple-500/30 text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.1)]" {...field} />
+	                                <FormItem><FormLabel className="text-purple-600 dark:text-purple-200/70">Netto / Valid ({unitMeta.displayUnit})</FormLabel><FormControl>
+	                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/30 dark:border-purple-500/40 text-green-500 dark:text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.1)]" {...field} />
 	                                </FormControl><FormMessage /></FormItem>
 	                            )}/>
                             <FormField control={form.control} name={`reports.${index}.scrapQuantity`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-purple-200/70">Scrap Potong (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-purple-500/20 text-red-400" {...field} />
+                                <FormItem><FormLabel className="text-purple-600 dark:text-purple-200/70">Scrap Potong (Kg)</FormLabel><FormControl>
+                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-red-500 dark:text-red-400" {...field} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.startTime`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-purple-200/70">Mulai Pukul</FormLabel><FormControl>
-                                    <Input type="datetime-local" className="bg-slate-900/80 border-purple-500/20 text-white"
+                                <FormItem><FormLabel className="text-purple-600 dark:text-purple-200/70">Mulai Pukul</FormLabel><FormControl>
+                                    <Input type="datetime-local" className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-white"
                                         value={field.value instanceof Date ? toLocalDatetime(field.value) : (field.value ? toLocalDatetime(field.value) : '')}
                                         onChange={(e) => field.onChange(new Date(e.target.value))} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.endTime`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-purple-200/70">Selesai Pukul</FormLabel><FormControl>
-                                    <Input type="datetime-local" className="bg-slate-900/80 border-purple-500/20 text-white"
+                                <FormItem><FormLabel className="text-purple-600 dark:text-purple-200/70">Selesai Pukul</FormLabel><FormControl>
+                                    <Input type="datetime-local" className="bg-slate-900/80 dark:bg-zinc-800/80 border-purple-500/20 dark:border-purple-500/30 text-white"
                                         value={field.value instanceof Date ? toLocalDatetime(field.value) : (field.value ? toLocalDatetime(field.value) : '')}
                                         onChange={(e) => field.onChange(new Date(e.target.value))} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
-	                    </div>
+                    </div>
                     );
                 })}
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-purple-950/30 p-6 rounded-2xl border-t-4 border-purple-500/50 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-purple-950/30 dark:bg-purple-950/40 p-6 rounded-2xl border-t-4 border-purple-500/50 dark:border-purple-500/60 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
                     <Button
                         type="button"
                         variant="secondary"
                         size="lg"
-                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-purple-100 bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/30"
+                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-purple-100 bg-purple-500/20 dark:bg-purple-500/30 hover:bg-purple-500/30 dark:hover:bg-purple-500/40 border-purple-500/30 dark:border-purple-500/40"
                         onClick={() => append(makeEmpty())}
                     >
                         <PlusCircle className="h-5 w-5 mr-2" />
@@ -360,7 +360,7 @@ export default function PotongPlongProductionForm({
                         type="submit"
                         disabled={isSubmitting}
                         size="lg"
-                        className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:scale-105 active:scale-95 transition-all bg-purple-600 hover:bg-purple-500 text-white"
+                        className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:scale-105 active:scale-95 transition-all bg-purple-600 dark:bg-purple-500 hover:bg-purple-500 dark:hover:bg-purple-400 text-white"
                     >
                         {isSubmitting ? (
                             <div className="flex items-center"><div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2" /> Memproses...</div>

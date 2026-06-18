@@ -122,11 +122,11 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'DRAFT': return 'bg-muted text-muted-foreground';
-            case 'RELEASED': return 'bg-blue-100 text-blue-700';
-            case 'IN_PROGRESS': return 'bg-amber-100 text-amber-700';
-            case 'COMPLETED': return 'bg-emerald-100 text-emerald-700';
-            case 'CANCELLED': return 'bg-red-100 text-red-700';
-            case 'WAITING_MATERIAL': return 'bg-orange-100 text-orange-700';
+            case 'RELEASED': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400';
+            case 'IN_PROGRESS': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400';
+            case 'COMPLETED': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400';
+            case 'CANCELLED': return 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400';
+            case 'WAITING_MATERIAL': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400';
             default: return 'bg-muted text-muted-foreground';
         }
     };
@@ -139,7 +139,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         <h1 className="text-2xl font-bold tracking-tight">Order {order.orderNumber}</h1>
                         <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                         {order.isMaklon && (
-                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800/50 dark:bg-blue-900/20 dark:text-blue-400">
                                 <Factory className="w-3 h-3 mr-1" /> Maklon Service
                             </Badge>
                         )}
@@ -181,7 +181,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                             {order.materialIssues.length === 0 && order.executions.length === 0 && actualQty === 0 && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800/50 dark:hover:bg-red-900/20">
                                             Batalkan Order
                                         </Button>
                                     </AlertDialogTrigger>
@@ -196,7 +196,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             <AlertDialogCancel>Kembali</AlertDialogCancel>
                                             <AlertDialogAction
                                                 onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
-                                                className="bg-red-600 hover:bg-red-700"
+                                                className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                                             >
                                                 Konfirmasi Pembatalan
                                             </AlertDialogAction>
@@ -215,7 +215,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                             {order.materialIssues.length === 0 && order.executions.length === 0 && actualQty === 0 && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                                        <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800/50 dark:hover:bg-red-900/20">
                                             Batalkan Order
                                         </Button>
                                     </AlertDialogTrigger>
@@ -230,7 +230,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             <AlertDialogCancel>Kembali</AlertDialogCancel>
                                             <AlertDialogAction
                                                 onClick={() => updateProductionOrder({ id: order.id, status: 'CANCELLED' })}
-                                                className="bg-red-600 hover:bg-red-700"
+                                                className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                                             >
                                                 Konfirmasi Pembatalan
                                             </AlertDialogAction>
@@ -250,7 +250,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </Button>
                     )}
                     {order.status === 'CANCELLED' && (
-                        <Button variant="outline" disabled className="text-red-500 bg-red-50">
+                        <Button variant="outline" disabled className="text-red-500 bg-red-50 dark:text-red-400 dark:bg-red-900/20">
                             Order Cancelled
                         </Button>
                     )}
@@ -268,18 +268,18 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
 
                         <TabsTrigger value="materials" className="relative px-6 lg:px-2">
                             Materials
-                            {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+                            {order.status === 'RELEASED' && <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse dark:bg-blue-400" />}
                         </TabsTrigger>
 
                         <TabsTrigger value="execution" className="relative px-6 lg:px-2">
                             Execution
-                            {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />}
+                            {order.status === 'IN_PROGRESS' && <span className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse dark:bg-amber-400" />}
                         </TabsTrigger>
 
                         <TabsTrigger value="issues" className="relative px-6 lg:px-2">
                             Issues
                             {order.issues?.some(i => i.status === 'OPEN') && (
-                                <span className="ml-1 px-1.5 text-[10px] bg-red-500 text-white rounded-full">
+                                <span className="ml-1 px-1.5 text-[10px] bg-red-500 text-white rounded-full dark:bg-red-400">
                                     {order.issues.filter(i => i.status === 'OPEN').length}
                                 </span>
                             )}
@@ -322,35 +322,35 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {order.salesOrder ? (
-                                <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20">
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
-                                            <div className="text-sm font-semibold text-blue-900">Linked Sales Order</div>
-                                            <div className="text-xs text-blue-700">
+                                            <div className="text-sm font-semibold text-blue-900 dark:text-blue-300">Linked Sales Order</div>
+                                            <div className="text-xs text-blue-700 dark:text-blue-400">
                                                 {order.salesOrder.customer?.name || 'Customer not assigned'} • {order.salesOrder.orderType.replace(/_/g, ' ')}
                                             </div>
                                         </div>
-                                        <Badge variant="outline" className="border-blue-200 bg-white text-blue-700">
+                                        <Badge variant="outline" className="border-blue-200 bg-white text-blue-700 dark:border-blue-800/50 dark:bg-zinc-900 dark:text-blue-400">
                                             Customer Demand
                                         </Badge>
                                     </div>
                                     <div className="flex items-center justify-between gap-3 text-sm">
                                         <span className="font-medium">{order.salesOrder.orderNumber}</span>
-                                        <Link href={`/sales/orders/${order.salesOrder.id}`} className="text-blue-700 hover:underline">
+                                        <Link href={`/sales/orders/${order.salesOrder.id}`} className="text-blue-700 hover:underline dark:text-blue-400">
                                             Open Sales Order
                                         </Link>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20">
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
-                                            <div className="text-sm font-semibold text-amber-900">No linked Sales Order</div>
-                                            <div className="text-xs text-amber-700">
+                                            <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">No linked Sales Order</div>
+                                            <div className="text-xs text-amber-700 dark:text-amber-400">
                                                 This work order is treated as internal replenishment or planning demand.
                                             </div>
                                         </div>
-                                        <Badge variant="outline" className="border-amber-200 bg-white text-amber-700">
+                                        <Badge variant="outline" className="border-amber-200 bg-white text-amber-700 dark:border-amber-800/50 dark:bg-zinc-900 dark:text-amber-400">
                                             Internal Demand
                                         </Badge>
                                     </div>
@@ -443,7 +443,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         </td>
                                                         <td className="p-3">{exec.shift?.name || '-'}</td>
                                                         <td className="p-3">{exec.operator?.name || '-'}</td>
-                                                        <td className="p-3 text-right font-medium text-emerald-600">
+                                                        <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                                                             {exec.status === 'VOIDED' ? '-' : (() => {
                                                                 const baseQty = Number(exec.quantityProduced);
                                                                 const entQty = exec.enteredQuantity ? Number(exec.enteredQuantity) : null;
@@ -545,9 +545,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                         const isUnder = variance < 0;
 
                                         // Progress Bar Color Logic
-                                        let progressColor = "bg-emerald-500";
-                                        if (variancePercent > 5) progressColor = "bg-red-500";
-                                        else if (variancePercent < -5) progressColor = "bg-amber-500";
+                                        let progressColor = "bg-emerald-500 dark:bg-emerald-400";
+                                        if (variancePercent > 5) progressColor = "bg-red-500 dark:bg-red-400";
+                                        else if (variancePercent < -5) progressColor = "bg-amber-500 dark:bg-amber-400";
 
                                         // Progress Width (capped at 100%)
                                         const progressValue = Math.min(100, (issued / (required || 1)) * 100);
@@ -557,7 +557,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                 <td className="p-3 pl-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-foreground">{item.productVariant.name}</span>
-                                                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Planned</span>
+                                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Planned</span>
                                                         <span className="text-xs text-muted-foreground">{item.productVariant.skuCode}</span>
                                                     </div>
                                                 </td>
@@ -566,7 +566,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                     <div className="flex flex-col gap-1 w-full">
                                                         <span className={cn(
                                                             "font-bold",
-                                                            isOver ? "text-red-600" : isUnder ? "text-amber-600" : "text-emerald-600"
+                                                            isOver ? "text-red-600 dark:text-red-400" : isUnder ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                                                         )}>
                                                             {issued.toFixed(2)} {item.productVariant.primaryUnit}
                                                         </span>
@@ -582,9 +582,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                     <div className="flex flex-col items-end gap-1">
                                                         <Badge variant="outline" className={cn(
                                                             "font-mono",
-                                                            isOver ? "text-red-600 border-red-200 bg-red-50" :
-                                                                Math.abs(variancePercent) < 0.01 ? "text-emerald-600 border-emerald-200 bg-emerald-50" :
-                                                                    "text-amber-600 border-amber-200 bg-amber-50"
+                                                            isOver ? "text-red-600 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/50 dark:bg-red-900/20" :
+                                                                Math.abs(variancePercent) < 0.01 ? "text-emerald-600 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/50 dark:bg-emerald-900/20" :
+                                                                    "text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-900/20"
                                                         )}>
                                                             {variance > 0 ? '+' : ''}{variance.toFixed(2)}
                                                         </Badge>
@@ -618,21 +618,21 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             return acc;
                                         }, [])
                                         .map((sub) => (
-                                            <tr key={sub.productVariantId} className="bg-amber-500/10 hover:bg-amber-500/20">
+                                            <tr key={sub.productVariantId} className="bg-amber-500/10 hover:bg-amber-500/20 dark:bg-amber-500/15 dark:hover:bg-amber-500/25">
                                                 <td className="p-3 pl-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-foreground">{sub.productVariant.name}</span>
-                                                        <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Unplanned Issue</span>
+                                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Unplanned Issue</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-right text-muted-foreground">-</td>
                                                 <td className="p-3 text-right">
-                                                    <span className="font-bold text-amber-600">
+                                                    <span className="font-bold text-amber-600 dark:text-amber-400">
                                                         {Number(sub.quantity).toFixed(2)} {sub.productVariant.primaryUnit}
                                                     </span>
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/50 dark:bg-amber-900/20">
                                                         Substitute
                                                     </Badge>
                                                 </td>
@@ -682,7 +682,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
-                                <Play className="w-4 h-4 text-blue-500" /> Operational Resources
+                                <Play className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Operational Resources
                             </h3>
                         </div>
                         <ShiftManager
@@ -701,7 +701,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                                    <TrendingUpIcon className="w-4 h-4 text-amber-500" /> Production & Scrap
+                                    <TrendingUpIcon className="w-4 h-4 text-amber-500 dark:text-amber-400" /> Production & Scrap
                                 </h3>
                                 {order.status === 'IN_PROGRESS' && (
                                     <RecordScrapDialog order={order} locations={formData.locations} />
@@ -720,7 +720,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                         <p className="text-xs text-muted-foreground">{scrap.reason || 'No reason provided'}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/50 dark:bg-red-900/20">
                                                             {Number(scrap.quantity)} {scrap.productVariant.primaryUnit}
                                                         </Badge>
                                                         {order.status === 'IN_PROGRESS' && (
@@ -742,7 +742,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                                    <CheckCircle className="w-4 h-4 text-emerald-500" /> Quality Control
+                                    <CheckCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> Quality Control
                                 </h3>
                                 {(order.status === 'IN_PROGRESS' || order.status === 'COMPLETED') && (
                                     <RecordQCDialog order={order} />
@@ -753,12 +753,12 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                 <CardHeader><CardTitle className="text-sm font-medium">Inspection History</CardTitle></CardHeader>
                                 <CardContent className="space-y-3">
                                     {order.inspections.map((insp) => (
-                                        <div key={insp.id} className="p-3 border rounded-lg flex items-start justify-between bg-zinc-50/50">
+                                        <div key={insp.id} className="p-3 border rounded-lg flex items-start justify-between bg-zinc-50/50 dark:bg-zinc-800/50">
                                             <div>
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <Badge className={cn(
-                                                        insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700" :
-                                                            insp.result === 'FAIL' ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                                                        insp.result === 'PASS' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" :
+                                                            insp.result === 'FAIL' ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
                                                     )}>
                                                         {insp.result}
                                                     </Badge>
@@ -780,7 +780,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                 <TabsContent value="issues" className="space-y-6 mt-6">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                            <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                             Production Issues
                         </h3>
                         {(order.status === 'IN_PROGRESS' || order.status === 'RELEASED') && (
@@ -807,9 +807,9 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                 <div className="flex items-center gap-2">
                                                     <Badge variant="outline" className={cn(
                                                         "text-xs",
-                                                        issue.status === 'OPEN' ? "bg-red-50 text-red-700 border-red-200" :
-                                                            issue.status === 'IN_PROGRESS' ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                                                "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                        issue.status === 'OPEN' ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50" :
+                                                            issue.status === 'IN_PROGRESS' ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50" :
+                                                                "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50"
                                                     )}>
                                                         {issue.status}
                                                     </Badge>
@@ -823,7 +823,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                     {issue.reportedBy?.name && ` by ${issue.reportedBy.name}`}
                                                 </p>
                                                 {issue.resolvedAt && (
-                                                    <p className="text-xs text-emerald-600">
+                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
                                                         Resolved: {format(new Date(issue.resolvedAt), 'MMM d, yyyy HH:mm')}
                                                         {issue.resolvedNotes && ` - ${issue.resolvedNotes}`}
                                                     </p>
@@ -833,7 +833,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/50 dark:hover:bg-emerald-900/20"
                                                     onClick={async () => {
                                                         const result = await updateProductionIssueStatus(
                                                             issue.id,
@@ -897,11 +897,11 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total COGM</p>
-                                                <p className="text-2xl font-black text-blue-600">{formatRupiah(costingData.totalCost)}</p>
+                                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{formatRupiah(costingData.totalCost)}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Unit Cost</p>
-                                                <p className="text-xl font-bold text-emerald-600">{formatRupiah(costingData.unitCost)} <span className="text-xs font-normal text-muted-foreground">/ {order.bom.productVariant.primaryUnit}</span></p>
+                                                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(costingData.unitCost)} <span className="text-xs font-normal text-muted-foreground">/ {order.bom.productVariant.primaryUnit}</span></p>
                                             </div>
                                         </div>
                                     </div>
@@ -927,11 +927,11 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
                                             <span className="text-muted-foreground">Conversion %</span>
                                             <span className="font-medium">{((costingData.conversionCost / costingData.totalCost) * 100).toFixed(1)}%</span>
                                         </div>
-                                        <Progress value={(costingData.conversionCost / costingData.totalCost) * 100} className="h-1.5 bg-amber-100" />
+                                        <Progress value={(costingData.conversionCost / costingData.totalCost) * 100} className="h-1.5 bg-amber-100 dark:bg-amber-900/30" />
                                     </div>
-                                    <div className="mt-4 p-3 bg-zinc-50 rounded-lg border text-xs text-muted-foreground">
-                                        <p className="flex items-center gap-1 font-medium text-zinc-900 mb-1">
-                                            <TrendingUpIcon className="w-3 h-3 text-blue-500" /> WAC-based Valuation
+                                    <div className="mt-4 p-3 bg-zinc-50 rounded-lg border text-xs text-muted-foreground dark:bg-zinc-800">
+                                        <p className="flex items-center gap-1 font-medium text-zinc-900 mb-1 dark:text-zinc-100">
+                                            <TrendingUpIcon className="w-3 h-3 text-blue-500 dark:text-blue-400" /> WAC-based Valuation
                                         </p>
                                         Material costs are calculated using the Weighted Average Cost at the time of issuance.
                                     </div>
@@ -961,4 +961,3 @@ function DetailRow({ label, value }: { label: string, value: string }) {
         </div>
     );
 }
-

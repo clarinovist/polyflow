@@ -103,8 +103,8 @@ export default async function ProductionMachinesPage() {
                     return (
                         <Card key={machine.id} className={cn(
                             "group hover:shadow-xl transition-all border-l-4 relative overflow-hidden",
-                            machine.status === 'ACTIVE' && activeExecution ? "border-l-emerald-500 bg-emerald-50/10 dark:bg-emerald-500/[0.02]" :
-                                machine.status === 'ACTIVE' ? "border-l-zinc-300" : "border-l-rose-500 bg-rose-50/10"
+                            machine.status === 'ACTIVE' && activeExecution ? "border-l-emerald-500 bg-emerald-50/10 dark:bg-emerald-900/10" :
+                                machine.status === 'ACTIVE' ? "border-l-zinc-300 dark:border-l-zinc-600" : "border-l-rose-500 dark:border-l-rose-400 bg-rose-50/10 dark:bg-rose-900/10"
                         )}>
                             <CardHeader className="pb-3 px-4">
                                 <div className="flex justify-between items-start">
@@ -123,10 +123,10 @@ export default async function ProductionMachinesPage() {
                                         <div className="p-3 rounded-lg bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 shadow-inner">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-1.5 leading-none">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                                    <span className="text-[9px] uppercase font-black tracking-widest text-emerald-500">Live</span>
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                                    <span className="text-[9px] uppercase font-black tracking-widest text-emerald-500 dark:text-emerald-400">Live</span>
                                                 </div>
-                                                <span className="text-[10px] font-mono text-zinc-500 font-bold">#{activeOrder.orderNumber}</span>
+                                                <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 font-bold">#{activeOrder.orderNumber}</span>
                                             </div>
                                             <p className="text-xs font-black text-white truncate mb-1">
                                                 {activeOrder.bom.productVariant.name}
@@ -138,15 +138,15 @@ export default async function ProductionMachinesPage() {
                                                         {activeShift.operator?.name?.charAt(0) || 'E'}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-[10px] font-black text-zinc-200 truncate leading-none uppercase tracking-tighter">
+                                                        <span className="text-[10px] font-black text-zinc-200 dark:text-zinc-300 truncate leading-none uppercase tracking-tighter">
                                                             {activeShift.operator?.name || 'Unassigned'}
                                                         </span>
-                                                        <span className="text-[8px] font-black text-zinc-600 uppercase mt-0.5">{activeShift.shiftName}</span>
+                                                        <span className="text-[8px] font-black text-zinc-600 dark:text-zinc-400 uppercase mt-0.5">{activeShift.shiftName}</span>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="text-[9px] font-black text-rose-500 uppercase mt-2 italic flex items-center gap-1">
-                                                    <div className="h-1 w-1 rounded-full bg-rose-500" />
+                                                <div className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase mt-2 italic flex items-center gap-1">
+                                                    <div className="h-1 w-1 rounded-full bg-rose-500 dark:bg-rose-400" />
                                                     Shift Assignment Needed
                                                 </div>
                                             )}
@@ -171,11 +171,11 @@ export default async function ProductionMachinesPage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-zinc-50 dark:bg-zinc-900/20 border-zinc-200 dark:border-zinc-800">
+                                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
                                         <div className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-2">
                                             <Loader2 className="h-4 w-4 text-zinc-400 opacity-50" />
                                         </div>
-                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none">Station Idle</span>
+                                        <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest leading-none">Station Idle</span>
                                         <AssignJobButton
                                             machineId={machine.id}
                                             machineCode={machine.code}

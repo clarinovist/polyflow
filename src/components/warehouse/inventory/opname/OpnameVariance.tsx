@@ -38,13 +38,13 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
     return (
         <div className="space-y-4">
             <div className="flex gap-4">
-                <div className="p-4 bg-slate-50 border rounded-lg">
-                    <div className="text-sm text-slate-500">Total Items</div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 border rounded-lg">
+                    <div className="text-sm text-slate-500 dark:text-slate-400">Total Items</div>
                     <div className="text-2xl font-bold">{safeItems.length}</div>
                 </div>
-                <div className="p-4 bg-orange-50 border border-orange-100 rounded-lg">
-                    <div className="text-sm text-orange-600">Items with Variance</div>
-                    <div className="text-2xl font-bold text-orange-700">{totalVarianceItems}</div>
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/50 rounded-lg">
+                    <div className="text-sm text-orange-600 dark:text-orange-400">Items with Variance</div>
+                    <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{totalVarianceItems}</div>
                 </div>
             </div>
 
@@ -64,7 +64,7 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium">
                                     {item.productVariant.name}
-                                    <div className="text-xs text-slate-500">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">
                                         {item.productVariant.skuCode}
                                     </div>
                                 </TableCell>
@@ -72,14 +72,14 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                                 <TableCell className="text-right">
                                     {item.countedQuantity !== null ? formatQuantity(item.count) : '-'}
                                 </TableCell>
-                                <TableCell className={`text-right font-bold ${item.delta > 0 ? 'text-green-600' : item.delta < 0 ? 'text-red-600' : 'text-slate-400'
+                                <TableCell className={`text-right font-bold ${item.delta > 0 ? 'text-green-600 dark:text-green-400' : item.delta < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'
                                     }`}>
                                     {item.delta > 0 ? '+' : ''}{formatQuantity(item.delta)}
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    {item.status === 'MATCH' && <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">Match</Badge>}
+                                    {item.status === 'MATCH' && <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20">Match</Badge>}
                                     {item.status === 'VARIANCE' && <Badge variant="destructive">Variance</Badge>}
-                                    {item.status === 'PENDING' && <Badge variant="secondary" className="text-slate-500">Pending</Badge>}
+                                    {item.status === 'PENDING' && <Badge variant="secondary" className="text-slate-500 dark:text-slate-400">Pending</Badge>}
                                 </TableCell>
                             </TableRow>
                         ))}

@@ -70,7 +70,7 @@ export default async function ProductionAnalyticsPage(props: { searchParams: Sea
                         <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{totalScrap.toLocaleString()}</div>
+                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">{totalScrap.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">
                             Units rejected
                         </p>

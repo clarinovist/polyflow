@@ -149,11 +149,11 @@ export default function HdProductionForm({
                     const unitMeta = getProductionUnitMeta(selectedOrder?.bom?.productVariant || {});
 
                     return (
-                    <div key={field.id} className="relative p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl flex flex-col gap-6 transition-all hover:bg-white/10">
+                    <div key={field.id} className="relative p-6 rounded-2xl bg-white/5 dark:bg-white/10 border border-white/10 dark:border-white/20 backdrop-blur-md shadow-2xl flex flex-col gap-6 transition-all hover:bg-white/10 dark:hover:bg-white/15">
                         {/* Header Panel */}
-                        <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                        <div className="flex justify-between items-center border-b border-white/10 dark:border-white/20 pb-4">
                             <h3 className="text-xl font-bold text-primary flex items-center gap-2">
-                                <span className="bg-primary/20 text-primary h-8 w-8 rounded-full flex items-center justify-center text-sm">{index + 1}</span>
+                                <span className="bg-primary/20 dark:bg-primary/30 text-primary h-8 w-8 rounded-full flex items-center justify-center text-sm">{index + 1}</span>
                                 Laporan Output Baru
                             </h3>
                             {fields.length > 1 && (
@@ -170,10 +170,10 @@ export default function HdProductionForm({
                                 name={`reports.${index}.productionOrderId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-white/70">{productionLabels.workOrder}</FormLabel>
+                                        <FormLabel className="text-white/70 dark:text-white/80">{productionLabels.workOrder}</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-white/10 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
                                                     <SelectValue placeholder="Pilih WO..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -193,10 +193,10 @@ export default function HdProductionForm({
                                 name={`reports.${index}.machineId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-white/70">Mesin</FormLabel>
+                                        <FormLabel className="text-white/70 dark:text-white/80">Mesin</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-white/10 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
                                                     <SelectValue placeholder="Pilih Mesin..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -216,10 +216,10 @@ export default function HdProductionForm({
                                 name={`reports.${index}.operatorId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-white/70">Operator (Ketua)</FormLabel>
+                                        <FormLabel className="text-white/70 dark:text-white/80">Operator (Ketua)</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-white/10 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
                                                     <SelectValue placeholder="Pilih Operator..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -240,10 +240,10 @@ export default function HdProductionForm({
                                 name={`reports.${index}.shiftId`}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-white/70">Shift</FormLabel>
+                                        <FormLabel className="text-white/70 dark:text-white/80">Shift</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <SelectTrigger className="bg-slate-900/50 border-white/10 text-white">
+                                                <SelectTrigger className="bg-slate-900/50 dark:bg-slate-900/70 border-white/10 dark:border-white/20 text-white">
                                                     <SelectValue placeholder="Pilih Shift..." />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -279,34 +279,34 @@ export default function HdProductionForm({
 
                                 return (
                                     <FormItem>
-                                        <FormLabel className="text-white/70 flex items-center gap-2">
+                                        <FormLabel className="text-white/70 dark:text-white/80 flex items-center gap-2">
                                             <Users className="h-4 w-4" /> Helper / Asisten
                                             {currentHelpers.length > 0 && (
-                                                <span className="bg-primary/20 text-primary text-xs px-2 py-0.5 rounded-full font-bold">
+                                                <span className="bg-primary/20 dark:bg-primary/30 text-primary text-xs px-2 py-0.5 rounded-full font-bold">
                                                     {currentHelpers.length} dipilih
                                                 </span>
                                             )}
                                         </FormLabel>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-black/20 rounded-lg border border-white/5">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-black/20 dark:bg-black/40 rounded-lg border border-white/5 dark:border-white/10">
                                             {eligibleHelpers.map(e => (
                                                 <label
                                                     key={e.id}
                                                     className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm border ${
                                                         currentHelpers.includes(e.id)
-                                                            ? 'bg-primary/20 border-primary/50 text-white font-semibold'
-                                                            : 'border-white/5 text-white/60 hover:bg-white/5 hover:text-white'
+                                                            ? 'bg-primary/20 dark:bg-primary/30 border-primary/50 dark:border-primary/60 text-white font-semibold'
+                                                            : 'border-white/5 dark:border-white/10 text-white/60 dark:text-white/70 hover:bg-white/5 dark:hover:bg-white/10 hover:text-white'
                                                     }`}
                                                 >
                                                     <Checkbox
                                                         checked={currentHelpers.includes(e.id)}
                                                         onCheckedChange={() => toggleHelper(e.id)}
-                                                        className="border-white/30"
+                                                        className="border-white/30 dark:border-white/40"
                                                     />
                                                     {e.name}
                                                 </label>
                                             ))}
                                             {eligibleHelpers.length === 0 && (
-                                                <p className="text-white/30 text-xs col-span-4">Pilih operator terlebih dahulu</p>
+                                                <p className="text-white/30 dark:text-white/50 text-xs col-span-4">Pilih operator terlebih dahulu</p>
                                             )}
                                         </div>
                                         <FormMessage />
@@ -316,25 +316,25 @@ export default function HdProductionForm({
                         />
 
                         {/* Mid Data row: Bruto, Bobin, Netto, Cek Gram */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-black/20 p-4 rounded-xl">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-black/20 dark:bg-black/40 p-4 rounded-xl">
                             <FormField control={form.control} name={`reports.${index}.bruto`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Bruto (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/10 text-primary font-bold text-lg" {...field} />
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Bruto (Kg)</FormLabel><FormControl>
+                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-primary font-bold text-lg" {...field} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.bobin`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Bobin (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/10 text-yellow-400 font-bold text-lg" {...field} />
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Bobin (Kg)</FormLabel><FormControl>
+                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-yellow-400 dark:text-yellow-300 font-bold text-lg" {...field} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.quantityProduced`} render={({ field }) => (
-	                                <FormItem><FormLabel className="text-white/70">Netto / Valid ({unitMeta.displayUnit})</FormLabel><FormControl>
-	                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/20 text-green-400 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)]" {...field} />
+	                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Netto / Valid ({unitMeta.displayUnit})</FormLabel><FormControl>
+	                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/20 dark:border-white/30 text-green-400 dark:text-green-300 font-black text-xl shadow-[0_0_15px_rgba(74,222,128,0.2)] dark:shadow-[0_0_20px_rgba(74,222,128,0.3)]" {...field} />
 	                                </FormControl><FormMessage /></FormItem>
 	                            )}/>
                             <FormField control={form.control} name={`reports.${index}.cekGram`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Cek Gram</FormLabel><FormControl>
-                                    <Input {...field} placeholder="Contoh: 12g" className="bg-slate-900/80 border-white/10 text-white" />
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Cek Gram</FormLabel><FormControl>
+                                    <Input {...field} placeholder="Contoh: 12g" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white" />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
@@ -342,40 +342,40 @@ export default function HdProductionForm({
                         {/* Scrap & Time row */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <FormField control={form.control} name={`reports.${index}.scrapProngkolQty`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Scrap Lumps (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/10 text-red-400" {...field} />
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Scrap Lumps (Kg)</FormLabel><FormControl>
+                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-red-400 dark:text-red-300" {...field} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.scrapDaunQty`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Scrap Daun (Kg)</FormLabel><FormControl>
-                                    <Input type="number" step="any" className="bg-slate-900/80 border-white/10 text-red-400" {...field} />
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Scrap Daun (Kg)</FormLabel><FormControl>
+                                    <Input type="number" step="any" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-red-400 dark:text-red-300" {...field} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.startTime`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Mulai Pukul</FormLabel><FormControl>
-                                    <Input type="datetime-local" className="bg-slate-900/80 border-white/10 text-white"
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Mulai Pukul</FormLabel><FormControl>
+                                    <Input type="datetime-local" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white"
                                         value={field.value instanceof Date ? toLocalDatetime(field.value) : (field.value ? toLocalDatetime(field.value) : '')}
                                         onChange={(e) => field.onChange(new Date(e.target.value))} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`reports.${index}.endTime`} render={({ field }) => (
-                                <FormItem><FormLabel className="text-white/70">Selesai Pukul</FormLabel><FormControl>
-                                    <Input type="datetime-local" className="bg-slate-900/80 border-white/10 text-white"
+                                <FormItem><FormLabel className="text-white/70 dark:text-white/80">Selesai Pukul</FormLabel><FormControl>
+                                    <Input type="datetime-local" className="bg-slate-900/80 dark:bg-slate-900/95 border-white/10 dark:border-white/20 text-white"
                                         value={field.value instanceof Date ? toLocalDatetime(field.value) : (field.value ? toLocalDatetime(field.value) : '')}
                                         onChange={(e) => field.onChange(new Date(e.target.value))} />
                                 </FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
-	                    </div>
+                    </div>
                     );
                 })}
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/10 p-6 rounded-2xl border-t-4 border-primary/50 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/10 dark:bg-card/20 p-6 rounded-2xl border-t-4 border-primary/50 dark:border-primary/60 shadow-lg backdrop-blur-xl sticky bottom-4 z-50">
                     <Button
                         type="button"
                         variant="secondary"
                         size="lg"
-                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-white bg-white/10 hover:bg-white/20 border-white/20"
+                        className="w-full md:w-auto font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-white bg-white/10 dark:bg-white/15 hover:bg-white/20 dark:hover:bg-white/25 border-white/20 dark:border-white/30"
                         onClick={() => append(makeEmpty())}
                     >
                         <PlusCircle className="h-5 w-5 mr-2" />
@@ -386,10 +386,10 @@ export default function HdProductionForm({
                         type="submit"
                         disabled={isSubmitting}
                         size="lg"
-                        className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:scale-105 active:scale-95 transition-all"
+                        className="w-full md:w-auto font-black text-lg px-12 rounded-full shadow-[0_0_30px_rgba(59,130,246,0.3)] dark:shadow-[0_0_35px_rgba(59,130,246,0.4)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_50px_rgba(59,130,246,0.6)] hover:scale-105 active:scale-95 transition-all"
                     >
                         {isSubmitting ? (
-                            <div className="flex items-center"><div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2" /> Mengirim...</div>
+                            <div className="flex items-center"><div className="animate-spin h-5 w-5 border-2 border-white dark:border-white border-t-transparent dark:border-t-transparent rounded-full mr-2" /> Mengirim...</div>
                         ) : (
                             <><CheckCircle2 className="h-6 w-6 mr-2" /> KIRIM SEMUA LAPORAN</>
                         )}

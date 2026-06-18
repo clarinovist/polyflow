@@ -38,7 +38,7 @@ export default async function PlanningDashboardPage() {
                                 View Schedule
                             </Link>
                         </Button>
-                        <Button asChild className="bg-amber-600 hover:bg-amber-700">
+                        <Button asChild className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600">
                             <Link href="/planning/requests">
                                 <Factory className="mr-2 h-4 w-4" />
                                 Production Requests

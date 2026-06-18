@@ -71,7 +71,7 @@ export default async function SuppliersPage() {
                                         <TableCell className="font-medium">
                                             <div>{supplier.name}</div>
                                             <div className="flex items-center gap-1 mt-1">
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-emerald-200 text-emerald-700 bg-emerald-50">
+                                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20">
                                                     Terpercaya
                                                 </Badge>
                                             </div>

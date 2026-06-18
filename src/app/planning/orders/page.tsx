@@ -189,7 +189,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                         <div className="flex items-center gap-2">
                                                             <div className="font-medium text-foreground">{order.bom.productVariant.name}</div>
                                                             {order.isMaklon && (
-                                                                <Badge variant="outline" className="text-[10px] py-0 h-4 border-blue-200 bg-blue-50 text-blue-700">
+                                                                <Badge variant="outline" className="text-[10px] py-0 h-4 border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
                                                                     Maklon
                                                                 </Badge>
                                                             )}

@@ -61,12 +61,12 @@ export default function AuditLogDetailDialog({
     }, [logId, open]);
 
     const getActionColor = (action: string) => {
-        if (!action) return 'bg-gray-100 text-gray-800';
-        if (action.includes('CREATE')) return 'bg-emerald-100 text-emerald-800';
-        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-800';
-        if (action.includes('DELETE')) return 'bg-red-100 text-red-800';
-        if (action.includes('APPROVE') || action.includes('POST')) return 'bg-purple-100 text-purple-800';
-        return 'bg-gray-100 text-gray-800';
+        if (!action) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+        if (action.includes('CREATE')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        if (action.includes('DELETE')) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        if (action.includes('APPROVE') || action.includes('POST')) return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     };
 
     return (
@@ -94,7 +94,7 @@ export default function AuditLogDetailDialog({
                         </div>
                     ) : log ? (
                         <>
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm bg-slate-50 p-4 rounded-md border">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm bg-slate-50 dark:bg-slate-800 p-4 rounded-md border">
                                 <div>
                                     <p className="text-muted-foreground mb-1">Timestamp</p>
                                     <p className="font-mono text-foreground font-medium">
@@ -119,14 +119,14 @@ export default function AuditLogDetailDialog({
                                 {log.details && (
                                     <div className="col-span-2">
                                         <p className="text-muted-foreground mb-1">Details</p>
-                                        <p className="bg-white p-2 border rounded-md">{log.details}</p>
+                                        <p className="bg-white dark:bg-zinc-900 p-2 border rounded-md">{log.details}</p>
                                     </div>
                                 )}
                             </div>
 
                             {log.changes && (
                                 <div className="flex-1 flex flex-col overflow-hidden min-h-[300px]">
-                                    <p className="font-medium mb-2 text-sm text-slate-700">JSON Payload / Changes</p>
+                                    <p className="font-medium mb-2 text-sm text-slate-700 dark:text-slate-300">JSON Payload / Changes</p>
                                     <ScrollArea className="flex-1 border rounded-md bg-slate-950 p-4">
                                         <pre className="text-xs text-emerald-400 font-mono">
                                             {typeof log.changes === 'object' 

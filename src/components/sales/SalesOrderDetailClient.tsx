@@ -206,13 +206,13 @@ export function SalesOrderDetailClient({
 
     const getStatusBadge = (status: SalesOrderStatus) => {
         const styles: Record<string, string> = {
-            DRAFT: 'bg-slate-100 text-slate-800',
-            CONFIRMED: 'bg-blue-100 text-blue-800',
-            IN_PRODUCTION: 'bg-amber-100 text-amber-800',
-            READY_TO_SHIP: 'bg-indigo-100 text-indigo-800',
-            SHIPPED: 'bg-purple-100 text-purple-800',
-            DELIVERED: 'bg-emerald-100 text-emerald-800',
-            CANCELLED: 'bg-red-100 text-red-800',
+            DRAFT: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
+            CONFIRMED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+            IN_PRODUCTION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+            READY_TO_SHIP: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+            SHIPPED: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+            DELIVERED: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+            CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.DRAFT}>
@@ -224,8 +224,8 @@ export function SalesOrderDetailClient({
     return (
         <div className="space-y-6">
             {isLegacyInternalOrder && (
-                <Alert className="border-amber-200 bg-amber-50">
-                    <AlertTriangle className="h-4 w-4 text-amber-700" />
+                <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20">
+                    <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                     <AlertTitle>{formLabels.legacyInternalOrder}</AlertTitle>
                     <AlertDescription>
                         This Sales Order has no customer and is treated as a legacy internal stock build. New invoicing is blocked. Use Production Order for internal replenishment, or assign a customer before continuing with customer billing.
@@ -234,8 +234,8 @@ export function SalesOrderDetailClient({
             )}
 
             {isMaklonOrder && (
-                <Alert className="border-blue-200 bg-blue-50">
-                    <AlertTriangle className="h-4 w-4 text-blue-700" />
+                <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20">
+                    <AlertTriangle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                     <AlertTitle>Maklon Jasa flow</AlertTitle>
                     <AlertDescription>
                         Order ini menagihkan jasa, bukan mengirim stok fisik dari sales order. Bahan titipan customer dikonsumsi saat production execution dari lokasi produksi dulu, lalu fallback ke lokasi customer-owned bila diperlukan.
@@ -349,7 +349,7 @@ export function SalesOrderDetailClient({
                             {!warehouseMode && order.invoices.length > 0 && order.invoices.some(i => i.status === 'DRAFT') && (
                                 <Button
                                     variant="outline"
-                                    className="border-sky-600 text-sky-600 hover:bg-sky-50"
+                                    className="border-sky-600 text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/30"
                                     asChild
                                 >
                                     <Link href={`/finance/invoices/sales/${order.invoices.find(i => i.status === 'DRAFT')?.id}`}>
@@ -363,7 +363,7 @@ export function SalesOrderDetailClient({
                     {!warehouseMode && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'].includes(order.status) && (
                         <Button
                             variant="ghost"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-500 dark:hover:bg-red-900/30"
                             onClick={() => handleAction('cancelled', cancelSalesOrder)}
                             disabled={isLoading}
                         >
@@ -435,7 +435,7 @@ export function SalesOrderDetailClient({
                                                 {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
                                             </td>
                                             <td className="p-4 text-right">
-                                                <span className={Number(item.deliveredQty) > 0 ? "text-emerald-600 font-medium" : "text-muted-foreground"}>
+                                                <span className={Number(item.deliveredQty) > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-muted-foreground"}>
                                                     {getEnteredQuantityDisplay({
                                                         ...item,
                                                         ...item.productVariant,
@@ -489,7 +489,7 @@ export function SalesOrderDetailClient({
                                             <li key={inv.id} className="border p-3 rounded-md hover:bg-muted/50 transition-colors">
                                                 <Link href={`/finance/invoices/sales/${inv.id}`} className="block">
                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="font-medium text-blue-600 hover:underline">{inv.invoiceNumber}</span>
+                                                        <span className="font-medium text-blue-600 dark:text-blue-400 hover:underline">{inv.invoiceNumber}</span>
                                                         <Badge variant={inv.status === 'PAID' ? 'default' : 'destructive'}>
                                                             {getStatusLabel(inv.status, 'finance')}
                                                         </Badge>
@@ -529,7 +529,7 @@ export function SalesOrderDetailClient({
                             ) : (
                                 <ul className="space-y-4">
                                     {order.movements.map((m) => (
-                                        <li key={m.id} className="text-sm border-l-2 border-purple-200 pl-4 py-1">
+                                        <li key={m.id} className="text-sm border-l-2 border-purple-200 dark:border-purple-800/50 pl-4 py-1">
                                             <div className="font-medium">{isMaklonOrder ? `Recorded sales shipment movement ${Number(m.quantity)} units` : `Shipped ${Number(m.quantity)} units`}</div>
                                             <div className="text-xs text-muted-foreground">
                                                 {format(new Date(m.createdAt), 'PP p')}

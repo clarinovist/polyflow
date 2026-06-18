@@ -49,52 +49,52 @@ export default function RegisterForm() {
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-                <Label htmlFor="companyName" className="text-zinc-200">Company Name</Label>
+                <Label htmlFor="companyName" className="text-zinc-900 dark:text-zinc-100">Company Name</Label>
                 <Input
                     id="companyName"
                     required
                     value={companyName}
                     onChange={handleCompanyChange}
-                    className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-primary/50"
+                    className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-primary/50"
                     placeholder="Acme Plastics Ltd."
                 />
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="adminEmail" className="text-zinc-200">Admin Email</Label>
+                <Label htmlFor="adminEmail" className="text-zinc-900 dark:text-zinc-100">Admin Email</Label>
                 <Input
                     id="adminEmail"
                     type="email"
                     required
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    className="bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-primary/50"
+                    className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-primary/50"
                     placeholder="admin@acmeplastics.com"
                 />
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="subdomain" className="text-zinc-200">Workspace URL</Label>
-                <div className="flex items-center rounded-md border border-zinc-800 bg-zinc-950 focus-within:ring-1 focus-within:border-primary/50 focus-within:ring-primary/20 transition-all">
-                    <span className="pl-3 text-zinc-500 text-sm whitespace-nowrap hidden sm:inline">https://</span>
+                <Label htmlFor="subdomain" className="text-zinc-900 dark:text-zinc-100">Workspace URL</Label>
+                <div className="flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus-within:ring-1 focus-within:border-primary/50 focus-within:ring-primary/20 transition-all">
+                    <span className="pl-3 text-zinc-500 dark:text-zinc-400 text-sm whitespace-nowrap hidden sm:inline">https://</span>
                     <Input
                         id="subdomain"
                         required
                         value={subdomain}
                         onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                        className="border-0 bg-transparent text-white focus-visible:ring-0 px-2 sm:px-1 text-right sm:text-left h-10"
+                        className="border-0 bg-transparent text-zinc-900 dark:text-white focus-visible:ring-0 px-2 sm:px-1 text-right sm:text-left h-10"
                         placeholder="acme"
                     />
-                    <span className="pr-3 text-zinc-500 text-sm whitespace-nowrap bg-zinc-900 h-full flex items-center rounded-r-md border-l border-zinc-800">.polyflow.uk</span>
+                    <span className="pr-3 text-zinc-500 dark:text-zinc-400 text-sm whitespace-nowrap bg-zinc-50 dark:bg-zinc-900 h-full flex items-center rounded-r-md border-l border-zinc-200 dark:border-zinc-700">.polyflow.uk</span>
                 </div>
-                <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2 flex items-center gap-1">
                     <Info className="w-3 h-3" /> This will be your dedicated login address.
                 </p>
             </div>
 
             <Button
                 type="submit"
-                className="w-full h-12 mt-4 text-base font-semibold bg-white text-zinc-950 hover:bg-zinc-200"
+                className="w-full h-12 mt-4 text-base font-semibold bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 disabled={isLoading || !companyName || !adminEmail || !subdomain}
             >
                 {isLoading ? (
@@ -109,7 +109,7 @@ export default function RegisterForm() {
                 )}
             </Button>
 
-            <p className="text-center text-xs text-zinc-500 mt-6">
+            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-6">
                 By creating a workspace, you agree to our Terms of Service and Privacy Policy.
             </p>
         </form>

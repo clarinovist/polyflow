@@ -32,38 +32,38 @@ export function QualityControlWidget({ data }: Props) {
         <div className="space-y-6">
             {/* Inspection Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-slate-50 border-slate-200">
+                <Card className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                        <p className="text-sm text-slate-500 font-medium uppercase tracking-wide">Total Inspections</p>
-                        <p className="text-3xl font-bold text-slate-900 mt-2">{data.inspections.total}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Total Inspections</p>
+                        <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">{data.inspections.total}</p>
                     </CardContent>
                 </Card>
-                <Card className="bg-green-50 border-green-100">
+                <Card className="bg-green-50 dark:bg-emerald-900/20 border-green-100 dark:border-emerald-800/50">
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                         <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <p className="text-sm text-green-700 font-medium uppercase tracking-wide">Passed</p>
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-emerald-400" />
+                            <p className="text-sm text-green-700 dark:text-emerald-400 font-medium uppercase tracking-wide">Passed</p>
                         </div>
-                        <p className="text-3xl font-bold text-green-800">{data.inspections.pass}</p>
-                        <p className="text-xs text-green-600 mt-1">{data.inspections.passRate}% Rate</p>
+                        <p className="text-3xl font-bold text-green-800 dark:text-emerald-400">{data.inspections.pass}</p>
+                        <p className="text-xs text-green-600 dark:text-emerald-400 mt-1">{data.inspections.passRate}% Rate</p>
                     </CardContent>
                 </Card>
-                <Card className="bg-red-50 border-red-100">
+                <Card className="bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/50">
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                         <div className="flex items-center gap-2 mb-1">
-                            <XCircle className="h-4 w-4 text-red-600" />
-                            <p className="text-sm text-red-700 font-medium uppercase tracking-wide">Failed</p>
+                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            <p className="text-sm text-red-700 dark:text-red-400 font-medium uppercase tracking-wide">Failed</p>
                         </div>
-                        <p className="text-3xl font-bold text-red-800">{data.inspections.fail}</p>
+                        <p className="text-3xl font-bold text-red-800 dark:text-red-400">{data.inspections.fail}</p>
                     </CardContent>
                 </Card>
-                <Card className="bg-amber-50 border-amber-100">
+                <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50">
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                         <div className="flex items-center gap-2 mb-1">
-                            <ShieldAlert className="h-4 w-4 text-amber-600" />
-                            <p className="text-sm text-amber-700 font-medium uppercase tracking-wide">Quarantine</p>
+                            <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <p className="text-sm text-amber-700 dark:text-amber-400 font-medium uppercase tracking-wide">Quarantine</p>
                         </div>
-                        <p className="text-3xl font-bold text-amber-800">{data.inspections.quarantine}</p>
+                        <p className="text-3xl font-bold text-amber-800 dark:text-amber-400">{data.inspections.quarantine}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -117,7 +117,7 @@ export function QualityControlWidget({ data }: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <AlertCircle className="h-5 w-5 text-red-500" />
+                            <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
                             Scrap Analysis
                         </CardTitle>
                         <CardDescription>Top reasons for material scrap</CardDescription>
@@ -133,9 +133,9 @@ export function QualityControlWidget({ data }: Props) {
                                             <span className="font-medium">{item.reason || 'Unspecified'}</span>
                                             <span className="text-muted-foreground">{item.quantity.toLocaleString()} units ({item.percentage}%)</span>
                                         </div>
-                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full bg-red-400 rounded-full"
+                                                className="h-full bg-red-400 dark:bg-red-500 rounded-full"
                                                 style={{ width: `${Math.min(item.percentage, 100)}%` }}
                                             />
                                         </div>

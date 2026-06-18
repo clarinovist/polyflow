@@ -41,11 +41,11 @@ export default async function PurchaseOrdersPage() {
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
                     <div className="text-sm font-medium text-muted-foreground">Open / Sent</div>
-                    <div className="text-2xl font-bold text-blue-600">{stats.openOrders}</div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.openOrders}</div>
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
                     <div className="text-sm font-medium text-muted-foreground">Completed</div>
-                    <div className="text-2xl font-bold text-emerald-600">{stats.completedOrders}</div>
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.completedOrders}</div>
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
                     <div className="text-sm font-medium text-muted-foreground">Total Spend</div>

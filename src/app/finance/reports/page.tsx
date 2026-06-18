@@ -18,56 +18,56 @@ const reports = [
         description: "A summary of assets, liabilities, and equity at a specific point in time.",
         href: "/finance/reports/balance-sheet",
         icon: Scale,
-        color: "text-blue-500",
-        bg: "bg-blue-500/10"
+        color: "text-blue-500 dark:text-blue-400",
+        bg: "bg-blue-500/10 dark:bg-blue-400/10"
     },
     {
         title: "Income Statement",
         description: "Profit and Loss statement showing revenues and expenses over a period.",
         href: "/finance/reports/income-statement",
         icon: BarChart3,
-        color: "text-emerald-500",
-        bg: "bg-emerald-500/10"
+        color: "text-emerald-500 dark:text-emerald-400",
+        bg: "bg-emerald-500/10 dark:bg-emerald-400/10"
     },
     {
         title: "Trial Balance",
         description: "Listing of all general ledger accounts and their current balances.",
         href: "/finance/reports/trial-balance",
         icon: Activity,
-        color: "text-amber-500",
-        bg: "bg-amber-500/10"
+        color: "text-amber-500 dark:text-amber-400",
+        bg: "bg-amber-500/10 dark:bg-amber-400/10"
     },
     {
         title: "Budget Variance",
         description: "Comparison of actual performance against budgeted targets.",
         href: "/finance/reports/budget-variance",
         icon: PieChart,
-        color: "text-purple-500",
-        bg: "bg-purple-500/10"
+        color: "text-purple-500 dark:text-purple-400",
+        bg: "bg-purple-500/10 dark:bg-purple-400/10"
     },
     {
         title: "Cash Flow Statement",
         description: "Statement of cash inflows and outflows (Operating, Investing, Financing).",
         href: "/finance/reports/cash-flow",
         icon: Activity,
-        color: "text-emerald-600",
-        bg: "bg-emerald-600/10"
+        color: "text-emerald-600 dark:text-emerald-400",
+        bg: "bg-emerald-600/10 dark:bg-emerald-400/10"
     },
     {
         title: "Tax Report",
         description: "Monthly integrated tax report (VAT & Income Tax).",
         href: "/finance/reports/tax",
         icon: Scale,
-        color: "text-amber-600",
-        bg: "bg-amber-600/10"
+        color: "text-amber-600 dark:text-amber-400",
+        bg: "bg-amber-600/10 dark:bg-amber-400/10"
     },
     {
         title: "Maklon Profitability",
         description: "Analyze service revenue vs internal conversion costs for toll manufacturing.",
         href: "/finance/reports/maklon",
         icon: Factory,
-        color: "text-purple-600",
-        bg: "bg-purple-600/10"
+        color: "text-purple-600 dark:text-purple-400",
+        bg: "bg-purple-600/10 dark:bg-purple-400/10"
     }
 ];
 
@@ -108,14 +108,14 @@ export default function ReportsPage() {
                 ))}
             </div>
 
-            <Card className="bg-slate-900 text-white border-0 overflow-hidden relative">
+            <Card className="bg-slate-900 dark:bg-slate-800 text-white border-0 overflow-hidden relative">
                 <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none" />
                 <CardHeader>
                     <CardTitle className="text-white flex items-center gap-2">
-                        <LayoutDashboard className="h-5 w-5 text-indigo-400" />
+                        <LayoutDashboard className="h-5 w-5 text-indigo-400 dark:text-indigo-300" />
                         Custom Analysis
                     </CardTitle>
-                    <CardDescription className="text-slate-400">
+                    <CardDescription className="text-slate-400 dark:text-slate-300">
                         Need a specialized report or custom data export?
                     </CardDescription>
                 </CardHeader>
@@ -124,7 +124,7 @@ export default function ReportsPage() {
                         <Button variant="secondary" className="font-bold">
                             Open Report Builder
                         </Button>
-                        <Button variant="outline" className="border-slate-700 text-white hover:bg-slate-800">
+                        <Button variant="outline" className="border-slate-700 dark:border-slate-600 text-white hover:bg-slate-800 dark:hover:bg-slate-700">
                             Download Raw Data (CSV)
                         </Button>
                     </div>

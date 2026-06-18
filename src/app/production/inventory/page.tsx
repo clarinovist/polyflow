@@ -100,7 +100,7 @@ export default async function ProductionInventoryPage() {
                                                 {Number(item.quantity) < 100 ? (
                                                     <Badge variant="destructive" className="text-[10px]">Restock Soon</Badge>
                                                 ) : (
-                                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-[10px]">Ready</Badge>
+                                                    <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 text-[10px]">Ready</Badge>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -180,7 +180,7 @@ export default async function ProductionInventoryPage() {
                             <p className="text-xs text-muted-foreground">Jangan biarkan afval menumpuk di area mixing.</p>
                             <div className="mt-4 flex items-center justify-between">
                                 <span className="text-xs font-semibold">Today&apos;s Scrap:</span>
-                                <span className="text-sm font-bold text-red-600">12.4 KG</span>
+                                <span className="text-sm font-bold text-red-600 dark:text-red-400">12.4 KG</span>
                             </div>
                         </CardContent>
                     </Card>

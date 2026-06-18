@@ -385,8 +385,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
                 {linkedSalesOrder && (
-                    <Alert className="border-blue-200 bg-blue-50">
-                        <AlertCircle className="h-4 w-4 text-blue-700" />
+                    <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20">
+                        <AlertCircle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                         <AlertTitle>Linked customer demand</AlertTitle>
                         <AlertDescription>
                             This work order is being created for Sales Order {linkedSalesOrder.orderNumber}
@@ -396,8 +396,8 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                 )}
 
                 {!linkedSalesOrder && creationIntent === 'internal' && (
-                    <Alert className="border-amber-200 bg-amber-50">
-                        <AlertCircle className="h-4 w-4 text-amber-700" />
+                    <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20">
+                        <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                         <AlertTitle>Internal replenishment</AlertTitle>
                         <AlertDescription>
                             Use this flow when production is planned to refill stock without a customer Sales Order. The resulting work order will be treated as internal stock build.
@@ -743,14 +743,14 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
 
                                 {/* Maklon Service Information */}
                                 <div className="pt-4 border-t space-y-4">
-                                    <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                                    <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
                                         <div className="flex items-center gap-2">
-                                            <div className="p-2 bg-blue-100 rounded-md">
-                                                <Factory className="h-4 w-4 text-blue-700" />
+                                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                                                <Factory className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                                             </div>
                                             <div>
-                                                <Label htmlFor="is-maklon" className="font-bold text-sm text-blue-900 leading-none">Maklon Order</Label>
-                                                <p className="text-[11px] text-blue-700/70 mt-1">Use this when the customer supplies the materials and the company charges a conversion or processing service.</p>
+                                                <Label htmlFor="is-maklon" className="font-bold text-sm text-blue-900 dark:text-blue-400 leading-none">Maklon Order</Label>
+                                                <p className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-1">Use this when the customer supplies the materials and the company charges a conversion or processing service.</p>
                                             </div>
                                         </div>
                                         <FormField
@@ -892,7 +892,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                 </CardHeader>
                                 <CardContent className="space-y-4">
 
-                                    <div className="text-xs text-slate-500">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">
                                         Source: {locations.find(l => l.id === materialSourceLocationId)?.name || 'Unknown'}
                                     </div>
 
@@ -920,10 +920,10 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                     )}
 
                                     {hasStockIssues && (
-                                        <Alert variant="default" className="py-2 border-amber-200 bg-amber-50">
-                                            <AlertCircle className="h-4 w-4 text-amber-600" />
-                                            <AlertTitle className="text-sm text-amber-800">Material Shortage</AlertTitle>
-                                            <AlertDescription className="text-xs text-amber-700">
+                                        <Alert variant="default" className="py-2 border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20">
+                                            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                            <AlertTitle className="text-sm text-amber-800 dark:text-amber-400">Material Shortage</AlertTitle>
+                                            <AlertDescription className="text-xs text-amber-700 dark:text-amber-400">
                                                 Order will be created as <b>Waiting Material</b>.
                                             </AlertDescription>
                                         </Alert>
@@ -941,7 +941,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                             <TableBody>
                                                 {materialFields.length === 0 && !isCalculating && (
                                                     <TableRow>
-                                                        <TableCell colSpan={3} className="text-center text-slate-400 py-8 text-xs">
+                                                        <TableCell colSpan={3} className="text-center text-slate-400 dark:text-slate-300 py-8 text-xs">
                                                             Select product & qty
                                                         </TableCell>
                                                     </TableRow>
@@ -950,7 +950,7 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                 {isCalculating && (
                                                     <TableRow>
                                                         <TableCell colSpan={3} className="text-center py-8">
-                                                            <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400" />
+                                                            <Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-400 dark:text-slate-300" />
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
@@ -964,14 +964,14 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                         <TableRow key={field.id}>
                                                             <TableCell className="py-2">
                                                                 <div className="font-medium text-xs">{info?.name || 'Unknown'}</div>
-                                                                <div className="text-[10px] text-slate-400">{field.productVariantId.slice(0, 6)}</div>
+                                                                <div className="text-[10px] text-slate-400 dark:text-slate-300">{field.productVariantId.slice(0, 6)}</div>
                                                             </TableCell>
                                                             <TableCell className="py-2 text-right">
                                                                 <div className="flex flex-col items-end gap-1">
                                                                     <span className="text-xs font-semibold">
                                                                         {Number(currentQty).toFixed(2)}
                                                                     </span>
-                                                                    <span className="text-[10px] text-slate-400">{info?.unit}</span>
+                                                                    <span className="text-[10px] text-slate-400 dark:text-slate-300">{info?.unit}</span>
                                                                     {/* Hidden Input to maintain form registration */}
                                                                     <input
                                                                         type="hidden"
@@ -981,11 +981,11 @@ export function ProductionOrderForm({ boms, machines, locations, customers = [],
                                                             </TableCell>
                                                             <TableCell className="py-2 text-right">
                                                                 <div className="flex flex-col items-end">
-                                                                    <span className={`text-xs ${isLowStock ? 'text-red-600 font-bold' : ''}`}>
+                                                                    <span className={`text-xs ${isLowStock ? 'text-red-600 dark:text-red-400 font-bold' : ''}`}>
                                                                         {info?.currentStock ?? 0}
                                                                     </span>
                                                                     {isLowStock && (
-                                                                        <span className="text-[10px] text-red-500 font-medium">Low</span>
+                                                                        <span className="text-[10px] text-red-500 dark:text-red-400 font-medium">Low</span>
                                                                     )}
                                                                 </div>
                                                             </TableCell>

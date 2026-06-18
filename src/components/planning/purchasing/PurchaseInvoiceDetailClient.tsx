@@ -65,10 +65,10 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
-            UNPAID: 'bg-red-100 text-red-800 border-red-200',
-            PARTIAL: 'bg-amber-100 text-amber-800 border-amber-200',
-            PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-            OVERDUE: 'bg-red-100 text-red-800 border-red-200',
+            UNPAID: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50',
+            PARTIAL: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/50',
+            PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50',
+            OVERDUE: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50',
         };
         return (
             <Badge variant="outline" className={styles[status] || styles.UNPAID}>
@@ -154,7 +154,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                            <FileText className="h-6 w-6 text-blue-600" />
+                            <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                             {invoice.invoiceNumber}
                             {getStatusBadge(invoice.status)}
                         </h1>
@@ -180,7 +180,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                     <span className="text-muted-foreground">Kemajuan Pembayaran</span>
                                     <span className="font-medium">{progressPercent.toFixed(0)}%</span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                                     <div
                                         className={`h-3 rounded-full transition-all ${invoice.status === 'PAID' ? 'bg-emerald-500' : 'bg-blue-500'}`}
                                         style={{ width: `${progressPercent}%` }}
@@ -195,12 +195,12 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                     <p className="text-xl font-bold">{formatRupiah(invoice.totalAmount)}</p>
                                 </div>
                                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg text-center">
-                                    <p className="text-xs text-emerald-600 uppercase tracking-wider mb-1">Dibayar</p>
-                                    <p className="text-xl font-bold text-emerald-600">{formatRupiah(invoice.paidAmount)}</p>
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Dibayar</p>
+                                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(invoice.paidAmount)}</p>
                                 </div>
                                 <div className={`p-4 rounded-lg text-center ${isOverdue ? 'bg-red-50 dark:bg-red-950/20' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
-                                    <p className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>Sisa Tagihan</p>
-                                    <p className={`text-xl font-bold ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>{formatRupiah(remainingAmount)}</p>
+                                    <p className={`text-xs uppercase tracking-wider mb-1 ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>Sisa Tagihan</p>
+                                    <p className={`text-xl font-bold ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatRupiah(remainingAmount)}</p>
                                 </div>
                             </div>
 
@@ -290,7 +290,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                         variant="outline"
                                         onClick={handlePayFull}
                                         disabled={isLoading}
-                                        className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                                        className="w-full text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-50 hover:dark:bg-emerald-900/30"
                                     >
                                         <CheckCircle className="mr-2 h-4 w-4" />
                                         Bayar Lunas ({formatRupiah(remainingAmount)})
@@ -300,8 +300,8 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
 
                             {invoice.status === 'PAID' && (
                                 <div className="flex items-center justify-center gap-2 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg">
-                                    <CheckCircle className="h-6 w-6 text-emerald-600" />
-                                    <span className="font-semibold text-emerald-600">Lunas</span>
+                                    <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Lunas</span>
                                 </div>
                             )}
                         </CardContent>
@@ -338,7 +338,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="text-lg font-bold text-emerald-600">
+                                            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                                                 {formatRupiah(payment.amount)}
                                             </span>
                                         </div>
@@ -362,7 +362,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                     <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
                                     <Link
                                         href={`/planning/purchase-orders/${invoice.purchaseOrder.id}`}
-                                        className="font-mono text-blue-600 hover:underline"
+                                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
                                     >
                                         {invoice.purchaseOrder.orderNumber}
                                     </Link>
@@ -391,10 +391,10 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                             </div>
 
                             <div className="flex items-start gap-3">
-                                <Calendar className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`} />
+                                <Calendar className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`} />
                                 <div>
-                                    <h3 className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>{formLabels.dueDate}</h3>
-                                    <p className={`font-medium ${isOverdue ? 'text-red-600' : ''}`}>
+                                    <h3 className={`text-xs font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'}`}>{formLabels.dueDate}</h3>
+                                    <p className={`font-medium ${isOverdue ? 'text-red-600 dark:text-red-400' : ''}`}>
                                         {format(new Date(invoice.dueDate), 'PPP')}
                                     </p>
                                 </div>

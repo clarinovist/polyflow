@@ -93,19 +93,19 @@ export default function CreditsManagementPage() {
                 </Card>
 
                 {selectedUser ? (
-                    <Card className="col-span-full md:col-span-2 shadow-sm border-blue-100">
-                        <CardHeader className="bg-slate-50/50 rounded-t-xl border-b border-slate-100">
+                    <Card className="col-span-full md:col-span-2 shadow-sm border-blue-100 dark:border-blue-800/50">
+                        <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 rounded-t-xl border-b border-slate-100 dark:border-slate-700">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <CardTitle className="text-xl flex items-center gap-2">
-                                        <User className="w-5 h-5 text-slate-500" />
+                                        <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                                         {selectedUser.name}
                                     </CardTitle>
                                     <CardDescription className="mt-1 font-mono text-xs">{selectedUser.email}</CardDescription>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-sm font-medium text-slate-500 mb-1">Current Wallet Balance</div>
-                                    <div className="text-3xl font-bold font-mono tracking-tight text-emerald-600 flex items-center gap-2 justify-end">
+                                    <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Current Wallet Balance</div>
+                                    <div className="text-3xl font-bold font-mono tracking-tight text-emerald-600 dark:text-emerald-400 flex items-center gap-2 justify-end">
                                         <Wallet className="w-6 h-6 opacity-50" />
                                         {selectedUser.currentBalance.toLocaleString()}
                                     </div>
@@ -113,7 +113,7 @@ export default function CreditsManagementPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <h4 className="text-sm font-semibold mb-4 text-slate-700">Submit Adjustments</h4>
+                            <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-300">Submit Adjustments</h4>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Input
                                     type="number"
@@ -126,7 +126,7 @@ export default function CreditsManagementPage() {
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <Button 
                                         variant="default" 
-                                        className="gap-2 sm:flex-1 bg-emerald-600 hover:bg-emerald-700"
+                                        className="gap-2 sm:flex-1 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
                                         onClick={() => handleAdjust('add')}
                                         disabled={!amount || amount <= 0}
                                     >
@@ -134,7 +134,7 @@ export default function CreditsManagementPage() {
                                     </Button>
                                     <Button 
                                         variant="outline" 
-                                        className="gap-2 sm:flex-1 border-rose-200 hover:bg-rose-50 hover:text-rose-700 text-rose-600 focus:bg-rose-50"
+                                        className="gap-2 sm:flex-1 border-rose-200 dark:border-rose-800/50 hover:bg-rose-50 hover:dark:bg-rose-900/30 hover:text-rose-700 dark:hover:text-rose-400 text-rose-600 dark:text-rose-400 focus:bg-rose-50 dark:focus:bg-rose-900/30"
                                         onClick={() => handleAdjust('deduct')}
                                         disabled={!amount || amount <= 0}
                                     >

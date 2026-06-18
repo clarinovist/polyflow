@@ -55,10 +55,10 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
                         <CardTitle className="text-sm font-medium">
                             Overdue Invoices
                         </CardTitle>
-                        <AlertCircle className="h-4 w-4 text-red-500" />
+                        <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{stats.overdueCount}</div>
+                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.overdueCount}</div>
                         <p className="text-xs text-muted-foreground">
                             Requires immediate attention
                         </p>

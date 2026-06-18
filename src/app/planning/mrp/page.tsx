@@ -76,7 +76,7 @@ export default async function PpicMrpPage() {
                 </div>
                 <div className="flex gap-3">
                     <Link href="/planning/purchase-orders/create">
-                        <Button className="bg-emerald-600 hover:bg-emerald-700">
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600">
                             <ShoppingCart className="mr-2 h-4 w-4" />
                             Create Bulk PO
                         </Button>
@@ -94,12 +94,12 @@ export default async function PpicMrpPage() {
                         <p className="text-xs text-muted-foreground mt-1">Requiring materials</p>
                     </CardContent>
                 </Card>
-                <Card className={totalShortages > 0 ? "border-red-200 bg-red-50/30" : ""}>
+                <Card className={totalShortages > 0 ? "border-red-200 bg-red-50/30 dark:border-red-800/50 dark:bg-red-900/20" : ""}>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground font-bold">Shortages Detected</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className={cn("text-2xl font-bold", totalShortages > 0 ? "text-red-600" : "text-emerald-600")}>
+                        <div className={cn("text-2xl font-bold", totalShortages > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
                             {totalShortages} Items
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Action items for Purchasing</p>
@@ -137,8 +137,8 @@ export default async function PpicMrpPage() {
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
-                                                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                                                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                                             </div>
                                             <div className="space-y-1">
                                                 <h3 className="text-lg font-medium">No Shortages Detected</h3>
@@ -162,18 +162,18 @@ export default async function PpicMrpPage() {
                                         <TableCell className="text-right text-muted-foreground">
                                             {item.stock.toLocaleString()} {item.unit}
                                         </TableCell>
-                                        <TableCell className="text-right font-bold text-red-600">
+                                        <TableCell className="text-right font-bold text-red-600 dark:text-red-400">
                                             {item.hasShortage ? `${item.shortage.toLocaleString()} ${item.unit}` : '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             {item.hasShortage ? (
                                                 <Link href={`/planning/purchase-orders/create?variantId=${item.sku}`}>
-                                                    <Button variant="ghost" size="sm" className="text-red-700 hover:text-red-800 hover:bg-red-100 h-8 gap-1">
+                                                    <Button variant="ghost" size="sm" className="text-red-700 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 h-8 gap-1">
                                                         Purchase <ArrowRight className="h-3 w-3" />
                                                     </Button>
                                                 </Link>
                                             ) : (
-                                                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-100">Covered</Badge>
+                                                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800/50">Covered</Badge>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -185,7 +185,7 @@ export default async function PpicMrpPage() {
             </Card>
 
             {totalShortages > 0 && (
-                <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800/50 dark:text-amber-400">
                     <AlertCircle className="h-5 w-5" />
                     <span className="text-sm font-medium">
                         You have {totalShortages} materials with insufficient stock to fulfill planned production.

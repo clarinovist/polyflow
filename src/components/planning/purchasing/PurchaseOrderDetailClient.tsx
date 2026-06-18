@@ -68,11 +68,11 @@ export function PurchaseOrderDetailClient({
 
     const getStatusBadge = (status: PurchaseOrderStatus) => {
         const styles: Record<string, string> = {
-            DRAFT: 'bg-slate-100 text-slate-800',
-            SENT: 'bg-blue-100 text-blue-800',
-            PARTIAL_RECEIVED: 'bg-amber-100 text-amber-800',
-            RECEIVED: 'bg-emerald-100 text-emerald-800',
-            CANCELLED: 'bg-red-100 text-red-800',
+            DRAFT: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200',
+            SENT: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400',
+            PARTIAL_RECEIVED: 'bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400',
+            RECEIVED: 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400',
+            CANCELLED: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400',
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.DRAFT}>
@@ -171,7 +171,7 @@ export function PurchaseOrderDetailClient({
                     {!warehouseMode && (order.status === 'DRAFT' || order.status === 'CANCELLED') && (
                         <Button
                             variant="outline"
-                            className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                            className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/30"
                             onClick={async () => {
                                 if (!confirm(`Apakah Anda yakin ingin menghapus ${order.orderNumber}? Tindakan ini tidak dapat dibatalkan.`)) {
                                     return;
@@ -228,7 +228,7 @@ export function PurchaseOrderDetailClient({
                                                     {item.quantity} {item.productVariant.primaryUnit}
                                                 </td>
                                                 <td className="p-4 text-right">
-                                                    <span className={item.receivedQty >= item.quantity ? "text-emerald-600 font-bold" : "text-amber-600"}>
+                                                    <span className={item.receivedQty >= item.quantity ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400"}>
                                                         {item.receivedQty}
                                                     </span>
                                                 </td>
@@ -239,8 +239,8 @@ export function PurchaseOrderDetailClient({
                                     </tbody>
                                     <tfoot className="bg-muted/50 border-t">
                                         <tr>
-                                            <td colSpan={4} className="p-4 text-right font-bold underline decoration-blue-500/30 decoration-2">Total Keseluruhan</td>
-                                            <td className="p-4 text-right font-bold text-lg text-blue-600">
+                                            <td colSpan={4} className="p-4 text-right font-bold underline decoration-blue-500/30 dark:decoration-blue-400/30 decoration-2">Total Keseluruhan</td>
+                                            <td className="p-4 text-right font-bold text-lg text-blue-600 dark:text-blue-400">
                                                 {formatRupiah(order.totalAmount || 0)}
                                             </td>
                                         </tr>
@@ -254,7 +254,7 @@ export function PurchaseOrderDetailClient({
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm flex items-center gap-2">
-                                    <Info className="h-4 w-4 text-blue-500" />
+                                    <Info className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                                     {formLabels.notes}
                                 </CardTitle>
                             </CardHeader>
@@ -331,7 +331,7 @@ export function PurchaseOrderDetailClient({
                                         <li key={inv.id} className="border p-3 rounded-md shadow-sm">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="font-bold text-xs">{inv.invoiceNumber}</span>
-                                                <Badge className={inv.status === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'}>
+                                                <Badge className={inv.status === 'PAID' ? 'bg-emerald-500 dark:bg-emerald-600' : 'bg-amber-500 dark:bg-amber-600'}>
                                                     {getStatusLabel(inv.status, 'purchasing')}
                                                 </Badge>
                                             </div>

@@ -81,14 +81,14 @@ type ReportSummary = {
 function MarginBadge({ pct }: { pct: number }) {
     if (pct >= 30)
         return (
-            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 border">
+            <Badge className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 border">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 {pct.toFixed(1)}%
             </Badge>
         );
     if (pct >= 0)
         return (
-            <Badge className="bg-amber-50 text-amber-700 border-amber-200 border">
+            <Badge className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 border">
                 <TrendingUp className="w-3 h-3 mr-1 opacity-60" />
                 {pct.toFixed(1)}%
             </Badge>
@@ -104,17 +104,17 @@ function MarginBadge({ pct }: { pct: number }) {
 function InvoiceStatusBadge({ invoiced, status }: { invoiced: boolean; status: string | null }) {
     if (!invoiced)
         return (
-            <Badge variant="outline" className="text-slate-500">
+            <Badge variant="outline" className="text-slate-500 dark:text-slate-400">
                 Not Invoiced
             </Badge>
         );
     const colors: Record<string, string> = {
-        PAID: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        PARTIAL: 'bg-amber-50 text-amber-700 border-amber-200',
-        UNPAID: 'bg-amber-50 text-amber-700 border-amber-200',
-        DRAFT: 'bg-slate-50 text-slate-700 border-slate-200',
-        OVERDUE: 'bg-red-50 text-red-700 border-red-200',
-        CANCELLED: 'bg-gray-50 text-gray-700 border-gray-200',
+        PAID: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50',
+        PARTIAL: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50',
+        UNPAID: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50',
+        DRAFT: 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+        OVERDUE: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/50',
+        CANCELLED: 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600',
     };
     return (
         <Badge className={`border ${colors[status ?? ''] ?? colors.DRAFT}`}>
@@ -160,7 +160,7 @@ function CostBreakdownBar({ breakdown, total }: { breakdown: CostBreakdown; tota
                         />
                     );
                 })}
-                {total === 0 && <div className="bg-slate-200 w-full" />}
+                {total === 0 && <div className="bg-slate-200 dark:bg-slate-700 w-full" />}
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                 {entries.map(([key, val], i) => (
@@ -204,7 +204,7 @@ function OrderRow({ order }: { order: OrderReport }) {
                         <Link
                             href={`/sales/orders/${order.salesOrderId}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                         >
                             {order.salesOrderNumber}
                             <ExternalLink className="w-3 h-3" />

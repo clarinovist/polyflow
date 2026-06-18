@@ -51,25 +51,25 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
 
             {/* Core Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-t-4 border-t-emerald-500 shadow-sm">
+                <Card className="border-t-4 border-t-emerald-500 shadow-sm dark:bg-zinc-900 dark:border-t-emerald-400">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                        <DollarSign className="h-4 w-4 text-emerald-500" />
+                        <CardTitle className="text-sm font-medium dark:text-zinc-100">Total Revenue</CardTitle>
+                        <DollarSign className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah(stats.revenue)}</div>
+                        <div className="text-2xl font-bold dark:text-zinc-100">{formatRupiah(stats.revenue)}</div>
                         <p className="text-xs text-muted-foreground mt-1">
                             Collected from paid invoices
                         </p>
                     </CardContent>
                 </Card>
-                <Card className="border-t-4 border-t-blue-500 shadow-sm">
+                <Card className="border-t-4 border-t-blue-500 shadow-sm dark:bg-zinc-900 dark:border-t-blue-400">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Net Position</CardTitle>
-                        <Wallet className="h-4 w-4 text-blue-500" />
+                        <CardTitle className="text-sm font-medium dark:text-zinc-100">Net Position</CardTitle>
+                        <Wallet className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                             {formatRupiah(stats.netCashPosition)}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -77,13 +77,13 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                         </p>
                     </CardContent>
                 </Card>
-                <Card className="border-t-4 border-t-amber-500 shadow-sm">
+                <Card className="border-t-4 border-t-amber-500 shadow-sm dark:bg-zinc-900 dark:border-t-amber-400">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Receivables (AR)</CardTitle>
-                        <ArrowUpRight className="h-4 w-4 text-amber-500" />
+                        <CardTitle className="text-sm font-medium dark:text-zinc-100">Receivables (AR)</CardTitle>
+                        <ArrowUpRight className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah(stats.receivables)}</div>
+                        <div className="text-2xl font-bold dark:text-zinc-100">{formatRupiah(stats.receivables)}</div>
                         <div className="flex items-center gap-2 mt-1">
                             <Badge variant="secondary" className="text-xs font-normal">
                                 {stats.counts.receivables} Unpaid Invoices
@@ -91,13 +91,13 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-t-4 border-t-purple-500 shadow-sm">
+                <Card className="border-t-4 border-t-purple-500 shadow-sm dark:bg-zinc-900 dark:border-t-purple-400">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Payables (AP)</CardTitle>
-                        <ArrowDownRight className="h-4 w-4 text-purple-500" />
+                        <CardTitle className="text-sm font-medium dark:text-zinc-100">Payables (AP)</CardTitle>
+                        <ArrowDownRight className="h-4 w-4 text-purple-500 dark:text-purple-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatRupiah(stats.payables)}</div>
+                        <div className="text-2xl font-bold dark:text-zinc-100">{formatRupiah(stats.payables)}</div>
                         <div className="flex items-center gap-2 mt-1">
                             <Badge variant="secondary" className="text-xs font-normal">
                                 {stats.counts.payables} Pending Bills
@@ -109,17 +109,17 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
 
             {/* Quick Actions */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
+                <Card className="dark:bg-zinc-900 dark:border-zinc-700">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-indigo-500" />
+                        <CardTitle className="flex items-center gap-2 dark:text-zinc-100">
+                            <FileText className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
                             Invoicing
                         </CardTitle>
                         <CardDescription>Manage customer invoices and payments</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <Link href="/finance/invoices/sales">
-                            <Button variant="outline" className="w-full justify-start h-12 text-left">
+                            <Button variant="outline" className="w-full justify-start h-12 text-left dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700">
                                 <div className="flex flex-col items-start">
                                     <span className="font-semibold">Sales Invoices</span>
                                     <span className="text-[10px] text-muted-foreground">Create and track invoices</span>
@@ -127,24 +127,24 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                             </Button>
                         </Link>
                         <Link href="/finance/payments/received">
-                            <Button variant="ghost" className="w-full justify-between">
+                            <Button variant="ghost" className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800">
                                 Check Received Payments <ArrowUpRight className="h-4 w-4 ml-2" />
                             </Button>
                         </Link>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="dark:bg-zinc-900 dark:border-zinc-700">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Briefcase className="h-5 w-5 text-rose-500" />
+                        <CardTitle className="flex items-center gap-2 dark:text-zinc-100">
+                            <Briefcase className="h-5 w-5 text-rose-500 dark:text-rose-400" />
                             Payables
                         </CardTitle>
                         <CardDescription>Bill payments and supplier management</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <Link href="/finance/invoices/purchase">
-                            <Button variant="outline" className="w-full justify-start h-12 text-left">
+                            <Button variant="outline" className="w-full justify-start h-12 text-left dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-700">
                                 <div className="flex flex-col items-start">
                                     <span className="font-semibold">Purchase Invoices</span>
                                     <span className="text-[10px] text-muted-foreground">Process supplier bills</span>
@@ -152,7 +152,7 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                             </Button>
                         </Link>
                         <Link href="/finance/payments/sent">
-                            <Button variant="ghost" className="w-full justify-between">
+                            <Button variant="ghost" className="w-full justify-between dark:text-zinc-300 dark:hover:bg-zinc-800">
                                 Payment History <ArrowDownRight className="h-4 w-4 ml-2" />
                             </Button>
                         </Link>
@@ -175,7 +175,7 @@ export default async function FinanceDashboardPage({ searchParams }: { searchPar
                     <CardContent className="relative z-10 space-y-3 flex-1">
                         <div className="grid grid-cols-1 gap-2">
                             <Link href="/finance/reports/income-statement">
-                                <Button variant="secondary" className="w-full justify-between h-11 font-semibold bg-white text-indigo-700 hover:bg-indigo-50 border-none transition-all group">
+                                <Button variant="secondary" className="w-full justify-between h-11 font-semibold bg-white text-indigo-700 hover:bg-indigo-50 dark:bg-zinc-100 dark:text-indigo-800 dark:hover:bg-zinc-200 border-none transition-all group">
                                     Profit & Loss
                                     <ArrowUpRight className="h-4 w-4 opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                                 </Button>

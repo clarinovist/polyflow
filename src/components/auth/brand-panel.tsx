@@ -77,20 +77,20 @@ export default function BrandPanel({ subdomain }: { subdomain?: string | null })
                 {/* Brand Header */}
                 <div className="mb-6">
                     <PolyFlowLogo variant="light" size="sm" showText={false} />
-                    <p className="text-zinc-400 text-sm mt-2">PolyFlow</p>
+                    <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-2">PolyFlow</p>
                 </div>
 
                 {/* Welcome Text */}
                 <h1 className="text-4xl font-bold text-white mb-4">
                     {subdomain ? `Welcome to ${subdomain.toUpperCase()}` : 'Welcome to PolyFlow'}
                 </h1>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+                <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed mb-4">
                     {subdomain ?
                         `Sign in to access your ERP dashboard, manage production workflows, and track your inventory seamlessly.` :
                         `PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.`
                     }
                 </p>
-                <p className="text-zinc-500 text-sm">
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm">
                     {subdomain ? `Enterprise portal powered by PolyFlow` : `More than 1K people joined us, it's your turn`}
                 </p>
 
@@ -100,7 +100,7 @@ export default function BrandPanel({ subdomain }: { subdomain?: string | null })
                         Streamline your business operations today
                     </h3>
                     <div className="flex items-center justify-between">
-                        <p className="text-zinc-400 text-sm max-w-[200px]">
+                        <p className="text-zinc-400 dark:text-zinc-500 text-sm max-w-[200px]">
                             Be among the first entrepreneurs to experience the easiest way to manage a business.
                         </p>
                         {/* Avatar Stack */}

@@ -41,11 +41,11 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
     };
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
-            PENDING: 'bg-yellow-100 text-yellow-800',
-            SHIPPED: 'bg-blue-100 text-blue-800',
-            DELIVERED: 'bg-green-100 text-green-800',
-            RETURNED: 'bg-red-100 text-red-800',
-            CANCELLED: 'bg-gray-100 text-gray-800',
+            PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+            SHIPPED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+            DELIVERED: 'bg-green-100 text-green-800 dark:bg-emerald-900/20 dark:text-emerald-400',
+            RETURNED: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+            CANCELLED: 'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-zinc-400',
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.PENDING}>
@@ -77,7 +77,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                         {order.status === 'SHIPPED' && (
                             <Button
                                 size="sm"
-                                className="h-7 bg-green-600 hover:bg-green-700 text-white px-2 text-xs"
+                                className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
                                 onClick={handleDeliver}
                                 disabled={isLoading}
                             >
@@ -85,7 +85,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                             </Button>
                         )}
                         <span className="text-muted-foreground text-sm">
-                            Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 hover:underline">{order.salesOrder?.orderNumber}</Link>
+                            Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 dark:text-blue-400 hover:underline">{order.salesOrder?.orderNumber}</Link>
                         </span>
                     </div>
                 </div>
@@ -153,23 +153,23 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                             <CardTitle>Timeline</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                            <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 dark:before:via-slate-600 before:to-transparent">
                                 {statusSteps.map((step, idx) => {
                                     const isCompleted = idx <= currentStatusIndex;
                                     const Icon = step.icon;
                                     return (
                                         <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-200 text-slate-500 group-[.is-active]:bg-emerald-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                                                <Icon className={`h-5 w-5 ${isCompleted ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-700 bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400 group-[.is-active]:bg-emerald-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                                                <Icon className={`h-5 w-5 ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} />
                                             </div>
-                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-slate-200 bg-white shadow">
+                                            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded border border-slate-200 bg-white dark:border-slate-700 dark:bg-zinc-900 shadow">
                                                 <div className="flex items-center justify-between space-x-2 mb-1">
-                                                    <div className={`font-bold ${isCompleted ? 'text-slate-900' : 'text-slate-400'}`}>{step.label}</div>
+                                                    <div className={`font-bold ${isCompleted ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}`}>{step.label}</div>
                                                     {isCompleted && idx === 1 && (
                                                         <time className="font-caveat font-medium text-indigo-500">{format(new Date(order.deliveryDate), 'PP')}</time>
                                                     )}
                                                 </div>
-                                                <div className="text-slate-500">
+                                                <div className="text-slate-500 dark:text-slate-400">
                                                     {isCompleted ? `Status tercapai: ${getStatusLabel(step.status, 'sales')}` : 'Menunggu...'}
                                                 </div>
                                             </div>
@@ -224,7 +224,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                                 <CardTitle>{formLabels.notes}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm border-l-2 border-yellow-400 pl-3 italic">
+                                <p className="text-sm border-l-2 border-yellow-400 dark:border-yellow-500 pl-3 italic">
                                     {order.notes}
                                 </p>
                             </CardContent>

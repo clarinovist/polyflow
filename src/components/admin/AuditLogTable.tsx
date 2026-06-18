@@ -48,18 +48,18 @@ export default function AuditLogTable({
     const totalPages = Math.ceil(total / limit);
 
     const getActionColor = (action: string) => {
-        if (action.includes('CREATE')) return 'bg-emerald-100 text-emerald-800';
-        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-800';
-        if (action.includes('DELETE')) return 'bg-red-100 text-red-800';
-        if (action.includes('APPROVE') || action.includes('POST')) return 'bg-purple-100 text-purple-800';
-        return 'bg-gray-100 text-gray-800';
+        if (action.includes('CREATE')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+        if (action.includes('UPDATE')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        if (action.includes('DELETE')) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        if (action.includes('APPROVE') || action.includes('POST')) return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     };
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md border bg-white overflow-hidden shadow-sm">
+            <div className="rounded-md border bg-white dark:bg-zinc-900 overflow-hidden shadow-sm">
                 <Table>
-                    <TableHeader className="bg-gray-50/50">
+                    <TableHeader className="bg-gray-50/50 dark:bg-gray-800/50">
                         <TableRow>
                             <TableHead className="w-[180px]">Timestamp</TableHead>
                             <TableHead>User</TableHead>
@@ -73,14 +73,14 @@ export default function AuditLogTable({
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center justify-center space-y-2">
-                                        <Clock className="h-6 w-6 text-gray-400" />
+                                        <Clock className="h-6 w-6 text-gray-400 dark:text-gray-500" />
                                         <span>Tidak ada log audit yang cocok dengan kriteria.</span>
                                     </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
                             logs.map((log) => (
-                                <TableRow key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                                <TableRow key={log.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
                                         {format(new Date(log.createdAt), 'MMM d, yyyy HH:mm:ss')}
                                     </TableCell>
@@ -107,10 +107,10 @@ export default function AuditLogTable({
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-8 w-8 p-0 hover:bg-slate-100"
+                                            className="h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
                                             onClick={() => setSelectedLogId(log.id)}
                                         >
-                                            <Eye className="h-4 w-4 text-slate-500" />
+                                            <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                                         </Button>
                                     </TableCell>
                                 </TableRow>

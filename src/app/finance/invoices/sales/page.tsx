@@ -63,7 +63,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
             </Tabs>
 
             {demand === 'legacy-internal' && (
-                <Alert className="border-amber-200 bg-amber-50">
+                <Alert className="border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                     <AlertTitle>Legacy internal review</AlertTitle>
                     <AlertDescription>
                         This tab is for historical invoices that originated from internal stock build flows before customer enforcement was added. Treat it as cleanup and audit review, not as a normal receivables workflow.

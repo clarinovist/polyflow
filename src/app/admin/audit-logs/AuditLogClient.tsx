@@ -101,8 +101,8 @@ export default function AuditLogClient({
                 </Card>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 items-center bg-white p-4 rounded-md border shadow-sm w-full">
-                <div className="font-medium text-sm text-slate-700 mr-2">Filters:</div>
+            <div className="flex flex-col sm:flex-row gap-4 items-center bg-white dark:bg-zinc-900 p-4 rounded-md border shadow-sm w-full">
+                <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mr-2">Filters:</div>
                 <Select value={currentAction} onValueChange={(val) => handleFilterChange('action', val)}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All Actions" />
