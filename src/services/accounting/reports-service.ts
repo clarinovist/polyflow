@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
+import { createJournalEntry } from './journals-service';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
