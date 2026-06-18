@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
+import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { InvoiceService } from '@/services/finance/invoice-service';
 
@@ -95,7 +96,7 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
                     reference: isMaklonOrder ? `Service closure shipment for ${order.orderNumber}` : `Shipment for ${order.orderNumber}`,
                     createdAt: new Date()
                 }
-            });
+            }).then((movement) => AccountingService.recordInventoryMovement(movement, tx));
         }
 
         const lastDo = await tx.deliveryOrder.findFirst({

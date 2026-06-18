@@ -28,6 +28,19 @@ export async function recordFinishedGoodsOutput(params: {
         console.warn('COGM Calc failed', error);
     }
 
+    // Fallback: if COGM returns 0 (e.g. first output before material movements exist),
+    // use the output variant's standardCost to avoid zero-cost production entries
+    if (unitCost <= 0) {
+        const variant = await tx.productVariant.findUnique({
+            where: { id: outputVariantId },
+            select: { standardCost: true, buyPrice: true, price: true }
+        });
+        unitCost = Number(variant?.standardCost ?? variant?.buyPrice ?? variant?.price ?? 0);
+        if (unitCost > 0) {
+            console.warn(`COGM returned 0 for ${productionOrderId}, falling back to standardCost=${unitCost}`);
+        }
+    }
+
     if (unitCost > 0) {
         await InventoryCoreService.incrementStockWithCost(tx, locationId, outputVariantId, quantityProduced, unitCost);
     } else {
