@@ -111,13 +111,13 @@ describe('reports-service', () => {
     describe('getBalanceSheet', () => {
         it('returns unpostedEarnings as balancing figure', async () => {
             vi.mocked(prisma.account.findMany).mockResolvedValue([
-                { id: 'a1', code: '11120', type: 'ASSET', journalLines: [
+                { id: 'a1', code: '11120', parentId: null, type: 'ASSET', journalLines: [
                     { debit: 10000000, credit: 0 },
                 ]},
-                { id: 'l1', code: '21110', type: 'LIABILITY', journalLines: [
+                { id: 'l1', code: '21110', parentId: null, type: 'LIABILITY', journalLines: [
                     { debit: 0, credit: 3000000 },
                 ]},
-                { id: 'e1', code: '31110', type: 'EQUITY', journalLines: [
+                { id: 'e1', code: '31110', parentId: null, type: 'EQUITY', journalLines: [
                     { debit: 0, credit: 5000000 },
                 ]},
             ] as never);
@@ -131,6 +131,86 @@ describe('reports-service', () => {
             expect(result.unpostedEarnings).toBe(2000000);
             // Total L+E+unposted = total assets
             expect(result.totalLiabilitiesAndEquity).toBe(result.totalAssets);
+        });
+
+        it('groups child accounts under parent accounts', async () => {
+            vi.mocked(prisma.account.findMany).mockResolvedValue([
+                { id: 'parent-inv', code: '11300', parentId: null, type: 'ASSET', journalLines: [] },
+                { id: 'child-rm', code: '11310', parentId: 'parent-inv', type: 'ASSET', journalLines: [
+                    { debit: 5000000, credit: 0 },
+                ]},
+                { id: 'child-wip', code: '11320', parentId: 'parent-inv', type: 'ASSET', journalLines: [
+                    { debit: 3000000, credit: 0 },
+                ]},
+                { id: 'child-fg', code: '11330', parentId: 'parent-inv', type: 'ASSET', journalLines: [
+                    { debit: 2000000, credit: 0 },
+                ]},
+                { id: 'standalone', code: '11210', parentId: null, type: 'ASSET', journalLines: [
+                    { debit: 1000000, credit: 0 },
+                ]},
+            ] as never);
+
+            const result = await getBalanceSheet(new Date('2026-06-30'));
+
+            // Flat view: 5 accounts
+            expect(result.assets).toHaveLength(5);
+
+            // Grouped view: 2 items (1 group + 1 standalone)
+            expect(result.assetGroups).toHaveLength(2);
+
+            // First: Inventory group (single-level → collapsed)
+            const invGroup = result.assetGroups[0] as any;
+            expect(invGroup.code).toBe('11300');
+            expect(invGroup.children).toHaveLength(3);
+            expect(invGroup.totalBalance).toBe(10000000); // 5M + 3M + 2M
+
+            // Second: standalone Piutang
+            const standalone = result.assetGroups[1] as any;
+            expect(standalone.code).toBe('11210');
+            expect(standalone.netBalance).toBe(1000000);
+        });
+
+        it('expands accounts in expandCodes, groups others', async () => {
+            vi.mocked(prisma.account.findMany).mockResolvedValue([
+                // 11000 Current Assets
+                { id: 'ca', code: '11000', parentId: null, type: 'ASSET', journalLines: [] },
+                // 11100 Cash & Bank (will be expanded)
+                { id: 'cash-bank', code: '11100', parentId: 'ca', type: 'ASSET', journalLines: [] },
+                { id: 'petty', code: '11110', parentId: 'cash-bank', type: 'ASSET', journalLines: [
+                    { debit: 500000, credit: 0 },
+                ]},
+                { id: 'bca', code: '11120', parentId: 'cash-bank', type: 'ASSET', journalLines: [
+                    { debit: 8000000, credit: 0 },
+                ]},
+                // 11300 Inventory (will be grouped)
+                { id: 'inv', code: '11300', parentId: 'ca', type: 'ASSET', journalLines: [] },
+                { id: 'rm', code: '11310', parentId: 'inv', type: 'ASSET', journalLines: [
+                    { debit: 3000000, credit: 0 },
+                ]},
+                { id: 'fg', code: '11330', parentId: 'inv', type: 'ASSET', journalLines: [
+                    { debit: 2000000, credit: 0 },
+                ]},
+            ] as never);
+
+            // getBalanceSheet passes expandCodes=['11000','11100'] internally
+            // 11000 expanded → shows 11100, 11300
+            // 11100 expanded → shows 11110, 11120
+            // 11300 not in expandCodes → grouped
+            const result = await getBalanceSheet(new Date('2026-06-30'));
+
+            const codes = result.assetGroups.map((g: any) => g.code || g.id);
+
+            // 11000 expanded → 11100 and 11300 visible
+            // 11100 expanded → 11110 and 11120 visible
+            // 11300 grouped → shows as group
+            expect(codes).toContain('11110'); // Petty Cash (from 11100 expand)
+            expect(codes).toContain('11120'); // Bank BCA (from 11100 expand)
+
+            // Inventory should be a group
+            const invGroup = result.assetGroups.find((g: any) => g.code === '11300') as any;
+            expect(invGroup).toBeDefined();
+            expect(invGroup.children).toHaveLength(2);
+            expect(invGroup.totalBalance).toBe(5000000);
         });
     });
 

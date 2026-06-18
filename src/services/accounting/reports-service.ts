@@ -147,6 +147,90 @@ export async function getIncomeStatement(startDate: Date, endDate: Date) {
     };
 }
 
+export interface BalanceSheetItem {
+    id: string;
+    code: string;
+    name: string;
+    netBalance: number;
+    parentId: string | null;
+}
+
+export interface BalanceSheetGroup {
+    id: string;
+    code: string;
+    name: string;
+    totalBalance: number;
+    children: BalanceSheetItem[];
+}
+
+/**
+ * Groups flat account list into parent-child hierarchy for summary view.
+ *
+ * Default behavior: group all parents (collapse children into total).
+ * expandCodes: set of parent codes whose children should be shown individually.
+ *
+ * Example:
+ *   expandCodes = new Set(['11100', '11000'])
+ *   → 11100 Cash & Bank: expanded (Petty Cash, Bank BCA, Bank Mandiri shown individually)
+ *   → 11300 Inventory: grouped (single line "Persediaan" with total)
+ */
+function groupAccountsByParent(
+    accounts: BalanceSheetItem[],
+    expandCodes: Set<string> = new Set()
+): (BalanceSheetGroup | BalanceSheetItem)[] {
+    const childMap = new Map<string, BalanceSheetItem[]>();
+    const codeMap = new Map<string, string>(); // code → id
+    for (const acc of accounts) {
+        codeMap.set(acc.code, acc.id);
+        if (acc.parentId) {
+            if (!childMap.has(acc.parentId)) childMap.set(acc.parentId, []);
+            childMap.get(acc.parentId)!.push(acc);
+        }
+    }
+
+    // Resolve expand IDs from codes
+    const expandIds = new Set<string>();
+    for (const code of expandCodes) {
+        const id = codeMap.get(code);
+        if (id) expandIds.add(id);
+    }
+
+    function resolveAccount(acc: BalanceSheetItem): (BalanceSheetGroup | BalanceSheetItem)[] {
+        const children = childMap.get(acc.id);
+        if (!children || children.length === 0) {
+            return [acc]; // Leaf
+        }
+
+        if (expandIds.has(acc.id)) {
+            // This account is marked for expansion → show children individually
+            const result: (BalanceSheetGroup | BalanceSheetItem)[] = [];
+            for (const child of children) {
+                result.push(...resolveAccount(child));
+            }
+            return result;
+        } else {
+            // Default: group (collapse into total)
+            const totalBalance = children.reduce((sum, c) => sum + c.netBalance, 0) + acc.netBalance;
+            return [{
+                id: acc.id,
+                code: acc.code,
+                name: acc.name,
+                totalBalance,
+                children
+            }];
+        }
+    }
+
+    const accountIds = new Set(accounts.map(a => a.id));
+    const topLevel = accounts.filter(a => !a.parentId || !accountIds.has(a.parentId));
+
+    const result: (BalanceSheetGroup | BalanceSheetItem)[] = [];
+    for (const acc of topLevel) {
+        result.push(...resolveAccount(acc));
+    }
+    return result;
+}
+
 export async function getBalanceSheet(asOfDate: Date) {
     // Ensure we include everything up to the very end of the selected day
     const endOfDay = new Date(asOfDate);
@@ -169,33 +253,42 @@ export async function getBalanceSheet(asOfDate: Date) {
         }
     });
 
-    const assets = accounts.filter(a => a.type === 'ASSET').map(a => ({
-        ...a,
-        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.debit) - Number(l.credit)), 0)
-    }));
+    const calcBalance = (type: string, sign: 'debit' | 'credit') => {
+        return accounts.filter(a => a.type === type).map(a => ({
+            id: a.id,
+            code: a.code,
+            name: a.name,
+            parentId: a.parentId,
+            netBalance: a.journalLines.reduce((sum, l) => {
+                const val = sign === 'debit'
+                    ? Number(l.debit) - Number(l.credit)
+                    : Number(l.credit) - Number(l.debit);
+                return sum + val;
+            }, 0)
+        }));
+    };
 
-    const liabilities = accounts.filter(a => a.type === 'LIABILITY').map(a => ({
-        ...a,
-        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
-    }));
+    const assetAccounts = calcBalance('ASSET', 'debit');
+    const liabilityAccounts = calcBalance('LIABILITY', 'credit');
+    const equityAccounts = calcBalance('EQUITY', 'credit');
 
-    const equity = accounts.filter(a => a.type === 'EQUITY').map(a => ({
-        ...a,
-        netBalance: a.journalLines.reduce((sum, l) => sum + (Number(l.credit) - Number(l.debit)), 0)
-    }));
-
-    const totalAsset = assets.reduce((sum, a) => sum + a.netBalance, 0);
-    const totalLiability = liabilities.reduce((sum, a) => sum + a.netBalance, 0);
-    const totalEquity = equity.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalAsset = assetAccounts.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalLiability = liabilityAccounts.reduce((sum, a) => sum + a.netBalance, 0);
+    const totalEquity = equityAccounts.reduce((sum, a) => sum + a.netBalance, 0);
 
     // Unposted earnings = income that hasn't been closed to 33000 yet
-    // This is the gap between Assets and (Liabilities + Equity including 33000)
     const unpostedEarnings = totalAsset - (totalLiability + totalEquity);
 
     return {
-        assets,
-        liabilities,
-        equity,
+        // Flat (detail view) — backward compatible
+        assets: assetAccounts,
+        liabilities: liabilityAccounts,
+        equity: equityAccounts,
+        // Grouped (summary view) — expand Cash & Bank and Current Assets to show individual accounts
+        assetGroups: groupAccountsByParent(assetAccounts, new Set(['11000', '11100'])) as (BalanceSheetGroup | BalanceSheetItem)[],
+        liabilityGroups: groupAccountsByParent(liabilityAccounts) as (BalanceSheetGroup | BalanceSheetItem)[],
+        equityGroups: groupAccountsByParent(equityAccounts) as (BalanceSheetGroup | BalanceSheetItem)[],
+        // Totals
         totalAssets: totalAsset,
         totalLiabilities: totalLiability,
         totalEquity,

@@ -21,12 +21,27 @@ interface BalanceSheetItem {
     code: string;
     name: string;
     netBalance: number;
+    parentId: string | null;
+}
+
+interface BalanceSheetGroup {
+    id: string;
+    code: string;
+    name: string;
+    totalBalance: number;
+    children: BalanceSheetItem[];
 }
 
 interface BalanceSheetData {
+    // Flat (detail view)
     assets: BalanceSheetItem[];
     liabilities: BalanceSheetItem[];
     equity: BalanceSheetItem[];
+    // Grouped (summary view)
+    assetGroups: (BalanceSheetGroup | BalanceSheetItem)[];
+    liabilityGroups: (BalanceSheetGroup | BalanceSheetItem)[];
+    equityGroups: (BalanceSheetGroup | BalanceSheetItem)[];
+    // Totals
     totalAssets: number;
     totalLiabilities: number;
     unpostedEarnings: number;
@@ -34,11 +49,16 @@ interface BalanceSheetData {
     totalLiabilitiesAndEquity: number;
 }
 
+function isGroup(item: BalanceSheetGroup | BalanceSheetItem): item is BalanceSheetGroup {
+    return 'children' in item;
+}
+
 export default function BalanceSheetPage() {
     const [data, setData] = useState<BalanceSheetData | null>(null);
     const [loading, setLoading] = useState(true);
     const [date, setDate] = useState<Date>(new Date());
     const [hideZero, setHideZero] = useState(true);
+    const [summaryView, setSummaryView] = useState(true);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -61,6 +81,49 @@ export default function BalanceSheetPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const renderGroupedSection = (
+        groups: (BalanceSheetGroup | BalanceSheetItem)[],
+        hideZero: boolean
+    ) => {
+        return groups
+            .filter(item => !hideZero || (isGroup(item)
+                ? Math.abs(item.totalBalance) > 0.01
+                : Math.abs(item.netBalance) > 0.01))
+            .map((item) => {
+                if (isGroup(item)) {
+                    return (
+                        <TableRow key={item.id}>
+                            <TableCell className="pl-4 font-semibold">{item.name}</TableCell>
+                            <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatRupiah(item.totalBalance)}</TableCell>
+                        </TableRow>
+                    );
+                }
+                return (
+                    <TableRow key={item.id}>
+                        <TableCell className="pl-8">{item.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                        <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                    </TableRow>
+                );
+            });
+    };
+
+    const renderDetailSection = (
+        items: BalanceSheetItem[],
+        hideZero: boolean
+    ) => {
+        return items
+            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
+            .map((item) => (
+                <TableRow key={item.id}>
+                    <TableCell className="pl-8">{item.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                </TableRow>
+            ));
+    };
 
     return (
         <div className="space-y-6">
@@ -106,29 +169,43 @@ export default function BalanceSheetPage() {
                 </div>
             </div>
 
-            <div className="flex items-center space-x-2 bg-muted/20 p-3 rounded-lg border w-fit">
-                <Switch
-                    id="hide-zero"
-                    checked={hideZero}
-                    onCheckedChange={setHideZero}
-                />
-                <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
-                    Hide Zero Balances
-                </Label>
+            <div className="flex items-center gap-6 bg-muted/20 p-3 rounded-lg border w-fit">
+                <div className="flex items-center space-x-2">
+                    <Switch
+                        id="summary-view"
+                        checked={summaryView}
+                        onCheckedChange={setSummaryView}
+                    />
+                    <Label htmlFor="summary-view" className="cursor-pointer font-medium">
+                        Ringkas
+                    </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Switch
+                        id="hide-zero"
+                        checked={hideZero}
+                        onCheckedChange={setHideZero}
+                    />
+                    <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
+                        Sembunyikan Saldo Nol
+                    </Label>
+                </div>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Statement of Financial Position</CardTitle>
+                    <CardTitle>
+                        {summaryView ? 'Neraca (Ringkas)' : 'Neraca (Detail)'}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Account</TableHead>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>Akun</TableHead>
+                                    <TableHead>Kode</TableHead>
+                                    <TableHead className="text-right">Jumlah</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -144,53 +221,38 @@ export default function BalanceSheetPage() {
                                     <>
                                         {/* ASSETS */}
                                         <TableRow className="bg-muted/50 font-bold">
-                                            <TableCell colSpan={3}>ASSETS</TableCell>
+                                            <TableCell colSpan={3}>ASET</TableCell>
                                         </TableRow>
-                                        {data.assets
-                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-                                            .map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="pl-8">{item.name}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                        {summaryView
+                                            ? renderGroupedSection(data.assetGroups, hideZero)
+                                            : renderDetailSection(data.assets, hideZero)
+                                        }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL ASSETS</TableCell>
+                                            <TableCell colSpan={2}>TOTAL ASET</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalAssets)}</TableCell>
                                         </TableRow>
 
                                         {/* LIABILITIES */}
                                         <TableRow className="bg-muted/50 font-bold mt-4">
-                                            <TableCell colSpan={3}>LIABILITIES</TableCell>
+                                            <TableCell colSpan={3}>KEWAJIBAN</TableCell>
                                         </TableRow>
-                                        {data.liabilities
-                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-                                            .map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="pl-8">{item.name}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                        {summaryView
+                                            ? renderGroupedSection(data.liabilityGroups, hideZero)
+                                            : renderDetailSection(data.liabilities, hideZero)
+                                        }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL LIABILITIES</TableCell>
+                                            <TableCell colSpan={2}>TOTAL KEWAJIBAN</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalLiabilities)}</TableCell>
                                         </TableRow>
 
                                         {/* EQUITY */}
                                         <TableRow className="bg-muted/50 font-bold mt-4">
-                                            <TableCell colSpan={3}>EQUITY</TableCell>
+                                            <TableCell colSpan={3}>EKUITAS</TableCell>
                                         </TableRow>
-                                        {data.equity
-                                            .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-                                            .map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="pl-8">{item.name}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                                                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                        {summaryView
+                                            ? renderGroupedSection(data.equityGroups, hideZero)
+                                            : renderDetailSection(data.equity, hideZero)
+                                        }
 
                                         {/* Unposted Current Earnings (P&L not yet closed) */}
                                         {Math.abs(data.unpostedEarnings) > 0.01 && (
@@ -202,12 +264,12 @@ export default function BalanceSheetPage() {
                                         )}
 
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
-                                            <TableCell colSpan={2}>TOTAL EQUITY</TableCell>
+                                            <TableCell colSpan={2}>TOTAL EKUITAS</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalEquity + data.unpostedEarnings)}</TableCell>
                                         </TableRow>
 
                                         <TableRow className="bg-primary/10 font-bold text-lg border-t-4 border-primary">
-                                            <TableCell colSpan={2}>TOTAL LIABILITIES & EQUITY</TableCell>
+                                            <TableCell colSpan={2}>TOTAL KEWAJIBAN & EKUITAS</TableCell>
                                             <TableCell className="text-right">{formatRupiah(data.totalLiabilitiesAndEquity)}</TableCell>
                                         </TableRow>
                                     </>
