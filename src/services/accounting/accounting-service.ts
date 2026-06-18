@@ -11,7 +11,7 @@ import {
     createYearEndClosingEntry
 } from './journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
-import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement } from './reports-service';
+import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement, closePeriod } from './reports-service';
 import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './periods-service';
 import { recordInventoryMovement, recordMaklonCosts } from './inventory-link-service';
 
@@ -96,6 +96,14 @@ export class AccountingService {
      */
     static async getBalanceSheet(asOfDate: Date) {
         return getBalanceSheet(asOfDate);
+    }
+
+    /**
+     * Period-End Closing Entry
+     * Zeros out Revenue & Expense accounts, posts net income to Laba Berjalan (31112).
+     */
+    static async closePeriod(periodEndDate: Date, userId: string) {
+        return closePeriod(periodEndDate, userId);
     }
 
     /**

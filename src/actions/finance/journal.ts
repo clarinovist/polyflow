@@ -178,3 +178,30 @@ async function reverseJournal(id: string) {
     });
 }
 );
+
+export const closePeriod = withTenant(
+async function closePeriod(periodEndDate: Date) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        try {
+            const result = await AccountingService.closePeriod(periodEndDate, session.user.id);
+
+            await logActivity({
+                userId: session.user.id,
+                action: 'CLOSE_PERIOD',
+                entityType: 'JournalEntry',
+                entityId: result.entryNumber,
+                details: `Closed period ${result.period}: Revenue ${result.totalRevenue}, Expenses ${result.totalExpense}, Net Income ${result.netIncome}`
+            });
+
+            revalidatePath('/finance/reports/balance-sheet');
+            revalidatePath('/finance/reports/income-statement');
+            revalidatePath('/finance/journals');
+
+            return result;
+        } catch (error) {
+            throw new BusinessRuleError(error instanceof Error ? error.message : "Failed to close period");
+        }
+    });
+}
+);
