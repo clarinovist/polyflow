@@ -15,6 +15,8 @@ import {
     getBalanceSheet,
     getAccountBalance,
     getClosingBalances,
+    type BalanceSheetGroup,
+    type BalanceSheetItem,
 } from '../reports-service';
 
 describe('reports-service', () => {
@@ -159,13 +161,13 @@ describe('reports-service', () => {
             expect(result.assetGroups).toHaveLength(2);
 
             // First: Inventory group (single-level → collapsed)
-            const invGroup = result.assetGroups[0] as any;
+            const invGroup = result.assetGroups[0] as BalanceSheetGroup;
             expect(invGroup.code).toBe('11300');
             expect(invGroup.children).toHaveLength(3);
             expect(invGroup.totalBalance).toBe(10000000); // 5M + 3M + 2M
 
             // Second: standalone Piutang
-            const standalone = result.assetGroups[1] as any;
+            const standalone = result.assetGroups[1] as BalanceSheetItem;
             expect(standalone.code).toBe('11210');
             expect(standalone.netBalance).toBe(1000000);
         });
@@ -198,7 +200,7 @@ describe('reports-service', () => {
             // 11300 not in expandCodes → grouped
             const result = await getBalanceSheet(new Date('2026-06-30'));
 
-            const codes = result.assetGroups.map((g: any) => g.code || g.id);
+            const codes = result.assetGroups.map((g) => 'code' in g ? g.code : g.id);
 
             // 11000 expanded → 11100 and 11300 visible
             // 11100 expanded → 11110 and 11120 visible
@@ -207,10 +209,10 @@ describe('reports-service', () => {
             expect(codes).toContain('11120'); // Bank BCA (from 11100 expand)
 
             // Inventory should be a group
-            const invGroup = result.assetGroups.find((g: any) => g.code === '11300') as any;
+            const invGroup = result.assetGroups.find((g): g is BalanceSheetGroup => 'children' in g && g.code === '11300');
             expect(invGroup).toBeDefined();
-            expect(invGroup.children).toHaveLength(2);
-            expect(invGroup.totalBalance).toBe(5000000);
+            expect(invGroup!.children).toHaveLength(2);
+            expect(invGroup!.totalBalance).toBe(5000000);
         });
     });
 
