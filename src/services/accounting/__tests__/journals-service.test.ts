@@ -9,6 +9,7 @@ vi.mock('@/lib/core/prisma', () => ({
         journalEntry: {
             create: vi.fn(),
             findFirst: vi.fn(),
+            findUnique: vi.fn().mockResolvedValue(null),
         },
         account: {
             findMany: vi.fn().mockResolvedValue([]),

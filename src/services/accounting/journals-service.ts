@@ -3,6 +3,7 @@ import { JournalStatus, Prisma, ReferenceType } from '@prisma/client';
 import type { CreateJournalEntryInput } from './types';
 import { isPeriodOpen } from '@/services/accounting/periods-service';
 import { getClosingBalances } from './reports-service';
+import { resolveAccount } from './account-resolver';
 
 export async function createClosingJournalEntry(periodId: string, userId: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
@@ -41,8 +42,9 @@ export async function createClosingJournalEntry(periodId: string, userId: string
         };
     });
 
-    const earningsAccount = await db.account.findUnique({ where: { code: '33000' } });
-    if (!earningsAccount) throw new Error("Earnings account (33000) not found in COA");
+    const resolvedEarnings = await resolveAccount('current-year-earnings');
+    const earningsAccount = await db.account.findUnique({ where: { id: resolvedEarnings.id } });
+    if (!earningsAccount) throw new Error("Current Year Earnings account not found in COA");
 
     lines.push({
         accountId: earningsAccount.id,
@@ -79,11 +81,13 @@ export async function createYearEndClosingEntry(year: number, userId: string, tx
     }
 
     // 2. Get Balance of Current Year Earnings (33000)
-    const earningsAccount = await db.account.findUnique({ where: { code: '33000' } });
-    if (!earningsAccount) throw new Error("Current Year Earnings account (33000) not found");
+    const resolvedEarnings = await resolveAccount('current-year-earnings');
+    const earningsAccount = await db.account.findUnique({ where: { id: resolvedEarnings.id } });
+    if (!earningsAccount) throw new Error("Current Year Earnings account not found");
 
-    const retainedEarningsAccount = await db.account.findUnique({ where: { code: '32000' } });
-    if (!retainedEarningsAccount) throw new Error("Retained Earnings account (32000) not found");
+    const resolvedRetained = await resolveAccount('retained-earnings');
+    const retainedEarningsAccount = await db.account.findUnique({ where: { id: resolvedRetained.id } });
+    if (!retainedEarningsAccount) throw new Error("Retained Earnings account not found");
 
     // Calculate sum of all journal lines for 33000 in this year
     const journalLines = await db.journalLine.findMany({
@@ -320,10 +324,8 @@ export async function postBulkJournals(ids: string[], userId?: string) {
     return res;
 }
 
-export async function voidJournal(id: string, _userId?: string) {
-    const journal = await prisma.journalEntry.findUnique({
-        where: { id }
-    });
+export async function voidJournal(id: string, userId?: string) {
+    const journal = await prisma.journalEntry.findUnique({ where: { id } });
 
     if (!journal) throw new Error("Journal not found");
     if (journal.status !== 'POSTED') throw new Error("Only POSTED journals can be voided");
@@ -332,7 +334,9 @@ export async function voidJournal(id: string, _userId?: string) {
     return await prisma.journalEntry.update({
         where: { id },
         data: {
-            status: 'VOIDED'
+            status: 'VOIDED',
+            approvedById: userId,
+            approvedAt: new Date()
         }
     });
 }
@@ -479,6 +483,42 @@ async function generateEntryNumber(date: Date, tx?: Prisma.TransactionClient): P
     const year = date.getFullYear();
     const key = `JOURNAL_ENTRY_${year}`;
 
+    // Helper: find max entryNumber for this year and fast-forward sequence
+    const fastForwardSequence = async (targetValue: number) => {
+        console.warn(`[JournalService] Fast-forwarding sequence ${key} to ${targetValue + 1} (was behind actual entries)`);
+        await db.systemSequence.update({
+            where: { key },
+            data: { value: BigInt(targetValue + 1) }
+        });
+        return targetValue;
+    };
+
+    // Helper: extract numeric suffix from entryNumber like "JE - 2026 -01658" → 1658
+    const parseEntryNumber = (entryNumber: string): number => {
+        const parts = entryNumber.split('-');
+        const lastPart = parts[parts.length - 1].trim();
+        return parseInt(lastPart, 10);
+    };
+
+    // Helper: find the actual max entryNumber for this year from the DB
+    const findMaxEntryNumber = async (): Promise<number> => {
+        const latestEntry = await (tx || prisma).journalEntry.findFirst({
+            where: {
+                entryDate: {
+                    gte: new Date(year, 0, 1),
+                    lt: new Date(year + 1, 0, 1)
+                }
+            },
+            orderBy: { entryNumber: 'desc' }
+        });
+
+        if (latestEntry?.entryNumber) {
+            const num = parseEntryNumber(latestEntry.entryNumber);
+            if (!isNaN(num)) return num;
+        }
+        return 0;
+    };
+
     try {
         // Try to increment existing sequence
         const sequence = await db.systemSequence.update({
@@ -486,30 +526,26 @@ async function generateEntryNumber(date: Date, tx?: Prisma.TransactionClient): P
             data: { value: { increment: 1 } }
         });
         const currentVal = Number(sequence.value) - 1;
-        return `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
+        const candidate = `JE - ${year} -${currentVal.toString().padStart(5, '0')}`;
+
+        // Safety check: if the generated number already exists, fast-forward
+        const existing = await (tx || prisma).journalEntry.findUnique({
+            where: { entryNumber: candidate },
+            select: { id: true }
+        });
+
+        if (existing) {
+            const maxNum = await findMaxEntryNumber();
+            const nextVal = await fastForwardSequence(maxNum);
+            return `JE - ${year} -${nextVal.toString().padStart(5, '0')}`;
+        }
+
+        return candidate;
     } catch (error) {
         // Record not found (P2025) means sequence hasn't been initialized for this year
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-            const latestEntry = await (tx || prisma).journalEntry.findFirst({
-                where: {
-                    entryDate: {
-                        gte: new Date(year, 0, 1),
-                        lt: new Date(year + 1, 0, 1)
-                    }
-                },
-                orderBy: { entryNumber: 'desc' }
-            });
-
-            let startValue = 1;
-            if (latestEntry && latestEntry.entryNumber) {
-                // JE - 2026 -00003
-                const parts = latestEntry.entryNumber.split('-');
-                const lastPart = parts[parts.length - 1].trim();
-                const lastNum = parseInt(lastPart, 10);
-                if (!isNaN(lastNum)) {
-                    startValue = lastNum + 1;
-                }
-            }
+            const maxNum = await findMaxEntryNumber();
+            const startValue = maxNum + 1;
 
             const sequence = await db.systemSequence.upsert({
                 where: { key },
