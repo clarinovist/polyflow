@@ -14,7 +14,7 @@ export function cn(...inputs: ClassValue[]) {
  *   - Null/undefined: -
  *
  * Uses dots as thousands separator (Indonesian locale).
- * No decimals for whole numbers, up to 2 decimals for fractional.
+ * Whole numbers only (no decimals).
  */
 export function formatRupiah(value: number | null | undefined): string {
   if (value === null || value === undefined) return '-';
@@ -31,6 +31,33 @@ export function formatRupiah(value: number | null | undefined): string {
     return `(${formatted})`;
   }
   return formatted;
+}
+
+/**
+ * Split Rupiah into parts for aligned rendering.
+ *
+ * Returns { prefix, amount, isNegative } so the caller can render:
+ *   "Rp" left-aligned | "25.000.000" right-aligned
+ *
+ * This creates clean columns where numbers always line up on the right.
+ */
+export function formatRupiahParts(value: number | null | undefined): {
+  prefix: string;
+  amount: string;
+  isNegative: boolean;
+} {
+  if (value === null || value === undefined) {
+    return { prefix: '', amount: '-', isNegative: false };
+  }
+
+  const isNegative = value < 0;
+  const abs = Math.abs(value);
+  const amount = new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(abs);
+
+  return { prefix: 'Rp', amount, isNegative };
 }
 
 export function formatQuantity(value: number | null | undefined): string {

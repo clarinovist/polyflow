@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { getBalanceSheet } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatRupiah } from '@/lib/utils/utils';
+import { Rupiah } from '@/components/finance/Rupiah';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Download } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar"
@@ -92,21 +92,23 @@ export default function BalanceSheetPage() {
                 : Math.abs(item.netBalance) > 0.01))
             .map((item) => {
                 if (isGroup(item)) {
-                    const isNeg = item.totalBalance < -0.01;
                     return (
                         <TableRow key={item.id}>
                             <TableCell className="pl-4 font-semibold">{item.name}</TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
-                            <TableCell className={cn("text-right font-mono tabular-nums font-semibold", isNeg && "text-destructive")}>{formatRupiah(item.totalBalance)}</TableCell>
+                            <TableCell className="text-right w-44">
+                                <Rupiah value={item.totalBalance} bold />
+                            </TableCell>
                         </TableRow>
                     );
                 }
-                const isNeg = item.netBalance < -0.01;
                 return (
                     <TableRow key={item.id}>
                         <TableCell className="pl-8">{item.name}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
-                        <TableCell className={cn("text-right font-mono tabular-nums", isNeg && "text-destructive")}>{formatRupiah(item.netBalance)}</TableCell>
+                        <TableCell className="text-right w-44">
+                            <Rupiah value={item.netBalance} />
+                        </TableCell>
                     </TableRow>
                 );
             });
@@ -118,16 +120,15 @@ export default function BalanceSheetPage() {
     ) => {
         return items
             .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-            .map((item) => {
-                const isNeg = item.netBalance < -0.01;
-                return (
-                    <TableRow key={item.id}>
-                        <TableCell className="pl-8">{item.name}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
-                        <TableCell className={cn("text-right font-mono tabular-nums", isNeg && "text-destructive")}>{formatRupiah(item.netBalance)}</TableCell>
-                    </TableRow>
-                );
-            });
+            .map((item) => (
+                <TableRow key={item.id}>
+                    <TableCell className="pl-8">{item.name}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                    <TableCell className="text-right w-44">
+                        <Rupiah value={item.netBalance} />
+                    </TableCell>
+                </TableRow>
+            ));
     };
 
     return (
@@ -234,7 +235,9 @@ export default function BalanceSheetPage() {
                                         }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL ASET</TableCell>
-                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalAssets)}</TableCell>
+                                            <TableCell className="text-right w-44">
+                                                <Rupiah value={data.totalAssets} bold />
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* LIABILITIES */}
@@ -247,7 +250,9 @@ export default function BalanceSheetPage() {
                                         }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL KEWAJIBAN</TableCell>
-                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalLiabilities)}</TableCell>
+                                            <TableCell className="text-right w-44">
+                                                <Rupiah value={data.totalLiabilities} bold />
+                                            </TableCell>
                                         </TableRow>
 
                                         {/* EQUITY */}
@@ -264,18 +269,24 @@ export default function BalanceSheetPage() {
                                             <TableRow>
                                                 <TableCell className="pl-8 italic text-muted-foreground">Laba Periode Berjalan (Belum Diclose)</TableCell>
                                                 <TableCell className="font-mono text-xs text-muted-foreground">—</TableCell>
-                                                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{formatRupiah(data.unpostedEarnings)}</TableCell>
+                                                <TableCell className="text-right w-44">
+                                                    <Rupiah value={data.unpostedEarnings} className="text-muted-foreground" />
+                                                </TableCell>
                                             </TableRow>
                                         )}
 
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL EKUITAS</TableCell>
-                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalEquity + data.unpostedEarnings)}</TableCell>
+                                            <TableCell className="text-right w-44">
+                                                <Rupiah value={data.totalEquity + data.unpostedEarnings} bold />
+                                            </TableCell>
                                         </TableRow>
 
                                         <TableRow className="bg-primary/10 font-bold text-lg border-t-4 border-primary">
                                             <TableCell colSpan={2}>TOTAL KEWAJIBAN & EKUITAS</TableCell>
-                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalLiabilitiesAndEquity)}</TableCell>
+                                            <TableCell className="text-right w-44">
+                                                <Rupiah value={data.totalLiabilitiesAndEquity} bold />
+                                            </TableCell>
                                         </TableRow>
                                     </>
                                 )}
