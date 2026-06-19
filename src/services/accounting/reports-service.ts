@@ -195,6 +195,24 @@ function groupAccountsByParent(
         if (id) expandIds.add(id);
     }
 
+    /**
+     * Recursively sum netBalance of an account and ALL its descendants.
+     * This ensures grouped totals include grandchildren (e.g. Piutang Fadilla
+     * under Piutang Lain-lain) — not just direct children.
+     */
+    function sumDescendants(id: string): number {
+        let total = 0;
+        const acc = accounts.find(a => a.id === id);
+        if (acc) total += acc.netBalance;
+        const children = childMap.get(id);
+        if (children) {
+            for (const child of children) {
+                total += sumDescendants(child.id);
+            }
+        }
+        return total;
+    }
+
     function resolveAccount(acc: BalanceSheetItem): (BalanceSheetGroup | BalanceSheetItem)[] {
         const children = childMap.get(acc.id);
         if (!children || children.length === 0) {
@@ -210,7 +228,8 @@ function groupAccountsByParent(
             return result;
         } else {
             // Default: group (collapse into total)
-            const totalBalance = children.reduce((sum, c) => sum + c.netBalance, 0) + acc.netBalance;
+            // Use recursive sum to include ALL descendants, not just direct children
+            const totalBalance = sumDescendants(acc.id);
             return [{
                 id: acc.id,
                 code: acc.code,

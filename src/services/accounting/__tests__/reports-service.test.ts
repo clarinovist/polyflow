@@ -214,6 +214,39 @@ describe('reports-service', () => {
             expect(invGroup!.children).toHaveLength(2);
             expect(invGroup!.totalBalance).toBe(5000000);
         });
+
+        it('sums ALL descendants recursively (grandchildren included in grouped total)', async () => {
+            // Reproduces the Piutang Fadilla bug:
+            // 11500 Piutang Lain-lain
+            //   └─ 11510 Piutang Karyawan (no direct journal lines)
+            //       ├─ 11511 Piutang Viar (28M)
+            //       └─ 11512 Piutang Fadilla (100M)
+            vi.mocked(prisma.account.findMany).mockResolvedValue([
+                { id: 'ca', code: '11000', parentId: null, type: 'ASSET', journalLines: [] },
+                { id: 'piutang', code: '11500', parentId: 'ca', type: 'ASSET', journalLines: [] },
+                { id: 'pk', code: '11510', parentId: 'piutang', type: 'ASSET', journalLines: [] },
+                { id: 'viar', code: '11511', parentId: 'pk', type: 'ASSET', journalLines: [
+                    { debit: 28000000, credit: 0 },
+                ]},
+                { id: 'fadilla', code: '11512', parentId: 'pk', type: 'ASSET', journalLines: [
+                    { debit: 100000000, credit: 0 },
+                ]},
+            ] as never);
+
+            const result = await getBalanceSheet(new Date('2026-06-30'));
+
+            // Total assets should include ALL descendants: 28M + 100M = 128M
+            expect(result.totalAssets).toBe(128000000);
+
+            // In grouped view, 11000 is expanded → 11500 shown individually
+            // 11500 is NOT expanded → should be a group with recursive total
+            const piutangGroup = result.assetGroups.find(
+                (g): g is BalanceSheetGroup => 'children' in g && g.code === '11500'
+            );
+            expect(piutangGroup).toBeDefined();
+            // The group total should be 128M (28M + 100M), NOT 0
+            expect(piutangGroup!.totalBalance).toBe(128000000);
+        });
     });
 
     describe('getAccountBalance', () => {
