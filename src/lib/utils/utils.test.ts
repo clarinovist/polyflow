@@ -27,10 +27,15 @@ describe('formatRupiah', () => {
         expect(result).toMatch(/0/);
     });
 
-    it('formats negative value correctly', () => {
+    it('formats negative value with parentheses (accounting style)', () => {
         const result = formatRupiah(-2500);
-        expect(result).toMatch(/(Rp|IDR)/);
-        expect(result).toMatch(/-\s?/);
-        expect(result).toMatch(/2[\.,]500/);
+        // Intl.NumberFormat('id-ID') uses non-breaking space (U+00A0) after Rp
+        expect(result).toMatch(/^\(Rp\u00a02\.500\)$/);
+        expect(result).not.toContain('-');
+    });
+
+    it('formats large negative value with parentheses', () => {
+        const result = formatRupiah(-128196020);
+        expect(result).toMatch(/^\(Rp\u00a0128\.196\.020\)$/);
     });
 });

@@ -92,19 +92,21 @@ export default function BalanceSheetPage() {
                 : Math.abs(item.netBalance) > 0.01))
             .map((item) => {
                 if (isGroup(item)) {
+                    const isNeg = item.totalBalance < -0.01;
                     return (
                         <TableRow key={item.id}>
                             <TableCell className="pl-4 font-semibold">{item.name}</TableCell>
-                            <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatRupiah(item.totalBalance)}</TableCell>
+                            <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                            <TableCell className={cn("text-right font-mono tabular-nums font-semibold", isNeg && "text-destructive")}>{formatRupiah(item.totalBalance)}</TableCell>
                         </TableRow>
                     );
                 }
+                const isNeg = item.netBalance < -0.01;
                 return (
                     <TableRow key={item.id}>
                         <TableCell className="pl-8">{item.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                        <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                        <TableCell className={cn("text-right font-mono tabular-nums", isNeg && "text-destructive")}>{formatRupiah(item.netBalance)}</TableCell>
                     </TableRow>
                 );
             });
@@ -116,13 +118,16 @@ export default function BalanceSheetPage() {
     ) => {
         return items
             .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-            .map((item) => (
-                <TableRow key={item.id}>
-                    <TableCell className="pl-8">{item.name}</TableCell>
-                    <TableCell className="font-mono text-xs">{item.code}</TableCell>
-                    <TableCell className="text-right">{formatRupiah(item.netBalance)}</TableCell>
-                </TableRow>
-            ));
+            .map((item) => {
+                const isNeg = item.netBalance < -0.01;
+                return (
+                    <TableRow key={item.id}>
+                        <TableCell className="pl-8">{item.name}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell>
+                        <TableCell className={cn("text-right font-mono tabular-nums", isNeg && "text-destructive")}>{formatRupiah(item.netBalance)}</TableCell>
+                    </TableRow>
+                );
+            });
     };
 
     return (
@@ -229,7 +234,7 @@ export default function BalanceSheetPage() {
                                         }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL ASET</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.totalAssets)}</TableCell>
+                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalAssets)}</TableCell>
                                         </TableRow>
 
                                         {/* LIABILITIES */}
@@ -242,7 +247,7 @@ export default function BalanceSheetPage() {
                                         }
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL KEWAJIBAN</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.totalLiabilities)}</TableCell>
+                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalLiabilities)}</TableCell>
                                         </TableRow>
 
                                         {/* EQUITY */}
@@ -259,18 +264,18 @@ export default function BalanceSheetPage() {
                                             <TableRow>
                                                 <TableCell className="pl-8 italic text-muted-foreground">Laba Periode Berjalan (Belum Diclose)</TableCell>
                                                 <TableCell className="font-mono text-xs text-muted-foreground">—</TableCell>
-                                                <TableCell className="text-right text-muted-foreground">{formatRupiah(data.unpostedEarnings)}</TableCell>
+                                                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{formatRupiah(data.unpostedEarnings)}</TableCell>
                                             </TableRow>
                                         )}
 
                                         <TableRow className="font-bold border-t-2 bg-muted/30">
                                             <TableCell colSpan={2}>TOTAL EKUITAS</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.totalEquity + data.unpostedEarnings)}</TableCell>
+                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalEquity + data.unpostedEarnings)}</TableCell>
                                         </TableRow>
 
                                         <TableRow className="bg-primary/10 font-bold text-lg border-t-4 border-primary">
                                             <TableCell colSpan={2}>TOTAL KEWAJIBAN & EKUITAS</TableCell>
-                                            <TableCell className="text-right">{formatRupiah(data.totalLiabilitiesAndEquity)}</TableCell>
+                                            <TableCell className="text-right font-mono tabular-nums">{formatRupiah(data.totalLiabilitiesAndEquity)}</TableCell>
                                         </TableRow>
                                     </>
                                 )}
