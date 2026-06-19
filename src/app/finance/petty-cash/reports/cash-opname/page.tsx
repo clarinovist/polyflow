@@ -118,14 +118,14 @@ export default function CashOpnamePage() {
     const dateFormatted = format(date, 'd MMMM yyyy', { locale: localeID });
 
     return (
-        <>
+        <div>
             {/* Print styles */}
             <style dangerouslySetInnerHTML={{ __html: `
                 @media print {
-                    aside, header, .h-16.lg\\:hidden, .print\\:hidden, button, .no-print, nav {
+                    aside, header, .h-16.lg\\\\:hidden, .print\\\\:hidden, button, .no-print, nav {
                         display: none !important;
                     }
-                    main, .lg\\:ml-64, .p-4, .md\\:p-6, .lg\\:p-8 {
+                    main, .lg\\\\:ml-64, .p-4, .md\\\\:p-6, .lg\\\\:p-8 {
                         margin-left: 0 !important;
                         padding: 0 !important;
                     }
@@ -183,7 +183,7 @@ export default function CashOpnamePage() {
                     <Button variant="outline" size="icon" onClick={fetchData} title="Refresh">
                         <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
                     </Button>
-                    <Button className="gap-2 bg-purple-600 hover:bg-purple-700 text-white" onClick={handlePrint} disabled={loading || !data}>
+                    <Button className="gap-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-400 dark:hover:bg-purple-300 dark:text-gray-900" onClick={handlePrint} disabled={loading || !data}>
                         <Printer className="h-4 w-4" />
                         Cetak
                     </Button>
@@ -199,34 +199,34 @@ export default function CashOpnamePage() {
                     Tidak ada data untuk tanggal ini.
                 </div>
             ) : (
-                <div className="print-container max-w-4xl mx-auto bg-white p-8 border rounded-lg">
+                <div className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm">
                     {/* ===== HEADER ===== */}
                     <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold tracking-wide">BERITA ACARA</h1>
-                        <p className="text-sm">Cash Opname : 1-112 Kas Kecil</p>
-                        <p className="text-sm">Tanggal : {dayName}, {dateFormatted}</p>
+                        <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">BERITA ACARA</h1>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">Cash Opname : 1-112 Kas Kecil</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">Tanggal : {dayName}, {dateFormatted}</p>
                     </div>
-                    <hr className="border-black mb-4" />
+                    <hr className="border-black dark:border-gray-600 mb-4" />
 
                     {/* ===== OPENING BALANCE & SUMMARY ===== */}
                     <div className="space-y-1 text-sm mb-4">
                         <div className="flex justify-between">
-                            <span>Saldo Awal tgl {format(prevDate, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(openingBalance)}</span>
+                            <span className="text-gray-800 dark:text-gray-200">Saldo Awal tgl {format(prevDate, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(openingBalance)}</span>
                         </div>
-                        <div className="font-semibold">KAS KECIL</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">KAS KECIL</div>
                         <div className="flex justify-between">
-                            <span>Pengeluaran yg bernota tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(totalOut)}</span>
+                            <span className="text-gray-800 dark:text-gray-200">Pengeluaran yg bernota tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalOut)}</span>
                         </div>
-                        <div>sampai tgl</div>
+                        <div className="text-gray-700 dark:text-gray-300">sampai tgl</div>
                         <div className="flex justify-between">
-                            <span>KAS BON s/d tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="text-gray-800 dark:text-gray-200">KAS BON s/d tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
                             <span>&nbsp;</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>Uang Masuk Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(totalIn)}</span>
+                            <span className="text-gray-800 dark:text-gray-200">Uang Masuk Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalIn)}</span>
                         </div>
                     </div>
 
@@ -234,52 +234,52 @@ export default function CashOpnamePage() {
                     <div className="mb-4">
                         <table className="w-full border-collapse text-sm">
                             <thead>
-                                <tr className="border border-black">
-                                    <th className="border border-black px-2 py-1 text-left w-24">Tanggal</th>
-                                    <th className="border border-black px-2 py-1 text-left">No Inv/No Po</th>
-                                    <th className="border border-black px-2 py-1 text-left">Nomor Transaksi</th>
-                                    <th className="border border-black px-2 py-1 text-left">Memo</th>
-                                    <th className="border border-black px-2 py-1 text-right w-32">Pengembalian Kasbon</th>
-                                    <th className="border border-black px-2 py-1 text-right w-32">Pengeluaran Kasbon</th>
+                                <tr className="border border-black dark:border-gray-600">
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left w-24 text-gray-900 dark:text-gray-100">Tanggal</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">No Inv/No Po</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">Nomor Transaksi</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">Memo</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Pengembalian Kasbon</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Pengeluaran Kasbon</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {data.transactions.filter(t => t.status === 'POSTED').map((t) => (
-                                    <tr key={t.id} className="border border-black">
-                                        <td className="border border-black px-2 py-1">
+                                    <tr key={t.id} className="border border-black dark:border-gray-600">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
                                             {format(new Date(t.date), 'd MMM yyyy', { locale: localeID })}
                                         </td>
-                                        <td className="border border-black px-2 py-1 text-xs">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
                                             {t.type === 'EXPENSE' ? `1117-MELINDO JAY/BKM-${format(new Date(t.date), 'dd/MM/yy')}` : ''}
                                         </td>
-                                        <td className="border border-black px-2 py-1 font-mono text-xs">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
                                             {t.voucherNumber}
                                         </td>
-                                        <td className="border border-black px-2 py-1">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
                                             {t.description}
                                         </td>
-                                        <td className="border border-black px-2 py-1 text-right font-mono">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
                                             {t.type === 'REPLENISHMENT' ? formatNumber(Number(t.amount)) : ''}
                                         </td>
-                                        <td className="border border-black px-2 py-1 text-right font-mono">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
                                             {t.type === 'EXPENSE' ? formatNumber(Number(t.amount)) : ''}
                                         </td>
                                     </tr>
                                 ))}
                                 {data.transactions.filter(t => t.status === 'POSTED').length === 0 && (
-                                    <tr className="border border-black">
-                                        <td colSpan={6} className="border border-black px-2 py-2 text-center text-muted-foreground italic">
+                                    <tr className="border border-black dark:border-gray-600">
+                                        <td colSpan={6} className="border border-black dark:border-gray-600 px-2 py-2 text-center text-muted-foreground italic">
                                             Tidak ada transaksi terposting
                                         </td>
                                     </tr>
                                 )}
                                 {/* Total row */}
-                                <tr className="border border-black font-bold">
-                                    <td colSpan={4} className="border border-black px-2 py-1 text-right">TOTAL KASBON :</td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono">
+                                <tr className="border border-black dark:border-gray-600 font-bold">
+                                    <td colSpan={4} className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">TOTAL KASBON :</td>
+                                    <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
                                         {formatNumber(data.transactions.filter(t => t.type === 'REPLENISHMENT' && t.status === 'POSTED').reduce((s, t) => s + Number(t.amount), 0))}
                                     </td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono">
+                                    <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
                                         {formatNumber(data.transactions.filter(t => t.type === 'EXPENSE' && t.status === 'POSTED').reduce((s, t) => s + Number(t.amount), 0))}
                                     </td>
                                 </tr>
@@ -290,60 +290,60 @@ export default function CashOpnamePage() {
                     {/* ===== FINANCIAL SUMMARY ===== */}
                     <div className="space-y-1 text-sm mb-6">
                         <div className="flex justify-between">
-                            <span>TOTAL PENGELUARAN Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(totalOut)} -</span>
+                            <span className="text-gray-800 dark:text-gray-200">TOTAL PENGELUARAN Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalOut)} -</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>UANG MASUK Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(totalIn)} +</span>
+                            <span className="text-gray-800 dark:text-gray-200">UANG MASUK Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalIn)} +</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>PENGEMBALIAN KAS BON tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono">{formatNumber(0)} -</span>
+                            <span className="text-gray-800 dark:text-gray-200">PENGEMBALIAN KAS BON tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(0)} -</span>
                         </div>
                         <div className="flex justify-between">
-                            <span>SALDO AKHIR Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
+                            <span className="text-gray-800 dark:text-gray-200">SALDO AKHIR Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
                             <span>&nbsp;</span>
                         </div>
-                        <div className="flex justify-between font-bold text-base border-t border-black pt-1">
-                            <span>KAS KECIL</span>
-                            <span className="font-mono">{formatNumber(closingBalance)}</span>
+                        <div className="flex justify-between font-bold text-base border-t border-black dark:border-gray-600 pt-1">
+                            <span className="text-gray-900 dark:text-gray-100">KAS KECIL</span>
+                            <span className="font-mono text-gray-900 dark:text-gray-100">{formatNumber(closingBalance)}</span>
                         </div>
                     </div>
 
                     {/* ===== DENOMINASI ===== */}
                     <div className="mb-4">
-                        <p className="text-sm mb-2">Jumlah fisik uang kontan yang dihitung terdiri dari :</p>
+                        <p className="text-sm mb-2 text-gray-800 dark:text-gray-200">Jumlah fisik uang kontan yang dihitung terdiri dari :</p>
                         <table className="w-full border-collapse text-sm">
                             <thead>
-                                <tr className="border border-black">
-                                    <th className="border border-black px-2 py-1 text-right">Pecahan</th>
-                                    <th className="border border-black px-2 py-1 text-center w-8">X</th>
-                                    <th className="border border-black px-2 py-1 text-center w-20">Jumlah</th>
-                                    <th className="border border-black px-2 py-1 text-center w-8">:</th>
-                                    <th className="border border-black px-2 py-1 text-right w-32">Total</th>
-                                    <th className="border border-black px-2 py-1 text-center w-16">Ket</th>
+                                <tr className="border border-black dark:border-gray-600">
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">Pecahan</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">X</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">Jumlah</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">:</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Total</th>
+                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">Ket</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {denominationRows.map((row, i) => (
-                                    <tr key={i} className="border border-black">
-                                        <td className="border border-black px-2 py-0.5 text-right font-mono">{row.label}</td>
-                                        <td className="border border-black px-2 py-0.5 text-center">X</td>
-                                        <td className="border border-black px-1 py-0.5 text-center">
+                                    <tr key={i} className="border border-black dark:border-gray-600">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">{row.label}</td>
+                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">X</td>
+                                        <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
                                             <Input
                                                 type="number"
-                                                className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent"
+                                                className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent text-gray-800 dark:text-gray-200"
                                                 value={row.count || ''}
                                                 onChange={(e) => updateDenomination(i, parseInt(e.target.value) || 0)}
                                                 min={0}
                                             />
                                         </td>
-                                        <td className="border border-black px-2 py-0.5 text-center">:</td>
-                                        <td className="border border-black px-2 py-0.5 text-right font-mono">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">:</td>
+                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
                                             {row.total > 0 ? formatNumber(row.total) : ''}
                                         </td>
-                                        <td className="border border-black px-2 py-0.5 text-center text-xs text-muted-foreground">
+                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
                                             {row.type || ''}
                                         </td>
                                     </tr>
@@ -354,15 +354,15 @@ export default function CashOpnamePage() {
 
                     {/* ===== REKONSILIASI ===== */}
                     <div className="mb-6">
-                        <hr className="border-black mb-2" />
+                        <hr className="border-black dark:border-gray-600 mb-2" />
                         <div className="space-y-1 text-sm">
                             <div className="flex justify-between">
-                                <span>Total fisik uang :</span>
-                                <span className="font-mono font-bold">{formatNumber(totalFisik)}</span>
+                                <span className="text-gray-800 dark:text-gray-200">Total fisik uang :</span>
+                                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{formatNumber(totalFisik)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>Selisih Lebih / Kurang :</span>
-                                <span className={cn("font-mono font-bold", selisih !== 0 && "text-red-600")}>
+                                <span className="text-gray-800 dark:text-gray-200">Selisih Lebih / Kurang :</span>
+                                <span className={cn("font-mono font-bold", selisih !== 0 ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200")}>
                                     {selisih !== 0 ? formatNumber(selisih) : '0'}
                                 </span>
                             </div>
@@ -371,10 +371,10 @@ export default function CashOpnamePage() {
 
                     {/* ===== CLOSING STATEMENT ===== */}
                     <div className="mb-8">
-                        <p className="text-sm">
+                        <p className="text-sm text-gray-800 dark:text-gray-200">
                             Demikian berita acara ini dibuat dengan sesungguhnya, Terima kasih.
                         </p>
-                        <p className="text-sm mt-1">
+                        <p className="text-sm mt-1 text-gray-800 dark:text-gray-200">
                             Karanganyar, {dayName}, {dateFormatted}
                         </p>
                     </div>
@@ -382,28 +382,28 @@ export default function CashOpnamePage() {
                     {/* ===== SIGNATURES ===== */}
                     <div className="grid grid-cols-4 gap-6 text-center text-sm">
                         <div>
-                            <p className="font-semibold">Kasir</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Kasir</p>
                             <div className="h-16" />
-                            <p className="border-t border-black mx-2 pt-1">( Febyoni )</p>
+                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Febyoni )</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Akuntansi</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Akuntansi</p>
                             <div className="h-16" />
-                            <p className="border-t border-black mx-2 pt-1">( Akhmad A C )</p>
+                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Akhmad A C )</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Direktur</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Direktur</p>
                             <div className="h-16" />
-                            <p className="border-t border-black mx-2 pt-1">( Nugroho Pramono )</p>
+                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Nugroho Pramono )</p>
                         </div>
                         <div>
-                            <p className="font-semibold">Komisaris</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">Komisaris</p>
                             <div className="h-16" />
-                            <p className="border-t border-black mx-2 pt-1">( Lie Mei Lie )</p>
+                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Lie Mei Lie )</p>
                         </div>
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }

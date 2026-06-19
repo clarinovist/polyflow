@@ -1,4 +1,7 @@
 import { getOpnameSessions } from '@/actions/inventory/opname';
+import { requireRole } from '@/lib/tools/auth-checks';
+import { Role } from '@prisma/client';
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
@@ -8,6 +11,12 @@ import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/Crea
 import { Separator } from '@/components/ui/separator';
 
 export default async function WarehouseOpnameListPage() {
+    try {
+        await requireRole([Role.WAREHOUSE, Role.PRODUCTION, Role.PLANNING]);
+    } catch (_) {
+        redirect('/dashboard');
+    }
+
     const sessionsRes = await getOpnameSessions();
     const sessions = sessionsRes.success && sessionsRes.data ? sessionsRes.data : [];
 
