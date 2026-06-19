@@ -11,14 +11,14 @@ describe('formatRupiah', () => {
     it('formats positive integer in IDR locale', () => {
         const result = formatRupiah(15000);
         expect(result).toMatch(/(Rp|IDR)/);
-        expect(result).toMatch(/15[\.,]000/);
+        expect(result).toMatch(/15[\\.,]000/);
     });
 
-    it('formats decimal with max two fraction digits', () => {
+    it('formats decimal as whole number (no decimals)', () => {
         const result = formatRupiah(1234.567);
         expect(result).toMatch(/(Rp|IDR)/);
-        expect(result).toMatch(/1[\.,]234/);
-        expect(result).toMatch(/[\.,]\d{1,2}$/);
+        expect(result).toMatch(/1[\\.,]235/);
+        expect(result).not.toMatch(/[\\.,]\\d{1,2}$/);
     });
 
     it('formats zero correctly', () => {
