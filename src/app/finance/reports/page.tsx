@@ -11,59 +11,60 @@ import {
     Factory
 } from "lucide-react";
 import Link from "next/link";
+import { reportLabels } from "@/lib/labels";
 
 const reports = [
     {
-        title: "Balance Sheet",
-        description: "A summary of assets, liabilities, and equity at a specific point in time.",
+        title: reportLabels.balanceSheet,
+        description: reportLabels.balanceSheetDesc,
         href: "/finance/reports/balance-sheet",
         icon: Scale,
         color: "text-blue-500 dark:text-blue-400",
         bg: "bg-blue-500/10 dark:bg-blue-400/10"
     },
     {
-        title: "Income Statement",
-        description: "Profit and Loss statement showing revenues and expenses over a period.",
+        title: reportLabels.incomeStatement,
+        description: reportLabels.incomeStatementDesc,
         href: "/finance/reports/income-statement",
         icon: BarChart3,
         color: "text-emerald-500 dark:text-emerald-400",
         bg: "bg-emerald-500/10 dark:bg-emerald-400/10"
     },
     {
-        title: "Trial Balance",
-        description: "Listing of all general ledger accounts and their current balances.",
+        title: reportLabels.trialBalance,
+        description: reportLabels.trialBalanceDesc,
         href: "/finance/reports/trial-balance",
         icon: Activity,
         color: "text-amber-500 dark:text-amber-400",
         bg: "bg-amber-500/10 dark:bg-amber-400/10"
     },
     {
-        title: "Budget Variance",
-        description: "Comparison of actual performance against budgeted targets.",
+        title: reportLabels.budgetVariance,
+        description: reportLabels.budgetVarianceDesc,
         href: "/finance/reports/budget-variance",
         icon: PieChart,
         color: "text-purple-500 dark:text-purple-400",
         bg: "bg-purple-500/10 dark:bg-purple-400/10"
     },
     {
-        title: "Cash Flow Statement",
-        description: "Statement of cash inflows and outflows (Operating, Investing, Financing).",
+        title: reportLabels.cashFlowStatement,
+        description: reportLabels.cashFlowStatementDesc,
         href: "/finance/reports/cash-flow",
         icon: Activity,
         color: "text-emerald-600 dark:text-emerald-400",
         bg: "bg-emerald-600/10 dark:bg-emerald-400/10"
     },
     {
-        title: "Tax Report",
-        description: "Monthly integrated tax report (VAT & Income Tax).",
+        title: reportLabels.taxReport,
+        description: reportLabels.taxReportDesc,
         href: "/finance/reports/tax",
         icon: Scale,
         color: "text-amber-600 dark:text-amber-400",
         bg: "bg-amber-600/10 dark:bg-amber-400/10"
     },
     {
-        title: "Maklon Profitability",
-        description: "Analyze service revenue vs internal conversion costs for toll manufacturing.",
+        title: reportLabels.maklonProfitability,
+        description: reportLabels.maklonProfitabilityDesc,
         href: "/finance/reports/maklon",
         icon: Factory,
         color: "text-purple-600 dark:text-purple-400",
@@ -75,9 +76,9 @@ export default function ReportsPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Financial Reports</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{reportLabels.financialReports}</h1>
                 <p className="text-muted-foreground">
-                    Comprehensive accounting statements and analysis tools.
+                    {reportLabels.comprehensiveReports}
                 </p>
             </div>
 
@@ -90,7 +91,7 @@ export default function ReportsPage() {
                             </div>
                             <div className="flex-1">
                                 <CardTitle className="text-xl">{report.title}</CardTitle>
-                                <CardDescription>{report.title === "Income Statement" ? "P&L Statement" : "Accounting Report"}</CardDescription>
+                                <CardDescription>{report.title === reportLabels.incomeStatement ? reportLabels.plStatement : reportLabels.accountingReport}</CardDescription>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -99,7 +100,7 @@ export default function ReportsPage() {
                             </p>
                             <Link href={report.href}>
                                 <Button className="w-full group">
-                                    View Report
+                                    {reportLabels.viewReport}
                                     <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                             </Link>
@@ -113,19 +114,19 @@ export default function ReportsPage() {
                 <CardHeader>
                     <CardTitle className="text-white flex items-center gap-2">
                         <LayoutDashboard className="h-5 w-5 text-indigo-400 dark:text-indigo-300" />
-                        Custom Analysis
+                        {reportLabels.customAnalysis}
                     </CardTitle>
                     <CardDescription className="text-slate-400 dark:text-slate-300">
-                        Need a specialized report or custom data export?
+                        {reportLabels.customAnalysisDesc}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Button variant="secondary" className="font-bold">
-                            Open Report Builder
+                            {reportLabels.openReportBuilder}
                         </Button>
                         <Button variant="outline" className="border-slate-700 dark:border-slate-600 text-white hover:bg-slate-800 dark:hover:bg-slate-700">
-                            Download Raw Data (CSV)
+                            {reportLabels.downloadRawData}
                         </Button>
                     </div>
                 </CardContent>

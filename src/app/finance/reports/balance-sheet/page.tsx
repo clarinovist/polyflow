@@ -15,6 +15,7 @@ import { format } from "date-fns"
 import { useCallback } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { reportLabels } from '@/lib/labels';
 
 interface BalanceSheetItem {
     id: string;
@@ -135,9 +136,9 @@ export default function BalanceSheetPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Balance Sheet</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{reportLabels.balanceSheet}</h1>
                     <p className="text-muted-foreground">
-                        Financial Position as of {format(date, "PPP")}
+                        {reportLabels.financialPosition} {format(date, "PPP")}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -151,7 +152,7 @@ export default function BalanceSheetPage() {
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                {date ? format(date, "PPP") : <span>{reportLabels.pickDate}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { PurchaseReturnTable } from '@/components/purchasing/PurchaseReturnTable';
 import { serializeData } from '@/lib/utils/utils';
 import { PurchaseReturnStatus } from '@prisma/client';
+import { planningLabels } from '@/lib/labels';
 
 export default async function PurchaseReturnsPage({ searchParams }: { searchParams: Promise<{ search?: string, status?: PurchaseReturnStatus }> }) {
     const params = await searchParams;

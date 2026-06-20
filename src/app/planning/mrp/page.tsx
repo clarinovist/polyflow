@@ -7,6 +7,7 @@ import { AlertCircle, ShoppingCart, ArrowRight, CheckCircle2 } from 'lucide-reac
 import { ProductionStatus } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { planningLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,14 +72,14 @@ export default async function PpicMrpPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Material Planning (MRP)</h1>
-                    <p className="text-muted-foreground">Shortage analysis based on pending production orders.</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">{planningLabels.materialPlanning}</h1>
+                    <p className="text-muted-foreground">{planningLabels.shortageAnalysis}</p>
                 </div>
                 <div className="flex gap-3">
                     <Link href="/planning/purchase-orders/create">
                         <Button className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600">
                             <ShoppingCart className="mr-2 h-4 w-4" />
-                            Create Bulk PO
+                            {planningLabels.createBulkPO}
                         </Button>
                     </Link>
                 </div>
@@ -87,48 +88,48 @@ export default async function PpicMrpPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{planningLabels.pendingOrders}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{pendingOrders.length}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Requiring materials</p>
+                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.requiringMaterials}</p>
                     </CardContent>
                 </Card>
                 <Card className={totalShortages > 0 ? "border-red-200 bg-red-50/30 dark:border-red-800/50 dark:bg-red-900/20" : ""}>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground font-bold">Shortages Detected</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground font-bold">{planningLabels.shortagesDetected}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className={cn("text-2xl font-bold", totalShortages > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
-                            {totalShortages} Items
+                            {totalShortages} {planningLabels.material}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">Action items for Purchasing</p>
+                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.actionForPurchasing}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">RM Inventory Value</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{planningLabels.rmInventoryValue}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">Active Monitoring</div>
-                        <p className="text-xs text-muted-foreground mt-1">Real-time sync with RM Warehouse</p>
+                        <div className="text-2xl font-bold">{planningLabels.activeMonitoring}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{planningLabels.realTimeSync}</p>
                     </CardContent>
                 </Card>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Requirements Analysis</CardTitle>
-                    <CardDescription>Consolidated demand vs current stock in RM Warehouse.</CardDescription>
+                    <CardTitle>{planningLabels.requirementsAnalysis}</CardTitle>
+                    <CardDescription>{planningLabels.consolidatedDemand}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Material</TableHead>
-                                <TableHead className="text-right">Total Demand</TableHead>
-                                <TableHead className="text-right">Current Stock</TableHead>
-                                <TableHead className="text-right">Shortage</TableHead>
+                                <TableHead>{planningLabels.material}</TableHead>
+                                <TableHead className="text-right">{planningLabels.totalDemand}</TableHead>
+                                <TableHead className="text-right">{planningLabels.currentStock}</TableHead>
+                                <TableHead className="text-right">{planningLabels.shortage}</TableHead>
                                 <TableHead className="text-right"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -141,9 +142,9 @@ export default async function PpicMrpPage() {
                                                 <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                                             </div>
                                             <div className="space-y-1">
-                                                <h3 className="text-lg font-medium">No Shortages Detected</h3>
+                                                <h3 className="text-lg font-medium">{planningLabels.noShortages}</h3>
                                                 <p className="text-muted-foreground">
-                                                    All active production orders have sufficient material coverage.
+                                                    {planningLabels.sufficientMaterial}
                                                 </p>
                                             </div>
                                         </div>
@@ -169,11 +170,11 @@ export default async function PpicMrpPage() {
                                             {item.hasShortage ? (
                                                 <Link href={`/planning/purchase-orders/create?variantId=${item.sku}`}>
                                                     <Button variant="ghost" size="sm" className="text-red-700 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 h-8 gap-1">
-                                                        Purchase <ArrowRight className="h-3 w-3" />
+                                                        {planningLabels.purchase} <ArrowRight className="h-3 w-3" />
                                                     </Button>
                                                 </Link>
                                             ) : (
-                                                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800/50">Covered</Badge>
+                                                <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/20 dark:border-emerald-800/50">{planningLabels.covered}</Badge>
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -188,7 +189,7 @@ export default async function PpicMrpPage() {
                 <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800/50 dark:text-amber-400">
                     <AlertCircle className="h-5 w-5" />
                     <span className="text-sm font-medium">
-                        You have {totalShortages} materials with insufficient stock to fulfill planned production.
+                        {planningLabels.insufficientStock(totalShortages)}
                     </span>
                 </div>
             )}
@@ -198,5 +199,4 @@ export default async function PpicMrpPage() {
 
 function cn(...inputs: (string | boolean | undefined | null)[]) {
     return inputs.filter(Boolean).join(' ');
-
 }

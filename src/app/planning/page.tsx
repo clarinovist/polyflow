@@ -1,4 +1,5 @@
 import { getPlanningDashboardStats } from '@/actions/dashboard/planning-dashboard';
+import { planningLabels } from '@/lib/labels';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Activity, AlertTriangle, CheckCircle2, Factory, Hammer, Settings2, Truck, ClipboardCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -24,30 +25,30 @@ export default async function PlanningDashboardPage() {
     return (
         <div className="flex flex-col space-y-6">
             <PageHeader
-                title="Mission Control"
-                description="Real-time overview of production and procurement."
+                title={planningLabels.missionControl}
+                description={planningLabels.realtimeOverview}
                 actions={
                     <ResponsiveButtonGroup mobileStack>
                         <Button asChild variant="outline">
                             <Link href="/planning/mrp">
-                                Check Shortages
+                                {planningLabels.checkShortages}
                             </Link>
                         </Button>
                         <Button asChild>
                             <Link href="/planning/schedule">
-                                View Schedule
+                                {planningLabels.viewSchedule}
                             </Link>
                         </Button>
                         <Button asChild className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600">
                             <Link href="/planning/requests">
                                 <Factory className="mr-2 h-4 w-4" />
-                                Production Requests
+                                {planningLabels.productionRequests}
                             </Link>
                         </Button>
                         <Button asChild variant="secondary">
                             <Link href="/planning/purchase-requests">
                                 <ClipboardCheck className="mr-2 h-4 w-4" />
-                                Purchase Requests
+                                {planningLabels.purchaseRequestsButton}
                             </Link>
                         </Button>
                     </ResponsiveButtonGroup>
@@ -58,12 +59,12 @@ export default async function PlanningDashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Production</CardTitle>
+                        <CardTitle className="text-sm font-medium">{planningLabels.activeProduction}</CardTitle>
                         <Factory className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.activeJobsCount}</div>
-                        <p className="text-xs text-muted-foreground">Jobs currently running</p>
+                        <p className="text-xs text-muted-foreground">{planningLabels.jobsRunning}</p>
                     </CardContent>
                 </Card>
                 <Card>

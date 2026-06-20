@@ -4,10 +4,11 @@ import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseOrderTable } from '@/components/planning/purchasing/PurchaseOrderTable';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
+import { planningLabels } from '@/lib/labels';
 
 export const metadata: Metadata = {
     title: 'Purchase Orders | PolyFlow ERP',
-    description: 'Manage your procurement and supplier orders.',
+    description: planningLabels.purchaseOrdersDesc,
 };
 
 export default async function PurchaseOrdersPage() {
@@ -28,7 +29,7 @@ export default async function PurchaseOrdersPage() {
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">Purchase Orders</h1>
                         <p className="text-muted-foreground">
-                            Create and track orders sent to your suppliers.
+                            {planningLabels.createTrackOrders}
                         </p>
                     </div>
                 </div>
@@ -36,19 +37,19 @@ export default async function PurchaseOrdersPage() {
 
             <div className="grid gap-4 md:grid-cols-4">
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">Total Orders</div>
+                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.totalOrders}</div>
                     <div className="text-2xl font-bold">{stats.totalOrders}</div>
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">Open / Sent</div>
+                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.openSent}</div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.openOrders}</div>
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">Completed</div>
+                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.completed}</div>
                     <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.completedOrders}</div>
                 </div>
                 <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">Total Spend</div>
+                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.totalSpend}</div>
                     <div className="text-2xl font-bold">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.totalSpend)}
                     </div>

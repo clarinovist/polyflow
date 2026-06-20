@@ -16,19 +16,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sidebarLinks } from '@/components/layout/sidebar-nav';
+import { settingsLabels } from '@/lib/labels';
 
 // Extract resources from sidebar links
 const RESOURCES = sidebarLinks.map(item => ({
     key: item.href,
     label: item.title,
-    group: 'Menu'
+    group: settingsLabels.menu
 }));
 
 const FEATURE_PERMISSIONS = [
     {
         key: 'feature:view-prices',
-        label: 'View Prices',
-        description: 'Can view product prices and inventory values'
+        label: settingsLabels.viewPrices,
+        description: settingsLabels.viewPricesDesc
     }
 ];
 
@@ -119,16 +120,16 @@ export function AccessControlTab() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Access Control</CardTitle>
+                <CardTitle>{settingsLabels.accessControl}</CardTitle>
                 <CardDescription>
-                    Configure which modules each role can access. Admin has full access by default.
+                    {settingsLabels.accessControlDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[200px]">Module</TableHead>
+                            <TableHead className="w-[200px]">{settingsLabels.module}</TableHead>
                             {ROLES.map(role => (
                                 <TableHead key={role} className="text-center">{role}</TableHead>
                             ))}
@@ -160,14 +161,14 @@ export function AccessControlTab() {
                 </Table>
 
                 <div className="mt-8 mb-4">
-                    <h3 className="text-lg font-medium">Feature Permissions</h3>
-                    <p className="text-sm text-muted-foreground">Control access to specific features and data visibility.</p>
+                    <h3 className="text-lg font-medium">{settingsLabels.featurePermissions}</h3>
+                    <p className="text-sm text-muted-foreground">{settingsLabels.featurePermissionsDesc}</p>
                 </div>
 
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[200px]">Feature</TableHead>
+                            <TableHead className="w-[200px]">{settingsLabels.feature}</TableHead>
                             {ROLES.map(role => (
                                 <TableHead key={role} className="text-center">{role}</TableHead>
                             ))}

@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { reportLabels } from '@/lib/labels';
 
 
 interface IncomeStatementItem {
@@ -130,7 +131,7 @@ export default function IncomeStatementPage() {
                     onCheckedChange={setHideZero}
                 />
                 <Label htmlFor="hide-zero" className="cursor-pointer font-medium">
-                    Hide Zero Balances
+                    {reportLabels.hideZero}
                 </Label>
             </div>
 
@@ -173,8 +174,8 @@ export default function IncomeStatementPage() {
             {/* Main Report Table */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Statement of Profit or Loss</CardTitle>
-                    <CardDescription>Multi-step manufacturing income statement</CardDescription>
+                    <CardTitle>{reportLabels.statementOfProfitOrLoss}</CardTitle>
+                    <CardDescription>{reportLabels.multiStepManufacturing}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
@@ -233,17 +234,17 @@ export default function IncomeStatementPage() {
 
                                         {/* Simplified Categories */}
                                         <TableRow>
-                                            <TableCell className="pl-8">Direct Materials Used</TableCell>
+                                            <TableCell className="pl-8">{reportLabels.directMaterialsUsed}</TableCell>
                                             <TableCell className="font-mono text-sm text-muted-foreground">51000</TableCell>
                                             <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.materials)}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">Direct Labor</TableCell>
+                                            <TableCell className="pl-8">{reportLabels.directLabor}</TableCell>
                                             <TableCell className="font-mono text-sm text-muted-foreground">52000</TableCell>
                                             <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.labor)}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">Factory Overhead</TableCell>
+                                            <TableCell className="pl-8">{reportLabels.factoryOverhead}</TableCell>
                                             <TableCell className="font-mono text-sm text-muted-foreground">53000</TableCell>
                                             <TableCell className="text-right font-mono">{formatRupiah(groupedCOGS.overhead)}</TableCell>
                                         </TableRow>
@@ -272,12 +273,12 @@ export default function IncomeStatementPage() {
                                         </TableRow>
 
                                         <TableRow>
-                                            <TableCell className="pl-8">Selling & Marketing Expenses</TableCell>
+                                            <TableCell className="pl-8">{reportLabels.sellingMarketingExpenses}</TableCell>
                                             <TableCell className="font-mono text-sm text-muted-foreground">61000</TableCell>
                                             <TableCell className="text-right font-mono">({formatRupiah(groupedOpEx.selling)})</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="pl-8">General & Administrative Expenses</TableCell>
+                                            <TableCell className="pl-8">{reportLabels.generalAdminExpenses}</TableCell>
                                             <TableCell className="font-mono text-sm text-muted-foreground">62000</TableCell>
                                             <TableCell className="text-right font-mono">({formatRupiah(groupedOpEx.general)})</TableCell>
                                         </TableRow>
@@ -329,7 +330,7 @@ export default function IncomeStatementPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Gross Margin</CardTitle>
+                        <CardTitle className="text-sm font-medium">{reportLabels.grossMargin}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
@@ -340,7 +341,7 @@ export default function IncomeStatementPage() {
                 </Card>
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Operating Margin</CardTitle>
+                        <CardTitle className="text-sm font-medium">{reportLabels.operatingMargin}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
@@ -351,7 +352,7 @@ export default function IncomeStatementPage() {
                 </Card>
                 <Card className="bg-muted/50">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Net Profit Margin</CardTitle>
+                        <CardTitle className="text-sm font-medium">{reportLabels.netProfitMargin}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-primary">

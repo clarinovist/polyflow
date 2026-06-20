@@ -15,6 +15,7 @@ import { Users, Phone, MapPin, Eye, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Customer } from '@prisma/client';
+import { salesLabels } from '@/lib/labels';
 
 export default async function CustomersPage() {
     const customersRes = await getCustomers();
@@ -24,9 +25,9 @@ export default async function CustomersPage() {
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.customers}</h1>
                     <p className="text-muted-foreground">
-                        Manage your customers and sales channels
+                        {salesLabels.customersDesc}
                     </p>
                 </div>
                 <CustomerDialog mode="create" />
@@ -36,22 +37,22 @@ export default async function CustomersPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Users className="h-5 w-5" />
-                        All Customers
+                        {salesLabels.allCustomers}
                     </CardTitle>
                     <CardDescription>
-                        List of active customers in the system.
+                        {salesLabels.allCustomersDesc}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Phone</TableHead>
-                                <TableHead>Billing Address</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                                <TableHead>{salesLabels.code}</TableHead>
+                                <TableHead>{salesLabels.name}</TableHead>
+                                <TableHead>{salesLabels.phone}</TableHead>
+                                <TableHead>{salesLabels.billingAddress}</TableHead>
+                                <TableHead>{salesLabels.status}</TableHead>
+                                <TableHead className="w-[120px] text-right">{salesLabels.actions}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -73,7 +74,7 @@ export default async function CustomersPage() {
                                                 trigger={
                                                     <Button variant="outline" className="mt-4">
                                                         <Plus className="mr-2 h-4 w-4" />
-                                                        Add Customer
+                                                        {salesLabels.addCustomer}
                                                     </Button>
                                                 }
                                             />
@@ -109,7 +110,7 @@ export default async function CustomersPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={customer.isActive ? 'default' : 'secondary'}>
-                                                {customer.isActive ? 'Active' : 'Inactive'}
+                                                {customer.isActive ? salesLabels.active : salesLabels.inactive}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">

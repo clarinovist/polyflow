@@ -1,6 +1,7 @@
 import { getSalesReturns } from '@/actions/sales/sales-returns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { salesLabels } from '@/lib/labels';
 import { Plus, RotateCcw, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { SalesReturnTable } from '@/components/sales/SalesReturnTable';
@@ -31,14 +32,14 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Returns</h1>
-                    <p className="text-muted-foreground">Manage customer returns and inward shipments.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.salesReturns}</h1>
+                    <p className="text-muted-foreground">{salesLabels.salesReturnsDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild>
                         <Link href="/sales/returns/create">
                             <Plus className="mr-2 h-4 w-4" />
-                            New Sales Return
+                            {salesLabels.newSalesReturn}
                         </Link>
                     </Button>
                 </div>
@@ -48,7 +49,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Returns</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.totalReturns}</CardTitle>
                         <RotateCcw className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -57,7 +58,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active / Pending</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
                         <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     </CardHeader>
                     <CardContent>
@@ -66,7 +67,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
                     </CardHeader>
                     <CardContent>
@@ -75,7 +76,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
                         <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </CardHeader>
                     <CardContent>
@@ -86,7 +87,7 @@ export default async function SalesReturnsPage({ searchParams }: { searchParams:
 
             <Card>
                 <CardHeader>
-                    <CardTitle>All Returns</CardTitle>
+                    <CardTitle>{salesLabels.allReturns}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

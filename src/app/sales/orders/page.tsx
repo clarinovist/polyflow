@@ -7,6 +7,7 @@ import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SalesOrderType } from '@prisma/client';
+import { salesLabels } from '@/lib/labels';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -63,15 +64,15 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
-                    <p className="text-muted-foreground">Manage customer orders, production-linked demand, and maklon service closures.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.salesOrders}</h1>
+                    <p className="text-muted-foreground">{salesLabels.salesOrdersDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" />
                     <Button asChild>
                         <Link href="/sales/orders/create">
                             <Plus className="mr-2 h-4 w-4" />
-                            New Sales Order
+                            {salesLabels.newSalesOrder}
                         </Link>
                     </Button>
                 </div>
@@ -81,7 +82,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -90,7 +91,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active / Pending</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
                         <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     </CardHeader>
                     <CardContent>
@@ -99,7 +100,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
                         <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
                     </CardHeader>
                     <CardContent>
@@ -108,7 +109,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
+                        <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
                         <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </CardHeader>
                     <CardContent>
@@ -120,17 +121,17 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <Card>
                 <CardHeader>
                     <div className="flex flex-col gap-4">
-                        <CardTitle>All Orders</CardTitle>
+                        <CardTitle>{salesLabels.allOrders}</CardTitle>
                         <Tabs value={activeTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-3 md:w-[640px]">
                                 <TabsTrigger value="customer" asChild>
-                                    <Link href={buildDemandHref('customer')}>Customer Demand</Link>
+                                    <Link href={buildDemandHref('customer')}>{salesLabels.customerDemand}</Link>
                                 </TabsTrigger>
                                 <TabsTrigger value="legacy-internal" asChild>
-                                    <Link href={buildDemandHref('legacy-internal')}>Legacy Internal</Link>
+                                    <Link href={buildDemandHref('legacy-internal')}>{salesLabels.legacyInternal}</Link>
                                 </TabsTrigger>
                                 <TabsTrigger value="mts-unpaid" asChild>
-                                    <Link href={buildViewHref('mts-unpaid')}>MTS Belum Lunas</Link>
+                                    <Link href={buildViewHref('mts-unpaid')}>{salesLabels.mtsBelumLunas}</Link>
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>

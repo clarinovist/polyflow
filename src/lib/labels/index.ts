@@ -6,6 +6,10 @@ export * from './warehouse';
 export * from './kiosk';
 export * from './sales';
 export * from './purchasing';
+export * from './dashboard';
+export * from './planning';
+export * from './reports';
+export * from './settings';
 export * from './finance';
 
 export {

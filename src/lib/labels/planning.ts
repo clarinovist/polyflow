@@ -1,0 +1,118 @@
+/** Planning domain labels */
+export const planningLabels = {
+  // Planning Dashboard
+  missionControl: 'Pusat Kendali',
+  realtimeOverview: 'Ringkasan real-time produksi dan procurement.',
+  checkShortages: 'Cek Kekurangan',
+  viewSchedule: 'Lihat Jadwal',
+  productionRequests: 'Permintaan Produksi',
+  purchaseRequestsButton: 'Permintaan Pembelian',
+
+  // KPI Cards — Planning Dashboard
+  activeProduction: 'Produksi Aktif',
+  jobsRunning: 'SPK yang sedang berjalan',
+  plannedWork: 'Pekerjaan Terencana',
+  draftReleasedOrders: 'Draft & SPK yang dirilis',
+  machineHealth: 'Kondisi Mesin',
+  active: 'Aktif',
+  openProcurement: 'Procurement Terbuka',
+  activePurchaseOrders: 'PO Aktif',
+
+  // Upcoming Production
+  upcomingProduction: 'Produksi Mendatang',
+  upcomingDescription: '5 SPK berikutnya yang dijadwalkan atau sedang berjalan.',
+  noActiveSchedule: 'Tidak ada jadwal produksi aktif.',
+  noMachine: 'Tanpa Mesin',
+
+  // Machine Status
+  machineStatus: 'Status Mesin',
+  machineStatusDesc: 'Ringkasan ketersediaan mesin.',
+  activeRunning: 'Aktif & Berjalan',
+  productiveMachines: 'Mesin produktif',
+  maintenance: 'Maintenance',
+  scheduledDowntime: 'Downtime terjadwal',
+  brokenDown: 'Rusak / Down',
+  requiresAttention: 'Perlu perhatian',
+
+  // Production Orders
+  createWorkOrder: 'Buat SPK',
+  planNewJob: 'Rencanakan SPK baru',
+  createOrder: 'Buat Pesanan',
+  internalReplenishment: 'Stok Internal',
+  totalOrders: 'Total Pesanan',
+  inProgress: 'Sedang Diproses',
+  readyToRelease: 'Siap Dirilis',
+  lateOverdue: 'Terlambat',
+  all: 'Semua',
+  customerDemand: 'Pesanan Customer',
+  internalStockBuild: 'Stok Internal',
+  allOrders: 'Semua Pesanan',
+  searchOrders: 'Cari pesanan...',
+  orderNumber: 'No. Pesanan',
+  product: 'Produk',
+  status: 'Status',
+  demandSource: 'Sumber Permintaan',
+  machine: 'Mesin',
+  progress: 'Progres',
+  planned: 'Rencana',
+  startDate: 'Tanggal Mulai',
+  actions: 'Aksi',
+  internalStockBuildLabel: 'Stok internal',
+  noLinkedDemand: 'Tidak ada permintaan penjualan',
+
+  // Purchase Orders
+  purchaseOrdersDesc: 'Kelola procurement dan pesanan supplier.',
+  createTrackOrders: 'Buat dan lacak pesanan ke supplier.',
+  openSent: 'Terkirim',
+  completed: 'Selesai',
+  totalSpend: 'Total Pengeluaran',
+
+  // Purchase Returns
+  purchaseReturns: 'Retur Pembelian',
+  purchaseReturnsDesc: 'Kelola retur ke supplier dan pengiriman keluar.',
+  newPurchaseReturn: 'Retur Baru',
+  totalReturns: 'Total Retur',
+  activePending: 'Aktif / Tertunda',
+  cancelled: 'Dibatalkan',
+  allReturns: 'Semua Retur',
+
+  // Schedule
+  productionSchedule: 'Jadwal Produksi',
+  scheduleDesc: 'Kelola dan optimasi alokasi mesin dan urutan produksi.',
+  monthView: 'Tampilan Bulanan',
+  optimizeBatches: 'Optimasi Batch',
+  machineAllocationBoard: 'Papan Alokasi Mesin',
+  next7Days: '7 Hari ke Depan',
+  machineWorkCenter: 'Mesin / Work Center',
+  pendingDispatchQueue: 'Antrian Dispatch',
+  assignMachine: 'Tugaskan Mesin',
+  allAssigned: 'Semua pesanan aktif sudah ditugaskan ke mesin.',
+
+  // MRP
+  materialPlanning: 'Perencanaan Material (MRP)',
+  shortageAnalysis: 'Analisa kekurangan berdasarkan SPK tertunda.',
+  createBulkPO: 'Buat PO Massal',
+  pendingOrders: 'Pesanan Tertunda',
+  requiringMaterials: 'Membutuhkan material',
+  shortagesDetected: 'Kekurangan Terdeteksi',
+  actionForPurchasing: 'Tindakan untuk Pembelian',
+  rmInventoryValue: 'Nilai Stok Bahan Baku',
+  activeMonitoring: 'Pemantauan Aktif',
+  realTimeSync: 'Sinkron real-time dengan Gudang Bahan Baku',
+  requirementsAnalysis: 'Analisa Kebutuhan',
+  consolidatedDemand: 'Permintaan gabungan vs stok saat ini di Gudang Bahan Baku.',
+  material: 'Material',
+  totalDemand: 'Total Kebutuhan',
+  currentStock: 'Stok Saat Ini',
+  shortage: 'Kekurangan',
+  noShortages: 'Tidak Ada Kekurangan',
+  sufficientMaterial: 'Semua SPK aktif memiliki cakupan material yang cukup.',
+  purchase: 'Beli',
+  covered: 'Tercukupi',
+  insufficientStock: (count: number) => `Anda memiliki ${count} material dengan stok tidak cukup untuk memenuhi rencana produksi.`,
+
+  // Requests
+  incomingRequestsTitle: 'Permintaan Produksi Masuk',
+  incomingRequestsDesc: 'Kelola permintaan kerja dari Penjualan',
+  productionPlanning: 'Perencanaan Produksi',
+} as const;

@@ -1,11 +1,12 @@
 import { getSalesOrders } from '@/actions/sales/sales';
 import { ProductionRequestsClient } from '@/components/production/ProductionRequestsClient';
+import { planningLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-    title: 'Incoming Production Requests | PolyFlow',
-    description: 'Manage incoming work requests from Sales',
+    title: `${planningLabels.incomingRequestsTitle} | PolyFlow`,
+    description: planningLabels.incomingRequestsDesc,
 };
 
 export default async function ProductionRequestsPage() {

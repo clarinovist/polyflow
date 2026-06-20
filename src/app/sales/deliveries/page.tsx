@@ -2,6 +2,7 @@ import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { serializeData } from '@/lib/utils/utils';
+import { salesLabels } from '@/lib/labels';
 import { Package } from 'lucide-react';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
@@ -23,8 +24,8 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Delivery Orders</h1>
-                    <p className="text-muted-foreground">Manage outbound shipments and delivery status.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrders}</h1>
+                    <p className="text-muted-foreground">{salesLabels.deliveryOrdersDesc}</p>
                 </div>
                 <UrlTransactionDateFilter defaultPreset="this_month" />
             </div>
@@ -33,10 +34,10 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
-                        All Deliveries
+                        {salesLabels.allDeliveries}
                     </CardTitle>
                     <CardDescription>
-                        List of all delivery orders and their current status.
+                        {salesLabels.allDeliveriesDesc}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

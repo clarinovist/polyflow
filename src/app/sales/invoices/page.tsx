@@ -2,6 +2,7 @@ import { getSalesInvoices, getInvoiceStats } from '@/actions/finance/invoices';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { InvoiceTable } from '@/components/sales/InvoiceTable';
 import { formatRupiah, serializeData } from '@/lib/utils/utils';
+import { salesLabels } from '@/lib/labels';
 import { BadgeDollarSign, AlertCircle } from 'lucide-react';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -26,8 +27,8 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Invoices</h1>
-                    <p className="text-muted-foreground">Manage invoices and track payments.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.salesInvoices}</h1>
+                    <p className="text-muted-foreground">{salesLabels.salesInvoicesDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
@@ -39,28 +40,28 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Outstanding Amount
+                            {salesLabels.outstandingAmount}
                         </CardTitle>
                         <BadgeDollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatRupiah(stats.totalOutstanding)}</div>
                         <p className="text-xs text-muted-foreground">
-                            Unpaid or partial invoices
+                            {salesLabels.unpaidPartial}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Overdue Invoices
+                            {salesLabels.overdueInvoices}
                         </CardTitle>
                         <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.overdueCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            Requires immediate attention
+                            {salesLabels.requiresImmediateAttention}
                         </p>
                     </CardContent>
                 </Card>
@@ -68,9 +69,9 @@ export default async function SalesInvoicesPage({ searchParams }: { searchParams
 
             <Card>
                 <CardHeader>
-                    <CardTitle>All Invoices</CardTitle>
+                    <CardTitle>{salesLabels.allInvoices}</CardTitle>
                     <CardDescription>
-                        List of all sales invoices generated.
+                        {salesLabels.allInvoicesDesc}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

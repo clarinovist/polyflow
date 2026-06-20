@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { SalesQuotationTable } from '@/components/sales/quotations/SalesQuotationTable';
 import { serializeData } from '@/lib/utils/utils';
+import { salesLabels } from '@/lib/labels';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -27,15 +28,15 @@ export default async function SalesQuotationsPage({ searchParams }: { searchPara
         <div className="flex flex-col space-y-6 p-6 max-w-7xl mx-auto">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Sales Quotations</h1>
-                    <p className="text-muted-foreground">Manage pre-sales quotations and proposals.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{salesLabels.salesQuotations}</h1>
+                    <p className="text-muted-foreground">{salesLabels.salesQuotationsDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <UrlTransactionDateFilter defaultPreset="this_month" />
                     <Button asChild>
                         <Link href="/sales/quotations/create">
                             <Plus className="mr-2 h-4 w-4" />
-                            New Quotation
+                            {salesLabels.newQuotation}
                         </Link>
                     </Button>
                 </div>
@@ -43,7 +44,7 @@ export default async function SalesQuotationsPage({ searchParams }: { searchPara
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Recent Quotations</CardTitle>
+                    <CardTitle>{salesLabels.recentQuotations}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

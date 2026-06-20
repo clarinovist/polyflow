@@ -7,6 +7,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, List, Layers } fro
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils/utils';
+import { planningLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,17 +35,17 @@ export default async function PpicSchedulePage() {
         <div className="p-4 md:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Production Schedule</h1>
-                    <p className="text-sm md:text-base text-muted-foreground">Manage and optimize machine allocations and production sequences.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{planningLabels.productionSchedule}</h1>
+                    <p className="text-sm md:text-base text-muted-foreground">{planningLabels.scheduleDesc}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        Month View
+                        {planningLabels.monthView}
                     </Button>
                     <Button className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 flex-1 sm:flex-none">
                         <Layers className="mr-2 h-4 w-4" />
-                        Optimize Batches
+                        {planningLabels.optimizeBatches}
                     </Button>
                 </div>
             </div>
@@ -55,9 +56,9 @@ export default async function PpicSchedulePage() {
                     <CardHeader className="bg-muted/30 border-b py-3 px-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <CardTitle className="text-base font-semibold">Machine Allocation Board</CardTitle>
+                                <CardTitle className="text-base font-semibold">{planningLabels.machineAllocationBoard}</CardTitle>
                                 <div className="flex gap-2">
-                                    <Badge variant="outline" className="bg-white dark:bg-zinc-900 dark:bg-zinc-950">Next 7 Days</Badge>
+                                    <Badge variant="outline" className="bg-white dark:bg-zinc-900 dark:bg-zinc-950">{planningLabels.next7Days}</Badge>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
@@ -73,7 +74,7 @@ export default async function PpicSchedulePage() {
                                 <thead>
                                     <tr>
                                         <th className="sticky left-0 z-20 bg-muted border-b border-r p-3 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider w-48">
-                                            Machine / Work Center
+                                            {planningLabels.machineWorkCenter}
                                         </th>
                                         {timelineDays.map(day => (
                                             <th key={day.toISOString()} className="border-b border-r p-3 text-center min-w-[140px] bg-muted/30">
@@ -158,7 +159,7 @@ export default async function PpicSchedulePage() {
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold flex items-center gap-2">
                             <List className="h-5 w-5 text-zinc-500 dark:text-zinc-400 dark:text-zinc-500" />
-                            Pending Dispatch Queue
+                            {planningLabels.pendingDispatchQueue}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -173,14 +174,14 @@ export default async function PpicSchedulePage() {
                                     <div className="flex items-center justify-between mt-auto pt-2 border-t">
                                         <span className="text-[10px] text-muted-foreground">{format(new Date(order.plannedStartDate), 'MMM dd')}</span>
                                         <Button size="sm" variant="ghost" className="h-7 text-[10px] py-0 px-2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:bg-zinc-800">
-                                            Assign Machine
+                                            {planningLabels.assignMachine}
                                         </Button>
                                     </div>
                                 </div>
                             ))}
                             {orders.filter(o => !o.machineId).length === 0 && (
                                 <div className="w-full text-center py-8 text-sm text-muted-foreground italic">
-                                    All active orders are currently assigned to machines.
+                                    {planningLabels.allAssigned}
                                 </div>
                             )}
                         </div>
@@ -190,4 +191,3 @@ export default async function PpicSchedulePage() {
         </div>
     );
 }
-

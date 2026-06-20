@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { planningLabels } from '@/lib/labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Search, ChevronRight, Activity, Clock, AlertCircle, Layers } from 'lucide-react';
@@ -48,20 +49,20 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
-                    <p className="text-muted-foreground mt-2">Plan a new manufacturing job</p>
+                    <h1 className="text-3xl font-bold text-foreground">{planningLabels.createWorkOrder}</h1>
+                    <p className="text-muted-foreground mt-2">{planningLabels.planNewJob}</p>
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                     <Link href="/planning/orders/create" className="w-full sm:w-auto">
                         <Button variant="outline" className="w-full sm:w-auto gap-2">
                             <Plus className="h-4 w-4" />
-                            Create Order
+                            {planningLabels.createOrder}
                         </Button>
                     </Link>
                     <Link href="/planning/orders/create?intent=internal" className="w-full sm:w-auto">
                         <Button className="w-full sm:w-auto gap-2">
                             <Plus className="h-4 w-4" />
-                            Internal Replenishment
+                            {planningLabels.internalReplenishment}
                         </Button>
                     </Link>
                 </div>
@@ -71,7 +72,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                        <CardTitle className="text-sm font-medium">{planningLabels.totalOrders}</CardTitle>
                         <Layers className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -80,7 +81,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                        <CardTitle className="text-sm font-medium">{planningLabels.inProgress}</CardTitle>
                         <Activity className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
@@ -89,7 +90,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Ready to Release</CardTitle>
+                        <CardTitle className="text-sm font-medium">{planningLabels.readyToRelease}</CardTitle>
                         <Clock className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
@@ -98,7 +99,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Late / Overdue</CardTitle>
+                        <CardTitle className="text-sm font-medium">{planningLabels.lateOverdue}</CardTitle>
                         <AlertCircle className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
@@ -111,7 +112,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 <Tabs defaultValue={category || 'all'} className="w-full">
                     <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
                         <TabsTrigger value="all" asChild>
-                            <Link href={buildCategoryHref()}>All</Link>
+                            <Link href={buildCategoryHref()}>{planningLabels.all}</Link>
                         </TabsTrigger>
                         <TabsTrigger value="mixing" asChild>
                             <Link href={buildCategoryHref('mixing')}>Mixing</Link>
@@ -128,10 +129,10 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 <Tabs defaultValue={demand} className="w-full">
                     <TabsList className="grid w-full grid-cols-2 lg:w-[360px]">
                         <TabsTrigger value="customer" asChild>
-                            <Link href={buildDemandHref('customer')}>Customer Demand</Link>
+                            <Link href={buildDemandHref('customer')}>{planningLabels.customerDemand}</Link>
                         </TabsTrigger>
                         <TabsTrigger value="internal" asChild>
-                            <Link href={buildDemandHref('internal')}>Internal Stock Build</Link>
+                            <Link href={buildDemandHref('internal')}>{planningLabels.internalStockBuild}</Link>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
@@ -139,12 +140,12 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                 <Card className="border shadow-sm">
                     <CardHeader className="pb-3">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <CardTitle>All Orders</CardTitle>
+                            <CardTitle>{planningLabels.allOrders}</CardTitle>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <div className="relative w-full sm:w-auto">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search orders..."
+                                        placeholder={planningLabels.searchOrders}
                                         className="pl-9 w-full sm:w-[250px]"
                                     />
                                 </div>
@@ -156,15 +157,15 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                             <Table className="min-w-[800px]">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Order #</TableHead>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Demand Source</TableHead>
-                                        <TableHead>Machine</TableHead>
-                                        <TableHead>Progress</TableHead>
-                                        <TableHead>Planned</TableHead>
-                                        <TableHead>Start Date</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead>{planningLabels.orderNumber}</TableHead>
+                                        <TableHead>{planningLabels.product}</TableHead>
+                                        <TableHead>{planningLabels.status}</TableHead>
+                                        <TableHead>{planningLabels.demandSource}</TableHead>
+                                        <TableHead>{planningLabels.machine}</TableHead>
+                                        <TableHead>{planningLabels.progress}</TableHead>
+                                        <TableHead>{planningLabels.planned}</TableHead>
+                                        <TableHead>{planningLabels.startDate}</TableHead>
+                                        <TableHead className="text-right">{planningLabels.actions}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -208,8 +209,8 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <span className="text-sm font-medium">Internal stock build</span>
-                                                                    <span className="text-xs text-muted-foreground">No linked sales demand</span>
+                                                                    <span className="text-sm font-medium">{planningLabels.internalStockBuildLabel}</span>
+                                                                    <span className="text-xs text-muted-foreground">{planningLabels.noLinkedDemand}</span>
                                                                 </>
                                                             )}
                                                         </div>

@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, User, Users, Lock, Monitor, LucideIcon } from
 import { cn } from '@/lib/utils/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { settingsLabels } from '@/lib/labels';
 
 interface SettingsTabsProps {
     shifts?: WorkShift[];
@@ -43,12 +44,12 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
     };
 
     const tabs: TabItem[] = [
-        { value: 'general', label: 'General', icon: User, description: 'Manage your profile and preferences' },
+        { value: 'general', label: settingsLabels.general, icon: User, description: settingsLabels.generalDesc },
         ...(isAdmin ? [
-            { value: 'users', label: 'Users', icon: Users, description: 'Manage system users and roles' } as TabItem,
-            { value: 'access', label: 'Access Control', icon: Lock, description: 'Configure permissions for each role' } as TabItem,
+            { value: 'users', label: settingsLabels.users, icon: Users, description: settingsLabels.usersDesc } as TabItem,
+            { value: 'access', label: settingsLabels.accessControl, icon: Lock, description: settingsLabels.accessControlDesc } as TabItem,
         ] : []),
-        { value: 'system', label: 'System', icon: Monitor, description: 'View system health and version' },
+        { value: 'system', label: settingsLabels.system, icon: Monitor, description: settingsLabels.systemDesc },
     ];
 
     const renderContent = () => {
@@ -71,21 +72,21 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <SettingsIcon className="h-5 w-5" />
-                                System Info
+                                {settingsLabels.systemInfo}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
-                                <span className="text-sm font-medium">ERP Version</span>
+                                <span className="text-sm font-medium">{settingsLabels.erpVersion}</span>
                                 <span className="text-sm text-muted-foreground text-right">0.1.5-beta</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2 border-b">
-                                <span className="text-sm font-medium">Environment</span>
-                                <span className="text-sm text-muted-foreground text-right">Development</span>
+                                <span className="text-sm font-medium">{settingsLabels.environment}</span>
+                                <span className="text-sm text-muted-foreground text-right">{settingsLabels.development}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4 py-2">
-                                <span className="text-sm font-medium">Server Status</span>
-                                <span className="text-sm text-green-500 font-medium text-right">Online</span>
+                                <span className="text-sm font-medium">{settingsLabels.serverStatus}</span>
+                                <span className="text-sm text-green-500 font-medium text-right">{settingsLabels.online}</span>
                             </div>
                         </CardContent>
                     </Card>
