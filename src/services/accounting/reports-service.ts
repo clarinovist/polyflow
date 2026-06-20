@@ -303,9 +303,9 @@ export async function getBalanceSheet(asOfDate: Date) {
         assets: assetAccounts,
         liabilities: liabilityAccounts,
         equity: equityAccounts,
-        // Grouped (summary view) — expand Cash & Bank and Current Assets to show individual accounts
+        // Grouped (summary view) — expand key groups to show individual accounts
         assetGroups: groupAccountsByParent(assetAccounts, new Set(['11000', '11100'])) as (BalanceSheetGroup | BalanceSheetItem)[],
-        liabilityGroups: groupAccountsByParent(liabilityAccounts) as (BalanceSheetGroup | BalanceSheetItem)[],
+        liabilityGroups: groupAccountsByParent(liabilityAccounts, new Set(['21000', '22000'])) as (BalanceSheetGroup | BalanceSheetItem)[],
         equityGroups: groupAccountsByParent(equityAccounts) as (BalanceSheetGroup | BalanceSheetItem)[],
         // Totals
         totalAssets: totalAsset,

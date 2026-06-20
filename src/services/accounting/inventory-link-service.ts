@@ -68,9 +68,13 @@ export async function recordInventoryMovement(
             const currentStock = Math.max(0, currentStockAfterReceipt - receiptQty);
 
             // 2. Calculate New Weighted Average
-            // Formula: ((currentCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty)
+            // Use the variant's EXISTING standardCost (before this update), NOT the receipt price.
+            // Using receiptPrice here would make the formula collapse to: newAvg = receiptPrice (always).
+            const previousStandardCost = Number(productVariant.standardCost ?? 0);
             if (currentStock + receiptQty > 0) {
-                const newWeightedAvg = ((currentCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty);
+                const newWeightedAvg = currentStock > 0 && previousStandardCost > 0
+                    ? ((previousStandardCost * currentStock) + (receiptPrice * receiptQty)) / (currentStock + receiptQty)
+                    : receiptPrice;
 
                 // 3. Update Standard Cost & Log History
                 await updateStandardCost(
