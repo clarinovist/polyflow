@@ -44,24 +44,43 @@ interface NavItemType {
     icon: LucideIcon;
 }
 
-// Flattened links
-export const sidebarLinks: NavItemType[] = [
-    { title: mainNavLabels.sales, href: "/sales", icon: ShoppingCart },
-    { title: mainNavLabels.planning, href: "/planning", icon: Truck },
-    { title: mainNavLabels.production, href: "/production", icon: Factory },
-    { title: mainNavLabels.inventory, href: "/warehouse", icon: PackageSearch },
-    { title: mainNavLabels.accounting, href: "/finance", icon: Calculator },
+interface SidebarLinkGroup {
+    heading: string;
+    items: NavItemType[];
+}
 
-    // Master Data
-    { title: mainNavLabels.productCatalog, href: "/dashboard/products", icon: Package },
-    { title: mainNavLabels.boms, href: "/dashboard/boms", icon: Files },
-    { title: mainNavLabels.machines, href: "/dashboard/machines", icon: Settings2 },
-    { title: mainNavLabels.employees, href: "/dashboard/employees", icon: Users },
-
-    // Maklon Jasa
-    { title: mainNavLabels.maklonReceipts, href: "/dashboard/maklon/receipts", icon: PackageSearch },
-    { title: mainNavLabels.maklonReturns, href: "/dashboard/maklon/returns", icon: Package },
+// Grouped sidebar links
+const sidebarLinkGroups: SidebarLinkGroup[] = [
+    {
+        heading: 'Modul',
+        items: [
+            { title: mainNavLabels.sales, href: "/sales", icon: ShoppingCart },
+            { title: mainNavLabels.planning, href: "/planning", icon: Truck },
+            { title: mainNavLabels.production, href: "/production", icon: Factory },
+            { title: mainNavLabels.inventory, href: "/warehouse", icon: PackageSearch },
+            { title: mainNavLabels.accounting, href: "/finance", icon: Calculator },
+        ],
+    },
+    {
+        heading: 'Master Data',
+        items: [
+            { title: mainNavLabels.productCatalog, href: "/dashboard/products", icon: Package },
+            { title: mainNavLabels.boms, href: "/dashboard/boms", icon: Files },
+            { title: mainNavLabels.machines, href: "/dashboard/machines", icon: Settings2 },
+            { title: mainNavLabels.employees, href: "/dashboard/employees", icon: Users },
+        ],
+    },
+    {
+        heading: 'Maklon',
+        items: [
+            { title: mainNavLabels.maklonReceipts, href: "/dashboard/maklon/receipts", icon: PackageSearch },
+            { title: mainNavLabels.maklonReturns, href: "/dashboard/maklon/returns", icon: Package },
+        ],
+    },
 ];
+
+// Flat export for AccessControlTab permission grid
+export const sidebarLinks: NavItemType[] = sidebarLinkGroups.flatMap(g => g.items);
 
 export function SidebarNav({ user, permissions }: SidebarNavProps) {
     const pathname = usePathname();
@@ -90,10 +109,13 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
 
     const ThemeIcon = theme === 'system' ? (resolvedTheme === 'dark' ? Moon : Sun) : (theme === 'dark' ? Moon : Sun);
 
-    const filteredItems = sidebarLinks.filter(item => {
-        if (permissions === 'ALL') return true;
-        return permissions.includes(item.href);
-    });
+    const filteredGroups = sidebarLinkGroups.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+            if (permissions === 'ALL') return true;
+            return permissions.includes(item.href);
+        }),
+    })).filter(group => group.items.length > 0);
 
     return (
         <>
@@ -144,15 +166,22 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-                        {filteredItems.map((item) => (
-                            <NavItem
-                                key={item.href}
-                                href={item.href}
-                                icon={item.icon}
-                                label={item.title}
-                                pathname={pathname}
-                            />
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                        {filteredGroups.map((group) => (
+                            <div key={group.heading} className="space-y-1">
+                                <h3 className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    {group.heading}
+                                </h3>
+                                {group.items.map((item) => (
+                                    <NavItem
+                                        key={item.href}
+                                        href={item.href}
+                                        icon={item.icon}
+                                        label={item.title}
+                                        pathname={pathname}
+                                    />
+                                ))}
+                            </div>
                         ))}
                     </nav>
 
