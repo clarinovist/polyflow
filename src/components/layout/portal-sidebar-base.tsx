@@ -1,13 +1,14 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { Menu, X, LogOut, Moon, Sun, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, X, LogOut, Moon, Sun, Settings, PanelLeftClose, PanelLeftOpen, MessageCircleHeart } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
+import { mainNavLabels } from '@/lib/labels';
 
 interface PortalSidebarBaseProps {
     user: {
@@ -118,6 +119,21 @@ export function PortalSidebarBase({
                         isCollapsed ? "px-2 py-4" : "p-4"
                     )}>
                         {children}
+
+                        {/* Help Link */}
+                        <div className={isCollapsed ? "pt-2" : "pt-4 mt-auto"}>
+                            <Link
+                                href="/support"
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
+                                    "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                )}
+                                title={mainNavLabels.help}
+                            >
+                                <MessageCircleHeart className="h-4 w-4" />
+                                {!isCollapsed && <span>{mainNavLabels.help}</span>}
+                            </Link>
+                        </div>
                     </nav>
 
                     {/* User Section */}

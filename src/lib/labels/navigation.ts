@@ -15,6 +15,9 @@ export const mainNavLabels = {
   // Maklon
   maklonReceipts: 'Penerimaan Maklon',
   maklonReturns: 'Retur Maklon',
+
+  // Support
+  help: 'Bantuan',
 } as const;
 
 /** Sidebar by domain */
