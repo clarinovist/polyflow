@@ -28,6 +28,9 @@ vi.mock('@/lib/core/prisma', () => {
         productVariant: {
             findUnique: vi.fn(),
         },
+        journalLine: {
+            aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 999999999, credit: null } }),
+        },
         salesOrder: {
             findUnique: vi.fn(),
         },
