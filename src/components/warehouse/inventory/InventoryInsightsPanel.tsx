@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeftRight, ClipboardCheck, History, PackagePlus, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils/utils";
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface InventoryInsightsPanelProps {
     activeLocationId?: string;
@@ -14,21 +15,21 @@ interface InventoryInsightsPanelProps {
 export function InventoryInsightsPanel({ activeLocationId: _activeLocationId, className }: InventoryInsightsPanelProps) {
     const actions = [
         {
-            label: "Transfer Stock",
+            label: warehouseComponentLabels.transferStock,
             href: "/warehouse/inventory/transfer",
             icon: ArrowLeftRight,
             variant: "outline" as const,
             colorClass: "bg-blue-500/10 text-blue-600 group-hover:bg-blue-500/20"
         },
         {
-            label: "Adjust Stock",
+            label: warehouseComponentLabels.adjustStock,
             href: "/warehouse/inventory/adjust",
             icon: PackagePlus,
             variant: "outline" as const,
             colorClass: "bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-500/20"
         },
         {
-            label: "Stock Opname",
+            label: warehouseComponentLabels.stockOpname,
             href: "/warehouse/inventory/opname",
             icon: ClipboardCheck,
             variant: "outline" as const,
@@ -36,14 +37,14 @@ export function InventoryInsightsPanel({ activeLocationId: _activeLocationId, cl
         },
 
         {
-            label: "Stock Aging",
+            label: warehouseComponentLabels.stockAging,
             href: "/warehouse/inventory/aging",
             icon: Clock,
             variant: "outline" as const,
             colorClass: "bg-orange-500/10 text-orange-600 group-hover:bg-orange-500/20"
         },
         {
-            label: "History Logs",
+            label: warehouseComponentLabels.historyLogs,
             href: "/warehouse/inventory/history",
             icon: History,
             variant: "outline" as const,

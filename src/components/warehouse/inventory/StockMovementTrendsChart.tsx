@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface StockMovementData {
     date: string;
@@ -47,9 +48,9 @@ export function StockMovementTrendsChart({ data, loading }: StockMovementTrendsC
     return (
         <Card className="col-span-4 h-full">
             <CardHeader>
-                <CardTitle>Stock Movement Trends</CardTitle>
+                <CardTitle>{warehouseComponentLabels.stockMovementTrends}</CardTitle>
                 <CardDescription>
-                    Inbound vs Outbound stock movements over time
+                    {warehouseComponentLabels.stockMovementDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent className="pl-0">

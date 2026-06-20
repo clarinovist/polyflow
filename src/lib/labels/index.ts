@@ -12,6 +12,7 @@ export * from './reports';
 export * from './settings';
 export * from './analytics';
 export * from './production-components';
+export * from './warehouse-components';
 export * from './finance';
 
 export {

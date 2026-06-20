@@ -3,6 +3,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface BatchInfo {
     id: string;
@@ -19,7 +20,7 @@ interface BatchSelectorProps {
     placeholder?: string;
 }
 
-export function BatchSelector({ batches, selectedBatchId, onSelect, placeholder = "Select Batch (FIFO)" }: BatchSelectorProps) {
+export function BatchSelector({ batches, selectedBatchId, onSelect, placeholder = warehouseComponentLabels.selectBatch }: BatchSelectorProps) {
     // Sort batches: Oldest manufacturing date first (FIFO)
     const sortedBatches = [...batches].sort((a, b) =>
         new Date(a.manufacturingDate).getTime() - new Date(b.manufacturingDate).getTime()
@@ -41,7 +42,7 @@ export function BatchSelector({ batches, selectedBatchId, onSelect, placeholder 
                                     {index === 0 && <span className="ml-2 text-xs text-green-600 font-bold">(FIFO)</span>}
                                 </span>
                                 <div className="flex gap-2 text-xs text-muted-foreground">
-                                    <span>Qty: {batch.quantity}</span>
+                                    <span>{warehouseComponentLabels.availableStock}: {batch.quantity}</span>
                                     <span>{format(new Date(batch.manufacturingDate), 'MMM d')}</span>
                                     {isExpired && <Badge variant="destructive" className="h-4 px-1 text-[10px]">Exp</Badge>}
                                 </div>

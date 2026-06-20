@@ -10,6 +10,7 @@ import { Eye, EyeOff, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { saveOpnameCount } from '@/actions/inventory/opname';
 import { formatQuantity } from '@/lib/utils/utils';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface OpnameItem {
     id: string;
@@ -119,9 +120,9 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                             <TableHead>SKU</TableHead>
                             <TableHead>Unit</TableHead>
                             <TableHead className="text-right">
-                                {blindMode ? "System Qty" : "System Qty (Snapshot)"}
+                                {warehouseComponentLabels.expectedQty}
                             </TableHead>
-                            <TableHead className="w-[180px] text-right">Physical Count</TableHead>
+                            <TableHead className="w-[180px] text-right">{warehouseComponentLabels.actualQty}</TableHead>
                             <TableHead className="w-[200px]">Notes</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -158,7 +159,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                                 </TableCell>
                                 <TableCell>
                                     <Input
-                                        placeholder="Optional..."
+                                        placeholder={warehouseComponentLabels.optional}
                                         className="h-9 text-xs"
                                         value={notes[item.id] || ''}
                                         onChange={(e) => handleNoteChange(item.id, e.target.value)}
@@ -180,7 +181,7 @@ export function OpnameCounter({ session, isReadOnly }: OpnameCounterProps) {
                         className="shadow-lg shadow-primary/20"
                     >
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {isSaving ? "Saving Progress..." : "Save Progress"}
+                        {isSaving ? `${warehouseComponentLabels.saveCount}...` : warehouseComponentLabels.saveCount}
                     </Button>
                 </div>
             )}

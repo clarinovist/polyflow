@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { ValidationResult } from "@/lib/utils/stock-import-validator";
 import { cn } from "@/lib/utils/utils";
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface ImportStockPreviewTableProps {
     results: ValidationResult[];
@@ -77,7 +78,7 @@ export function ImportStockPreviewTable({ results }: ImportStockPreviewTableProp
             </div>
             {hasMore && (
                 <div className="p-2 text-center text-xs text-muted-foreground bg-muted/20 border-t">
-                    Showing first 100 of {results.length} rows
+                    Showing first 100 of {results.length} {warehouseComponentLabels.rowsImported}
                 </div>
             )}
         </div>

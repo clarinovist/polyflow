@@ -5,6 +5,7 @@ import { History, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import type { getStockMovements } from '@/actions/inventory/inventory';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 // Infer type from action return type
 type GetStockMovementsResult = Awaited<ReturnType<typeof getStockMovements>>;
@@ -23,14 +24,14 @@ export function RecentTransfers({ movements }: RecentTransfersProps) {
             <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <History className="h-4 w-4 text-muted-foreground" />
-                    Recent Transfers
+                    {warehouseComponentLabels.recentTransfers}
                 </CardTitle>
                 <CardDescription className="text-xs">Last 5 stock movements</CardDescription>
             </CardHeader>
             <CardContent className="px-0">
                 {transfers.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground text-xs italic">
-                        Tidak ada transfer terbaru ditemukan
+                        {warehouseComponentLabels.noTransfers}
                     </div>
                 ) : (
                     <div className="divide-y divide-border/40">

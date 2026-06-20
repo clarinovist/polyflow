@@ -7,6 +7,7 @@ import { Search, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/utils';
 import { getRealtimeStock } from '@/actions/inventory/inventory';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface QuickStockCheckProps {
     products: { id: string; name: string; skuCode: string }[];
@@ -51,7 +52,7 @@ export function QuickStockCheck({ products, locations }: QuickStockCheckProps) {
             <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Search className="h-4 w-4 text-muted-foreground" />
-                    Quick Stock Check
+                    {warehouseComponentLabels.quickStockCheck}
                 </CardTitle>
                 <CardDescription className="text-xs">Check availability across warehouses</CardDescription>
             </CardHeader>
@@ -62,7 +63,7 @@ export function QuickStockCheck({ products, locations }: QuickStockCheckProps) {
                         products={products.map(p => ({ ...p, quantity: 0 }))} // Qty irrelevant here
                         value={selectedProduct}
                         onValueChange={handleProductSelect}
-                        placeholder="Search SKU..."
+                        placeholder={warehouseComponentLabels.searchSku}
                     />
                 </div>
 

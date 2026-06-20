@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 
 import { ThresholdDialog } from './ThresholdDialog';
 import { cn, formatQuantity } from '@/lib/utils/utils';
+import { warehouseComponentLabels } from '@/lib/labels';
 import type { InventoryItem } from './inventory-table-types';
 
 interface InventoryMobileCardsProps {
@@ -31,7 +32,7 @@ export function InventoryMobileCards({
             {paginatedInventory.length === 0 ? (
                 <div className="text-center py-8 flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-50" />
-                    <p>Tidak ada item inventori ditemukan.</p>
+                    <p>{warehouseComponentLabels.noInventoryData}</p>
                 </div>
             ) : (
                 paginatedInventory.map((item) => {
@@ -59,7 +60,7 @@ export function InventoryMobileCards({
                                     </div>
                                     {isLowStock ? (
                                         <Badge variant="destructive" className="text-[10px] h-5 px-1.5 whitespace-nowrap">
-                                            Low ({totalStockValue}/{thresholdValue})
+                                            {warehouseComponentLabels.lowStock} ({totalStockValue}/{thresholdValue})
                                         </Badge>
                                     ) : (
                                         <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">

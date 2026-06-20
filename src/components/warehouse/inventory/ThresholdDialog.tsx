@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { updateThreshold } from '@/actions/inventory/inventory';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface ThresholdDialogProps {
     productVariantId: string;
@@ -56,7 +57,7 @@ export function ThresholdDialog({
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Stock Threshold Settings</DialogTitle>
+                    <DialogTitle>{warehouseComponentLabels.thresholdSettings}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-1">
@@ -64,14 +65,14 @@ export function ThresholdDialog({
                         <p className="text-sm text-slate-900">{productName}</p>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="threshold">Min Stock Alert Threshold</Label>
+                        <Label htmlFor="threshold">{warehouseComponentLabels.lowStockThreshold}</Label>
                         <Input
                             id="threshold"
                             type="number"
                             step="0.01"
                             value={threshold}
                             onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)}
-                            placeholder="e.g. 50"
+                            placeholder={warehouseComponentLabels.eG50}
                         />
                         <p className="text-[0.8rem] text-slate-500 whitespace-pre-wrap">
                             Peringatan otomatis akan dipicu saat stok turun di bawah nilai ini.

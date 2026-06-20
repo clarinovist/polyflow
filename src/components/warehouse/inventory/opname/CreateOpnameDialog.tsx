@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { createOpnameSession } from '@/actions/inventory/opname';
 import { getLocations } from '@/actions/inventory/inventory';
 import { useRouter } from 'next/navigation';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }: { basePath?: string }) {
     const [open, setOpen] = useState(false);
@@ -82,14 +83,14 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
             <DialogTrigger asChild>
                 <Button className="shadow-sm">
                     <Plus className="mr-2 h-4 w-4" />
-                    New Audit Session
+                    {warehouseComponentLabels.createOpname}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Start New Stock Opname</DialogTitle>
+                    <DialogTitle>{warehouseComponentLabels.createOpname}</DialogTitle>
                     <DialogDescription>
-                        Create a new physical inventory counting session. This will take a snapshot of current system stock.
+                        {warehouseComponentLabels.createOpnameDesc}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
@@ -97,7 +98,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
                         <Label htmlFor="location">Location</Label>
                         <Select value={locationId} onValueChange={setLocationId}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select warehouse..." />
+                                <SelectValue placeholder={warehouseComponentLabels.selectWarehouseOpname} />
                             </SelectTrigger>
                             <SelectContent>
                                 {locations.map((loc) => (
@@ -115,7 +116,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
                             id="remarks"
                             value={remarks}
                             onChange={(e) => setRemarks(e.target.value)}
-                            placeholder="e.g. End of Month Audit ~ Jan 2026"
+                            placeholder={warehouseComponentLabels.eGEndOfMonth}
                         />
                     </div>
                 </div>

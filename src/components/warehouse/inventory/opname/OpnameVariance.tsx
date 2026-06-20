@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatQuantity } from '@/lib/utils/utils';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface OpnameItem {
     id: string;
@@ -53,9 +54,9 @@ export function OpnameVariance({ items }: OpnameVarianceProps) {
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[300px]">Product</TableHead>
-                            <TableHead className="text-right">System Qty</TableHead>
-                            <TableHead className="text-right">Counted Qty</TableHead>
-                            <TableHead className="text-right">Variance</TableHead>
+                            <TableHead className="text-right">{warehouseComponentLabels.expectedQty}</TableHead>
+                            <TableHead className="text-right">{warehouseComponentLabels.actualQty}</TableHead>
+                            <TableHead className="text-right">{warehouseComponentLabels.variance}</TableHead>
                             <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                     </TableHeader>

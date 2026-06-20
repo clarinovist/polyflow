@@ -36,6 +36,7 @@ interface ImportStockResult {
 }
 import { ImportStockPreviewTable } from './ImportStockPreviewTable';
 import { toast } from 'sonner';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 type ImportStep = 'upload' | 'preview' | 'result';
 
@@ -174,7 +175,7 @@ export function ImportStockDialog() {
             <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2">
                     <Upload className="h-4 w-4" />
-                    Import Stock (CSV)
+                    {warehouseComponentLabels.importStock} (CSV)
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -184,7 +185,7 @@ export function ImportStockDialog() {
                         Impor Data Stok
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 'upload' && 'Unggah file CSV berisi data stok'}
+                        {step === 'upload' && warehouseComponentLabels.importStockDesc}
                         {step === 'preview' && 'Tinjau dan validasi data stok sebelum impor'}
                         {step === 'result' && 'Proses impor selesai'}
                     </DialogDescription>
@@ -245,7 +246,7 @@ export function ImportStockDialog() {
                                     ) : (
                                         <>
                                             <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-                                            <p className="text-sm font-medium mb-1">Click to upload or drag & drop</p>
+                                            <p className="text-sm font-medium mb-1">{warehouseComponentLabels.uploadFile}</p>
                                             <p className="text-xs text-muted-foreground">Supported format: .csv</p>
                                         </>
                                     )}
@@ -336,7 +337,7 @@ export function ImportStockDialog() {
                                     </>
                                 ) : (
                                     <>
-                                        Import {summary.valid} Items
+                                        {warehouseComponentLabels.confirmImport} ({summary.valid})
                                         <ArrowRight className="h-4 w-4 ml-2" />
                                     </>
                                 )}

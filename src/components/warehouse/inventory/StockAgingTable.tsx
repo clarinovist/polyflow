@@ -8,6 +8,7 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface StockAgingTableProps {
     data: StockAgingResult[];
@@ -29,13 +30,13 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <div>
-                        <CardTitle>Aging Inventory List</CardTitle>
+                        <CardTitle>{warehouseComponentLabels.stockAgingTitle}</CardTitle>
                         <CardDescription>Breakdown of stock value by age.</CardDescription>
                     </div>
                     <div className="relative w-64">
                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search product..."
+                            placeholder={warehouseComponentLabels.searchProduct}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-8"

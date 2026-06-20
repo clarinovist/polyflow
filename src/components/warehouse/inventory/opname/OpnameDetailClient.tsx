@@ -25,6 +25,7 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 
 export interface OpnameItem {
@@ -221,7 +222,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                             ) : (
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
                             )}
-                            Finalize & Reconcile
+                            {warehouseComponentLabels.finalizeOpname}
                         </Button>
                     </div>
                 )}

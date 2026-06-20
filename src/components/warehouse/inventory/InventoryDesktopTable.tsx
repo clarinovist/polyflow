@@ -11,6 +11,7 @@ import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ThresholdDialog } from './ThresholdDialog';
 import { cn, formatQuantity, formatRupiah } from '@/lib/utils/utils';
+import { warehouseComponentLabels } from '@/lib/labels';
 import type { InventoryItem, SortField, SortOrder } from './inventory-table-types';
 
 function SortIcon({ field, currentSortField, currentSortOrder }: { field: SortField; currentSortField: SortField; currentSortOrder: SortOrder }) {
@@ -250,7 +251,7 @@ export function InventoryDesktopTable({
                                         {isLowStock ? (
                                             <div className="space-y-1">
                                                 <Badge variant="destructive" className="h-5 text-[10px] px-1.5 shadow-none font-normal">
-                                                    Low Stock
+                                                    {warehouseComponentLabels.lowStock}
                                                 </Badge>
                                                 <div className="text-[10px] text-destructive font-medium whitespace-nowrap">
                                                     {totalStockValue}/{thresholdValue}
@@ -278,7 +279,7 @@ export function InventoryDesktopTable({
                                 <TableCell colSpan={isLocationSpecific ? 5 : 6} className="text-center py-8">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
                                         <Search className="h-6 w-6" />
-                                        <p className="text-sm">Tidak ada item ditemukan.</p>
+                                        <p className="text-sm">{warehouseComponentLabels.noInventoryData}</p>
                                     </div>
                                 </TableCell>
                             </TableRow>

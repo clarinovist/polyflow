@@ -16,6 +16,7 @@ import { Plus, Trash2, Package, ClipboardList, AlertCircle, ArrowUpCircle, Arrow
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductCombobox } from '@/components/products/product-combobox';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface SerializedInventory {
     locationId: string;
@@ -177,8 +178,8 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                             <div className="flex items-center gap-3">
                                 <Package className="h-4 w-4 text-primary shrink-0" />
                                 <div className="flex flex-col">
-                                    <CardTitle className="text-sm font-semibold leading-none">Adjustment Details</CardTitle>
-                                    <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">Select location and add items</CardDescription>
+                                    <CardTitle className="text-sm font-semibold leading-none">{warehouseComponentLabels.adjustmentTitle}</CardTitle>
+                                    <CardDescription className="text-[10px] text-muted-foreground/60 mt-0.5">{warehouseComponentLabels.adjustmentDesc}</CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
@@ -199,7 +200,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-11 bg-background">
-                                                        <SelectValue placeholder="Pilih Lokasi Gudang" />
+                                                        <SelectValue placeholder={warehouseComponentLabels.selectLocation} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -224,7 +225,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                 </h4>
 
                                 <FormItem>
-                                    <FormLabel className="text-xs text-muted-foreground">Product</FormLabel>
+                                    <FormLabel className="text-xs text-muted-foreground">{warehouseComponentLabels.selectProduct}</FormLabel>
                                     <ProductCombobox
                                         products={availableProducts}
                                         value={newItem.productVariantId}
@@ -237,7 +238,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">Type</FormLabel>
+                                        <FormLabel className="text-xs text-muted-foreground">{warehouseComponentLabels.adjustmentType}</FormLabel>
                                         <Select
                                             value={newItem.type}
                                             onValueChange={(val: 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT') => setNewItem(prev => ({ ...prev, type: val }))}
@@ -249,13 +250,13 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                                 <SelectItem value="ADJUSTMENT_IN">
                                                     <div className="flex items-center gap-2 text-emerald-600">
                                                         <ArrowUpCircle className="h-4 w-4" />
-                                                        <span>Surplus (IN)</span>
+                                                        <span>{warehouseComponentLabels.addition}</span>
                                                     </div>
                                                 </SelectItem>
                                                 <SelectItem value="ADJUSTMENT_OUT">
                                                     <div className="flex items-center gap-2 text-amber-600">
                                                         <ArrowDownCircle className="h-4 w-4" />
-                                                        <span>Deficit (OUT)</span>
+                                                        <span>{warehouseComponentLabels.reduction}</span>
                                                     </div>
                                                 </SelectItem>
                                             </SelectContent>
@@ -264,7 +265,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
 
                                     <FormItem>
                                         <div className="flex items-center justify-between">
-                                            <FormLabel className="text-xs text-muted-foreground">Quantity</FormLabel>
+                                            <FormLabel className="text-xs text-muted-foreground">{warehouseComponentLabels.quantity}</FormLabel>
                                             {newItem.type === 'ADJUSTMENT_OUT' && newItem.productVariantId && (
                                                 <span className="text-[10px] text-muted-foreground">Max: {currentSelectedProductMax}</span>
                                             )}
@@ -300,11 +301,11 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                             )}
 
                             <FormItem>
-                                <FormLabel className="text-xs text-muted-foreground">Reason</FormLabel>
+                                <FormLabel className="text-xs text-muted-foreground">{warehouseComponentLabels.reason}</FormLabel>
                                 <Textarea
                                     value={newItem.reason}
                                     onChange={(e) => setNewItem(prev => ({ ...prev, reason: e.target.value }))}
-                                    placeholder="e.g. Broken packaging, Found in stock opname..."
+                                    placeholder={warehouseComponentLabels.reasonPlaceholder}
                                     className="resize-none h-20 bg-background text-sm"
                                 />
                             </FormItem>
@@ -405,7 +406,7 @@ export function AdjustmentForm({ locations, products, inventory }: AdjustmentFor
                                     {form.formState.isSubmitting ? (
                                         <span className="flex items-center gap-2"><span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin" /> Memproses...</span>
                                     ) : (
-                                        `Konfirmasi Penyesuaian (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
+                                        `${warehouseComponentLabels.confirmAdjustment} (${fields.length} Item${fields.length !== 1 ? 's' : ''})`
                                     )}
                                 </Button>
                                 {form.formState.errors.items && (

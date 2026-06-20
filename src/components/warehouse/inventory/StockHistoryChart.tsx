@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
 import { formatQuantity } from '@/lib/utils/utils';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 interface StockHistoryChartProps {
     data: { date: string; stock: number }[];
@@ -38,7 +39,7 @@ export function StockHistoryChart({ data, title, variantName }: StockHistoryChar
         <Card className="w-full">
             <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center justify-between">
-                    <span>{title || 'Stock Level History'}</span>
+                    <span>{title || warehouseComponentLabels.stockHistory}</span>
                     {variantName && (
                         <span className="text-sm font-normal text-muted-foreground">
                             {variantName}

@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { getLocations } from '@/actions/inventory/locations';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 // Type definition for the items passed to the dialog
 interface InventoryItem {
@@ -140,7 +141,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Bulk Transfer Stock</DialogTitle>
+                    <DialogTitle>{warehouseComponentLabels.bulkTransferTitle}</DialogTitle>
                     <DialogDescription>
                         Transfer items from <strong>{sourceLocationName}</strong> to another location.
                     </DialogDescription>
@@ -158,7 +159,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select destination..." />
+                                                    <SelectValue placeholder={warehouseComponentLabels.selectDestination} />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -183,7 +184,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                                     <FormItem>
                                         <FormLabel>Notes / Reference</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="e.g. Shipment #123" {...field} />
+                                            <Input placeholder={warehouseComponentLabels.eGShipment} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { warehouseComponentLabels } from '@/lib/labels';
 
 // Reusing InventoryItem interface
 interface InventoryItem {
@@ -153,7 +154,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Bulk Adjust Stock</DialogTitle>
+                    <DialogTitle>{warehouseComponentLabels.bulkAdjustTitle}</DialogTitle>
                     <DialogDescription>
                         Adjust stock for items in <strong>{locationName}</strong>.
                     </DialogDescription>
@@ -184,7 +185,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                             <FormLabel>Reason</FormLabel>
                             <div className="flex gap-2">
                                 <Input
-                                    placeholder="e.g. Damage, Expired, Found"
+                                    placeholder={warehouseComponentLabels.eGDamage}
                                     value={globalReason}
                                     onChange={(e) => setGlobalReason(e.target.value)}
                                 />
