@@ -1,7 +1,8 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
-import { Menu, X, LogOut, Moon, Sun } from 'lucide-react';
+import { Menu, X, LogOut, Moon, Sun, Settings } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils/utils';
 import { signOut } from 'next-auth/react';
 import PolyFlowLogo from '@/components/auth/polyflow-logo';
@@ -109,6 +110,14 @@ export function PortalSidebarBase({
                             >
                                 <ThemeIcon className="h-4 w-4" />
                             </button>
+                            <Link
+                                href="/dashboard/settings"
+                                className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                title="Settings"
+                                aria-label="Settings"
+                            >
+                                <Settings className="h-4 w-4" />
+                            </Link>
                             <button
                                 onClick={() => signOut({ callbackUrl: '/login' })}
                                 className="text-muted-foreground hover:text-red-500 transition-colors p-1"

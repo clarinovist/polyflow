@@ -42,9 +42,10 @@ const financeLinks = [
             { href: '/finance/budgeting', icon: TrendingUp, label: financeSidebarLabels.budgeting },
             { href: '/finance/aging', icon: HistoryIcon, label: financeSidebarLabels.aging },
             { href: '/finance/foh-allocation', icon: TrendingUp, label: financeSidebarLabels.fohAllocation },
-            { href: '/finance/costing', icon: TrendingUp, label: financeSidebarLabels.costingDashboard },
-            { href: '/finance/costing/simulator', icon: TrendingUp, label: financeSidebarLabels.materialSimulator },
-            { href: '/finance/costing/hpp-calculator', icon: TrendingUp, label: financeSidebarLabels.hppCalculator },
+            { href: '/finance/costing', icon: TrendingUp, label: financeSidebarLabels.costingDashboard, children: [
+                { href: '/finance/costing/simulator', icon: TrendingUp, label: financeSidebarLabels.materialSimulator },
+                { href: '/finance/costing/hpp-calculator', icon: TrendingUp, label: financeSidebarLabels.hppCalculator },
+            ] },
         ],
     },
     {

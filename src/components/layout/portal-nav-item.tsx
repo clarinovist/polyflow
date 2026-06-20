@@ -12,6 +12,7 @@ interface NavItemProps {
     label: string;
     accentColor?: 'primary' | 'emerald' | 'blue' | 'purple' | 'amber' | 'rose';
     exact?: boolean;
+    children?: NavItemProps[];
 }
 
 interface NavGroupProps {
@@ -44,10 +45,21 @@ function isNavItemActive(
     return Array.from(targetQuery.entries()).every(([key, value]) => searchParams.get(key) === value);
 }
 
-export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', exact }: NavItemProps) {
+function isSubtreeActive(items: NavItemProps[], pathname: string, searchParams: URLSearchParams): boolean {
+    return items.some(item => {
+        if (isNavItemActive(item.href, pathname, searchParams, item.exact)) return true;
+        if (item.children) return isSubtreeActive(item.children, pathname, searchParams);
+        return false;
+    });
+}
+
+export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', exact, children }: NavItemProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const isActive = isNavItemActive(href, pathname, searchParams, exact);
+    const hasChildren = children && children.length > 0;
+    const childIsActive = hasChildren && isSubtreeActive(children!, pathname, searchParams);
+    const [isOpen, setIsOpen] = useState(childIsActive ?? false);
 
     const activeClasses = {
         primary: 'bg-sidebar-accent text-sidebar-accent-foreground',
@@ -67,6 +79,39 @@ export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary'
         rose: 'text-rose-600 dark:text-rose-400',
     }[accentColor] || 'text-sidebar-accent-foreground';
 
+    // Parent with children: clickable header that toggles + renders children
+    if (hasChildren) {
+        const parentActive = isActive || childIsActive;
+        return (
+            <div className="space-y-0.5">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={cn(
+                        "flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors font-medium text-sm",
+                        parentActive
+                            ? activeClasses
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    )}
+                >
+                    <Icon className={cn("h-4 w-4", parentActive ? iconActiveClasses : "text-muted-foreground")} />
+                    <span className="flex-1 text-left">{label}</span>
+                    {isOpen
+                        ? <ChevronDown className="h-3 w-3 opacity-60" />
+                        : <ChevronRight className="h-3 w-3 opacity-60" />
+                    }
+                </button>
+                {isOpen && (
+                    <div className="ml-4 pl-3 border-l border-border/60 space-y-0.5">
+                        {children!.map((child) => (
+                            <PortalNavItem key={child.href} {...child} accentColor={accentColor} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Leaf item: regular link
     return (
         <Link
             href={href}
@@ -86,9 +131,7 @@ export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary'
 export function PortalNavGroup({ heading, items, accentColor = 'primary', defaultOpen = true }: NavGroupProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isChildActive = items.some(item =>
-        isNavItemActive(item.href, pathname, searchParams, item.exact)
-    );
+    const isChildActive = isSubtreeActive(items, pathname, searchParams);
     const [isOpen, setIsOpen] = useState(defaultOpen || isChildActive);
 
     if (items.length === 0) return null;
