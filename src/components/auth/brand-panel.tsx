@@ -1,6 +1,7 @@
 'use client';
 
 import PolyFlowLogo from './polyflow-logo';
+import { brandPanelLabels as L } from '@/lib/labels/auth';
 
 export default function BrandPanel({ subdomain }: { subdomain?: string | null }) {
 
@@ -82,26 +83,26 @@ export default function BrandPanel({ subdomain }: { subdomain?: string | null })
 
                 {/* Welcome Text */}
                 <h1 className="text-4xl font-bold text-white mb-4">
-                    {subdomain ? `Welcome to ${subdomain.toUpperCase()}` : 'Welcome to PolyFlow'}
+                    {subdomain ? `${L.welcomeTo} ${subdomain.toUpperCase()}` : `${L.welcomeTo} PolyFlow`}
                 </h1>
                 <p className="text-zinc-400 dark:text-zinc-500 text-sm leading-relaxed mb-4">
                     {subdomain ?
-                        `Sign in to access your ERP dashboard, manage production workflows, and track your inventory seamlessly.` :
-                        `PolyFlow helps businesses build organized and well structured operations full of beautiful and rich modules. Join us and start building your business today.`
+                        L.signInDescription :
+                        L.brandDescription
                     }
                 </p>
                 <p className="text-zinc-500 dark:text-zinc-400 text-sm">
-                    {subdomain ? `Enterprise portal powered by PolyFlow` : `More than 1K people joined us, it's your turn`}
+                    {subdomain ? L.enterprisePortal : L.joinUs}
                 </p>
 
                 {/* Feature Card */}
                 <div className="mt-10 bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-2xl p-6">
                     <h3 className="text-white font-semibold text-lg mb-2">
-                        Streamline your business operations today
+                        {L.streamlineTitle}
                     </h3>
                     <div className="flex items-center justify-between">
                         <p className="text-zinc-400 dark:text-zinc-500 text-sm max-w-[200px]">
-                            Be among the first entrepreneurs to experience the easiest way to manage a business.
+                            {L.streamlineDescription}
                         </p>
                         {/* Avatar Stack */}
                         <div className="flex -space-x-2">

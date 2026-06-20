@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { VariantFields } from './VariantFields';
 import { useEffect } from 'react';
+import { productTypeLabels, productFormLabels } from '@/lib/labels/products';
 
 interface ProductFormProps {
     mode: 'create' | 'edit';
@@ -21,16 +22,6 @@ interface ProductFormProps {
     units: Unit[];
     initialData?: UpdateProductValues;
 }
-
-const productTypeLabels: Record<ProductType, string> = {
-    RAW_MATERIAL: 'Raw Material',
-    FINISHED_GOOD: 'Finished Good',
-    SCRAP: 'Scrap',
-    INTERMEDIATE: 'Intermediate',
-    PACKAGING: 'Packaging',
-    WIP: 'Work In Progress',
-    SERVICE: 'Service',
-};
 
 export function ProductForm({ mode, productTypes, units, initialData }: ProductFormProps) {
     const router = useRouter();
@@ -109,7 +100,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
             >
                 {/* General Info Section */}
                 <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">General Information</h3>
+                    <h3 className="text-lg font-semibold">{productFormLabels.generalInfo}</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         {/* Product Name */}
@@ -118,9 +109,9 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Product Name</FormLabel>
+                                    <FormLabel>{productFormLabels.productName}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g., Plastik HDPE" {...field} />
+                                        <Input placeholder={productFormLabels.productNamePlaceholder} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -133,11 +124,11 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                             name="productType"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Product Type</FormLabel>
+                                    <FormLabel>{productFormLabels.productType}</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value || ''}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select product type" />
+                                                <SelectValue placeholder={productFormLabels.selectProductType} />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -157,7 +148,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                     {/* Smart Mode Info - Outside grid to avoid layout issues */}
                     {(productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL) && (
                         <p className="text-xs text-blue-600 mt-2">
-                            Smart mode enabled: Variants will use simple 1:1 unit conversion
+                            {productFormLabels.smartModeInfo}
                         </p>
                     )}
                 </div>
@@ -165,10 +156,10 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                 {/* Variants Section */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Product Variants</h3>
+                        <h3 className="text-lg font-semibold">{productFormLabels.productVariants}</h3>
                         <Button type="button" variant="outline" size="sm" onClick={addVariant}>
                             <Plus className="h-4 w-4 mr-2" />
-                            Add Variant
+                            {productFormLabels.addVariant}
                         </Button>
                     </div>
 
@@ -188,10 +179,10 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
 
                     {fields.length === 0 && (
                         <div className="text-center py-8 border border-dashed rounded-lg">
-                            <p className="text-slate-500 text-sm">No variants added yet</p>
+                            <p className="text-slate-500 text-sm">{productFormLabels.noVariants}</p>
                             <Button type="button" variant="outline" size="sm" onClick={addVariant} className="mt-4">
                                 <Plus className="h-4 w-4 mr-2" />
-                                Add First Variant
+                                {productFormLabels.addFirstVariant}
                             </Button>
                         </div>
                     )}
@@ -204,12 +195,12 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                         variant="outline"
                         onClick={() => router.push('/dashboard/products')}
                     >
-                        Cancel
+                        {productFormLabels.cancel}
                     </Button>
                     <Button type="submit" disabled={form.formState.isSubmitting}>
                         {form.formState.isSubmitting
-                            ? mode === 'create' ? 'Creating...' : 'Updating...'
-                            : mode === 'create' ? 'Create Product' : 'Update Product'}
+                            ? mode === 'create' ? productFormLabels.creating : productFormLabels.updating
+                            : mode === 'create' ? productFormLabels.createProduct : productFormLabels.updateProduct}
                     </Button>
                 </div>
             </form>

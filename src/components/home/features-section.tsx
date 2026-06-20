@@ -2,51 +2,52 @@
 
 import { Warehouse, Factory, TrendingUp, Receipt, BarChart3, Truck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { featureLabels as L } from '@/lib/labels/home';
 
 const features = [
     {
-        title: 'Warehouse & Inventory',
-        description: 'Real-time stock tracking, automated reordering, and precise material management across all your facilities.',
+        title: L.items.warehouse.title,
+        description: L.items.warehouse.description,
         icon: Warehouse,
         gradient: 'from-amber-500/20 to-amber-500/5',
         iconColor: 'text-amber-400',
         borderColor: 'hover:border-amber-500/20',
     },
     {
-        title: 'Production Planning',
-        description: 'Optimize manufacturing schedules, track machine uptime, and manage work orders seamlessly.',
+        title: L.items.production.title,
+        description: L.items.production.description,
         icon: Factory,
         gradient: 'from-emerald-500/20 to-emerald-500/5',
         iconColor: 'text-emerald-400',
         borderColor: 'hover:border-emerald-500/20',
     },
     {
-        title: 'Sales & CRM',
-        description: 'Manage client relationships, track sales orders, and forecast pipelines with intelligent insights.',
+        title: L.items.sales.title,
+        description: L.items.sales.description,
         icon: TrendingUp,
         gradient: 'from-rose-500/20 to-rose-500/5',
         iconColor: 'text-rose-400',
         borderColor: 'hover:border-rose-500/20',
     },
     {
-        title: 'Finance & Accounting',
-        description: 'Integrated bookkeeping, automated invoicing, and deep financial reporting for your entire operation.',
+        title: L.items.finance.title,
+        description: L.items.finance.description,
         icon: Receipt,
         gradient: 'from-cyan-500/20 to-cyan-500/5',
         iconColor: 'text-cyan-400',
         borderColor: 'hover:border-cyan-500/20',
     },
     {
-        title: 'Analytics & Reports',
-        description: 'Live dashboards, trend analysis, and actionable KPIs that drive smarter business decisions.',
+        title: L.items.analytics.title,
+        description: L.items.analytics.description,
         icon: BarChart3,
         gradient: 'from-purple-500/20 to-purple-500/5',
         iconColor: 'text-purple-400',
         borderColor: 'hover:border-purple-500/20',
     },
     {
-        title: 'Logistics & Delivery',
-        description: 'End-to-end delivery tracking, shipment scheduling, and freight cost management in one view.',
+        title: L.items.logistics.title,
+        description: L.items.logistics.description,
         icon: Truck,
         gradient: 'from-blue-500/20 to-blue-500/5',
         iconColor: 'text-blue-400',
@@ -85,10 +86,10 @@ export default function FeaturesSection() {
                     transition={{ duration: 0.6 }}
                     className="text-center mb-16"
                 >
-                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">Modules</span>
-                    <h2 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5">Everything You Need</h2>
+                    <span className="text-sm font-semibold uppercase tracking-widest text-zinc-500 mb-4 block">{L.sectionTitle}</span>
+                    <h2 className="text-3xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-5">{L.sectionHeading}</h2>
                     <p className="text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto text-lg">
-                        Built from the ground up for plastic converting operations. Every module works together seamlessly.
+                        {L.sectionDescription}
                     </p>
                 </motion.div>
 

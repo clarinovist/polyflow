@@ -3,6 +3,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { heroLabels as L } from '@/lib/labels/home';
 
 export default function HeroSection() {
     return (
@@ -56,27 +57,27 @@ export default function HeroSection() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm mb-8"
                 >
                     <Sparkles className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm font-medium text-zinc-300 dark:text-zinc-200">Built for Plastic Converting Industry</span>
+                    <span className="text-sm font-medium text-zinc-300 dark:text-zinc-200">{L.badge}</span>
                 </motion.div>
 
                 <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-white mb-8 leading-[0.95]">
-                    Streamline your{' '}
+                    {L.headline}{' '}
                     <span className="bg-gradient-to-r from-white via-zinc-300 to-zinc-500 bg-clip-text text-transparent">
-                        manufacturing
+                        {L.headlineAccent}
                     </span>{' '}
-                    operations
+                    {L.headlineEnd}
                 </h1>
 
                 <p className="text-lg md:text-xl text-zinc-400 dark:text-zinc-300 max-w-2xl mb-12 leading-relaxed">
-                    Advanced Plastic Converting ERP System. Unify your warehouse, production, sales, and finance in one powerful platform.
+                    {L.tagline}
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
                     <Button className="h-14 px-10 bg-white hover:bg-zinc-100 dark:bg-white dark:hover:bg-zinc-100 text-zinc-950 text-base font-semibold rounded-full transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-105">
-                        Contact Sales <ArrowRight className="ml-2 h-5 w-5" />
+                        {L.contactSales} <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                     <Button variant="ghost" className="h-14 px-8 text-zinc-400 dark:text-zinc-300 hover:text-white text-base font-medium rounded-full hover:bg-white/5 hover:dark:bg-white/10 transition-all duration-300" asChild>
-                        <a href="#features">Explore Features</a>
+                        <a href="#features">{L.exploreFeatures}</a>
                     </Button>
                 </div>
 
@@ -93,7 +94,7 @@ export default function HeroSection() {
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">MR</div>
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 border-2 border-zinc-950 flex items-center justify-center text-white text-xs font-medium shadow-lg">+1K</div>
                     </div>
-                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Trusted by 1,000+ manufacturers worldwide</span>
+                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{L.trustedBy}</span>
                 </motion.div>
             </motion.div>
         </section>

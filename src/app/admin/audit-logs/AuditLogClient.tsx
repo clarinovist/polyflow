@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { auditLogLabels as L } from '@/lib/labels/admin';
 
 interface AuditLogStats {
     actions: { action: string; count: number }[];
@@ -60,55 +61,55 @@ export default function AuditLogClient({
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Total Records
+                            {L.totalRecords}
                         </CardTitle>
                         <ShieldAlert className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{initialData.pagination.total}</div>
                         <p className="text-xs text-muted-foreground">
-                            Event trails captured
+                            {L.eventTrailsCaptured}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Actions Profiled
+                            {L.actionsProfiled}
                         </CardTitle>
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.actions.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            Unique system operations
+                            {L.uniqueSystemOperations}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
-                            Entities Monitored
+                            {L.entitiesMonitored}
                         </CardTitle>
                         <Database className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.entities.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            Database models tracked
+                            {L.databaseModelsTracked}
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-center bg-white dark:bg-zinc-900 p-4 rounded-md border shadow-sm w-full">
-                <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mr-2">Filters:</div>
+                <div className="font-medium text-sm text-slate-700 dark:text-slate-300 mr-2">{L.filters}</div>
                 <Select value={currentAction} onValueChange={(val) => handleFilterChange('action', val)}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="All Actions" />
+                        <SelectValue placeholder={L.allActions} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Actions</SelectItem>
+                        <SelectItem value="all">{L.allActions}</SelectItem>
                         {stats.actions.map((s) => (
                             <SelectItem key={s.action} value={s.action}>
                                 {s.action} ({s.count})
@@ -119,10 +120,10 @@ export default function AuditLogClient({
 
                 <Select value={currentEntity} onValueChange={(val) => handleFilterChange('entityType', val)}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="All Entities" />
+                        <SelectValue placeholder={L.allEntities} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Entities</SelectItem>
+                        <SelectItem value="all">{L.allEntities}</SelectItem>
                         {stats.entities.map((s) => (
                             <SelectItem key={s.entityType} value={s.entityType}>
                                 {s.entityType} ({s.count})
@@ -135,7 +136,7 @@ export default function AuditLogClient({
                 
                 {(currentAction !== 'all' || currentEntity !== 'all') && (
                     <Button variant="ghost" onClick={() => router.push('/admin/audit-logs')}>
-                        Clear Filters
+                        {L.clearFilters}
                     </Button>
                 )}
             </div>

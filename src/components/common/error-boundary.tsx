@@ -4,6 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, RefreshCcw } from "lucide-react";
+import { errorBoundaryLabels as L } from "@/lib/labels/auth";
 
 interface Props {
     children?: ReactNode;
@@ -42,11 +43,11 @@ export class ErrorBoundary extends Component<Props, State> {
                             <div className="mx-auto bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mb-4">
                                 <AlertTriangle className="h-6 w-6 text-red-500" />
                             </div>
-                            <CardTitle className="text-xl text-red-900">Something went wrong</CardTitle>
+                            <CardTitle className="text-xl text-red-900">{L.title}</CardTitle>
                         </CardHeader>
                         <CardContent className="text-center text-muted-foreground text-sm">
                             <p className="mb-4">
-                                An unexpected error occurred in this application section.
+                                {L.description}
                             </p>
                             {process.env.NODE_ENV === "development" && (
                                 <div className="bg-slate-50 p-3 rounded text-left font-mono text-xs overflow-auto max-h-[150px] border">
@@ -61,7 +62,7 @@ export class ErrorBoundary extends Component<Props, State> {
                                 className="gap-2"
                             >
                                 <RefreshCcw className="h-4 w-4" />
-                                Reload Page
+                                {L.reloadPage}
                             </Button>
                         </CardFooter>
                     </Card>

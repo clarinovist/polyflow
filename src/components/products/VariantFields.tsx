@@ -12,6 +12,7 @@ import { Trash2, Loader2 } from 'lucide-react';
 import { deleteVariant, getNextSKU } from '@/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { variantFieldLabels } from '@/lib/labels/products';
 
 interface VariantFieldsProps {
     control: Control<CreateProductValues>;
@@ -76,7 +77,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
     return (
         <div className="border rounded-lg p-4 space-y-4 bg-zinc-50 dark:bg-zinc-900">
             <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">Variant #{index + 1}</h4>
+                <h4 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">{variantFieldLabels.variantLabel(index)}</h4>
                 {canRemove && (
                     <div className="flex items-center gap-2">
                         {variantId && (
@@ -102,7 +103,7 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                                     }
                                 }}
                             >
-                                Hapus
+                                {variantFieldLabels.deletePermanently}
                             </Button>
                         )}
 
@@ -125,9 +126,9 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                     name={`variants.${index}.name`}
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Variant Name</FormLabel>
+                            <FormLabel>{variantFieldLabels.variantName}</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., Bal Isi 10" {...field} />
+                                <Input placeholder={variantFieldLabels.variantNamePlaceholder} {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

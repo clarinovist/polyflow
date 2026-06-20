@@ -27,6 +27,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { productTypeBadgeLabels, productTableLabels } from '@/lib/labels/products';
 
 type ProductVariant = {
     id: string;
@@ -73,16 +74,6 @@ const productTypeBadgeColors: Record<ProductType, string> = {
     PACKAGING: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/10 hover:bg-orange-500/20',
     WIP: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/10 hover:bg-yellow-500/20',
     SERVICE: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/10 hover:bg-pink-500/20',
-};
-
-const productTypeLabels: Record<ProductType, string> = {
-    RAW_MATERIAL: 'RM',
-    FINISHED_GOOD: 'FG',
-    SCRAP: 'Scrap',
-    INTERMEDIATE: 'Inter',
-    PACKAGING: 'Pack',
-    WIP: 'WIP',
-    SERVICE: 'Service',
 };
 
 export function ProductTable({ products = [], showPrices = false }: ProductTableProps) {
@@ -135,8 +126,8 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                 <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mb-4">
                     <Package className="h-6 w-6 text-muted-foreground/50" />
                 </div>
-                <p className="text-lg font-medium">Tidak ada produk ditemukan</p>
-                <p className="text-sm mt-1 max-w-xs mx-auto">Coba ubah filter Anda atau buat produk pertama untuk memulai.</p>
+                <p className="text-lg font-medium">{productTableLabels.emptyTitle}</p>
+                <p className="text-sm mt-1 max-w-xs mx-auto">{productTableLabels.emptyDescription}</p>
             </div>
         );
     }
@@ -148,20 +139,20 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                     <Table>
                         <TableHeader className="bg-muted/30">
                             <TableRow className="hover:bg-transparent border-white/10 text-[11px] font-bold uppercase tracking-wider">
-                                <TableHead className="pl-6">Catalog Item</TableHead>
-                                <TableHead>SKU Code</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Unit</TableHead>
+                                <TableHead className="pl-6">{productTableLabels.catalogItem}</TableHead>
+                                <TableHead>{productTableLabels.skuCode}</TableHead>
+                                <TableHead>{productTableLabels.type}</TableHead>
+                                <TableHead>{productTableLabels.unit}</TableHead>
                                 <TableHead className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        Stock Level
+                                        {productTableLabels.stockLevel}
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                                             </TooltipTrigger>
                                             <TooltipContent>
                                                 <p className="max-w-xs text-xs">
-                                                    Current physical stock available for this specific SKU
+                                                    {productTableLabels.stockLevelTooltip}
                                                 </p>
                                             </TooltipContent>
                                         </Tooltip>
@@ -171,14 +162,14 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                     <>
                                         <TableHead className="text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
-                                                Current Cost
+                                                {productTableLabels.currentCost}
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                         <p className="max-w-xs text-xs">
-                                                            Weighted average cost from current on-hand stock across locations.
+                                                            {productTableLabels.currentCostTooltip}
                                                         </p>
                                                     </TooltipContent>
                                                 </Tooltip>
@@ -186,24 +177,24 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                         </TableHead>
                                         <TableHead className="text-right whitespace-nowrap">
                                             <div className="flex items-center justify-end gap-1">
-                                                Standard Cost
+                                                {productTableLabels.standardCost}
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                         <p className="max-w-xs text-xs">
-                                                            Unit cost calculated from the Bill of Materials (Recipe).
+                                                            {productTableLabels.standardCostTooltip}
                                                         </p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </div>
                                         </TableHead>
-                                        <TableHead className="text-right whitespace-nowrap">Buy Price</TableHead>
-                                        <TableHead className="text-right whitespace-nowrap">Catalog</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">{productTableLabels.buyPrice}</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">{productTableLabels.catalog}</TableHead>
                                     </>
                                 )}
-                                <TableHead className="text-right pr-6">Actions</TableHead>
+                                <TableHead className="text-right pr-6">{productTableLabels.actions}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -231,7 +222,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={`text-[10px] font-bold py-0 h-5 border-transparent ${productTypeBadgeColors[variant.productType]}`}>
-                                            {productTypeLabels[variant.productType]}
+                                            {productTypeBadgeLabels[variant.productType]}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -338,12 +329,13 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Hapus Item Produk</DialogTitle>
+                        <DialogTitle>{productTableLabels.deleteDialogTitle}</DialogTitle>
                         <DialogDescription>
-                            Yakin ingin menghapus <strong>{variantToDelete?.productName} {variantToDelete?.name !== variantToDelete?.productName ? `(${variantToDelete?.name})` : ''}</strong>?
-                            <br />
-                            <span className="text-red-500 mt-2 block font-medium">SKU: {variantToDelete?.skuCode}</span>
-                            Aksi ini tidak dapat dibatalkan dan akan gagal jika masih ada stok atau riwayat transaksi.
+                            {productTableLabels.deleteDialogDescription(
+                                variantToDelete?.productName || '',
+                                variantToDelete?.name !== variantToDelete?.productName ? variantToDelete?.name || '' : '',
+                                variantToDelete?.skuCode || ''
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -352,14 +344,14 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                             onClick={() => setDeleteDialogOpen(false)}
                             disabled={isDeleting}
                         >
-                            Batal
+                            {productTableLabels.deleteDialogCancel}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleDeleteConfirm}
                             disabled={isDeleting}
                         >
-                            {isDeleting ? 'Menghapus...' : 'Hapus SKU'}
+                            {isDeleting ? productTableLabels.deleting : productTableLabels.deleteSku}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

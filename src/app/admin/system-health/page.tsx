@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Activity, Database, Server, Settings, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { systemHealthLabels as L } from '@/lib/labels/admin';
 
 interface SystemDiagnostics {
     status: string;
@@ -47,7 +48,7 @@ export default function SystemHealthPage() {
     if (loading && !diagnostics) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
-                <h2 className="text-3xl font-bold tracking-tight mb-4">System Health</h2>
+                <h2 className="text-3xl font-bold tracking-tight mb-4">{L.title}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Skeleton className="h-[120px] w-full" />
                     <Skeleton className="h-[120px] w-full" />
@@ -61,10 +62,10 @@ export default function SystemHealthPage() {
     if (!diagnostics || error) {
         return (
             <div className="flex-1 space-y-4 p-8 pt-6">
-                <h2 className="text-3xl font-bold tracking-tight mb-4">System Health</h2>
+                <h2 className="text-3xl font-bold tracking-tight mb-4">{L.title}</h2>
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md border border-red-200 dark:border-red-800/50 flex items-center gap-3">
                     <AlertCircle className="h-5 w-5" />
-                    <p>{error || 'Diagnostics unavailable at this time.'}</p>
+                    <p>{error || L.diagnosticsUnavailable}</p>
                 </div>
             </div>
         );
@@ -79,44 +80,44 @@ export default function SystemHealthPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between space-y-2 mb-4">
                 <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                    System Health
+                    {L.title}
                     <Badge variant={isHealthy ? 'default' : 'destructive'} className={isHealthy ? 'bg-emerald-500 hover:bg-emerald-600' : ''}>
-                        {isHealthy ? 'All Systems Operational' : 'Systems Degraded'}
+                        {isHealthy ? L.allSystemsOperational : L.systemsDegraded}
                     </Badge>
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                    Last updated: {new Date(diagnostics.timestamp).toLocaleTimeString()}
+                    {L.lastUpdated} {new Date(diagnostics.timestamp).toLocaleTimeString()}
                 </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Database</CardTitle>
+                        <CardTitle className="text-sm font-medium">{L.database}</CardTitle>
                         <Database className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{db.status}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Latency: {db.latencyMs}ms</p>
+                        <p className="text-xs text-muted-foreground mt-1">{L.latency}: {db.latencyMs}ms</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Node.js Uptime</CardTitle>
+                        <CardTitle className="text-sm font-medium">{L.nodejsUptime}</CardTitle>
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{Math.floor(system.uptimeSeconds / 3600)}h {Math.floor((system.uptimeSeconds % 3600) / 60)}m</div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Process uptime
+                            {L.processUptime}
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">OS Memory Usage</CardTitle>
+                        <CardTitle className="text-sm font-medium">{L.osMemoryUsage}</CardTitle>
                         <Server className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -130,7 +131,7 @@ export default function SystemHealthPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">V8 Heap</CardTitle>
+                        <CardTitle className="text-sm font-medium">{L.v8Heap}</CardTitle>
                         <Server className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -147,9 +148,9 @@ export default function SystemHealthPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" /> Environment Variables
+                            <Settings className="h-5 w-5" /> {L.environmentVariables}
                         </CardTitle>
-                        <CardDescription>Status of required system configuration keys</CardDescription>
+                        <CardDescription>{L.envDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
@@ -157,9 +158,9 @@ export default function SystemHealthPage() {
                                 <div key={env.key} className="flex items-center justify-between">
                                     <span className="font-mono text-sm">{env.key}</span>
                                     {env.isSet ? (
-                                        <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"><CheckCircle2 className="h-3 w-3 mr-1"/> Configured</Badge>
+                                        <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"><CheckCircle2 className="h-3 w-3 mr-1"/> {L.configured}</Badge>
                                     ) : (
-                                        <Badge variant="outline" className="text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20"><AlertCircle className="h-3 w-3 mr-1"/> Missing</Badge>
+                                        <Badge variant="outline" className="text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20"><AlertCircle className="h-3 w-3 mr-1"/> {L.missing}</Badge>
                                     )}
                                 </div>
                             ))}
@@ -170,26 +171,26 @@ export default function SystemHealthPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Server className="h-5 w-5" /> Host Information
+                            <Server className="h-5 w-5" /> {L.hostInformation}
                         </CardTitle>
-                        <CardDescription>Underlying OS and hardware specs</CardDescription>
+                        <CardDescription>{L.hostDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
                             <div className="flex justify-between border-b pb-2 text-sm">
-                                <span className="text-muted-foreground">Platform</span>
+                                <span className="text-muted-foreground">{L.platform}</span>
                                 <span className="font-medium">{system.platform} ({system.arch})</span>
                             </div>
                             <div className="flex justify-between border-b pb-2 text-sm">
-                                <span className="text-muted-foreground">Logical CPUs</span>
+                                <span className="text-muted-foreground">{L.logicalCpus}</span>
                                 <span className="font-medium">{system.cpus} Cores</span>
                             </div>
                             <div className="flex justify-between border-b pb-2 text-sm">
-                                <span className="text-muted-foreground">System Uptime</span>
+                                <span className="text-muted-foreground">{L.systemUptime}</span>
                                 <span className="font-medium">{Math.floor(system.osUptimeSeconds / 3600 / 24)} days {Math.floor((system.osUptimeSeconds % (3600 * 24)) / 3600)} hours</span>
                             </div>
                             <div className="flex justify-between pb-2 text-sm">
-                                <span className="text-muted-foreground">Node RSS</span>
+                                <span className="text-muted-foreground">{L.nodeRss}</span>
                                 <span className="font-medium">{Math.round(memory.rssBytes / 1024 / 1024)} MB</span>
                             </div>
                         </div>

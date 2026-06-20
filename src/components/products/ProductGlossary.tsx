@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { productGlossaryLabels } from '@/lib/labels/products';
 
 export function ProductGlossary() {
     return (
@@ -18,7 +19,7 @@ export function ProductGlossary() {
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                     <HelpCircle className="h-4 w-4 mr-2" />
-                    Field Guide
+                    {productGlossaryLabels.fieldGuide}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
@@ -26,10 +27,10 @@ export function ProductGlossary() {
                     <DialogHeader className="pb-4 pr-10">
                         <DialogTitle className="flex items-center gap-2">
                             <Info className="h-5 w-5 text-muted-foreground" />
-                            Product Master - Field Guide
+                            {productGlossaryLabels.title}
                         </DialogTitle>
                         <DialogDescription>
-                            Quick reference for all product terminology and fields
+                            {productGlossaryLabels.subtitle}
                         </DialogDescription>
                     </DialogHeader>
                 </div>
@@ -39,86 +40,86 @@ export function ProductGlossary() {
                         {/* Product Types */}
                         <GlossarySection
                             icon={Package}
-                            title="Product Types"
-                            description="Categories based on production stage"
+                            title={productGlossaryLabels.productTypes}
+                            description={productGlossaryLabels.productTypesDesc}
                         >
                             <GlossaryItem
-                                term="RAW_MATERIAL"
+                                term={productGlossaryLabels.rmName}
                                 badge="RM"
                                 badgeVariant="outline"
-                                description="Incoming materials from suppliers (e.g., PP Granules, Colorant)"
-                                example="Pure PP Granules, Red Colorant Masterbatch"
+                                description={productGlossaryLabels.rmDesc}
+                                example={productGlossaryLabels.rmExample}
                             />
                             <GlossaryItem
-                                term="INTERMEDIATE"
+                                term={productGlossaryLabels.inName}
                                 badge="IN"
                                 badgeVariant="outline"
-                                description="Result of mixing/blending processes, not yet final product"
-                                example="Red Mixed Granules (PP + Colorant)"
+                                description={productGlossaryLabels.inDesc}
+                                example={productGlossaryLabels.inExample}
                             />
                             <GlossaryItem
-                                term="PACKAGING"
+                                term={productGlossaryLabels.pkName}
                                 badge="PK"
                                 badgeVariant="outline"
-                                description="Packaging materials and supplies"
-                                example="Boxes, Labels, Pallets"
+                                description={productGlossaryLabels.pkDesc}
+                                example={productGlossaryLabels.pkExample}
                             />
                             <GlossaryItem
-                                term="WIP (Work in Progress)"
+                                term={productGlossaryLabels.wipName}
                                 badge="WP"
                                 badgeVariant="outline"
-                                description="Semi-finished goods currently in production"
-                                example="Red Raffia Jumbo Roll (before cutting)"
+                                description={productGlossaryLabels.wipDesc}
+                                example={productGlossaryLabels.wipExample}
                             />
                             <GlossaryItem
-                                term="FINISHED_GOOD"
+                                term={productGlossaryLabels.fgName}
                                 badge="FG"
                                 badgeVariant="default"
-                                description="Ready-to-sell products"
-                                example="Red Raffia Bales (5kg, 10kg)"
+                                description={productGlossaryLabels.fgDesc}
+                                example={productGlossaryLabels.fgExample}
                             />
                             <GlossaryItem
-                                term="SCRAP"
+                                term={productGlossaryLabels.scName}
                                 badge="SC"
                                 badgeVariant="destructive"
-                                description="Production waste and recyclable materials"
-                                example="Edge Trim, Rejected Products, Regrind"
+                                description={productGlossaryLabels.scDesc}
+                                example={productGlossaryLabels.scExample}
                             />
                         </GlossarySection>
 
                         {/* Units */}
                         <GlossarySection
                             icon={Scale}
-                            title="Units of Measurement"
-                            description="Available units for tracking inventory"
+                            title={productGlossaryLabels.unitsOfMeasurement}
+                            description={productGlossaryLabels.unitsOfMeasurementDesc}
                         >
                             <GlossaryItem
                                 term="KG"
-                                description="Kilograms - Weight measurement, most common for raw materials and granules"
+                                description={productGlossaryLabels.kgDesc}
                             />
                             <GlossaryItem
                                 term="ROLL"
-                                description="Roll - For film, raffia, or tape products in roll form"
+                                description={productGlossaryLabels.rollDesc}
                             />
                             <GlossaryItem
                                 term="BAL"
-                                description="Bale - Bundled/packed products (e.g., 1 bale = 5kg or 10kg)"
+                                description={productGlossaryLabels.balDesc}
                             />
                             <GlossaryItem
                                 term="PACK"
-                                description="Pieces - For discrete countable items"
+                                description={productGlossaryLabels.packDesc}
                             />
                             <GlossaryItem
                                 term="ZAK"
-                                description="Sack/Bag - For bulk packaging units"
+                                description={productGlossaryLabels.zakDesc}
                             />
                         </GlossarySection>
 
                         {/* SKU Code */}
                         <GlossarySection
                             icon={Tag}
-                            title="SKU Code Format"
-                            description="8-character unique product identifier"
+                            title={productGlossaryLabels.skuCodeFormat}
+                            description={productGlossaryLabels.skuCodeFormatDesc}
                         >
                             <div className="bg-muted/30 p-4 rounded-lg border">
                                 <div className="font-mono text-lg font-bold text-center mb-3 tracking-wider">
@@ -126,23 +127,23 @@ export function ProductGlossary() {
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm">
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">TYPE (2)</div>
+                                        <div className="font-semibold text-foreground">{productGlossaryLabels.typeLabel}</div>
                                         <div className="text-xs text-muted-foreground">RM, IN, WP, FG, SC</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">CATEGORY (3)</div>
+                                        <div className="font-semibold text-foreground">{productGlossaryLabels.categoryLabel}</div>
                                         <div className="text-xs text-muted-foreground">PPG, CLR, MIX, RAF</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="font-semibold text-foreground">SEQ (3)</div>
+                                        <div className="font-semibold text-foreground">{productGlossaryLabels.seqLabel}</div>
                                         <div className="text-xs text-muted-foreground">001-999</div>
                                     </div>
                                 </div>
                                 <div className="mt-3 p-3 bg-card rounded border font-mono text-sm flex flex-col items-center">
-                                    <span className="text-xs text-muted-foreground mb-1 uppercase tracking-wide">Example</span>
+                                    <span className="text-xs text-muted-foreground mb-1 uppercase tracking-wide">{productGlossaryLabels.exampleLabel}</span>
                                     <span className="font-bold">RMPPG001</span>
                                     <span className="text-xs text-muted-foreground mt-1 text-center">
-                                        Raw Material → PP Granules → #001
+                                        {productGlossaryLabels.skuExamplePath}
                                     </span>
                                 </div>
                             </div>
@@ -151,30 +152,29 @@ export function ProductGlossary() {
                         {/* Dual Unit System */}
                         <GlossarySection
                             icon={Scale}
-                            title="Dual Unit System"
-                            description="Primary unit for internal tracking, sales unit for customer-facing"
+                            title={productGlossaryLabels.dualUnitSystem}
+                            description={productGlossaryLabels.dualUnitSystemDesc}
                         >
                             <GlossaryItem
-                                term="Primary Unit"
-                                description="Internal tracking unit (e.g., KG for precise inventory management)"
-                                example="All stock movements tracked in KG"
+                                term={productGlossaryLabels.primaryUnit}
+                                description={productGlossaryLabels.primaryUnitDesc}
+                                example={productGlossaryLabels.primaryUnitExample}
                             />
                             <GlossaryItem
-                                term="Sales Unit"
-                                description="Customer-facing unit (e.g., BAL for sales orders)"
-                                example="Sell in Bales, track internally in KG"
+                                term={productGlossaryLabels.salesUnit}
+                                description={productGlossaryLabels.salesUnitDesc}
+                                example={productGlossaryLabels.salesUnitExample}
                             />
                             <GlossaryItem
-                                term="Conversion Factor"
-                                description="How many primary units = 1 sales unit"
-                                example="1 BAL = 5 KG → Conversion Factor = 5.0"
+                                term={productGlossaryLabels.conversionFactor}
+                                description={productGlossaryLabels.conversionFactorDesc}
+                                example={productGlossaryLabels.conversionFactorExample}
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">Tip:</span> For raw materials and scrap,
-                                        both units are typically the same (e.g., KG/KG with factor 1.0)
+                                        <span className="font-semibold text-foreground">Tip:</span> {productGlossaryLabels.dualUnitTip}
                                     </div>
                                 </div>
                             </div>
@@ -183,30 +183,30 @@ export function ProductGlossary() {
                         {/* Pricing */}
                         <GlossarySection
                             icon={DollarSign}
-                            title="Price Fields"
-                            description="Multiple price points for different purposes"
+                            title={productGlossaryLabels.priceFields}
+                            description={productGlossaryLabels.priceFieldsDesc}
                         >
                             <GlossaryItem
-                                term="Price"
-                                description="Base/standard price for general reference"
-                                example="IDR 15,000 per KG"
+                                term={productGlossaryLabels.price}
+                                description={productGlossaryLabels.priceDesc}
+                                example={productGlossaryLabels.priceExample}
                             />
                             <GlossaryItem
-                                term="Buy Price"
-                                description="Purchase cost from supplier (for cost calculations and margins)"
-                                example="IDR 14,500 per KG (what you pay)"
+                                term={productGlossaryLabels.buyPriceName}
+                                description={productGlossaryLabels.buyPriceDesc}
+                                example={productGlossaryLabels.buyPriceExample}
                             />
                             <GlossaryItem
-                                term="Sell Price"
-                                description="Sales price to customer (for invoicing and quotations)"
-                                example="IDR 16,000 per KG (what customer pays)"
+                                term={productGlossaryLabels.sellPrice}
+                                description={productGlossaryLabels.sellPriceDesc}
+                                example={productGlossaryLabels.sellPriceExample}
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">Margin Calculation:</span>
-                                        {' '}(Sell Price - Buy Price) / Buy Price × 100%
+                                        <span className="font-semibold text-foreground">{productGlossaryLabels.marginCalc}</span>
+                                        {' '}{productGlossaryLabels.marginFormula}
                                     </div>
                                 </div>
                             </div>
@@ -215,20 +215,19 @@ export function ProductGlossary() {
                         {/* Min Stock Alert */}
                         <GlossarySection
                             icon={Package}
-                            title="Inventory Controls"
-                            description="Settings for inventory management"
+                            title={productGlossaryLabels.inventoryControls}
+                            description={productGlossaryLabels.inventoryControlsDesc}
                         >
                             <GlossaryItem
-                                term="Min Stock Alert"
-                                description="Threshold quantity - system alerts when total stock across all locations falls below this number"
-                                example="Set to 100 KG → Alert when total stock < 100 KG"
+                                term={productGlossaryLabels.minStockAlert}
+                                description={productGlossaryLabels.minStockAlertDesc}
+                                example={productGlossaryLabels.minStockAlertExample}
                             />
                             <div className="bg-muted/30 p-3 rounded-lg border mt-2">
                                 <div className="flex items-start gap-2">
                                     <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     <div className="text-sm text-muted-foreground">
-                                        <span className="font-semibold text-foreground">Best Practice:</span> Set min stock to
-                                        (Average Daily Usage × Lead Time Days) + Safety Stock
+                                        <span className="font-semibold text-foreground">{productGlossaryLabels.bestPractice}</span> {productGlossaryLabels.bestPracticeFormula}
                                     </div>
                                 </div>
                             </div>
@@ -237,14 +236,14 @@ export function ProductGlossary() {
                         {/* Product Attributes */}
                         <GlossarySection
                             icon={Tag}
-                            title="Product Attributes"
-                            description="Flexible metadata for additional product information"
+                            title={productGlossaryLabels.productAttributes}
+                            description={productGlossaryLabels.productAttributesDesc}
                         >
                             <div className="text-sm text-slate-600 mb-3">
-                                Store custom properties like color, thickness, material grade, etc.
+                                {productGlossaryLabels.productAttributesDetail}
                             </div>
                             <div className="bg-muted/30 p-3 rounded-lg border font-mono text-xs">
-                                <div className="text-muted-foreground mb-1">Example JSON:</div>
+                                <div className="text-muted-foreground mb-1">{productGlossaryLabels.exampleJson}</div>
                                 <pre className="text-foreground">{`{
   "color": "Red",
   "thickness": "Standard",
@@ -304,7 +303,7 @@ function GlossaryItem({ term, description, example, badge, badgeVariant }: Gloss
             <p className="text-sm text-slate-600">{description}</p>
             {example && (
                 <p className="text-xs text-muted-foreground mt-2 italic">
-                    Example: {example}
+                    {productGlossaryLabels.exampleLabel}: {example}
                 </p>
             )}
         </div>

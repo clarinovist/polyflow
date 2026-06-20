@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ArrowRight, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { workspaceDiscoveryLabels as L } from '@/lib/labels/auth';
 
 export default function WorkspaceDiscovery() {
     const [workspace, setWorkspace] = useState('');
@@ -53,10 +54,10 @@ export default function WorkspaceDiscovery() {
                     <Building2 className="w-6 h-6 text-primary" />
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-                    Sign in to your workspace
+                    {L.signInToWorkspace}
                 </h1>
                 <p className="text-muted-foreground">
-                    Enter your workspace URL to continue to your ERP dashboard.
+                    {L.description}
                 </p>
             </div>
 
@@ -64,17 +65,17 @@ export default function WorkspaceDiscovery() {
                 <div className="space-y-2">
                     <div className="flex flex-col sm:flex-row shadow-sm rounded-md bg-transparent">
                         <div className="flex items-center rounded-md border border-input focus-within:ring-1 focus-within:ring-ring focus-within:border-primary transition-all overflow-hidden bg-background w-full">
-                            <span className="pl-4 text-muted-foreground whitespace-nowrap hidden sm:inline select-none">https://</span>
+                            <span className="pl-4 text-muted-foreground whitespace-nowrap hidden sm:inline select-none">{L.protocolPrefix}</span>
                             <Input
                                 type="text"
-                                placeholder="your-company"
+                                placeholder={L.placeholder}
                                 value={workspace}
                                 onChange={(e) => setWorkspace(e.target.value)}
                                 className="border-0 bg-transparent focus-visible:ring-0 px-2 sm:px-1 text-center sm:text-left h-12 text-lg shadow-none flex-1"
                                 autoFocus
                                 required
                             />
-                            <span className="pr-4 pl-3 bg-muted h-full flex items-center border-l border-border text-muted-foreground font-medium select-none">.polyflow.uk</span>
+                            <span className="pr-4 pl-3 bg-muted h-full flex items-center border-l border-border text-muted-foreground font-medium select-none">{L.domainSuffix}</span>
                         </div>
                     </div>
                 </div>
@@ -84,20 +85,20 @@ export default function WorkspaceDiscovery() {
                     className="w-full h-12 text-base font-semibold"
                     disabled={!workspace.trim() || isLoading}
                 >
-                    {isLoading ? 'Connecting...' : 'Continue to Workspace'}
+                    {isLoading ? L.connecting : L.continueToWorkspace}
                     {!isLoading && <ArrowRight className="ml-2 w-4 h-4" />}
                 </Button>
             </form>
 
             <div className="mt-8 text-center text-sm text-muted-foreground">
-                <p>Not sure about your workspace URL?</p>
-                <p className="mt-1">Check your welcome email from the administrator.</p>
+                <p>{L.notSure}</p>
+                <p className="mt-1">{L.checkEmail}</p>
             </div>
 
             <div className="mt-6 pt-6 border-t border-zinc-200 text-center">
-                <p className="text-sm text-muted-foreground mb-3">Don&apos;t have a workspace yet?</p>
+                <p className="text-sm text-muted-foreground mb-3">{L.noWorkspace}</p>
                 <Button variant="outline" className="w-full h-10 border-zinc-300" asChild>
-                    <a href="/register">Register New Company</a>
+                    <a href="/register">{L.registerNewCompany}</a>
                 </Button>
             </div>
 
