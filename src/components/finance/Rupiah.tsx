@@ -25,7 +25,7 @@ export function Rupiah({ value, className, bold }: RupiahProps) {
   const { prefix, amount, isNegative } = formatRupiahParts(value);
 
   return (
-    <span className={cn('inline-flex items-baseline gap-1 font-mono tabular-nums', bold && 'font-bold', className)}>
+    <span className={cn('flex items-baseline gap-1 font-mono tabular-nums w-full', bold && 'font-bold', className)}>
       {prefix && (
         <span className="text-muted-foreground shrink-0">{prefix}</span>
       )}
