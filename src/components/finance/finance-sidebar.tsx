@@ -16,7 +16,6 @@ import {
     Landmark,
     Box,
     Factory,
-    CircleDollarSign
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -53,7 +52,6 @@ const financeLinks = [
         items: [
             { href: '/finance/quick-entry', icon: Zap, label: financeSidebarLabels.quickEntry },
             { href: '/finance/invoices/sales', icon: Receipt, label: financeSidebarLabels.receivables },
-            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: financeSidebarLabels.mtsUnpaid },
             { href: '/finance/payments/received', icon: CreditCard, label: financeSidebarLabels.customerPayments },
             { href: '/finance/invoices/purchase', icon: FileText, label: financeSidebarLabels.payables },
             { href: '/finance/payments/sent', icon: CreditCard, label: financeSidebarLabels.supplierPayments },
@@ -93,7 +91,7 @@ export function FinanceSidebar({ user }: FinanceSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Finance" accentColor="purple">
             <div className="px-3 mb-2">
-                <AdminBackButton role={user.role || undefined} />
+                <AdminBackButton />
             </div>
             {financeLinks.map((group) => (
                 <PortalNavGroup

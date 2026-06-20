@@ -1,5 +1,7 @@
 import { auth } from '@/auth';
 import { getMyPermissions } from '@/actions/admin/permissions';
+import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
+import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
 
@@ -31,11 +33,14 @@ export default async function DashboardLayout({
             <SidebarNav user={user} permissions={permissions} />
 
             {/* Main Content */}
-            <main className="lg:ml-64 min-h-screen">
-                <div className="p-4 md:p-6 lg:p-8">
-                    {children}
-                </div>
-            </main>
+            <SidebarSpacer>
+                <main className="min-h-screen">
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <PathBreadCrumb />
+                        {children}
+                    </div>
+                </main>
+            </SidebarSpacer>
         </div>
     );
 }

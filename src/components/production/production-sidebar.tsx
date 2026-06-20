@@ -55,7 +55,7 @@ export function ProductionSidebar({ user }: ProductionSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Produksi" accentColor="emerald">
             <div className="px-3 mb-2">
-                <AdminBackButton role={user.role || undefined} />
+                <AdminBackButton />
             </div>
             {productionLinks.map((group) => (
                 <PortalNavGroup

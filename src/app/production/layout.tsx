@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { ProductionSidebar } from '@/components/production/production-sidebar';
 import { ClockDisplay } from '../kiosk/ClockDisplay';
 import { canAccessWorkspace } from '@/lib/auth/access-policy';
+import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
+import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 
 export default async function ProductionLayout({
     children,
@@ -30,7 +32,7 @@ export default async function ProductionLayout({
             {/* Dedicated Production Sidebar */}
             <ProductionSidebar user={user} />
 
-            <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">
+            <SidebarSpacer className="flex-1 flex flex-col min-h-screen">
                 {/* Header for Superintendent Portal */}
                 <header className="sticky top-0 z-30 w-full border-b bg-background/80 backdrop-blur-md px-6 h-16 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
@@ -47,9 +49,10 @@ export default async function ProductionLayout({
                 </header>
 
                 <main className="flex-1 overflow-auto bg-muted/20 p-6">
+                    <PathBreadCrumb />
                     {children}
                 </main>
-            </div>
+            </SidebarSpacer>
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/layout/theme-provider";
+import { SidebarCollapseProvider } from "@/components/layout/sidebar-collapse-context";
 import "./globals.css";
 
 // Temporarily disabled due to build environment connection issues
@@ -47,11 +48,13 @@ export default function RootLayout({
             >
                 <SessionProvider>
                     <ThemeProvider>
-                        {children}
-                        <PolyflowChatWidget />
-                        <AutoChangelogBanner />
-                        <Toaster position="bottom-right" richColors />
-                        <SessionTimeoutHandler />
+                        <SidebarCollapseProvider>
+                            {children}
+                            <PolyflowChatWidget />
+                            <AutoChangelogBanner />
+                            <Toaster position="bottom-right" richColors />
+                            <SessionTimeoutHandler />
+                        </SidebarCollapseProvider>
                     </ThemeProvider>
                 </SessionProvider>
             </body>

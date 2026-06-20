@@ -56,7 +56,7 @@ export function WarehouseSidebar({ user }: WarehouseSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Gudang" accentColor="primary">
             <div className="px-3 mb-2">
-                <AdminBackButton role={user.role || undefined} />
+                <AdminBackButton />
             </div>
             {warehouseLinks.map((group) => (
                 <PortalNavGroup

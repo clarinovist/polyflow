@@ -52,7 +52,7 @@ export function SalesSidebar({ user }: SalesSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Sales" accentColor="blue">
             <div className="px-3 mb-2">
-                <AdminBackButton role={user.role || undefined} />
+                <AdminBackButton />
             </div>
             {salesLinks.map((group) => (
                 <PortalNavGroup

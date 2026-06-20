@@ -18,6 +18,8 @@ import {
     Menu,
     X,
     PackageSearch,
+    PanelLeftClose,
+    PanelLeftOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -27,6 +29,7 @@ import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useState } from 'react';
 import { mainNavLabels } from '@/lib/labels';
+import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 
 
 interface SidebarNavProps {
@@ -86,6 +89,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
     const pathname = usePathname();
     const { theme, setTheme, resolvedTheme } = useTheme();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const { isCollapsed, toggle: toggleCollapse } = useSidebarCollapse();
 
     // Close mobile sidebar on navigation
     const [prevPathname, setPrevPathname] = useState(pathname);
@@ -143,14 +147,22 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
 
             {/* Sidebar Aside */}
             <aside className={cn(
-                "fixed left-0 top-0 z-50 h-screen w-64 border-r border-sidebar-border bg-sidebar transition-transform duration-300 lg:translate-x-0",
+                "fixed left-0 top-0 z-50 h-screen border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:translate-x-0",
+                isCollapsed ? "w-16" : "w-64",
                 isMobileOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex h-full flex-col">
                     {/* Logo & Close Button (Mobile) */}
-                    <div className="flex h-16 items-center border-b border-sidebar-border px-6 justify-between">
+                    <div className={cn(
+                        "flex h-16 items-center border-b border-sidebar-border justify-between",
+                        isCollapsed ? "px-3" : "px-6"
+                    )}>
                         <Link href="/dashboard">
-                            <PolyFlowLogo showText={true} size="md" />
+                            {isCollapsed ? (
+                                <PolyFlowLogo showText={false} size="sm" />
+                            ) : (
+                                <PolyFlowLogo showText={true} size="md" />
+                            )}
                         </Link>
                         <button
                             onClick={() => setIsMobileOpen(false)}
@@ -161,65 +173,118 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
                         </button>
                     </div>
 
-                    <div className="px-4 pt-4">
-                        <GlobalSearch className="w-full justify-start pl-2" />
+                    {/* Collapse Toggle (desktop only) */}
+                    <div className="hidden lg:flex justify-end px-2 pt-2">
+                        <button
+                            onClick={toggleCollapse}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        >
+                            {isCollapsed
+                                ? <PanelLeftOpen className="h-4 w-4" />
+                                : <PanelLeftClose className="h-4 w-4" />
+                            }
+                        </button>
                     </div>
 
+                    {/* Search (hidden when collapsed) */}
+                    {!isCollapsed && (
+                        <div className="px-4 pt-4">
+                            <GlobalSearch className="w-full justify-start pl-2" />
+                        </div>
+                    )}
+
                     {/* Navigation */}
-                    <nav className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-                        {filteredGroups.map((group) => (
-                            <div key={group.heading} className="space-y-1">
-                                <h3 className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    {group.heading}
-                                </h3>
-                                {group.items.map((item) => (
-                                    <NavItem
-                                        key={item.href}
-                                        href={item.href}
-                                        icon={item.icon}
-                                        label={item.title}
-                                        pathname={pathname}
-                                    />
-                                ))}
-                            </div>
-                        ))}
+                    <nav className={cn(
+                        "flex-1 overflow-y-auto space-y-6 custom-scrollbar",
+                        isCollapsed ? "px-2 py-4" : "p-4"
+                    )}>
+                        {isCollapsed ? (
+                            // Collapsed: icon-only, no headings
+                            filteredGroups.flatMap(group => group.items).map((item) => (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    title={item.title}
+                                    className={cn(
+                                        "flex items-center justify-center rounded-lg py-2 transition-colors mx-1",
+                                        (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
+                                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                    )}
+                                >
+                                    <item.icon className={cn(
+                                        "h-4 w-4",
+                                        (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)))
+                                            ? "text-sidebar-accent-foreground" : "text-muted-foreground"
+                                    )} />
+                                </Link>
+                            ))
+                        ) : (
+                            // Expanded: grouped with headings
+                            filteredGroups.map((group) => (
+                                <div key={group.heading} className="space-y-1">
+                                    <h3 className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        {group.heading}
+                                    </h3>
+                                    {group.items.map((item) => (
+                                        <NavItem
+                                            key={item.href}
+                                            href={item.href}
+                                            icon={item.icon}
+                                            label={item.title}
+                                            pathname={pathname}
+                                        />
+                                    ))}
+                                </div>
+                            ))
+                        )}
                     </nav>
 
                     {/* User Section */}
-                    <div className="border-t border-sidebar-border p-4">
-                        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/50 p-3 border border-sidebar-border">
+                    <div className="border-t border-sidebar-border p-3">
+                        <div className={cn(
+                            "flex items-center rounded-lg bg-sidebar-accent/50 border border-sidebar-border",
+                            isCollapsed ? "justify-center p-2" : "gap-3 p-3"
+                        )}>
                             <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 font-medium text-sm text-white">
                                 {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                             </div>
-                            <div className="flex-1 overflow-hidden min-w-0">
-                                <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
-                            </div>
-
-                            <Link
-                                href="/dashboard/settings"
-                                className="text-muted-foreground hover:text-primary transition-colors p-1"
-                                title="Settings"
-                                aria-label="Settings"
-                            >
-                                <Settings className="h-4 w-4" />
-                            </Link>
-                            <button
-                                onClick={cycleTheme}
-                                className="text-muted-foreground hover:text-primary transition-colors p-1"
-                                title={`Theme: ${getThemeLabel()}`}
-                                aria-label="Toggle theme"
-                            >
-                                <ThemeIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                                onClick={() => signOut({ callbackUrl: '/login' })}
-                                className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                                title="Logout"
-                                aria-label="Sign out"
-                            >
-                                <LogOut className="h-4 w-4" />
-                            </button>
+                            {!isCollapsed && (
+                                <div className="flex-1 overflow-hidden min-w-0">
+                                    <p className="text-sm font-semibold text-sidebar-foreground truncate">{user.name || 'User'}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">{user.role || 'Warehouse'}</p>
+                                </div>
+                            )}
+                            {!isCollapsed && (
+                                <>
+                                    <Link
+                                        href="/dashboard/settings"
+                                        className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                        title="Settings"
+                                        aria-label="Settings"
+                                    >
+                                        <Settings className="h-4 w-4" />
+                                    </Link>
+                                    <button
+                                        onClick={cycleTheme}
+                                        className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                        title={`Theme: ${getThemeLabel()}`}
+                                        aria-label="Toggle theme"
+                                    >
+                                        <ThemeIcon className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => signOut({ callbackUrl: '/login' })}
+                                        className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                                        title="Logout"
+                                        aria-label="Sign out"
+                                    >
+                                        <LogOut className="h-4 w-4" />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

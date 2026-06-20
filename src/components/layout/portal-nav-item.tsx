@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
 import { LucideIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 
 interface NavItemProps {
     href: string;
@@ -53,6 +54,19 @@ function isSubtreeActive(items: NavItemProps[], pathname: string, searchParams: 
     });
 }
 
+const accentClasses = {
+    primary: { bg: 'bg-sidebar-accent text-sidebar-accent-foreground', icon: 'text-sidebar-accent-foreground' },
+    emerald: { bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50', icon: 'text-emerald-600 dark:text-emerald-400' },
+    blue: { bg: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50', icon: 'text-blue-600 dark:text-blue-400' },
+    purple: { bg: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 border border-purple-100 dark:border-purple-800/50', icon: 'text-purple-600 dark:text-purple-400' },
+    amber: { bg: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50', icon: 'text-amber-600 dark:text-amber-400' },
+    rose: { bg: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400 border border-rose-100 dark:border-rose-800/50', icon: 'text-rose-600 dark:text-rose-400' },
+};
+
+function getAccent(accentColor: string) {
+    return accentClasses[accentColor as keyof typeof accentClasses] || accentClasses.primary;
+}
+
 export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary', exact, children }: NavItemProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -60,24 +74,30 @@ export function PortalNavItem({ href, icon: Icon, label, accentColor = 'primary'
     const hasChildren = children && children.length > 0;
     const childIsActive = hasChildren && isSubtreeActive(children!, pathname, searchParams);
     const [isOpen, setIsOpen] = useState(childIsActive ?? false);
+    const { isCollapsed } = useSidebarCollapse();
 
-    const activeClasses = {
-        primary: 'bg-sidebar-accent text-sidebar-accent-foreground',
-        emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50',
-        blue: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50',
-        purple: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 border border-purple-100 dark:border-purple-800/50',
-        amber: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50',
-        rose: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400 border border-rose-100 dark:border-rose-800/50',
-    }[accentColor] || 'bg-sidebar-accent text-sidebar-accent-foreground';
+    const accent = getAccent(accentColor);
+    const activeClasses = accent.bg;
+    const iconActiveClasses = accent.icon;
 
-    const iconActiveClasses = {
-        primary: 'text-sidebar-accent-foreground',
-        emerald: 'text-emerald-600 dark:text-emerald-400',
-        blue: 'text-blue-600 dark:text-blue-400',
-        purple: 'text-purple-600 dark:text-purple-400',
-        amber: 'text-amber-600 dark:text-amber-400',
-        rose: 'text-rose-600 dark:text-rose-400',
-    }[accentColor] || 'text-sidebar-accent-foreground';
+    // Collapsed mode: icon-only with tooltip
+    if (isCollapsed) {
+        const parentActive = isActive || childIsActive;
+        return (
+            <Link
+                href={hasChildren ? href : href}
+                title={label}
+                className={cn(
+                    "flex items-center justify-center rounded-lg py-2 transition-colors mx-1",
+                    parentActive
+                        ? activeClasses
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                )}
+            >
+                <Icon className={cn("h-4 w-4", parentActive ? iconActiveClasses : "text-muted-foreground")} />
+            </Link>
+        );
+    }
 
     // Parent with children: clickable header that toggles + renders children
     if (hasChildren) {
@@ -133,8 +153,20 @@ export function PortalNavGroup({ heading, items, accentColor = 'primary', defaul
     const searchParams = useSearchParams();
     const isChildActive = isSubtreeActive(items, pathname, searchParams);
     const [isOpen, setIsOpen] = useState(defaultOpen || isChildActive);
+    const { isCollapsed } = useSidebarCollapse();
 
     if (items.length === 0) return null;
+
+    // Collapsed mode: no heading, just icons
+    if (isCollapsed) {
+        return (
+            <div className="space-y-0.5">
+                {items.map((item) => (
+                    <PortalNavItem key={item.href} {...item} accentColor={accentColor} />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-1">

@@ -63,7 +63,7 @@ export function PlanningSidebar({ user }: PlanningSidebarProps) {
     return (
         <PortalSidebarBase user={user} portalName="Planning" accentColor="amber">
             <div className="px-3 mb-2">
-                <AdminBackButton role={user.role || undefined} />
+                <AdminBackButton />
             </div>
             {planningLinks.map((group) => (
                 <PortalNavGroup

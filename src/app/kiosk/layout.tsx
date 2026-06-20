@@ -4,6 +4,7 @@ import PolyFlowLogo from "@/components/auth/polyflow-logo";
 import { Clock } from "lucide-react";
 
 import { ClockDisplay } from "./ClockDisplay";
+import { AdminBackButton } from "@/components/layout/admin-back-button";
 
 interface KioskActiveExecution {
     id: string;
@@ -18,20 +19,12 @@ interface KioskActiveExecution {
     }
 }
 
-import { auth } from "@/auth"; // Make sure to import auth
-import { AdminBackButton } from "@/components/layout/admin-back-button";
-
-// ... (existing imports)
-
 export default async function KioskLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // We allow public access to the kiosk, but we check session for Admin functionality
-    const session = await auth();
-    const role = (session?.user as { role?: string })?.role;
-
+    // We allow public access to the kiosk
 
     const activeExecutions = (await getActiveExecutions()) as unknown as KioskActiveExecution[];
 
@@ -60,7 +53,7 @@ export default async function KioskLayout({
                     <div className="h-8 w-px bg-border mx-1 md:mx-2" />
 
                     {/* Admin Back Button - Only visible to Admins */}
-                    <AdminBackButton role={role} />
+                    <AdminBackButton />
                 </div>
             </header>
 
