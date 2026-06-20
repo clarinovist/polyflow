@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { OperatorProductivityItem } from '@/types/analytics';
+import { analyticsLabels } from '@/lib/labels';
 import { Trophy, Award, Medal } from 'lucide-react';
 
 interface Props {
@@ -100,9 +101,9 @@ export function OperatorLeaderboard({ data }: Props) {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-muted-foreground" />
-                        Operator Rankings
+                        {analyticsLabels.operatorLeaderboard}
                     </CardTitle>
-                    <CardDescription>Detailed productivity metrics for all operators.</CardDescription>
+                    <CardDescription>{analyticsLabels.operatorLeaderboardDesc}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>

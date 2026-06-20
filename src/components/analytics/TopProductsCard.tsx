@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TopProductItem } from '@/types/analytics';
 import { formatRupiah } from '@/lib/utils/utils';
+import { analyticsLabels } from '@/lib/labels';
 import { Progress } from '@/components/ui/progress';
 
 interface TopProductsCardProps {
@@ -17,8 +18,8 @@ export function TopProductsCard({ data }: TopProductsCardProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Top Products</CardTitle>
-                <CardDescription>By revenue this month</CardDescription>
+                <CardTitle>{analyticsLabels.topProducts}</CardTitle>
+                <CardDescription>{analyticsLabels.topProductsDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {data.map((item, i) => (

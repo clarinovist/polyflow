@@ -5,6 +5,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 import { formatRupiah } from '@/lib/utils/utils';
 import { SalesRevenueItem } from '@/types/analytics';
 import { format } from 'date-fns';
+import { analyticsLabels } from '@/lib/labels';
 
 interface SalesRevenueChartProps {
     data: SalesRevenueItem[];
@@ -14,9 +15,9 @@ export function SalesRevenueChart({ data }: SalesRevenueChartProps) {
     return (
         <Card className="col-span-2">
             <CardHeader>
-                <CardTitle>Revenue Awareness</CardTitle>
+                <CardTitle>{analyticsLabels.revenueAwareness}</CardTitle>
                 <CardDescription>
-                    Tracking sales revenue over time
+                    {analyticsLabels.revenueTracking}
                 </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">

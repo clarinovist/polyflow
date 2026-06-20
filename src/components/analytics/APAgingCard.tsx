@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
+import { analyticsLabels } from '@/lib/labels';
 import { APAgingItem } from '@/types/analytics';
 
 interface APAgingCardProps {
@@ -16,8 +17,8 @@ export function APAgingCard({ data }: APAgingCardProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Accounts Payable Aging</CardTitle>
-                <CardDescription>Unpaid invoices by age</CardDescription>
+                <CardTitle>{analyticsLabels.apAging}</CardTitle>
+                <CardDescription>{analyticsLabels.apAgingDesc}</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>

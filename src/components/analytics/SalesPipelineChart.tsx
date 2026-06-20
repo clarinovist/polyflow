@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LabelList } from 'recharts';
 import { formatRupiah } from '@/lib/utils/utils';
+import { analyticsLabels } from '@/lib/labels';
 import { SalesPipelineSummary } from '@/types/analytics';
 
 interface SalesPipelineChartProps {
@@ -22,8 +23,8 @@ export function SalesPipelineChart({ data }: SalesPipelineChartProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Sales Pipeline</CardTitle>
-                <CardDescription>Order value by status</CardDescription>
+                <CardTitle>{analyticsLabels.salesPipeline}</CardTitle>
+                <CardDescription>{analyticsLabels.salesPipelineDesc}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="h-[300px] w-full">

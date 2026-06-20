@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { analyticsLabels } from '@/lib/labels';
 import { ProductionRealizationItem } from "@/types/analytics";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
 
@@ -15,7 +16,7 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
     return (
         <Card className="col-span-1 lg:col-span-2">
             <CardHeader>
-                <CardTitle>Production Realization (Yield)</CardTitle>
+                <CardTitle>{analyticsLabels.productionRealization}</CardTitle>
             </CardHeader>
             <CardContent className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -64,13 +65,13 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
                         <Legend />
                         <Bar
                             dataKey="plannedQuantity"
-                            name="Planned"
+                            name={analyticsLabels.planned}
                             fill="#94a3b8"
                             radius={[4, 4, 0, 0]}
                         />
                         <Bar
                             dataKey="actualQuantity"
-                            name="Actual"
+                            name={analyticsLabels.actual}
                             fill="#2563eb"
                             radius={[4, 4, 0, 0]}
                         />

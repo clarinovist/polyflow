@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { analyticsLabels } from '@/lib/labels';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { formatRupiah } from '@/lib/utils/utils';
 import { PurchaseSpendItem } from '@/types/analytics';
@@ -13,9 +14,9 @@ export function PurchaseSpendChart({ data }: PurchaseSpendChartProps) {
     return (
         <Card className="col-span-2">
             <CardHeader>
-                <CardTitle>Spending Trend</CardTitle>
+                <CardTitle>{analyticsLabels.spendingTrend}</CardTitle>
                 <CardDescription>
-                    Tracking purchasing spend over time
+                    {analyticsLabels.spendingTrendDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { analyticsLabels } from '@/lib/labels';
 import { MaterialUsageVarianceItem } from '@/types/analytics';
 
 interface Props {
@@ -12,9 +13,9 @@ export function MaterialVarianceTable({ data }: Props) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Material Usage Variance</CardTitle>
+                <CardTitle>{analyticsLabels.materialUsageVariance}</CardTitle>
                 <CardDescription>
-                    Comparison of standard vs actual material consumption. Positive variance means excess usage.
+                    {analyticsLabels.materialUsageVarianceDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent>

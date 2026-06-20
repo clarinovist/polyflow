@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatRupiah } from '@/lib/utils/utils';
+import { analyticsLabels } from '@/lib/labels';
 import { ARAgingItem } from '@/types/analytics';
 
 interface ARAgingCardProps {
@@ -16,8 +17,8 @@ export function ARAgingCard({ data }: ARAgingCardProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Accounts Receivable Aging</CardTitle>
-                <CardDescription>Unpaid invoices by age</CardDescription>
+                <CardTitle>{analyticsLabels.arAging}</CardTitle>
+                <CardDescription>{analyticsLabels.arAgingDesc}</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>

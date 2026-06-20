@@ -12,6 +12,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { useRouter, useSearchParams } from "next/navigation"
+import { analyticsLabels } from "@/lib/labels"
 
 interface DateRangePickerProps {
     from: Date | string
@@ -71,24 +72,20 @@ export function DateRangePicker({
         }
     }
 
-    // Determine current preset value based on props (optional but good for UI state)
-    // For now, we can leave it uncontrolled or try to match. 
-    // Let's use a placeholder "Select Period" which is simpler than reverse-matching dates.
-
     return (
         <div className={cn("grid gap-2", className)}>
             <Select onValueChange={handleValueChange}>
                 <SelectTrigger className="w-[200px]">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Select period" />
+                    <SelectValue placeholder={analyticsLabels.selectPeriod} />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="last7">Last 7 Days</SelectItem>
-                    <SelectItem value="last30">Last 30 Days</SelectItem>
-                    <SelectItem value="thisMonth">This Month</SelectItem>
-                    <SelectItem value="lastMonth">Last Month</SelectItem>
+                    <SelectItem value="today">{analyticsLabels.today}</SelectItem>
+                    <SelectItem value="yesterday">{analyticsLabels.yesterday}</SelectItem>
+                    <SelectItem value="last7">{analyticsLabels.last7Days}</SelectItem>
+                    <SelectItem value="last30">{analyticsLabels.last30Days}</SelectItem>
+                    <SelectItem value="thisMonth">{analyticsLabels.thisMonth}</SelectItem>
+                    <SelectItem value="lastMonth">{analyticsLabels.lastMonth}</SelectItem>
                 </SelectContent>
             </Select>
         </div>

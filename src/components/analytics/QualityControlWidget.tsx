@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QualityControlSummary } from '@/types/analytics';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+import { analyticsLabels } from '@/lib/labels';
 import { AlertCircle, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
 
 interface Props {
@@ -72,12 +73,12 @@ export function QualityControlWidget({ data }: Props) {
                 {/* Inspection Chart */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Inspection Distribution</CardTitle>
-                        <CardDescription>Breakdown of inspection results</CardDescription>
+                        <CardTitle>{analyticsLabels.inspectionDistribution}</CardTitle>
+                        <CardDescription>{analyticsLabels.inspectionDesc}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {pieData.length === 0 ? (
-                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">No inspection data</div>
+                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">{analyticsLabels.noInspectionData}</div>
                         ) : (
                             <div className="h-[300px] w-full relative" style={{ height: 300, minHeight: 300 }}>
                                 {isMounted ? (
@@ -120,7 +121,7 @@ export function QualityControlWidget({ data }: Props) {
                             <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
                             Scrap Analysis
                         </CardTitle>
-                        <CardDescription>Top reasons for material scrap</CardDescription>
+                        <CardDescription>{analyticsLabels.topScrapReasons}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">

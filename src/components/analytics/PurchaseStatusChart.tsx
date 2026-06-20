@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, LabelList } from 'recharts';
 import { formatRupiah } from '@/lib/utils/utils';
+import { analyticsLabels } from '@/lib/labels';
 import { PurchaseByStatusItem } from '@/types/analytics';
 
 interface PurchaseStatusChartProps {
@@ -20,8 +21,8 @@ export function PurchaseStatusChart({ data }: PurchaseStatusChartProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Purchase Order Status</CardTitle>
-                <CardDescription>Value distribution by status</CardDescription>
+                <CardTitle>{analyticsLabels.purchaseOrderStatus}</CardTitle>
+                <CardDescription>{analyticsLabels.purchaseOrderStatusDesc}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="h-[300px] w-full">

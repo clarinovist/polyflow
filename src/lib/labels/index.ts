@@ -10,6 +10,7 @@ export * from './dashboard';
 export * from './planning';
 export * from './reports';
 export * from './settings';
+export * from './analytics';
 export * from './finance';
 
 export {

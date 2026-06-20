@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ProductionRealizationItem } from '@/types/analytics';
+import { analyticsLabels } from '@/lib/labels';
 import { Progress } from '@/components/ui/progress';
 
 interface Props {
@@ -14,9 +15,9 @@ export function ProductionRealizationTable({ data }: Props) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Production Realization</CardTitle>
+                <CardTitle>{analyticsLabels.productionRealizationTable}</CardTitle>
                 <CardDescription>
-                    Yield rates and schedule adherence for production orders.
+                    {analyticsLabels.productionRealizationDesc}
                 </CardDescription>
             </CardHeader>
             <CardContent>

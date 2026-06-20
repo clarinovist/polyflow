@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MachinePerformanceItem } from '@/types/analytics';
+import { analyticsLabels } from '@/lib/labels';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Props {
@@ -19,9 +20,9 @@ export function MachinePerformanceChart({ data }: Props) {
         <div className="grid gap-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Machine Efficiency</CardTitle>
+                    <CardTitle>{analyticsLabels.machineEfficiency}</CardTitle>
                     <CardDescription>
-                        Output vs Scrap metrics per machine.
+                        {analyticsLabels.machineEfficiencyDesc}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -46,8 +47,8 @@ export function MachinePerformanceChart({ data }: Props) {
                                         <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" fontSize={12} tickLine={false} axisLine={false} unit="%" />
                                         <Tooltip />
                                         <Legend />
-                                        <Bar yAxisId="left" dataKey="unitsPerHour" name="Units / Hour" fill="#8884d8" radius={[4, 4, 0, 0]} />
-                                        <Bar yAxisId="right" dataKey="scrapRate" name="Scrap Rate %" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                                        <Bar yAxisId="left" dataKey="unitsPerHour" name={analyticsLabels.unitsPerHour} fill="#8884d8" radius={[4, 4, 0, 0]} />
+                                        <Bar yAxisId="right" dataKey="scrapRate" name={analyticsLabels.scrapRate} fill="#82ca9d" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (

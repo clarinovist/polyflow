@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MachinePerformanceItem } from "@/types/analytics";
 import { Activity } from "lucide-react";
+import { analyticsLabels } from "@/lib/labels";
 
 interface MachinePerformanceCardProps {
     data: MachinePerformanceItem[];
@@ -12,7 +13,7 @@ export function MachinePerformanceCard({ data }: MachinePerformanceCardProps) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-md font-medium">Machine Efficiency</CardTitle>
+                <CardTitle className="text-md font-medium">{analyticsLabels.machineEfficiency}</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
