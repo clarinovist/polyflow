@@ -2,12 +2,50 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, StockMovement, JournalStatus } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { updateStandardCost } from '@/actions/finance/cost-history';
-import { NotFoundError } from '@/lib/errors/errors';
+import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } }
 }>;
+
+/**
+ * Check GL account balance won't go negative after posting.
+ * For ASSET accounts: balance = debit - credit. A credit posting reduces balance.
+ * Throws if posting would make the balance negative.
+ */
+async function validateGlBalance(
+    db: Prisma.TransactionClient,
+    accountId: string,
+    creditAmount: number,
+    productName: string
+) {
+    if (creditAmount <= 0) return;
+
+    const result = await db.journalLine.aggregate({
+        where: {
+            accountId,
+            journalEntry: { status: 'POSTED' }
+        },
+        _sum: { debit: true, credit: true }
+    });
+
+    const totalDebit = Number(result._sum.debit || 0);
+    const totalCredit = Number(result._sum.credit || 0);
+    const currentBalance = totalDebit - totalCredit;
+
+    if (currentBalance < creditAmount) {
+        const account = await db.account.findUnique({ where: { id: accountId }, select: { code: true, name: true } });
+        throw new BusinessRuleError(
+            `Saldo akun GL akan minus!\n` +
+            `Akun: ${account?.code} - ${account?.name}\n` +
+            `Saldo saat ini: Rp ${currentBalance.toLocaleString('id-ID')}\n` +
+            `Akan di-credit: Rp ${creditAmount.toLocaleString('id-ID')}\n` +
+            `Produk: ${productName}\n` +
+            `Tip: Pastikan stok sudah di-receipt/adjustment ke akun yang benar sebelum konsumsi.`
+        );
+    }
+}
 
 export async function recordInventoryMovement(
     movement: StockMovement & { productVariant?: StockMovementWithProduct['productVariant'] },
@@ -132,7 +170,7 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'ADJUSTMENT') {
-        const invAccount = resolveAccountCode(productType, 'inventory');
+        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
         const absAmt = Math.abs(totalAmount);
 
         // If toLocationId is present, stock went IN (Gain). If it's null, stock went OUT (Loss).
@@ -150,6 +188,13 @@ export async function recordInventoryMovement(
     }
 
     if (lines.length > 0) {
+        // Validate GL balance won't go negative for credit entries (OUT/ADJUSTMENT)
+        for (const line of lines) {
+            if (line.credit > 0) {
+                await validateGlBalance(db, line.accountId, line.credit, productVariant.name);
+            }
+        }
+
         await createJournalEntry({
             entryDate: date,
             description: `Auto: ${movement.type} - ${productVariant.name}`,
@@ -233,6 +278,13 @@ export async function recordMaklonCosts(productionOrderId: string, tx: Prisma.Tr
     }
 
     if (lines.length > 0) {
+        // Validate GL balance won't go negative for credit entries
+        for (const line of lines) {
+            if (line.credit > 0) {
+                await validateGlBalance(db, line.accountId, line.credit, `Maklon WO#${order.orderNumber}`);
+            }
+        }
+
         await createJournalEntry({
             entryDate: order.actualEndDate || new Date(),
             description: `Maklon Costs for WO#${order.orderNumber}`,
