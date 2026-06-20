@@ -17,6 +17,7 @@ import { ShoppingCart, AlertCircle, Plus, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { createManualPurchaseRequest } from '@/actions/purchasing/purchasing';
 import { ExtendedProductionOrder } from './types';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ManualProcurementDialogProps {
     order: ExtendedProductionOrder;
@@ -112,14 +113,14 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
             <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                     <ShoppingCart className="h-4 w-4" />
-                    Procure Materials
+                    {productionComponentLabels.procureMaterials}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Manual Procurement</DialogTitle>
+                    <DialogTitle>{productionComponentLabels.manualProcurement}</DialogTitle>
                     <DialogDescription>
-                        Select materials from this Work Order to create a Purchase Request.
+                        {productionComponentLabels.selectMaterialsDescription}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -128,10 +129,10 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                         <table className="w-full text-sm">
                             <thead className="bg-muted">
                                 <tr>
-                                    <th className="p-3 text-left w-10">Select</th>
-                                    <th className="p-3 text-left">Material</th>
-                                    <th className="p-3 text-right">Planned</th>
-                                    <th className="p-3 text-center w-32">Qty to Procure</th>
+                                    <th className="p-3 text-left w-10">{productionComponentLabels.select}</th>
+                                    <th className="p-3 text-left">{productionComponentLabels.materialHeader}</th>
+                                    <th className="p-3 text-right">{productionComponentLabels.plannedHeader}</th>
+                                    <th className="p-3 text-center w-32">{productionComponentLabels.qtyToProcure}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
@@ -194,7 +195,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Priority</Label>
+                            <Label>{productionComponentLabels.priority}</Label>
                             <div className="flex gap-2">
                                 <Button
                                     type="button"
@@ -203,7 +204,7 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                     className="flex-1"
                                     onClick={() => setPriority('NORMAL')}
                                 >
-                                    Normal
+                                    {productionComponentLabels.normal}
                                 </Button>
                                 <Button
                                     type="button"
@@ -212,17 +213,17 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                                     className="flex-1"
                                     onClick={() => setPriority('URGENT')}
                                 >
-                                    Urgent
+                                    {productionComponentLabels.urgent}
                                 </Button>
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="notes">Notes</Label>
+                            <Label htmlFor="notes">{productionComponentLabels.notes}</Label>
                             <Input
                                 id="notes"
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Additional notes for Purchasing..."
+                                placeholder={productionComponentLabels.additionalNotes}
                             />
                         </div>
                     </div>
@@ -230,18 +231,17 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                     <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-3 text-amber-800 text-xs">
                         <AlertCircle className="h-4 w-4 shrink-0" />
                         <div>
-                            This will create a new <strong>Purchase Request</strong> for the Purchasing team.
-                            It will NOT create a Purchase Order directly.
+                            {productionComponentLabels.purchaseRequestInfo}
                         </div>
                     </div>
                 </div>
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setIsOpen(false)} disabled={loading}>
-                        Cancel
+                        {productionComponentLabels.cancel}
                     </Button>
                     <Button onClick={handleSubmit} disabled={loading || items.filter(i => i.selected).length === 0}>
-                        {loading ? "Creating PR..." : "Create Purchase Request"}
+                        {loading ? productionComponentLabels.creatingPR : productionComponentLabels.createPurchaseRequest}
                     </Button>
                 </DialogFooter>
             </DialogContent>

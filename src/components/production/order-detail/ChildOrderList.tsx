@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/utils';
 import { useState } from 'react';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ChildOrderListProps {
     order: ExtendedProductionOrder;
@@ -87,7 +88,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
         <Card className="border-blue-100 dark:border-blue-900 bg-blue-50/20 dark:bg-blue-900/10">
             <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                    <GitFork className="w-4 h-4" /> Work Orders
+                    <GitFork className="w-4 h-4" /> {productionComponentLabels.workOrders}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -109,7 +110,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                                     {mat.productVariant.name}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
-                                    Requires Production: <span className="font-mono font-medium text-amber-600 dark:text-amber-500">{shortage.toFixed(2)} {String(mat.productVariant.primaryUnit)}</span>
+                                    {productionComponentLabels.requiresProduction}: <span className="font-mono font-medium text-amber-600 dark:text-amber-500">{shortage.toFixed(2)} {String(mat.productVariant.primaryUnit)}</span>
                                 </span>
                             </div>
                             <Button
@@ -119,7 +120,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                                 disabled={isCreating === mat.productVariantId}
                                 onClick={() => handleCreateSubOrder(mat.productVariantId, shortage, mat.productVariant.name)}
                             >
-                                {isCreating === mat.productVariantId ? "Creating..." : "Create Work Order"}
+                                {isCreating === mat.productVariantId ? productionComponentLabels.creating : productionComponentLabels.createWorkOrder}
                             </Button>
                         </div>
                     );
@@ -128,7 +129,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                 {/* Section 2: Existing Child Orders */}
                 {childOrders.length > 0 && (
                     <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4">Active Work Orders</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4">{productionComponentLabels.activeWorkOrders}</h4>
                         {childOrders.map(child => (
                             <div key={child.id} onClick={() => router.push(`/planning/orders/${child.id}`)} className="cursor-pointer group flex items-center justify-between p-3 bg-white dark:bg-card border dark:border-border hover:border-blue-300 dark:hover:border-blue-500 transition-colors rounded-lg">
                                 <div className="flex items-center gap-3">

@@ -16,6 +16,7 @@ import { Factory, ShoppingCart, AlertCircle, CheckCircle } from 'lucide-react';
 import { simulateMrp, createProductionFromSalesOrder } from '@/actions/production/production';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ProductionPlanningDialogProps {
     salesOrderId: string;
@@ -233,14 +234,14 @@ export function ProductionPlanningDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={isLoading}>Close</Button>
+                    <Button variant="outline" onClick={onClose} disabled={isLoading}>{productionComponentLabels.close}</Button>
                     {hasSimulated && (
                         <Button
                             onClick={handleGeneratePO}
                             disabled={isLoading || (simulationResult?.missingBoms?.length ?? 0) > 0}
                             variant={simulationResult?.canProduce ? "default" : "destructive"}
                         >
-                            {isLoading ? "Generating..." : "Generate Work Order"}
+                            {isLoading ? "Generating..." : productionComponentLabels.createWorkOrder}
                         </Button>
                     )}
                 </DialogFooter>

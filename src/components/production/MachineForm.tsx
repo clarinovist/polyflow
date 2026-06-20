@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { productionComponentLabels } from '@/lib/labels';
 import {
     Select,
     SelectContent,
@@ -71,7 +72,7 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
             <div className="grid gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm font-semibold tracking-tight">Machine Name</Label>
+                    <Label htmlFor="name" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineName}</Label>
                     <Input
                         id="name"
                         value={formData.name}
@@ -83,7 +84,7 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="code" className="text-sm font-semibold tracking-tight">Machine Code</Label>
+                    <Label htmlFor="code" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineCode}</Label>
                     <Input
                         id="code"
                         value={formData.code}
@@ -96,13 +97,13 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="type" className="text-sm font-semibold tracking-tight">Machine Type</Label>
+                        <Label htmlFor="type" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineType}</Label>
                         <Select
                             value={formData.type}
                             onValueChange={(value) => setFormData({ ...formData, type: value as MachineType })}
                         >
                             <SelectTrigger className="bg-background/50">
-                                <SelectValue placeholder="Select type" />
+                                <SelectValue placeholder={productionComponentLabels.selectType} />
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.keys(MachineType).map((type) => (
@@ -115,13 +116,13 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="location" className="text-sm font-semibold tracking-tight">Location</Label>
+                        <Label htmlFor="location" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineLocation}</Label>
                         <Select
                             value={formData.locationId}
                             onValueChange={(value) => setFormData({ ...formData, locationId: value })}
                         >
                             <SelectTrigger className="bg-background/50">
-                                <SelectValue placeholder="Select location" />
+                                <SelectValue placeholder={productionComponentLabels.selectLocation} />
                             </SelectTrigger>
                             <SelectContent>
                                 {locations.map((loc) => (
@@ -150,13 +151,13 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="status" className="text-sm font-semibold tracking-tight">Status</Label>
+                    <Label htmlFor="status" className="text-sm font-semibold tracking-tight">{productionComponentLabels.machineStatus}</Label>
                     <Select
                         value={formData.status}
                         onValueChange={(value) => setFormData({ ...formData, status: value as MachineStatus })}
                     >
                         <SelectTrigger className="bg-background/50">
-                            <SelectValue placeholder="Select status" />
+                            <SelectValue placeholder={productionComponentLabels.selectStatus} />
                         </SelectTrigger>
                         <SelectContent>
                             {Object.keys(MachineStatus).map((status) => (

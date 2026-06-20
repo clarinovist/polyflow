@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import { ShiftManager } from './ShiftManager';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ShiftManagerDialogProps {
     orderId: string;
@@ -44,7 +45,7 @@ export function ShiftManagerDialog({
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        Shift Management: {orderNumber}
+                        {productionComponentLabels.shiftManagement}: {orderNumber}
                     </DialogTitle>
                 </DialogHeader>
                 <div className="py-4">

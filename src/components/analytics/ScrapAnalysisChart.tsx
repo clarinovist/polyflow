@@ -24,7 +24,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
     return (
         <Card className="col-span-1 md:col-span-2">
             <CardHeader>
-                <CardTitle>Scrap Analysis</CardTitle>
+                <CardTitle>{analyticsLabels.scrapAnalysis}</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[300px]">
@@ -74,7 +74,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
                                         tickFormatter={(val) => val.length > 15 ? val.substring(0, 15) + '...' : val}
                                     />
                                     <Tooltip />
-                                    <Bar dataKey="quantity" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={20} name="Qty" />
+                                    <Bar dataKey="quantity" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={20} name={analyticsLabels.qty} />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (

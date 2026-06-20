@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BOMActions } from './BOMActions';
 import { calculateBomItemCost } from '@/lib/utils/current-cost';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface BOMListProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,7 +78,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search recipes, products, or SKUs..."
+                        placeholder={productionComponentLabels.search}
                         className="pl-9"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -124,7 +125,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                     </button>
                                                 </TableHead>
                                             )}
-                                            <TableHead className="text-right w-[100px]">Actions</TableHead>
+                                            <TableHead className="text-right w-[100px]">{productionComponentLabels.actions}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>

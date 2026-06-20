@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { ClipboardCheck, ArrowRight } from 'lucide-react';
 import { ProductionPlanningDialog } from './ProductionPlanningDialog';
 import { useRouter } from 'next/navigation';
+import { productionComponentLabels } from '@/lib/labels';
 
 // Quick type definition based on what we see in other files, 
 // ideally we import this from a shared types file if it existed.
@@ -50,7 +51,7 @@ export function ProductionRequestsClient({ orders }: ProductionRequestsClientPro
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <ClipboardCheck className="h-5 w-5" />
-                        Incoming Production Requests
+                        {productionComponentLabels.incomingRequests}
                     </CardTitle>
                     <CardDescription>
                         Queue of confirmed Sales Orders waiting for production planning.
@@ -70,7 +71,7 @@ export function ProductionRequestsClient({ orders }: ProductionRequestsClientPro
                                     <TableHead>Customer</TableHead>
                                     <TableHead>Items</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
+                                    <TableHead className="text-right">{productionComponentLabels.actions}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

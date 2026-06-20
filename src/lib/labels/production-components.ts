@@ -95,10 +95,84 @@ export const productionComponentLabels = {
   bomFormula: 'BOM / Formula',
   bomFormulaDesc: 'Resep produksi yang mendefinisikan apa yang diproduksi dan material yang dibutuhkan',
 
+  // Record Scrap Dialog
+  scrapDetails: 'Detail Scrap',
+  itemScrapped: 'Item Discrap',
+  confirmScrapRecord: 'Konfirmasi Catatan Scrap',
+  machineSetupPlaceholder: 'contoh: Setup mesin',
+
+  // Record QC Dialog
+  addInspection: 'Tambah Inspeksi',
+  qualityInspection: 'Inspeksi Kualitas',
+  qcAssessment: 'Penilaian QC',
+  result: 'Hasil',
+  notes: 'Catatan',
+  inspectionCommentsPlaceholder: 'Komentar inspeksi...',
+  saveResult: 'Simpan Hasil',
+
+  // Batch Issue Material Dialog
+  transferMaterial: 'Transfer Material',
+  issueMaterial: 'Terbitkan Material',
+  transferMaterialsToStaging: 'Transfer Material ke Staging/Produksi',
+  issueMaterialsAndUpdatePlan: 'Terbitkan Material & Perbarui Rencana',
+  sourceLocation: 'Lokasi Sumber',
+  materialHeader: 'Material',
+  qtyToTransfer: 'Jumlah Transfer',
+  qtyToIssue: 'Jumlah Diterbitkan',
+  planned: 'Direncanakan',
+  substitute: 'Pengganti',
+  selectSubstitute: 'Pilih pengganti...',
+  overrideSourceLocation: 'Ganti Lokasi Sumber',
+  defaultLocation: 'Lokasi Default',
+  stock: 'Stok',
+  fixShortage: 'Atasi Kekurangan',
+  addSubstituteMaterial: 'Tambah Material Pengganti',
+  quickStockAdjustment: 'Penyesuaian Stok Cepat',
+  refreshStock: 'Segarkan Stok',
+  editingRowsWarning: 'Mengedit baris akan memperbarui Rencana Pesanan secara permanen.',
+  undoDelete: 'Urungkan Hapus',
+  removeRequirement: 'Hapus Kebutuhan',
+  warningTargetWarehouse: 'Peringatan: Target kemungkinan Gudang. Pastikan Pesanan ini diatur ke Lokasi Produksi.',
+
+  // Manual Procurement Dialog
+  procureMaterials: 'Pengadaan Material',
+  selectMaterialsDescription: 'Pilih material dari SPK ini untuk membuat Permintaan Pembelian.',
+  select: 'Pilih',
+  plannedHeader: 'Rencana',
+  qtyToProcure: 'Jumlah Diadaan',
+  priority: 'Prioritas',
+  normal: 'Normal',
+  urgent: 'Mendesak',
+  additionalNotes: 'Catatan tambahan untuk Pembelian...',
+  purchaseRequestInfo: 'Ini akan membuat Permintaan Pembelian baru untuk tim Pembelian. Tidak akan membuat Pesanan Pembelian secara langsung.',
+  creatingPR: 'Membuat PR...',
+  createPurchaseRequest: 'Buat Permintaan Pembelian',
+
+  // Child Order List
+  workOrders: 'SPK',
+  requiresProduction: 'Perlu Diproduksi',
+  creating: 'Membuat...',
+  activeWorkOrders: 'SPK Aktif',
+
+  // Delete Scrap Button
+  deleteScrapRecord: 'Hapus Catatan Scrap',
+
   // Acknowledge / Actions
   acknowledgeHandover: 'Konfirmasi Serah Terima',
+  acknowledge: 'Konfirmasi',
   assignJob: 'Tugaskan Pekerjaan',
   reassign: 'Tugaskan Ulang',
+
+  // Reassign Machine Button
+  changeMachine: 'Ganti Mesin',
+  assignMachine: 'Tugaskan Mesin',
+
+  // Employee Actions
+  editDetails: 'Edit Detail',
+
+  // Machine Actions
+  setActive: 'Aktifkan',
+  setMaintenance: 'Atur Pemeliharaan',
 
   // Common
   save: 'Simpan',

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ReassignMachineDialogProps {
     open: boolean;
@@ -60,20 +61,20 @@ export function ReassignMachineDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Move Work Center</DialogTitle>
+                    <DialogTitle>{productionComponentLabels.reassignMachine}</DialogTitle>
                     <DialogDescription>
                         Reassign order <span className="font-bold text-foreground">{orderNumber}</span> to a different machine.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="machine">Select Machine</Label>
+                        <Label htmlFor="machine">{productionComponentLabels.selectMachineUpdatesOrder}</Label>
                         <Select
                             value={selectedMachineId}
                             onValueChange={setSelectedMachineId}
                         >
                             <SelectTrigger id="machine">
-                                <SelectValue placeholder="Choose a machine" />
+                                <SelectValue placeholder={productionComponentLabels.chooseMachine} />
                             </SelectTrigger>
                             <SelectContent>
                                 {machines.map((machine) => (
@@ -87,11 +88,11 @@ export function ReassignMachineDialog({
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-                        Cancel
+                        {productionComponentLabels.cancel}
                     </Button>
                     <Button onClick={handleReassign} disabled={isPending || !selectedMachineId}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm Move
+                        {productionComponentLabels.reassign}
                     </Button>
                 </DialogFooter>
             </DialogContent>

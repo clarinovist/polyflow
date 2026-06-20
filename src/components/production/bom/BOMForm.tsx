@@ -37,6 +37,7 @@ import {
 import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
+import { productionComponentLabels } from '@/lib/labels';
 import { ProductCombobox } from '@/components/products/product-combobox';
 import {
     getCurrentUnitCost,
@@ -251,7 +252,7 @@ export function BOMForm({
                                         <FormItem>
                                             <FormLabel>Recipe Name</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="e.g. Standard Recipe v1" {...field} />
+                                            <Input placeholder={productionComponentLabels.bomRecipe} {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -270,7 +271,7 @@ export function BOMForm({
                                                     value={field.value}
                                                     onValueChange={field.onChange}
                                                     disabled={!!bom}
-                                                    placeholder="Select product to produce"
+                                                    placeholder={productionComponentLabels.selectProductToProduce}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -287,7 +288,7 @@ export function BOMForm({
                                             <Select key={field.value} onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select Stage" />
+                                                        <SelectValue placeholder={productionComponentLabels.selectStage} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -405,7 +406,7 @@ export function BOMForm({
                                 onClick={() => append({ productVariantId: '', quantity: 1, scrapPercentage: 0 })}
                                 size="sm"
                             >
-                                <Plus className="h-4 w-4 mr-2" /> Add Material
+                                <Plus className="h-4 w-4 mr-2" /> {productionComponentLabels.addMaterial}
                             </Button>
                         </CardHeader>
 
@@ -472,7 +473,7 @@ export function BOMForm({
                                                                             products={displayVariants}
                                                                             value={field.value}
                                                                             onValueChange={field.onChange}
-                                                                            placeholder={hasSuggestions ? "Suggested materials..." : "Search material..."}
+                                                                            placeholder={hasSuggestions ? productionComponentLabels.suggestedMaterials : productionComponentLabels.searchMaterial}
                                                                         />
                                                                     </FormControl>
                                                                     {variant && showPrices && diagnostics && (

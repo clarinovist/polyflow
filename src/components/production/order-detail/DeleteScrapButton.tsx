@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { deleteScrap } from '@/actions/production/production';
+import { productionComponentLabels } from '@/lib/labels';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -51,7 +52,7 @@ export function DeleteScrapButton({ scrapId, orderId, productName }: DeleteScrap
                     size="icon"
                     className="h-6 w-6 text-slate-400 hover:text-red-600 transition-colors"
                     disabled={loading}
-                    title="Delete Scrap Record"
+                    title={productionComponentLabels.deleteScrapRecord}
                 >
                     {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                 </Button>

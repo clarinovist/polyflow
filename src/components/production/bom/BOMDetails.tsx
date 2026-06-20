@@ -32,6 +32,7 @@ import {
 } from '@/lib/utils/cost-diagnostics';
 import { recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,7 +125,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Recipe Details</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">{productionComponentLabels.bomDetails}</h1>
                         <p className="text-muted-foreground text-sm">
                             Viewing configuration for {bom.name}
                         </p>
@@ -155,18 +156,18 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
-                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Recipe Name</div>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">{productionComponentLabels.bomName}</div>
                                 <div className="text-lg font-medium">{bom.name}</div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Output Product</div>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">{productionComponentLabels.outputProduct}</div>
                                 <div className="font-medium flex items-center gap-2">
                                     <span className="font-mono bg-muted px-1 rounded text-sm">{bom.productVariant.skuCode}</span>
                                     <span>{bom.productVariant.name}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Basis Output Quantity</div>
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">{productionComponentLabels.outputQuantity}</div>
                                 <div className="text-lg font-mono font-medium">
                                     {Number(bom.outputQuantity).toLocaleString()} {bom.productVariant.primaryUnit}
                                 </div>
@@ -259,7 +260,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="flex items-center gap-3">
-                        <CardTitle className="text-lg font-bold">Formula Components</CardTitle>
+                        <CardTitle className="text-lg font-bold">{productionComponentLabels.bomItems}</CardTitle>
                         <Badge variant="secondary" className="ml-2">{bom.items.length} Components</Badge>
                     </div>
                 </CardHeader>
@@ -269,8 +270,8 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[350px]">Ingredient Material & SKU</TableHead>
-                                    <TableHead className="text-center w-[150px]">Base Quantity</TableHead>
+                                    <TableHead className="w-[350px]">{productionComponentLabels.inputMaterial}</TableHead>
+                                    <TableHead className="text-center w-[150px]">{productionComponentLabels.quantityRequired}</TableHead>
                                     <TableHead className="text-center w-[120px]">Scrap %</TableHead>
                                     <TableHead className="text-center w-[180px]">Total Requirement</TableHead>
                                     {showPrices && <TableHead className="text-right w-[180px]">Line Cost</TableHead>}

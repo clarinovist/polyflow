@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { updateProductionOrder } from '@/actions/production/production';
 import { toast } from 'sonner';
 import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { productionComponentLabels } from '@/lib/labels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -63,14 +64,14 @@ export function RescheduleOrderDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Reschedule Order</DialogTitle>
+                    <DialogTitle>{productionComponentLabels.rescheduleOrder}</DialogTitle>
                     <DialogDescription>
                         Change the planned start date for order <span className="font-bold text-foreground">{orderNumber}</span>.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                        <Label>Planned Start Date</Label>
+                        <Label>{productionComponentLabels.newDate}</Label>
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -81,7 +82,7 @@ export function RescheduleOrderDialog({
                                     )}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                    {date ? format(date, "PPP") : <span>{productionComponentLabels.newDate}</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -100,11 +101,11 @@ export function RescheduleOrderDialog({
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-                        Cancel
+                        {productionComponentLabels.cancel}
                     </Button>
                     <Button onClick={handleReschedule} disabled={isPending || !date}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm Reschedule
+                        {productionComponentLabels.rescheduleOrder}
                     </Button>
                 </DialogFooter>
             </DialogContent>

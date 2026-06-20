@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Trash2 } from 'lucide-react';
 import { BrandCard, BrandCardContent, BrandCardHeader } from '@/components/brand/BrandCard';
+import { productionComponentLabels } from '@/lib/labels';
 
 export function RecordScrapDialog({ order, locations }: { order: ExtendedProductionOrder, locations: Location[] }) {
     const [open, setOpen] = useState(false);
@@ -45,9 +46,9 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button variant="destructive" size="sm">Record Scrap</Button></DialogTrigger>
+            <DialogTrigger asChild><Button variant="destructive" size="sm">{productionComponentLabels.recordScrap}</Button></DialogTrigger>
             <DialogContent>
-                <DialogHeader><DialogTitle>Record Scrap/Waste</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{productionComponentLabels.recordScrap}</DialogTitle></DialogHeader>
                 <form onSubmit={onSubmit}>
                     <BrandCard variant="default" className="mt-4 shadow-brand">
                         <BrandCardHeader className="pb-4">
@@ -55,15 +56,15 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                                 <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center">
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                 </div>
-                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">Scrap Details</h3>
+                                <h3 className="font-bold text-base tracking-tight italic uppercase text-foreground">{productionComponentLabels.scrapDetails}</h3>
                             </div>
                         </BrandCardHeader>
                         <BrandCardContent className="space-y-4 pt-6">
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Item Scrapped</Label>
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.itemScrapped}</Label>
                                 <Select name="productVariantId" required disabled={isPending}>
                                     <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                        <SelectValue placeholder="Select Item" />
+                                        <SelectValue placeholder={productionComponentLabels.selectItem} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value={order.bom.productVariantId}>[Output] {order.bom.productVariant.name}</SelectItem>
@@ -74,10 +75,10 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Location (Scrap Bin)</Label>
+                                <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.selectLocation}</Label>
                                 <Select name="locationId" required disabled={isPending}>
                                     <SelectTrigger className="bg-background/80 border-brand-border h-10 text-foreground font-medium">
-                                        <SelectValue placeholder="Select Location" />
+                                        <SelectValue placeholder={productionComponentLabels.selectLocation} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
@@ -86,12 +87,12 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Quantity</Label>
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.quantity}</Label>
                                     <Input type="number" step="0.01" name="quantity" required disabled={isPending} className="bg-background/80 border-brand-border font-mono font-bold" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Reason</Label>
-                                    <Input name="reason" placeholder="e.g. Machine setup" disabled={isPending} className="bg-background/80 border-brand-border" />
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{productionComponentLabels.issueReason}</Label>
+                                    <Input name="reason" placeholder={productionComponentLabels.machineSetupPlaceholder} disabled={isPending} className="bg-background/80 border-brand-border" />
                                 </div>
                             </div>
                         </BrandCardContent>
@@ -99,7 +100,7 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                     <div className="mt-6">
                         <Button type="submit" variant="destructive" className="w-full font-bold italic uppercase tracking-tight h-12 shadow-lg" disabled={isPending}>
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Confirm Scrap Record
+                            {productionComponentLabels.confirmScrapRecord}
                         </Button>
                     </div>
                 </form>

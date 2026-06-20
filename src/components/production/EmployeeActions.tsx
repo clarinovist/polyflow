@@ -23,6 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface EmployeeActionsProps {
     id: string;
@@ -55,11 +56,11 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuLabel>{productionComponentLabels.actions}</DropdownMenuLabel>
                     <Link href={`/dashboard/employees/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
-                            Edit Details
+                            {productionComponentLabels.editDetails}
                         </DropdownMenuItem>
                     </Link>
                     <DropdownMenuItem
@@ -67,7 +68,7 @@ export function EmployeeActions({ id, name }: EmployeeActionsProps) {
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        {productionComponentLabels.delete}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

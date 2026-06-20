@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface ShiftManagerProps {
     orderId: string;
@@ -239,7 +240,7 @@ function AddShiftDialog({
                         <Label>Standard Shift (Optional)</Label>
                         <Select onValueChange={handleWorkShiftSelect}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select Standard Shift" />
+                                <SelectValue placeholder={productionComponentLabels.selectStandardShift} />
                             </SelectTrigger>
                             <SelectContent>
                                 {workShifts.filter(s => s.status === 'ACTIVE').map((s) => (
@@ -272,7 +273,7 @@ function AddShiftDialog({
                         <Label htmlFor="machineId">Assigned Machine</Label>
                         <Select name="machineId">
                             <SelectTrigger>
-                                <SelectValue placeholder="Select Machine (Updates Order)" />
+                                <SelectValue placeholder={productionComponentLabels.selectMachineUpdatesOrder} />
                             </SelectTrigger>
                             <SelectContent>
                                 {machines.map((m) => (
@@ -314,7 +315,7 @@ function AddShiftDialog({
                         <Label htmlFor="operatorId">Lead Operator</Label>
                         <Select name="operatorId">
                             <SelectTrigger>
-                                <SelectValue placeholder="Select Operator" />
+                                <SelectValue placeholder={productionComponentLabels.selectOperator} />
                             </SelectTrigger>
                             <SelectContent>
                                 {operators.map((op) => (

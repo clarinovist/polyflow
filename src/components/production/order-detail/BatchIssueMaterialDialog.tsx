@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, Package, AlertCircle, ArrowRightLeft, RefreshCw, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface BatchItem {
     id: string; // Internal ID for keys (equals to plannedMaterial.id if isPlanned)
@@ -331,18 +332,18 @@ export function BatchIssueMaterialDialog({
                 <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
                         {isTransferMode ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                        {isTransferMode ? "Transfer Material" : "Issue Material"}
+                        {isTransferMode ? productionComponentLabels.transferMaterial : productionComponentLabels.issueMaterial}
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
-                        <DialogTitle>{isTransferMode ? "Transfer Materials to Staging/Production Area" : "Issue Materials & Update Plan"}</DialogTitle>
+                        <DialogTitle>{isTransferMode ? productionComponentLabels.transferMaterialsToStaging : productionComponentLabels.issueMaterialsAndUpdatePlan}</DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 rounded-lg border relative">
                             <div className="space-y-2">
-                                <Label>Source Location</Label>
+                                <Label>{productionComponentLabels.sourceLocation}</Label>
                                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
@@ -355,11 +356,11 @@ export function BatchIssueMaterialDialog({
                                     <div className="text-amber-600 flex items-center bg-amber-50 p-2 rounded w-full">
                                         <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
                                         <span className="text-xs text-left">
-                                            Items will be <b>MOVED</b> to <b>{order.location.name}</b>.
-                                            Stock will be consumed automatically when you Record Output (Backflush).
+                                            Barang akan <b>DIPINDAHKAN</b> ke <b>{order.location.name}</b>.
+                                            Stok akan dikonsumsi otomatis saat Anda Mencatat Output (Backflush).
                                             {!order.location.name.toLowerCase().includes('production') && !order.location.name.toLowerCase().includes('staging') && (
                                                 <div className="mt-1 font-bold text-red-600">
-                                                    Warning: Target is likely a Warehouse. Ensure this Order is set to a Production Location.
+                                                    {productionComponentLabels.warningTargetWarehouse}
                                                 </div>
                                             )}
                                         </span>
@@ -368,13 +369,13 @@ export function BatchIssueMaterialDialog({
                                     <div className="text-muted-foreground flex items-center w-full">
                                         <AlertCircle className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
                                         <span className="text-xs text-left">
-                                            Editing rows will update the Order Plan permanently.
+                                            {productionComponentLabels.editingRowsWarning}
                                         </span>
                                     </div>
                                 )}
                             </div>
                             <Button variant="ghost" size="sm" onClick={checkStocks} disabled={checkingStock} className="h-6 text-xs absolute top-2 right-2">
-                                <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} /> Refresh Stock
+                                <RefreshCw className={cn("w-3 h-3 mr-1", checkingStock && "animate-spin")} /> {productionComponentLabels.refreshStock}
                             </Button>
                         </div>
 
@@ -382,8 +383,8 @@ export function BatchIssueMaterialDialog({
                             <table className="w-full text-sm">
                                 <thead className="bg-muted/40 border-b">
                                     <tr>
-                                        <th className="p-3 text-left font-medium">Material</th>
-                                        <th className="p-3 text-right font-medium w-32">{isTransferMode ? "Qty to Transfer" : "Qty to Issue"}</th>
+                                        <th className="p-3 text-left font-medium">{productionComponentLabels.materialHeader}</th>
+                                        <th className="p-3 text-right font-medium w-32">{isTransferMode ? productionComponentLabels.qtyToTransfer : productionComponentLabels.qtyToIssue}</th>
                                         <th className="p-3 text-center font-medium w-16"></th>
                                     </tr>
                                 </thead>
@@ -399,14 +400,14 @@ export function BatchIssueMaterialDialog({
                                                         <Package className="w-4 h-4 text-muted-foreground" />
                                                         <div className="flex flex-col">
                                                             <span className={cn("font-medium text-foreground", item.isDeletedPlan && "line-through")}>{item.name}</span>
-                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Planned</span>
+                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{productionComponentLabels.planned}</span>
                                                         </div>
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-1">
                                                         <Select value={item.productVariantId} onValueChange={(val) => handleUpdateVariant(item.id, val)}>
                                                             <SelectTrigger className="h-9">
-                                                                <SelectValue placeholder="Select substitute..." />
+                                                                <SelectValue placeholder={productionComponentLabels.selectSubstitute} />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {rawMaterials.map(m => (
@@ -414,7 +415,7 @@ export function BatchIssueMaterialDialog({
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
-                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Substitute</span>
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{productionComponentLabels.substitute}</span>
                                                     </div>
                                                 )}
                                                 <div className="mt-2">
@@ -423,10 +424,10 @@ export function BatchIssueMaterialDialog({
                                                         onValueChange={(val) => handleUpdateLocation(item.id, val)}
                                                     >
                                                         <SelectTrigger className="h-7 text-xs border-dashed w-fit">
-                                                            <SelectValue placeholder="Override Source Location" />
+                                                            <SelectValue placeholder={productionComponentLabels.overrideSourceLocation} />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value={selectedLocation}>Default Location</SelectItem>
+                                                            <SelectItem value={selectedLocation}>{productionComponentLabels.defaultLocation}</SelectItem>
                                                             {locations.filter(l => l.id !== selectedLocation).map(l => (
                                                                 <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                                                             ))}
@@ -454,7 +455,7 @@ export function BatchIssueMaterialDialog({
                                                     return (
                                                         <div className="mt-1 flex items-center justify-end gap-2">
                                                             <span className="text-[10px] text-muted-foreground">
-                                                                Stock: {currentStock ?? '...'}
+                                                                {productionComponentLabels.stock}: {currentStock ?? '...'}
                                                             </span>
                                                             {(currentStock !== undefined && currentStock < item.quantity) && (
                                                                 <Button
@@ -470,7 +471,7 @@ export function BatchIssueMaterialDialog({
                                                                         current: currentStock || 0
                                                                     })}
                                                                 >
-                                                                    <Wrench className="w-3 h-3 mr-1" /> Fix Shortage
+                                                                    <Wrench className="w-3 h-3 mr-1" /> {productionComponentLabels.fixShortage}
                                                                 </Button>
                                                             )}
                                                         </div>
@@ -489,7 +490,7 @@ export function BatchIssueMaterialDialog({
                                                                 : "text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                                                         )}
                                                         onClick={() => handleToggleDeletePlan(item.id)}
-                                                        title={item.isDeletedPlan ? "Undo Delete" : "Remove Requirement"}
+                                                        title={item.isDeletedPlan ? productionComponentLabels.undoDelete : productionComponentLabels.removeRequirement}
                                                     >
                                                         {item.isDeletedPlan ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                                                     </Button>
@@ -509,13 +510,13 @@ export function BatchIssueMaterialDialog({
                                 className="w-full h-10 rounded-none border-t text-muted-foreground hover:text-foreground hover:bg-muted/50"
                                 onClick={handleAddSubstitute}
                             >
-                                <Plus className="w-4 h-4 mr-2" /> Add Substitute Material
+                                <Plus className="w-4 h-4 mr-2" /> {productionComponentLabels.addSubstituteMaterial}
                             </Button>
                         </div>
                     </div>
 
                     <DialogFooter className="mt-6">
-                        <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+                        <Button variant="outline" onClick={() => setOpen(false)}>{productionComponentLabels.cancel}</Button>
                         <Button onClick={onSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
                             {loading ? 'Memproses...' : (isTransferMode ? 'Pindahkan Stok' : 'Simpan & Perbarui Rencana')}
                         </Button>
@@ -527,7 +528,7 @@ export function BatchIssueMaterialDialog({
             <Dialog open={!!adjustingItem} onOpenChange={(o) => !o && setAdjustingItem(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Quick Stock Adjustment</DialogTitle>
+                        <DialogTitle>{productionComponentLabels.quickStockAdjustment}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
@@ -543,7 +544,7 @@ export function BatchIssueMaterialDialog({
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setAdjustingItem(null)}>Batal</Button>
+                        <Button variant="outline" onClick={() => setAdjustingItem(null)}>{productionComponentLabels.cancel}</Button>
                         <Button onClick={handleQuickAdjust}>Konfirmasi Penyesuaian</Button>
                     </DialogFooter>
                 </DialogContent>
@@ -551,5 +552,3 @@ export function BatchIssueMaterialDialog({
         </>
     );
 }
-
-

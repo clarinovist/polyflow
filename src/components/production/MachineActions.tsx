@@ -23,6 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface MachineActionsProps {
     id: string;
@@ -69,27 +70,27 @@ export function MachineActions({ id, name }: MachineActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuLabel>{productionComponentLabels.actions}</DropdownMenuLabel>
                     <Link href={`/dashboard/machines/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
-                            Edit Details
+                            {productionComponentLabels.editDetails}
                         </DropdownMenuItem>
                     </Link>
                     <DropdownMenuItem onClick={handleStart}>
                         <Loader2 className="mr-2 h-4 w-4" />
-                        Set Active
+                        {productionComponentLabels.setActive}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleSetMaintenance}>
                         <AlertCircle className="mr-2 h-4 w-4" />
-                        Set Maintenance
+                        {productionComponentLabels.setMaintenance}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={() => setShowDeleteDialog(true)}
                         className="text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                        {productionComponentLabels.delete}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

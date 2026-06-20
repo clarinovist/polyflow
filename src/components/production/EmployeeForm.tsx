@@ -15,6 +15,7 @@ import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { productionComponentLabels } from '@/lib/labels';
 
 interface EmployeeFormProps {
     initialData?: Employee;
@@ -124,7 +125,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                         value={formData.code}
                         readOnly
                         className="bg-muted text-muted-foreground cursor-not-allowed h-9 text-xs font-mono"
-                        placeholder="Generating..."
+                        placeholder={productionComponentLabels.generating}
                     />
                 </div>
 
@@ -145,7 +146,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
                                 <CommandInput
-                                    placeholder="Search role..."
+                                    placeholder={productionComponentLabels.searchRole}
                                     value={searchValue}
                                     onValueChange={setSearchValue}
                                 />
