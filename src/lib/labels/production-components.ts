@@ -1,0 +1,115 @@
+/** Production components labels */
+export const productionComponentLabels = {
+  // Forms — common
+  selectType: 'Pilih tipe',
+  selectLocation: 'Pilih lokasi',
+  selectStatus: 'Pilih status',
+  generating: 'Generating...',
+  searchRole: 'Cari role...',
+  eGExample: 'contoh',
+
+  // Machine Form
+  machineCode: 'Kode Mesin',
+  machineName: 'Nama Mesin',
+  machineType: 'Tipe Mesin',
+  machineLocation: 'Lokasi Mesin',
+  machineStatus: 'Status Mesin',
+  machineCapacity: 'Kapasitas Mesin',
+  selectMachineType: 'Pilih tipe mesin',
+  selectMachineLocation: 'Pilih lokasi mesin',
+  selectMachineStatus: 'Pilih status mesin',
+
+  // Employee Form
+  employeeName: 'Nama Karyawan',
+  employeeRole: 'Role Karyawan',
+  employeeNik: 'NIK',
+  employeePhone: 'Telepon',
+  employeeSalary: 'Gaji',
+  selectStandardShift: 'Pilih Shift Standar',
+  selectMachineUpdatesOrder: 'Pilih Mesin (Update Pesanan)',
+  selectOperator: 'Pilih Operator',
+
+  // Shift Manager
+  shiftManagement: 'Manajemen Shift',
+  shiftSchedule: 'Jadwal Shift',
+  assignShift: 'Tugaskan Shift',
+  activeShift: 'Shift Aktif',
+
+  // BOM
+  bomName: 'Nama BOM',
+  bomDescription: 'Deskripsi BOM',
+  outputProduct: 'Produk Hasil',
+  outputQuantity: 'Jumlah Hasil',
+  bomStage: 'Stage BOM',
+  selectProductToProduce: 'Pilih produk yang akan diproduksi',
+  selectStage: 'Pilih Stage',
+  materialList: 'Daftar Material',
+  addMaterial: 'Tambah Material',
+  searchMaterial: 'Cari material...',
+  suggestedMaterials: 'Material yang disarankan...',
+  bomRecipe: 'Resep BOM',
+
+  // BOM Details
+  bomDetails: 'Detail BOM',
+  bomItems: 'Item BOM',
+  inputMaterial: 'Material Masuk',
+  quantityRequired: 'Jumlah Dibutuhkan',
+  unit: 'Satuan',
+
+  // Production Requests
+  productionRequests: 'Permintaan Produksi',
+  incomingRequests: 'Permintaan Masuk',
+  noRequests: 'Tidak ada permintaan produksi',
+  processRequest: 'Proses Permintaan',
+  createWorkOrder: 'Buat SPK',
+
+  // Order Detail
+  orderDetail: 'Detail Pesanan',
+  addOutput: 'Tambah Output',
+  recordScrap: 'Catat Scrap',
+  recordQC: 'Catat QC',
+  addIssue: 'Tambah Issue',
+  batchIssue: 'Issue Batch',
+  manualProcurement: 'Procurement Manual',
+  deleteScrap: 'Hapus Scrap',
+  voidExecution: 'Batalkan Eksekusi',
+  childOrders: 'Pesanan Anak',
+  selectItem: 'Pilih Item',
+  issueReason: 'Alasan Issue',
+  quantity: 'Jumlah',
+
+  // Dispatch
+  reassignMachine: 'Tugaskan Ulang Mesin',
+  rescheduleOrder: 'Jadwalkan Ulang Pesanan',
+  chooseMachine: 'Pilih mesin',
+  newDate: 'Tanggal Baru',
+
+  // Glossary
+  workOrderGuide: 'Panduan SPK',
+  overview: 'Ikhtisar',
+  statusFlow: 'Alur Status',
+  processes: 'Proses',
+  quality: 'Kualitas',
+  orderNumber: 'Nomor Pesanan',
+  orderNumberDesc: 'Identifier unik untuk setiap SPK (auto-generated atau manual)',
+  bomFormula: 'BOM / Formula',
+  bomFormulaDesc: 'Resep produksi yang mendefinisikan apa yang diproduksi dan material yang dibutuhkan',
+
+  // Acknowledge / Actions
+  acknowledgeHandover: 'Konfirmasi Serah Terima',
+  assignJob: 'Tugaskan Pekerjaan',
+  reassign: 'Tugaskan Ulang',
+
+  // Common
+  save: 'Simpan',
+  cancel: 'Batal',
+  delete: 'Hapus',
+  edit: 'Edit',
+  create: 'Buat',
+  search: 'Cari',
+  filter: 'Filter',
+  refresh: 'Segarkan',
+  close: 'Tutup',
+  back: 'Kembali',
+  actions: 'Aksi',
+} as const;
