@@ -202,7 +202,13 @@ export const deletePayment = withTenant(async function deletePayment(
   id: string,
 ) {
   return safeAction(async () => {
-    await requireAuth();
+    const authSession = await requireAuth();
+    const user = authSession.user as { role?: string };
+    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+      throw new BusinessRuleError(
+        "Only ADMIN or FINANCE roles can delete payments",
+      );
+    }
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -215,6 +221,24 @@ export const deletePayment = withTenant(async function deletePayment(
         });
 
         if (!payment) throw new NotFoundError("Payment record", id);
+
+        // Validate all associated journal entries are in open periods
+        const { isPeriodOpen } =
+          await import("@/services/accounting/periods-service");
+        const refType = payment.invoiceId
+          ? ReferenceType.SALES_PAYMENT
+          : ReferenceType.PURCHASE_PAYMENT;
+        const journals = await tx.journalEntry.findMany({
+          where: { referenceId: id, referenceType: refType },
+        });
+        for (const journal of journals) {
+          const isOpen = await isPeriodOpen(journal.entryDate, tx);
+          if (!isOpen) {
+            throw new BusinessRuleError(
+              `Cannot delete payment: journal entry ${journal.entryNumber} is in a closed fiscal period`,
+            );
+          }
+        }
 
         if (payment.invoiceId && payment.invoice) {
           const newPaid =
@@ -268,10 +292,6 @@ export const deletePayment = withTenant(async function deletePayment(
           });
         }
 
-        const refType = payment.invoiceId
-          ? ReferenceType.SALES_PAYMENT
-          : ReferenceType.PURCHASE_PAYMENT;
-
         await tx.journalLine.deleteMany({
           where: { journalEntry: { referenceId: id, referenceType: refType } },
         });
@@ -280,6 +300,14 @@ export const deletePayment = withTenant(async function deletePayment(
         });
 
         await tx.payment.delete({ where: { id } });
+      });
+
+      await logActivity({
+        userId: authSession.user.id,
+        action: "DELETE_PAYMENT",
+        entityType: "Payment",
+        entityId: id,
+        details: `Deleted payment ${id}`,
       });
 
       revalidatePath("/finance/payments/received");

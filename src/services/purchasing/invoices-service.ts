@@ -54,6 +54,11 @@ export async function recordPayment(
     const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
     if (!invoice) throw new Error("Invoice not found");
 
+    // Prevent payment on already paid invoices
+    if (invoice.status === PurchaseInvoiceStatus.PAID) {
+      throw new Error("Invoice is already fully paid");
+    }
+
     // Validate payment amount does not exceed remaining balance
     const remainingBalance =
       invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();

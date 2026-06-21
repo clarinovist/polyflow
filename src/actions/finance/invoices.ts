@@ -1,212 +1,292 @@
-'use server';
+"use server";
 
 import { withTenant } from "@/lib/core/tenant";
-import { prisma } from '@/lib/core/prisma';
-import { InvoiceStatus, Prisma } from '@prisma/client';
-import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { prisma } from "@/lib/core/prisma";
+import { InvoiceStatus, Prisma } from "@prisma/client";
+import { logger } from "@/lib/config/logger";
+import {
+  safeAction,
+  BusinessRuleError,
+  NotFoundError,
+} from "@/lib/errors/errors";
 
 export const getSalesInvoices = withTenant(
-async function getSalesInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
+  async function getSalesInvoices(dateRange?: {
+    startDate?: Date;
+    endDate?: Date;
+  }) {
     return safeAction(async () => {
-        const where: Prisma.InvoiceWhereInput = {};
-        if (dateRange?.startDate && dateRange?.endDate) {
-            where.invoiceDate = {
-                gte: dateRange.startDate,
-                lte: dateRange.endDate
-            };
-        }
+      const where: Prisma.InvoiceWhereInput = {};
+      if (dateRange?.startDate && dateRange?.endDate) {
+        where.invoiceDate = {
+          gte: dateRange.startDate,
+          lte: dateRange.endDate,
+        };
+      }
 
-        const invoices = await prisma.invoice.findMany({
-            where,
-            orderBy: {
-                createdAt: 'desc',
-            },
-            include: {
-                salesOrder: {
-                    select: {
-                        orderNumber: true,
-                        customer: {
-                            select: {
-                                name: true,
-                            },
-                        },
-                    },
+      const invoices = await prisma.invoice.findMany({
+        where,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          salesOrder: {
+            select: {
+              orderNumber: true,
+              customer: {
+                select: {
+                  name: true,
                 },
+              },
             },
-        });
+          },
+        },
+      });
 
-        return invoices;
+      return invoices;
     });
-}
+  },
 );
 
 export const getPurchaseInvoices = withTenant(
-async function getPurchaseInvoices() {
+  async function getPurchaseInvoices() {
     return safeAction(async () => {
-        const invoices = await prisma.purchaseInvoice.findMany({
-            orderBy: {
-                createdAt: 'desc',
-            },
-            include: {
-                purchaseOrder: {
-                    select: {
-                        orderNumber: true,
-                        supplier: {
-                            select: {
-                                name: true,
-                            },
-                        },
-                    },
+      const invoices = await prisma.purchaseInvoice.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          purchaseOrder: {
+            select: {
+              orderNumber: true,
+              supplier: {
+                select: {
+                  name: true,
                 },
+              },
             },
-        });
+          },
+        },
+      });
 
-        return invoices;
+      return invoices;
     });
-}
+  },
 );
 
-export const getInvoiceStats = withTenant(
-async function getInvoiceStats() {
-    return safeAction(async () => {
-        // 1. Unpaid Amount
-        const unpaid = await prisma.invoice.aggregate({
-            _sum: {
-                totalAmount: true,
-                paidAmount: true
-            },
-            where: {
-                status: {
-                    in: ['UNPAID', 'PARTIAL', 'OVERDUE'] as InvoiceStatus[]
-                }
-            }
-        });
-
-        // Calculate actual outstanding (Total - Paid)
-        const totalOutstanding = (Number(unpaid._sum.totalAmount) || 0) - (Number(unpaid._sum.paidAmount) || 0);
-
-        // 2. Overdue Count
-        const overdueCount = await prisma.invoice.count({
-            where: {
-                status: 'OVERDUE'
-            }
-        });
-
-        return {
-            totalOutstanding,
-            overdueCount
-        };
+export const getInvoiceStats = withTenant(async function getInvoiceStats() {
+  return safeAction(async () => {
+    // 1. Unpaid Amount
+    const unpaid = await prisma.invoice.aggregate({
+      _sum: {
+        totalAmount: true,
+        paidAmount: true,
+      },
+      where: {
+        status: {
+          in: ["UNPAID", "PARTIAL", "OVERDUE"] as InvoiceStatus[],
+        },
+      },
     });
-}
-);
 
-export const deleteInvoice = withTenant(
-async function deleteInvoice(id: string, type: 'AR' | 'AP') {
-    return safeAction(async () => {
-        const { requireAuth } = await import('@/lib/tools/auth-checks');
-        const { revalidatePath } = await import('next/cache');
-        const { ReferenceType } = await import('@prisma/client');
+    // Calculate actual outstanding (Total - Paid)
+    const totalOutstanding =
+      (Number(unpaid._sum.totalAmount) || 0) -
+      (Number(unpaid._sum.paidAmount) || 0);
 
-        await requireAuth();
+    // 2. Overdue Count
+    const overdueCount = await prisma.invoice.count({
+      where: {
+        status: "OVERDUE",
+      },
+    });
 
-        try {
-            await prisma.$transaction(async (tx) => {
-                if (type === 'AR') {
-                    const invoice = await tx.invoice.findUnique({
-                        where: { id },
-                        include: { payments: true }
-                    });
+    return {
+      totalOutstanding,
+      overdueCount,
+    };
+  });
+});
 
-                    if (!invoice) throw new NotFoundError("Sales Invoice", id);
+export const deleteInvoice = withTenant(async function deleteInvoice(
+  id: string,
+  type: "AR" | "AP",
+) {
+  return safeAction(async () => {
+    const { requireAuth } = await import("@/lib/tools/auth-checks");
+    const { revalidatePath } = await import("next/cache");
+    const { ReferenceType } = await import("@prisma/client");
+    const { isPeriodOpen } =
+      await import("@/services/accounting/periods-service");
+    const { logActivity } = await import("@/lib/tools/audit");
 
-                    // Find all IDs for payments associated with this invoice
-                    const paymentIds = invoice.payments.map(p => p.id);
+    const session = await requireAuth();
+    const user = session.user as { role?: string };
+    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+      throw new BusinessRuleError(
+        "Only ADMIN or FINANCE roles can delete invoices",
+      );
+    }
 
-                    // 1. Delete associated Invoice Journal Entries
-                    await tx.journalLine.deleteMany({
-                        where: { journalEntry: { referenceId: invoice.id, referenceType: ReferenceType.SALES_INVOICE } }
-                    });
-                    await tx.journalEntry.deleteMany({
-                        where: { referenceId: invoice.id, referenceType: ReferenceType.SALES_INVOICE }
-                    });
+    try {
+      await prisma.$transaction(async (tx) => {
+        if (type === "AR") {
+          const invoice = await tx.invoice.findUnique({
+            where: { id },
+            include: { payments: true },
+          });
 
-                    // 2. Delete associated Payment Journal Entries
-                    if (paymentIds.length > 0) {
-                        await tx.journalLine.deleteMany({
-                            where: {
-                                journalEntry: {
-                                    referenceId: { in: paymentIds },
-                                    referenceType: ReferenceType.SALES_PAYMENT
-                                }
-                            }
-                        });
-                        await tx.journalEntry.deleteMany({
-                            where: {
-                                referenceId: { in: paymentIds },
-                                referenceType: ReferenceType.SALES_PAYMENT
-                            }
-                        });
-                    }
+          if (!invoice) throw new NotFoundError("Sales Invoice", id);
 
-                    // 3. Delete Payment records first (mandatory due to FK)
-                    await tx.payment.deleteMany({ where: { invoiceId: id } });
+          // Validate all associated journal entries are in open periods
+          const invoiceJournals = await tx.journalEntry.findMany({
+            where: {
+              referenceId: invoice.id,
+              referenceType: ReferenceType.SALES_INVOICE,
+            },
+          });
+          for (const journal of invoiceJournals) {
+            const isOpen = await isPeriodOpen(journal.entryDate, tx);
+            if (!isOpen) {
+              throw new BusinessRuleError(
+                `Cannot delete invoice: journal entry ${journal.entryNumber} is in a closed fiscal period`,
+              );
+            }
+          }
 
-                    // 4. Delete Invoice
-                    await tx.invoice.delete({ where: { id } });
-                } else {
-                    const invoice = await tx.purchaseInvoice.findUnique({
-                        where: { id },
-                        include: { payments: true }
-                    });
+          // Find all IDs for payments associated with this invoice
+          const paymentIds = invoice.payments.map((p) => p.id);
 
-                    if (!invoice) throw new NotFoundError("Purchase Invoice", id);
+          // 1. Delete associated Invoice Journal Entries
+          await tx.journalLine.deleteMany({
+            where: {
+              journalEntry: {
+                referenceId: invoice.id,
+                referenceType: ReferenceType.SALES_INVOICE,
+              },
+            },
+          });
+          await tx.journalEntry.deleteMany({
+            where: {
+              referenceId: invoice.id,
+              referenceType: ReferenceType.SALES_INVOICE,
+            },
+          });
 
-                    const paymentIds = invoice.payments.map(p => p.id);
-
-                    // 1. Delete associated Invoice Journal Entries
-                    await tx.journalLine.deleteMany({
-                        where: { journalEntry: { referenceId: invoice.id, referenceType: ReferenceType.PURCHASE_INVOICE } }
-                    });
-                    await tx.journalEntry.deleteMany({
-                        where: { referenceId: invoice.id, referenceType: ReferenceType.PURCHASE_INVOICE }
-                    });
-
-                    // 2. Delete associated Payment Journal Entries
-                    if (paymentIds.length > 0) {
-                        await tx.journalLine.deleteMany({
-                            where: {
-                                journalEntry: {
-                                    referenceId: { in: paymentIds },
-                                    referenceType: ReferenceType.PURCHASE_PAYMENT
-                                }
-                            }
-                        });
-                        await tx.journalEntry.deleteMany({
-                            where: {
-                                referenceId: { in: paymentIds },
-                                referenceType: ReferenceType.PURCHASE_PAYMENT
-                            }
-                        });
-                    }
-
-                    // 3. Delete Payment records
-                    await tx.payment.deleteMany({ where: { purchaseInvoiceId: id } });
-
-                    // 4. Delete Invoice
-                    await tx.purchaseInvoice.delete({ where: { id } });
-                }
+          // 2. Delete associated Payment Journal Entries
+          if (paymentIds.length > 0) {
+            await tx.journalLine.deleteMany({
+              where: {
+                journalEntry: {
+                  referenceId: { in: paymentIds },
+                  referenceType: ReferenceType.SALES_PAYMENT,
+                },
+              },
             });
+            await tx.journalEntry.deleteMany({
+              where: {
+                referenceId: { in: paymentIds },
+                referenceType: ReferenceType.SALES_PAYMENT,
+              },
+            });
+          }
 
-            revalidatePath('/sales/invoices');
-            revalidatePath('/finance/payables');
-            revalidatePath('/finance/reports/balance-sheet');
-            return { message: "Invoice deleted successfully" };
-        } catch (error) {
-            if (error instanceof NotFoundError) throw error;
-            logger.error('Failed to delete invoice', { error, invoiceId: id, invoiceType: type, module: 'InvoicesActions' });
-            throw new BusinessRuleError('Failed to delete invoice. Ensure no dependencies exist.');
+          // 3. Delete Payment records first (mandatory due to FK)
+          await tx.payment.deleteMany({ where: { invoiceId: id } });
+
+          // 4. Delete Invoice
+          await tx.invoice.delete({ where: { id } });
+        } else {
+          const invoice = await tx.purchaseInvoice.findUnique({
+            where: { id },
+            include: { payments: true },
+          });
+
+          if (!invoice) throw new NotFoundError("Purchase Invoice", id);
+
+          // Validate all associated journal entries are in open periods
+          const invoiceJournals = await tx.journalEntry.findMany({
+            where: {
+              referenceId: invoice.id,
+              referenceType: ReferenceType.PURCHASE_INVOICE,
+            },
+          });
+          for (const journal of invoiceJournals) {
+            const isOpen = await isPeriodOpen(journal.entryDate, tx);
+            if (!isOpen) {
+              throw new BusinessRuleError(
+                `Cannot delete invoice: journal entry ${journal.entryNumber} is in a closed fiscal period`,
+              );
+            }
+          }
+
+          const paymentIds = invoice.payments.map((p) => p.id);
+
+          // 1. Delete associated Invoice Journal Entries
+          await tx.journalLine.deleteMany({
+            where: {
+              journalEntry: {
+                referenceId: invoice.id,
+                referenceType: ReferenceType.PURCHASE_INVOICE,
+              },
+            },
+          });
+          await tx.journalEntry.deleteMany({
+            where: {
+              referenceId: invoice.id,
+              referenceType: ReferenceType.PURCHASE_INVOICE,
+            },
+          });
+
+          // 2. Delete associated Payment Journal Entries
+          if (paymentIds.length > 0) {
+            await tx.journalLine.deleteMany({
+              where: {
+                journalEntry: {
+                  referenceId: { in: paymentIds },
+                  referenceType: ReferenceType.PURCHASE_PAYMENT,
+                },
+              },
+            });
+            await tx.journalEntry.deleteMany({
+              where: {
+                referenceId: { in: paymentIds },
+                referenceType: ReferenceType.PURCHASE_PAYMENT,
+              },
+            });
+          }
+
+          // 3. Delete Payment records
+          await tx.payment.deleteMany({ where: { purchaseInvoiceId: id } });
+
+          // 4. Delete Invoice
+          await tx.purchaseInvoice.delete({ where: { id } });
         }
-    });
-}
-);
+      });
+
+      await logActivity({
+        userId: session.user.id,
+        action: "DELETE_INVOICE",
+        entityType: type === "AR" ? "Invoice" : "PurchaseInvoice",
+        entityId: id,
+        details: `Deleted ${type} invoice ${id}`,
+      });
+
+      revalidatePath("/sales/invoices");
+      revalidatePath("/finance/payables");
+      revalidatePath("/finance/reports/balance-sheet");
+      return { message: "Invoice deleted successfully" };
+    } catch (error) {
+      if (error instanceof NotFoundError) throw error;
+      logger.error("Failed to delete invoice", {
+        error,
+        invoiceId: id,
+        invoiceType: type,
+        module: "InvoicesActions",
+      });
+      throw new BusinessRuleError(
+        "Failed to delete invoice. Ensure no dependencies exist.",
+      );
+    }
+  });
+});
