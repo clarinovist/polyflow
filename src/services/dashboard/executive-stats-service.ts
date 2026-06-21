@@ -239,11 +239,14 @@ export class ExecutiveStatsService {
         const totalInput = decimalToNumber(materialIssuesAgg._sum.quantity);
         const yieldRate = totalInput > 0 ? (totalOutput / totalInput) * 100 : 0;
 
-        // Inventory Value Estimation
+        // Inventory Value Estimation (using weighted average cost, not selling price)
         const stockItems = await prisma.inventory.findMany({
-            select: { quantity: true, productVariant: { select: { price: true } } }
+            select: { quantity: true, averageCost: true, productVariant: { select: { standardCost: true, price: true } } }
         });
-        const totalInventoryValue = stockItems.reduce((s, i) => s + (Number(i.quantity) * Number(i.productVariant.price || 0)), 0);
+        const totalInventoryValue = stockItems.reduce((s, i) => {
+            const unitCost = Number(i.averageCost || i.productVariant.standardCost || i.productVariant.price || 0);
+            return s + (Number(i.quantity) * unitCost);
+        }, 0);
         const lowStockCount = await prisma.inventory.count({ where: { quantity: { lt: 10 } } });
 
         const overdueReceivables = decimalToNumber(overdueReceivablesAgg._sum.totalAmount) - decimalToNumber(overdueReceivablesAgg._sum.paidAmount);

@@ -5,11 +5,13 @@ import { getTrialBalance } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from '@/lib/utils/utils';
+import { format } from 'date-fns';
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { RotateCw, Download } from 'lucide-react';
 import { useCallback } from 'react';
+import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 
 interface TrialBalanceItem {
     id: string;
@@ -53,6 +55,23 @@ export default function TrialBalancePage() {
     const totalDebit = data.reduce((sum, item) => sum + Number(item.debit), 0);
     const totalCredit = data.reduce((sum, item) => sum + Number(item.credit), 0);
 
+    const handleDownload = () => {
+        if (data.length === 0) return;
+        const headers = ['Kode Akun', 'Nama Akun', 'Debit', 'Kredit', 'Saldo Bersih'];
+        const rows: (string | number)[][] = data.map(item => [
+            item.code,
+            item.name,
+            rupiahForCsv(Number(item.debit)),
+            rupiahForCsv(Number(item.credit)),
+            rupiahForCsv(item.netBalance),
+        ]);
+        rows.push(['', 'TOTAL', rupiahForCsv(totalDebit), rupiahForCsv(totalCredit), rupiahForCsv(totalDebit - totalCredit)]);
+
+        const fromStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '';
+        const toStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
+        downloadCsv(reportFilename('Neraca_Saldo', `${fromStr}_${toStr}`), headers, rows);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -70,7 +89,7 @@ export default function TrialBalancePage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={data.length === 0}>
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>

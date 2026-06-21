@@ -5,6 +5,7 @@ import { getCashFlowStatement } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from '@/lib/utils/utils';
+import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RotateCw, Download } from "lucide-react";
@@ -53,6 +54,45 @@ export default function CashFlowStatementPage() {
     const handleNextMonth = () => setDate(prev => addMonths(prev, 1));
     const handleCurrentMonth = () => setDate(new Date());
 
+    const handleDownload = () => {
+        if (!data) return;
+        const headers = ['Keterangan', 'Jumlah (IDR)'];
+        const rows: (string | number)[][] = [];
+
+        rows.push(['Saldo Kas Awal (Beginning Balance)', rupiahForCsv(data.beginningBalance)]);
+        rows.push(['', '']);
+
+        // Operating
+        rows.push(['I. ARUS KAS DARI AKTIVITAS OPERASIONAL', '']);
+        for (const item of data.operatingActivities) {
+            rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
+        }
+        rows.push(['  Kas Bersih dari Aktivitas Operasional', rupiahForCsv(data.netOperating)]);
+        rows.push(['', '']);
+
+        // Investing
+        rows.push(['II. ARUS KAS DARI AKTIVITAS INVESTASI', '']);
+        for (const item of data.investingActivities) {
+            rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
+        }
+        rows.push(['  Kas Bersih dari Aktivitas Investasi', rupiahForCsv(data.netInvesting)]);
+        rows.push(['', '']);
+
+        // Financing
+        rows.push(['III. ARUS KAS DARI AKTIVITAS PENDANAAN', '']);
+        for (const item of data.financingActivities) {
+            rows.push([`  ${item.name}`, rupiahForCsv(item.amount)]);
+        }
+        rows.push(['  Kas Bersih dari Aktivitas Pendanaan', rupiahForCsv(data.netFinancing)]);
+        rows.push(['', '']);
+
+        rows.push(['Kenaikan / (Penurunan) Kas Bersih', rupiahForCsv(data.netCashFlow)]);
+        rows.push(['SALDO KAS AKHIR (Ending Balance)', rupiahForCsv(data.endingBalance)]);
+
+        const dateStr = format(date, 'yyyy-MM');
+        downloadCsv(reportFilename('Arus_Kas', dateStr), headers, rows);
+    };
+
     useEffect(() => {
         fetchData();
     }, [fetchData]);
@@ -84,7 +124,7 @@ export default function CashFlowStatementPage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>

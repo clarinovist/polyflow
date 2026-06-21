@@ -5,6 +5,7 @@ import { getBudgetVariance } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from '@/lib/utils/utils';
+import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 import { Button } from '@/components/ui/button';
 import { RotateCw, Download, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -54,6 +55,21 @@ export default function BudgetVariancePage() {
         { val: "10", label: "October" }, { val: "11", label: "November" }, { val: "12", label: "December" }
     ];
 
+    const handleDownload = () => {
+        if (data.length === 0) return;
+        const headers = ['Kode Akun', 'Nama Akun', 'Budget', 'Aktual', 'Varians', '%'];
+        const rows: (string | number)[][] = data.map(item => [
+            item.accountCode,
+            item.accountName,
+            rupiahForCsv(item.budget),
+            rupiahForCsv(item.actual),
+            rupiahForCsv(item.variance),
+            `${item.variancePercent.toFixed(1)}%`,
+        ]);
+        const monthLabel = months.find(m => m.val === month)?.label || month;
+        downloadCsv(reportFilename('Budget_Variance', `${year}-${month}`), headers, rows);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -87,7 +103,7 @@ export default function BudgetVariancePage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={data.length === 0}>
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>

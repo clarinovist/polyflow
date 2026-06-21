@@ -16,6 +16,7 @@ import { useCallback } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { reportLabels } from '@/lib/labels';
+import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 
 interface BalanceSheetItem {
     id: string;
@@ -132,6 +133,45 @@ export default function BalanceSheetPage() {
             ));
     };
 
+    const handleDownload = () => {
+        if (!data) return;
+        const headers = ['Kode', 'Akun', 'Jumlah (IDR)'];
+        const rows: (string | number)[][] = [];
+
+        const addGroups = (groups: (BalanceSheetGroup | BalanceSheetItem)[]) => {
+            for (const item of groups) {
+                if (isGroup(item)) {
+                    rows.push([item.code, item.name, rupiahForCsv(item.totalBalance)]);
+                    for (const child of item.children.filter(c => Math.abs(c.netBalance) > 0.01)) {
+                        rows.push([child.code, `  ${child.name}`, rupiahForCsv(child.netBalance)]);
+                    }
+                } else if (Math.abs(item.netBalance) > 0.01) {
+                    rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+                }
+            }
+        };
+
+        rows.push(['', 'ASET', '']);
+        addGroups(data.assetGroups);
+        rows.push(['', 'TOTAL ASET', rupiahForCsv(data.totalAssets)]);
+        rows.push(['', '', '']);
+        rows.push(['', 'KEWAJIBAN', '']);
+        addGroups(data.liabilityGroups);
+        rows.push(['', 'TOTAL KEWAJIBAN', rupiahForCsv(data.totalLiabilities)]);
+        rows.push(['', '', '']);
+        rows.push(['', 'EKUITAS', '']);
+        addGroups(data.equityGroups);
+        if (Math.abs(data.unpostedEarnings) > 0.01) {
+            rows.push(['—', 'Laba Periode Berjalan (Belum Diclose)', rupiahForCsv(data.unpostedEarnings)]);
+        }
+        rows.push(['', 'TOTAL EKUITAS', rupiahForCsv(data.totalEquity + data.unpostedEarnings)]);
+        rows.push(['', '', '']);
+        rows.push(['', 'TOTAL KEWAJIBAN & EKUITAS', rupiahForCsv(data.totalLiabilitiesAndEquity)]);
+
+        const dateStr = format(date, 'yyyy-MM-dd');
+        downloadCsv(reportFilename('Neraca', dateStr), headers, rows);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -170,7 +210,7 @@ export default function BalanceSheetPage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>

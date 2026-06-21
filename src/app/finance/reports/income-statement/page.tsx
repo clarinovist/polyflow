@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { reportLabels } from '@/lib/labels';
+import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 
 
 interface IncomeStatementItem {
@@ -91,6 +92,51 @@ export default function IncomeStatementPage() {
 
     const groupedOpEx = data ? getGroupedOpEx(data.opex) : { selling: 0, general: 0 };
 
+    const handleDownload = () => {
+        if (!data) return;
+        const headers = ['Kode', 'Keterangan', 'Jumlah (IDR)'];
+        const rows: (string | number)[][] = [];
+
+        // Revenue
+        rows.push(['', 'I. PENDAPATAN (REVENUE)', '']);
+        for (const item of data.revenue.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
+            rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+        }
+        rows.push(['', 'Total Pendapatan', rupiahForCsv(data.totalRevenue)]);
+
+        // COGS
+        rows.push(['', '', '']);
+        rows.push(['', 'II. HARGA POKOK PENJUALAN (COGS)', '']);
+        rows.push(['51000', 'Bahan Baku Langsung', rupiahForCsv(groupedCOGS.materials)]);
+        rows.push(['52000', 'Tenaga Kerja Langsung', rupiahForCsv(groupedCOGS.labor)]);
+        rows.push(['53000', 'Overhead Pabrik', rupiahForCsv(groupedCOGS.overhead)]);
+        rows.push(['', 'Total Biaya Produksi', rupiahForCsv(data.totalManufacturingCosts)]);
+        rows.push(['', 'Total HPP', rupiahForCsv(data.totalCOGS)]);
+        rows.push(['', '', '']);
+        rows.push(['', 'LABA KOTOR (GROSS PROFIT)', rupiahForCsv(data.grossProfit)]);
+
+        // OpEx
+        rows.push(['', '', '']);
+        rows.push(['', 'III. BEBAN OPERASIONAL', '']);
+        rows.push(['61000', 'Beban Penjualan & Pemasaran', rupiahForCsv(groupedOpEx.selling)]);
+        rows.push(['62000', 'Beban Umum & Administrasi', rupiahForCsv(groupedOpEx.general)]);
+        rows.push(['', 'Total Beban Operasional', rupiahForCsv(data.totalOpEx)]);
+        rows.push(['', '', '']);
+        rows.push(['', 'LABA OPERASIONAL (EBIT)', rupiahForCsv(data.operatingIncome)]);
+
+        // Other
+        rows.push(['', '', '']);
+        rows.push(['', 'IV. PENDAPATAN/BEBAN LAINNYA', '']);
+        for (const item of data.other.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
+            rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+        }
+        rows.push(['', '', '']);
+        rows.push(['', 'LABA BERSIH (NET INCOME)', rupiahForCsv(data.netIncome)]);
+
+        const dateStr = format(date, 'yyyy-MM');
+        downloadCsv(reportFilename('Laba_Rugi', dateStr), headers, rows);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -118,7 +164,7 @@ export default function IncomeStatementPage() {
                     <Button variant="outline" size="icon" onClick={fetchData}>
                         <RotateCw className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" onClick={handleDownload} disabled={!data}>
                         <Download className="h-4 w-4" />
                     </Button>
                 </div>

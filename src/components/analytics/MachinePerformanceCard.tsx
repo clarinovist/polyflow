@@ -8,7 +8,7 @@ interface MachinePerformanceCardProps {
 }
 
 export function MachinePerformanceCard({ data }: MachinePerformanceCardProps) {
-    const topMachines = data.sort((a, b) => b.unitsPerHour - a.unitsPerHour).slice(0, 5);
+    const topMachines = [...data].sort((a, b) => b.unitsPerHour - a.unitsPerHour).slice(0, 5);
 
     return (
         <Card>
