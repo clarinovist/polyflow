@@ -1,241 +1,273 @@
-import { prisma } from '@/lib/core/prisma';
-import { logActivity } from '@/lib/tools/audit';
-import { addDays } from 'date-fns';
-import { PurchaseInvoiceStatus, Prisma, NotificationType } from '@prisma/client';
-import { CreatePurchaseInvoiceValues } from '@/lib/schemas/purchasing';
-import { AutoJournalService } from '../finance/auto-journal-service';
-import { logger } from '@/lib/config/logger';
+import { prisma } from "@/lib/core/prisma";
+import { logActivity } from "@/lib/tools/audit";
+import { addDays } from "date-fns";
+import {
+  PurchaseInvoiceStatus,
+  Prisma,
+  NotificationType,
+} from "@prisma/client";
+import { CreatePurchaseInvoiceValues } from "@/lib/schemas/purchasing";
+import { AutoJournalService } from "../finance/auto-journal-service";
+import { logger } from "@/lib/config/logger";
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
-    const finalDueDate = data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
+  const finalDueDate =
+    data.dueDate || addDays(data.invoiceDate, data.termOfPaymentDays || 0);
 
-    const po = await prisma.purchaseOrder.findUnique({
-        where: { id: data.purchaseOrderId },
-        select: { totalAmount: true }
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: data.purchaseOrderId },
+    select: { totalAmount: true },
+  });
+
+  if (!po) throw new Error("Purchase Order not found");
+
+  const invoice = await prisma.purchaseInvoice.create({
+    data: {
+      invoiceNumber: data.invoiceNumber,
+      purchaseOrderId: data.purchaseOrderId,
+      invoiceDate: data.invoiceDate,
+      dueDate: finalDueDate,
+      termOfPaymentDays: data.termOfPaymentDays || 0,
+      totalAmount: po.totalAmount || 0,
+      status: PurchaseInvoiceStatus.UNPAID,
+    },
+  });
+
+  // Auto-Journaling Trigger
+  await AutoJournalService.handlePurchaseInvoiceCreated().catch((err) => {
+    logger.error("Auto-Journal failed for purchase invoice", {
+      error: err,
+      module: "PurchasingInvoicesService",
     });
+  });
 
-    if (!po) throw new Error("Purchase Order not found");
-
-    const invoice = await prisma.purchaseInvoice.create({
-        data: {
-            invoiceNumber: data.invoiceNumber,
-            purchaseOrderId: data.purchaseOrderId,
-            invoiceDate: data.invoiceDate,
-            dueDate: finalDueDate,
-            termOfPaymentDays: data.termOfPaymentDays || 0,
-            totalAmount: po.totalAmount || 0,
-            status: PurchaseInvoiceStatus.UNPAID,
-        }
-    });
-
-    // Auto-Journaling Trigger
-    await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
-        logger.error("Auto-Journal failed for purchase invoice", { error: err, module: 'PurchasingInvoicesService' });
-    });
-
-    return invoice;
+  return invoice;
 }
 
 export async function recordPayment(
-    id: string,
-    amount: number,
-    userId: string,
-    options?: { paymentDate?: Date; method?: string; notes?: string }
+  id: string,
+  amount: number,
+  userId: string,
+  options?: { paymentDate?: Date; method?: string; notes?: string },
 ) {
-    return await prisma.$transaction(async (tx) => {
-        const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
-        if (!invoice) throw new Error("Invoice not found");
+  return await prisma.$transaction(async (tx) => {
+    const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
+    if (!invoice) throw new Error("Invoice not found");
 
-        const { getNextSequence } = await import('@/lib/utils/sequence');
-
-        const newPaidAmount = invoice.paidAmount.toNumber() + amount;
-        let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
-
-        if (newPaidAmount >= invoice.totalAmount.toNumber()) {
-            status = PurchaseInvoiceStatus.PAID;
-        }
-
-        const paymentNumber = await getNextSequence('PAYMENT_OUT');
-
-        const payment = await tx.payment.create({
-            data: {
-                purchaseInvoiceId: id,
-                paymentNumber,
-                amount,
-                paymentDate: options?.paymentDate || new Date(),
-                method: options?.method || 'Bank Transfer',
-                notes: options?.notes,
-            }
-        });
-
-        const updated = await tx.purchaseInvoice.update({
-            where: { id },
-            data: {
-                paidAmount: newPaidAmount,
-                status
-            }
-        });
-
-        await logActivity({
-            userId,
-            action: 'PAYMENT_PURCHASE',
-            entityType: 'PurchaseInvoice',
-            entityId: id,
-            details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}.New Status: ${status} `,
-            tx
-        });
-
-        return {
-            ...updated,
-            paymentId: payment.id,
-        };
-    });
-}
-
-export async function getPurchaseInvoiceById(id: string) {
-    return await prisma.purchaseInvoice.findUnique({
-        where: { id },
-        include: {
-            purchaseOrder: {
-                select: {
-                    id: true,
-                    orderNumber: true,
-                    totalAmount: true,
-                    supplier: { select: { name: true, code: true } }
-                }
-            },
-            payments: {
-                orderBy: { paymentDate: 'desc' }
-            }
-        }
-    });
-}
-
-export async function getPurchaseInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
-    const where: Prisma.PurchaseInvoiceWhereInput = {};
-    if (dateRange?.startDate && dateRange?.endDate) {
-        where.invoiceDate = {
-            gte: dateRange.startDate,
-            lte: dateRange.endDate
-        };
+    // Validate payment amount does not exceed remaining balance
+    const remainingBalance =
+      invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();
+    if (amount > remainingBalance) {
+      throw new Error(
+        `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
+      );
     }
 
-    return await prisma.purchaseInvoice.findMany({
-        where,
-        include: {
-            purchaseOrder: {
-                select: {
-                    orderNumber: true,
-                    supplier: { select: { name: true } }
-                }
-            }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-}
+    const { getNextSequence } = await import("@/lib/utils/sequence");
 
-export async function generateBillNumber(): Promise<string> {
-    const dateStr = new Date().getFullYear().toString();
-    const prefix = `BILL - ${dateStr} -`;
+    const newPaidAmount = invoice.paidAmount.toNumber() + amount;
+    let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
 
-    const lastBill = await prisma.purchaseInvoice.findFirst({
-        where: { invoiceNumber: { startsWith: prefix } },
-        orderBy: { invoiceNumber: 'desc' },
-    });
-
-    let nextSequence = 1;
-    if (lastBill) {
-        const parts = lastBill.invoiceNumber.split('-');
-        const lastSeq = parseInt(parts[2]);
-        if (!isNaN(lastSeq)) {
-            nextSequence = lastSeq + 1;
-        }
+    if (newPaidAmount >= invoice.totalAmount.toNumber()) {
+      status = PurchaseInvoiceStatus.PAID;
     }
 
-    return `${prefix}${nextSequence.toString().padStart(4, '0')} `;
-}
+    const paymentNumber = await getNextSequence("PAYMENT_OUT");
 
-export async function createDraftBillFromPo(purchaseOrderId: string, userId: string) {
-    const po = await prisma.purchaseOrder.findUnique({
-        where: { id: purchaseOrderId },
-        select: { totalAmount: true, orderNumber: true, status: true }
+    const payment = await tx.payment.create({
+      data: {
+        purchaseInvoiceId: id,
+        paymentNumber,
+        amount,
+        paymentDate: options?.paymentDate || new Date(),
+        method: options?.method || "Bank Transfer",
+        notes: options?.notes,
+      },
     });
 
-    if (!po || !po.totalAmount) return;
-
-    const existing = await prisma.purchaseInvoice.findFirst({
-        where: { purchaseOrderId }
-    });
-    if (existing) return;
-
-    const invoiceNumber = await generateBillNumber();
-    const invoiceDate = new Date();
-    const dueDate = addDays(invoiceDate, 30);
-
-    // Set status to UNPAID if PO is RECEIVED or PARTIAL_RECEIVED, otherwise DRAFT
-    const status = (po.status === 'RECEIVED' || po.status === 'PARTIAL_RECEIVED')
-        ? PurchaseInvoiceStatus.UNPAID
-        : PurchaseInvoiceStatus.DRAFT;
-
-    const invoice = await prisma.purchaseInvoice.create({
-        data: {
-            invoiceNumber,
-            purchaseOrderId,
-            invoiceDate,
-            dueDate,
-            termOfPaymentDays: 30,
-            totalAmount: po.totalAmount,
-            status,
-            notes: `System generated bill for PO ${po.orderNumber}`
-        }
+    const updated = await tx.purchaseInvoice.update({
+      where: { id },
+      data: {
+        paidAmount: newPaidAmount,
+        status,
+      },
     });
 
     await logActivity({
-        userId,
-        action: 'AUTO_GENERATE_BILL',
-        entityType: 'PurchaseInvoice',
-        entityId: invoice.id,
-        details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} `,
+      userId,
+      action: "PAYMENT_PURCHASE",
+      entityType: "PurchaseInvoice",
+      entityId: id,
+      details: `Recorded payment of ${amount} for Invoice ${invoice.invoiceNumber}.New Status: ${status} `,
+      tx,
     });
 
-    // Auto-Journaling Trigger
-    await AutoJournalService.handlePurchaseInvoiceCreated().catch(err => {
-        logger.error("Auto-Journal failed for automated bill", { error: err, module: 'PurchasingInvoicesService' });
-    });
+    return {
+      ...updated,
+      paymentId: payment.id,
+    };
+  });
+}
 
-    return invoice;
+export async function getPurchaseInvoiceById(id: string) {
+  return await prisma.purchaseInvoice.findUnique({
+    where: { id },
+    include: {
+      purchaseOrder: {
+        select: {
+          id: true,
+          orderNumber: true,
+          totalAmount: true,
+          supplier: { select: { name: true, code: true } },
+        },
+      },
+      payments: {
+        orderBy: { paymentDate: "desc" },
+      },
+    },
+  });
+}
+
+export async function getPurchaseInvoices(dateRange?: {
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const where: Prisma.PurchaseInvoiceWhereInput = {};
+  if (dateRange?.startDate && dateRange?.endDate) {
+    where.invoiceDate = {
+      gte: dateRange.startDate,
+      lte: dateRange.endDate,
+    };
+  }
+
+  return await prisma.purchaseInvoice.findMany({
+    where,
+    include: {
+      purchaseOrder: {
+        select: {
+          orderNumber: true,
+          supplier: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function generateBillNumber(): Promise<string> {
+  const dateStr = new Date().getFullYear().toString();
+  const prefix = `BILL - ${dateStr} -`;
+
+  const lastBill = await prisma.purchaseInvoice.findFirst({
+    where: { invoiceNumber: { startsWith: prefix } },
+    orderBy: { invoiceNumber: "desc" },
+  });
+
+  let nextSequence = 1;
+  if (lastBill) {
+    const parts = lastBill.invoiceNumber.split("-");
+    const lastSeq = parseInt(parts[2]);
+    if (!isNaN(lastSeq)) {
+      nextSequence = lastSeq + 1;
+    }
+  }
+
+  return `${prefix}${nextSequence.toString().padStart(4, "0")} `;
+}
+
+export async function createDraftBillFromPo(
+  purchaseOrderId: string,
+  userId: string,
+) {
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: purchaseOrderId },
+    select: { totalAmount: true, orderNumber: true, status: true },
+  });
+
+  if (!po || !po.totalAmount) return;
+
+  const existing = await prisma.purchaseInvoice.findFirst({
+    where: { purchaseOrderId },
+  });
+  if (existing) return;
+
+  const invoiceNumber = await generateBillNumber();
+  const invoiceDate = new Date();
+  const dueDate = addDays(invoiceDate, 30);
+
+  // Set status to UNPAID if PO is RECEIVED or PARTIAL_RECEIVED, otherwise DRAFT
+  const status =
+    po.status === "RECEIVED" || po.status === "PARTIAL_RECEIVED"
+      ? PurchaseInvoiceStatus.UNPAID
+      : PurchaseInvoiceStatus.DRAFT;
+
+  const invoice = await prisma.purchaseInvoice.create({
+    data: {
+      invoiceNumber,
+      purchaseOrderId,
+      invoiceDate,
+      dueDate,
+      termOfPaymentDays: 30,
+      totalAmount: po.totalAmount,
+      status,
+      notes: `System generated bill for PO ${po.orderNumber}`,
+    },
+  });
+
+  await logActivity({
+    userId,
+    action: "AUTO_GENERATE_BILL",
+    entityType: "PurchaseInvoice",
+    entityId: invoice.id,
+    details: `Automated bill ${invoiceNumber} generated for PO ${po.orderNumber} with status ${status} `,
+  });
+
+  // Auto-Journaling Trigger
+  await AutoJournalService.handlePurchaseInvoiceCreated().catch((err) => {
+    logger.error("Auto-Journal failed for automated bill", {
+      error: err,
+      module: "PurchasingInvoicesService",
+    });
+  });
+
+  return invoice;
 }
 
 export async function checkOverduePurchasingInvoices() {
-    const { NotificationService } = await import('@/services/core/notification-service');
-    const overdueInvoices = await prisma.purchaseInvoice.findMany({
-        where: {
-            dueDate: { lt: new Date() },
-            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL] }
-        },
-        include: { purchaseOrder: { select: { orderNumber: true } } }
-    });
+  const { NotificationService } =
+    await import("@/services/core/notification-service");
+  const overdueInvoices = await prisma.purchaseInvoice.findMany({
+    where: {
+      dueDate: { lt: new Date() },
+      status: {
+        in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL],
+      },
+    },
+    include: { purchaseOrder: { select: { orderNumber: true } } },
+  });
 
-    if (overdueInvoices.length === 0) return;
+  if (overdueInvoices.length === 0) return;
 
-    const targetUsers = await prisma.user.findMany({
-        where: { role: 'ADMIN' },
-        select: { id: true }
-    });
+  const targetUsers = await prisma.user.findMany({
+    where: { role: "ADMIN" },
+    select: { id: true },
+  });
 
-    if (targetUsers.length > 0) {
-        const inputs = overdueInvoices.map(inv => {
-            return targetUsers.map(u => ({
-                userId: u.id,
-                type: 'OVERDUE_AP' as NotificationType,
-                title: 'Overdue Purchase Invoice',
-                message: `Invoice ${inv.invoiceNumber} (PO ${inv.purchaseOrder.orderNumber}) is overdue since ${inv.dueDate?.toLocaleDateString() || 'Unknown'}. amount due: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
-                link: `/admin/purchasing/invoices/${inv.id}`,
-                entityType: 'PurchaseInvoice',
-                entityId: inv.id
-            }));
-        }).flat();
+  if (targetUsers.length > 0) {
+    const inputs = overdueInvoices
+      .map((inv) => {
+        return targetUsers.map((u) => ({
+          userId: u.id,
+          type: "OVERDUE_AP" as NotificationType,
+          title: "Overdue Purchase Invoice",
+          message: `Invoice ${inv.invoiceNumber} (PO ${inv.purchaseOrder.orderNumber}) is overdue since ${inv.dueDate?.toLocaleDateString() || "Unknown"}. amount due: ${inv.totalAmount.toNumber() - inv.paidAmount.toNumber()}`,
+          link: `/admin/purchasing/invoices/${inv.id}`,
+          entityType: "PurchaseInvoice",
+          entityId: inv.id,
+        }));
+      })
+      .flat();
 
-        await NotificationService.createBulkNotifications(inputs);
-    }
+    await NotificationService.createBulkNotifications(inputs);
+  }
 }
