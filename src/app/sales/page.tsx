@@ -9,8 +9,6 @@ import { RevenueChart } from '@/components/sales/analytics/RevenueChart';
 import { TopProductsList, TopCustomersList } from '@/components/sales/analytics/TopLists';
 import { salesLabels } from '@/lib/labels';
 
-import { SalesMetrics } from '@/services/analytics/analytics-service';
-
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 export default async function SalesDashboardPage(props: { searchParams: SearchParams }) {
@@ -33,10 +31,6 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
     };
     
     const serializedOrders = serializeData(stats.recentOrders);
-
-    // Cast stats to SalesMetrics for components that expect it
-    // stats includes SalesMetrics properties + operational snapshots
-    const analyticsData = stats as unknown as SalesMetrics;
 
     return (
         <div className="flex flex-col space-y-6">
@@ -113,7 +107,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
             {/* Analytics Section */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <RevenueChart data={stats.revenueTrend} />
-                <TopProductsList data={analyticsData} />
+                <TopProductsList data={stats.topProducts} />
             </div>
 
             {/* Additional Analytics / Customers */}
@@ -121,7 +115,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
                 <div className="col-span-4">
                     {/* Spacer or future chart */}
                 </div>
-                <TopCustomersList data={analyticsData} />
+                <TopCustomersList data={stats.topCustomers} />
             </div>
 
             {/* Recent Orders Table */}

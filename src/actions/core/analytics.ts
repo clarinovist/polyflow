@@ -37,10 +37,10 @@ async function exportSalesAnalytics(dateRange: DateRange) {
                 ['Avg Order Value', metrics.averageOrderValue],
                 [''],
                 ['Top Products', 'Quantity', 'Revenue'],
-                ...metrics.topProducts.map(p => [p.name, p.quantity, p.revenue]),
+                ...metrics.topProducts.map(p => [p.productName, p.totalQuantity, p.totalRevenue]),
                 [''],
                 ['Top Customers', 'Orders', 'Revenue'],
-                ...metrics.topCustomers.map(c => [c.name, c.salesCount, c.revenue])
+                ...metrics.topCustomers.map(c => [c.customerName, c.orderCount, c.totalSpent])
             ];
 
             const XLSX = await import('xlsx');

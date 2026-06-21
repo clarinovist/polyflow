@@ -1,13 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SalesMetrics } from '@/actions/core/analytics';
+import { TopProductItem, TopCustomerItem } from '@/types/analytics';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-interface TopListProps {
-    data: SalesMetrics;
+interface TopProductsListProps {
+    data: TopProductItem[];
 }
 
-export function TopProductsList({ data }: TopListProps) {
+export function TopProductsList({ data }: TopProductsListProps) {
     return (
         <Card className="col-span-3">
             <CardHeader>
@@ -15,18 +15,18 @@ export function TopProductsList({ data }: TopListProps) {
             </CardHeader>
             <CardContent>
                 <div className="space-y-8">
-                    {data.topProducts.map((product, i) => (
+                    {data.map((product, i) => (
                         <div key={i} className="flex items-center">
                             <div className="space-y-1">
-                                <p className="text-sm font-medium leading-none">{product.name}</p>
+                                <p className="text-sm font-medium leading-none">{product.productName}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {product.quantity} terjual
+                                    {product.totalQuantity} terjual
                                 </p>
                             </div>
-                            <div className="ml-auto font-medium">{formatRupiah(product.revenue)}</div>
+                            <div className="ml-auto font-medium">{formatRupiah(product.totalRevenue)}</div>
                         </div>
                     ))}
-                    {data.topProducts.length === 0 && (
+                    {data.length === 0 && (
                         <p className="text-sm text-muted-foreground">Belum ada penjualan.</p>
                     )}
                 </div>
@@ -35,7 +35,11 @@ export function TopProductsList({ data }: TopListProps) {
     );
 }
 
-export function TopCustomersList({ data }: TopListProps) {
+interface TopCustomersListProps {
+    data: TopCustomerItem[];
+}
+
+export function TopCustomersList({ data }: TopCustomersListProps) {
     return (
         <Card className="col-span-3">
             <CardHeader>
@@ -43,21 +47,21 @@ export function TopCustomersList({ data }: TopListProps) {
             </CardHeader>
             <CardContent>
                 <div className="space-y-8">
-                    {data.topCustomers.map((customer, i) => (
+                    {data.map((customer, i) => (
                         <div key={i} className="flex items-center">
                             <Avatar className="h-9 w-9">
-                                <AvatarFallback>{customer.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>{customer.customerName.substring(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div className="ml-4 space-y-1">
-                                <p className="text-sm font-medium leading-none">{customer.name}</p>
+                                <p className="text-sm font-medium leading-none">{customer.customerName}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {customer.salesCount} pesanan
+                                    {customer.orderCount} pesanan
                                 </p>
                             </div>
-                            <div className="ml-auto font-medium">{formatRupiah(customer.revenue)}</div>
+                            <div className="ml-auto font-medium">{formatRupiah(customer.totalSpent)}</div>
                         </div>
                     ))}
-                    {data.topCustomers.length === 0 && (
+                    {data.length === 0 && (
                         <p className="text-sm text-muted-foreground">Belum ada pelanggan.</p>
                     )}
                 </div>

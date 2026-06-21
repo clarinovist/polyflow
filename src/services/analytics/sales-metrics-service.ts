@@ -1,15 +1,15 @@
 import { endOfDay, format, startOfMonth } from 'date-fns';
 
 import { prisma } from '@/lib/core/prisma';
-import { DateRange } from '@/types/analytics';
+import { DateRange, TopProductItem, TopCustomerItem } from '@/types/analytics';
 
 export interface SalesMetrics {
     totalRevenue: number;
     totalOrders: number;
     averageOrderValue: number;
     revenueTrend: { date: string; revenue: number }[];
-    topProducts: { name: string; quantity: number; revenue: number }[];
-    topCustomers: { name: string; salesCount: number; revenue: number }[];
+    topProducts: TopProductItem[];
+    topCustomers: TopCustomerItem[];
 }
 
 export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetrics> {
@@ -62,8 +62,8 @@ export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetri
 
     let kpiOrderCount = 0;
     const monthlyRevenue: Record<string, number> = {};
-    const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
-    const customerStats: Record<string, { name: string; salesCount: number; revenue: number }> = {};
+    const productStats: Record<string, { productVariantId: string; productName: string; skuCode: string; totalQuantity: number; totalRevenue: number }> = {};
+    const customerStats: Record<string, { customerId: string; customerName: string; orderCount: number; totalSpent: number; lastOrderDate: Date | null }> = {};
 
     for (let i = 0; i < monthsInTrend; i++) {
         const date = new Date(trendStartDate.getFullYear(), trendStartDate.getMonth() + i, 1);
@@ -89,10 +89,13 @@ export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetri
         if (order.customer) {
             const customerId = order.customerId!;
             if (!customerStats[customerId]) {
-                customerStats[customerId] = { name: order.customer.name, salesCount: 0, revenue: 0 };
+                customerStats[customerId] = { customerId, customerName: order.customer.name, orderCount: 0, totalSpent: 0, lastOrderDate: null };
             }
-            customerStats[customerId].salesCount++;
-            customerStats[customerId].revenue += orderTotal;
+            customerStats[customerId].orderCount++;
+            customerStats[customerId].totalSpent += orderTotal;
+            if (!customerStats[customerId].lastOrderDate || order.orderDate > customerStats[customerId].lastOrderDate!) {
+                customerStats[customerId].lastOrderDate = order.orderDate;
+            }
         }
 
         for (const item of order.items) {
@@ -107,11 +110,11 @@ export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetri
                     ? item.productVariant.name
                     : `${item.productVariant.product.name} - ${item.productVariant.name}`;
 
-                productStats[variantId] = { name: productName, quantity: 0, revenue: 0 };
+                productStats[variantId] = { productVariantId: variantId, productName, skuCode: item.productVariant.skuCode, totalQuantity: 0, totalRevenue: 0 };
             }
 
-            productStats[variantId].quantity += quantity;
-            productStats[variantId].revenue += subtotal;
+            productStats[variantId].totalQuantity += quantity;
+            productStats[variantId].totalRevenue += subtotal;
         }
     }
 
@@ -122,11 +125,11 @@ export async function getSalesMetrics(dateRange?: DateRange): Promise<SalesMetri
         .sort((a, b) => a.date.localeCompare(b.date));
 
     const topProducts = Object.values(productStats)
-        .sort((a, b) => b.revenue - a.revenue)
+        .sort((a, b) => b.totalRevenue - a.totalRevenue)
         .slice(0, 5);
 
     const topCustomers = Object.values(customerStats)
-        .sort((a, b) => b.revenue - a.revenue)
+        .sort((a, b) => b.totalSpent - a.totalSpent)
         .slice(0, 5);
 
     return {
