@@ -1,5 +1,3 @@
-'use client';
-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TopSupplierItem } from '@/types/analytics';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -11,7 +9,17 @@ interface TopSuppliersCardProps {
 }
 
 export function TopSuppliersCard({ data }: TopSuppliersCardProps) {
-    if (!data.length) return null;
+    if (!data.length) return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{analyticsLabels.topSuppliers}</CardTitle>
+                <CardDescription>{analyticsLabels.topSuppliersDesc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground py-8 text-center">{analyticsLabels.noData}</p>
+            </CardContent>
+        </Card>
+    );
 
     const maxSpend = Math.max(...data.map(d => d.totalSpend));
 

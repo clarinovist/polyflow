@@ -14,7 +14,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
     return (
         <Card className="col-span-4">
             <CardHeader>
-                <CardTitle>Revenue Over Time</CardTitle>
+                <CardTitle>Tren Pendapatan</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
                 <div className="h-[350px] w-full">
@@ -37,7 +37,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                                 tickFormatter={(value) => `${value / 1000000}`}
                             />
                             <Tooltip
-                                formatter={(value: unknown) => [formatRupiah(Number(value) || 0), 'Revenue']}
+                                formatter={(value: unknown) => [formatRupiah(Number(value) || 0), 'Pendapatan']}
                                 labelFormatter={(label) => format(parseISO(label + '-01'), 'MMMM yyyy')}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                             />

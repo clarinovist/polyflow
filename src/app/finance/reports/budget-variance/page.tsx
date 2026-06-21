@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { RotateCw, Download, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { reportLabels } from '@/lib/labels';
 
 interface VarianceItem {
     accountCode: string;
@@ -49,10 +50,10 @@ export default function BudgetVariancePage() {
     }, [fetchData]);
 
     const months = [
-        { val: "1", label: "January" }, { val: "2", label: "February" }, { val: "3", label: "March" },
-        { val: "4", label: "April" }, { val: "5", label: "May" }, { val: "6", label: "June" },
-        { val: "7", label: "July" }, { val: "8", label: "August" }, { val: "9", label: "September" },
-        { val: "10", label: "October" }, { val: "11", label: "November" }, { val: "12", label: "December" }
+        { val: "1", label: "Januari" }, { val: "2", label: "Februari" }, { val: "3", label: "Maret" },
+        { val: "4", label: "April" }, { val: "5", label: "Mei" }, { val: "6", label: "Juni" },
+        { val: "7", label: "Juli" }, { val: "8", label: "Agustus" }, { val: "9", label: "September" },
+        { val: "10", label: "Oktober" }, { val: "11", label: "November" }, { val: "12", label: "Desember" }
     ];
 
     const handleDownload = () => {
@@ -66,7 +67,6 @@ export default function BudgetVariancePage() {
             rupiahForCsv(item.variance),
             `${item.variancePercent.toFixed(1)}%`,
         ]);
-        const monthLabel = months.find(m => m.val === month)?.label || month;
         downloadCsv(reportFilename('Budget_Variance', `${year}-${month}`), headers, rows);
     };
 
@@ -74,15 +74,15 @@ export default function BudgetVariancePage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Budget Variance</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{reportLabels.variansAnggaran}</h1>
                     <p className="text-muted-foreground">
-                        Compare actual performance against your plan for {months.find(m => m.val === month)?.label} {year}.
+                        {reportLabels.variansAnggaranDesc} {months.find(m => m.val === month)?.label} {year}.
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Select value={year} onValueChange={setYear}>
                         <SelectTrigger className="w-[100px]">
-                            <SelectValue placeholder="Year" />
+                            <SelectValue placeholder="Tahun" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="2024">2024</SelectItem>
@@ -92,7 +92,7 @@ export default function BudgetVariancePage() {
                     </Select>
                     <Select value={month} onValueChange={setMonth}>
                         <SelectTrigger className="w-[140px]">
-                            <SelectValue placeholder="Month" />
+                            <SelectValue placeholder={reportLabels.bulan} />
                         </SelectTrigger>
                         <SelectContent>
                             {months.map(m => (
@@ -111,17 +111,17 @@ export default function BudgetVariancePage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Variance Analysis</CardTitle>
+                    <CardTitle>{reportLabels.variansAnggaran}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Account</TableHead>
-                                    <TableHead className="text-right">Budget</TableHead>
-                                    <TableHead className="text-right">Actual</TableHead>
-                                    <TableHead className="text-right">Variance</TableHead>
+                                    <TableHead>{reportLabels.akun}</TableHead>
+                                    <TableHead className="text-right">{reportLabels.anggaran}</TableHead>
+                                    <TableHead className="text-right">{reportLabels.aktual}</TableHead>
+                                    <TableHead className="text-right">{reportLabels.varians}</TableHead>
                                     <TableHead className="text-right">%</TableHead>
                                     <TableHead className="w-[100px]">Status</TableHead>
                                 </TableRow>
@@ -129,7 +129,7 @@ export default function BudgetVariancePage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center">{reportLabels.loading}</TableCell>
                                     </TableRow>
                                 ) : data.length === 0 ? (
                                     <TableRow>
@@ -162,15 +162,15 @@ export default function BudgetVariancePage() {
                                                 <TableCell>
                                                     {isOver ? (
                                                         <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
-                                                            <ArrowUpRight className="h-3 w-3 mr-1" /> Over
+                                                            <ArrowUpRight className="h-3 w-3 mr-1" /> Di Atas
                                                         </Badge>
                                                     ) : isUnder ? (
                                                         <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                                                            <ArrowDownRight className="h-3 w-3 mr-1" /> Under
+                                                            <ArrowDownRight className="h-3 w-3 mr-1" /> Di Bawah
                                                         </Badge>
                                                     ) : (
                                                         <Badge variant="outline" className="text-slate-500">
-                                                            <Minus className="h-3 w-3 mr-1" /> Flat
+                                                            <Minus className="h-3 w-3 mr-1" /> Sesuai
                                                         </Badge>
                                                     )}
                                                 </TableCell>

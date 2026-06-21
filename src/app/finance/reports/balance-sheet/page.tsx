@@ -135,38 +135,38 @@ export default function BalanceSheetPage() {
 
     const handleDownload = () => {
         if (!data) return;
-        const headers = ['Kode', 'Akun', 'Jumlah (IDR)'];
+        const headers = ['Akun', 'Kode', 'Jumlah (IDR)'];
         const rows: (string | number)[][] = [];
 
         const addGroups = (groups: (BalanceSheetGroup | BalanceSheetItem)[]) => {
             for (const item of groups) {
                 if (isGroup(item)) {
-                    rows.push([item.code, item.name, rupiahForCsv(item.totalBalance)]);
+                    rows.push([item.name, item.code, rupiahForCsv(item.totalBalance)]);
                     for (const child of item.children.filter(c => Math.abs(c.netBalance) > 0.01)) {
-                        rows.push([child.code, `  ${child.name}`, rupiahForCsv(child.netBalance)]);
+                        rows.push([`  ${child.name}`, child.code, rupiahForCsv(child.netBalance)]);
                     }
                 } else if (Math.abs(item.netBalance) > 0.01) {
-                    rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+                    rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
                 }
             }
         };
 
-        rows.push(['', 'ASET', '']);
+        rows.push(['ASET', '', '']);
         addGroups(data.assetGroups);
-        rows.push(['', 'TOTAL ASET', rupiahForCsv(data.totalAssets)]);
+        rows.push(['TOTAL ASET', '', rupiahForCsv(data.totalAssets)]);
         rows.push(['', '', '']);
-        rows.push(['', 'KEWAJIBAN', '']);
+        rows.push(['KEWAJIBAN', '', '']);
         addGroups(data.liabilityGroups);
-        rows.push(['', 'TOTAL KEWAJIBAN', rupiahForCsv(data.totalLiabilities)]);
+        rows.push(['TOTAL KEWAJIBAN', '', rupiahForCsv(data.totalLiabilities)]);
         rows.push(['', '', '']);
-        rows.push(['', 'EKUITAS', '']);
+        rows.push(['EKUITAS', '', '']);
         addGroups(data.equityGroups);
         if (Math.abs(data.unpostedEarnings) > 0.01) {
-            rows.push(['—', 'Laba Periode Berjalan (Belum Diclose)', rupiahForCsv(data.unpostedEarnings)]);
+            rows.push(['Laba Periode Berjalan (Belum Diclose)', '—', rupiahForCsv(data.unpostedEarnings)]);
         }
-        rows.push(['', 'TOTAL EKUITAS', rupiahForCsv(data.totalEquity + data.unpostedEarnings)]);
+        rows.push(['TOTAL EKUITAS', '', rupiahForCsv(data.totalEquity + data.unpostedEarnings)]);
         rows.push(['', '', '']);
-        rows.push(['', 'TOTAL KEWAJIBAN & EKUITAS', rupiahForCsv(data.totalLiabilitiesAndEquity)]);
+        rows.push(['TOTAL KEWAJIBAN & EKUITAS', '', rupiahForCsv(data.totalLiabilitiesAndEquity)]);
 
         const dateStr = format(date, 'yyyy-MM-dd');
         downloadCsv(reportFilename('Neraca', dateStr), headers, rows);

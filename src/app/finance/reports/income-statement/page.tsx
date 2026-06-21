@@ -94,44 +94,44 @@ export default function IncomeStatementPage() {
 
     const handleDownload = () => {
         if (!data) return;
-        const headers = ['Kode', 'Keterangan', 'Jumlah (IDR)'];
+        const headers = ['Keterangan', 'Kode', 'Jumlah (IDR)'];
         const rows: (string | number)[][] = [];
 
         // Revenue
-        rows.push(['', 'I. PENDAPATAN (REVENUE)', '']);
+        rows.push(['I. PENDAPATAN (REVENUE)', '', '']);
         for (const item of data.revenue.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
-            rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+            rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
         }
-        rows.push(['', 'Total Pendapatan', rupiahForCsv(data.totalRevenue)]);
+        rows.push(['Total Pendapatan', '', rupiahForCsv(data.totalRevenue)]);
 
         // COGS
         rows.push(['', '', '']);
         rows.push(['', 'II. HARGA POKOK PENJUALAN (COGS)', '']);
-        rows.push(['51000', 'Bahan Baku Langsung', rupiahForCsv(groupedCOGS.materials)]);
-        rows.push(['52000', 'Tenaga Kerja Langsung', rupiahForCsv(groupedCOGS.labor)]);
-        rows.push(['53000', 'Overhead Pabrik', rupiahForCsv(groupedCOGS.overhead)]);
-        rows.push(['', 'Total Biaya Produksi', rupiahForCsv(data.totalManufacturingCosts)]);
-        rows.push(['', 'Total HPP', rupiahForCsv(data.totalCOGS)]);
+        rows.push(['Bahan Baku Langsung', '51000', rupiahForCsv(groupedCOGS.materials)]);
+        rows.push(['Tenaga Kerja Langsung', '52000', rupiahForCsv(groupedCOGS.labor)]);
+        rows.push(['Overhead Pabrik', '53000', rupiahForCsv(groupedCOGS.overhead)]);
+        rows.push(['Total Biaya Produksi', '', rupiahForCsv(data.totalManufacturingCosts)]);
+        rows.push(['Total HPP', '', rupiahForCsv(data.totalCOGS)]);
         rows.push(['', '', '']);
-        rows.push(['', 'LABA KOTOR (GROSS PROFIT)', rupiahForCsv(data.grossProfit)]);
+        rows.push(['LABA KOTOR (GROSS PROFIT)', '', rupiahForCsv(data.grossProfit)]);
 
         // OpEx
         rows.push(['', '', '']);
         rows.push(['', 'III. BEBAN OPERASIONAL', '']);
-        rows.push(['61000', 'Beban Penjualan & Pemasaran', rupiahForCsv(groupedOpEx.selling)]);
-        rows.push(['62000', 'Beban Umum & Administrasi', rupiahForCsv(groupedOpEx.general)]);
-        rows.push(['', 'Total Beban Operasional', rupiahForCsv(data.totalOpEx)]);
+        rows.push(['Beban Penjualan & Pemasaran', '61000', rupiahForCsv(groupedOpEx.selling)]);
+        rows.push(['Beban Umum & Administrasi', '62000', rupiahForCsv(groupedOpEx.general)]);
+        rows.push(['Total Beban Operasional', '', rupiahForCsv(data.totalOpEx)]);
         rows.push(['', '', '']);
-        rows.push(['', 'LABA OPERASIONAL (EBIT)', rupiahForCsv(data.operatingIncome)]);
+        rows.push(['LABA OPERASIONAL (EBIT)', '', rupiahForCsv(data.operatingIncome)]);
 
         // Other
         rows.push(['', '', '']);
-        rows.push(['', 'IV. PENDAPATAN/BEBAN LAINNYA', '']);
+        rows.push(['IV. PENDAPATAN/BEBAN LAINNYA', '', '']);
         for (const item of data.other.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
-            rows.push([item.code, item.name, rupiahForCsv(item.netBalance)]);
+            rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
         }
         rows.push(['', '', '']);
-        rows.push(['', 'LABA BERSIH (NET INCOME)', rupiahForCsv(data.netIncome)]);
+        rows.push(['LABA BERSIH (NET INCOME)', '', rupiahForCsv(data.netIncome)]);
 
         const dateStr = format(date, 'yyyy-MM');
         downloadCsv(reportFilename('Laba_Rugi', dateStr), headers, rows);

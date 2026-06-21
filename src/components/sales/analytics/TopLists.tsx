@@ -11,7 +11,7 @@ export function TopProductsList({ data }: TopListProps) {
     return (
         <Card className="col-span-3">
             <CardHeader>
-                <CardTitle>Top Products</CardTitle>
+                <CardTitle>Produk Terlaris</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="space-y-8">
@@ -20,14 +20,14 @@ export function TopProductsList({ data }: TopListProps) {
                             <div className="space-y-1">
                                 <p className="text-sm font-medium leading-none">{product.name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {product.quantity} sold
+                                    {product.quantity} terjual
                                 </p>
                             </div>
                             <div className="ml-auto font-medium">{formatRupiah(product.revenue)}</div>
                         </div>
                     ))}
                     {data.topProducts.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No sales yet.</p>
+                        <p className="text-sm text-muted-foreground">Belum ada penjualan.</p>
                     )}
                 </div>
             </CardContent>
@@ -39,7 +39,7 @@ export function TopCustomersList({ data }: TopListProps) {
     return (
         <Card className="col-span-3">
             <CardHeader>
-                <CardTitle>Top Customers</CardTitle>
+                <CardTitle>Pelanggan Teratas</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="space-y-8">
@@ -51,14 +51,14 @@ export function TopCustomersList({ data }: TopListProps) {
                             <div className="ml-4 space-y-1">
                                 <p className="text-sm font-medium leading-none">{customer.name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {customer.salesCount} orders
+                                    {customer.salesCount} pesanan
                                 </p>
                             </div>
                             <div className="ml-auto font-medium">{formatRupiah(customer.revenue)}</div>
                         </div>
                     ))}
                     {data.topCustomers.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No customers yet.</p>
+                        <p className="text-sm text-muted-foreground">Belum ada pelanggan.</p>
                     )}
                 </div>
             </CardContent>

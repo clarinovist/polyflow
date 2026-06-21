@@ -30,7 +30,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[300px]">
                     {/* Left: Scrap by Reason (Pie) */}
                     <div className="flex flex-col items-center justify-center">
-                        <h4 className="text-sm font-medium text-muted-foreground mb-4">By Reason</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-4">Berdasarkan Alasan</h4>
                         {chartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -60,7 +60,7 @@ export function ScrapAnalysisChart({ data }: ScrapAnalysisChartProps) {
 
                     {/* Right: Scrap by Product (Bar) */}
                     <div className="flex flex-col">
-                        <h4 className="text-sm font-medium text-muted-foreground mb-4">Top Scrap Products</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-4">Produk Scrap Teratas</h4>
                         {productScrollData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={productScrollData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>

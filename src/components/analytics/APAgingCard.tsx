@@ -1,5 +1,3 @@
-'use client';
-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +10,17 @@ interface APAgingCardProps {
 }
 
 export function APAgingCard({ data }: APAgingCardProps) {
-    if (!data.length) return null;
+    if (!data.length) return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{analyticsLabels.apAging}</CardTitle>
+                <CardDescription>{analyticsLabels.apAgingDesc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground py-8 text-center">{analyticsLabels.noData}</p>
+            </CardContent>
+        </Card>
+    );
 
     return (
         <Card>
