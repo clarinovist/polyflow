@@ -32,9 +32,9 @@ export function APAgingCard({ data }: APAgingCardProps) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Aging Period</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="text-right">Count</TableHead>
+                            <TableHead>Periode</TableHead>
+                            <TableHead className="text-right">Jumlah</TableHead>
+                            <TableHead className="text-right">Faktur</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -49,7 +49,7 @@ export function APAgingCard({ data }: APAgingCardProps) {
                                     {formatRupiah(item.amount)}
                                 </TableCell>
                                 <TableCell className="text-right text-muted-foreground text-xs">
-                                    {item.invoiceCount} inv
+                                    {item.invoiceCount} faktur
                                 </TableCell>
                             </TableRow>
                         ))}

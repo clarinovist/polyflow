@@ -23,11 +23,11 @@ export function MachinePerformanceCard({ data }: MachinePerformanceCardProps) {
                             <div className="flex-1 space-y-1">
                                 <p className="text-sm font-medium leading-none">{machine.machineName}</p>
                                 <p className="text-xs text-muted-foreground">
-                                    {machine.totalOperatingHours} hrs | {machine.scrapRate}% scrap
+                                    {machine.totalOperatingHours} jam | {machine.scrapRate}% scrap
                                 </p>
                             </div>
                             <div className="font-bold">
-                                {machine.unitsPerHour.toFixed(0)} <span className="text-xs font-normal text-muted-foreground">u/hr</span>
+                                {machine.unitsPerHour.toFixed(0)} <span className="text-xs font-normal text-muted-foreground">unit/jam</span>
                             </div>
                         </div>
                     ))}

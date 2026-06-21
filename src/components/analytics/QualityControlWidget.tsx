@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QualityControlSummary } from '@/types/analytics';
@@ -24,9 +26,9 @@ export function QualityControlWidget({ data }: Props) {
     }, []);
 
     const pieData = [
-        { name: 'Pass', value: data.inspections.pass, color: COLORS.PASS },
-        { name: 'Fail', value: data.inspections.fail, color: COLORS.FAIL },
-        { name: 'Quarantine', value: data.inspections.quarantine, color: COLORS.QUARANTINE },
+        { name: 'Lulus', value: data.inspections.pass, color: COLORS.PASS },
+        { name: 'Gagal', value: data.inspections.fail, color: COLORS.FAIL },
+        { name: 'Karantina', value: data.inspections.quarantine, color: COLORS.QUARANTINE },
     ].filter(d => d.value > 0);
 
     return (
@@ -35,7 +37,7 @@ export function QualityControlWidget({ data }: Props) {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Total Inspections</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Total Inspeksi</p>
                         <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">{data.inspections.total}</p>
                     </CardContent>
                 </Card>
@@ -43,7 +45,7 @@ export function QualityControlWidget({ data }: Props) {
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                         <div className="flex items-center gap-2 mb-1">
                             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-emerald-400" />
-                            <p className="text-sm text-green-700 dark:text-emerald-400 font-medium uppercase tracking-wide">Passed</p>
+                            <p className="text-sm text-green-700 dark:text-emerald-400 font-medium uppercase tracking-wide">Lulus</p>
                         </div>
                         <p className="text-3xl font-bold text-green-800 dark:text-emerald-400">{data.inspections.pass}</p>
                         <p className="text-xs text-green-600 dark:text-emerald-400 mt-1">{data.inspections.passRate}% Rate</p>
@@ -53,7 +55,7 @@ export function QualityControlWidget({ data }: Props) {
                     <CardContent className="p-6 flex flex-col items-center justify-center text-center">
                         <div className="flex items-center gap-2 mb-1">
                             <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                            <p className="text-sm text-red-700 dark:text-red-400 font-medium uppercase tracking-wide">Failed</p>
+                            <p className="text-sm text-red-700 dark:text-red-400 font-medium uppercase tracking-wide">Gagal</p>
                         </div>
                         <p className="text-3xl font-bold text-red-800 dark:text-red-400">{data.inspections.fail}</p>
                     </CardContent>
@@ -119,7 +121,7 @@ export function QualityControlWidget({ data }: Props) {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <AlertCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
-                            Scrap Analysis
+                            Analisis Scrap
                         </CardTitle>
                         <CardDescription>{analyticsLabels.topScrapReasons}</CardDescription>
                     </CardHeader>
@@ -131,8 +133,8 @@ export function QualityControlWidget({ data }: Props) {
                                 data.scrapByReason.map((item, idx) => (
                                     <div key={idx} className="space-y-1">
                                         <div className="flex justify-between text-sm">
-                                            <span className="font-medium">{item.reason || 'Unspecified'}</span>
-                                            <span className="text-muted-foreground">{item.quantity.toLocaleString()} units ({item.percentage}%)</span>
+                                            <span className="font-medium">{item.reason || 'Tidak Ditentukan'}</span>
+                                            <span className="text-muted-foreground">{item.quantity.toLocaleString()} unit ({item.percentage}%)</span>
                                         </div>
                                         <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                             <div

@@ -19,6 +19,9 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
                 <CardTitle>{analyticsLabels.productionRealization}</CardTitle>
             </CardHeader>
             <CardContent className="h-[350px]">
+                {data.length === 0 ? (
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data realisasi produksi.</p>
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData}>
                         <XAxis
@@ -41,7 +44,7 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="flex flex-col">
                                                     <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                                        Planned
+                                                        Rencana
                                                     </span>
                                                     <span className="font-bold text-muted-foreground">
                                                         {payload[0].value}
@@ -49,7 +52,7 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                                        Actual
+                                                        Aktual
                                                     </span>
                                                     <span className="font-bold">
                                                         {payload[1].value}
@@ -77,6 +80,7 @@ export function ProductionRealizationChart({ data }: ProductionRealizationChartP
                         />
                     </BarChart>
                 </ResponsiveContainer>
+                )}
             </CardContent>
         </Card>
     );

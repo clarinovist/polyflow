@@ -40,7 +40,7 @@ export function TopProductsCard({ data }: TopProductsCardProps) {
                         </div>
                         <Progress value={(item.totalRevenue / maxRevenue) * 100} className="h-2" />
                         <div className="text-xs text-muted-foreground text-right">
-                            {item.totalQuantity} units sold
+                            {item.totalQuantity} unit terjual
                         </div>
                     </div>
                 ))}

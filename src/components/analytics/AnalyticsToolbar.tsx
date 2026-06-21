@@ -37,7 +37,7 @@ export function AnalyticsToolbar() {
 
     async function handleExport() {
         try {
-            const toastId = toast.loading('Generating report...');
+            const toastId = toast.loading('Membuat laporan...');
 
             const exportRange = {
                 from: startOfMonth(currentDate),
@@ -91,7 +91,7 @@ export function AnalyticsToolbar() {
 
             <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
-                Export Report
+                Unduh Laporan
             </Button>
         </div>
     );

@@ -20,6 +20,9 @@ export function PurchaseSpendChart({ data }: PurchaseSpendChartProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
+                {data.length === 0 ? (
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data pengeluaran.</p>
+                ) : (
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data}>
@@ -47,7 +50,7 @@ export function PurchaseSpendChart({ data }: PurchaseSpendChartProps) {
                             <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 formatter={(value: unknown) => {
-                                    return [formatRupiah(Number(value)), 'Spend'] as [string, string];
+                                    return [formatRupiah(Number(value)), 'Pengeluaran'] as [string, string];
                                 }}
                                 labelStyle={{ color: '#111827', fontWeight: 600 }}
                             />
@@ -62,6 +65,7 @@ export function PurchaseSpendChart({ data }: PurchaseSpendChartProps) {
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
+                )}
             </CardContent>
         </Card>
     );

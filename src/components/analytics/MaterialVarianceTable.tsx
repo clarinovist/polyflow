@@ -24,11 +24,11 @@ export function MaterialVarianceTable({ data }: Props) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Order #</TableHead>
+                                    <TableHead>No. Order</TableHead>
                                     <TableHead>Material</TableHead>
-                                    <TableHead className="text-right">Standard</TableHead>
-                                    <TableHead className="text-right">Actual</TableHead>
-                                    <TableHead className="text-right">Variance</TableHead>
+                                    <TableHead className="text-right">Standar</TableHead>
+                                    <TableHead className="text-right">Aktual</TableHead>
+                                    <TableHead className="text-right">Varians</TableHead>
                                     <TableHead className="text-right">% Var</TableHead>
                                 </TableRow>
                             </TableHeader>

@@ -21,6 +21,9 @@ export function SalesRevenueChart({ data }: SalesRevenueChartProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
+                {data.length === 0 ? (
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data pendapatan.</p>
+                ) : (
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data}>
@@ -64,6 +67,7 @@ export function SalesRevenueChart({ data }: SalesRevenueChartProps) {
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
+                )}
             </CardContent>
         </Card>
     );

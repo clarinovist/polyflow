@@ -17,6 +17,9 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 <CardTitle>Tren Pendapatan</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
+                {data.length === 0 ? (
+                    <p className="text-muted-foreground py-8 text-center text-sm">Tidak ada data pendapatan.</p>
+                ) : (
                 <div className="h-[350px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={data}>
@@ -52,6 +55,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
+                )}
             </CardContent>
         </Card>
     );

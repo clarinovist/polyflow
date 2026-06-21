@@ -40,7 +40,7 @@ export function TopSuppliersCard({ data }: TopSuppliersCardProps) {
                         </div>
                         <Progress value={(item.totalSpend / maxSpend) * 100} className="h-2" />
                         <div className="text-xs text-muted-foreground text-right">
-                            {item.orderCount} orders
+                            {item.orderCount} pesanan
                         </div>
                     </div>
                 ))}

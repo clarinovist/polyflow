@@ -76,15 +76,15 @@ export function MachinePerformanceChart({ data }: Props) {
                                 <span className="font-bold text-lg">{machine.totalOutput.toLocaleString()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-muted-foreground">Op. Hours</span>
+                                <span className="text-muted-foreground">Jam Operasi</span>
                                 <span className="font-bold">{machine.totalOperatingHours}h</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-muted-foreground">Speed</span>
+                                <span className="text-muted-foreground">Kecepatan</span>
                                 <span className="font-medium">{machine.unitsPerHour} / hr</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-muted-foreground">Scrap Rate</span>
+                                <span className="text-muted-foreground">Tingkat Scrap</span>
                                 <span className={`font-bold ${machine.scrapRate > 2 ? 'text-red-600' : 'text-green-600'}`}>
                                     {machine.scrapRate}%
                                 </span>

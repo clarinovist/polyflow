@@ -21,7 +21,7 @@ export function OperatorLeaderboard({ data }: Props) {
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-400">
                             <Trophy className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
-                            Top Performers
+                            Performer Terbaik
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col md:flex-row justify-around items-end gap-6 pt-4">
@@ -42,7 +42,7 @@ export function OperatorLeaderboard({ data }: Props) {
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{sortedData[1].operatorCode}</p>
                                 <div className="text-center">
                                     <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">{sortedData[1].totalQuantityProduced.toLocaleString()}</div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400">units produced</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">unit diproduksi</div>
                                 </div>
                             </div>
                         )}
@@ -64,7 +64,7 @@ export function OperatorLeaderboard({ data }: Props) {
                                 <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-3">{sortedData[0].operatorCode}</p>
                                 <div className="text-center">
                                     <div className="text-3xl font-black text-yellow-600 dark:text-yellow-400">{sortedData[0].totalQuantityProduced.toLocaleString()}</div>
-                                    <div className="text-sm font-medium text-yellow-700/70 dark:text-yellow-400/70">units produced</div>
+                                    <div className="text-sm font-medium text-yellow-700/70 dark:text-yellow-400/70">unit diproduksi</div>
                                 </div>
                             </div>
                         )}
@@ -86,7 +86,7 @@ export function OperatorLeaderboard({ data }: Props) {
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{sortedData[2].operatorCode}</p>
                                 <div className="text-center">
                                     <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">{sortedData[2].totalQuantityProduced.toLocaleString()}</div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400">units produced</div>
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">unit diproduksi</div>
                                 </div>
                             </div>
                         )}
@@ -107,11 +107,11 @@ export function OperatorLeaderboard({ data }: Props) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[80px]">Rank</TableHead>
+                                <TableHead className="w-[80px]">Peringkat</TableHead>
                                 <TableHead>Operator</TableHead>
-                                <TableHead className="text-right">Orders Handled</TableHead>
-                                <TableHead className="text-right">Scrap Qty</TableHead>
-                                <TableHead className="text-right">Scrap Rate</TableHead>
+                                <TableHead className="text-right">Pesanan</TableHead>
+                                <TableHead className="text-right">Scrap</TableHead>
+                                <TableHead className="text-right">Tingkat Scrap</TableHead>
                                 <TableHead className="text-right">Total Output</TableHead>
                             </TableRow>
                         </TableHeader>

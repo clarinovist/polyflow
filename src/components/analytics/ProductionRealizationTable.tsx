@@ -26,12 +26,12 @@ export function ProductionRealizationTable({ data }: Props) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Order #</TableHead>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead className="text-right">Planned</TableHead>
-                                    <TableHead className="text-right">Actual</TableHead>
-                                    <TableHead className="w-[150px]">Yield Rate</TableHead>
-                                    <TableHead>Adherence</TableHead>
+                                    <TableHead>No. Order</TableHead>
+                                    <TableHead>Produk</TableHead>
+                                    <TableHead className="text-right">Rencana</TableHead>
+                                    <TableHead className="text-right">Aktual</TableHead>
+                                    <TableHead className="w-[150px]">Tingkat Hasil</TableHead>
+                                    <TableHead>Kepatuhan</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
