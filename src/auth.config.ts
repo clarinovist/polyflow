@@ -72,6 +72,20 @@ export const authConfig = {
                     const isLoginPage = pathname === '/login' || pathname === '/admin-login';
 
                     if (isLoginPage) {
+                        // Check if this is a tenant subdomain login (e.g. kiyowo.polyflow.uk/login)
+                        // Don't redirect — let the user see the tenant role selection page
+                        // so they can switch workspaces or log in with different credentials
+                        const hostname = nextUrl.hostname;
+                        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
+                        const isTenantLogin =
+                            hostname !== rootDomain &&
+                            hostname !== `www.${rootDomain}` &&
+                            hostname.endsWith(`.${rootDomain}`);
+
+                        if (isTenantLogin) {
+                            return true; // Allow tenant login page for workspace switching
+                        }
+
                         const user = auth.user as { role?: string; isSuperAdmin?: boolean };
                         const targetPath = getDefaultRedirectForUser(user);
                         return Response.redirect(new URL(targetPath, nextUrl));
