@@ -37,6 +37,7 @@ export interface ExecutiveStats {
         overduePayables: number;
         invoicesDueThisWeek: number;
     };
+    revenueTrendChart: { month: string; revenue: number }[];
 }
 
 function decimalToNumber(value: unknown): number {
@@ -61,24 +62,25 @@ export class ExecutiveStatsService {
         const [
             revenueAggMTD,          // 0
             revenueAggPrevMonth,    // 1
-            spendingAggMTD,         // 2: NEW - Spending MTD (GL)
-            spendingAggPrevMonth,   // 3: NEW - Spending Prev Month (GL)
+            spendingAggMTD,         // 2
+            spendingAggPrevMonth,   // 3
             salesOrdersMTD,         // 4
             pendingInvoicesCount,   // 5
             pendingPOsCount,        // 6
             activeProductionCount,  // 7
             productionOrdersMonth,  // 8
-            activeMachinesCount,    // 9
-            runningMachinesOrders,  // 10
-            downtimeRecords,        // 11
-            scrapRecordsAgg,        // 12
-            executionScrapAgg,      // 13
-            executionOutputAgg,     // 14
-            materialIssuesAgg,      // 15
-            inventoryStatsAgg,      // 16
-            overdueReceivablesAgg,  // 17
-            overduePayablesAgg,     // 18
-            invoicesDueThisWeekCount // 19
+            delayedJobsCount,       // 9
+            activeMachinesCount,    // 10
+            runningMachinesOrders,  // 11
+            downtimeRecords,        // 12
+            scrapRecordsAgg,        // 13
+            executionScrapAgg,      // 14
+            executionOutputAgg,     // 15
+            materialIssuesAgg,      // 16
+            inventoryStatsAgg,      // 17
+            overdueReceivablesAgg,  // 18
+            overduePayablesAgg,     // 19
+            invoicesDueThisWeekCount // 20
         ] = await prisma.$transaction([
             // 0. Revenue MTD (GL: 4xxxx)
             prisma.journalLine.aggregate({
@@ -158,6 +160,13 @@ export class ExecutiveStatsService {
             prisma.productionOrder.findMany({
                 where: { createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } },
                 select: { status: true }
+            }),
+            // 8b. Delayed Jobs (past planned end date, not completed/cancelled)
+            prisma.productionOrder.count({
+                where: {
+                    status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] },
+                    plannedEndDate: { lt: now }
+                }
             }),
             // 9. Active Machines
             prisma.machine.count({ where: { status: 'ACTIVE' } }),
@@ -252,27 +261,64 @@ export class ExecutiveStatsService {
         const overdueReceivables = decimalToNumber(overdueReceivablesAgg._sum.totalAmount) - decimalToNumber(overdueReceivablesAgg._sum.paidAmount);
         const overduePayables = decimalToNumber(overduePayablesAgg._sum.totalAmount) - decimalToNumber(overduePayablesAgg._sum.paidAmount);
 
+        // Production trend: completion rate this month vs last month
+        const prevMonthOrders = await prisma.productionOrder.findMany({
+            where: {
+                createdAt: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+            },
+            select: { status: true },
+        });
+        const prevCompleted = prevMonthOrders.filter(o => o.status === ProductionStatus.COMPLETED).length;
+        const prevCompletionRate = prevMonthOrders.length > 0 ? (prevCompleted / prevMonthOrders.length) * 100 : 0;
+        const productionTrend = prevCompletionRate > 0 ? ((completionRate - prevCompletionRate) / prevCompletionRate) * 100 : 0;
+
+        // Inventory trend: requires historical inventory value snapshots for accurate calculation.
+        // Currently not available — TODO: implement monthly inventory snapshot table.
+        const inventoryTrend = 0;
+
+        // Revenue trend: monthly revenue for current year (from GL)
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        const monthlyRevenueRaw = await prisma.$queryRaw<{ month: string; revenue: number }[]>`
+            SELECT
+                TO_CHAR(je."entryDate", 'YYYY-MM') as month,
+                COALESCE(SUM(jl.credit - jl.debit), 0) as revenue
+            FROM "JournalLine" jl
+            JOIN "JournalEntry" je ON je.id = jl."journalEntryId"
+            JOIN "Account" a ON a.id = jl."accountId"
+            WHERE a.code LIKE '4%'
+                AND je.status = 'POSTED'
+                AND je."entryDate" >= ${yearStart}
+                AND je."entryDate" <= ${endOfCurrentMonth}
+            GROUP BY TO_CHAR(je."entryDate", 'YYYY-MM')
+            ORDER BY month
+        `;
+        const revenueTrendChart = monthlyRevenueRaw.map(r => ({
+            month: r.month,
+            revenue: Number(r.revenue)
+        }));
+
         return {
             sales: { mtdRevenue, activeOrders, pendingInvoices: pendingInvoicesCount, trend: revenueTrend },
             purchasing: { mtdSpending, pendingPOs: pendingPOsCount, trend: spendingTrend },
             production: {
                 activeJobs: activeProductionCount,
-                delayedJobs: 0,
+                delayedJobs: delayedJobsCount,
                 completionRate,
                 yieldRate,
                 totalScrapKg,
                 downtimeHours,
                 runningMachines,
                 totalMachines: activeMachinesCount,
-                trend: 0
+                trend: productionTrend
             },
             inventory: {
                 totalValue: totalInventoryValue,
                 lowStockCount,
                 totalItems: inventoryStatsAgg._count.id || 0,
-                trend: 0
+                trend: inventoryTrend
             },
-            cashflow: { overdueReceivables, overduePayables, invoicesDueThisWeek: invoicesDueThisWeekCount }
+            cashflow: { overdueReceivables, overduePayables, invoicesDueThisWeek: invoicesDueThisWeekCount },
+            revenueTrendChart
         };
     }
 }

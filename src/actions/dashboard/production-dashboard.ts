@@ -26,11 +26,15 @@ async function getProductionDashboardStats() {
         });
         const totalMachines = await prisma.machine.count();
 
-        // 3. Completed Today (Mock check for 'updatedAt' today and status 'COMPLETED' or 'in execution')
-        // Doing a simple count of 'COMPLETED' orders for getting started
+        // 3. Completed Today
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
         const completedJobsCount = await prisma.productionOrder.count({
             where: {
-                status: ProductionStatus.COMPLETED
+                status: ProductionStatus.COMPLETED,
+                updatedAt: { gte: todayStart, lte: todayEnd }
             }
         });
 

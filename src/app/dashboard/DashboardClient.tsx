@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { type ExecutiveStats } from '@/services/dashboard/executive-stats-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import { dashboardLabels } from '@/lib/labels';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import {
     TrendingUp,
     TrendingDown,
@@ -54,7 +55,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
     }
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
+        <div className="space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -94,7 +95,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     value={formatRupiah(stats.purchasing.mtdSpending)}
                     subtitle={`${stats.purchasing.pendingPOs} ${dashboardLabels.pendingPOs}`}
                     icon={ShoppingCart}
-                    trend={stats.purchasing.trend && stats.purchasing.trend >= 0 ? 'up' : 'down'}
+                    trend={stats.purchasing.trend && stats.purchasing.trend >= 0 ? 'down' : 'up'}
                     trendValue={`${stats.purchasing.trend ? Math.abs(stats.purchasing.trend).toFixed(1) : '0'}% ${dashboardLabels.vsLastMonth}`}
                 />
                 <KPICard
@@ -116,6 +117,67 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                     trendValue={stats.inventory.lowStockCount > 0 ? dashboardLabels.needsAttention : dashboardLabels.healthyLevels}
                 />
             </div>
+
+            {/* Revenue Trend Chart */}
+            {stats.revenueTrendChart && stats.revenueTrendChart.length > 1 && (
+                <Card className="shadow-sm border-none bg-card">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            Tren Pendapatan Tahunan
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[180px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={stats.revenueTrendChart}>
+                                    <defs>
+                                        <linearGradient id="colorRevenueDash" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis
+                                        dataKey="month"
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ fontSize: 11 }}
+                                        tickFormatter={(val) => {
+                                            const parts = val.split('-');
+                                            const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                                            return months[parseInt(parts[1]) - 1] || val;
+                                        }}
+                                    />
+                                    <YAxis
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ fontSize: 11 }}
+                                        tickFormatter={(val) => `${(val / 1000000).toFixed(0)}jt`}
+                                        width={50}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                                        formatter={(value) => [formatRupiah(Number(value)), 'Pendapatan']}
+                                        labelFormatter={(label) => {
+                                            const parts = label.split('-');
+                                            const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                                            return `${months[parseInt(parts[1]) - 1]} ${parts[0]}`;
+                                        }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#10b981"
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill="url(#colorRevenueDash)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Section Summaries Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">

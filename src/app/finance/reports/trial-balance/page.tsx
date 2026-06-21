@@ -76,9 +76,9 @@ export default function TrialBalancePage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Trial Balance</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Neraca Saldo</h1>
                     <p className="text-muted-foreground">
-                        Account balances for the selected period.
+                        Saldo akun untuk periode yang dipilih.
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -97,25 +97,25 @@ export default function TrialBalancePage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Detailed Report</CardTitle>
+                    <CardTitle>Laporan Detail</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Account Code</TableHead>
-                                    <TableHead>Account Name</TableHead>
+                                    <TableHead>Kode Akun</TableHead>
+                                    <TableHead>Nama Akun</TableHead>
                                     <TableHead className="text-right">Debit</TableHead>
-                                    <TableHead className="text-right">Credit</TableHead>
-                                    <TableHead className="text-right">Net Balance</TableHead>
+                                    <TableHead className="text-right">Kredit</TableHead>
+                                    <TableHead className="text-right">Saldo Bersih</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center">
-                                            Loading...
+                                            Memuat...
                                         </TableCell>
                                     </TableRow>
                                 ) : data.length === 0 ? (
@@ -144,7 +144,7 @@ export default function TrialBalancePage() {
                                             <TableCell className="text-right">
                                                 {formatRupiah(totalDebit - totalCredit)}
                                                 {Math.abs(totalDebit - totalCredit) > 0.01 && (
-                                                    <span className="ml-2 text-xs text-red-500 bg-red-100 px-1 rounded">UNBALANCED</span>
+                                                    <span className="ml-2 text-xs text-red-500 bg-red-100 px-1 rounded">TIDAK SEIMBANG</span>
                                                 )}
                                             </TableCell>
                                         </TableRow>

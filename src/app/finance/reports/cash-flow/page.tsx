@@ -171,8 +171,8 @@ export default function CashFlowStatementPage() {
             {/* Main Report Table */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Cash Flow Statement</CardTitle>
-                    <CardDescription>Statement of cash flows using the direct/indirect approach based on general ledger entries.</CardDescription>
+                    <CardTitle>Laporan Arus Kas</CardTitle>
+                    <CardDescription>Laporan arus kas berdasarkan entri jurnal umum.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
@@ -180,7 +180,7 @@ export default function CashFlowStatementPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[60%]">Keterangan</TableHead>
-                                    <TableHead className="text-right w-[40%]">Jumlah (IDR)</TableHead>
+                                    <TableHead className="text-right w-[40%]">Jumlah (Rp)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

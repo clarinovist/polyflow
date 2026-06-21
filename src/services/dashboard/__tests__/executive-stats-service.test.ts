@@ -16,6 +16,13 @@ class FakeDecimal {
 const { mockPrisma } = vi.hoisted(() => {
     const prisma = {
         $transaction: vi.fn((queries: Promise<unknown>[]) => Promise.all(queries)),
+        $queryRaw: vi.fn().mockResolvedValue([
+            { month: '2026-01', revenue: 50000 },
+            { month: '2026-02', revenue: 75000 },
+            { month: '2026-03', revenue: 60000 },
+            { month: '2026-04', revenue: 90000 },
+            { month: '2026-05', revenue: 85000 },
+        ]),
         journalLine: {
             aggregate: vi.fn(),
         },
@@ -88,7 +95,9 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             .mockResolvedValueOnce(4)
             .mockResolvedValueOnce(2);
         mockPrisma.purchaseOrder.count.mockResolvedValue(3);
-        mockPrisma.productionOrder.count.mockResolvedValue(5);
+        mockPrisma.productionOrder.count
+            .mockResolvedValueOnce(5)  // active production count
+            .mockResolvedValueOnce(2); // delayed jobs count
         mockPrisma.productionOrder.findMany
             .mockResolvedValueOnce([
                 { status: ProductionStatus.COMPLETED },
@@ -97,6 +106,10 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             .mockResolvedValueOnce([
                 { machineId: 'machine-1' },
                 { machineId: 'machine-2' },
+            ])
+            .mockResolvedValueOnce([ // previous month orders for trend
+                { status: ProductionStatus.COMPLETED },
+                { status: ProductionStatus.COMPLETED },
             ]);
         mockPrisma.machine.count.mockResolvedValue(6);
         mockPrisma.machineDowntime.findMany.mockResolvedValue([
@@ -118,8 +131,8 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             _sum: { totalAmount: new FakeDecimal(600), paidAmount: new FakeDecimal(100) }
         });
         mockPrisma.inventory.findMany.mockResolvedValue([
-            { quantity: new FakeDecimal(10), productVariant: { price: new FakeDecimal(20) } },
-            { quantity: new FakeDecimal(3), productVariant: { price: new FakeDecimal(15) } },
+            { quantity: new FakeDecimal(10), averageCost: new FakeDecimal(20), productVariant: { standardCost: null, price: new FakeDecimal(20) } },
+            { quantity: new FakeDecimal(3), averageCost: null, productVariant: { standardCost: new FakeDecimal(15), price: new FakeDecimal(15) } },
         ]);
         mockPrisma.inventory.count.mockResolvedValue(1);
     });
@@ -154,14 +167,14 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
             },
             production: {
                 activeJobs: 5,
-                delayedJobs: 0,
+                delayedJobs: 2,
                 completionRate: 50,
                 yieldRate: 80,
                 totalScrapKg: 3,
                 downtimeHours: 1.5,
                 runningMachines: 2,
                 totalMachines: 6,
-                trend: 0,
+                trend: -50,
             },
             inventory: {
                 totalValue: 245,
@@ -173,7 +186,14 @@ describe('ExecutiveStatsService.getExecutiveStats', () => {
                 overdueReceivables: 750,
                 overduePayables: 500,
                 invoicesDueThisWeek: 2,
-            }
+            },
+            revenueTrendChart: [
+                { month: '2026-01', revenue: 50000 },
+                { month: '2026-02', revenue: 75000 },
+                { month: '2026-03', revenue: 60000 },
+                { month: '2026-04', revenue: 90000 },
+                { month: '2026-05', revenue: 85000 },
+            ],
         });
     });
 });
