@@ -39,17 +39,15 @@ export const authConfig = {
             }
             return url;
         },
-        authorized({ auth, request: { nextUrl } }) {
+        authorized({ auth, request: { nextUrl, headers } }) {
             try {
                 const isLoggedIn = !!auth?.user;
                 const pathname = nextUrl.pathname;
-                const hostname = nextUrl.hostname;
                 const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
-                // DEBUG: log what the authorized callback sees
-                console.log('[AUTH-DEBUG]', JSON.stringify({ hostname, pathname, isLoggedIn, rootDomain }));
-
-                // Detect which domain context we're on
+                // NOTE: nextUrl.hostname returns "0.0.0.0" in Docker (internal bind address).
+                // Use the Host header instead for correct multi-tenant detection.
+                const hostname = (headers.get('host') || '').split(':')[0];
                 const isAdminSubdomain = hostname === `admin.${rootDomain}`;
                 const isTenantSubdomain =
                     hostname !== rootDomain &&
