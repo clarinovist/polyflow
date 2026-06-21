@@ -117,23 +117,23 @@ export const authConfig = {
                 }
 
                 // === ROOT DOMAIN (polyflow.uk) ===
-                // Pure workspace discovery — no admin routes here
+                // Landing page only — no login, no admin routes
                 const isAdminRoute = pathname.startsWith('/admin');
                 if (isAdminRoute) {
                     // Redirect admin routes to admin subdomain
                     return Response.redirect(new URL(`https://admin.${rootDomain}${pathname}`, nextUrl));
                 }
 
-                // Login on root domain → show workspace discovery
+                // Login on root domain → redirect to landing page
+                // Users should log in at their tenant subdomain (e.g. kiyowo.polyflow.uk)
                 if (pathname === '/login') {
                     if (isLoggedIn) {
-                        // Logged-in user on root login → send to admin subdomain if SuperAdmin
                         const user = auth.user as { isSuperAdmin?: boolean };
                         if (user.isSuperAdmin) {
                             return Response.redirect(new URL(`https://admin.${rootDomain}/admin/super-admin`, nextUrl));
                         }
                     }
-                    return true; // Show workspace discovery
+                    return Response.redirect(new URL('/', nextUrl));
                 }
 
                 return true;
