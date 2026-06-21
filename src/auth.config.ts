@@ -43,54 +43,99 @@ export const authConfig = {
             try {
                 const isLoggedIn = !!auth?.user;
                 const pathname = nextUrl.pathname;
+                const hostname = nextUrl.hostname;
+                const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
+
+                // Detect which domain context we're on
+                const isAdminSubdomain = hostname === `admin.${rootDomain}`;
+                const isTenantSubdomain =
+                    hostname !== rootDomain &&
+                    hostname !== `www.${rootDomain}` &&
+                    hostname !== `admin.${rootDomain}` &&
+                    hostname.endsWith(`.${rootDomain}`);
 
                 const isOnKiosk = pathname.startsWith('/kiosk');
-                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register' || pathname === '/admin-login';
+                const isPublicPage = pathname === '/' || pathname === '/about' || pathname === '/features' || pathname === '/contact' || pathname === '/register';
 
                 // Kiosk and Public pages are accessible without auth
                 if (isOnKiosk || isPublicPage) return true;
 
-                const workspace = getWorkspaceFromPath(pathname);
-
-                if (workspace) {
-                    if (isLoggedIn) {
-                        // Allow access to logout page to break redirect loops
-                        if (pathname === '/logout') return true;
-
-                        const user = auth.user as { role?: string; isSuperAdmin?: boolean };
-
-                        // Check central access policy
-                        if (!canAccessWorkspace(user, workspace)) {
-                            const redirectUrl = getDefaultRedirectForUser(user);
-                            return Response.redirect(new URL(redirectUrl, nextUrl));
-                        }
-
-                        return true;
-                    }
-                    return false; // Redirect unauthenticated users to login page
-                } else if (isLoggedIn) {
-                    const isLoginPage = pathname === '/login' || pathname === '/admin-login';
+                // === ADMIN SUBDOMAIN (admin.polyflow.uk) ===
+                if (isAdminSubdomain) {
+                    const isLoginPage = pathname === '/login';
 
                     if (isLoginPage) {
-                        // Check if this is a tenant subdomain login (e.g. kiyowo.polyflow.uk/login)
-                        // Don't redirect — let the user see the tenant role selection page
-                        // so they can switch workspaces or log in with different credentials
-                        const hostname = nextUrl.hostname;
-                        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
-                        const isTenantLogin =
-                            hostname !== rootDomain &&
-                            hostname !== `www.${rootDomain}` &&
-                            hostname.endsWith(`.${rootDomain}`);
-
-                        if (isTenantLogin) {
-                            return true; // Allow tenant login page for workspace switching
+                        // Already logged in as SuperAdmin → go to dashboard
+                        if (isLoggedIn) {
+                            const user = auth.user as { isSuperAdmin?: boolean };
+                            if (user.isSuperAdmin) {
+                                return Response.redirect(new URL('/admin/super-admin', nextUrl));
+                            }
                         }
-
-                        const user = auth.user as { role?: string; isSuperAdmin?: boolean };
-                        const targetPath = getDefaultRedirectForUser(user);
-                        return Response.redirect(new URL(targetPath, nextUrl));
+                        return true; // Show admin login page
                     }
+
+                    // All other admin routes require SuperAdmin auth
+                    if (!isLoggedIn) {
+                        return Response.redirect(new URL('/login', nextUrl));
+                    }
+
+                    const user = auth.user as { isSuperAdmin?: boolean };
+                    if (!user.isSuperAdmin) {
+                        return Response.redirect(new URL('/login', nextUrl));
+                    }
+
+                    return true;
                 }
+
+                // === TENANT SUBDOMAIN (e.g. kiyowo.polyflow.uk) ===
+                if (isTenantSubdomain) {
+                    const workspace = getWorkspaceFromPath(pathname);
+
+                    if (workspace) {
+                        if (isLoggedIn) {
+                            if (pathname === '/logout') return true;
+
+                            const user = auth.user as { role?: string; isSuperAdmin?: boolean };
+                            if (!canAccessWorkspace(user, workspace)) {
+                                const redirectUrl = getDefaultRedirectForUser(user);
+                                return Response.redirect(new URL(redirectUrl, nextUrl));
+                            }
+                            return true;
+                        }
+                        return false; // Redirect unauthenticated to login
+                    }
+
+                    // Tenant login page
+                    const isLoginPage = pathname === '/login';
+                    if (isLoginPage) {
+                        return true; // Always show tenant login (allows workspace switching)
+                    }
+
+                    // Other tenant paths without workspace prefix — allow
+                    return true;
+                }
+
+                // === ROOT DOMAIN (polyflow.uk) ===
+                // Pure workspace discovery — no admin routes here
+                const isAdminRoute = pathname.startsWith('/admin');
+                if (isAdminRoute) {
+                    // Redirect admin routes to admin subdomain
+                    return Response.redirect(new URL(`https://admin.${rootDomain}${pathname}`, nextUrl));
+                }
+
+                // Login on root domain → show workspace discovery
+                if (pathname === '/login') {
+                    if (isLoggedIn) {
+                        // Logged-in user on root login → send to admin subdomain if SuperAdmin
+                        const user = auth.user as { isSuperAdmin?: boolean };
+                        if (user.isSuperAdmin) {
+                            return Response.redirect(new URL(`https://admin.${rootDomain}/admin/super-admin`, nextUrl));
+                        }
+                    }
+                    return true; // Show workspace discovery
+                }
+
                 return true;
             } catch (error) {
                 console.error('Authorization callback error:', error);

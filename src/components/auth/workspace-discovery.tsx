@@ -6,6 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { workspaceDiscoveryLabels as L } from '@/lib/labels/auth';
 
+/** Get the root domain for constructing subdomain URLs */
+function getRootDomain(): string {
+    if (typeof window === 'undefined') return 'polyflow.uk';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return 'localhost';
+    if (host === 'polyflow.uk' || host === 'www.polyflow.uk') return 'polyflow.uk';
+    // Fallback: strip first subdomain segment
+    const parts = host.split('.');
+    return parts.length > 2 ? parts.slice(1).join('.') : host;
+}
+
 export default function WorkspaceDiscovery() {
     const [workspace, setWorkspace] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -19,13 +30,10 @@ export default function WorkspaceDiscovery() {
         // Clean up workspace input (remove protocol, spaces, etc)
         const cleanWorkspace = workspace.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
 
-        // Determine the base domain from current URL to support both localhost and production
         const currentHost = window.location.hostname;
         const currentPort = window.location.port ? `:${window.location.port}` : '';
         const protocol = window.location.protocol;
 
-        // Construct the tenant URL
-        // If current host is already a subdomain, we replace it. Otherwise we prepend.
         let targetHost = '';
 
         if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
@@ -33,10 +41,8 @@ export default function WorkspaceDiscovery() {
         } else if (currentHost === 'polyflow.uk' || currentHost === 'www.polyflow.uk') {
             targetHost = `${cleanWorkspace}.polyflow.uk${currentPort}`;
         } else {
-            // Fallback for other environments
             const parts = currentHost.split('.');
             if (parts.length > 2) {
-                // Keep the root domain, replace the subdomain
                 parts[0] = cleanWorkspace;
                 targetHost = parts.join('.') + currentPort;
             } else {
@@ -47,13 +53,17 @@ export default function WorkspaceDiscovery() {
         window.location.href = `${protocol}//${targetHost}/login`;
     };
 
+    const rootDomain = getRootDomain();
+    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    const adminUrl = `${protocol}//admin.${rootDomain}/login`;
+
     return (
         <div className="w-full max-w-md mx-auto px-6 py-8">
             <div className="mb-8 text-center">
                 <div className="mx-auto w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
                     <Building2 className="w-6 h-6 text-primary" />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
+                <h1 className="text-2xl sm:3xl font-bold text-foreground mb-3">
                     {L.signInToWorkspace}
                 </h1>
                 <p className="text-muted-foreground">
@@ -100,6 +110,16 @@ export default function WorkspaceDiscovery() {
                 <Button variant="outline" className="w-full h-10 border-zinc-300" asChild>
                     <a href="/register">{L.registerNewCompany}</a>
                 </Button>
+            </div>
+
+            {/* Super Admin Access */}
+            <div className="mt-4 text-center">
+                <a
+                    href={adminUrl}
+                    className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                >
+                    Super Admin Login
+                </a>
             </div>
 
         </div>

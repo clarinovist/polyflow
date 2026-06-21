@@ -25,11 +25,23 @@ const handler = auth((req) => {
 		tenant = hostname.replace(`.${BASE_DOMAIN}`, '');
 	}
 
+	// Detect admin subdomain (admin.polyflow.uk)
+	const isAdminSubdomain = hostname === `admin.${BASE_DOMAIN}`;
+
+	if (isAdminSubdomain) {
+		requestHeaders.set('x-admin-subdomain', 'true');
+	}
+
 	if (tenant && tenant !== 'www' && tenant !== 'app') {
 		requestHeaders.set('x-tenant-subdomain', tenant);
 	}
 
-	// Tenant subdomain: root path should redirect to login, not landing page
+	// Admin subdomain root → redirect to login
+	if (isAdminSubdomain && req.nextUrl.pathname === '/') {
+		return NextResponse.redirect(new URL('/login', req.url));
+	}
+
+	// Tenant subdomain root → redirect to login
 	if (tenant && tenant !== 'www' && tenant !== 'app' && req.nextUrl.pathname === '/') {
 		return NextResponse.redirect(new URL('/login', req.url));
 	}
