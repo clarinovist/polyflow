@@ -46,6 +46,9 @@ export const authConfig = {
                 const hostname = nextUrl.hostname;
                 const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
+                // DEBUG: log what the authorized callback sees
+                console.log('[AUTH-DEBUG]', JSON.stringify({ hostname, pathname, isLoggedIn, rootDomain }));
+
                 // Detect which domain context we're on
                 const isAdminSubdomain = hostname === `admin.${rootDomain}`;
                 const isTenantSubdomain =
