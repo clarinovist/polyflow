@@ -71,7 +71,6 @@ const PATH_LABELS: Record<string, string> = {
   // Finance
   "petty-cash": "Petty Cash",
   "bank-reconciliation": "Rekonsiliasi Bank",
-  "fixed-assets": "Aset Tetap",
   budgeting: "Anggaran",
   "foh-allocation": "Alokasi FOH",
   "hpp-report": "Laporan HPP",

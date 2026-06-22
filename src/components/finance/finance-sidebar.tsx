@@ -14,7 +14,6 @@ import {
   TrendingUp,
   Wallet,
   Landmark,
-  Box,
   Factory,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
@@ -61,11 +60,6 @@ const financeLinks = [
         href: "/finance/bank-reconciliation",
         icon: Landmark,
         label: financeSidebarLabels.bankReconciliation,
-      },
-      {
-        href: "/finance/fixed-assets",
-        icon: Box,
-        label: financeSidebarLabels.fixedAssets,
       },
       {
         href: "/finance/budgeting",
