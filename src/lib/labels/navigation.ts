@@ -50,6 +50,7 @@ export const financeSidebarLabels = {
   pettyCash: "Petty Cash",
   pettyCashDailyReport: "Laporan Harian",
   pettyCashCashOpname: "Cash Opname",
+  pettyCashRekap: "Rekap Kas",
   bankReconciliation: "Rekonsiliasi Bank",
   fixedAssets: "Aset Tetap",
   budgeting: "Anggaran vs Aktual",

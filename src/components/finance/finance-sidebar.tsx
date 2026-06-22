@@ -31,7 +31,7 @@ interface FinanceSidebarProps {
 
 const financeLinks = [
   {
-    heading: "Insights",
+    heading: "Operasi",
     items: [
       {
         href: "/finance",
@@ -53,6 +53,11 @@ const financeLinks = [
             href: "/finance/petty-cash/reports/cash-opname",
             icon: FileText,
             label: financeSidebarLabels.pettyCashCashOpname,
+          },
+          {
+            href: "/finance/petty-cash/reports/rekap",
+            icon: FileText,
+            label: financeSidebarLabels.pettyCashRekap,
           },
         ],
       },
@@ -91,7 +96,7 @@ const financeLinks = [
     ],
   },
   {
-    heading: "Cash Flow",
+    heading: "Arus Kas",
     items: [
       {
         href: "/finance/quick-entry",
@@ -121,7 +126,7 @@ const financeLinks = [
     ],
   },
   {
-    heading: "Accounting Ledger",
+    heading: "Akuntansi",
     items: [
       {
         href: "/finance/journals",
@@ -136,7 +141,7 @@ const financeLinks = [
     ],
   },
   {
-    heading: "Financial Reports",
+    heading: "Laporan Keuangan",
     items: [
       {
         href: "/finance/reports/balance-sheet",
@@ -176,7 +181,7 @@ const financeLinks = [
     ],
   },
   {
-    heading: "Configuration",
+    heading: "Pengaturan",
     items: [
       {
         href: "/finance/coa",

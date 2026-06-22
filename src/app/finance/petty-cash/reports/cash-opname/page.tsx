@@ -1,126 +1,136 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import {
-    getDailyPettyCashReportAction,
-} from '@/actions/finance/petty-cash-report-actions';
-import { Button } from '@/components/ui/button';
-import { RotateCw, Printer, CalendarIcon } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { getDailyPettyCashReportAction } from "@/actions/finance/petty-cash-report-actions";
+import { Button } from "@/components/ui/button";
+import { RotateCw, Printer, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/utils";
 import { format, subDays } from "date-fns";
 import { id as localeID } from "date-fns/locale";
 
 interface Transaction {
-    id: string;
-    voucherNumber: string;
-    date: string;
-    description: string;
-    amount: number | string;
-    type: string;
-    status: string;
-    expenseAccount?: { name: string; code: string } | null;
-    createdBy: { name: string };
+  id: string;
+  voucherNumber: string;
+  date: string;
+  description: string;
+  amount: number | string;
+  type: string;
+  status: string;
+  expenseAccount?: { name: string; code: string } | null;
+  createdBy: { name: string };
 }
 
 interface ReportData {
-    date: string;
-    openingBalance: number;
-    totalIn: number;
-    totalOut: number;
-    closingBalance: number;
-    transactions: Transaction[];
-    savedReport: { id: string; reportNumber?: string; status?: string } | null;
-    status: string | null;
+  date: string;
+  openingBalance: number;
+  totalIn: number;
+  totalOut: number;
+  closingBalance: number;
+  transactions: Transaction[];
+  savedReport: { id: string; reportNumber?: string; status?: string } | null;
+  status: string | null;
 }
 
 // Denomination presets (Rupiah)
 const DENOMINATIONS = [
-    { value: 100000, label: '100.000' },
-    { value: 75000, label: '75.000' },
-    { value: 50000, label: '50.000' },
-    { value: 20000, label: '20.000' },
-    { value: 10000, label: '10.000' },
-    { value: 5000, label: '5.000' },
-    { value: 2000, label: '2.000' },
-    { value: 1000, label: '1.000', type: 'Kertas' },
-    { value: 1000, label: '1.000', type: 'Koin' },
-    { value: 500, label: '500' },
-    { value: 200, label: '200' },
-    { value: 100, label: '100' },
+  { value: 100000, label: "100.000" },
+  { value: 75000, label: "75.000" },
+  { value: 50000, label: "50.000" },
+  { value: 20000, label: "20.000" },
+  { value: 10000, label: "10.000" },
+  { value: 5000, label: "5.000" },
+  { value: 2000, label: "2.000" },
+  { value: 1000, label: "1.000", type: "Kertas" },
+  { value: 1000, label: "1.000", type: "Koin" },
+  { value: 500, label: "500" },
+  { value: 200, label: "200" },
+  { value: 100, label: "100" },
 ];
 
 function formatNumber(n: number): string {
-    return n.toLocaleString('id-ID').replace(/,/g, '.');
+  return n.toLocaleString("id-ID").replace(/,/g, ".");
 }
 
 export default function CashOpnamePage() {
-    const [data, setData] = useState<ReportData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [date, setDate] = useState<Date>(new Date());
-    const [denominations, setDenominations] = useState<number[]>(
-        new Array(DENOMINATIONS.length).fill(0)
-    );
+  const [data, setData] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState<Date>(new Date());
+  const [denominations, setDenominations] = useState<number[]>(
+    new Array(DENOMINATIONS.length).fill(0),
+  );
+  const [signatures, setSignatures] = useState({
+    kasir: "Febyoni",
+    akuntansi: "Akhmad A C",
+    direktur: "Nugroho Pramono",
+    komisaris: "Lie Mei Lie",
+  });
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const dateStr = format(date, "yyyy-MM-dd");
-            const result = await getDailyPettyCashReportAction(dateStr);
-            if (result && 'success' in result && result.success) {
-                setData(result.data as unknown as ReportData);
-            } else {
-                setData(null);
-            }
-        } catch (error) {
-            console.error("Failed to load report data", error);
-            setData(null);
-        } finally {
-            setLoading(false);
-        }
-    }, [date]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const dateStr = format(date, "yyyy-MM-dd");
+      const result = await getDailyPettyCashReportAction(dateStr);
+      if (result && "success" in result && result.success) {
+        setData(result.data as unknown as ReportData);
+      } else {
+        setData(null);
+      }
+    } catch (error) {
+      console.error("Failed to load report data", error);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    const handlePrint = () => {
-        window.print();
-    };
+  const handlePrint = () => {
+    window.print();
+  };
 
-    const updateDenomination = (index: number, count: number) => {
-        const updated = [...denominations];
-        updated[index] = Math.max(0, count);
-        setDenominations(updated);
-    };
+  const updateDenomination = (index: number, count: number) => {
+    const updated = [...denominations];
+    updated[index] = Math.max(0, count);
+    setDenominations(updated);
+  };
 
-    // Calculate denomination totals
-    const denominationRows = DENOMINATIONS.map((d, i) => ({
-        ...d,
-        count: denominations[i],
-        total: d.value * denominations[i],
-    }));
-    const totalFisik = denominationRows.reduce((sum, r) => sum + r.total, 0);
+  // Calculate denomination totals
+  const denominationRows = DENOMINATIONS.map((d, i) => ({
+    ...d,
+    count: denominations[i],
+    total: d.value * denominations[i],
+  }));
+  const totalFisik = denominationRows.reduce((sum, r) => sum + r.total, 0);
 
-    // Financial calculations
-    const openingBalance = data?.openingBalance ?? 0;
-    const totalOut = data?.totalOut ?? 0;
-    const totalIn = data?.totalIn ?? 0;
-    const closingBalance = data?.closingBalance ?? 0;
-    const selisih = totalFisik - closingBalance;
+  // Financial calculations
+  const openingBalance = data?.openingBalance ?? 0;
+  const totalOut = data?.totalOut ?? 0;
+  const totalIn = data?.totalIn ?? 0;
+  const closingBalance = data?.closingBalance ?? 0;
+  const selisih = totalFisik - closingBalance;
 
-    // Previous day for opening balance date
-    const prevDate = subDays(date, 1);
+  // Previous day for opening balance date
+  const prevDate = subDays(date, 1);
 
-    const dayName = format(date, 'EEEE', { locale: localeID });
-    const dateFormatted = format(date, 'd MMMM yyyy', { locale: localeID });
+  const dayName = format(date, "EEEE", { locale: localeID });
+  const dateFormatted = format(date, "d MMMM yyyy", { locale: localeID });
 
-    return (
-        <div>
-            {/* Print styles */}
-            <style dangerouslySetInnerHTML={{ __html: `
+  return (
+    <div>
+      {/* Print styles */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
                 @media print {
                     aside, header, .h-16.lg\\\\:hidden, .print\\\\:hidden, button, .no-print, nav {
                         display: none !important;
@@ -149,261 +159,481 @@ export default function CashOpnamePage() {
                         font-size: 11px !important;
                     }
                 }
-            `}} />
+            `,
+        }}
+      />
 
-            {/* Controls (hidden on print) */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Berita Acara Cash Opname</h1>
-                    <p className="text-muted-foreground">Cetak berita acara kas kecil harian</p>
-                </div>
-                <div className="flex gap-2 items-center">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "PPP") : <span>Pilih tanggal</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                                mode="single"
-                                selected={date}
-                                onSelect={(d) => d && setDate(d)}
-                                captionLayout="dropdown"
-                                fromYear={2000}
-                                toYear={new Date().getFullYear() + 1}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    <Button variant="outline" size="icon" onClick={fetchData} title="Refresh">
-                        <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
-                    </Button>
-                    <Button className="gap-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-400 dark:hover:bg-purple-300 dark:text-gray-900" onClick={handlePrint} disabled={loading || !data}>
-                        <Printer className="h-4 w-4" />
-                        Cetak
-                    </Button>
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="py-20 text-center text-muted-foreground flex justify-center items-center gap-2">
-                    <RotateCw className="h-5 w-5 animate-spin" /> Memuat data...
-                </div>
-            ) : !data ? (
-                <div className="py-20 text-center border-2 border-dashed rounded-lg text-muted-foreground">
-                    Tidak ada data untuk tanggal ini.
-                </div>
-            ) : (
-                <div className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm">
-                    {/* ===== HEADER ===== */}
-                    <div className="text-center mb-2">
-                        <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">BERITA ACARA</h1>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">Cash Opname : 1-112 Kas Kecil</p>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">Tanggal : {dayName}, {dateFormatted}</p>
-                    </div>
-                    <hr className="border-black dark:border-gray-600 mb-4" />
-
-                    {/* ===== OPENING BALANCE & SUMMARY ===== */}
-                    <div className="space-y-1 text-sm mb-4">
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">Saldo Awal tgl {format(prevDate, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(openingBalance)}</span>
-                        </div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100">KAS KECIL</div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">Pengeluaran yg bernota tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalOut)}</span>
-                        </div>
-                        <div className="text-gray-700 dark:text-gray-300">sampai tgl</div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">KAS BON s/d tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span>&nbsp;</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">Uang Masuk Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalIn)}</span>
-                        </div>
-                    </div>
-
-                    {/* ===== TRANSACTION TABLE ===== */}
-                    <div className="mb-4">
-                        <table className="w-full border-collapse text-sm">
-                            <thead>
-                                <tr className="border border-black dark:border-gray-600">
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left w-24 text-gray-900 dark:text-gray-100">Tanggal</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">No Inv/No Po</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">Nomor Transaksi</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">Memo</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Pengembalian Kasbon</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Pengeluaran Kasbon</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.transactions.filter(t => t.status === 'POSTED').map((t) => (
-                                    <tr key={t.id} className="border border-black dark:border-gray-600">
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                            {format(new Date(t.date), 'd MMM yyyy', { locale: localeID })}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
-                                            {t.type === 'EXPENSE' ? `1117-MELINDO JAY/BKM-${format(new Date(t.date), 'dd/MM/yy')}` : ''}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                                            {t.voucherNumber}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                                            {t.description}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                            {t.type === 'REPLENISHMENT' ? formatNumber(Number(t.amount)) : ''}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                                            {t.type === 'EXPENSE' ? formatNumber(Number(t.amount)) : ''}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {data.transactions.filter(t => t.status === 'POSTED').length === 0 && (
-                                    <tr className="border border-black dark:border-gray-600">
-                                        <td colSpan={6} className="border border-black dark:border-gray-600 px-2 py-2 text-center text-muted-foreground italic">
-                                            Tidak ada transaksi terposting
-                                        </td>
-                                    </tr>
-                                )}
-                                {/* Total row */}
-                                <tr className="border border-black dark:border-gray-600 font-bold">
-                                    <td colSpan={4} className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">TOTAL KASBON :</td>
-                                    <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
-                                        {formatNumber(data.transactions.filter(t => t.type === 'REPLENISHMENT' && t.status === 'POSTED').reduce((s, t) => s + Number(t.amount), 0))}
-                                    </td>
-                                    <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
-                                        {formatNumber(data.transactions.filter(t => t.type === 'EXPENSE' && t.status === 'POSTED').reduce((s, t) => s + Number(t.amount), 0))}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* ===== FINANCIAL SUMMARY ===== */}
-                    <div className="space-y-1 text-sm mb-6">
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">TOTAL PENGELUARAN Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalOut)} -</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">UANG MASUK Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(totalIn)} +</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">PENGEMBALIAN KAS BON tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span className="font-mono text-gray-800 dark:text-gray-200">{formatNumber(0)} -</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-800 dark:text-gray-200">SALDO AKHIR Kas Kecil tgl {format(date, 'd MMM yyyy', { locale: localeID })} :</span>
-                            <span>&nbsp;</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-base border-t border-black dark:border-gray-600 pt-1">
-                            <span className="text-gray-900 dark:text-gray-100">KAS KECIL</span>
-                            <span className="font-mono text-gray-900 dark:text-gray-100">{formatNumber(closingBalance)}</span>
-                        </div>
-                    </div>
-
-                    {/* ===== DENOMINASI ===== */}
-                    <div className="mb-4">
-                        <p className="text-sm mb-2 text-gray-800 dark:text-gray-200">Jumlah fisik uang kontan yang dihitung terdiri dari :</p>
-                        <table className="w-full border-collapse text-sm">
-                            <thead>
-                                <tr className="border border-black dark:border-gray-600">
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">Pecahan</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">X</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">Jumlah</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">:</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">Total</th>
-                                    <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">Ket</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {denominationRows.map((row, i) => (
-                                    <tr key={i} className="border border-black dark:border-gray-600">
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">{row.label}</td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">X</td>
-                                        <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
-                                            <Input
-                                                type="number"
-                                                className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent text-gray-800 dark:text-gray-200"
-                                                value={row.count || ''}
-                                                onChange={(e) => updateDenomination(i, parseInt(e.target.value) || 0)}
-                                                min={0}
-                                            />
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">:</td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
-                                            {row.total > 0 ? formatNumber(row.total) : ''}
-                                        </td>
-                                        <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
-                                            {row.type || ''}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* ===== REKONSILIASI ===== */}
-                    <div className="mb-6">
-                        <hr className="border-black dark:border-gray-600 mb-2" />
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-800 dark:text-gray-200">Total fisik uang :</span>
-                                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">{formatNumber(totalFisik)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-800 dark:text-gray-200">Selisih Lebih / Kurang :</span>
-                                <span className={cn("font-mono font-bold", selisih !== 0 ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-gray-200")}>
-                                    {selisih !== 0 ? formatNumber(selisih) : '0'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ===== CLOSING STATEMENT ===== */}
-                    <div className="mb-8">
-                        <p className="text-sm text-gray-800 dark:text-gray-200">
-                            Demikian berita acara ini dibuat dengan sesungguhnya, Terima kasih.
-                        </p>
-                        <p className="text-sm mt-1 text-gray-800 dark:text-gray-200">
-                            Karanganyar, {dayName}, {dateFormatted}
-                        </p>
-                    </div>
-
-                    {/* ===== SIGNATURES ===== */}
-                    <div className="grid grid-cols-4 gap-6 text-center text-sm">
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Kasir</p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Febyoni )</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Akuntansi</p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Akhmad A C )</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Direktur</p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Nugroho Pramono )</p>
-                        </div>
-                        <div>
-                            <p className="font-semibold text-gray-900 dark:text-gray-100">Komisaris</p>
-                            <div className="h-16" />
-                            <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">( Lie Mei Lie )</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+      {/* Controls (hidden on print) */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Berita Acara Cash Opname
+          </h1>
+          <p className="text-muted-foreground">
+            Cetak berita acara kas kecil harian
+          </p>
         </div>
-    );
+        <div className="flex gap-2 items-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !date && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {date ? format(date, "PPP") : <span>Pilih tanggal</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && setDate(d)}
+                captionLayout="dropdown"
+                fromYear={2000}
+                toYear={new Date().getFullYear() + 1}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchData}
+            title="Refresh"
+          >
+            <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
+          <Button
+            className="gap-2 bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-400 dark:hover:bg-purple-300 dark:text-gray-900"
+            onClick={handlePrint}
+            disabled={loading || !data}
+          >
+            <Printer className="h-4 w-4" />
+            Cetak
+          </Button>
+        </div>
+      </div>
+
+      {/* Signature name inputs (hidden on print) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 print:hidden">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Kasir
+          </label>
+          <Input
+            value={signatures.kasir}
+            onChange={(e) =>
+              setSignatures((s) => ({ ...s, kasir: e.target.value }))
+            }
+            className="h-8 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Akuntansi
+          </label>
+          <Input
+            value={signatures.akuntansi}
+            onChange={(e) =>
+              setSignatures((s) => ({ ...s, akuntansi: e.target.value }))
+            }
+            className="h-8 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Direktur
+          </label>
+          <Input
+            value={signatures.direktur}
+            onChange={(e) =>
+              setSignatures((s) => ({ ...s, direktur: e.target.value }))
+            }
+            className="h-8 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">
+            Komisaris
+          </label>
+          <Input
+            value={signatures.komisaris}
+            onChange={(e) =>
+              setSignatures((s) => ({ ...s, komisaris: e.target.value }))
+            }
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center text-muted-foreground flex justify-center items-center gap-2">
+          <RotateCw className="h-5 w-5 animate-spin" /> Memuat data...
+        </div>
+      ) : !data ? (
+        <div className="py-20 text-center border-2 border-dashed rounded-lg text-muted-foreground">
+          Tidak ada data untuk tanggal ini.
+        </div>
+      ) : (
+        <div className="print-container max-w-4xl mx-auto bg-white dark:bg-gray-900 p-8 border rounded-lg shadow-sm">
+          {/* ===== HEADER ===== */}
+          <div className="text-center mb-2">
+            <h1 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">
+              BERITA ACARA
+            </h1>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Cash Opname : 1-112 Kas Kecil
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Tanggal : {dayName}, {dateFormatted}
+            </p>
+          </div>
+          <hr className="border-black dark:border-gray-600 mb-4" />
+
+          {/* ===== OPENING BALANCE & SUMMARY ===== */}
+          <div className="space-y-1 text-sm mb-4">
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                Saldo Awal tgl{" "}
+                {format(prevDate, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(openingBalance)}
+              </span>
+            </div>
+            <div className="font-semibold text-gray-900 dark:text-gray-100">
+              KAS KECIL
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                Pengeluaran yg bernota tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(totalOut)}
+              </span>
+            </div>
+            <div className="text-gray-700 dark:text-gray-300">sampai tgl</div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                KAS BON s/d tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span>&nbsp;</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                Uang Masuk Kas Kecil tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(totalIn)}
+              </span>
+            </div>
+          </div>
+
+          {/* ===== TRANSACTION TABLE ===== */}
+          <div className="mb-4">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border border-black dark:border-gray-600">
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left w-24 text-gray-900 dark:text-gray-100">
+                    Tanggal
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
+                    No Inv/No Po
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
+                    Nomor Transaksi
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
+                    Memo
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
+                    Pengembalian Kasbon
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
+                    Pengeluaran Kasbon
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.transactions
+                  .filter((t) => t.status === "POSTED")
+                  .map((t) => (
+                    <tr
+                      key={t.id}
+                      className="border border-black dark:border-gray-600"
+                    >
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
+                        {format(new Date(t.date), "d MMM yyyy", {
+                          locale: localeID,
+                        })}
+                      </td>
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
+                        {t.type === "EXPENSE"
+                          ? `1117-MELINDO JAY/BKM-${format(new Date(t.date), "dd/MM/yy")}`
+                          : ""}
+                      </td>
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
+                        {t.voucherNumber}
+                      </td>
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
+                        {t.description}
+                      </td>
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                        {t.type === "REPLENISHMENT"
+                          ? formatNumber(Number(t.amount))
+                          : ""}
+                      </td>
+                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
+                        {t.type === "EXPENSE"
+                          ? formatNumber(Number(t.amount))
+                          : ""}
+                      </td>
+                    </tr>
+                  ))}
+                {data.transactions.filter((t) => t.status === "POSTED")
+                  .length === 0 && (
+                  <tr className="border border-black dark:border-gray-600">
+                    <td
+                      colSpan={6}
+                      className="border border-black dark:border-gray-600 px-2 py-2 text-center text-muted-foreground italic"
+                    >
+                      Tidak ada transaksi terposting
+                    </td>
+                  </tr>
+                )}
+                {/* Total row */}
+                <tr className="border border-black dark:border-gray-600 font-bold">
+                  <td
+                    colSpan={4}
+                    className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100"
+                  >
+                    TOTAL KASBON :
+                  </td>
+                  <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
+                    {formatNumber(
+                      data.transactions
+                        .filter(
+                          (t) =>
+                            t.type === "REPLENISHMENT" && t.status === "POSTED",
+                        )
+                        .reduce((s, t) => s + Number(t.amount), 0),
+                    )}
+                  </td>
+                  <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
+                    {formatNumber(
+                      data.transactions
+                        .filter(
+                          (t) => t.type === "EXPENSE" && t.status === "POSTED",
+                        )
+                        .reduce((s, t) => s + Number(t.amount), 0),
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ===== FINANCIAL SUMMARY ===== */}
+          <div className="space-y-1 text-sm mb-6">
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                TOTAL PENGELUARAN Kas Kecil tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(totalOut)} -
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                UANG MASUK Kas Kecil tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(totalIn)} +
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                PENGEMBALIAN KAS BON tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span className="font-mono text-gray-800 dark:text-gray-200">
+                {formatNumber(0)} -
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-800 dark:text-gray-200">
+                SALDO AKHIR Kas Kecil tgl{" "}
+                {format(date, "d MMM yyyy", { locale: localeID })} :
+              </span>
+              <span>&nbsp;</span>
+            </div>
+            <div className="flex justify-between font-bold text-base border-t border-black dark:border-gray-600 pt-1">
+              <span className="text-gray-900 dark:text-gray-100">
+                KAS KECIL
+              </span>
+              <span className="font-mono text-gray-900 dark:text-gray-100">
+                {formatNumber(closingBalance)}
+              </span>
+            </div>
+          </div>
+
+          {/* ===== DENOMINASI ===== */}
+          <div className="mb-4">
+            <p className="text-sm mb-2 text-gray-800 dark:text-gray-200">
+              Jumlah fisik uang kontan yang dihitung terdiri dari :
+            </p>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border border-black dark:border-gray-600">
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100">
+                    Pecahan
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
+                    X
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-20 text-gray-900 dark:text-gray-100">
+                    Jumlah
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-8 text-gray-900 dark:text-gray-100">
+                    :
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
+                    Total
+                  </th>
+                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-center w-16 text-gray-900 dark:text-gray-100">
+                    Ket
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {denominationRows.map((row, i) => (
+                  <tr
+                    key={i}
+                    className="border border-black dark:border-gray-600"
+                  >
+                    <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
+                      {row.label}
+                    </td>
+                    <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                      X
+                    </td>
+                    <td className="border border-black dark:border-gray-600 px-1 py-0.5 text-center">
+                      <Input
+                        type="number"
+                        className="h-6 text-center border-0 p-0 text-sm font-mono bg-transparent text-gray-800 dark:text-gray-200"
+                        value={row.count || ""}
+                        onChange={(e) =>
+                          updateDenomination(i, parseInt(e.target.value) || 0)
+                        }
+                        min={0}
+                      />
+                    </td>
+                    <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-gray-800 dark:text-gray-200">
+                      :
+                    </td>
+                    <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-right font-mono text-gray-800 dark:text-gray-200">
+                      {row.total > 0 ? formatNumber(row.total) : ""}
+                    </td>
+                    <td className="border border-black dark:border-gray-600 px-2 py-0.5 text-center text-xs text-muted-foreground">
+                      {row.type || ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ===== REKONSILIASI ===== */}
+          <div className="mb-6">
+            <hr className="border-black dark:border-gray-600 mb-2" />
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-800 dark:text-gray-200">
+                  Total fisik uang :
+                </span>
+                <span className="font-mono font-bold text-gray-800 dark:text-gray-200">
+                  {formatNumber(totalFisik)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-800 dark:text-gray-200">
+                  Selisih Lebih / Kurang :
+                </span>
+                <span
+                  className={cn(
+                    "font-mono font-bold",
+                    selisih !== 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-gray-800 dark:text-gray-200",
+                  )}
+                >
+                  {selisih !== 0 ? formatNumber(selisih) : "0"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== CLOSING STATEMENT ===== */}
+          <div className="mb-8">
+            <p className="text-sm text-gray-800 dark:text-gray-200">
+              Demikian berita acara ini dibuat dengan sesungguhnya, Terima
+              kasih.
+            </p>
+            <p className="text-sm mt-1 text-gray-800 dark:text-gray-200">
+              Karanganyar, {dayName}, {dateFormatted}
+            </p>
+          </div>
+
+          {/* ===== SIGNATURES ===== */}
+          <div className="grid grid-cols-4 gap-6 text-center text-sm">
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                Kasir
+              </p>
+              <div className="h-16" />
+              <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                ( {signatures.kasir} )
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                Akuntansi
+              </p>
+              <div className="h-16" />
+              <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                ( {signatures.akuntansi} )
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                Direktur
+              </p>
+              <div className="h-16" />
+              <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                ( {signatures.direktur} )
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                Komisaris
+              </p>
+              <div className="h-16" />
+              <p className="border-t border-black dark:border-gray-600 mx-2 pt-1 text-gray-800 dark:text-gray-200">
+                ( {signatures.komisaris} )
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
