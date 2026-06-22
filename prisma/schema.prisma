@@ -917,11 +917,14 @@ model JournalLine {
   currency       String       @default("IDR")
   exchangeRate   Decimal      @default(1) @db.Decimal(15, 6)
   createdAt      DateTime     @default(now())
+  reconciledAt   DateTime?    // Set when confirmed during bank reconciliation
+
   account        Account      @relation(fields: [accountId], references: [id])
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
   @@index([journalEntryId])
   @@index([accountId])
+  @@index([accountId, reconciledAt])
 }
 
 model FiscalPeriod {

@@ -32,6 +32,7 @@ export class ReconciliationService {
     const journalLines = await prisma.journalLine.findMany({
       where: {
         accountId,
+        reconciledAt: null, // Exclude already-reconciled lines
         journalEntry: {
           status: JournalStatus.POSTED,
           entryDate: {
@@ -95,5 +96,21 @@ export class ReconciliationService {
     }
 
     return results;
+  }
+
+  /**
+   * Confirm reconciliation — mark matched journal lines as reconciled
+   */
+  static async confirmReconciliation(
+    matchedLineIds: string[],
+  ): Promise<{ count: number }> {
+    if (matchedLineIds.length === 0) return { count: 0 };
+
+    const result = await prisma.journalLine.updateMany({
+      where: { id: { in: matchedLineIds } },
+      data: { reconciledAt: new Date() },
+    });
+
+    return { count: result.count };
   }
 }
