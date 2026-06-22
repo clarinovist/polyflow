@@ -60,7 +60,6 @@ export const financeSidebarLabels = {
   hppReport: "Laporan HPP",
   quickEntry: "Quick Entry",
   receivables: "Piutang",
-  mtsUnpaid: "MTS Belum Lunas",
   customerPayments: "Pembayaran Customer",
   payables: "Utang",
   supplierPayments: "Pembayaran Supplier",
