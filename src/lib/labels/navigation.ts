@@ -28,7 +28,6 @@ export const productionSidebarLabels = {
   teamShifts: "Tim / Shift",
   outputLogs: "Log Hasil",
   packingMonthlyReport: "Laporan Packing",
-  productionCosting: "Costing Produksi",
   workShifts: "Shift Kerja",
   operatorKiosk: "Kiosk Operator",
 } as const;
@@ -57,8 +56,7 @@ export const financeSidebarLabels = {
   aging: "Aging AR/AP",
   fohAllocation: "Alokasi FOH",
   costingDashboard: "Costing Dashboard",
-  materialSimulator: "Simulator Material",
-  hppCalculator: "Kalkulator HPP",
+  hppReport: "Laporan HPP",
   quickEntry: "Quick Entry",
   receivables: "Piutang",
   mtsUnpaid: "MTS Belum Lunas",

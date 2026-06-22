@@ -88,14 +88,9 @@ const financeLinks = [
         label: financeSidebarLabels.costingDashboard,
         children: [
           {
-            href: "/finance/costing/simulator",
-            icon: TrendingUp,
-            label: financeSidebarLabels.materialSimulator,
-          },
-          {
-            href: "/finance/costing/hpp-calculator",
-            icon: TrendingUp,
-            label: financeSidebarLabels.hppCalculator,
+            href: "/finance/costing/hpp-report",
+            icon: FileText,
+            label: financeSidebarLabels.hppReport,
           },
         ],
       },

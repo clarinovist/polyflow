@@ -52,6 +52,7 @@ model User {
   physicalSignedPettyCashReports           PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
   finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
   voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
+  lockedPeriods                            PeriodLock[]
 }
 
 model Employee {
@@ -1630,4 +1631,17 @@ model PettyCashDailyReport {
 
   @@index([reportDate])
   @@index([status, reportDate])
+}
+
+model PeriodLock {
+  id         String   @id @default(cuid())
+  year       Int
+  month      Int      // 1-12
+  lockedAt   DateTime @default(now())
+  lockedById String?
+  lockedBy   User?    @relation(fields: [lockedById], references: [id])
+  notes      String?
+
+  @@unique([year, month])
+  @@map("period_locks")
 }
