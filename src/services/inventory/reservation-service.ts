@@ -66,6 +66,25 @@ export async function createStockReservation(
 }
 
 export async function cancelStockReservation(data: CancelReservationValues) {
+  const reservation = await prisma.stockReservation.findUnique({
+    where: { id: data.reservationId },
+    select: { status: true },
+  });
+
+  if (!reservation) {
+    throw new Error("Reservation not found");
+  }
+
+  // Only allow cancellation of ACTIVE or WAITING reservations
+  if (
+    reservation.status !== ReservationStatus.ACTIVE &&
+    reservation.status !== ReservationStatus.WAITING
+  ) {
+    throw new Error(
+      `Cannot cancel reservation in ${reservation.status} status. Only ACTIVE or WAITING reservations can be cancelled.`,
+    );
+  }
+
   await prisma.stockReservation.update({
     where: { id: data.reservationId },
     data: { status: ReservationStatus.CANCELLED },

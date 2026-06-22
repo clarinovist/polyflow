@@ -131,6 +131,22 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
       throw new BusinessRuleError("Cannot reopen a LOCKED fiscal period");
     }
 
+    // Delete the closing journal entry for this period before reopening
+    const closingReference = `CLOSING-${period.name.replace(/\s+/g, "-")}`;
+    const closingEntry = await prisma.journalEntry.findFirst({
+      where: { reference: closingReference },
+    });
+
+    if (closingEntry) {
+      // Delete journal lines first, then the entry
+      await prisma.journalLine.deleteMany({
+        where: { journalEntryId: closingEntry.id },
+      });
+      await prisma.journalEntry.delete({
+        where: { id: closingEntry.id },
+      });
+    }
+
     await prisma.fiscalPeriod.update({
       where: { id },
       data: {
@@ -145,7 +161,7 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
       action: "REOPEN_FISCAL_PERIOD",
       entityType: "FiscalPeriod",
       entityId: id,
-      details: `Reopened fiscal period ${period.name}`,
+      details: `Reopened fiscal period ${period.name}${closingEntry ? " and deleted closing journal entry" : ""}`,
     });
 
     revalidatePath("/finance/periods");
