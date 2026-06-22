@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: 'Unify your warehouse, production, sales, and finance in one powerful platform built for plastic converting businesses.',
 };
 
-export default function Home() {
+export default function HomeEnhanced() {
   return (
     <div className="bg-zinc-950 min-h-screen text-foreground selection:bg-white/10 selection:text-white">
       <PublicNavEnhanced />
