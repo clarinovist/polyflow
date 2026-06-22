@@ -224,6 +224,12 @@ export const closePeriod = withTenant(async function closePeriod(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
+    const user = session.user as { role?: string };
+    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+      throw new BusinessRuleError(
+        "Only ADMIN or FINANCE roles can close fiscal periods",
+      );
+    }
     try {
       const result = await AccountingService.closePeriod(
         periodEndDate,

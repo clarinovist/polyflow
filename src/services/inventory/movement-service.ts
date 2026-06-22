@@ -368,6 +368,9 @@ export class InventoryMovementService {
         }
       }
 
+      // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
+      let movementCost = unitCost;
+
       if (isIncrement) {
         let cost = unitCost;
         if (!cost) {
@@ -402,12 +405,27 @@ export class InventoryMovementService {
           },
         });
       } else {
+        // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
+        let outCost = unitCost;
+        if (!outCost) {
+          const inv = await tx.inventory.findUnique({
+            where: {
+              locationId_productVariantId: { locationId, productVariantId },
+            },
+            select: { averageCost: true },
+          });
+          outCost = inv?.averageCost?.toNumber() || 0;
+        }
+
         await tx.inventory.update({
           where: {
             locationId_productVariantId: { locationId, productVariantId },
           },
           data: { quantity: { decrement: quantity } },
         });
+
+        // Use resolved cost for the movement record
+        movementCost = outCost;
       }
 
       let batchId: string | null = null;
@@ -425,7 +443,7 @@ export class InventoryMovementService {
           fromLocationId: isIncrement ? null : locationId,
           toLocationId: isIncrement ? locationId : null,
           quantity,
-          cost: unitCost ? new Prisma.Decimal(unitCost) : undefined,
+          cost: movementCost ? new Prisma.Decimal(movementCost) : undefined,
           reference: reason,
           batchId,
           createdById: userId,
@@ -492,6 +510,9 @@ export class InventoryMovementService {
           }
         }
 
+        // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
+        let movementCost = unitCost;
+
         if (isIncrement) {
           let cost = unitCost;
           if (!cost) {
@@ -526,12 +547,27 @@ export class InventoryMovementService {
             },
           });
         } else {
+          // For ADJUSTMENT_OUT, resolve cost from current averageCost if not provided
+          let outCost = unitCost;
+          if (!outCost) {
+            const inv = await tx.inventory.findUnique({
+              where: {
+                locationId_productVariantId: { locationId, productVariantId },
+              },
+              select: { averageCost: true },
+            });
+            outCost = inv?.averageCost?.toNumber() || 0;
+          }
+
           await tx.inventory.update({
             where: {
               locationId_productVariantId: { locationId, productVariantId },
             },
             data: { quantity: { decrement: quantity } },
           });
+
+          // Use resolved cost for the movement record
+          movementCost = outCost;
         }
 
         const movement = await tx.stockMovement.create({
@@ -541,7 +577,7 @@ export class InventoryMovementService {
             fromLocationId: isIncrement ? null : locationId,
             toLocationId: isIncrement ? locationId : null,
             quantity,
-            cost: unitCost ? new Prisma.Decimal(unitCost) : undefined,
+            cost: movementCost ? new Prisma.Decimal(movementCost) : undefined,
             reference: reason,
             createdById: userId,
           },

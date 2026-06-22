@@ -40,6 +40,17 @@ export const recordCustomerPayment = withTenant(
           throw new NotFoundError("Invoice", data.invoiceId);
         }
 
+        // Validate payment date falls in an open fiscal period
+        const { isPeriodOpen } =
+          await import("@/services/accounting/periods-service");
+        const paymentDate = new Date(data.paymentDate);
+        const isOpen = await isPeriodOpen(paymentDate);
+        if (!isOpen) {
+          throw new BusinessRuleError(
+            "Payment date falls in a closed fiscal period",
+          );
+        }
+
         const totalAmount = Number(invoice.totalAmount);
         const currentPaid = Number(invoice.paidAmount);
         const remainingBalance = totalAmount - currentPaid;
@@ -142,6 +153,17 @@ export const recordSupplierPayment = withTenant(
       const session = await requireAuth();
 
       try {
+        // Validate payment date falls in an open fiscal period
+        const { isPeriodOpen } =
+          await import("@/services/accounting/periods-service");
+        const paymentDate = new Date(data.paymentDate);
+        const isOpen = await isPeriodOpen(paymentDate);
+        if (!isOpen) {
+          throw new BusinessRuleError(
+            "Payment date falls in a closed fiscal period",
+          );
+        }
+
         const updated = await PurchaseService.recordPayment(
           data.invoiceId,
           data.amount,

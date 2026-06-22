@@ -154,29 +154,31 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
       throw new BusinessRuleError("Cannot reopen a LOCKED fiscal period");
     }
 
-    // Delete the closing journal entry for this period before reopening
-    const closingReference = `CLOSING-${period.name.replace(/\s+/g, "-")}`;
-    const closingEntry = await prisma.journalEntry.findFirst({
-      where: { reference: closingReference },
-    });
-
-    if (closingEntry) {
-      // Delete journal lines first, then the entry
-      await prisma.journalLine.deleteMany({
-        where: { journalEntryId: closingEntry.id },
+    // Wrap in transaction to ensure atomicity of journal deletion + period update
+    await prisma.$transaction(async (tx) => {
+      // Delete the closing journal entry for this period before reopening
+      const closingReference = `CLOSING-${period.name.replace(/\s+/g, "-")}`;
+      const closingEntry = await tx.journalEntry.findFirst({
+        where: { reference: closingReference },
       });
-      await prisma.journalEntry.delete({
-        where: { id: closingEntry.id },
-      });
-    }
 
-    await prisma.fiscalPeriod.update({
-      where: { id },
-      data: {
-        status: PeriodStatus.OPEN,
-        closedById: null,
-        closedAt: null,
-      },
+      if (closingEntry) {
+        await tx.journalLine.deleteMany({
+          where: { journalEntryId: closingEntry.id },
+        });
+        await tx.journalEntry.delete({
+          where: { id: closingEntry.id },
+        });
+      }
+
+      await tx.fiscalPeriod.update({
+        where: { id },
+        data: {
+          status: PeriodStatus.OPEN,
+          closedById: null,
+          closedAt: null,
+        },
+      });
     });
 
     await logActivity({
@@ -184,7 +186,7 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
       action: "REOPEN_FISCAL_PERIOD",
       entityType: "FiscalPeriod",
       entityId: id,
-      details: `Reopened fiscal period ${period.name}${closingEntry ? " and deleted closing journal entry" : ""}`,
+      details: `Reopened fiscal period ${period.name}`,
     });
 
     revalidatePath("/finance/periods");

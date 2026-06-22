@@ -471,6 +471,14 @@ export async function createBulkJournalEntries(
               );
             }
 
+            // Validate period is open before creating entry
+            const isOpen = await isPeriodOpen(entry.entryDate, tx);
+            if (!isOpen) {
+              throw new Error(
+                `Cannot create journal entry in a closed fiscal period for reference ${entry.reference}`,
+              );
+            }
+
             const entryNumber = await generateEntryNumber(entry.entryDate, tx);
 
             const je = await tx.journalEntry.create({
