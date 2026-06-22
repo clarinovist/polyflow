@@ -147,7 +147,7 @@ export default function PettyCashPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/finance/petty-cash/reports/daily">
           <Card className="hover:shadow-md transition-all cursor-pointer border-border/60 hover:border-primary/50 group">
             <CardContent className="flex items-center gap-4 p-4">
@@ -177,6 +177,23 @@ export default function PettyCashPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Berita acara verifikasi uang fisik
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/finance/petty-cash/reports/rekap">
+          <Card className="hover:shadow-md transition-all cursor-pointer border-border/60 hover:border-primary/50 group">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-2.5 rounded-lg bg-amber-100 text-amber-600 group-hover:bg-amber-200 transition-colors">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm group-hover:text-primary transition-colors">
+                  Rekap Kas
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Rekap pemasukan & pengeluaran dengan saldo
                 </p>
               </div>
             </CardContent>
