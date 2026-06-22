@@ -87,11 +87,26 @@ export const generatePeriodsForYear = withTenant(
   },
 );
 
-export const closePeriod = withTenant(async function closePeriod(
-  id: string,
-  userId: string,
-) {
+export const closePeriod = withTenant(async function closePeriod(id: string) {
   return safeAction(async () => {
+    const { requireAuth } = await import("@/lib/tools/auth-checks");
+    const { logActivity } = await import("@/lib/tools/audit");
+
+    const session = await requireAuth();
+    const user = session.user as { role?: string };
+    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+      throw new BusinessRuleError(
+        "Only ADMIN or FINANCE roles can close fiscal periods",
+      );
+    }
+
+    const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
+    if (!period) throw new NotFoundError("Fiscal Period", id);
+    if (period.status !== PeriodStatus.OPEN) {
+      throw new BusinessRuleError("Only OPEN periods can be closed");
+    }
+
+    const userId = session.user.id;
     await prisma.$transaction(async (tx) => {
       // 1. Generate Closing Journal Entry
       await createClosingJournalEntry(id, userId, tx);
@@ -105,6 +120,14 @@ export const closePeriod = withTenant(async function closePeriod(
           closedAt: new Date(),
         },
       });
+    });
+
+    await logActivity({
+      userId,
+      action: "CLOSE_FISCAL_PERIOD",
+      entityType: "FiscalPeriod",
+      entityId: id,
+      details: `Closed fiscal period ${period.name}`,
     });
 
     revalidatePath("/finance/periods");

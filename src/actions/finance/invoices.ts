@@ -157,6 +157,24 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
           // Find all IDs for payments associated with this invoice
           const paymentIds = invoice.payments.map((p) => p.id);
 
+          // Validate payment journal entries are in open periods
+          if (paymentIds.length > 0) {
+            const paymentJournals = await tx.journalEntry.findMany({
+              where: {
+                referenceId: { in: paymentIds },
+                referenceType: ReferenceType.SALES_PAYMENT,
+              },
+            });
+            for (const journal of paymentJournals) {
+              const isOpen = await isPeriodOpen(journal.entryDate, tx);
+              if (!isOpen) {
+                throw new BusinessRuleError(
+                  `Cannot delete invoice: payment journal entry ${journal.entryNumber} is in a closed fiscal period`,
+                );
+              }
+            }
+          }
+
           // 1. Delete associated Invoice Journal Entries
           await tx.journalLine.deleteMany({
             where: {
@@ -221,6 +239,24 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
           }
 
           const paymentIds = invoice.payments.map((p) => p.id);
+
+          // Validate payment journal entries are in open periods
+          if (paymentIds.length > 0) {
+            const paymentJournals = await tx.journalEntry.findMany({
+              where: {
+                referenceId: { in: paymentIds },
+                referenceType: ReferenceType.PURCHASE_PAYMENT,
+              },
+            });
+            for (const journal of paymentJournals) {
+              const isOpen = await isPeriodOpen(journal.entryDate, tx);
+              if (!isOpen) {
+                throw new BusinessRuleError(
+                  `Cannot delete invoice: payment journal entry ${journal.entryNumber} is in a closed fiscal period`,
+                );
+              }
+            }
+          }
 
           // 1. Delete associated Invoice Journal Entries
           await tx.journalLine.deleteMany({

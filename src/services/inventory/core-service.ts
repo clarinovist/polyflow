@@ -172,13 +172,32 @@ export class InventoryCoreService {
     incomingCost: number,
     tx?: Prisma.TransactionClient,
   ): Promise<number> {
-    const db = tx || prisma;
-    const inventory = await db.inventory.findUnique({
-      where: { locationId_productVariantId: { locationId, productVariantId } },
-    });
+    let currentQty = 0;
+    let currentAvgCost = 0;
 
-    const currentQty = inventory?.quantity.toNumber() || 0;
-    const currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+    if (tx) {
+      // Use FOR UPDATE locking when inside a transaction to prevent race conditions
+      const inventoryRow = await tx.$queryRaw<
+        Array<{ quantity: string; averageCost: string | null }>
+      >`
+        SELECT "quantity"::text as quantity, "averageCost"::text as "averageCost"
+        FROM "Inventory"
+        WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+        FOR UPDATE
+      `;
+      currentQty = inventoryRow[0] ? Number(inventoryRow[0].quantity) : 0;
+      currentAvgCost = inventoryRow[0]?.averageCost
+        ? Number(inventoryRow[0].averageCost)
+        : 0;
+    } else {
+      const inventory = await prisma.inventory.findUnique({
+        where: {
+          locationId_productVariantId: { locationId, productVariantId },
+        },
+      });
+      currentQty = inventory?.quantity.toNumber() || 0;
+      currentAvgCost = inventory?.averageCost?.toNumber() || 0;
+    }
 
     // WAC Formula: ((Existing Qty * Existing Cost) + (New Qty * New Cost)) / Total Qty
     const totalQty = currentQty + incomingQty;

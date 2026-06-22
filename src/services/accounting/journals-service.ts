@@ -392,6 +392,12 @@ export async function voidJournal(id: string, userId?: string) {
       "Cannot directly void an auto-generated journal entry. Please void the associated source document instead.",
     );
 
+  // Validate period is open before voiding
+  const isOpen = await isPeriodOpen(journal.entryDate);
+  if (!isOpen) {
+    throw new Error("Cannot void journal entry in a closed fiscal period.");
+  }
+
   return await prisma.journalEntry.update({
     where: { id },
     data: {
@@ -415,6 +421,12 @@ export async function reverseJournal(id: string, userId?: string) {
     throw new Error(
       "Cannot directly reverse an auto-generated journal entry. Please reverse the associated source document instead.",
     );
+
+  // Validate original journal's period is open before reversing
+  const isOpen = await isPeriodOpen(original.entryDate);
+  if (!isOpen) {
+    throw new Error("Cannot reverse journal entry in a closed fiscal period.");
+  }
 
   const reversalLines = original.lines.map((l) => ({
     accountId: l.accountId,
