@@ -34,6 +34,7 @@ export function extractSubdomain(host: string): string | null {
 
 /**
  * Unified helper to resolve tenant DB target from standard HTTP Headers.
+ * Checks x-tenant-subdomain > host > x-forwarded-host (for Docker/nginx).
  */
 export async function resolveTenantContext(
     reqHeaders: { get: (name: string) => string | null }
@@ -41,8 +42,14 @@ export async function resolveTenantContext(
     let subdomain = reqHeaders.get('x-tenant-subdomain');
 
     if (!subdomain) {
+        // Try host header first, then x-forwarded-host (set by nginx in Docker)
         const host = reqHeaders.get('host') || '';
         subdomain = extractSubdomain(host);
+
+        if (!subdomain) {
+            const forwardedHost = reqHeaders.get('x-forwarded-host') || '';
+            subdomain = extractSubdomain(forwardedHost);
+        }
     }
 
     if (!subdomain) {

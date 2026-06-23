@@ -46,8 +46,12 @@ export const authConfig = {
                 const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'polyflow.uk';
 
                 // NOTE: nextUrl.hostname returns "0.0.0.0" in Docker (internal bind address).
-                // Use the Host header instead for correct multi-tenant detection.
-                const hostname = (headers.get('host') || '').split(':')[0];
+                // Use the Host header or x-forwarded-host for correct multi-tenant detection.
+                let hostname = (headers.get('host') || '').split(':')[0];
+                if (!hostname.endsWith(`.${rootDomain}`) && hostname !== rootDomain) {
+                    // Fallback to x-forwarded-host (set by nginx proxy)
+                    hostname = (headers.get('x-forwarded-host') || '').split(':')[0];
+                }
                 const isAdminSubdomain = hostname === `admin.${rootDomain}`;
                 const isTenantSubdomain =
                     hostname !== rootDomain &&

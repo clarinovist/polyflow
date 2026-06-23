@@ -12,10 +12,15 @@ import { extractSubdomain } from '@/lib/core/tenant';
 async function resolveTenantDb() {
     try {
         const reqHeaders = await headers();
-        const host = reqHeaders.get('host') || '';
-        console.log(`[resolveTenantDb] host=${host}`);
-        const subdomain = extractSubdomain(host);
-        console.log(`[resolveTenantDb] subdomain=${subdomain}`);
+        // Try host header, then x-forwarded-host (Docker/nginx)
+        let host = reqHeaders.get('host') || '';
+        let subdomain = extractSubdomain(host);
+        if (!subdomain) {
+            const forwardedHost = reqHeaders.get('x-forwarded-host') || '';
+            host = forwardedHost;
+            subdomain = extractSubdomain(forwardedHost);
+        }
+        console.log(`[resolveTenantDb] host=${host}, subdomain=${subdomain}`);
         if (!subdomain) return null;
 
         const tenant = await prisma.tenant.findUnique({ where: { subdomain } });
