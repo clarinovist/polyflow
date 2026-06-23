@@ -32,14 +32,15 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         password: z.string().min(6),
                         role: z.string().optional(),
                         remember: z.coerce.boolean().optional(),
+                        subdomain: z.string().optional(),
                     })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
-                    const { email, password, role, remember } = parsedCredentials.data;
+                    const { email, password, role, remember, subdomain: formSubdomain } = parsedCredentials.data;
 
-                    // Extract Subdomain from headers in NextAuth 5
-                    let subdomain = request?.headers?.get('x-tenant-subdomain');
+                    // Resolve subdomain: prefer form field (from hidden input) > x-tenant-subdomain header > Host header
+                    let subdomain = formSubdomain || request?.headers?.get('x-tenant-subdomain') || null;
 
                     if (!subdomain && request) {
                         const host = request.headers.get('host') || '';

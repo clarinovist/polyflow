@@ -12,6 +12,7 @@ export async function authenticate(
         const email = String(formData.get('email') ?? '');
         const password = String(formData.get('password') ?? '');
         const role = String(formData.get('role') ?? '');
+        const subdomain = String(formData.get('subdomain') ?? '');
 
         const remember = formData.get('remember') === 'on';
 
@@ -19,6 +20,7 @@ export async function authenticate(
             email,
             password,
             role,
+            subdomain,
             remember,
             redirect: false,
         });

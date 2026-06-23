@@ -52,6 +52,8 @@ export default function LoginForm({ selectedRole, onBack }: LoginFormProps) {
             <form action={formAction} className="space-y-5">
                 {/* Hidden Role field */}
                 <input type="hidden" name="role" value={selectedRole} />
+                {/* Hidden Subdomain field — needed for tenant resolution in NextAuth authorize */}
+                <input type="hidden" name="subdomain" value={typeof window !== 'undefined' ? (window.location.hostname.split('.')[0] || '') : ''} />
 
                 {/* Email Field */}
                 <div className="space-y-2">
