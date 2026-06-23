@@ -13,15 +13,21 @@ async function resolveTenantDb() {
     try {
         const reqHeaders = await headers();
         const host = reqHeaders.get('host') || '';
+        console.log(`[resolveTenantDb] host=${host}`);
         const subdomain = extractSubdomain(host);
+        console.log(`[resolveTenantDb] subdomain=${subdomain}`);
         if (!subdomain) return null;
 
         const tenant = await prisma.tenant.findUnique({ where: { subdomain } });
+        console.log(`[resolveTenantDb] tenant=${tenant?.name}, dbUrl=${tenant?.dbUrl ? 'SET' : 'NULL'}`);
         if (!tenant?.dbUrl) return null;
 
         const { getTenantDb } = await import('@/lib/core/prisma');
-        return getTenantDb(tenant.dbUrl);
-    } catch {
+        const db = getTenantDb(tenant.dbUrl);
+        console.log(`[resolveTenantDb] resolved TENANT db for ${tenant.name}`);
+        return db;
+    } catch (e) {
+        console.error('[resolveTenantDb] ERROR:', e);
         return null;
     }
 }
