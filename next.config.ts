@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  poweredByHeader: false,
+  serverActions: {
+    bodySizeLimit: "4mb",
+  },
 };
 
 export default nextConfig;
