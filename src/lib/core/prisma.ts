@@ -1,6 +1,23 @@
 import { PrismaClient } from '@prisma/client'
 import { AsyncLocalStorage } from 'async_hooks';
 
+// Default transaction timeout — complex operations (production backflush, period close)
+// were exceeding the Prisma default of 5s (observed: 5076ms, 5087ms).
+const TX_TIMEOUT_MS = 15_000;
+
+/** Extend a PrismaClient with a default transaction timeout. */
+function withTxTimeout(client: PrismaClient): PrismaClient {
+    const originalTx = client.$transaction.bind(client);
+    // Intercept interactive transactions (function form) to inject default timeout
+    (client as any).$transaction = (arg: any, opts?: any) => {
+        if (typeof arg === 'function') {
+            return originalTx(arg, { timeout: TX_TIMEOUT_MS, ...opts });
+        }
+        return originalTx(arg, opts);
+    };
+    return client;
+}
+
 // AsyncLocalStorage to hold the tenant-specific Prisma Client instance
 export const tenantContext = new AsyncLocalStorage<PrismaClient>();
 
@@ -9,12 +26,10 @@ const clients: Map<string, PrismaClient> = new Map();
 
 export function getTenantDb(datasourceUrl: string): PrismaClient {
     if (!clients.has(datasourceUrl)) {
-        clients.set(
-            datasourceUrl,
-            new PrismaClient({
-                datasources: { db: { url: datasourceUrl } },
-            })
-        );
+        const client = new PrismaClient({
+            datasources: { db: { url: datasourceUrl } },
+        });
+        clients.set(datasourceUrl, withTxTimeout(client));
     }
     return clients.get(datasourceUrl)!;
 }
@@ -29,7 +44,7 @@ export async function disconnectAllTenants() {
 
 // Global Main/Fallback Prisma Client
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
-const mainPrisma = globalForPrisma.prisma || new PrismaClient()
+const mainPrisma = globalForPrisma.prisma || withTxTimeout(new PrismaClient())
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = mainPrisma
 
