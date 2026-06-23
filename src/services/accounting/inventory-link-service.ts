@@ -188,10 +188,14 @@ export async function recordInventoryMovement(
     }
 
     if (lines.length > 0) {
-        // Validate GL balance won't go negative for credit entries (OUT/ADJUSTMENT)
-        for (const line of lines) {
-            if (line.credit > 0) {
-                await validateGlBalance(db, line.accountId, line.credit, productVariant.name);
+        // Validate GL balance won't go negative for credit entries (OUT/ADJUSTMENT only).
+        // SKIP for PURCHASE: credit goes to Trade Payables (liability) — credit increases
+        // the balance, so this validation does not apply to liability/equity accounts.
+        if (movement.type !== 'PURCHASE') {
+            for (const line of lines) {
+                if (line.credit > 0) {
+                    await validateGlBalance(db, line.accountId, line.credit, productVariant.name);
+                }
             }
         }
 
