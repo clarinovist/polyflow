@@ -72,11 +72,13 @@ export function GoodsReceiptForm({
         setIsLoading(true);
         try {
             const result = await createGoodsReceipt(data);
-            if (result) {
-                toast.success('Penerimaan Barang berhasil dicatat');
-                router.push(`${basePath}/${purchaseOrderId}`);
-                router.refresh();
+            if (!result.success) {
+                toast.error(result.error || 'Gagal memproses penerimaan barang. Silakan coba lagi.');
+                return;
             }
+            toast.success('Penerimaan Barang berhasil dicatat');
+            router.push(`${basePath}/${purchaseOrderId}`);
+            router.refresh();
         } catch (_error) {
             toast.error('Gagal memproses penerimaan barang. Silakan coba lagi.');
         } finally {

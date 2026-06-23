@@ -79,7 +79,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     serializedLocations.find((l: any) => l.name.toLowerCase().includes('raw material'))?.id
                 }
-                basePath="/warehouse/incoming/orders"
+                basePath="/planning/purchase-orders"
             />
         </div>
     );
