@@ -9,11 +9,12 @@ const TX_TIMEOUT_MS = 15_000;
 function withTxTimeout(client: PrismaClient): PrismaClient {
     const originalTx = client.$transaction.bind(client);
     // Intercept interactive transactions (function form) to inject default timeout
-    (client as any).$transaction = (arg: any, opts?: any) => {
+    const c = client as unknown as Record<string, unknown>;
+    c.$transaction = (arg: unknown, opts?: Record<string, unknown>) => {
         if (typeof arg === 'function') {
-            return originalTx(arg, { timeout: TX_TIMEOUT_MS, ...opts });
+            return originalTx(arg as Parameters<typeof originalTx>[0], { timeout: TX_TIMEOUT_MS, ...opts });
         }
-        return originalTx(arg, opts);
+        return originalTx(arg as Parameters<typeof originalTx>[0], opts as Parameters<typeof originalTx>[1]);
     };
     return client;
 }
