@@ -20,19 +20,14 @@ async function resolveTenantDb() {
             host = forwardedHost;
             subdomain = extractSubdomain(forwardedHost);
         }
-        console.log(`[resolveTenantDb] host=${host}, subdomain=${subdomain}`);
         if (!subdomain) return null;
 
         const tenant = await prisma.tenant.findUnique({ where: { subdomain } });
-        console.log(`[resolveTenantDb] tenant=${tenant?.name}, dbUrl=${tenant?.dbUrl ? 'SET' : 'NULL'}`);
         if (!tenant?.dbUrl) return null;
 
         const { getTenantDb } = await import('@/lib/core/prisma');
-        const db = getTenantDb(tenant.dbUrl);
-        console.log(`[resolveTenantDb] resolved TENANT db for ${tenant.name}`);
-        return db;
-    } catch (e) {
-        console.error('[resolveTenantDb] ERROR:', e);
+        return getTenantDb(tenant.dbUrl);
+    } catch {
         return null;
     }
 }
@@ -53,7 +48,6 @@ export async function requireAuth() {
     // and ensure role is up to date if needed
     // Use tenant-aware DB if available (important for multi-tenant setups)
     const tenantDb = await resolveTenantDb();
-    console.log(`[requireAuth] tenantDb=${tenantDb ? 'TENANT' : 'MAIN'}, userId=${session.user.id}`);
     const user = await (tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true, role: true }
@@ -61,11 +55,9 @@ export async function requireAuth() {
 
     if (!user) {
         // Stale session, force logout via client-side page
-        console.error(`[requireAuth] User ${session.user.id} NOT FOUND in DB, redirecting to /logout`);
         redirect('/logout');
     }
 
-    console.log(`[requireAuth] User ${session.user.id} found, role=${user.role}`);
     return session;
 }
 
