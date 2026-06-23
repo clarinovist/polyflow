@@ -2,10 +2,34 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
 import { redirect } from 'next/navigation';
 import { Role } from '@prisma/client';
+import { headers } from 'next/headers';
+import { extractSubdomain } from '@/lib/core/tenant';
+
+/**
+ * Resolves the tenant DB for the current request (if on a tenant subdomain).
+ * Returns a PrismaClient connected to the tenant DB, or null for the main DB.
+ */
+async function resolveTenantDb() {
+    try {
+        const reqHeaders = await headers();
+        const host = reqHeaders.get('host') || '';
+        const subdomain = extractSubdomain(host);
+        if (!subdomain) return null;
+
+        const tenant = await prisma.tenant.findUnique({ where: { subdomain } });
+        if (!tenant?.dbUrl) return null;
+
+        const { getTenantDb } = await import('@/lib/core/prisma');
+        return getTenantDb(tenant.dbUrl);
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Ensures a user is authenticated.
  * Redirects to login if not.
+ * Tenant-aware: resolves the correct DB from the Host header.
  */
 export async function requireAuth() {
     const session = await auth();
@@ -15,7 +39,9 @@ export async function requireAuth() {
 
     // Verify user exists in DB to prevent Foreign Key errors (stale sessions)
     // and ensure role is up to date if needed
-    const user = await prisma.user.findUnique({
+    // Use tenant-aware DB if available (important for multi-tenant setups)
+    const tenantDb = await resolveTenantDb();
+    const user = await (tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true, role: true }
     });
