@@ -34,6 +34,7 @@ async function resolveTenantDb() {
 export async function requireAuth() {
     const session = await auth();
     if (!session?.user || !session.user.id) {
+        console.error('[requireAuth] No session or user ID, redirecting to /login');
         redirect('/login');
     }
 
@@ -41,6 +42,7 @@ export async function requireAuth() {
     // and ensure role is up to date if needed
     // Use tenant-aware DB if available (important for multi-tenant setups)
     const tenantDb = await resolveTenantDb();
+    console.log(`[requireAuth] tenantDb=${tenantDb ? 'TENANT' : 'MAIN'}, userId=${session.user.id}`);
     const user = await (tenantDb || prisma).user.findUnique({
         where: { id: session.user.id },
         select: { id: true, role: true }
@@ -48,12 +50,11 @@ export async function requireAuth() {
 
     if (!user) {
         // Stale session, force logout via client-side page
+        console.error(`[requireAuth] User ${session.user.id} NOT FOUND in DB, redirecting to /logout`);
         redirect('/logout');
     }
 
-    // Optional: Sync role from DB to session object if we want strict role checks
-    // session.user.role = user.role;
-
+    console.log(`[requireAuth] User ${session.user.id} found, role=${user.role}`);
     return session;
 }
 
