@@ -1,418 +1,586 @@
-import { prisma } from '@/lib/core/prisma';
+import { prisma } from "@/lib/core/prisma";
 import {
-    CreateProductionOrderValues,
-    UpdateProductionOrderValues
-} from '@/lib/schemas/production';
-import { ProductionStatus, MachineType, BomCategory, SalesOrderType, Prisma } from '@prisma/client';
+  CreateProductionOrderValues,
+  UpdateProductionOrderValues,
+} from "@/lib/schemas/production";
+import {
+  ProductionStatus,
+  MachineType,
+  BomCategory,
+  SalesOrderType,
+  Prisma,
+} from "@prisma/client";
 
-import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
-import { Ok, Err, Result } from '@/lib/utils/result';
-import { createProductionOrderWithGeneratedNumber } from './order-number-service';
+import { WAREHOUSE_SLUGS } from "@/lib/constants/locations";
+import { Ok, Err, Result } from "@/lib/utils/result";
+import { createProductionOrderWithGeneratedNumber } from "./order-number-service";
 
 export class ProductionOrderService {
-    /**
-     * Get Initialization Data for Production Forms
-     */
-    static async getInitData() {
-        // Run in parallel
-        const [boms, machines, locations, employees, workShifts, rawMaterials, customers] = await Promise.all([
-            prisma.bom.findMany({
-                include: {
-                    productVariant: {
-                        include: { product: true }
-                    }
-                }
-            }),
-            prisma.machine.findMany({
-                where: { status: 'ACTIVE' }
-            }),
-            prisma.location.findMany(),
-            prisma.employee.findMany({
-                orderBy: { name: 'asc' }
-            }),
-            prisma.workShift.findMany({
-                where: { status: 'ACTIVE' },
-                orderBy: { startTime: 'asc' }
-            }),
-            prisma.productVariant.findMany({
-                where: {
-                    product: {
-                        productType: 'RAW_MATERIAL'
-                    }
-                },
-                include: {
-                    product: true
-                },
-                orderBy: { name: 'asc' }
-            }),
-            prisma.customer.findMany({
-                orderBy: { name: 'asc' }
-            })
+  /**
+   * Get Initialization Data for Production Forms
+   */
+  static async getInitData() {
+    // Run in parallel
+    const [
+      boms,
+      machines,
+      locations,
+      employees,
+      workShifts,
+      rawMaterials,
+      customers,
+    ] = await Promise.all([
+      prisma.bom.findMany({
+        include: {
+          productVariant: {
+            include: { product: true },
+          },
+        },
+      }),
+      prisma.machine.findMany({
+        where: { status: "ACTIVE" },
+      }),
+      prisma.location.findMany(),
+      prisma.employee.findMany({
+        orderBy: { name: "asc" },
+      }),
+      prisma.workShift.findMany({
+        where: { status: "ACTIVE" },
+        orderBy: { startTime: "asc" },
+      }),
+      prisma.productVariant.findMany({
+        where: {
+          product: {
+            productType: "RAW_MATERIAL",
+          },
+        },
+        include: {
+          product: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      prisma.customer.findMany({
+        orderBy: { name: "asc" },
+      }),
+    ]);
+
+    // Filter employees by role
+    const operators = employees.filter((e) => e.role === "OPERATOR");
+    const helpers = employees.filter(
+      (e) => e.role === "HELPER" || e.role === "PACKER",
+    );
+
+    return {
+      boms,
+      machines,
+      locations,
+      operators,
+      helpers,
+      workShifts,
+      rawMaterials,
+      customers,
+    };
+  }
+
+  /**
+   * Calculate BOM Requirements with Stock Check
+   */
+  static async getBomWithInventory(
+    bomId: string,
+    sourceLocationId: string,
+    plannedQuantity: number,
+  ): Promise<
+    Result<{
+      data: unknown[];
+      meta: {
+        requestedSourceLocationId: string;
+        suggestedSourceLocationId: string | null;
+        suggestedSourceLocationName: string | null;
+      };
+    }>
+  > {
+    if (!bomId || plannedQuantity <= 0)
+      return Err(new Error("Invalid parameters"));
+
+    const bom = await prisma.bom.findUnique({
+      where: { id: bomId },
+      include: {
+        items: {
+          include: {
+            productVariant: true,
+          },
+        },
+      },
+    });
+
+    if (!bom) return Err(new Error("Recipe not found"));
+
+    const variantIds = bom.items.map((i) => i.productVariantId);
+
+    // Fetch inventory rows in bulk
+    const sourceInventoryRows = sourceLocationId
+      ? await prisma.inventory.findMany({
+          where: {
+            locationId: sourceLocationId,
+            productVariantId: { in: variantIds },
+          },
+          select: { productVariantId: true, quantity: true },
+        })
+      : [];
+
+    const sourceStockMap = new Map<string, number>();
+    sourceInventoryRows.forEach((r) =>
+      sourceStockMap.set(r.productVariantId, r.quantity.toNumber()),
+    );
+
+    let suggestedSourceLocation: { id: string; name: string } | null = null;
+    if (
+      sourceLocationId &&
+      !sourceInventoryRows.some((r) => r.quantity.toNumber() > 0)
+    ) {
+      const rmLocation = await prisma.location.findUnique({
+        where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
+        select: { id: true, name: true },
+      });
+
+      if (rmLocation && rmLocation.id !== sourceLocationId) {
+        const rmHasAny = await prisma.inventory.findFirst({
+          where: {
+            locationId: rmLocation.id,
+            productVariantId: { in: variantIds },
+            quantity: { gt: 0 },
+          },
+          select: { id: true },
+        });
+
+        if (rmHasAny) suggestedSourceLocation = rmLocation;
+      }
+    }
+
+    const materialRequirements = bom.items.map((item) => {
+      const requiredQty =
+        (Number(item.quantity) / Number(bom.outputQuantity)) * plannedQuantity;
+      const currentStock = sourceLocationId
+        ? sourceStockMap.get(item.productVariantId) || 0
+        : 0;
+
+      return {
+        productVariantId: item.productVariantId,
+        name: item.productVariant.name,
+        unit: item.productVariant.primaryUnit,
+        stdQty: item.quantity.toNumber(),
+        bomOutput: bom.outputQuantity.toNumber(),
+        requiredQty,
+        currentStock,
+      };
+    });
+
+    return Ok({
+      data: materialRequirements,
+      meta: {
+        requestedSourceLocationId: sourceLocationId,
+        suggestedSourceLocationId: suggestedSourceLocation?.id || null,
+        suggestedSourceLocationName: suggestedSourceLocation?.name || null,
+      },
+    });
+  }
+
+  /**
+   * Create a new Production Order
+   */
+  static async createOrder(
+    data: CreateProductionOrderValues & { userId?: string },
+  ) {
+    const {
+      bomId,
+      plannedQuantity,
+      plannedStartDate,
+      plannedEndDate,
+      locationId,
+      orderNumber,
+      notes,
+      salesOrderId,
+      userId,
+      machineId,
+      isMaklon,
+      maklonCustomerId,
+      estimatedConversionCost,
+      plannedEnteredQuantity,
+      plannedEnteredUnit,
+      plannedConversionFactorSnapshot,
+    } = data;
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Validate Machine Type against BOM Category if machineId is provided
+      if (machineId) {
+        const [machine, bom] = await Promise.all([
+          tx.machine.findUnique({
+            where: { id: machineId },
+            select: { type: true },
+          }),
+          tx.bom.findUnique({
+            where: { id: bomId },
+            select: { category: true },
+          }),
         ]);
 
-        // Filter employees by role
-        const operators = employees.filter((e) => e.role === 'OPERATOR');
-        const helpers = employees.filter((e) => e.role === 'HELPER' || e.role === 'PACKER');
+        if (machine && bom) {
+          const isTypeMatch =
+            (bom.category === BomCategory.MIXING &&
+              machine.type === MachineType.MIXER) ||
+            (bom.category === BomCategory.EXTRUSION &&
+              (machine.type === MachineType.EXTRUDER ||
+                machine.type === MachineType.REWINDER)) ||
+            (bom.category === BomCategory.PACKING &&
+              (machine.type === MachineType.PACKER ||
+                machine.type === MachineType.GRANULATOR)) ||
+            bom.category === BomCategory.REWORK || // Rework is manual, any machine is OK
+            (bom.category === BomCategory.STANDARD &&
+              (machine.type === MachineType.EXTRUDER ||
+                machine.type === MachineType.MIXER)); // Standard fallback
 
-        return {
-            boms,
-            machines,
-            locations,
-            operators,
-            helpers,
-            workShifts,
-            rawMaterials,
-            customers
-        };
-    }
-
-    /**
-     * Calculate BOM Requirements with Stock Check
-     */
-    static async getBomWithInventory(
-        bomId: string,
-        sourceLocationId: string,
-        plannedQuantity: number
-    ): Promise<Result<{
-        data: unknown[],
-        meta: {
-            requestedSourceLocationId: string;
-            suggestedSourceLocationId: string | null;
-            suggestedSourceLocationName: string | null;
+          if (!isTypeMatch) {
+            throw new Error(
+              `Machine type ${machine.type} is not compatible with stage ${bom.category}`,
+            );
+          }
         }
-    }>> {
-        if (!bomId || plannedQuantity <= 0) return Err(new Error("Invalid parameters"));
+      }
+      // 2. Calculate Materials (Standard or Flexible)
+      let materialsToCreate = data.items || [];
 
-        const bom = await prisma.bom.findUnique({
-            where: { id: bomId },
-            include: {
-                items: {
-                    include: {
-                        productVariant: true
-                    }
-                }
-            }
+      if (materialsToCreate.length === 0) {
+        // Fetch BOM items to calculate defaults
+        const bom = await tx.bom.findUnique({
+          where: { id: bomId },
+          include: { items: true },
         });
 
-        if (!bom) return Err(new Error("Recipe not found"));
-
-        const variantIds = bom.items.map(i => i.productVariantId);
-
-        // Fetch inventory rows in bulk
-        const sourceInventoryRows = sourceLocationId
-            ? await prisma.inventory.findMany({
-                where: {
-                    locationId: sourceLocationId,
-                    productVariantId: { in: variantIds }
-                },
-                select: { productVariantId: true, quantity: true }
-            })
-            : [];
-
-        const sourceStockMap = new Map<string, number>();
-        sourceInventoryRows.forEach(r => sourceStockMap.set(r.productVariantId, r.quantity.toNumber()));
-
-        let suggestedSourceLocation: { id: string; name: string } | null = null;
-        if (sourceLocationId && !sourceInventoryRows.some(r => r.quantity.toNumber() > 0)) {
-            const rmLocation = await prisma.location.findUnique({
-                where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
-                select: { id: true, name: true }
-            });
-
-            if (rmLocation && rmLocation.id !== sourceLocationId) {
-                const rmHasAny = await prisma.inventory.findFirst({
-                    where: {
-                        locationId: rmLocation.id,
-                        productVariantId: { in: variantIds },
-                        quantity: { gt: 0 }
-                    },
-                    select: { id: true }
-                });
-
-                if (rmHasAny) suggestedSourceLocation = rmLocation;
-            }
+        if (bom) {
+          materialsToCreate = bom.items.map((item) => ({
+            productVariantId: item.productVariantId,
+            quantity:
+              (Number(item.quantity) / Number(bom.outputQuantity)) *
+              Number(plannedQuantity),
+          }));
         }
+      }
 
-        const materialRequirements = bom.items.map((item) => {
-            const requiredQty = (Number(item.quantity) / Number(bom.outputQuantity)) * plannedQuantity;
-            const currentStock = sourceLocationId ? (sourceStockMap.get(item.productVariantId) || 0) : 0;
-
-            return {
-                productVariantId: item.productVariantId,
-                name: item.productVariant.name,
-                unit: item.productVariant.primaryUnit,
-                stdQty: item.quantity.toNumber(),
-                bomOutput: bom.outputQuantity.toNumber(),
-                requiredQty,
-                currentStock
-            };
+      // 3. Determine Initial Status based on Stock Availability
+      let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
+      if (materialsToCreate.length > 0) {
+        const variantIds = materialsToCreate.map((m) => m.productVariantId);
+        const inventoryRows = await tx.inventory.findMany({
+          where: {
+            locationId: locationId,
+            productVariantId: { in: variantIds },
+          },
         });
 
-        return Ok({
-            data: materialRequirements,
-            meta: {
-                requestedSourceLocationId: sourceLocationId,
-                suggestedSourceLocationId: suggestedSourceLocation?.id || null,
-                suggestedSourceLocationName: suggestedSourceLocation?.name || null,
-            }
+        const isShortage = materialsToCreate.some((m) => {
+          const stock =
+            inventoryRows
+              .find((ir) => ir.productVariantId === m.productVariantId)
+              ?.quantity.toNumber() || 0;
+          return m.quantity > stock;
         });
-    }
 
-    /**
-     * Create a new Production Order
-     */
-    static async createOrder(data: CreateProductionOrderValues & { userId?: string }) {
-        const {
-            bomId, plannedQuantity, plannedStartDate, plannedEndDate,
-            locationId, orderNumber, notes, salesOrderId, userId, machineId,
-            isMaklon, maklonCustomerId, estimatedConversionCost,
-            plannedEnteredQuantity, plannedEnteredUnit, plannedConversionFactorSnapshot
-        } = data;
-
-        return await prisma.$transaction(async (tx) => {
-            // 1. Validate Machine Type against BOM Category if machineId is provided
-            if (machineId) {
-                const [machine, bom] = await Promise.all([
-                    tx.machine.findUnique({ where: { id: machineId }, select: { type: true } }),
-                    tx.bom.findUnique({ where: { id: bomId }, select: { category: true } })
-                ]);
-
-                if (machine && bom) {
-                    const isTypeMatch = (
-                        (bom.category === BomCategory.MIXING && machine.type === MachineType.MIXER) ||
-                        (bom.category === BomCategory.EXTRUSION && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.REWINDER)) ||
-                        (bom.category === BomCategory.PACKING && (machine.type === MachineType.PACKER || machine.type === MachineType.GRANULATOR)) ||
-                        (bom.category === BomCategory.REWORK) || // Rework is manual, any machine is OK
-                        (bom.category === BomCategory.STANDARD && (machine.type === MachineType.EXTRUDER || machine.type === MachineType.MIXER)) // Standard fallback
-                    );
-
-                    if (!isTypeMatch) {
-                        throw new Error(`Machine type ${machine.type} is not compatible with stage ${bom.category}`);
-                    }
-                }
-            }
-            // 2. Calculate Materials (Standard or Flexible)
-            let materialsToCreate = data.items || [];
-
-            if (materialsToCreate.length === 0) {
-                // Fetch BOM items to calculate defaults
-                const bom = await tx.bom.findUnique({
-                    where: { id: bomId },
-                    include: { items: true }
-                });
-
-                if (bom) {
-                    materialsToCreate = bom.items.map(item => ({
-                        productVariantId: item.productVariantId,
-                        quantity: (Number(item.quantity) / Number(bom.outputQuantity)) * Number(plannedQuantity)
-                    }));
-                }
-            }
-
-            // 3. Determine Initial Status based on Stock Availability
-            let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
-            if (materialsToCreate.length > 0) {
-                const variantIds = materialsToCreate.map(m => m.productVariantId);
-                const inventoryRows = await tx.inventory.findMany({
-                    where: {
-                        locationId: locationId,
-                        productVariantId: { in: variantIds }
-                    }
-                });
-
-                const isShortage = materialsToCreate.some(m => {
-                    const stock = inventoryRows.find(ir => ir.productVariantId === m.productVariantId)?.quantity.toNumber() || 0;
-                    return m.quantity > stock;
-                });
-
-                if (isShortage) {
-                    initialStatus = ProductionStatus.WAITING_MATERIAL;
-                }
-            }
-
-            // 4. Create Order
-            const orderData = {
-                bom: { connect: { id: bomId } },
-                plannedQuantity,
-                plannedStartDate,
-                plannedEndDate,
-                location: { connect: { id: locationId } },
-                notes,
-                status: initialStatus,
-                actualQuantity: 0,
-                plannedEnteredQuantity,
-                plannedEnteredUnit,
-                plannedConversionFactorSnapshot,
-                salesOrder: salesOrderId ? { connect: { id: salesOrderId } } : undefined,
-                createdBy: userId ? { connect: { id: userId } } : undefined,
-                machine: machineId ? { connect: { id: machineId } } : undefined,
-                isMaklon: isMaklon,
-                maklonCustomer: maklonCustomerId ? { connect: { id: maklonCustomerId } } : undefined,
-                estimatedConversionCost: estimatedConversionCost
-            } satisfies Omit<Prisma.ProductionOrderCreateInput, 'orderNumber'>;
-
-            const newOrder = orderNumber
-                ? await tx.productionOrder.create({
-                    data: {
-                        ...orderData,
-                        orderNumber,
-                    }
-                })
-                : await createProductionOrderWithGeneratedNumber(tx, orderData);
-
-            // 5. Create Material Requirements
-            if (materialsToCreate.length > 0) {
-                await tx.productionMaterial.createMany({
-                    data: materialsToCreate.map(item => ({
-                        productionOrderId: newOrder.id,
-                        productVariantId: item.productVariantId,
-                        quantity: item.quantity
-                    }))
-                });
-            }
-
-            return newOrder;
-        });
-    }
-
-    /**
-     * Create Production Order from Sales Order (Shortage)
-     */
-    static async createOrderFromSales(salesOrderId: string, productVariantId: string, quantity: number) {
-        if (!salesOrderId || !productVariantId || quantity <= 0) {
-            throw new Error("Invalid parameters");
+        if (isShortage) {
+          initialStatus = ProductionStatus.WAITING_MATERIAL;
         }
+      }
 
-        // 1. Find default BOM
-        const bom = await prisma.bom.findFirst({
-            where: {
-                productVariantId,
-                isDefault: true
-            }
-        });
+      // 4. Create Order
+      const orderData = {
+        bom: { connect: { id: bomId } },
+        plannedQuantity,
+        plannedStartDate,
+        plannedEndDate,
+        location: { connect: { id: locationId } },
+        notes,
+        status: initialStatus,
+        actualQuantity: 0,
+        plannedEnteredQuantity,
+        plannedEnteredUnit,
+        plannedConversionFactorSnapshot,
+        salesOrder: salesOrderId
+          ? { connect: { id: salesOrderId } }
+          : undefined,
+        createdBy: userId ? { connect: { id: userId } } : undefined,
+        machine: machineId ? { connect: { id: machineId } } : undefined,
+        isMaklon: isMaklon,
+        maklonCustomer: maklonCustomerId
+          ? { connect: { id: maklonCustomerId } }
+          : undefined,
+        estimatedConversionCost: estimatedConversionCost,
+      } satisfies Omit<Prisma.ProductionOrderCreateInput, "orderNumber">;
 
-        if (!bom) {
-            throw new Error("No default BOM found for this product. Please create one first.");
-        }
-
-        // 2. Fetch Sales Order
-        const so = await prisma.salesOrder.findUnique({
-            where: { id: salesOrderId },
-            select: { sourceLocationId: true, expectedDate: true, orderType: true, customerId: true }
-        });
-
-        if (!so) throw new Error("Sales Order not found");
-
-        const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
-
-        // 3. Create PO
-        return await this.createOrder({
-            bomId: bom.id,
-            plannedQuantity: quantity,
-            plannedEnteredQuantity: undefined,
-            plannedEnteredUnit: undefined,
-            plannedConversionFactorSnapshot: undefined,
-            plannedStartDate: new Date(),
-            plannedEndDate: so.expectedDate || undefined,
-            locationId: so.sourceLocationId || '',
-            salesOrderId,
-            notes: `Auto-generated from Sales Order shortage${isMaklon ? ' (Maklon; source location treated as production location/default consumption location)' : ''}.`,
-            isMaklon: isMaklon,
-            maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
-            estimatedConversionCost: 0
-        });
-    }
-
-    /**
-     * Update Production Order
-     */
-    static async updateOrder(data: UpdateProductionOrderValues) {
-        const { id, status, actualQuantity, actualStartDate, actualEndDate, machineId } = data;
-
-        return await prisma.productionOrder.update({
-            where: { id },
+      const newOrder = orderNumber
+        ? await tx.productionOrder.create({
             data: {
-                status,
-                actualQuantity,
-                actualStartDate,
-                actualEndDate,
-                machineId,
-            }
+              ...orderData,
+              orderNumber,
+            },
+          })
+        : await createProductionOrderWithGeneratedNumber(tx, orderData);
+
+      // 5. Create Material Requirements
+      if (materialsToCreate.length > 0) {
+        await tx.productionMaterial.createMany({
+          data: materialsToCreate.map((item) => ({
+            productionOrderId: newOrder.id,
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+          })),
         });
+      }
+
+      return newOrder;
+    });
+  }
+
+  /**
+   * Create Production Order from Sales Order (Shortage)
+   */
+  static async createOrderFromSales(
+    salesOrderId: string,
+    productVariantId: string,
+    quantity: number,
+  ) {
+    if (!salesOrderId || !productVariantId || quantity <= 0) {
+      throw new Error("Invalid parameters");
     }
 
-    /**
-     * Delete Production Order (Draft Only)
-     */
-    static async deleteOrder(id: string) {
-        const order = await prisma.productionOrder.findUnique({
-            where: { id },
-            select: { status: true }
-        });
+    // 1. Find default BOM
+    const bom = await prisma.bom.findFirst({
+      where: {
+        productVariantId,
+        isDefault: true,
+      },
+    });
 
-        if (!order) {
-            throw new Error("Order not found");
-        }
-
-        if (order.status !== 'DRAFT' && order.status !== 'WAITING_MATERIAL') {
-            throw new Error("Only DRAFT or WAITING_MATERIAL orders can be deleted.");
-        }
-
-        await prisma.$transaction(async (tx) => {
-            await tx.stockMovement.updateMany({
-                where: { productionOrderId: id },
-                data: { productionOrderId: null }
-            });
-            await tx.materialIssue.deleteMany({ where: { productionOrderId: id } });
-            await tx.scrapRecord.deleteMany({ where: { productionOrderId: id } });
-            await tx.qualityInspection.deleteMany({ where: { productionOrderId: id } });
-            await tx.productionShift.deleteMany({ where: { productionOrderId: id } });
-            await tx.productionMaterial.deleteMany({ where: { productionOrderId: id } });
-            await tx.productionOrder.delete({ where: { id } });
-        });
+    if (!bom) {
+      throw new Error(
+        "No default BOM found for this product. Please create one first.",
+      );
     }
 
-    /**
-     * Add Shift to Production Order
-     */
-    static async addShift(data: {
-        productionOrderId: string,
-        shiftName: string,
-        startTime: Date,
-        endTime: Date,
-        operatorId?: string,
-        helperIds?: string[],
-        machineId?: string
-    }) {
-        await prisma.$transaction(async (tx) => {
-            await tx.productionShift.create({
-                data: {
-                    productionOrderId: data.productionOrderId,
-                    shiftName: data.shiftName,
-                    startTime: data.startTime,
-                    endTime: data.endTime,
-                    operatorId: data.operatorId,
-                    helpers: data.helperIds ? {
-                        connect: data.helperIds.map(id => ({ id }))
-                    } : undefined
-                }
-            });
+    // 2. Fetch Sales Order
+    const so = await prisma.salesOrder.findUnique({
+      where: { id: salesOrderId },
+      select: {
+        sourceLocationId: true,
+        expectedDate: true,
+        orderType: true,
+        customerId: true,
+      },
+    });
 
-            if (data.machineId) {
-                await tx.productionOrder.update({
-                    where: { id: data.productionOrderId },
-                    data: { machineId: data.machineId }
-                });
-            }
-        });
+    if (!so) throw new Error("Sales Order not found");
+
+    const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
+
+    // 3. Create PO
+    return await this.createOrder({
+      bomId: bom.id,
+      plannedQuantity: quantity,
+      plannedEnteredQuantity: undefined,
+      plannedEnteredUnit: undefined,
+      plannedConversionFactorSnapshot: undefined,
+      plannedStartDate: new Date(),
+      plannedEndDate: so.expectedDate || undefined,
+      locationId: so.sourceLocationId || "",
+      salesOrderId,
+      notes: `Auto-generated from Sales Order shortage${isMaklon ? " (Maklon; source location treated as production location/default consumption location)" : ""}.`,
+      isMaklon: isMaklon,
+      maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
+      estimatedConversionCost: 0,
+    });
+  }
+
+  /**
+   * Quick Create Production Order for Daily Production
+   * Wraps createOrder() with daily-production defaults:
+   * - Auto-sets plannedStartDate to today
+   * - Auto-sets status to RELEASED (skips DRAFT)
+   * - Validates machine type vs BOM category
+   */
+  static async quickCreateOrder(data: {
+    bomId: string;
+    plannedQuantity: number;
+    machineId: string;
+    locationId: string;
+    userId?: string;
+    notes?: string;
+  }) {
+    const { bomId, plannedQuantity, machineId, locationId, userId, notes } =
+      data;
+
+    if (!bomId || plannedQuantity <= 0 || !machineId || !locationId) {
+      throw new Error("BOM, quantity, machine, and location are required");
     }
 
-    /**
-     * Delete Production Shift
-     */
-    static async deleteShift(shiftId: string) {
-        await prisma.productionShift.delete({
-            where: { id: shiftId }
-        });
+    // Validate machine type vs BOM category (reuse logic from createOrder)
+    const [machine, bom] = await Promise.all([
+      prisma.machine.findUnique({
+        where: { id: machineId },
+        select: { type: true },
+      }),
+      prisma.bom.findUnique({
+        where: { id: bomId },
+        select: { category: true },
+      }),
+    ]);
+
+    if (machine && bom) {
+      const isTypeMatch =
+        (bom.category === BomCategory.MIXING &&
+          machine.type === MachineType.MIXER) ||
+        (bom.category === BomCategory.EXTRUSION &&
+          (machine.type === MachineType.EXTRUDER ||
+            machine.type === MachineType.REWINDER)) ||
+        (bom.category === BomCategory.PACKING &&
+          (machine.type === MachineType.PACKER ||
+            machine.type === MachineType.GRANULATOR)) ||
+        bom.category === BomCategory.REWORK ||
+        (bom.category === BomCategory.STANDARD &&
+          (machine.type === MachineType.EXTRUDER ||
+            machine.type === MachineType.MIXER));
+
+      if (!isTypeMatch) {
+        throw new Error(
+          `Machine type ${machine.type} is not compatible with stage ${bom.category}`,
+        );
+      }
     }
+
+    // Create order with daily-production defaults
+    const order = await this.createOrder({
+      bomId,
+      plannedQuantity,
+      plannedStartDate: new Date(),
+      locationId,
+      machineId,
+      userId,
+      notes: notes || "Quick produce — produksi harian",
+      isMaklon: false,
+      estimatedConversionCost: 0,
+    });
+
+    // Auto-release: if order was created as DRAFT, set to RELEASED
+    if (order.status === ProductionStatus.DRAFT) {
+      await prisma.productionOrder.update({
+        where: { id: order.id },
+        data: { status: ProductionStatus.RELEASED },
+      });
+    }
+
+    return order;
+  }
+
+  /**
+   * Update Production Order
+   */
+  static async updateOrder(data: UpdateProductionOrderValues) {
+    const {
+      id,
+      status,
+      actualQuantity,
+      actualStartDate,
+      actualEndDate,
+      machineId,
+    } = data;
+
+    return await prisma.productionOrder.update({
+      where: { id },
+      data: {
+        status,
+        actualQuantity,
+        actualStartDate,
+        actualEndDate,
+        machineId,
+      },
+    });
+  }
+
+  /**
+   * Delete Production Order (Draft Only)
+   */
+  static async deleteOrder(id: string) {
+    const order = await prisma.productionOrder.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.status !== "DRAFT" && order.status !== "WAITING_MATERIAL") {
+      throw new Error("Only DRAFT or WAITING_MATERIAL orders can be deleted.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.stockMovement.updateMany({
+        where: { productionOrderId: id },
+        data: { productionOrderId: null },
+      });
+      await tx.materialIssue.deleteMany({ where: { productionOrderId: id } });
+      await tx.scrapRecord.deleteMany({ where: { productionOrderId: id } });
+      await tx.qualityInspection.deleteMany({
+        where: { productionOrderId: id },
+      });
+      await tx.productionShift.deleteMany({ where: { productionOrderId: id } });
+      await tx.productionMaterial.deleteMany({
+        where: { productionOrderId: id },
+      });
+      await tx.productionOrder.delete({ where: { id } });
+    });
+  }
+
+  /**
+   * Add Shift to Production Order
+   */
+  static async addShift(data: {
+    productionOrderId: string;
+    shiftName: string;
+    startTime: Date;
+    endTime: Date;
+    operatorId?: string;
+    helperIds?: string[];
+    machineId?: string;
+  }) {
+    await prisma.$transaction(async (tx) => {
+      await tx.productionShift.create({
+        data: {
+          productionOrderId: data.productionOrderId,
+          shiftName: data.shiftName,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          operatorId: data.operatorId,
+          helpers: data.helperIds
+            ? {
+                connect: data.helperIds.map((id) => ({ id })),
+              }
+            : undefined,
+        },
+      });
+
+      if (data.machineId) {
+        await tx.productionOrder.update({
+          where: { id: data.productionOrderId },
+          data: { machineId: data.machineId },
+        });
+      }
+    });
+  }
+
+  /**
+   * Delete Production Shift
+   */
+  static async deleteShift(shiftId: string) {
+    await prisma.productionShift.delete({
+      where: { id: shiftId },
+    });
+  }
 }

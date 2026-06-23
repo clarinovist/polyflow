@@ -23,6 +23,7 @@ export const mainNavLabels = {
 /** Sidebar by domain */
 export const productionSidebarLabels = {
   overview: "Overview",
+  dailyProduction: "Produksi Hari Ini",
   machineBoard: "Papan Mesin",
   floorStock: "Stok Lantai",
   teamShifts: "Tim / Shift",

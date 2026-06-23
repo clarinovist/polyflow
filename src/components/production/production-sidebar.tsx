@@ -2,6 +2,7 @@
 
 import {
   LayoutDashboard,
+  CalendarPlus,
   Factory,
   Boxes,
   History,
@@ -32,6 +33,11 @@ const productionLinks = [
         icon: LayoutDashboard,
         label: productionSidebarLabels.overview,
         exact: true,
+      },
+      {
+        href: "/production/daily",
+        icon: CalendarPlus,
+        label: productionSidebarLabels.dailyProduction,
       },
       {
         href: "/production/machines",
