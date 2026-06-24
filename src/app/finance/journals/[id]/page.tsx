@@ -8,6 +8,7 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
+import { withTenant } from '@/lib/core/tenant';
 
 import { JournalActions } from './journal-actions';
 
@@ -15,10 +16,9 @@ interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
 }
 
-export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
-    const { id } = await params;
-
-    const journal = await prisma.journalEntry.findUnique({
+// Wrap prisma calls with withTenant for correct tenant DB
+const getJournal = withTenant(async (id: string) => {
+    return prisma.journalEntry.findUnique({
         where: { id },
         include: {
             createdBy: { select: { name: true, email: true } },
@@ -26,10 +26,30 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                 include: {
                     account: true
                 },
-                orderBy: { debit: 'desc' } // Debits first usually
+                orderBy: { debit: 'desc' }
             }
         }
     });
+});
+
+const getSalesInvoice = withTenant(async (id: string) => {
+    return prisma.invoice.findUnique({
+        where: { id },
+        include: { salesOrder: { include: { customer: true } } }
+    });
+});
+
+const getPurchaseInvoice = withTenant(async (id: string) => {
+    return prisma.purchaseInvoice.findUnique({
+        where: { id },
+        include: { purchaseOrder: { include: { supplier: true } } }
+    });
+});
+
+export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
+    const { id } = await params;
+
+    const journal = await getJournal(id);
 
     if (!journal) {
         notFound();
@@ -40,18 +60,12 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
     let orderNotes: string | null = null;
 
     if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
-        const invoice = await prisma.invoice.findUnique({
-            where: { id: journal.referenceId },
-            include: { salesOrder: { include: { customer: true } } }
-        });
+        const invoice = await getSalesInvoice(journal.referenceId);
         partyName = invoice?.salesOrder?.customer?.name ?? null;
         orderNotes = invoice?.salesOrder?.notes ?? null;
         partyLabel = 'Pembeli';
     } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
-        const invoice = await prisma.purchaseInvoice.findUnique({
-            where: { id: journal.referenceId },
-            include: { purchaseOrder: { include: { supplier: true } } }
-        });
+        const invoice = await getPurchaseInvoice(journal.referenceId);
         partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
         orderNotes = invoice?.purchaseOrder?.notes ?? null;
         partyLabel = 'Pemasok';
