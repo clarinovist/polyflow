@@ -38,7 +38,8 @@ export default async function PurchaseOrdersPage() {
                 </div>
             </div>
 
-            <PurchaseOrderTable orders={serializeData(orders)} stats={stats} />
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <PurchaseOrderTable orders={serializeData(orders) as any} />
         </div>
     );
 }

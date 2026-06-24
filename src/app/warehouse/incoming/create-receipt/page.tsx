@@ -38,21 +38,35 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
         );
     }
 
-    const order = await getPoData(poId);
+    const rawOrder = await getPoData(poId);
 
-    if (!order) {
+    if (!rawOrder) {
         notFound();
     }
 
+    const order = serializeData(rawOrder) as any;
     const locationsRes = await getLocations();
     const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
+    // Map order to GoodsReceiptForm props
+    const formProps = {
+        purchaseOrderId: order.id,
+        orderNumber: order.orderNumber,
+        items: (order.items || []).map((item: any) => ({
+            productVariantId: item.productVariantId,
+            productName: item.productVariant?.product?.name || item.productVariant?.name || '',
+            skuCode: item.productVariant?.skuCode || '',
+            orderedQty: Number(item.quantity),
+            receivedQty: Number(item.receivedQty || 0),
+            unitPrice: Number(item.unitPrice),
+            unit: item.enteredUnit || item.productVariant?.primaryUnit || 'pcs',
+        })),
+        locations: locations.map((loc: any) => ({ id: loc.id, name: loc.name })),
+    };
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
-            <GoodsReceiptForm
-                order={serializeData(order)}
-                locations={serializeData(locations)}
-            />
+            <GoodsReceiptForm {...formProps} />
         </div>
     );
 }

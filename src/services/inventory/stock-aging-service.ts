@@ -114,17 +114,42 @@ export class StockAgingService {
         const summary = {
             totalValue: 0,
             agedValue: 0, // > 90 days
-            agedPercentage: 0
+            agedPercentage: 0,
+            totalItems: 0,
+            slowMovingCount: 0,
+            avgDays: 0,
         };
+
+        let totalDays = 0;
+        let itemCount = 0;
 
         results.forEach(res => {
             Object.values(res.buckets).forEach(b => {
                 summary.totalValue += b.value;
+                summary.totalItems += b.quantity;
                 if (b.range === '90+') {
                     summary.agedValue += b.value;
+                    summary.slowMovingCount += b.quantity;
                 }
             });
+            // Estimate average days from bucket distribution
+            const buckets = Object.values(res.buckets);
+            let weightedDays = 0;
+            let totalQty = 0;
+            buckets.forEach(b => {
+                const midPoint = b.range === '90+' ? 105 : b.range === '61-90' ? 75 : b.range === '31-60' ? 45 : 15;
+                weightedDays += midPoint * b.quantity;
+                totalQty += b.quantity;
+            });
+            if (totalQty > 0) {
+                totalDays += weightedDays / totalQty;
+            }
+            itemCount++;
         });
+
+        if (itemCount > 0) {
+            summary.avgDays = totalDays / itemCount;
+        }
 
         if (summary.totalValue > 0) {
             summary.agedPercentage = (summary.agedValue / summary.totalValue) * 100;

@@ -10,7 +10,7 @@ import { withTenantPage } from '@/lib/core/tenant';
 
 const getAgingData = withTenantPage(async () => {
     const aging = await StockAgingService.calculateStockAging();
-    // summary already fetched above
+    const summary = await StockAgingService.getAgingSummary();
     return { aging, summary };
 });
 export default async function StockAgingPage() {
