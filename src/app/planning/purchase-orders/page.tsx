@@ -5,25 +5,21 @@ import { PurchaseOrderTable } from '@/components/planning/purchasing/PurchaseOrd
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 import { planningLabels } from '@/lib/labels';
-
 import { withTenantPage } from '@/lib/core/tenant';
 
 const getOrdersData = withTenantPage(async () => {
-    const orders = /* handled by getOrdersData */;
-    const stats = /* handled by getOrdersData */;
+    const orders = await PurchaseService.getPurchaseOrders();
+    const stats = await PurchaseService.getPurchaseStats();
     return { orders, stats };
 });
+
 export const metadata: Metadata = {
     title: 'Purchase Orders | PolyFlow ERP',
     description: planningLabels.purchaseOrdersDesc,
 };
 
 export default async function PurchaseOrdersPage() {
-    const orders = /* handled by getOrdersData */;
-    const stats = /* handled by getOrdersData */;
-
-    // Serialize all Prisma objects for Client Components
-    const serializedOrders = serializeData(orders);
+    const { orders, stats } = await getOrdersData();
 
     return (
         <div className="flex flex-col gap-6 p-6">
@@ -36,35 +32,13 @@ export default async function PurchaseOrdersPage() {
                         </div>
                         <h1 className="text-2xl font-bold tracking-tight">Purchase Orders</h1>
                         <p className="text-muted-foreground">
-                            {planningLabels.createTrackOrders}
+                            Manage supplier purchase orders and track procurement.
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
-                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.totalOrders}</div>
-                    <div className="text-2xl font-bold">{stats.totalOrders}</div>
-                </div>
-                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.openSent}</div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.openOrders}</div>
-                </div>
-                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.completed}</div>
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.completedOrders}</div>
-                </div>
-                <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                    <div className="text-sm font-medium text-muted-foreground">{planningLabels.totalSpend}</div>
-                    <div className="text-2xl font-bold">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.totalSpend)}
-                    </div>
-                </div>
-            </div>
-
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseOrderTable orders={serializedOrders as any} />
+            <PurchaseOrderTable orders={serializeData(orders)} stats={stats} />
         </div>
     );
 }

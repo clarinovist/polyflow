@@ -6,12 +6,12 @@ import { GoodsReceiptForm } from '@/components/planning/purchasing/GoodsReceiptF
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
-
 import { withTenantPage } from '@/lib/core/tenant';
 
-const getPoData = withTenantPage(async (poId) => {
-    return getPoData(poId);
+const getPoData = withTenantPage(async (poId: string) => {
+    return PurchaseService.getPurchaseOrderById(poId);
 });
+
 export const metadata: Metadata = {
     title: 'Post Goods Receipt | PolyFlow Warehouse',
 };
@@ -23,68 +23,35 @@ interface PageProps {
 }
 
 export default async function WarehouseCreateReceiptPage({ searchParams }: PageProps) {
-    const { poId } = await searchParams;
+    const params = await searchParams;
+    const poId = params.poId;
 
     if (!poId) {
-        notFound();
+        return (
+            <div className="p-6">
+                <div className="text-center py-12">
+                    <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h2 className="text-lg font-semibold">Pilih Purchase Order</h2>
+                    <p className="text-muted-foreground">Pilih PO dari daftar untuk membuat goods receipt.</p>
+                </div>
+            </div>
+        );
     }
 
-    const [order, locationsRes] = await Promise.all([
-        getPoData(poId),
-        getLocations()
-    ]);
-    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    const order = await getPoData(poId);
 
     if (!order) {
         notFound();
     }
 
-    // Serialize all Prisma objects for Client Components
-    const serializedOrder = serializeData(order);
-    const serializedLocations = serializeData(locations);
-
-    // Map order items for form
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = (serializedOrder as any).items.map((item: any) => ({
-        productVariantId: item.productVariantId,
-        productName: item.productVariant.name,
-        skuCode: item.productVariant.skuCode,
-        orderedQty: Number(item.quantity),
-        receivedQty: Number(item.receivedQty),
-        unitPrice: Number(item.unitPrice),
-        unit: item.productVariant.primaryUnit
-    }));
+    const locationsRes = await getLocations();
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     return (
-        <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto">
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShoppingCart className="h-3 w-3" />
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <span>Incoming / PO {(serializedOrder as any).orderNumber} / Post Receipt</span>
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight">Buat Penerimaan Barang</h1>
-                <p className="text-muted-foreground">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    Record incoming stock items for Purchase Order <span className="font-bold text-blue-600">#{(serializedOrder as any).orderNumber}</span>.
-                </p>
-            </div>
-
+        <div className="p-6 max-w-5xl mx-auto">
             <GoodsReceiptForm
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                purchaseOrderId={(serializedOrder as any).id}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                orderNumber={(serializedOrder as any).orderNumber}
-                items={items}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                locations={serializedLocations.map((l: any) => ({ id: l.id, name: l.name }))}
-                defaultLocationId={
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    serializedLocations.find((l: any) => l.slug === 'rm_warehouse')?.id || 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    serializedLocations.find((l: any) => l.name.toLowerCase().includes('raw material'))?.id
-                }
-                basePath="/planning/purchase-orders"
+                order={serializeData(order)}
+                locations={serializeData(locations)}
             />
         </div>
     );

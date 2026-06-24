@@ -110,6 +110,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Usage: const getData = withTenantPage(async () => { ... });
  *        export default async function Page() { const data = await getData(); }
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withTenantPage<T extends (...args: any[]) => Promise<any>>(fetchData: T): T {
     return withTenant(fetchData);
 }

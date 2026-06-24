@@ -1,91 +1,83 @@
 import { StockAgingService } from '@/services/inventory/stock-aging-service';
 import { StockAgingTable } from '@/components/warehouse/inventory/StockAgingTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, RefreshCw, Clock } from 'lucide-react';
+import { ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Metadata } from 'next';
-
 import { withTenantPage } from '@/lib/core/tenant';
 
 const getAgingData = withTenantPage(async () => {
-    const aging = /* handled by getAgingData */;
-    const summary = /* handled by getAgingData */;
+    const aging = await StockAgingService.calculateStockAging();
+    const summary = await StockAgingService.getAgingSummary();
     return { aging, summary };
 });
+
 export const metadata: Metadata = {
     title: 'Stock Aging | PolyFlow Warehouse',
 };
 
-export default async function WarehouseStockAgingPage() {
-    const agingData = /* handled by getAgingData */;
-    const summary = /* handled by getAgingData */;
+export default async function StockAgingPage() {
+    const { aging: agingData, summary } = await getAgingData();
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-6">
-            <Card className="border shadow-sm overflow-hidden">
-                <CardHeader className="bg-muted/10 border-b py-3 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-orange-50 text-orange-600">
-                            <Clock className="h-4 w-4" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-lg font-bold text-foreground">Stock Aging Report</CardTitle>
-                            <p className="text-xs text-muted-foreground">Analyze inventory age based on batch receiving dates</p>
-                        </div>
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href="/warehouse/analytics">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Inventaris
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Aging Stok</h1>
+                        <p className="text-muted-foreground">Analisis umur stok berdasarkan hari</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" asChild className="h-8 w-8">
-                            <Link href="/warehouse/inventory/aging" title="Refresh">
-                                <RefreshCw className="h-3.5 w-3.5" />
-                            </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" asChild className="h-8 text-xs">
-                            <Link href="/warehouse/inventory">
-                                <ArrowLeft className="mr-2 h-3 w-3" /> Kembali ke Inventaris
-                            </Link>
-                        </Button>
-                    </div>
-                </CardHeader>
-            </Card>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Terakhir diperbarui: {new Date().toLocaleDateString('id-ID')}</span>
+                </div>
+            </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Inventory Value</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Item</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{summary.totalItems}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Total Nilai</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatRupiah(summary.totalValue)}</div>
                     </CardContent>
                 </Card>
-                <Card className={summary.agedPercentage > 10 ? "border-red-200 bg-red-50 dark:bg-red-950/20 shadow-sm" : "border shadow-sm"}>
+                <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-red-600 dark:text-red-400">Value &gt; 90 Days</CardTitle>
+                        <CardTitle className="text-sm font-medium">Stok Aging (&gt;90 hari)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-700 dark:text-red-400">
-                            {formatRupiah(summary.agedValue)}
-                        </div>
-                        <p className="text-xs text-red-600/80 mt-1">
-                            {summary.agedPercentage.toFixed(1)}% of total value
-                        </p>
+                        <div className="text-2xl font-bold text-red-600">{summary.slowMovingCount}</div>
                     </CardContent>
                 </Card>
-                <Card className="border shadow-sm">
+                <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Action Items</CardTitle>
+                        <CardTitle className="text-sm font-medium">Rata-rata Umur</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-sm text-muted-foreground">
-                            Consider discounting or promoting items with high &gt;90 day stock to free up capital.
-                        </div>
+                        <div className="text-2xl font-bold">{summary.avgDays.toFixed(0)} hari</div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Main Table */}
+            {/* Aging Table */}
             <StockAgingTable data={agingData} />
         </div>
     );
