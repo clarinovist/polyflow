@@ -243,6 +243,9 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             <div className="bank-type-label">
               {isPPN ? '(Penjualan PPN)' : '(Penjualan Non PPN)'}
             </div>
+            <div className="bank-account">
+              A/N {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]?.holder || COMPANY.name}
+            </div>
             {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
               <div key={acc.account} className="bank-account">
                 {acc.bank} : {acc.account}
