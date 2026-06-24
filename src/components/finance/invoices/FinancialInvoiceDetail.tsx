@@ -1,3 +1,5 @@
+'use client';
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -5,7 +7,8 @@ import { formatRupiah } from "@/lib/utils/utils";
 import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from "@/lib/utils/production-units";
 import { InvoiceStatus, Invoice } from "@prisma/client";
 import { format } from "date-fns";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Printer } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type InvoiceLineItem = {
     id?: string;
@@ -38,6 +41,7 @@ interface FinancialInvoiceDetailProps {
 }
 
 export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps) {
+    const router = useRouter();
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
 
@@ -58,6 +62,15 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
 
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <button
+                    onClick={() => window.open(`/finance/invoices/sales/${invoice.id}/print`, '_blank')}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
+                >
+                    <Printer className="h-4 w-4" />
+                    Cetak Dot Matrix
+                </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader className="pb-2">

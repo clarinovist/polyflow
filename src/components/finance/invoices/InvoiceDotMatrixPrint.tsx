@@ -1,0 +1,504 @@
+'use client';
+
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+// formatRupiah not used in dot-matrix layout (uses formatNumberWithDots instead)
+import { terbilang } from '@/lib/utils/terbilang';
+import { InvoiceStatus } from '@prisma/client';
+
+type InvoiceLineItem = {
+  id?: string;
+  quantity?: unknown;
+  unitPrice?: unknown;
+  subtotal?: unknown;
+  enteredQuantity?: unknown;
+  enteredUnit?: string | null;
+  enteredUnitPrice?: unknown;
+  productVariant?: {
+    name?: string;
+    primaryUnit?: string | null;
+    salesUnit?: string | null;
+    product?: { name?: string };
+  };
+};
+
+interface InvoicePrintData {
+  invoiceNumber: string;
+  invoiceDate: Date;
+  dueDate: Date | null;
+  status: InvoiceStatus;
+  totalAmount: number;
+  paidAmount: number;
+  salesOrder?: {
+    orderNumber: string;
+    taxAmount?: unknown;
+    customer?: {
+      name: string;
+      phone?: string | null;
+      email?: string | null;
+      billingAddress?: string | null;
+      shippingAddress?: string | null;
+      taxId?: string | null;
+    } | null;
+    items?: InvoiceLineItem[];
+  } | null;
+}
+
+/** Company config for Melindo Jaya — move to env/config when multi-tenant printing is needed */
+const COMPANY = {
+  name: 'CV MELINDO JAYA',
+  address: 'Puri Niaga RT.005 RW.006, Sawahan, Kel. Jaten,\nKec. Jaten, Karanganyar, Jawa Tengah 57731',
+  phone: '0271 82017580, 0271 6882007',
+  email: 'jaya.melindo@gmail.com',
+  bankAccounts: [
+    { bank: 'Bank BCA', account: '7735006002', holder: 'Nugroho Pramono' },
+    { bank: 'Bank BRI', account: '671401042839531', holder: 'Nugroho Pramono' },
+    { bank: 'Bank Mandiri', account: '1380556667777', holder: 'Nugroho Pramono' },
+  ],
+  footerNote: 'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN',
+  signerName: 'Nugroho Pramono',
+};
+
+function formatNumberWithDots(n: number): string {
+  return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDate(date: Date): string {
+  return format(date, 'dd MMM yyyy', { locale: idLocale });
+}
+
+interface InvoiceDotMatrixPrintProps {
+  invoice: InvoicePrintData;
+  showButton?: boolean;
+}
+
+export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDotMatrixPrintProps) {
+  const so = invoice.salesOrder;
+  const customer = so?.customer;
+  const items = so?.items ?? [];
+  const _taxAmount = Number(so?.taxAmount || 0);
+
+  const subtotal = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+  const totalQty = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const grandTotal = Number(invoice.totalAmount);
+  const dppLain = 0;
+  const coretax = 0;
+  const potongan = 0;
+  const sisaTagihan = grandTotal - Number(invoice.paidAmount);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <>
+      {showButton && (
+        <div className="no-print p-4 bg-gray-50 border-b flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">
+            Preview cetak dot matrix — {invoice.invoiceNumber}
+          </span>
+          <button
+            onClick={handlePrint}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+          >
+            🖨️ Cetak Invoice
+          </button>
+        </div>
+      )}
+
+      <div className="print-page">
+        {/* === HEADER === */}
+        <div className="invoice-header">
+          <div className="company-section">
+            <div className="company-logo">MJ</div>
+            <div className="company-details">
+              <div className="company-name">{COMPANY.name}</div>
+              <div className="company-address">{COMPANY.address}</div>
+              <div className="company-contact">Telp : {COMPANY.phone}</div>
+              <div className="company-contact">Email : {COMPANY.email}</div>
+            </div>
+          </div>
+
+          <div className="title-section">INVOICE</div>
+
+          <div className="customer-section">
+            <div className="customer-row">
+              <span className="customer-label">NAMA PELANGGAN :</span>
+              <span className="customer-value">{customer?.name || '-'}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">ALAMAT :</span>
+              <span className="customer-value">{customer?.billingAddress || '-'}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">NPWP :</span>
+              <span className="customer-value">{customer?.taxId || '-'}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">NO INVOICE :</span>
+              <span className="customer-value">{invoice.invoiceNumber}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">TGL INVOICE :</span>
+              <span className="customer-value">{formatDate(new Date(invoice.invoiceDate))}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">TGL JATUH TEMPO :</span>
+              <span className="customer-value">
+                {invoice.dueDate ? formatDate(new Date(invoice.dueDate)) : '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* === ITEMS TABLE === */}
+        <table className="items-table">
+          <thead>
+            <tr>
+              <th className="col-name">Nama Barang</th>
+              <th className="col-qty">Qty</th>
+              <th className="col-unit">Satuan</th>
+              <th className="col-price">Harga @</th>
+              <th className="col-disc">Diskon</th>
+              <th className="col-total">Jumlah (Rp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => {
+              const pv = item.productVariant;
+              const productName = pv?.product?.name || pv?.name || '-';
+              const qty = Number(item.enteredQuantity || item.quantity || 0);
+              const unit = item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || '';
+              const unitPrice = Number(item.enteredUnitPrice || item.unitPrice || 0);
+              const lineTotal = Number(item.subtotal || 0);
+
+              return (
+                <tr key={item.id || idx}>
+                  <td className="col-name">{productName}</td>
+                  <td className="col-qty">{qty}</td>
+                  <td className="col-unit">{unit}</td>
+                  <td className="col-price">{formatNumberWithDots(unitPrice)}</td>
+                  <td className="col-disc">0</td>
+                  <td className="col-total">{formatNumberWithDots(lineTotal)}</td>
+                </tr>
+              );
+            })}
+            {/* Empty rows to fill space like the screenshot */}
+            {items.length < 4 &&
+              Array.from({ length: 4 - items.length }).map((_, i) => (
+                <tr key={`empty-${i}`} className="empty-row">
+                  <td colSpan={6}>&nbsp;</td>
+                </tr>
+              ))}
+          </tbody>
+          <tfoot>
+            <tr className="total-row">
+              <td colSpan={1} className="text-right">TOTAL :</td>
+              <td className="col-qty">{totalQty}</td>
+              <td colSpan={4}></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* === TERBILANG === */}
+        <div className="terbilang-section">
+          <div className="terbilang-text">Terbilang : {terbilang(grandTotal)}</div>
+          <div className="financial-summary">
+            <div className="summary-row">
+              <span>SUBTOTAL :</span>
+              <span>{formatNumberWithDots(subtotal)}</span>
+            </div>
+            <div className="summary-row">
+              <span>DPP Nilai Lain</span>
+              <span>{formatNumberWithDots(dppLain)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Coretax</span>
+              <span>{formatNumberWithDots(coretax)}</span>
+            </div>
+            <div className="summary-row bold">
+              <span>TOTAL :</span>
+              <span>{formatNumberWithDots(grandTotal)}</span>
+            </div>
+            <div className="summary-row">
+              <span>POTONGAN :</span>
+              <span>{formatNumberWithDots(potongan)}</span>
+            </div>
+            <div className="summary-row bold">
+              <span>SISA TAGIHAN :</span>
+              <span className="highlight">{formatNumberWithDots(sisaTagihan)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* === FOOTER === */}
+        <div className="invoice-footer">
+          <div className="footer-left">
+            <div className="keterangan-label">KETERANGAN :</div>
+            {COMPANY.bankAccounts.map((acc) => (
+              <div key={acc.account} className="bank-account">
+                A / C {acc.account} ({acc.bank})
+              </div>
+            ))}
+          </div>
+
+          <div className="footer-center">
+            <div className="hormat-text">Hormat kami,</div>
+            <div className="signature-space"></div>
+            <div className="signer-name">( {COMPANY.signerName} )</div>
+          </div>
+
+          <div className="footer-right">
+            {/* Spacer for balance */}
+          </div>
+        </div>
+
+        {/* === NOTE === */}
+        <div className="invoice-note">
+          NOTE :{COMPANY.footerNote}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @page {
+          size: 21cm 29.7cm;
+          margin: 10mm 15mm;
+        }
+
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+        }
+
+        .print-page {
+          font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
+          font-size: 11px;
+          line-height: 1.4;
+          max-width: 210mm;
+          margin: 0 auto;
+          padding: 10mm 15mm;
+          color: #000;
+          background: #fff;
+        }
+
+        /* === HEADER === */
+        .invoice-header {
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          gap: 8px;
+          margin-bottom: 12px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 12px;
+        }
+
+        .company-section {
+          display: flex;
+          gap: 8px;
+        }
+
+        .company-logo {
+          font-size: 28px;
+          font-weight: bold;
+          font-family: 'Times New Roman', serif;
+          color: #000;
+          line-height: 1;
+          border: 2px solid #000;
+          padding: 4px 6px;
+        }
+
+        .company-details {
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .company-name {
+          font-size: 14px;
+          font-weight: bold;
+        }
+
+        .company-address {
+          font-size: 9px;
+          white-space: pre-line;
+        }
+
+        .company-contact {
+          font-size: 9px;
+        }
+
+        .title-section {
+          font-size: 18px;
+          font-weight: bold;
+          text-align: center;
+          padding-top: 20px;
+        }
+
+        .customer-section {
+          text-align: right;
+          font-size: 10px;
+        }
+
+        .customer-row {
+          margin-bottom: 2px;
+        }
+
+        .customer-label {
+          font-weight: bold;
+        }
+
+        .customer-value {
+          margin-left: 4px;
+        }
+
+        /* === ITEMS TABLE === */
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+          font-size: 10px;
+        }
+
+        .items-table th,
+        .items-table td {
+          border: 1px solid #000;
+          padding: 3px 6px;
+        }
+
+        .items-table th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          text-align: center;
+        }
+
+        .col-name {
+          text-align: left;
+          width: 35%;
+        }
+
+        .col-qty {
+          text-align: center;
+          width: 8%;
+        }
+
+        .col-unit {
+          text-align: center;
+          width: 12%;
+        }
+
+        .col-price {
+          text-align: right;
+          width: 15%;
+        }
+
+        .col-disc {
+          text-align: right;
+          width: 10%;
+        }
+
+        .col-total {
+          text-align: right;
+          width: 20%;
+        }
+
+        .items-table tfoot td {
+          font-weight: bold;
+          text-align: right;
+        }
+
+        .empty-row td {
+          height: 18px;
+        }
+
+        /* === TERBILANG === */
+        .terbilang-section {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 8px;
+          margin-bottom: 10px;
+          border: 1px solid #000;
+          padding: 6px;
+        }
+
+        .terbilang-text {
+          font-style: italic;
+          font-size: 10px;
+        }
+
+        .financial-summary {
+          font-size: 10px;
+          min-width: 180px;
+        }
+
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 1px 0;
+        }
+
+        .summary-row.bold {
+          font-weight: bold;
+        }
+
+        .summary-row .highlight {
+          font-weight: bold;
+          font-size: 11px;
+          border: 1px solid #000;
+          padding: 1px 4px;
+        }
+
+        /* === FOOTER === */
+        .invoice-footer {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          margin-top: 12px;
+          font-size: 10px;
+        }
+
+        .footer-left {
+          border: 1px solid #000;
+          padding: 6px;
+        }
+
+        .keterangan-label {
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+
+        .bank-account {
+          margin-bottom: 2px;
+        }
+
+        .footer-center {
+          text-align: center;
+          padding-top: 10px;
+        }
+
+        .hormat-text {
+          margin-bottom: 60px;
+        }
+
+        .signer-name {
+          font-style: italic;
+        }
+
+        .footer-right {
+          /* Spacer */
+        }
+
+        /* === NOTE === */
+        .invoice-note {
+          margin-top: 10px;
+          padding-top: 6px;
+          border-top: 1px solid #000;
+          font-size: 9px;
+          font-weight: bold;
+        }
+      `}</style>
+    </>
+  );
+}
