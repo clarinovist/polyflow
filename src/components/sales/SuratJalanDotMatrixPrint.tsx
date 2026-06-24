@@ -57,6 +57,8 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
     return sum + qty;
   }, 0);
 
+  const { paperSize } = COMPANY;
+
   const handlePrint = () => {
     window.print();
   };
@@ -151,8 +153,8 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
               );
             })}
             {/* Empty rows to fill space */}
-            {items.length < 5 &&
-              Array.from({ length: 5 - items.length }).map((_, i) => (
+            {items.length < 4 &&
+              Array.from({ length: 4 - items.length }).map((_, i) => (
                 <tr key={`empty-${i}`} className="empty-row">
                   <td colSpan={4}>&nbsp;</td>
                 </tr>
@@ -189,10 +191,11 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         </div>
       </div>
 
-      <style jsx>{`
+      {/* Dynamic @page from company paper size config */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @page {
-          size: 21cm 29.7cm;
-          margin: 10mm 15mm;
+          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
+          margin: ${paperSize.marginMm}mm;
         }
 
         @media print {
@@ -204,14 +207,16 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
             padding: 0;
           }
         }
+      `}} />
 
+      <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
-          font-size: 11px;
-          line-height: 1.4;
-          max-width: 210mm;
+          font-size: 9px;
+          line-height: 1.3;
+          max-width: ${paperSize.widthCm}cm;
           margin: 0 auto;
-          padding: 10mm 15mm;
+          padding: ${paperSize.marginMm}mm;
           color: #000;
           background: #fff;
         }
@@ -220,66 +225,66 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         .doc-header {
           display: grid;
           grid-template-columns: 1fr auto 1fr;
-          gap: 8px;
-          margin-bottom: 16px;
-          border-bottom: 2px solid #000;
-          padding-bottom: 12px;
+          gap: 4px;
+          margin-bottom: 4px;
+          border-bottom: 1px solid #000;
+          padding-bottom: 4px;
         }
 
         .company-section {
           display: flex;
-          gap: 8px;
+          gap: 4px;
         }
 
         .company-logo {
-          font-size: 28px;
+          font-size: 20px;
           font-weight: bold;
           font-family: 'Times New Roman', serif;
           color: #000;
           line-height: 1;
-          border: 2px solid #000;
-          padding: 4px 6px;
+          border: 1px solid #000;
+          padding: 2px 4px;
         }
 
         .company-logo-img {
-          max-height: 60px;
-          max-width: 80px;
+          max-height: 40px;
+          max-width: 50px;
           object-fit: contain;
         }
 
         .company-details {
-          font-size: 10px;
-          line-height: 1.5;
+          font-size: 8px;
+          line-height: 1.3;
         }
 
         .company-name {
-          font-size: 14px;
+          font-size: 11px;
           font-weight: bold;
         }
 
         .company-address {
-          font-size: 9px;
+          font-size: 7px;
           white-space: pre-line;
         }
 
         .company-contact {
-          font-size: 9px;
+          font-size: 7px;
         }
 
         .title-section {
-          font-size: 18px;
+          font-size: 14px;
           font-weight: bold;
           text-align: center;
-          padding-top: 20px;
+          padding-top: 10px;
         }
 
         .info-section {
           text-align: right;
-          font-size: 10px;
+          font-size: 8px;
         }
 
         .info-row {
-          margin-bottom: 2px;
+          margin-bottom: 1px;
         }
 
         .info-label {
@@ -294,14 +299,14 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         .items-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 12px;
-          font-size: 10px;
+          margin-bottom: 4px;
+          font-size: 8px;
         }
 
         .items-table th,
         .items-table td {
           border: 1px solid #000;
-          padding: 4px 6px;
+          padding: 1px 3px;
         }
 
         .items-table th {
@@ -336,16 +341,16 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         }
 
         .empty-row td {
-          height: 20px;
+          height: 14px;
         }
 
         /* === CLOSING === */
         .closing-section {
-          margin: 12px 0;
+          margin: 4px 0;
         }
 
         .closing-text {
-          font-size: 10px;
+          font-size: 8px;
           font-style: italic;
         }
 
@@ -353,9 +358,9 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         .signature-section {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 40px;
-          margin-top: 20px;
-          font-size: 10px;
+          gap: 30px;
+          margin-top: 10px;
+          font-size: 8px;
         }
 
         .sig-left {
@@ -371,7 +376,7 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         }
 
         .sig-space {
-          height: 60px;
+          height: 30px;
         }
 
         .sig-line {

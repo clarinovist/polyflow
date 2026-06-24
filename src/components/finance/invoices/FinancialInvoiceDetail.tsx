@@ -213,7 +213,27 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                 onOpenChange={setShowPreview}
                 title={`Invoice ${invoice.invoiceNumber}`}
             >
-                <InvoiceDotMatrixPrint invoice={invoice} showButton={false} previewMode={true} />
+                <InvoiceDotMatrixPrint
+                    invoice={{
+                        ...invoice,
+                        totalAmount: Number(invoice.totalAmount),
+                        paidAmount: Number(invoice.paidAmount),
+                        salesOrder: invoice.salesOrder ? {
+                            ...invoice.salesOrder,
+                            taxAmount: invoice.salesOrder.taxAmount != null ? Number(invoice.salesOrder.taxAmount) : 0,
+                            items: invoice.salesOrder.items?.map((item) => ({
+                                ...item,
+                                quantity: Number(item.quantity),
+                                unitPrice: Number(item.unitPrice),
+                                subtotal: Number(item.subtotal),
+                                enteredQuantity: item.enteredQuantity != null ? Number(item.enteredQuantity) : undefined,
+                                enteredUnitPrice: item.enteredUnitPrice != null ? Number(item.enteredUnitPrice) : undefined,
+                            })),
+                        } : undefined,
+                    }}
+                    showButton={false}
+                    previewMode={true}
+                />
             </PrintPreviewModal>
         </div>
     );

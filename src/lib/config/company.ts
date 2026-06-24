@@ -12,6 +12,15 @@ export interface BankAccount {
   account: string;
 }
 
+export interface PaperSize {
+  /** Width in cm (e.g. 24.13 for 9.5 inches) */
+  widthCm: number;
+  /** Height in cm (e.g. 13.97 for 5.5 inches) */
+  heightCm: number;
+  /** Margin in mm */
+  marginMm: number;
+}
+
 export interface CompanyConfig {
   name: string;
   logoUrl: string | null;
@@ -22,6 +31,7 @@ export interface CompanyConfig {
   bankAccountsPPN: BankAccount[];
   footerNote: string;
   signerName: string;
+  paperSize: PaperSize;
 }
 
 function parseBankAccounts(json: string | undefined): BankAccount[] | null {
@@ -52,5 +62,10 @@ export function getCompanyConfig(): CompanyConfig {
     ],
     footerNote: process.env.COMPANY_FOOTER_NOTE || 'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN',
     signerName: process.env.COMPANY_SIGNER_NAME || 'Nugroho Pramono',
+    paperSize: {
+      widthCm: parseFloat(process.env.COMPANY_PAPER_WIDTH_CM || '') || 24.13,   // 9.5 inches
+      heightCm: parseFloat(process.env.COMPANY_PAPER_HEIGHT_CM || '') || 13.97, // 5.5 inches
+      marginMm: parseFloat(process.env.COMPANY_PAPER_MARGIN_MM || '') || 5,     // 5mm
+    },
   };
 }
