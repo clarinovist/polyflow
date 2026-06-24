@@ -4,6 +4,11 @@ import { GoodsReceiptDetailClient } from '@/components/planning/purchasing/Goods
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getReceipt = withTenantPage(async (id) => {
+    return PurchaseService.getGoodsReceiptById(id);
+});
 interface PageProps {
     params: Promise<{
         id: string;
@@ -12,7 +17,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { id } = await params;
-    const receipt = await PurchaseService.getGoodsReceiptById(id);
+    const receipt = await getReceipt(id);
     return {
         title: receipt ? `${receipt.receiptNumber} | PolyFlow Warehouse` : 'Receipt Not Found',
     };
@@ -20,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function WarehouseGoodsReceiptDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const receipt = await PurchaseService.getGoodsReceiptById(id);
+    const receipt = await getReceipt(id);
 
     if (!receipt) {
         notFound();

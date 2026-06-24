@@ -7,6 +7,11 @@ import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getPoData = withTenantPage(async (poId) => {
+    return getPoData(poId);
+});
 export const metadata: Metadata = {
     title: 'Post Goods Receipt | PolyFlow Warehouse',
 };
@@ -25,7 +30,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
     }
 
     const [order, locationsRes] = await Promise.all([
-        PurchaseService.getPurchaseOrderById(poId),
+        getPoData(poId),
         getLocations()
     ]);
     const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];

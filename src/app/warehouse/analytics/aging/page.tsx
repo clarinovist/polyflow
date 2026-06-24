@@ -6,10 +6,17 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils/utils';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getAgingData = withTenantPage(async () => {
+    const aging = await StockAgingService.calculateStockAging();
+    // summary already fetched above
+    return { aging, summary };
+});
 export default async function StockAgingPage() {
     // 1. Fetch Aging Data
-    const agingData = await StockAgingService.calculateStockAging();
-    const summary = await StockAgingService.getAgingSummary();
+    const { aging: agingData, summary } = await getAgingData();
+    // summary already fetched above
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">

@@ -6,14 +6,21 @@ import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 import { planningLabels } from '@/lib/labels';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getOrdersData = withTenantPage(async () => {
+    const orders = /* handled by getOrdersData */;
+    const stats = /* handled by getOrdersData */;
+    return { orders, stats };
+});
 export const metadata: Metadata = {
     title: 'Purchase Orders | PolyFlow ERP',
     description: planningLabels.purchaseOrdersDesc,
 };
 
 export default async function PurchaseOrdersPage() {
-    const orders = await PurchaseService.getPurchaseOrders();
-    const stats = await PurchaseService.getPurchaseStats();
+    const orders = /* handled by getOrdersData */;
+    const stats = /* handled by getOrdersData */;
 
     // Serialize all Prisma objects for Client Components
     const serializedOrders = serializeData(orders);

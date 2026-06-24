@@ -17,6 +17,11 @@ import { AlertCircle, Box, Activity, CalendarClock } from 'lucide-react';
 import { serializeData, formatRupiah, cn } from '@/lib/utils/utils';
 
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getAbcData = withTenantPage(async () => {
+    return ABCAnalysisService.calculateABCClassification();
+});
 interface SimplifiedInventory {
     productVariantId: string;
     locationId: string;
@@ -107,7 +112,7 @@ export default async function InventoryDashboard({
     // Phase 2: ABC Analysis (Global)
     let abcMap: Record<string, string> | undefined;
     try {
-        const abcResults = await ABCAnalysisService.calculateABCClassification();
+        const abcResults = await getAbcData();
         abcMap = abcResults.reduce((acc: Record<string, string>, item) => {
             acc[item.productVariantId] = item.class;
             return acc;

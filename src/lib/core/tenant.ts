@@ -105,6 +105,15 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
  */
 import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * Helper for Server Component data fetching.
+ * Usage: const getData = withTenantPage(async () => { ... });
+ *        export default async function Page() { const data = await getData(); }
+ */
+export function withTenantPage<T extends (...args: any[]) => Promise<any>>(fetchData: T): T {
+    return withTenant(fetchData);
+}
+
 export function withTenantRoute(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse | Response | undefined | void> | NextResponse | Response | undefined | void

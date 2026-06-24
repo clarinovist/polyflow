@@ -4,6 +4,11 @@ import { PurchaseOrderDetailClient } from '@/components/planning/purchasing/Purc
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getOrder = withTenantPage(async (id) => {
+    return PurchaseService.getPurchaseOrderById(id);
+});
 interface PageProps {
     params: Promise<{
         id: string;
@@ -12,7 +17,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { id } = await params;
-    const order = await PurchaseService.getPurchaseOrderById(id);
+    const order = await getOrder(id);
     return {
         title: order ? `PO ${order.orderNumber} | PolyFlow Warehouse` : 'Order Not Found',
     };
@@ -20,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function WarehousePurchaseOrderDetailPage({ params }: PageProps) {
     const { id } = await params;
-    const order = await PurchaseService.getPurchaseOrderById(id);
+    const order = await getOrder(id);
 
     if (!order) {
         notFound();

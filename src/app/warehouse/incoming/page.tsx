@@ -10,6 +10,11 @@ import { Button } from '@/components/ui/button';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getReceipts = withTenantPage(async (opts) => {
+    return PurchaseService.getGoodsReceipts(opts);
+});
 export const metadata: Metadata = {
     title: 'Incoming Receipts | Warehouse | PolyFlow',
 };
@@ -23,7 +28,7 @@ export default async function WarehouseIncomingPage({ searchParams }: { searchPa
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const receipts = await PurchaseService.getGoodsReceipts({ startDate: checkStart, endDate: checkEnd });
+    const receipts = await getReceipts({ startDate: checkStart, endDate: checkEnd });
 
     // Serialize all Prisma objects for Client Components
     const serializedReceipts = serializeData(receipts);

@@ -14,6 +14,11 @@ import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNa
 import { Warehouse } from 'lucide-react';
 import { formatRupiah, serializeData } from '@/lib/utils/utils';
 import { Badge } from '@/components/ui/badge';
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getAbcData = withTenantPage(async () => {
+    return ABCAnalysisService.calculateABCClassification();
+});
 
 interface SimplifiedInventory {
     productVariantId: string;
@@ -94,7 +99,7 @@ export default async function WarehouseInventoryPage({
 
     let abcMap: Record<string, string> | undefined;
     try {
-        const abcResults = await ABCAnalysisService.calculateABCClassification();
+        const abcResults = await getAbcData();
         abcMap = abcResults.reduce((acc: Record<string, string>, item) => {
             acc[item.productVariantId] = item.class;
             return acc;

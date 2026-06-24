@@ -5,6 +5,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getInvoice = withTenantPage(async (id) => {
+    return PurchaseService.getPurchaseInvoiceById(id);
+});
 interface PageProps {
     params: Promise<{
         id: string;
@@ -13,7 +18,7 @@ interface PageProps {
 
 export default async function FinancialPurchaseInvoicePage({ params }: PageProps) {
     const { id } = await params;
-    const invoice = await PurchaseService.getPurchaseInvoiceById(id);
+    const invoice = await getInvoice(id);
 
     if (!invoice) {
         notFound();

@@ -38,6 +38,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getCostingData = withTenantPage(async () => {
+    return CostingService.getCostingDashboard();
+});
 const SOURCE_OPTIONS = [
   "all",
   "inventory_average",
@@ -498,102 +503,3 @@ export default async function CostingPage(props: {
                             <Badge
                               variant={
                                 row.flags.length > 0
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                            >
-                              {row.health === "review_needed"
-                                ? "Review Needed"
-                                : "Within Range"}
-                            </Badge>
-                            {row.flags.map((flag) => (
-                              <Badge
-                                key={`${row.variantId}-${flag}`}
-                                variant="outline"
-                              >
-                                {getCostAlertShortLabel(flag)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Cost Breakdown</CardTitle>
-          <CardDescription>
-            Costs per production order based on actual issue movements, labor,
-            and machine time.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order #</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Material</TableHead>
-                  <TableHead className="text-right">Labor</TableHead>
-                  <TableHead className="text-right">Machine</TableHead>
-                  <TableHead className="text-right font-bold">
-                    Total Cost
-                  </TableHead>
-                  <TableHead className="text-right">Unit Cost</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {costs.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center h-24 text-muted-foreground"
-                    >
-                      No costing data for selected period.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  costs.map((cost) => (
-                    <TableRow key={cost.productionOrderId}>
-                      <TableCell className="font-mono font-medium">
-                        {cost.orderNumber}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {cost.quantityProduced}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatRupiah(cost.materialCost)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatRupiah(cost.laborCost)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatRupiah(cost.machineCost)}
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        {formatRupiah(cost.totalCost)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline">
-                          {formatRupiah(cost.unitCost)}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}

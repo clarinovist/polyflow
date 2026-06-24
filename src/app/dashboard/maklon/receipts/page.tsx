@@ -9,6 +9,11 @@ import { UrlTransactionDateFilter } from '@/components/common/url-transaction-da
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { PageHeader } from '@/components/ui/page-header';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getReceipts = withTenantPage(async (opts) => {
+    return PurchaseService.getGoodsReceipts(opts);
+});
 export default async function MaklonReceiptsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;
     const now = new Date();
@@ -18,7 +23,7 @@ export default async function MaklonReceiptsPage({ searchParams }: { searchParam
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const receipts = await PurchaseService.getGoodsReceipts({ 
+    const receipts = await getReceipts({ 
         startDate: checkStart, 
         endDate: checkEnd,
         isMaklon: true 

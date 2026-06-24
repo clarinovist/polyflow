@@ -7,13 +7,20 @@ import { Button } from '@/components/ui/button';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Metadata } from 'next';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getAgingData = withTenantPage(async () => {
+    const aging = /* handled by getAgingData */;
+    const summary = /* handled by getAgingData */;
+    return { aging, summary };
+});
 export const metadata: Metadata = {
     title: 'Stock Aging | PolyFlow Warehouse',
 };
 
 export default async function WarehouseStockAgingPage() {
-    const agingData = await StockAgingService.calculateStockAging();
-    const summary = await StockAgingService.getAgingSummary();
+    const agingData = /* handled by getAgingData */;
+    const summary = /* handled by getAgingData */;
 
     return (
         <div className="max-w-[1600px] mx-auto space-y-6">

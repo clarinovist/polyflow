@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button';
 import { FileText, Archive, TrendingUp, DollarSign, ListTodo } from 'lucide-react';
 import { MonthPicker } from './MonthPicker';
 
+import { withTenantPage } from '@/lib/core/tenant';
+
+const getPackingData = withTenantPage(async (month) => {
+    return PackingReportService.getMonthlyPackingReport(month);
+});
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
@@ -21,7 +26,7 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
     const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     const selectedMonth = params.month || defaultMonth;
 
-    const data = await PackingReportService.getMonthlyPackingReport(selectedMonth);
+    const data = await getPackingData(selectedMonth);
 
     // Calculate aggregated metrics
     const totalQuantity = data.reduce((sum, item) => sum + item.totalQuantity, 0);
