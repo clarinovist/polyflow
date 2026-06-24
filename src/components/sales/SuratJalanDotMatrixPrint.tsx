@@ -2,6 +2,7 @@
 
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { getCompanyConfig } from '@/lib/config/company';
 
 type DeliveryItem = {
   id?: string;
@@ -34,13 +35,7 @@ interface SuratJalanPrintData {
   items?: DeliveryItem[];
 }
 
-const COMPANY = {
-  name: 'CV MELINDO JAYA',
-  address: 'Puri Niaga RT.005 RW.006, Sawahan, Kel. Jaten,\nKec. Jaten, Karanganyar, Jawa Tengah 57731',
-  phone: '0271 82017580, 0271 6882007',
-  email: 'jaya.melindo@gmail.com',
-  signerName: 'Nugroho Pramono',
-};
+// Company config loaded from env vars — see src/lib/config/company.ts
 
 function formatDate(date: Date): string {
   return format(date, 'dd MMM yyyy', { locale: idLocale });
@@ -49,9 +44,11 @@ function formatDate(date: Date): string {
 interface SuratJalanDotMatrixPrintProps {
   order: SuratJalanPrintData;
   showButton?: boolean;
+  previewMode?: boolean;
 }
 
-export function SuratJalanDotMatrixPrint({ order, showButton = true }: SuratJalanDotMatrixPrintProps) {
+export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode = false }: SuratJalanDotMatrixPrintProps) {
+  const COMPANY = getCompanyConfig();
   const customer = order.salesOrder?.customer;
   const items = order.items ?? [];
 
@@ -66,17 +63,25 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true }: SuratJala
 
   return (
     <>
-      {showButton && (
+      {showButton && !previewMode && (
         <div className="no-print p-4 bg-gray-50 border-b flex justify-between items-center">
           <span className="text-sm text-muted-foreground">
             Preview cetak dot matrix — Surat Jalan {order.orderNumber}
           </span>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-          >
-            🖨️ Cetak Surat Jalan
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+            >
+              📄 Export PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+            >
+              🖨️ Cetak Surat Jalan
+            </button>
+          </div>
         </div>
       )}
 
@@ -84,7 +89,11 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true }: SuratJala
         {/* === HEADER === */}
         <div className="doc-header">
           <div className="company-section">
-            <div className="company-logo">MJ</div>
+            {COMPANY.logoUrl ? (
+              <img src={COMPANY.logoUrl} alt={COMPANY.name} className="company-logo-img" />
+            ) : (
+              <div className="company-logo">MJ</div>
+            )}
             <div className="company-details">
               <div className="company-name">{COMPANY.name}</div>
               <div className="company-address">{COMPANY.address}</div>
@@ -230,6 +239,12 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true }: SuratJala
           line-height: 1;
           border: 2px solid #000;
           padding: 4px 6px;
+        }
+
+        .company-logo-img {
+          max-height: 60px;
+          max-width: 80px;
+          object-fit: contain;
         }
 
         .company-details {

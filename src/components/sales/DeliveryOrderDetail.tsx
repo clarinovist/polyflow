@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer } from 'lucide-react';
+import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
+import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
 import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
@@ -21,6 +23,7 @@ interface DeliveryOrderDetailProps {
 
 export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
     const router = useRouter();
 
     const handleDeliver = async () => {
@@ -88,7 +91,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                             Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 dark:text-blue-400 hover:underline">{order.salesOrder?.orderNumber}</Link>
                         </span>
                         <button
-                            onClick={() => window.open(`/sales/deliveries/${order.id}/print`, '_blank')}
+                            onClick={() => setShowPreview(true)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-xs font-medium transition-colors ml-2"
                         >
                             <Printer className="h-3.5 w-3.5" />
@@ -239,6 +242,14 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                     )}
                 </div>
             </div>
+
+            <PrintPreviewModal
+                open={showPreview}
+                onOpenChange={setShowPreview}
+                title={`Surat Jalan ${order.orderNumber}`}
+            >
+                <SuratJalanDotMatrixPrint order={order} showButton={false} previewMode={true} />
+            </PrintPreviewModal>
         </div>
     );
 }

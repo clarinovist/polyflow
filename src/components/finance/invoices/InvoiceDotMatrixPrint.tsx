@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-// formatRupiah not used in dot-matrix layout (uses formatNumberWithDots instead)
+import { getCompanyConfig } from '@/lib/config/company';
 import { terbilang } from '@/lib/utils/terbilang';
 import { InvoiceStatus } from '@prisma/client';
 
@@ -44,24 +44,7 @@ interface InvoicePrintData {
   } | null;
 }
 
-/** Company config for Melindo Jaya — move to env/config when multi-tenant printing is needed */
-const COMPANY = {
-  name: 'CV MELINDO JAYA',
-  address: 'Puri Niaga RT.005 RW.006, Sawahan, Kel. Jaten,\nKec. Jaten, Karanganyar, Jawa Tengah 57731',
-  phone: '0271 82017580, 0271 6882007',
-  email: 'jaya.melindo@gmail.com',
-  bankAccountsNonPPN: [
-    { holder: 'Nugroho Pramono', bank: 'Bank BCA', account: '7735006002' },
-    { holder: 'Nugroho Pramono', bank: 'Bank BRI', account: '671401042839531' },
-    { holder: 'Nugroho Pramono', bank: 'Bank Mandiri', account: '1380556667777' },
-  ],
-  bankAccountsPPN: [
-    { holder: 'MELINDO JAYA', bank: 'BANK BCA', account: '3270448789' },
-    { holder: 'MELINDO JAYA', bank: 'BANK MANDIRI', account: '1380044458789' },
-  ],
-  footerNote: 'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN',
-  signerName: 'Nugroho Pramono',
-};
+// Company config loaded from env vars — see src/lib/config/company.ts
 
 function formatNumberWithDots(n: number): string {
   return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -74,9 +57,11 @@ function formatDate(date: Date): string {
 interface InvoiceDotMatrixPrintProps {
   invoice: InvoicePrintData;
   showButton?: boolean;
+  previewMode?: boolean;
 }
 
-export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDotMatrixPrintProps) {
+export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode = false }: InvoiceDotMatrixPrintProps) {
+  const COMPANY = getCompanyConfig();
   const so = invoice.salesOrder;
   const customer = so?.customer;
   const items = so?.items ?? [];
@@ -97,17 +82,25 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
 
   return (
     <>
-      {showButton && (
+      {showButton && !previewMode && (
         <div className="no-print p-4 bg-gray-50 border-b flex justify-between items-center">
           <span className="text-sm text-muted-foreground">
             Preview cetak dot matrix — {invoice.invoiceNumber}
           </span>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-          >
-            🖨️ Cetak Invoice
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+            >
+              📄 Export PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+            >
+              🖨️ Cetak Invoice
+            </button>
+          </div>
         </div>
       )}
 
@@ -115,7 +108,11 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
         {/* === HEADER === */}
         <div className="invoice-header">
           <div className="company-section">
-            <div className="company-logo">MJ</div>
+            {COMPANY.logoUrl ? (
+              <img src={COMPANY.logoUrl} alt={COMPANY.name} className="company-logo-img" />
+            ) : (
+              <div className="company-logo">MJ</div>
+            )}
             <div className="company-details">
               <div className="company-name">{COMPANY.name}</div>
               <div className="company-address">{COMPANY.address}</div>
@@ -322,6 +319,12 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
           line-height: 1;
           border: 2px solid #000;
           padding: 4px 6px;
+        }
+
+        .company-logo-img {
+          max-height: 60px;
+          max-width: 80px;
+          object-fit: contain;
         }
 
         .company-details {

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -8,6 +9,8 @@ import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from "@/lib/uti
 import { InvoiceStatus, Invoice } from "@prisma/client";
 import { format } from "date-fns";
 import { AlertCircle, Printer } from "lucide-react";
+import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
+import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 
 type InvoiceLineItem = {
     id?: string;
@@ -40,6 +43,7 @@ interface FinancialInvoiceDetailProps {
 }
 
 export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps) {
+    const [showPreview, setShowPreview] = React.useState(false);
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
 
@@ -62,7 +66,7 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
         <div className="space-y-6">
             <div className="flex justify-end">
                 <button
-                    onClick={() => window.open(`/finance/invoices/sales/${invoice.id}/print`, '_blank')}
+                    onClick={() => setShowPreview(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
                 >
                     <Printer className="h-4 w-4" />
@@ -203,6 +207,14 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                     This is a read-only financial view. To manage delivery or edit items, switch to the Sales module.
                 </p>
             </div>
+
+            <PrintPreviewModal
+                open={showPreview}
+                onOpenChange={setShowPreview}
+                title={`Invoice ${invoice.invoiceNumber}`}
+            >
+                <InvoiceDotMatrixPrint invoice={invoice} showButton={false} previewMode={true} />
+            </PrintPreviewModal>
         </div>
     );
 }
