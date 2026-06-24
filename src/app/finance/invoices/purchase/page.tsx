@@ -4,6 +4,7 @@ import { PurchaseInvoiceTable } from '@/components/planning/purchasing/PurchaseI
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
+import { withTenant } from '@/lib/core/tenant';
 
 export const metadata: Metadata = {
     title: 'Purchase Invoices | PolyFlow',
@@ -11,6 +12,11 @@ export const metadata: Metadata = {
 
 import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
+
+// Wrap with withTenant so prisma routes to the correct tenant DB
+const getInvoices = withTenant(async (dateRange?: { startDate?: Date; endDate?: Date }) => {
+    return PurchaseService.getPurchaseInvoices(dateRange);
+});
 
 export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;
@@ -20,7 +26,7 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
         ? { startDate: parseISO(params.startDate), endDate: parseISO(params.endDate) }
         : undefined;
 
-    const invoices = await PurchaseService.getPurchaseInvoices(dateRange);
+    const invoices = await getInvoices(dateRange);
 
     // Serialize all Prisma objects for Client Components
     const serializedInvoices = serializeData(invoices);
