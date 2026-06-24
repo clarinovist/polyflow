@@ -6,38 +6,14 @@ import { InvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { withTenantPage } from '@/lib/core/tenant';
 
 export const dynamic = 'force-dynamic';
 
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-
-export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
-    const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
-    const demand = params?.demand || 'customer';
-
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
-
-    const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
-        const query = new URLSearchParams();
-        query.set('demand', nextDemand);
-        if (params?.startDate) query.set('startDate', params.startDate);
-        if (params?.endDate) query.set('endDate', params.endDate);
-        return `/finance/payments/received?${query.toString()}`;
-    };
-
-    const payments = await getReceivedPayments({ startDate: checkStart, endDate: checkEnd }, demand);
-
-    if (!payments.success) {
-        throw new Error(payments.error);
-    }
-
-    // Fetch unpaid invoices for payment recording
-    const unpaidInvoices = await prisma.invoice.findMany({
+const getUnpaidInvoices = withTenantPage(async (demand: string) => {
+    return prisma.invoice.findMany({
         where: {
             status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] },
             salesOrder: demand === 'customer'
@@ -51,6 +27,37 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
         },
         orderBy: { invoiceDate: 'desc' }
     });
+});
+
+export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
+    const params = await searchParams;
+    const now = new Date();
+    const defaultStart = startOfMonth(now);
+    const defaultEnd = endOfMonth(now);
+    const demand = params?.demand || 'customer';
+
+    // Only filter by date when explicitly provided
+    const checkStart = params?.startDate ? parseISO(params.startDate) : undefined;
+    const checkEnd = params?.endDate ? parseISO(params.endDate) : undefined;
+
+    const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
+        const query = new URLSearchParams();
+        query.set('demand', nextDemand);
+        if (params?.startDate) query.set('startDate', params.startDate);
+        if (params?.endDate) query.set('endDate', params.endDate);
+        return `/finance/payments/received?${query.toString()}`;
+    };
+
+    const payments = await getReceivedPayments(
+        checkStart && checkEnd ? { startDate: checkStart, endDate: checkEnd } : undefined, demand
+    );
+
+    if (!payments.success) {
+        throw new Error(payments.error);
+    }
+
+    // Fetch unpaid invoices for payment recording
+    const unpaidInvoices = await getUnpaidInvoices(demand);
 
     return (
         <div className="p-6">
