@@ -133,16 +133,36 @@ export const quickCreateProductionOrder = withTenant(
           throw new BusinessRuleError("Produk, jumlah, dan mesin wajib diisi");
         }
 
-        // Resolve default location for material consumption
-        const { WAREHOUSE_SLUGS } = await import("@/lib/constants/locations");
+        const { WAREHOUSE_SLUGS } = await import(
+          "@/lib/constants/locations"
+        );
+
+        // Resolve output location based on BOM category
+        // (mirrors resolveOutputLocationId in production-order-form.tsx)
+        const bom = await prisma.bom.findUnique({
+          where: { id: bomId },
+          select: { category: true },
+        });
+
+        const outputSlugByCategory: Record<string, string> = {
+          MIXING: WAREHOUSE_SLUGS.MIXING,
+          EXTRUSION: WAREHOUSE_SLUGS.FINISHING,
+          PACKING: WAREHOUSE_SLUGS.PACKING_AREA,
+          REWORK: WAREHOUSE_SLUGS.FINISHING,
+        };
+
+        const outputSlug =
+          outputSlugByCategory[bom?.category || ""] ||
+          WAREHOUSE_SLUGS.RAW_MATERIAL;
+
         const location = await prisma.location.findUnique({
-          where: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL },
+          where: { slug: outputSlug },
           select: { id: true },
         });
 
         if (!location) {
           throw new BusinessRuleError(
-            "Lokasi gudang bahan baku tidak ditemukan",
+            `Lokasi output (${outputSlug}) tidak ditemukan`,
           );
         }
 
