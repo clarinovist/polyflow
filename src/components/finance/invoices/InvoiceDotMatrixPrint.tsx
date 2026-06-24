@@ -50,10 +50,14 @@ const COMPANY = {
   address: 'Puri Niaga RT.005 RW.006, Sawahan, Kel. Jaten,\nKec. Jaten, Karanganyar, Jawa Tengah 57731',
   phone: '0271 82017580, 0271 6882007',
   email: 'jaya.melindo@gmail.com',
-  bankAccounts: [
-    { bank: 'Bank BCA', account: '7735006002', holder: 'Nugroho Pramono' },
-    { bank: 'Bank BRI', account: '671401042839531', holder: 'Nugroho Pramono' },
-    { bank: 'Bank Mandiri', account: '1380556667777', holder: 'Nugroho Pramono' },
+  bankAccountsNonPPN: [
+    { holder: 'Nugroho Pramono', bank: 'Bank BCA', account: '7735006002' },
+    { holder: 'Nugroho Pramono', bank: 'Bank BRI', account: '671401042839531' },
+    { holder: 'Nugroho Pramono', bank: 'Bank Mandiri', account: '1380556667777' },
+  ],
+  bankAccountsPPN: [
+    { holder: 'MELINDO JAYA', bank: 'BANK BCA', account: '3270448789' },
+    { holder: 'MELINDO JAYA', bank: 'BANK MANDIRI', account: '1380044458789' },
   ],
   footerNote: 'BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN',
   signerName: 'Nugroho Pramono',
@@ -76,7 +80,8 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
   const so = invoice.salesOrder;
   const customer = so?.customer;
   const items = so?.items ?? [];
-  const _taxAmount = Number(so?.taxAmount || 0);
+  const taxAmount = Number(so?.taxAmount || 0);
+  const isPPN = taxAmount > 0;
 
   const subtotal = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
   const totalQty = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -234,9 +239,17 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
         {/* === FOOTER === */}
         <div className="invoice-footer">
           <div className="footer-left">
-            <div className="keterangan-label">KETERANGAN :</div>
-            {COMPANY.bankAccounts.map((acc) => (
+            <div className="keterangan-label">KETERANGAN BANK :</div>
+            <div className="bank-type-label">
+              {isPPN ? '(Penjualan PPN)' : '(Penjualan Non PPN)'}
+            </div>
+            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
               <div key={acc.account} className="bank-account">
+                A / N {acc.holder}
+              </div>
+            ))}
+            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
+              <div key={`ac-${acc.account}`} className="bank-account">
                 A / C {acc.account} ({acc.bank})
               </div>
             ))}
@@ -466,7 +479,13 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true }: InvoiceDot
 
         .keterangan-label {
           font-weight: bold;
+          margin-bottom: 2px;
+        }
+
+        .bank-type-label {
+          font-style: italic;
           margin-bottom: 4px;
+          font-size: 9px;
         }
 
         .bank-account {
