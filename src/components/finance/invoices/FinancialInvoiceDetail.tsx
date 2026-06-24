@@ -8,7 +8,6 @@ import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from "@/lib/uti
 import { InvoiceStatus, Invoice } from "@prisma/client";
 import { format } from "date-fns";
 import { AlertCircle, Printer } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 type InvoiceLineItem = {
     id?: string;
@@ -41,7 +40,6 @@ interface FinancialInvoiceDetailProps {
 }
 
 export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps) {
-    const router = useRouter();
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
 
