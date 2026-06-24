@@ -7,18 +7,17 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
     const demand = params?.demand || 'customer';
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+    // Only filter by date when explicitly provided via URL params
+    const dateRange = params?.startDate && params?.endDate
+        ? { startDate: parseISO(params.startDate), endDate: parseISO(params.endDate) }
+        : undefined;
 
     const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
         const query = new URLSearchParams();
@@ -28,7 +27,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
         return `/finance/invoices/sales?${query.toString()}`;
     };
 
-    const invoices = await getInvoices({ startDate: checkStart, endDate: checkEnd }, demand);
+    const invoices = await getInvoices(dateRange, demand);
 
     // Serialize all Prisma objects for Client Components
     const serializedInvoices = invoices.success && invoices.data ? serializeData(invoices.data) : [];

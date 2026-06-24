@@ -9,19 +9,18 @@ export const metadata: Metadata = {
     title: 'Purchase Invoices | PolyFlow',
 };
 
-import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
 export default async function PurchaseInvoicesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
 
-    const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
-    const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
+    // Only filter by date when explicitly provided via URL params
+    const dateRange = params?.startDate && params?.endDate
+        ? { startDate: parseISO(params.startDate), endDate: parseISO(params.endDate) }
+        : undefined;
 
-    const invoices = await PurchaseService.getPurchaseInvoices({ startDate: checkStart, endDate: checkEnd });
+    const invoices = await PurchaseService.getPurchaseInvoices(dateRange);
 
     // Serialize all Prisma objects for Client Components
     const serializedInvoices = serializeData(invoices);
