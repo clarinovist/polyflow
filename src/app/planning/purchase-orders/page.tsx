@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PurchaseOrdersPage() {
-    const { orders, stats } = await getOrdersData();
+    const { orders } = await getOrdersData();
 
     return (
         <div className="flex flex-col gap-6 p-6">

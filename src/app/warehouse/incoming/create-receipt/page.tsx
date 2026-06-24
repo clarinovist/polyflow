@@ -44,6 +44,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
         notFound();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const order = serializeData(rawOrder) as any;
     const locationsRes = await getLocations();
     const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
@@ -52,6 +53,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
     const formProps = {
         purchaseOrderId: order.id,
         orderNumber: order.orderNumber,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items: (order.items || []).map((item: any) => ({
             productVariantId: item.productVariantId,
             productName: item.productVariant?.product?.name || item.productVariant?.name || '',
@@ -61,6 +63,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
             unitPrice: Number(item.unitPrice),
             unit: item.enteredUnit || item.productVariant?.primaryUnit || 'pcs',
         })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         locations: locations.map((loc: any) => ({ id: loc.id, name: loc.name })),
     };
 
