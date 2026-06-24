@@ -287,81 +287,93 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             margin: 0;
             padding: 0;
           }
+          .print-page {
+            page-break-after: avoid;
+            page-break-inside: avoid;
+            overflow: hidden;
+          }
         }
       `}} />
 
       <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
-          font-size: 9px;
-          line-height: 1.3;
-          max-width: ${paperSize.widthCm}cm;
+          font-size: 10px;
+          line-height: 1.4;
+          width: ${paperSize.widthCm}cm;
+          max-height: ${paperSize.heightCm}cm;
           margin: 0 auto;
           padding: ${paperSize.marginMm}mm;
           color: #000;
           background: #fff;
+          overflow: hidden;
+          box-sizing: border-box;
         }
 
         /* === HEADER === */
         .invoice-header {
           display: grid;
           grid-template-columns: 1fr auto 1fr;
-          gap: 4px;
-          margin-bottom: 4px;
-          border-bottom: 1px solid #000;
-          padding-bottom: 4px;
+          gap: 8px;
+          margin-bottom: 8px;
+          border-bottom: 1.5px solid #000;
+          padding-bottom: 8px;
         }
 
         .company-section {
           display: flex;
-          gap: 4px;
+          gap: 8px;
+          align-items: flex-start;
         }
 
         .company-logo {
-          font-size: 20px;
+          font-size: 22px;
           font-weight: bold;
           font-family: 'Times New Roman', serif;
           color: #000;
           line-height: 1;
-          border: 1px solid #000;
-          padding: 2px 4px;
+          border: 1.5px solid #000;
+          padding: 3px 6px;
         }
 
         .company-logo-img {
-          max-height: 40px;
-          max-width: 50px;
+          max-height: 45px;
+          max-width: 55px;
           object-fit: contain;
         }
 
         .company-details {
-          font-size: 8px;
-          line-height: 1.3;
+          font-size: 9px;
+          line-height: 1.4;
         }
 
         .company-name {
-          font-size: 11px;
+          font-size: 12px;
           font-weight: bold;
+          margin-bottom: 2px;
         }
 
         .company-address {
-          font-size: 7px;
+          font-size: 8px;
           white-space: pre-line;
         }
 
         .company-contact {
-          font-size: 7px;
+          font-size: 8px;
         }
 
         .title-section {
-          font-size: 14px;
+          font-size: 16px;
           font-weight: bold;
           text-align: center;
-          padding-top: 10px;
+          padding-top: 12px;
+          letter-spacing: 2px;
         }
 
         .customer-section {
           text-align: right;
-          font-size: 8px;
+          font-size: 9px;
+          line-height: 1.5;
         }
 
         .customer-row {
@@ -373,21 +385,21 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
         }
 
         .customer-value {
-          margin-left: 4px;
+          margin-left: 6px;
         }
 
         /* === ITEMS TABLE === */
         .items-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 4px;
-          font-size: 8px;
+          margin-bottom: 8px;
+          font-size: 9px;
         }
 
         .items-table th,
         .items-table td {
           border: 1px solid #000;
-          padding: 1px 3px;
+          padding: 3px 5px;
         }
 
         .items-table th {
@@ -432,34 +444,34 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
         }
 
         .empty-row td {
-          height: 12px;
+          height: 14px;
         }
 
         /* === TERBILANG === */
         .terbilang-section {
           display: grid;
           grid-template-columns: 1fr auto;
-          gap: 4px;
-          margin-bottom: 4px;
+          gap: 8px;
+          margin-bottom: 8px;
           border: 1px solid #000;
-          padding: 3px;
+          padding: 5px;
         }
 
         .terbilang-text {
           font-style: italic;
-          font-size: 8px;
+          font-size: 9px;
         }
 
         .financial-summary {
-          font-size: 8px;
-          min-width: 140px;
+          font-size: 9px;
+          min-width: 150px;
         }
 
         .summary-row {
           display: flex;
           justify-content: space-between;
           padding: 0;
-          line-height: 1.3;
+          line-height: 1.5;
         }
 
         .summary-row.bold {
@@ -468,48 +480,48 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
 
         .summary-row .highlight {
           font-weight: bold;
-          font-size: 9px;
+          font-size: 10px;
           border: 1px solid #000;
-          padding: 0 2px;
+          padding: 0 3px;
         }
 
         /* === FOOTER === */
         .invoice-footer {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          gap: 4px;
-          margin-top: 4px;
-          font-size: 8px;
+          gap: 8px;
+          margin-top: 8px;
+          font-size: 9px;
         }
 
         .footer-left {
           border: 1px solid #000;
-          padding: 3px;
+          padding: 5px;
         }
 
         .keterangan-label {
           font-weight: bold;
-          margin-bottom: 1px;
+          margin-bottom: 2px;
         }
 
         .bank-type-label {
           font-style: italic;
-          margin-bottom: 2px;
-          font-size: 7px;
+          margin-bottom: 3px;
+          font-size: 8px;
         }
 
         .bank-account {
           margin-bottom: 0;
-          line-height: 1.3;
+          line-height: 1.4;
         }
 
         .footer-center {
           text-align: center;
-          padding-top: 4px;
+          padding-top: 6px;
         }
 
         .hormat-text {
-          margin-bottom: 30px;
+          margin-bottom: 35px;
         }
 
         .signer-name {
@@ -522,10 +534,10 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
 
         /* === NOTE === */
         .invoice-note {
-          margin-top: 4px;
-          padding-top: 2px;
+          margin-top: 6px;
+          padding-top: 3px;
           border-top: 1px solid #000;
-          font-size: 7px;
+          font-size: 8px;
           font-weight: bold;
         }
       `}</style>
