@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check } from 'lucide-react';
+import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
@@ -87,6 +87,13 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                         <span className="text-muted-foreground text-sm">
                             Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 dark:text-blue-400 hover:underline">{order.salesOrder?.orderNumber}</Link>
                         </span>
+                        <button
+                            onClick={() => window.open(`/sales/deliveries/${order.id}/print`, '_blank')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-xs font-medium transition-colors ml-2"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            Cetak Surat Jalan
+                        </button>
                     </div>
                 </div>
             </div>
