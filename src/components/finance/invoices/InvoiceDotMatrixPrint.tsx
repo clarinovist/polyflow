@@ -268,7 +268,7 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
       {/* Dynamic @page from company paper size config */}
       <style dangerouslySetInnerHTML={{ __html: `
         @page {
-          /* Continuous feed dot matrix — no fixed page size */
+          size: auto;
           margin: ${paperSize.marginMm}mm;
         }
 
@@ -282,7 +282,7 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           }
           .print-page {
             page-break-inside: avoid;
-            page-break-after: auto;
+            page-break-after: avoid;
           }
         }
       `}} />
