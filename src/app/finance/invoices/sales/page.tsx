@@ -47,7 +47,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <UrlTransactionDateFilter defaultPreset="this_month" align="end" />
+                    <UrlTransactionDateFilter defaultPreset="all" align="end" />
                 </div>
             </div>
 
