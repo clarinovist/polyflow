@@ -45,10 +45,12 @@ interface SuratJalanDotMatrixPrintProps {
   order: SuratJalanPrintData;
   showButton?: boolean;
   previewMode?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  companyConfig?: any;
 }
 
-export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode = false }: SuratJalanDotMatrixPrintProps) {
-  const COMPANY = getCompanyConfig();
+export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode = false, companyConfig }: SuratJalanDotMatrixPrintProps) {
+  const COMPANY = companyConfig || getCompanyConfig();
   const customer = order.salesOrder?.customer;
   const items = order.items ?? [];
 

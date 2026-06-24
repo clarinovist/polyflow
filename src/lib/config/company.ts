@@ -44,6 +44,45 @@ function parseBankAccounts(json: string | undefined): BankAccount[] | null {
   }
 }
 
+/**
+ * Logo URL mapping by subdomain.
+ * Convention: /logos/{subdomain}.png
+ */
+const LOGO_MAP: Record<string, string> = {
+  melindo: '/logos/melindo.png',
+  kiyowo: '/logos/kiyowo.png',
+};
+
+/**
+ * Get logo URL for a given subdomain.
+ * Falls back to env var or null.
+ */
+export function getLogoForSubdomain(subdomain: string | null): string | null {
+  if (subdomain && LOGO_MAP[subdomain]) {
+    return LOGO_MAP[subdomain];
+  }
+  return process.env.COMPANY_LOGO_URL || null;
+}
+
+/**
+ * Tenant-aware company config (async, uses headers()).
+ * Call from Server Components to get correct logo per tenant.
+ */
+export async function getCompanyConfigAsync(): Promise<CompanyConfig> {
+  try {
+    const { headers } = await import('next/headers');
+    const hdrs = await headers();
+    const host = hdrs.get('host') || '';
+    const forwarded = hdrs.get('x-forwarded-host') || '';
+    const hostname = host || forwarded;
+    const subdomain = hostname.split('.')[0] || null;
+    const base = getCompanyConfig();
+    return { ...base, logoUrl: getLogoForSubdomain(subdomain) };
+  } catch {
+    return getCompanyConfig();
+  }
+}
+
 export function getCompanyConfig(): CompanyConfig {
   return {
     name: process.env.COMPANY_NAME || 'CV MELINDO JAYA',

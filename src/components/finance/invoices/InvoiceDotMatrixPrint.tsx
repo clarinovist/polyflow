@@ -58,10 +58,12 @@ interface InvoiceDotMatrixPrintProps {
   invoice: InvoicePrintData;
   showButton?: boolean;
   previewMode?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  companyConfig?: any;
 }
 
-export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode = false }: InvoiceDotMatrixPrintProps) {
-  const COMPANY = getCompanyConfig();
+export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode = false, companyConfig }: InvoiceDotMatrixPrintProps) {
+  const COMPANY = companyConfig || getCompanyConfig();
   const so = invoice.salesOrder;
   const customer = so?.customer;
   const items = so?.items ?? [];

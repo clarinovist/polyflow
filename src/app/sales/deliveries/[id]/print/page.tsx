@@ -2,6 +2,7 @@ import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
+import { getCompanyConfigAsync } from '@/lib/config/company';
 
 interface PrintPageProps {
   params: Promise<{ id: string }>;
@@ -9,7 +10,10 @@ interface PrintPageProps {
 
 export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
   const { id } = await params;
-  const result = await getDeliveryOrderById(id);
+  const [result, companyConfig] = await Promise.all([
+    getDeliveryOrderById(id),
+    getCompanyConfigAsync(),
+  ]);
 
   if (!result.success) {
     throw new Error(result.error);
@@ -22,5 +26,6 @@ export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
 
   const order = serializeData(raw);
 
-  return <SuratJalanDotMatrixPrint order={order} showButton={true} />;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <SuratJalanDotMatrixPrint order={order} showButton={true} companyConfig={companyConfig as any} />;
 }
