@@ -245,24 +245,17 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             </div>
             {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
               <div key={acc.account} className="bank-account">
-                A/N {acc.holder} · {acc.bank}
-              </div>
-            ))}
-            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
-              <div key={`ac-${acc.account}`} className="bank-account">
-                A/C {acc.account}
+                {acc.bank} : {acc.account}
               </div>
             ))}
           </div>
 
-          <div className="footer-center">
+          <div className="footer-spacer"></div>
+
+          <div className="footer-right">
             <div className="hormat-text">Hormat kami,</div>
             <div className="signature-space"></div>
             <div className="signer-name">( {COMPANY.signerName} )</div>
-          </div>
-
-          <div className="footer-right">
-            {/* Spacer for balance */}
           </div>
         </div>
 
@@ -515,8 +508,13 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           line-height: 1.4;
         }
 
-        .footer-center {
-          text-align: center;
+        .footer-spacer {
+          /* Flex spacer */
+          flex: 1;
+        }
+
+        .footer-right {
+          text-align: right;
           padding-top: 6px;
         }
 
@@ -526,10 +524,6 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
 
         .signer-name {
           font-style: italic;
-        }
-
-        .footer-right {
-          /* Spacer */
         }
 
         /* === NOTE === */
