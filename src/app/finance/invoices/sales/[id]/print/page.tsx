@@ -45,6 +45,5 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
       : undefined,
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <InvoiceDotMatrixPrint invoice={invoice} showButton={true} companyConfig={companyConfig as any} />;
+  return <InvoiceDotMatrixPrint invoice={invoice} showButton={true} companyConfig={companyConfig} />;
 }

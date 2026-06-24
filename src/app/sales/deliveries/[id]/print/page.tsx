@@ -26,6 +26,5 @@ export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
 
   const order = serializeData(raw);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <SuratJalanDotMatrixPrint order={order} showButton={true} companyConfig={companyConfig as any} />;
+  return <SuratJalanDotMatrixPrint order={order} showButton={true} companyConfig={companyConfig} />;
 }

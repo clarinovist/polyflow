@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { getCompanyConfig } from '@/lib/config/company';
+import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 import { terbilang } from '@/lib/utils/terbilang';
 import { InvoiceStatus } from '@prisma/client';
 
@@ -58,12 +58,11 @@ interface InvoiceDotMatrixPrintProps {
   invoice: InvoicePrintData;
   showButton?: boolean;
   previewMode?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  companyConfig?: any;
+  companyConfig?: CompanyConfig;
 }
 
 export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode = false, companyConfig }: InvoiceDotMatrixPrintProps) {
-  const COMPANY = companyConfig || getCompanyConfig();
+  const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
   const so = invoice.salesOrder;
   const customer = so?.customer;
   const items = so?.items ?? [];

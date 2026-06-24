@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { getCompanyConfig } from '@/lib/config/company';
+import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 
 type DeliveryItem = {
   id?: string;
@@ -45,12 +45,11 @@ interface SuratJalanDotMatrixPrintProps {
   order: SuratJalanPrintData;
   showButton?: boolean;
   previewMode?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  companyConfig?: any;
+  companyConfig?: CompanyConfig;
 }
 
 export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode = false, companyConfig }: SuratJalanDotMatrixPrintProps) {
-  const COMPANY = companyConfig || getCompanyConfig();
+  const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
   const customer = order.salesOrder?.customer;
   const items = order.items ?? [];
 
