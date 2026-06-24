@@ -11,9 +11,8 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { startOfDay, endOfDay } from 'date-fns';
-import { Loader2, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 
@@ -39,10 +38,7 @@ export function JournalListClient() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState<JournalStatus | 'ALL'>('ALL');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: startOfDay(new Date()),
-        to: endOfDay(new Date())
-    });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [rowSelection, setRowSelection] = useState({});
     const [batchLoading, setBatchLoading] = useState(false);
 
@@ -65,8 +61,8 @@ export function JournalListClient() {
             const res = await getJournalEntries({
                 search: debouncedSearch,
                 status: status !== 'ALL' ? status as JournalStatus : undefined,
-                startDate: dateRange?.from ? startOfDay(dateRange.from) : undefined,
-                endDate: dateRange?.to ? endOfDay(dateRange.to) : undefined,
+                startDate: dateRange?.from ?? undefined,
+                endDate: dateRange?.to ?? undefined,
                 page,
                 limit
             });
@@ -202,7 +198,7 @@ export function JournalListClient() {
                             <TransactionDateFilter
                                 date={dateRange}
                                 onDateChange={setDateRange}
-                                defaultPreset="today"
+                                defaultPreset="all"
                                 align="end"
                             />
                         </div>
