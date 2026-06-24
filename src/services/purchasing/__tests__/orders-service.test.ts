@@ -41,7 +41,7 @@ describe('OrdersService (Purchasing)', () => {
             } as never);
 
             const mockCreatedOrder = { id: 'po-1', orderNumber: `PO-${year}-0006`, totalAmount: 500 };
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             vi.mocked(prisma.purchaseOrder.create).mockResolvedValue(mockCreatedOrder as any);
 
             const input = {

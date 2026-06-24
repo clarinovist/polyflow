@@ -50,15 +50,15 @@ describe('createGoodsReceipt', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.goodsReceipt.findFirst as any).mockResolvedValue(null);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.goodsReceipt.create as any).mockResolvedValue({ id: 'gr-1', items: [] });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.stockMovement.create as any).mockResolvedValue({ id: 'mov-1' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (InventoryCoreService.incrementStockWithCost as any).mockResolvedValue(undefined);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (AccountingService.recordInventoryMovement as any).mockResolvedValue(undefined);
     });
 

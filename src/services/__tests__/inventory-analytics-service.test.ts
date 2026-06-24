@@ -22,7 +22,7 @@ describe('inventory analytics valuation', () => {
     });
 
     it('should separate finance valuation from customer-owned valuation', async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.inventory.findMany as any).mockResolvedValue([
             {
                 productVariantId: 'pv-1',

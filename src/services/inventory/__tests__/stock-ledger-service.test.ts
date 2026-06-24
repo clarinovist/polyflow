@@ -29,10 +29,10 @@ describe('StockLedgerService', () => {
             id: 'pv-1',
             name: 'Test Product',
             skuCode: 'SKU-01',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             primaryUnit: 'PCS' as any,
             product: { productType: 'RAW_MATERIAL' }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         } as any);
 
         // Mock prior movements (Opening Stock)
@@ -92,10 +92,10 @@ describe('StockLedgerService', () => {
             id: 'pv-1',
             name: 'Test Product',
             skuCode: 'SKU-01',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             primaryUnit: 'PCS' as any,
             product: { productType: 'RAW_MATERIAL' }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         } as any);
 
         const startDate = new Date('2026-05-09T00:00:00.000Z');
@@ -140,10 +140,10 @@ describe('StockLedgerService', () => {
             id: 'pv-1',
             name: 'Test Product',
             skuCode: 'SKU-01',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             primaryUnit: 'PCS' as any,
             product: { productType: 'RAW_MATERIAL' }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         } as any);
 
         // For location loc-1:

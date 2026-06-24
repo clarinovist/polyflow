@@ -55,13 +55,13 @@ describe('SalesReturnService', () => {
         salesOrder: { id: 'so-1' }
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (prisma.salesReturn.findUnique as any).mockResolvedValueOnce(mockSalesReturn as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (prisma.salesReturn.update as any).mockResolvedValueOnce({ ...mockSalesReturn, status: 'RECEIVED' } as never);
 
       const expectedError = new Error('Auto-journal failed');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       (AutoJournalService.handleSalesReturnReceived as any).mockRejectedValueOnce(expectedError);
 
       const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});

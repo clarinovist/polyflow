@@ -78,17 +78,17 @@ vi.mock('../accounting/account-resolver', () => ({
 describe('AccountingService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (periodsService.isPeriodOpen as any).mockResolvedValue(true);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.systemSequence.upsert as any).mockResolvedValue({ value: BigInt(2) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.systemSequence.update as any).mockResolvedValue({ value: BigInt(2) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.journalEntry.create as any).mockResolvedValue({ id: 'je-1', status: 'DRAFT' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.journalEntry.update as any).mockResolvedValue({ id: 'je-1', status: 'VOIDED' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.journalEntry.findUnique as any).mockResolvedValue({
             id: 'je-1', 
             status: 'POSTED', 
@@ -97,17 +97,17 @@ describe('AccountingService', () => {
         });
         
         // Mock account lookups
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.account.findUnique as any).mockImplementation(({ where }: { where: Record<string, unknown> }) => {
             return Promise.resolve({ id: `acc-${where.code}`, code: where.code, name: `Account ${where.code}` });
         });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.account.findMany as any).mockResolvedValue([]);
     });
 
     describe('Edge Cases', () => {
         it('should throw error if attempting to create journal in a closed period', async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (periodsService.isPeriodOpen as any).mockResolvedValueOnce(false);
 
             const input = {
@@ -182,7 +182,7 @@ describe('AccountingService', () => {
         });
 
         it('should throw an error if attempting to void a DRAFT journal', async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (prisma.journalEntry.findUnique as any).mockResolvedValueOnce({
                 id: 'je-2', 
                 status: 'DRAFT'
@@ -208,7 +208,7 @@ describe('AccountingService', () => {
                 }
             };
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await AccountingService.recordInventoryMovement(movement as any);
 
             // We expect createJournalEntry to be called inside via the internal function
@@ -217,12 +217,12 @@ describe('AccountingService', () => {
             // Actually it delegates to createJournalEntry which uses transaction
             // Let's inspect the payload that was sent if possible. 
             // In our Prisma Mock, we can just intercept journalEntry.create
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const _createCall = ((prisma as any).$transaction as any).mock.calls[0]?.[0];
             // The create call is actually inside the transaction callback, which is evaluated directly by our mock!
             expect(prisma.journalEntry.create).toHaveBeenCalled();
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const createArg = (prisma.journalEntry.create as any).mock.calls[0][0];
             expect(createArg.data.referenceType).toBe('GOODS_RECEIPT');
             
@@ -246,13 +246,13 @@ describe('AccountingService', () => {
                 }
             };
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await AccountingService.recordInventoryMovement(movement as any);
 
             expect(prisma.journalEntry.create).toHaveBeenCalled();
             
             // To get the latest call
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const calls = (prisma.journalEntry.create as any).mock.calls;
             const createArg = calls[calls.length - 1][0];
             
@@ -279,10 +279,10 @@ describe('AccountingService', () => {
                 }
             };
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await AccountingService.recordInventoryMovement(movement as any);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const calls = (prisma.journalEntry.create as any).mock.calls;
             const createArg = calls[calls.length - 1][0];
             
@@ -309,10 +309,10 @@ describe('AccountingService', () => {
                 }
             };
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             await AccountingService.recordInventoryMovement(movement as any);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const calls = (prisma.journalEntry.create as any).mock.calls;
             const createArg = calls[calls.length - 1][0];
             const lines = createArg.data.lines.create;

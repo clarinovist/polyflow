@@ -5,7 +5,9 @@ vi.mock('@/lib/core/prisma', () => {
         productionExecution: {
             findUnique: vi.fn(),
             findFirst: vi.fn(),
+            findUniqueOrThrow: vi.fn(),
             findMany: vi.fn(),
+            create: vi.fn(),
             update: vi.fn(),
             count: vi.fn(),
         },
@@ -20,9 +22,18 @@ vi.mock('@/lib/core/prisma', () => {
         materialIssue: {
             updateMany: vi.fn(),
         },
+        machineDowntime: {
+            create: vi.fn(),
+        },
     };
 
     const mockPrisma = {
+        productionExecution: {
+            findMany: vi.fn(),
+        },
+        machineDowntime: {
+            create: vi.fn(),
+        },
         $transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
     };
 
@@ -36,6 +47,8 @@ vi.mock('@/services/inventory/core-service', () => ({
     InventoryCoreService: {
         deductStock: vi.fn(),
         incrementStock: vi.fn(),
+        incrementStockWithCost: vi.fn(),
+        validateAndLockStock: vi.fn(),
     }
 }));
 
@@ -52,11 +65,31 @@ vi.mock('../finance/auto-journal-service', () => ({
 vi.mock('../accounting/accounting-service', () => ({
     AccountingService: {
         recordInventoryMovement: vi.fn(),
+        recordMaklonCosts: vi.fn(),
     }
 }));
 
-vi.mock('./material-service', () => ({
+vi.mock('../material-service', () => ({
     ProductionMaterialService: {}
+}));
+
+vi.mock('../execution-output-posting', () => ({
+    recordFinishedGoodsOutput: vi.fn(),
+    triggerProductionOutputJournal: vi.fn(),
+}));
+
+vi.mock('../execution-helpers', () => ({
+    backflushMaterials: vi.fn(),
+    recordExecutionScrap: vi.fn(),
+    recordFinishedGoodsOutput: vi.fn(),
+    triggerProductionOutputJournal: vi.fn(),
+}));
+
+vi.mock('../execution-unit-conversion', () => ({
+    resolveProductionOutputUnit: vi.fn().mockResolvedValue({
+        baseQuantityProduced: 50,
+        conversionFactorSnapshot: 1,
+    }),
 }));
 
 // @ts-expect-error - __mockTx is provided by vi.mock above
@@ -174,5 +207,173 @@ describe('ProductionExecutionService.voidExecution', () => {
             },
             data: { status: 'VOIDED' }
         });
+    });
+});
+
+describe('ProductionExecutionService.getActiveExecutions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should return active executions', async () => {
+        // Arrange
+        const mockExecutions = [
+            {
+                id: 'exec-1',
+                productionOrderId: 'po-1',
+                startTime: new Date(),
+                endTime: null,
+                productionOrder: {
+                    id: 'po-1',
+                    orderNumber: 'WO-001',
+                    status: 'IN_PROGRESS',
+                    bom: { name: 'BOM 1' },
+                },
+                machine: { name: 'Machine 1' },
+                operator: { name: 'Operator 1' },
+            },
+        ];
+
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue(mockExecutions as never);
+
+        // Act
+        const result = await ProductionExecutionService.getActiveExecutions();
+
+        // Assert
+        expect(result).toEqual(mockExecutions);
+        expect(prisma.productionExecution.findMany).toHaveBeenCalled();
+    });
+
+    it('should return empty array when no active executions', async () => {
+        // Arrange
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([]);
+
+        // Act
+        const result = await ProductionExecutionService.getActiveExecutions();
+
+        // Assert
+        expect(result).toEqual([]);
+    });
+});
+
+describe('ProductionExecutionService.recordDowntime', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should record machine downtime', async () => {
+        // Arrange
+        vi.mocked(prisma.machineDowntime.create).mockResolvedValue({} as any);
+
+        // Act
+        await ProductionExecutionService.recordDowntime({
+            machineId: 'machine-1',
+            startTime: new Date(),
+            endTime: new Date(),
+            reason: 'Maintenance',
+            createdById: 'user-1',
+        });
+
+        // Assert
+        expect(prisma.machineDowntime.create).toHaveBeenCalled();
+    });
+});
+
+describe('ProductionExecutionService.logRunningOutput', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should update execution and order quantities via logRunningOutput', async () => {
+        // Arrange
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            enteredQuantity: null,
+            enteredUnit: null,
+            notes: null,
+        } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1' } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        // Act
+        await ProductionExecutionService.logRunningOutput({
+            executionId: 'exec-1',
+            quantityProduced: 50,
+            scrapQuantity: 5,
+            notes: 'Partial output',
+            userId: 'user-1',
+        });
+
+        // Assert
+        expect(tx.productionExecution.update).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { id: 'exec-1' } })
+        );
+        expect(tx.productionOrder.update).toHaveBeenCalled();
+    });
+});
+
+describe('ProductionExecutionService.addProductionOutput', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should add production output and create execution', async () => {
+        // Arrange
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({
+            id: 'exec-1',
+        } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 100,
+            orderNumber: 'WO-001',
+            isMaklon: false,
+            locationId: 'loc-1',
+            bom: { productVariantId: 'pv-1', items: [] },
+            plannedMaterials: [],
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+
+        // Act
+        await ProductionExecutionService.addProductionOutput({
+            productionOrderId: 'po-1',
+            quantityProduced: 50,
+            scrapQuantity: 5,
+            startTime: new Date(),
+            endTime: new Date(),
+            userId: 'user-1',
+        });
+
+        // Assert
+        expect(tx.productionExecution.create).toHaveBeenCalled();
+        expect(tx.productionOrder.update).toHaveBeenCalled();
+    });
+
+    it('should throw error when output quantity is 0 for non-rework orders', async () => {
+        // Arrange
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            bom: { category: 'EXTRUSION' },
+        } as never);
+
+        // Act & Assert
+        await expect(
+            ProductionExecutionService.addProductionOutput({
+                productionOrderId: 'po-1',
+                quantityProduced: 0,
+                scrapQuantity: 0,
+                startTime: new Date(),
+                userId: 'user-1',
+            })
+        ).rejects.toThrow('Output quantity must be greater than 0');
     });
 });

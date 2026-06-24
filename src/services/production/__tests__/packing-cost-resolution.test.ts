@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveMaterialLocation } from '../execution-material-location';
 import { resolveBackflushQuantity } from '../execution-material-consumption';

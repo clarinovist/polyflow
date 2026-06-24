@@ -5,9 +5,9 @@ import { GET } from '../route';
 vi.mock('next/server', () => {
     class MockNextResponse {
         status: number;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         _body: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         constructor(body?: any, init?: { status?: number }) {
             this._body = body;
             this.status = init?.status || 200;
@@ -18,7 +18,7 @@ vi.mock('next/server', () => {
         async json() {
             return typeof this._body === 'string' ? JSON.parse(this._body) : this._body;
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         static json(body: any, init?: { status?: number }) {
             return new MockNextResponse(body, init);
         }

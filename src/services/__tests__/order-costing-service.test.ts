@@ -24,7 +24,7 @@ describe('CostingService', () => {
     it('should calculate material cost using persisted issue movement cost', async () => {
         const issuedAt = new Date('2026-04-20T10:00:00.000Z');
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionOrder.findUnique as any).mockResolvedValue({
             id: 'po-1',
             orderNumber: 'WO-001',

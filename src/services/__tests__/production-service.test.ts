@@ -67,7 +67,7 @@ describe('ProductionService', () => {
         vi.clearAllMocks();
 
         // Standard Prisma mocks for finding and updating orders
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionOrder.findUnique as any).mockImplementation((args: any) => {
             // The findUnique for resolveProductionOutputUnit uses a select shape
             if (args?.select?.bom?.select?.productVariant?.select?.primaryUnit) {
@@ -101,7 +101,7 @@ describe('ProductionService', () => {
             });
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionOrder.findUniqueOrThrow as any).mockResolvedValue({
             id: 'po-1',
             status: 'RELEASED',
@@ -121,7 +121,7 @@ describe('ProductionService', () => {
             plannedMaterials: []
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionOrder.update as any).mockImplementation(({ data }: any) => {
             return Promise.resolve({
                 id: 'po-1',
@@ -133,19 +133,19 @@ describe('ProductionService', () => {
             });
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionExecution.create as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1'
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionExecution.update as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1'
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productionExecution.findUniqueOrThrow as any).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1',
@@ -155,26 +155,26 @@ describe('ProductionService', () => {
             notes: null,
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.inventory.upsert as any).mockResolvedValue({ id: 'inv-1', quantity: 10 });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.inventory.findUnique as any).mockResolvedValue({ id: 'inv-1', quantity: { toNumber: () => 10 }, averageCost: { toNumber: () => 100 } });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.inventory.update as any).mockResolvedValue({});
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.stockMovement.create as any).mockResolvedValue({ id: 'sm-1' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.materialIssue.create as any).mockResolvedValue({ id: 'mi-1' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.scrapRecord.create as any).mockResolvedValue({ id: 'scrap-1' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.location.findUnique as any).mockResolvedValue({ id: 'loc-scrap' });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (prisma.productVariant.findUnique as any).mockResolvedValue({ id: 'pv-scrap', skuCode: 'SCRAP-PRONGKOL' });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (ProductionCostService.calculateBatchCOGM as any).mockResolvedValue(500);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (AccountingService.recordInventoryMovement as any).mockResolvedValue(undefined);
     });
 
@@ -203,7 +203,7 @@ describe('ProductionService', () => {
                 notes: 'Finished early'
             });
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const updateOrderCall = (prisma.productionOrder.update as any).mock.calls.find((call: any[]) => call[0].where.id === 'po-1');
             expect(updateOrderCall).toBeDefined();
             expect(updateOrderCall[0].data.status).toBe('COMPLETED');
@@ -230,7 +230,7 @@ describe('ProductionService', () => {
 
             // For an output of 10, ratio = 10 / 100 = 0.1
             // BOM Item 1 quantity = 50 -> 50 * 0.1 = 5
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
@@ -239,9 +239,9 @@ describe('ProductionService', () => {
             );
             
             // Should create stock movement IN for FG
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const stockMovementCalls = (prisma.stockMovement.create as any).mock.calls;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const fgMovementIn = stockMovementCalls.find((call: any[]) => call[0].data.productVariantId === 'pv-fg' && call[0].data.type === 'IN');
             
             expect(fgMovementIn).toBeDefined();
@@ -272,7 +272,7 @@ describe('ProductionService', () => {
             // Scrap consumes materials too. Total consumed = 10 (produced) + 5 (scrap) + 2 (prongkol) + 3 (daun) = 20
             // Ratio = 20 / 100 = 0.2
             // BOM Item 1 quantity = 50 -> 50 * 0.2 = 10
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
                 expect.anything(),
                 'loc-1',
@@ -282,14 +282,14 @@ describe('ProductionService', () => {
 
             // Expect scrapRecord to be created since prongkol and daun qty is > 0
             expect(prisma.scrapRecord.create).toHaveBeenCalled();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const scrapCalls = (prisma.scrapRecord.create as any).mock.calls;
             expect(scrapCalls).toHaveLength(2); // One for prongkol, one for daun
 
             // Make sure the system recorded stock movement for scrap IN
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const smCalls = (prisma.stockMovement.create as any).mock.calls;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const scrapMovementCreated = smCalls.find((c: any) => 
                 c[0].data.reference?.includes('Production Scrap')
             );
@@ -300,7 +300,7 @@ describe('ProductionService', () => {
     describe('Production Output UOM Conversion', () => {
         it('should correctly convert PACK to KG when alternate unit is provided', async () => {
             // Mock to simulate PACKING category order with conversion
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (prisma.productionOrder.findUniqueOrThrow as any).mockResolvedValueOnce({
                 id: 'po-2',
                 status: 'IN_PROGRESS',
@@ -320,7 +320,7 @@ describe('ProductionService', () => {
             });
 
             // Mock update response
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (prisma.productionOrder.update as any).mockResolvedValueOnce({
                 id: 'po-2',
                 orderNumber: 'WO-002',
@@ -338,7 +338,7 @@ describe('ProductionService', () => {
                 cekGram: undefined,
                 quantityProduced: 25, // base qty: 100 PACK * 0.25 = 25 KG
                 enteredQuantity: 100, // 100 PACK entered by operator
-                enteredUnit: 'PACK' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                enteredUnit: 'PACK' as any,  
                 baseQuantityProduced: 25,
                 conversionFactorSnapshot: 0.25,
                 scrapQuantity: 0,
@@ -350,17 +350,17 @@ describe('ProductionService', () => {
             });
 
             // Stock movement should receive base quantity 25, not 100
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const stockMovementCalls = (prisma.stockMovement.create as any).mock.calls;
             const fgMovementIn = stockMovementCalls.find(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 
                 (call: any[]) => call[0].data.productVariantId === 'pv-pack' && call[0].data.type === 'IN'
             );
             expect(fgMovementIn).toBeDefined();
             expect(fgMovementIn[0].data.quantity).toBe(25);
 
             // Backflush should use base quantity (25)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             expect((InventoryCoreService.deductStock as any)).toHaveBeenCalledWith(
                 expect.anything(),
                 expect.any(String),
@@ -369,7 +369,7 @@ describe('ProductionService', () => {
             );
 
             // Execution should include entered fields
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const executionCreateCall = (prisma.productionExecution.create as any).mock.calls[0];
             expect(executionCreateCall[0].data.enteredQuantity).toBe(100);
             expect(executionCreateCall[0].data.enteredUnit).toBe('PACK');
@@ -378,7 +378,7 @@ describe('ProductionService', () => {
 
         it('should reject invalid unit mismatch', async () => {
             // Mock to simulate variant with primaryUnit=KG, salesUnit=PACK
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             (prisma.productionOrder.findUnique as any).mockResolvedValueOnce({
                 bom: {
                     productVariant: {
@@ -398,7 +398,7 @@ describe('ProductionService', () => {
                     cekGram: undefined,
                     quantityProduced: 25,
                     enteredQuantity: 100,
-                    enteredUnit: 'ROLL' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                    enteredUnit: 'ROLL' as any,  
                     baseQuantityProduced: 25,
                     conversionFactorSnapshot: 0.25,
                     scrapQuantity: 0,

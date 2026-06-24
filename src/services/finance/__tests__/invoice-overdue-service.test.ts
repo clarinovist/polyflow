@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { InvoiceStatus } from "@prisma/client";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {

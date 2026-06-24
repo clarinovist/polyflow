@@ -71,7 +71,9 @@ vi.mock("@/lib/core/prisma", () => ({
     salesOrder: {
       findUnique: vi.fn(),
     },
-    $transaction: vi.fn((callback: Function) => callback(prisma)),
+    $transaction: vi.fn((callback: (tx: typeof prisma) => Promise<unknown>) =>
+      callback(prisma),
+    ),
   },
 }));
 

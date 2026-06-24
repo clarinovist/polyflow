@@ -55,7 +55,7 @@ describe('MaklonReportService', () => {
                 },
             ];
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(mockOrders as any);
 
             const report = await MaklonReportService.getReport();
@@ -126,7 +126,7 @@ describe('MaklonReportService', () => {
                 },
             ];
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             vi.mocked(prisma.productionOrder.findMany).mockResolvedValue(mockOrders as any);
 
             const report = await MaklonReportService.getReport();
@@ -141,7 +141,7 @@ describe('MaklonReportService', () => {
     describe('getCustomers', () => {
         it('should fetch customers with maklon orders', async () => {
             const mockCustomers = [{ id: 'c1', name: 'A' }, { id: 'c2', name: 'B' }];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             vi.mocked(prisma.customer.findMany).mockResolvedValue(mockCustomers as any);
 
             const result = await MaklonReportService.getCustomers();

@@ -8,6 +8,8 @@ vi.mock('@/lib/core/prisma', () => ({
         purchaseInvoice: {
             create: vi.fn(),
             findUnique: vi.fn(),
+            findFirst: vi.fn(),
+            findMany: vi.fn(),
             update: vi.fn(),
         },
         payment: {
@@ -38,7 +40,22 @@ vi.mock('@/lib/utils/sequence', () => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { getNextSequence } from '@/lib/utils/sequence';
-import { getPurchaseInvoiceById, recordPayment } from '../invoices-service';
+import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment } from '../invoices-service';
+import { PurchaseInvoiceStatus } from '@prisma/client';
+
+// Mock auto-journal
+vi.mock('../../finance/auto-journal-service', () => ({
+    AutoJournalService: {
+        handlePurchaseInvoiceCreated: vi.fn().mockResolvedValue(undefined),
+    },
+}));
+
+// Mock logger
+vi.mock('@/lib/config/logger', () => ({
+    logger: {
+        error: vi.fn(),
+    },
+}));
 
 describe('Purchasing invoices service', () => {
     beforeEach(() => {
@@ -152,5 +169,199 @@ describe('Purchasing invoices service', () => {
                 })
             })
         }));
+    });
+});
+
+describe('createInvoice', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should create purchase invoice', async () => {
+        // Arrange
+        const mockPO = {
+            id: 'po-1',
+            totalAmount: 1000,
+        };
+
+        const mockInvoice = {
+            id: 'inv-1',
+            invoiceNumber: 'INV-001',
+            purchaseOrderId: 'po-1',
+            totalAmount: 1000,
+            status: PurchaseInvoiceStatus.UNPAID,
+        };
+
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
+        vi.mocked(prisma.purchaseInvoice.create).mockResolvedValue(mockInvoice as any);
+
+        // Act
+        const result = await createInvoice({
+            purchaseOrderId: 'po-1',
+            invoiceNumber: 'INV-001',
+            invoiceDate: new Date(),
+            termOfPaymentDays: 30,
+        });
+
+        // Assert
+        expect(result).toEqual(mockInvoice);
+        expect(prisma.purchaseInvoice.create).toHaveBeenCalled();
+    });
+
+    it('should throw error when purchase order not found', async () => {
+        // Arrange
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(null);
+
+        // Act & Assert
+        await expect(createInvoice({
+            purchaseOrderId: 'po-999',
+            invoiceNumber: 'INV-001',
+            invoiceDate: new Date(),
+        })).rejects.toThrow('Purchase Order not found');
+    });
+});
+
+describe('getPurchaseInvoices', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should return all purchase invoices', async () => {
+        // Arrange
+        const mockInvoices = [
+            {
+                id: 'inv-1',
+                invoiceNumber: 'INV-001',
+                purchaseOrder: {
+                    orderNumber: 'PO-001',
+                    supplier: { name: 'Supplier A' },
+                },
+            },
+        ];
+
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue(mockInvoices as any);
+
+        // Act
+        const result = await getPurchaseInvoices();
+
+        // Assert
+        expect(result).toEqual(mockInvoices);
+    });
+
+    it('should filter by date range when provided', async () => {
+        // Arrange
+        const startDate = new Date(2024, 0, 1);
+        const endDate = new Date(2024, 0, 31);
+
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+
+        // Act
+        await getPurchaseInvoices({ startDate, endDate });
+
+        // Assert
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith({
+            where: {
+                invoiceDate: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+            include: expect.any(Object),
+            orderBy: { createdAt: 'desc' },
+        });
+    });
+});
+
+describe('generateBillNumber', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should generate bill number with sequence 0001', async () => {
+        // Arrange
+        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(null);
+
+        // Act
+        const result = await generateBillNumber();
+
+        // Assert
+        expect(result).toMatch(/^BILL - \d{4} -0001/);
+    });
+
+    it('should increment sequence when last bill exists', async () => {
+        // Arrange
+        const year = new Date().getFullYear();
+        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue({
+            invoiceNumber: `BILL - ${year} -0005`,
+        } as any);
+
+        // Act
+        const result = await generateBillNumber();
+
+        // Assert
+        expect(result).toMatch(`BILL - ${year} -0006`);
+    });
+});
+
+describe('createDraftBillFromPo', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should create draft bill from purchase order', async () => {
+        // Arrange
+        const mockPO = {
+            id: 'po-1',
+            totalAmount: 1000,
+            orderNumber: 'PO-001',
+            status: 'RECEIVED',
+        };
+
+        const mockInvoice = {
+            id: 'inv-1',
+            invoiceNumber: 'BILL-001',
+            status: PurchaseInvoiceStatus.DRAFT,
+        };
+
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(mockPO as any);
+        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue(null);
+        vi.mocked(prisma.purchaseInvoice.create).mockResolvedValue(mockInvoice as any);
+
+        // Act
+        const result = await createDraftBillFromPo('po-1', 'user-1');
+
+        // Assert
+        expect(result).toBeDefined();
+    });
+
+    it('should return undefined when purchase order not found', async () => {
+        // Arrange
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue(null);
+
+        // Act
+        const result = await createDraftBillFromPo('po-999', 'user-1');
+
+        // Assert
+        expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when invoice already exists', async () => {
+        // Arrange
+        vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({
+            id: 'po-1',
+            totalAmount: 1000,
+            orderNumber: 'PO-001',
+            status: 'RECEIVED',
+        } as any);
+
+        vi.mocked(prisma.purchaseInvoice.findFirst).mockResolvedValue({
+            id: 'inv-existing',
+        } as any);
+
+        // Act
+        const result = await createDraftBillFromPo('po-1', 'user-1');
+
+        // Assert
+        expect(result).toBeUndefined();
     });
 });
