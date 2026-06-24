@@ -300,24 +300,25 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
           font-size: 10px;
           line-height: 1.4;
-          width: ${paperSize.widthCm}cm;
-          max-height: ${paperSize.heightCm}cm;
+          width: 100%;
+          max-width: ${paperSize.widthCm}cm;
           margin: 0 auto;
           padding: ${paperSize.marginMm}mm;
           color: #000;
           background: #fff;
-          overflow: hidden;
           box-sizing: border-box;
         }
 
         /* === HEADER === */
         .invoice-header {
-          display: grid;
-          grid-template-columns: 1fr auto 1fr;
-          gap: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
           margin-bottom: 8px;
           border-bottom: 1.5px solid #000;
           padding-bottom: 8px;
+          flex-wrap: wrap;
         }
 
         .company-section {

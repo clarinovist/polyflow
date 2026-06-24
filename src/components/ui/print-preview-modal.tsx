@@ -29,19 +29,19 @@ export function PrintPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none print:overflow-visible">
+        <DialogHeader className="no-print">
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5" />
             {title}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="border rounded-lg overflow-hidden bg-white">
+        <div className="border rounded-lg overflow-hidden bg-white print:border-none print:rounded-none">
           {children}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 no-print">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             <X className="mr-2 h-4 w-4" />
             Batal

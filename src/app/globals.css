@@ -178,3 +178,32 @@
     background-position: 0% 50%;
   }
 }
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Hide Dialog overlay, backdrop, and non-printable elements */
+  [data-radix-dialog-overlay],
+  [data-radix-dialog-content] > button,
+  [role="dialog"] > button {
+    display: none !important;
+  }
+  
+  /* Make dialog content full width for print */
+  [data-radix-dialog-content] {
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
