@@ -14,14 +14,16 @@ import { useState } from 'react';
 import { deliverSalesOrder } from '@/actions/sales/sales';
 import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
+import { type CompanyConfig } from '@/lib/config/company';
 
 
 interface DeliveryOrderDetailProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     order: any;
+    companyConfig?: CompanyConfig;
 }
 
-export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
+export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetailProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const router = useRouter();
@@ -248,7 +250,7 @@ export function DeliveryOrderDetail({ order }: DeliveryOrderDetailProps) {
                 onOpenChange={setShowPreview}
                 title={`Surat Jalan ${order.orderNumber}`}
             >
-                <SuratJalanDotMatrixPrint order={order} showButton={false} previewMode={true} />
+                <SuratJalanDotMatrixPrint order={order} showButton={false} previewMode={true} companyConfig={companyConfig} />
             </PrintPreviewModal>
         </div>
     );

@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { AlertCircle, Printer } from "lucide-react";
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
+import { type CompanyConfig } from '@/lib/config/company';
 
 type InvoiceLineItem = {
     id?: string;
@@ -40,9 +41,10 @@ interface FinancialInvoiceDetailProps {
             items: InvoiceLineItem[];
         } | null;
     };
+    companyConfig?: CompanyConfig;
 }
 
-export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps) {
+export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvoiceDetailProps) {
     const [showPreview, setShowPreview] = React.useState(false);
     const salesOrder = invoice.salesOrder ?? null;
     const taxAmount = Number(salesOrder?.taxAmount || 0);
@@ -233,6 +235,7 @@ export function FinancialInvoiceDetail({ invoice }: FinancialInvoiceDetailProps)
                     }}
                     showButton={false}
                     previewMode={true}
+                    companyConfig={companyConfig}
                 />
             </PrintPreviewModal>
         </div>
