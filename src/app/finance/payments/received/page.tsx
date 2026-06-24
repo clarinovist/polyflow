@@ -10,7 +10,7 @@ import { withTenantPage } from '@/lib/core/tenant';
 
 export const dynamic = 'force-dynamic';
 
-import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 const getUnpaidInvoices = withTenantPage(async (demand: string) => {
     return prisma.invoice.findMany({
@@ -31,9 +31,6 @@ const getUnpaidInvoices = withTenantPage(async (demand: string) => {
 
 export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
-    const now = new Date();
-    const defaultStart = startOfMonth(now);
-    const defaultEnd = endOfMonth(now);
     const demand = params?.demand || 'customer';
 
     // Only filter by date when explicitly provided
