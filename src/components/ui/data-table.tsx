@@ -47,6 +47,7 @@ interface DataTableProps<TData, TValue> {
   children?: React.ReactNode;
   emptyMessage?: string;
   minWidth?: number;
+  renderMobileView?: (data: TData[]) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -62,6 +63,7 @@ export function DataTable<TData, TValue>({
   children,
   emptyMessage = "Tidak ada data.",
   minWidth = 800,
+  renderMobileView,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState({});
@@ -104,7 +106,7 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="rounded-md border">
+      <div className="rounded-md border hidden md:block">
         <ResponsiveTable minWidth={minWidth}>
           <Table>
             <TableHeader>
@@ -184,6 +186,10 @@ export function DataTable<TData, TValue>({
           </Table>
         </ResponsiveTable>
       </div>
+
+      {renderMobileView && (
+        <div className="md:hidden space-y-3">{renderMobileView(data)}</div>
+      )}
 
       {enablePagination && (
         <div className="flex items-center justify-between px-2">

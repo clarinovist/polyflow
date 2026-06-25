@@ -6,7 +6,9 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  getSortedRowModel,
   useReactTable,
+  type SortingState,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,8 @@ import {
   TrendingDown,
   CheckCircle,
 } from "lucide-react";
-import { formatRupiah } from "@/lib/utils/utils";
+import { formatRupiah, cn } from "@/lib/utils/utils";
+import { DataTableSortIcon } from "@/components/ui/data-table-sort-icon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +72,7 @@ export function AssetListClient({
 }: AssetListClientProps) {
   const [data, setData] = useState(initialAssets);
   const [search, setSearch] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [runningDepr, setRunningDepr] = useState(false);
 
   const filteredData = useMemo(() => {
@@ -222,7 +226,10 @@ export function AssetListClient({
   const table = useReactTable({
     data: filteredData,
     columns,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
@@ -328,13 +335,27 @@ export function AssetListClient({
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
                       return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
+                        <TableHead
+                          key={header.id}
+                          className={cn(
+                            header.column.getCanSort() &&
+                              "cursor-pointer select-none hover:bg-muted/50",
+                          )}
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {header.isPlaceholder ? null : (
+                            <div className="flex items-center gap-2">
+                              {flexRender(
                                 header.column.columnDef.header,
                                 header.getContext(),
                               )}
+                              {header.column.getCanSort() && (
+                                <DataTableSortIcon
+                                  direction={header.column.getIsSorted()}
+                                />
+                              )}
+                            </div>
+                          )}
                         </TableHead>
                       );
                     })}
