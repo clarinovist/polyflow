@@ -48,15 +48,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Customer,
-  Location,
-  ProductVariant,
-  Product,
-  SalesOrderType,
-  ProductType,
-  Unit,
-} from "@prisma/client";
+import { SalesOrderType, ProductType, Unit } from "@prisma/client";
 import { useAction } from "@/hooks/use-action";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -65,46 +57,11 @@ import {
   toBaseQuantity,
 } from "@/lib/utils/production-units";
 import { salesLabels, formLabels, actionLabels } from "@/lib/labels";
-
-type SerializedCustomer = Omit<Customer, "creditLimit" | "discountPercent"> & {
-  creditLimit: number | null;
-  discountPercent: number | null;
-};
-
-// Helper type for client-side usage where Decimals are converted to numbers
-type SerializedProductVariant = Omit<
-  ProductVariant,
-  | "price"
-  | "buyPrice"
-  | "sellPrice"
-  | "conversionFactor"
-  | "minStockAlert"
-  | "reorderPoint"
-  | "reorderQuantity"
-  | "standardCost"
-> & {
-  price: number | null;
-  buyPrice: number | null;
-  sellPrice: number | null;
-  conversionFactor: number;
-  minStockAlert: number | null;
-  reorderPoint: number | null;
-  reorderQuantity: number | null;
-  standardCost: number | null;
-  product: Product;
-  inventories: {
-    locationId: string;
-    quantity: number;
-  }[];
-};
-
-interface SalesOrderFormProps {
-  customers: SerializedCustomer[];
-  locations: Location[];
-  products: SerializedProductVariant[];
-  mode: "create" | "edit";
-  initialData?: UpdateSalesOrderValues & { id: string }; // Changed to UpdateSalesOrderValues
-}
+import { computeOrderTotals } from "@/lib/utils/order-totals";
+import type {
+  SerializedProductVariant,
+  SalesOrderFormProps,
+} from "./sales-order-types";
 
 export function SalesOrderForm({
   customers,
@@ -294,23 +251,7 @@ export function SalesOrderForm({
       : baseUnitPrice;
   };
 
-  const totals = watchItems?.reduce(
-    (acc, item) => {
-      const qty = item.quantity || 0;
-      const price = item.unitPrice || 0;
-      const subtotal = qty * price;
-      const discount = subtotal * ((item.discountPercent || 0) / 100);
-      const taxable = subtotal - discount;
-      const tax = taxable * ((item.taxPercent || 0) / 100);
-
-      acc.gross += subtotal;
-      acc.discount += discount;
-      acc.tax += tax;
-      acc.net += taxable + tax;
-      return acc;
-    },
-    { gross: 0, discount: 0, tax: 0, net: 0 },
-  ) || { gross: 0, discount: 0, tax: 0, net: 0 };
+  const totals = computeOrderTotals(watchItems || []);
 
   const {
     execute: submitAction,
