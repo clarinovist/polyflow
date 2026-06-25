@@ -6,6 +6,11 @@ import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
 import {
+  requireAuth,
+  requirePlanningRole,
+  requireProductionLeaderRole,
+} from "@/lib/tools/auth-checks";
+import {
   createProductionOrderSchema,
   CreateProductionOrderValues,
   updateProductionOrderSchema,
@@ -77,15 +82,7 @@ export const createProductionOrder = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can create work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         const order = await ProductionService.createOrder({
           ...result.data,
@@ -117,15 +114,7 @@ export const quickCreateProductionOrder = withTenant(
   }) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can create work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         const { bomId, plannedQuantity, machineId } = data;
 
@@ -133,9 +122,7 @@ export const quickCreateProductionOrder = withTenant(
           throw new BusinessRuleError("Produk, jumlah, dan mesin wajib diisi");
         }
 
-        const { WAREHOUSE_SLUGS } = await import(
-          "@/lib/constants/locations"
-        );
+        const { WAREHOUSE_SLUGS } = await import("@/lib/constants/locations");
 
         // Resolve output location based on BOM category
         // (mirrors resolveOutputLocationId in production-order-form.tsx)
@@ -435,15 +422,7 @@ export const updateProductionOrder = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can update work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         await ProductionService.updateOrder(result.data);
 
@@ -466,15 +445,7 @@ export const deleteProductionOrder = withTenant(
       if (!id) throw new BusinessRuleError("Order ID is required");
 
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can delete work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         await ProductionService.deleteOrder(id);
 
@@ -594,10 +565,7 @@ export const startExecution = withTenant(async function startExecution(
     }
 
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       const execution = await ProductionService.startExecution(result.data);
 
@@ -627,10 +595,7 @@ export const stopExecution = withTenant(async function stopExecution(
     }
 
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       const execution = await ProductionService.stopExecution({
         ...result.data,
@@ -662,10 +627,7 @@ export const addProductionOutput = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.addProductionOutput({
           ...result.data,
@@ -693,10 +655,7 @@ export const recordQualityInspection = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.recordQualityInspection({
           ...result.data,
@@ -743,10 +702,7 @@ export const batchIssueMaterials = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.batchIssueMaterials({
           ...result.data,
@@ -778,10 +734,7 @@ export const recordMaterialIssue = withTenant(
       }
 
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.recordMaterialIssue({
           ...result.data,
@@ -807,10 +760,7 @@ export const deleteMaterialIssue = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
 
@@ -836,10 +786,7 @@ export const recordScrap = withTenant(async function recordScrap(
     }
 
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       await ProductionService.recordScrap({
         ...result.data,
@@ -862,8 +809,7 @@ export const deleteScrap = withTenant(async function deleteScrap(
   productionOrderId: string,
 ) {
   return safeAction(async () => {
-    const session = await auth();
-    if (!session) throw new BusinessRuleError("Unauthorized");
+    const session = await requireAuth();
 
     try {
       await ProductionService.deleteScrap(scrapId, productionOrderId);
@@ -920,10 +866,7 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
     }
 
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       await ProductionService.logRunningOutput({
         ...result.data,
@@ -954,15 +897,7 @@ export const createProductionFromSalesOrder = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can trigger work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         if (productVariantId && quantity) {
           const result = await ProductionService.createOrderFromSales(
@@ -1003,10 +938,7 @@ export const simulateMrp = withTenant(async function simulateMrp(
 ) {
   return safeAction(async () => {
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       const result =
         await MrpService.simulateMaterialRequirements(salesOrderId);
@@ -1030,10 +962,7 @@ export const logMachineDowntime = withTenant(async function logMachineDowntime(
     }
 
     try {
-      const session = await auth();
-      if (!session?.user) {
-        throw new BusinessRuleError("Unauthorized");
-      }
+      const session = await requireAuth();
 
       await ProductionService.recordDowntime(result.data);
       revalidatePath("/production");
@@ -1055,15 +984,7 @@ export const createChildProductionOrder = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (
-          session?.user?.role !== "ADMIN" &&
-          session?.user?.role !== "PLANNING"
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only Planning can create sub-work orders",
-          );
-        }
+        const session = await requirePlanningRole();
 
         const result = await prisma.$transaction(async (tx) => {
           const parentOrder = await tx.productionOrder.findUnique({
@@ -1152,8 +1073,7 @@ export const createProductionIssue = withTenant(
   }) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (!session?.user) throw new BusinessRuleError("Unauthorized");
+        const session = await requireAuth();
 
         const issue = await ProductionService.createIssue({
           ...data,
@@ -1184,10 +1104,7 @@ export const updateProductionIssueStatus = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         const issue = await ProductionService.updateIssueStatus(
           issueId,
@@ -1221,10 +1138,7 @@ export const deleteProductionIssue = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (!session?.user) {
-          throw new BusinessRuleError("Unauthorized");
-        }
+        const session = await requireAuth();
 
         await ProductionService.deleteIssue(issueId);
 
@@ -1250,15 +1164,7 @@ export const voidProductionOutput = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await auth();
-        if (
-          !session?.user ||
-          (session.user.role !== "ADMIN" && session.user.role !== "PRODUCTION")
-        ) {
-          throw new BusinessRuleError(
-            "Unauthorized: Only production leaders or admins can void output",
-          );
-        }
+        const session = await requireProductionLeaderRole();
 
         await ProductionService.voidExecution(executionId, session.user.id);
 
