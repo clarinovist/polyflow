@@ -7,7 +7,6 @@ import {
   Prisma,
   ProductType,
   InvoiceStatus,
-  Unit,
 } from "@prisma/client";
 import {
   CreateSalesOrderValues,
@@ -232,13 +231,66 @@ export async function updateOrder(
   data: UpdateSalesOrderValues,
   _userId: string,
 ) {
+  // Load current order with items, invoices, and delivery orders for validation
   const currentOrder = await prisma.salesOrder.findUnique({
     where: { id: data.id },
-    select: { orderType: true },
+    include: {
+      items: true,
+      invoices: { select: { id: true, status: true } },
+      deliveryOrders: { select: { id: true } },
+    },
   });
 
   if (!currentOrder) {
     throw new Error("Order not found");
+  }
+
+  const status = currentOrder.status;
+
+  // === STATUS-BASED VALIDATION ===
+
+  // SHIPPED / DELIVERED / CANCELLED: no editing allowed
+  if (
+    status === SalesOrderStatus.SHIPPED ||
+    status === SalesOrderStatus.DELIVERED ||
+    status === SalesOrderStatus.CANCELLED
+  ) {
+    throw new Error(`Tidak bisa mengedit Sales Order dengan status ${status}.`);
+  }
+
+  const hasInvoices = currentOrder.invoices.length > 0;
+
+  // Build a map of existing items by id for comparison
+  const existingItemsMap = new Map(
+    currentOrder.items.map((item) => [item.id, item]),
+  );
+
+  // Validate each submitted item
+  for (const submittedItem of data.items) {
+    const existingItem = submittedItem.id
+      ? existingItemsMap.get(submittedItem.id)
+      : undefined;
+
+    if (existingItem) {
+      const deliveredQty = Number(existingItem.deliveredQty);
+
+      // If item has been delivered, quantity cannot be reduced below deliveredQty
+      if (deliveredQty > 0 && submittedItem.quantity < deliveredQty) {
+        throw new Error(
+          `Qty tidak bisa kurang dari ${deliveredQty} (sudah dikirim).`,
+        );
+      }
+
+      // If invoices exist, unit price cannot change (would mismatch invoice)
+      if (
+        hasInvoices &&
+        submittedItem.unitPrice !== Number(existingItem.unitPrice)
+      ) {
+        throw new Error(
+          `Harga satuan tidak bisa diubah karena sudah ada invoice terkait.`,
+        );
+      }
+    }
   }
 
   await validateMaklonSourceLocation(
@@ -261,8 +313,41 @@ export async function updateOrder(
   const finalTotal = totalAmount + shippingCost;
 
   return await prisma.$transaction(async (tx) => {
-    await tx.salesOrderItem.deleteMany({
-      where: { salesOrderId: data.id },
+    // Delete only items that are NOT delivered (delivered items stay)
+    const undeliveredItemIds = currentOrder.items
+      .filter((item) => Number(item.deliveredQty) === 0)
+      .map((item) => item.id);
+
+    if (undeliveredItemIds.length > 0) {
+      await tx.salesOrderItem.deleteMany({
+        where: { id: { in: undeliveredItemIds } },
+      });
+    }
+
+    // Create new item entries, preserving deliveredQty for carried-over items
+    const itemsToCreate = itemsWithTotals.map((item) => {
+      const submittedItem = data.items.find(
+        (di) => di.productVariantId === item.productVariantId,
+      );
+      const existingRecord = submittedItem?.id
+        ? existingItemsMap.get(submittedItem.id)
+        : undefined;
+
+      return {
+        productVariantId: item.productVariantId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        enteredQuantity: item.enteredQuantity,
+        enteredUnit: item.enteredUnit,
+        conversionFactorSnapshot: item.conversionFactorSnapshot,
+        enteredUnitPrice: item.enteredUnitPrice,
+        discountPercent: item.discountPercent,
+        taxPercent: item.taxPercent,
+        taxAmount: item.taxAmount,
+        subtotal: item.subtotal,
+        // Preserve deliveredQty if item was carried over
+        deliveredQty: existingRecord ? existingRecord.deliveredQty : 0,
+      };
     });
 
     return await tx.salesOrder.update({
@@ -278,19 +363,7 @@ export async function updateOrder(
         taxAmount: totalTax,
         shippingCost: shippingCost > 0 ? shippingCost : null,
         items: {
-          create: itemsWithTotals.map((item) => ({
-            productVariantId: item.productVariantId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            enteredQuantity: item.enteredQuantity,
-            enteredUnit: item.enteredUnit,
-            conversionFactorSnapshot: item.conversionFactorSnapshot,
-            enteredUnitPrice: item.enteredUnitPrice,
-            discountPercent: item.discountPercent,
-            taxPercent: item.taxPercent,
-            taxAmount: item.taxAmount,
-            subtotal: item.subtotal,
-          })),
+          create: itemsToCreate,
         },
       },
       include: { items: true },

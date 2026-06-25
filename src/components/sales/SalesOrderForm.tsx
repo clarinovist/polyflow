@@ -47,6 +47,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import { SalesOrderType, ProductType, Unit } from "@prisma/client";
 import { useAction } from "@/hooks/use-action";
@@ -317,6 +318,12 @@ export function SalesOrderForm({
   }
 
   async function onSubmit(data: SalesOrderFormValues) {
+    if (mode === "edit") {
+      const confirmed = window.confirm(
+        "Apakah Anda yakin ingin menyimpan perubahan pada Sales Order ini? Perubahan harga/qty akan mempengaruhi total dan jurnal yang sudah terbentuk.",
+      );
+      if (!confirmed) return;
+    }
     await submitAction(normalizeFormDataForSubmit(data));
   }
 
@@ -324,6 +331,21 @@ export function SalesOrderForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <ErrorAlert error={actionError} />
+
+        {mode === "edit" && (
+          <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+            <AlertTitle>⚠️ Mode Edit Sales Order</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc list-inside space-y-1 mt-1">
+                <li>Harga satuan tidak bisa diubah jika sudah ada invoice</li>
+                <li>
+                  Qty tidak bisa dikurangi di bawah jumlah yang sudah dikirim
+                </li>
+                <li>Perubahan akan memperbarui total dan jurnal</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Alert className="border-amber-200 bg-amber-50 text-amber-900">
           <AlertTitle>Sales Order untuk kebutuhan customer</AlertTitle>
@@ -801,6 +823,22 @@ export function SalesOrderForm({
                                           </CommandItem>
                                         ),
                                       )}
+                                    </CommandGroup>
+                                    <CommandSeparator />
+                                    <CommandGroup>
+                                      <CommandItem
+                                        onSelect={() => {
+                                          router.push(
+                                            "/dashboard/products/create",
+                                          );
+                                        }}
+                                        className="flex items-center gap-2 text-primary cursor-pointer"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                        <span className="font-medium">
+                                          Tambah Produk Baru
+                                        </span>
+                                      </CommandItem>
                                     </CommandGroup>
                                   </CommandList>
                                 </Command>

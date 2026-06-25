@@ -233,15 +233,22 @@ export function SalesOrderDetailClient({
         <div className="flex gap-2">
           {/* Button Place */}
 
-          {!warehouseMode && order.status === "DRAFT" && (
-            <>
+          {/* Edit button: visible for DRAFT, CONFIRMED, IN_PRODUCTION, READY_TO_SHIP */}
+          {!warehouseMode &&
+            (order.status === "DRAFT" ||
+              order.status === "CONFIRMED" ||
+              order.status === "IN_PRODUCTION" ||
+              order.status === "READY_TO_SHIP") && (
               <Button variant="outline" asChild>
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <Link href={`${basePath}/${order.id}/edit` as any}>
                   <Edit className="mr-2 h-4 w-4" /> {actionLabels.edit}
                 </Link>
               </Button>
+            )}
 
+          {!warehouseMode && order.status === "DRAFT" && (
+            <>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" disabled={isLoading}>
