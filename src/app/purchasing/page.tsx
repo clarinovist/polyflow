@@ -129,42 +129,51 @@ export default async function PurchasingDashboardPage() {
                   Belum ada purchase order.
                 </p>
               ) : (
-                stats.recentOrders.map((order: any) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/purchasing/orders/${order.id}`}
-                          className="font-medium text-sm hover:underline"
-                        >
-                          {order.orderNumber}
-                        </Link>
-                        <Badge
-                          variant={
-                            order.status === "SENT" ? "default" : "outline"
-                          }
-                          className="text-[10px] h-5"
-                        >
-                          {order.status.replace("_", " ")}
-                        </Badge>
+                stats.recentOrders.map(
+                  (order: {
+                    id: string;
+                    orderNumber: string;
+                    status: string;
+                    totalAmount: number | null;
+                    createdAt: Date | string;
+                    supplier?: { name: string } | null;
+                  }) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/purchasing/orders/${order.id}`}
+                            className="font-medium text-sm hover:underline"
+                          >
+                            {order.orderNumber}
+                          </Link>
+                          <Badge
+                            variant={
+                              order.status === "SENT" ? "default" : "outline"
+                            }
+                            className="text-[10px] h-5"
+                          >
+                            {order.status.replace("_", " ")}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {order.supplier?.name || "-"}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {order.supplier?.name || "-"}
-                      </p>
+                      <div className="text-right space-y-1">
+                        <div className="text-sm font-medium">
+                          {formatRupiah(order.totalAmount || 0)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {format(new Date(order.createdAt), "MMM dd")}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="text-sm font-medium">
-                        {formatRupiah(order.totalAmount || 0)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {format(new Date(order.createdAt), "MMM dd")}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  ),
+                )
               )}
             </div>
           </CardContent>
@@ -182,24 +191,31 @@ export default async function PurchasingDashboardPage() {
                   Belum ada data supplier.
                 </p>
               ) : (
-                stats.topSuppliers.map((supplier: any) => (
-                  <div
-                    key={supplier.supplierId}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        {supplier.supplierName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {supplier.orderCount} order(s)
-                      </p>
+                stats.topSuppliers.map(
+                  (supplier: {
+                    supplierId: string;
+                    supplierName: string;
+                    orderCount: number;
+                    totalSpend: number;
+                  }) => (
+                    <div
+                      key={supplier.supplierId}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          {supplier.supplierName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {supplier.orderCount} order(s)
+                        </p>
+                      </div>
+                      <div className="text-sm font-medium">
+                        {formatRupiah(supplier.totalSpend)}
+                      </div>
                     </div>
-                    <div className="text-sm font-medium">
-                      {formatRupiah(supplier.totalSpend)}
-                    </div>
-                  </div>
-                ))
+                  ),
+                )
               )}
             </div>
           </CardContent>
