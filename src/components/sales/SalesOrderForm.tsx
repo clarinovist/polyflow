@@ -160,8 +160,7 @@ export function SalesOrderForm({
   const form = useForm<SalesOrderFormValues>({
     resolver: zodResolver(
       mode === "create" ? createSalesOrderSchema : updateSalesOrderSchema,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ) as any,
+    ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     defaultValues: initialData
       ? {
           ...initialData,
