@@ -396,7 +396,7 @@ export const updateProductionOrder = withTenant(
       }
 
       try {
-        const session = await requirePlanningRole();
+        await requirePlanningRole();
 
         await ProductionService.updateOrder(result.data);
 
@@ -419,7 +419,7 @@ export const deleteProductionOrder = withTenant(
       if (!id) throw new BusinessRuleError("Order ID is required");
 
       try {
-        const session = await requirePlanningRole();
+        await requirePlanningRole();
 
         await ProductionService.deleteOrder(id);
 

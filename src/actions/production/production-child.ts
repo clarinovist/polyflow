@@ -17,7 +17,7 @@ export const createChildProductionOrder = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await requirePlanningRole();
+        await requirePlanningRole();
 
         const result = await prisma.$transaction(async (tx) => {
           const parentOrder = await tx.productionOrder.findUnique({

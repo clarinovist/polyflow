@@ -1,5 +1,3 @@
-"use server";
-
 // Re-exports for backward compatibility.
 // New code should import from specific domain files:
 //   production-orders, production-execution, production-materials,

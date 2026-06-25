@@ -52,7 +52,7 @@ export const updateProductionIssueStatus = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await requireAuth();
+        await requireAuth();
 
         const issue = await ProductionService.updateIssueStatus(
           issueId,
@@ -86,7 +86,7 @@ export const deleteProductionIssue = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await requireAuth();
+        await requireAuth();
 
         await ProductionService.deleteIssue(issueId);
 

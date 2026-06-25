@@ -20,7 +20,7 @@ export const logMachineDowntime = withTenant(async function logMachineDowntime(
     }
 
     try {
-      const session = await requireAuth();
+      await requireAuth();
 
       await ProductionService.recordDowntime(result.data);
       revalidatePath("/production");

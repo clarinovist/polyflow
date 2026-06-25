@@ -82,7 +82,7 @@ export const deleteMaterialIssue = withTenant(
   ) {
     return safeAction(async () => {
       try {
-        const session = await requireAuth();
+        await requireAuth();
 
         await ProductionService.deleteMaterialIssue(issueId, productionOrderId);
 
@@ -131,7 +131,7 @@ export const deleteScrap = withTenant(async function deleteScrap(
   productionOrderId: string,
 ) {
   return safeAction(async () => {
-    const session = await requireAuth();
+    await requireAuth();
 
     try {
       await ProductionService.deleteScrap(scrapId, productionOrderId);

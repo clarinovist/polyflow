@@ -89,7 +89,7 @@ export const simulateMrp = withTenant(async function simulateMrp(
 ) {
   return safeAction(async () => {
     try {
-      const session = await requireAuth();
+      await requireAuth();
 
       const result =
         await MrpService.simulateMaterialRequirements(salesOrderId);

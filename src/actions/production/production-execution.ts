@@ -32,7 +32,7 @@ export const startExecution = withTenant(async function startExecution(
     }
 
     try {
-      const session = await requireAuth();
+      await requireAuth();
 
       const execution = await ProductionService.startExecution(result.data);
 

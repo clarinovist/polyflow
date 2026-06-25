@@ -1,0 +1,345 @@
+"use client";
+
+import { Machine } from "@prisma/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { History, Factory } from "lucide-react";
+import { cn, formatRupiah } from "@/lib/utils/utils";
+import {
+  formatProductionQuantity,
+  getEnteredQuantityDisplay,
+} from "@/lib/utils/production-units";
+import { Progress } from "@/components/ui/progress";
+import Link from "next/link";
+import { ReassignMachineButton } from "@/components/production/ReassignMachineButton";
+import { ExtendedProductionOrder } from "@/components/production/order-detail/types";
+import { VoidExecutionButton } from "@/components/production/VoidExecutionButton";
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between border-b pb-2 last:border-0 last:pb-0">
+      <span className="text-muted-foreground text-sm">{label}</span>
+      <span className="font-medium text-sm">{value}</span>
+    </div>
+  );
+}
+
+interface OrderOverviewTabProps {
+  order: ExtendedProductionOrder;
+  formData: {
+    machines: Machine[];
+  };
+}
+
+export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
+  const plannedQty = Number(order.plannedQuantity);
+  const actualQty = Number(order.actualQuantity || 0);
+  const progress = Math.min((actualQty / plannedQty) * 100, 100);
+  const outputUnitConfig = order.bom.productVariant;
+  const demandSourceLabel = order.salesOrder
+    ? order.salesOrder.customer?.name || "Customer demand"
+    : order.isMaklon
+      ? order.maklonCustomer?.name || "Maklon demand"
+      : "Internal stock build";
+
+  return (
+    <div className="space-y-6">
+      {/* Progress Section */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Production Progress
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-2xl font-bold">
+              {formatProductionQuantity(actualQty, outputUnitConfig)}
+              <span className="mx-2 text-muted-foreground">/</span>
+              {getEnteredQuantityDisplay({
+                ...outputUnitConfig,
+                quantity: plannedQty,
+                enteredQuantity: order.plannedEnteredQuantity,
+                enteredUnit: order.plannedEnteredUnit,
+                conversionFactorSnapshot: order.plannedConversionFactorSnapshot,
+              })}
+            </span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {progress.toFixed(1)}%
+            </span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Demand Source
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {order.salesOrder ? (
+            <div className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800/50 dark:bg-blue-900/20">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                    Linked Sales Order
+                  </div>
+                  <div className="text-xs text-blue-700 dark:text-blue-400">
+                    {order.salesOrder.customer?.name || "Customer not assigned"}{" "}
+                    • {order.salesOrder.orderType.replace(/_/g, " ")}
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-blue-200 bg-white text-blue-700 dark:border-blue-800/50 dark:bg-zinc-900 dark:text-blue-400"
+                >
+                  Customer Demand
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium">
+                  {order.salesOrder.orderNumber}
+                </span>
+                <Link
+                  href={`/sales/orders/${order.salesOrder.id}`}
+                  className="text-blue-700 hover:underline dark:text-blue-400"
+                >
+                  Open Sales Order
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">
+                    No linked Sales Order
+                  </div>
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                    This work order is treated as internal replenishment or
+                    planning demand.
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="border-amber-200 bg-white text-amber-700 dark:border-amber-800/50 dark:bg-zinc-900 dark:text-amber-400"
+                >
+                  Internal Demand
+                </Badge>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Order Details & Resources */}
+        <Card className="lg:col-span-1 h-fit">
+          <CardHeader>
+            <CardTitle className="text-base">Order Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              <DetailRow label="BOM Recipe" value={order.bom.name} />
+              <DetailRow
+                label="Planned Start"
+                value={format(new Date(order.plannedStartDate), "PPP")}
+              />
+              <DetailRow
+                label="Planned End"
+                value={
+                  order.plannedEndDate
+                    ? format(new Date(order.plannedEndDate), "PPP")
+                    : "-"
+                }
+              />
+              <DetailRow label="Output Location" value={order.location.name} />
+              <DetailRow label="Demand Source" value={demandSourceLabel} />
+              {order.salesOrder && (
+                <DetailRow
+                  label="Sales Order"
+                  value={order.salesOrder.orderNumber}
+                />
+              )}
+              {order.isMaklon && (
+                <>
+                  <DetailRow label="Is Maklon" value="Yes" />
+                  {order.maklonCustomer && (
+                    <DetailRow
+                      label="Maklon Customer"
+                      value={order.maklonCustomer.name}
+                    />
+                  )}
+                  {order.estimatedConversionCost && (
+                    <DetailRow
+                      label="Est. Conversion Cost"
+                      value={formatRupiah(
+                        Number(order.estimatedConversionCost),
+                      )}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Factory className="w-3 h-3" /> Assigned Resources
+              </h4>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b pb-2 last:border-0 last:pb-0">
+                  <span className="text-muted-foreground text-sm">Machine</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">
+                      {order.machine?.name || "Unassigned"}
+                    </span>
+                    <ReassignMachineButton
+                      orderId={order.id}
+                      orderNumber={order.orderNumber}
+                      currentMachineId={order.machine?.id || null}
+                      machines={formData.machines}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Workforce
+                  </p>
+                  <p className="text-sm font-medium">
+                    {order.shifts?.length || 0} Shifts Assigned
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right Column: Production History */}
+        <Card className="lg:col-span-2 h-full">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-4 h-4" /> Production History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {order.executions && order.executions.length > 0 ? (
+              <div className="rounded-md border overflow-x-auto custom-scrollbar">
+                <table className="w-full text-sm text-left min-w-[500px]">
+                  <thead className="bg-muted/50 text-muted-foreground font-medium">
+                    <tr>
+                      <th className="p-3">Date/Time</th>
+                      <th className="p-3">Shift</th>
+                      <th className="p-3">Operator</th>
+                      <th className="p-3 text-right">Output</th>
+                      <th className="p-3 text-right">Scrap</th>
+                      <th className="p-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {order.executions.map((exec) => (
+                      <tr
+                        key={exec.id}
+                        className={cn(
+                          exec.status === "VOIDED" &&
+                            "opacity-50 line-through bg-muted/30",
+                        )}
+                      >
+                        <td className="p-3">
+                          <div className="flex flex-col">
+                            <span>
+                              {format(new Date(exec.startTime), "MMM d, yyyy")}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(exec.startTime), "HH:mm")} -{" "}
+                              {exec.endTime
+                                ? format(new Date(exec.endTime), "HH:mm")
+                                : "ongoing"}
+                            </span>
+                            {exec.status === "VOIDED" && (
+                              <span className="text-[10px] font-bold text-destructive uppercase tracking-tighter">
+                                Voided
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3">{exec.shift?.name || "-"}</td>
+                        <td className="p-3">{exec.operator?.name || "-"}</td>
+                        <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                          {exec.status === "VOIDED"
+                            ? "-"
+                            : (() => {
+                                const baseQty = Number(exec.quantityProduced);
+                                const entQty = exec.enteredQuantity
+                                  ? Number(exec.enteredQuantity)
+                                  : null;
+                                const entUnit =
+                                  exec.enteredUnit ||
+                                  order.bom.productVariant.primaryUnit;
+                                const primaryUnit =
+                                  order.bom.productVariant.primaryUnit;
+                                if (
+                                  entQty !== null &&
+                                  entUnit !== primaryUnit
+                                ) {
+                                  return (
+                                    <div className="flex flex-col items-end">
+                                      <span className="font-medium">
+                                        +{entQty} {entUnit}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        posted as {baseQty} {primaryUnit}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <span>
+                                    +
+                                    {formatProductionQuantity(
+                                      baseQty,
+                                      outputUnitConfig,
+                                    )}
+                                  </span>
+                                );
+                              })()}
+                        </td>
+                        <td className="p-3 text-right text-destructive">
+                          {exec.status === "VOIDED"
+                            ? "-"
+                            : (() => {
+                                const totalScrap =
+                                  Number(exec.scrapQuantity || 0) +
+                                  Number(exec.scrapDaunQty || 0) +
+                                  Number(exec.scrapProngkolQty || 0);
+                                return totalScrap > 0 ? totalScrap : "-";
+                              })()}
+                        </td>
+                        <td className="p-3 text-right">
+                          {exec.status !== "VOIDED" && (
+                            <VoidExecutionButton
+                              executionId={exec.id}
+                              productionOrderId={order.id}
+                              orderNumber={order.orderNumber}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center">
+                <History className="w-10 h-10 mb-4 opacity-10" />
+                <p>No production output recorded yet.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
