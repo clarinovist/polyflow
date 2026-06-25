@@ -656,6 +656,7 @@ model SalesOrder {
   updatedAt        DateTime          @updatedAt
   discountAmount   Decimal?          @db.Decimal(15, 2)
   taxAmount        Decimal?          @db.Decimal(15, 2)
+  shippingCost     Decimal?          @db.Decimal(15, 2)
   quotationId      String?
   deliveryOrders   DeliveryOrder[]
   invoices         Invoice[]
@@ -762,6 +763,9 @@ model PurchaseOrder {
   expectedDate     DateTime?
   status           PurchaseOrderStatus @default(DRAFT)
   totalAmount      Decimal?            @db.Decimal(15, 2)
+  discountAmount   Decimal?            @db.Decimal(15, 2)
+  taxAmount        Decimal?            @db.Decimal(15, 2)
+  shippingCost     Decimal?            @db.Decimal(15, 2)
   notes            String?
   createdById      String?
   createdAt        DateTime            @default(now())
@@ -782,6 +786,9 @@ model PurchaseOrderItem {
   quantity         Decimal        @db.Decimal(15, 4)
   unitPrice        Decimal        @db.Decimal(15, 4)
   subtotal         Decimal        @db.Decimal(15, 2)
+  discountPercent  Decimal?       @db.Decimal(5, 2)
+  taxPercent       Decimal?       @db.Decimal(5, 2)
+  taxAmount        Decimal?       @db.Decimal(15, 2)
   receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)

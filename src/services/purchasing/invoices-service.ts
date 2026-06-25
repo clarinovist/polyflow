@@ -34,12 +34,14 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
   });
 
   // Auto-Journaling Trigger
-  await AutoJournalService.handlePurchaseInvoiceCreated().catch((err) => {
-    logger.error("Auto-Journal failed for purchase invoice", {
-      error: err,
-      module: "PurchasingInvoicesService",
-    });
-  });
+  await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(
+    (err) => {
+      logger.error("Auto-Journal failed for purchase invoice", {
+        error: err,
+        module: "PurchasingInvoicesService",
+      });
+    },
+  );
 
   return invoice;
 }
@@ -186,7 +188,12 @@ export async function createDraftBillFromPo(
 ) {
   const po = await prisma.purchaseOrder.findUnique({
     where: { id: purchaseOrderId },
-    select: { totalAmount: true, orderNumber: true, status: true },
+    select: {
+      totalAmount: true,
+      orderNumber: true,
+      status: true,
+      supplier: { select: { paymentTermDays: true } },
+    },
   });
 
   if (!po || !po.totalAmount) return;
@@ -196,9 +203,10 @@ export async function createDraftBillFromPo(
   });
   if (existing) return;
 
+  const termOfPaymentDays = po.supplier?.paymentTermDays ?? 30;
   const invoiceNumber = await generateBillNumber();
   const invoiceDate = new Date();
-  const dueDate = addDays(invoiceDate, 30);
+  const dueDate = addDays(invoiceDate, termOfPaymentDays);
 
   // Set status to UNPAID if PO is RECEIVED or PARTIAL_RECEIVED, otherwise DRAFT
   const status =
@@ -212,7 +220,7 @@ export async function createDraftBillFromPo(
       purchaseOrderId,
       invoiceDate,
       dueDate,
-      termOfPaymentDays: 30,
+      termOfPaymentDays,
       totalAmount: po.totalAmount,
       status,
       notes: `System generated bill for PO ${po.orderNumber}`,
@@ -228,12 +236,14 @@ export async function createDraftBillFromPo(
   });
 
   // Auto-Journaling Trigger
-  await AutoJournalService.handlePurchaseInvoiceCreated().catch((err) => {
-    logger.error("Auto-Journal failed for automated bill", {
-      error: err,
-      module: "PurchasingInvoicesService",
-    });
-  });
+  await AutoJournalService.handlePurchaseInvoiceCreated(invoice.id).catch(
+    (err) => {
+      logger.error("Auto-Journal failed for automated bill", {
+        error: err,
+        module: "PurchasingInvoicesService",
+      });
+    },
+  );
 
   return invoice;
 }

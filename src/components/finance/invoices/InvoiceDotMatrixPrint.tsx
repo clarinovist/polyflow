@@ -32,6 +32,8 @@ interface InvoicePrintData {
   salesOrder?: {
     orderNumber: string;
     taxAmount?: unknown;
+    discountAmount?: unknown;
+    shippingCost?: unknown;
     customer?: {
       name: string;
       phone?: string | null;
@@ -85,9 +87,13 @@ export function InvoiceDotMatrixPrint({
     (sum, item) => sum + Number(item.quantity || 0),
     0,
   );
+  const discountAmount = Number(so?.discountAmount || 0);
+  const shippingCost = Number(so?.shippingCost || 0);
   const grandTotal = Number(invoice.totalAmount);
+  // DPP = subtotal - diskon (dasar pengenaan pajak)
+  const dpp = subtotal - discountAmount;
   const dppLain = 0;
-  const coretax = 0;
+  const _coretax = 0;
   const potongan = 0;
   const sisaTagihan = grandTotal - Number(invoice.paidAmount);
 
@@ -247,14 +253,34 @@ export function InvoiceDotMatrixPrint({
               <span>SUBTOTAL :</span>
               <span>{formatNumberWithDots(subtotal)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="summary-row">
+                <span>DISKON :</span>
+                <span>-{formatNumberWithDots(discountAmount)}</span>
+              </div>
+            )}
             <div className="summary-row">
-              <span>DPP Nilai Lain</span>
-              <span>{formatNumberWithDots(dppLain)}</span>
+              <span>DPP :</span>
+              <span>{formatNumberWithDots(dpp)}</span>
             </div>
-            <div className="summary-row">
-              <span>Coretax</span>
-              <span>{formatNumberWithDots(coretax)}</span>
-            </div>
+            {taxAmount > 0 && (
+              <div className="summary-row">
+                <span>PPN 11% :</span>
+                <span>{formatNumberWithDots(taxAmount)}</span>
+              </div>
+            )}
+            {dppLain > 0 && (
+              <div className="summary-row">
+                <span>DPP Nilai Lain :</span>
+                <span>{formatNumberWithDots(dppLain)}</span>
+              </div>
+            )}
+            {shippingCost > 0 && (
+              <div className="summary-row">
+                <span>ONGKOS KIRIM :</span>
+                <span>{formatNumberWithDots(shippingCost)}</span>
+              </div>
+            )}
             <div className="summary-row bold">
               <span>TOTAL :</span>
               <span>{formatNumberWithDots(grandTotal)}</span>

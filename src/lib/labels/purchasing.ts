@@ -38,6 +38,7 @@ export const purchasingLabels = {
   supplierName: "Nama Supplier",
   taxId: "NPWP",
   paymentTermDays: "Termin Pembayaran",
+  shippingCost: "Ongkos Kirim",
   bankName: "Nama Bank",
   bankAccount: "Rekening Bank",
   preferredSupplier: "Supplier Pilihan",
