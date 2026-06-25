@@ -25,7 +25,7 @@ export default async function PurchaseReturnDetailPage({ params }: PageProps) {
     return (
         <div className="p-6 max-w-5xl mx-auto">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <PurchaseReturnDetailClient purchaseReturn={serializedReturn as any} currentUserRole={currentUserRole} basePath="/planning/purchase-returns" />
+            <PurchaseReturnDetailClient purchaseReturn={serializedReturn as any} currentUserRole={currentUserRole} basePath="/purchasing/returns" />
         </div>
     );
 }

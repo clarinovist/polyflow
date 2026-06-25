@@ -1,6 +1,6 @@
 import React from 'react';
 import { prisma } from '@/lib/core/prisma';
-import { MaklonGoodsReceiptForm } from '@/components/planning/purchasing/MaklonGoodsReceiptForm';
+import { MaklonGoodsReceiptForm } from '@/components/purchasing/orders/MaklonGoodsReceiptForm';
 import { Metadata } from 'next';
 import { Package } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';

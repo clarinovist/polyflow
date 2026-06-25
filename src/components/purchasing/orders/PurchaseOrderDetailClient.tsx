@@ -60,7 +60,7 @@ interface PurchaseOrderDetailClientProps {
 
 export function PurchaseOrderDetailClient({
     order,
-    basePath = '/planning/purchase-orders',
+    basePath = '/purchasing/orders',
     warehouseMode = false
 }: PurchaseOrderDetailClientProps) {
     const router = useRouter();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { GoodsReceiptTable } from '@/components/planning/purchasing/GoodsReceiptTable';
+import { GoodsReceiptTable } from '@/components/purchasing/orders/GoodsReceiptTable';
 import { PackageSearch } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 import Link from 'next/link';

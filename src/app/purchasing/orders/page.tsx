@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { PurchaseOrderTable } from '@/components/planning/purchasing/PurchaseOrderTable';
+import { PurchaseOrderTable } from '@/components/purchasing/orders/PurchaseOrderTable';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';
 import { planningLabels } from '@/lib/labels';

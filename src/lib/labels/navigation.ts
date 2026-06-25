@@ -1,6 +1,7 @@
 /** Main sidebar navigation */
 export const mainNavLabels = {
   sales: "Penjualan",
+  purchasing: "Pembelian",
   planning: "Planning",
   production: "Produksi",
   inventory: "Stok",
@@ -94,10 +95,14 @@ export const planningSidebarLabelsExtended = {
   incomingRequests: "Permintaan Masuk",
   productionSchedule: "Jadwal Produksi",
   materialRequirements: "Kebutuhan Material",
+  productionAnalytics: "Analitik Produksi",
+} as const;
+
+export const purchasingSidebarLabels = {
+  purchasingDashboard: "Dashboard Pembelian",
   purchaseRequests: "Permintaan Pembelian",
   purchaseOrders: "Purchase Order",
   purchaseReturns: "Retur Pembelian",
   supplierManagement: "Supplier",
-  productionAnalytics: "Analitik Produksi",
   procurementAnalytics: "Analitik Procurement",
 } as const;

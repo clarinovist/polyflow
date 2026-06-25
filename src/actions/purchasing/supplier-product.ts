@@ -70,7 +70,7 @@ async function linkSupplierToProduct(data: LinkSupplierValues) {
                 }
             });
 
-            revalidatePath(`/planning/suppliers/${supplierId}`);
+            revalidatePath(`/purchasing/suppliers/${supplierId}`);
             revalidatePath(`/dashboard/products`);
             return null;
         } catch (error) {
@@ -106,7 +106,7 @@ async function unlinkSupplierFromProduct(id: string) {
                 }
             });
 
-            revalidatePath(`/planning/suppliers/${item.supplierId}`);
+            revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
             revalidatePath(`/dashboard/products`);
             return null;
         } catch (error) {
@@ -197,7 +197,7 @@ async function setPreferredSupplier(id: string) {
                 });
             });
 
-            revalidatePath(`/planning/suppliers/${item.supplierId}`);
+            revalidatePath(`/purchasing/suppliers/${item.supplierId}`);
             revalidatePath(`/dashboard/products`);
             return null;
         } catch (error) {

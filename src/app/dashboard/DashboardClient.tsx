@@ -205,7 +205,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={dashboardLabels.procurement}
                     icon={ShoppingCart}
-                    href="/planning/purchase-orders"
+                    href="/purchasing/orders"
                     iconBg="bg-blue-100 dark:bg-blue-900/30"
                     iconColor="text-blue-600 dark:text-blue-400"
                 >
@@ -213,7 +213,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         <MetricRow label={dashboardLabels.pendingPOsLabel} value={stats.purchasing.pendingPOs.toString()} />
                         <MetricRow label={dashboardLabels.spendingLabel} value={formatRupiah(stats.purchasing.mtdSpending)} />
                         <div className="pt-2">
-                            <Link href="/planning/procurement-analytics" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 transition-colors">
+                            <Link href="/purchasing/analytics" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 transition-colors">
                                 {dashboardLabels.viewAnalytics} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>

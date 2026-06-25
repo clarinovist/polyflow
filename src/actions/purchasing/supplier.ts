@@ -107,7 +107,7 @@ async function createSupplier(data: CreateSupplierValues) {
                 },
             });
 
-            revalidatePath('/planning/suppliers');
+            revalidatePath('/purchasing/suppliers');
             return null;
         } catch (error) {
             logger.error('Failed to create supplier', { error, module: 'SupplierActions' });
@@ -136,8 +136,8 @@ async function updateSupplier(data: UpdateSupplierValues) {
                 data: result.data,
             });
 
-            revalidatePath('/planning/suppliers');
-            revalidatePath(`/planning/suppliers/${data.id}`);
+            revalidatePath('/purchasing/suppliers');
+            revalidatePath(`/purchasing/suppliers/${data.id}`);
             return null;
         } catch (error) {
             logger.error('Failed to update supplier', { error, supplierId: data.id, module: 'SupplierActions' });
@@ -167,7 +167,7 @@ async function deleteSupplier(id: string) {
                 where: { id },
             });
 
-            revalidatePath('/planning/suppliers');
+            revalidatePath('/purchasing/suppliers');
             return null;
         } catch (error) {
             if (error instanceof BusinessRuleError) throw error;

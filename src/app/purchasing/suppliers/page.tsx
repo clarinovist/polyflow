@@ -1,5 +1,5 @@
 import { getSuppliers, deleteSupplier } from '@/actions/purchasing/supplier';
-import { SupplierDialog } from '@/components/planning/suppliers/SupplierDialog';
+import { SupplierDialog } from '@/components/purchasing/suppliers/SupplierDialog';
 import { DeleteButton } from '@/components/common/DeleteButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -103,7 +103,7 @@ export default async function SuppliersPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Link href={`/planning/suppliers/${supplier.id}`}>
+                                                <Link href={`/purchasing/suppliers/${supplier.id}`}>
                                                     <Button variant="ghost" size="icon">
                                                         <Eye className="h-4 w-4" />
                                                     </Button>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
-import { PurchaseInvoiceTable } from '@/components/planning/purchasing/PurchaseInvoiceTable';
+import { PurchaseInvoiceTable } from '@/components/purchasing/orders/PurchaseInvoiceTable';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';

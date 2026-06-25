@@ -30,7 +30,7 @@ interface PurchaseReturnTableProps {
     basePath?: string;
 }
 
-export function PurchaseReturnTable({ initialData, basePath = '/planning/purchase-returns' }: PurchaseReturnTableProps) {
+export function PurchaseReturnTable({ initialData, basePath = '/purchasing/returns' }: PurchaseReturnTableProps) {
     const router = useRouter();
 
     const getStatusColor = (status: PurchaseReturnStatus) => {

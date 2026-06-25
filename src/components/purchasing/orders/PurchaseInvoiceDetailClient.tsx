@@ -361,7 +361,7 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                 <div>
                                     <h3 className="text-xs font-medium text-muted-foreground">Purchase Order</h3>
                                     <Link
-                                        href={`/planning/purchase-orders/${invoice.purchaseOrder.id}`}
+                                        href={`/purchasing/orders/${invoice.purchaseOrder.id}`}
                                         className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
                                     >
                                         {invoice.purchaseOrder.orderNumber}

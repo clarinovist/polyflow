@@ -56,7 +56,7 @@ interface PurchaseInvoiceTableProps {
     basePath?: string;
 }
 
-export function PurchaseInvoiceTable({ invoices, basePath = '/planning/purchase-orders' }: PurchaseInvoiceTableProps) {
+export function PurchaseInvoiceTable({ invoices, basePath = '/purchasing/orders' }: PurchaseInvoiceTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
 

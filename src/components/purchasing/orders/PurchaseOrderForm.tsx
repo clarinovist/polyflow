@@ -66,7 +66,7 @@ export function PurchaseOrderForm({ suppliers, productVariants }: PurchaseOrderF
             }
             if (result.data?.id) {
                 toast.success('Purchase Order berhasil dibuat');
-                router.push(`/planning/purchase-orders/${result.data.id}`);
+                router.push(`/purchasing/orders/${result.data.id}`);
                 router.refresh();
             }
             toast.error('Gagal membuat Purchase Order. Silakan coba lagi.');

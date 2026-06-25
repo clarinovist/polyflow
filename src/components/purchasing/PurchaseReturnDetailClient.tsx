@@ -44,7 +44,7 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, basePath = '/planning/purchase-returns' }: PurchaseReturnDetailClientProps) {
+export function PurchaseReturnDetailClient({ purchaseReturn, currentUserRole, basePath = '/purchasing/returns' }: PurchaseReturnDetailClientProps) {
     const router = useRouter();
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 

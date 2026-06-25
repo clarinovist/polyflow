@@ -36,7 +36,7 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild>
-                        <Link href="/planning/purchase-returns/create">
+                        <Link href="/purchasing/returns/create">
                             <Plus className="mr-2 h-4 w-4" />
                             {planningLabels.newPurchaseReturn}
                         </Link>
@@ -90,7 +90,7 @@ export default async function PurchaseReturnsPage({ searchParams }: { searchPara
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <PurchaseReturnTable initialData={serializedReturns as any} basePath="/planning/purchase-returns" />
+                    <PurchaseReturnTable initialData={serializedReturns as any} basePath="/purchasing/returns" />
                 </CardContent>
             </Card>
         </div>

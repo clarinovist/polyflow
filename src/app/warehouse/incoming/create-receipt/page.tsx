@@ -2,7 +2,7 @@ import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { getLocations } from '@/actions/inventory/inventory';
 import { notFound } from 'next/navigation';
-import { GoodsReceiptForm } from '@/components/planning/purchasing/GoodsReceiptForm';
+import { GoodsReceiptForm } from '@/components/purchasing/orders/GoodsReceiptForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
 import { serializeData } from '@/lib/utils/utils';

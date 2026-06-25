@@ -46,7 +46,7 @@ export default async function PlanningDashboardPage() {
                             </Link>
                         </Button>
                         <Button asChild variant="secondary">
-                            <Link href="/planning/purchase-requests">
+                            <Link href="/purchasing/requests">
                                 <ClipboardCheck className="mr-2 h-4 w-4" />
                                 {planningLabels.purchaseRequestsButton}
                             </Link>

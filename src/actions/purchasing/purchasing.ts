@@ -41,7 +41,7 @@ async function createPurchaseOrder(formData: CreatePurchaseOrderValues) {
             details: `Created Purchase Order ${order.orderNumber}`
         });
 
-        revalidatePath('/planning/purchase-orders');
+        revalidatePath('/purchasing/orders');
         return serializeData(order);
     });
 }
@@ -55,7 +55,7 @@ async function createManualPurchaseRequest(data: CreatePurchaseRequestValues) {
 
         const pr = await PurchaseService.createPurchaseRequest(validated, session.user.id);
 
-        revalidatePath('/planning/purchase-requests');
+        revalidatePath('/purchasing/requests');
         return serializeData(pr);
     });
 }
@@ -77,8 +77,8 @@ async function updatePurchaseOrder(formData: UpdatePurchaseOrderValues) {
             details: `Updated Purchase Order ${order.orderNumber}`
         });
 
-        revalidatePath('/planning/purchase-orders');
-        revalidatePath(`/planning/purchase-orders/${validated.id}`);
+        revalidatePath('/purchasing/orders');
+        revalidatePath(`/purchasing/orders/${validated.id}`);
         return serializeData(order);
     });
 }
@@ -92,8 +92,8 @@ async function createGoodsReceipt(formData: CreateGoodsReceiptValues) {
 
         const receipt = await PurchaseService.createGoodsReceipt(validated, session.user.id);
 
-        revalidatePath('/planning/purchase-orders');
-        revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
+        revalidatePath('/purchasing/orders');
+        revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
         revalidatePath('/warehouse/incoming');
         revalidatePath(`/warehouse/incoming/create-receipt`);
         revalidatePath('/warehouse/inventory');
@@ -111,8 +111,8 @@ async function createPurchaseInvoice(formData: CreatePurchaseInvoiceValues) {
         const invoice = await PurchaseService.createInvoice(validated);
 
         revalidatePath('/finance/invoices/purchase');
-        revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
-        revalidatePath(`/planning/purchase-orders/${validated.purchaseOrderId}`);
+        revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
+        revalidatePath(`/purchasing/orders/${validated.purchaseOrderId}`);
 
         // Auto-Journal: Purchase Invoice
         await AutoJournalService.handlePurchaseInvoiceCreated().catch(error => {
@@ -169,8 +169,8 @@ async function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus
             details: `Status changed to ${status}`
         });
 
-        revalidatePath('/planning/purchase-orders');
-        revalidatePath(`/planning/purchase-orders/${id}`);
+        revalidatePath('/purchasing/orders');
+        revalidatePath(`/purchasing/orders/${id}`);
         return serializeData(order);
     });
 }
@@ -183,8 +183,8 @@ async function deletePurchaseOrder(id: string) {
 
         try {
             const result = await PurchaseService.deleteOrder(id, session.user.id);
-            revalidatePath('/planning/purchase-orders');
-            revalidatePath('/planning/purchase-orders');
+            revalidatePath('/purchasing/orders');
+            revalidatePath('/purchasing/orders');
             return { orderNumber: result.orderNumber };
         } catch (error) {
             throw new BusinessRuleError(error instanceof Error ? error.message : 'Failed to delete order');
@@ -259,8 +259,8 @@ async function consolidatePurchaseRequests(requestIds: string[], supplierId: str
         const session = await requireAuth();
         try {
             const po = await PurchaseService.consolidateRequestsToOrder(requestIds, supplierId, session.user.id);
-            revalidatePath('/planning/purchase-requests');
-            revalidatePath('/planning/purchase-orders');
+            revalidatePath('/purchasing/requests');
+            revalidatePath('/purchasing/orders');
             return serializeData(po);
         } catch (error) {
             throw new BusinessRuleError(error instanceof Error ? error.message : 'Failed to consolidate requests');

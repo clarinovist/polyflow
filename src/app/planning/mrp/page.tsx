@@ -76,7 +76,7 @@ export default async function PpicMrpPage() {
                     <p className="text-muted-foreground">{planningLabels.shortageAnalysis}</p>
                 </div>
                 <div className="flex gap-3">
-                    <Link href="/planning/purchase-orders/create">
+                    <Link href="/purchasing/orders/create">
                         <Button className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600">
                             <ShoppingCart className="mr-2 h-4 w-4" />
                             {planningLabels.createBulkPO}
@@ -168,7 +168,7 @@ export default async function PpicMrpPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             {item.hasShortage ? (
-                                                <Link href={`/planning/purchase-orders/create?variantId=${item.sku}`}>
+                                                <Link href={`/purchasing/orders/create?variantId=${item.sku}`}>
                                                     <Button variant="ghost" size="sm" className="text-red-700 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 h-8 gap-1">
                                                         {planningLabels.purchase} <ArrowRight className="h-3 w-3" />
                                                     </Button>

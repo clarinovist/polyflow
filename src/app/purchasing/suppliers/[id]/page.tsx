@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Phone, MapPin, Package, Clock, DollarSign, Star, Building2, CreditCard, Mail } from 'lucide-react';
 import Link from 'next/link';
-import { LinkProductDialog } from '@/components/planning/suppliers/LinkProductDialog';
-import { UnlinkProductButton } from '@/components/planning/suppliers/UnlinkProductButton';
+import { LinkProductDialog } from '@/components/purchasing/suppliers/LinkProductDialog';
+import { UnlinkProductButton } from '@/components/purchasing/suppliers/UnlinkProductButton';
 import { formLabels } from '@/lib/labels';
 // Note: UnlinkProductButton is still in contacts folder, I should move it too.
 
@@ -49,7 +49,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ id: 
     return (
         <div className="p-6 space-y-6">
             <div className="flex items-center gap-4">
-                <Link href="/planning/suppliers">
+                <Link href="/purchasing/suppliers">
                     <Button variant="outline" size="icon">
                         <ChevronLeft className="h-4 w-4" />
                     </Button>

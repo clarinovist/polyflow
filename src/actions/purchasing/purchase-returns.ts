@@ -35,7 +35,7 @@ async function createPurchaseReturnAction(data: z.infer<typeof createPurchaseRet
     const parsedData = createPurchaseReturnSchema.parse(data);
     const purchaseReturn = await PurchaseReturnService.createReturn(parsedData, session.user.id);
     
-    revalidatePath("/planning/purchase-returns");
+    revalidatePath("/purchasing/returns");
     return purchaseReturn;
   });
 }
@@ -48,8 +48,8 @@ async function updatePurchaseReturnAction(data: z.infer<typeof updatePurchaseRet
     const parsedData = updatePurchaseReturnSchema.parse(data);
     const purchaseReturn = await PurchaseReturnService.updateReturn(parsedData, session.user.id);
     
-    revalidatePath("/planning/purchase-returns");
-    revalidatePath(`/planning/purchase-returns/${purchaseReturn.id}`);
+    revalidatePath("/purchasing/returns");
+    revalidatePath(`/purchasing/returns/${purchaseReturn.id}`);
     return purchaseReturn;
   });
 }
@@ -60,8 +60,8 @@ async function confirmPurchaseReturnAction(id: string) {
   return safeAction(async () => {
     const session = await requireAuth();
     const purchaseReturn = await PurchaseReturnService.confirmReturn(id, session.user.id);
-    revalidatePath("/planning/purchase-returns");
-    revalidatePath(`/planning/purchase-returns/${id}`);
+    revalidatePath("/purchasing/returns");
+    revalidatePath(`/purchasing/returns/${id}`);
     return purchaseReturn;
   });
 }
@@ -72,8 +72,8 @@ async function shipPurchaseReturnAction(id: string) {
   return safeAction(async () => {
     const session = await requireAuth();
     const purchaseReturn = await PurchaseReturnService.shipReturn(id, session.user.id);
-    revalidatePath("/planning/purchase-returns");
-    revalidatePath(`/planning/purchase-returns/${id}`);
+    revalidatePath("/purchasing/returns");
+    revalidatePath(`/purchasing/returns/${id}`);
     return purchaseReturn;
   });
 }
@@ -84,8 +84,8 @@ async function completePurchaseReturnAction(id: string) {
   return safeAction(async () => {
     const session = await requireAuth();
     const purchaseReturn = await PurchaseReturnService.completeReturn(id, session.user.id);
-    revalidatePath("/planning/purchase-returns");
-    revalidatePath(`/planning/purchase-returns/${id}`);
+    revalidatePath("/purchasing/returns");
+    revalidatePath(`/purchasing/returns/${id}`);
     return purchaseReturn;
   });
 }
@@ -96,8 +96,8 @@ async function cancelPurchaseReturnAction(id: string) {
   return safeAction(async () => {
     const session = await requireAuth();
     const purchaseReturn = await PurchaseReturnService.cancelReturn(id, session.user.id);
-    revalidatePath("/planning/purchase-returns");
-    revalidatePath(`/planning/purchase-returns/${id}`);
+    revalidatePath("/purchasing/returns");
+    revalidatePath(`/purchasing/returns/${id}`);
     return purchaseReturn;
   });
 }

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
-import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
+import { getCompanyConfig, type CompanyConfig } from "@/lib/config/company";
 
 type DeliveryItem = {
   id?: string;
@@ -38,7 +38,7 @@ interface SuratJalanPrintData {
 // Company config loaded from env vars — see src/lib/config/company.ts
 
 function formatDate(date: Date): string {
-  return format(date, 'dd MMM yyyy', { locale: idLocale });
+  return format(date, "dd MMM yyyy", { locale: idLocale });
 }
 
 interface SuratJalanDotMatrixPrintProps {
@@ -48,7 +48,12 @@ interface SuratJalanDotMatrixPrintProps {
   companyConfig?: CompanyConfig;
 }
 
-export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode = false, companyConfig }: SuratJalanDotMatrixPrintProps) {
+export function SuratJalanDotMatrixPrint({
+  order,
+  showButton = true,
+  previewMode = false,
+  companyConfig,
+}: SuratJalanDotMatrixPrintProps) {
   const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
   const customer = order.salesOrder?.customer;
   const items = order.items ?? [];
@@ -93,7 +98,12 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         <div className="doc-header">
           <div className="company-section">
             {COMPANY.logoUrl ? (
-              <img src={COMPANY.logoUrl} alt={COMPANY.name} className="company-logo-img" />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={COMPANY.logoUrl}
+                alt={COMPANY.name}
+                className="company-logo-img"
+              />
             ) : (
               <div className="company-logo">MJ</div>
             )}
@@ -110,11 +120,13 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
           <div className="info-section">
             <div className="info-row">
               <span className="info-label">NAMA PELANGGAN :</span>
-              <span className="info-value">{customer?.name || '-'}</span>
+              <span className="info-value">{customer?.name || "-"}</span>
             </div>
             <div className="info-row">
               <span className="info-label">ALAMAT :</span>
-              <span className="info-value">{customer?.shippingAddress || customer?.billingAddress || '-'}</span>
+              <span className="info-value">
+                {customer?.shippingAddress || customer?.billingAddress || "-"}
+              </span>
             </div>
             <div className="info-row">
               <span className="info-label">NO SURAT JALAN :</span>
@@ -122,7 +134,9 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
             </div>
             <div className="info-row">
               <span className="info-label">TGL SURAT JALAN :</span>
-              <span className="info-value">{formatDate(new Date(order.deliveryDate))}</span>
+              <span className="info-value">
+                {formatDate(new Date(order.deliveryDate))}
+              </span>
             </div>
           </div>
         </div>
@@ -140,16 +154,17 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
           <tbody>
             {items.map((item, idx) => {
               const pv = item.productVariant;
-              const productName = pv?.product?.name || pv?.name || '-';
+              const productName = pv?.product?.name || pv?.name || "-";
               const qty = Number(item.enteredQuantity ?? item.quantity ?? 0);
-              const unit = item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || '';
+              const unit =
+                item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || "";
 
               return (
                 <tr key={item.id || idx}>
                   <td className="col-name">{productName}</td>
                   <td className="col-qty">{qty}</td>
                   <td className="col-unit">{unit}</td>
-                  <td className="col-note">{item.notes || ''}</td>
+                  <td className="col-note">{item.notes || ""}</td>
                 </tr>
               );
             })}
@@ -163,7 +178,9 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
           </tbody>
           <tfoot>
             <tr className="total-row">
-              <td className="text-right" colSpan={1}>TOTAL :</td>
+              <td className="text-right" colSpan={1}>
+                TOTAL :
+              </td>
               <td className="col-qty">{totalQty}</td>
               <td colSpan={2}></td>
             </tr>
@@ -173,7 +190,8 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
         {/* === CLOSING TEXT === */}
         <div className="closing-section">
           <p className="closing-text">
-            Demikian surat jalan ini dibuat dengan sebenar-benarnya, sebagai bukti pengiriman barang.
+            Demikian surat jalan ini dibuat dengan sebenar-benarnya, sebagai
+            bukti pengiriman barang.
           </p>
         </div>
 
@@ -182,7 +200,7 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
           <div className="sig-left">
             <div className="sig-label">Yang Menerima,</div>
             <div className="sig-space"></div>
-            <div className="sig-line">(                        )</div>
+            <div className="sig-line">( )</div>
           </div>
           <div className="sig-right">
             <div className="sig-label">Hormat kami,</div>
@@ -193,7 +211,9 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
       </div>
 
       {/* Dynamic @page from company paper size config */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @page {
           size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
           margin: ${paperSize.marginMm}mm;
@@ -208,7 +228,9 @@ export function SuratJalanDotMatrixPrint({ order, showButton = true, previewMode
             padding: 0;
           }
         }
-      `}} />
+      `,
+        }}
+      />
 
       <style>{`
         .print-page {

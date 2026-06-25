@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { format } from 'date-fns';
-import { id as idLocale } from 'date-fns/locale';
-import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
-import { terbilang } from '@/lib/utils/terbilang';
-import { InvoiceStatus } from '@prisma/client';
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
+import { getCompanyConfig, type CompanyConfig } from "@/lib/config/company";
+import { terbilang } from "@/lib/utils/terbilang";
+import { InvoiceStatus } from "@prisma/client";
 
 type InvoiceLineItem = {
   id?: string;
@@ -47,11 +47,14 @@ interface InvoicePrintData {
 // Company config loaded from env vars — see src/lib/config/company.ts
 
 function formatNumberWithDots(n: number): string {
-  return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatDate(date: Date): string {
-  return format(date, 'dd MMM yyyy', { locale: idLocale });
+  return format(date, "dd MMM yyyy", { locale: idLocale });
 }
 
 interface InvoiceDotMatrixPrintProps {
@@ -61,7 +64,12 @@ interface InvoiceDotMatrixPrintProps {
   companyConfig?: CompanyConfig;
 }
 
-export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode = false, companyConfig }: InvoiceDotMatrixPrintProps) {
+export function InvoiceDotMatrixPrint({
+  invoice,
+  showButton = true,
+  previewMode = false,
+  companyConfig,
+}: InvoiceDotMatrixPrintProps) {
   const COMPANY: CompanyConfig = companyConfig || getCompanyConfig();
   const so = invoice.salesOrder;
   const customer = so?.customer;
@@ -69,8 +77,14 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
   const taxAmount = Number(so?.taxAmount || 0);
   const isPPN = taxAmount > 0;
 
-  const subtotal = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
-  const totalQty = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + Number(item.subtotal || 0),
+    0,
+  );
+  const totalQty = items.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0,
+  );
   const grandTotal = Number(invoice.totalAmount);
   const dppLain = 0;
   const coretax = 0;
@@ -112,7 +126,12 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
         <div className="invoice-header">
           <div className="company-section">
             {COMPANY.logoUrl ? (
-              <img src={COMPANY.logoUrl} alt={COMPANY.name} className="company-logo-img" />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={COMPANY.logoUrl}
+                alt={COMPANY.name}
+                className="company-logo-img"
+              />
             ) : (
               <div className="company-logo">MJ</div>
             )}
@@ -129,15 +148,17 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           <div className="customer-section">
             <div className="customer-row">
               <span className="customer-label">NAMA PELANGGAN :</span>
-              <span className="customer-value">{customer?.name || '-'}</span>
+              <span className="customer-value">{customer?.name || "-"}</span>
             </div>
             <div className="customer-row">
               <span className="customer-label">ALAMAT :</span>
-              <span className="customer-value">{customer?.billingAddress || '-'}</span>
+              <span className="customer-value">
+                {customer?.billingAddress || "-"}
+              </span>
             </div>
             <div className="customer-row">
               <span className="customer-label">NPWP :</span>
-              <span className="customer-value">{customer?.taxId || '-'}</span>
+              <span className="customer-value">{customer?.taxId || "-"}</span>
             </div>
             <div className="customer-row">
               <span className="customer-label">NO INVOICE :</span>
@@ -145,12 +166,14 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             </div>
             <div className="customer-row">
               <span className="customer-label">TGL INVOICE :</span>
-              <span className="customer-value">{formatDate(new Date(invoice.invoiceDate))}</span>
+              <span className="customer-value">
+                {formatDate(new Date(invoice.invoiceDate))}
+              </span>
             </div>
             <div className="customer-row">
               <span className="customer-label">TGL JATUH TEMPO :</span>
               <span className="customer-value">
-                {invoice.dueDate ? formatDate(new Date(invoice.dueDate)) : '-'}
+                {invoice.dueDate ? formatDate(new Date(invoice.dueDate)) : "-"}
               </span>
             </div>
           </div>
@@ -171,10 +194,13 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           <tbody>
             {items.map((item, idx) => {
               const pv = item.productVariant;
-              const productName = pv?.product?.name || pv?.name || '-';
+              const productName = pv?.product?.name || pv?.name || "-";
               const qty = Number(item.enteredQuantity || item.quantity || 0);
-              const unit = item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || '';
-              const unitPrice = Number(item.enteredUnitPrice || item.unitPrice || 0);
+              const unit =
+                item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || "";
+              const unitPrice = Number(
+                item.enteredUnitPrice || item.unitPrice || 0,
+              );
               const lineTotal = Number(item.subtotal || 0);
 
               return (
@@ -182,9 +208,13 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
                   <td className="col-name">{productName}</td>
                   <td className="col-qty">{qty}</td>
                   <td className="col-unit">{unit}</td>
-                  <td className="col-price">{formatNumberWithDots(unitPrice)}</td>
+                  <td className="col-price">
+                    {formatNumberWithDots(unitPrice)}
+                  </td>
                   <td className="col-disc">0</td>
-                  <td className="col-total">{formatNumberWithDots(lineTotal)}</td>
+                  <td className="col-total">
+                    {formatNumberWithDots(lineTotal)}
+                  </td>
                 </tr>
               );
             })}
@@ -198,7 +228,9 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           </tbody>
           <tfoot>
             <tr className="total-row">
-              <td colSpan={1} className="text-right">TOTAL :</td>
+              <td colSpan={1} className="text-right">
+                TOTAL :
+              </td>
               <td className="col-qty">{totalQty}</td>
               <td colSpan={4}></td>
             </tr>
@@ -207,7 +239,9 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
 
         {/* === TERBILANG === */}
         <div className="terbilang-section">
-          <div className="terbilang-text">Terbilang : {terbilang(grandTotal)}</div>
+          <div className="terbilang-text">
+            Terbilang : {terbilang(grandTotal)}
+          </div>
           <div className="financial-summary">
             <div className="summary-row">
               <span>SUBTOTAL :</span>
@@ -231,7 +265,9 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             </div>
             <div className="summary-row bold">
               <span>SISA TAGIHAN :</span>
-              <span className="highlight">{formatNumberWithDots(sisaTagihan)}</span>
+              <span className="highlight">
+                {formatNumberWithDots(sisaTagihan)}
+              </span>
             </div>
           </div>
         </div>
@@ -241,16 +277,20 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
           <div className="footer-left">
             <div className="keterangan-label">KETERANGAN BANK :</div>
             <div className="bank-type-label">
-              {isPPN ? '(Penjualan PPN)' : '(Penjualan Non PPN)'}
+              {isPPN ? "(Penjualan PPN)" : "(Penjualan Non PPN)"}
             </div>
             <div className="bank-account">
-              A/N {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]?.holder || COMPANY.name}
+              A/N{" "}
+              {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]
+                ?.holder || COMPANY.name}
             </div>
-            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map((acc) => (
-              <div key={acc.account} className="bank-account">
-                {acc.bank} : {acc.account}
-              </div>
-            ))}
+            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map(
+              (acc) => (
+                <div key={acc.account} className="bank-account">
+                  {acc.bank} : {acc.account}
+                </div>
+              ),
+            )}
           </div>
 
           <div className="footer-spacer"></div>
@@ -263,13 +303,13 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
         </div>
 
         {/* === NOTE === */}
-        <div className="invoice-note">
-          NOTE :{COMPANY.footerNote}
-        </div>
+        <div className="invoice-note">NOTE :{COMPANY.footerNote}</div>
       </div>
 
       {/* Dynamic @page from company paper size config */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @page {
           size: auto;
           margin: ${paperSize.marginMm}mm;
@@ -288,7 +328,9 @@ export function InvoiceDotMatrixPrint({ invoice, showButton = true, previewMode 
             page-break-after: avoid;
           }
         }
-      `}} />
+      `,
+        }}
+      />
 
       <style>{`
         .print-page {

@@ -64,7 +64,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
             if (mode === 'create') {
                 await createPurchaseReturnAction(data);
                 toast.success('Retur Pembelian berhasil dibuat');
-                router.push('/planning/purchase-returns');
+                router.push('/purchasing/returns');
             } else {
                 // await updatePurchaseReturnAction(data);
                 toast.success('Retur Pembelian berhasil diperbarui');
@@ -90,7 +90,7 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="flex items-center justify-between">
                     <Button type="button" variant="ghost" asChild>
-                        <Link href="/planning/purchase-returns">
+                        <Link href="/purchasing/returns">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Kembali ke Retur
                         </Link>

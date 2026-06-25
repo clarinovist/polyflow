@@ -12,6 +12,6 @@ export async function convertToPo(requestId: string, supplierId: string) {
     const userId = session.user.id || 'unknown';
 
     const result = await PurchaseService.convertRequestToOrder(requestId, supplierId, userId);
-    revalidatePath('/planning/purchase-requests');
+    revalidatePath('/purchasing/requests');
     return { success: true, orderId: result.id };
 }
