@@ -10,8 +10,8 @@ import { Eye } from "lucide-react";
 import Link from "next/link";
 import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface DeliveryOrderTableProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData: any[];
 }
 

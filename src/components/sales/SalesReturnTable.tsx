@@ -128,89 +128,84 @@ export function SalesReturnTable({
     [],
   );
 
-  const renderMobileView = useMemo(
-    () => (returns: SerializedSalesReturn[]) => (
-      <>
-        {returns.length === 0 ? (
-          <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-            {salesLabels.emptyReturns}
-          </div>
-        ) : (
-          returns.map((sr) => (
-            <Card
-              key={sr.id}
-              className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-              onClick={() => router.push(`${basePath}/${sr.id}`)}
-            >
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-primary/10 p-1.5 rounded-full">
-                      <RotateCcw className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">
-                        {sr.returnNumber}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(sr.returnDate), "MMM d, yyyy")}
-                      </p>
-                    </div>
+  const renderMobileView = (returns: SerializedSalesReturn[]) => (
+    <>
+      {returns.length === 0 ? (
+        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+          {salesLabels.emptyReturns}
+        </div>
+      ) : (
+        returns.map((sr) => (
+          <Card
+            key={sr.id}
+            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+            onClick={() => router.push(`${basePath}/${sr.id}`)}
+          >
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/10 p-1.5 rounded-full">
+                    <RotateCcw className="h-4 w-4 text-primary" />
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] px-1.5 h-5 ${getStatusColor(sr.status)}`}
-                  >
-                    {getStatusLabel(sr.status, "sales")}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        {salesLabels.customer}
-                      </p>
-                      <p className="font-medium truncate">
-                        {sr.customer?.name || "-"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Total Keseluruhan
-                      </p>
-                      <p className="font-semibold text-primary">
-                        {sr.totalAmount
-                          ? formatRupiah(Number(sr.totalAmount))
-                          : "-"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
-                    <div className="flex items-center gap-1">
-                      <Badge
-                        variant="outline"
-                        className="h-4 px-1 rounded-sm text-[9px] font-normal"
-                      >
-                        SO: {sr.salesOrder?.orderNumber || "-"}
-                      </Badge>
-                      <span>
-                        • {sr._count.items} {salesLabels.items}
-                      </span>
-                    </div>
-                    <div className="flex items-center text-primary font-medium">
-                      Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
-                    </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">{sr.returnNumber}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(sr.returnDate), "MMM d, yyyy")}
+                    </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </>
-    ),
-    [],
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 h-5 ${getStatusColor(sr.status)}`}
+                >
+                  {getStatusLabel(sr.status, "sales")}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-1">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      {salesLabels.customer}
+                    </p>
+                    <p className="font-medium truncate">
+                      {sr.customer?.name || "-"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Total Keseluruhan
+                    </p>
+                    <p className="font-semibold text-primary">
+                      {sr.totalAmount
+                        ? formatRupiah(Number(sr.totalAmount))
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <Badge
+                      variant="outline"
+                      className="h-4 px-1 rounded-sm text-[9px] font-normal"
+                    >
+                      SO: {sr.salesOrder?.orderNumber || "-"}
+                    </Badge>
+                    <span>
+                      • {sr._count.items} {salesLabels.items}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-primary font-medium">
+                    Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </>
   );
 
   return (

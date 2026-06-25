@@ -123,87 +123,82 @@ export function PurchaseReturnTable({
     [],
   );
 
-  const renderMobileView = useMemo(
-    () => (returns: SerializedPurchaseReturn[]) => (
-      <>
-        {returns.length === 0 ? (
-          <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-            {purchasingLabels.emptyReturns}
-          </div>
-        ) : (
-          returns.map((pr) => (
-            <Card
-              key={pr.id}
-              className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-              onClick={() => router.push(`${basePath}/${pr.id}`)}
-            >
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-primary/10 p-1.5 rounded-full">
-                      <RotateCcw className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">
-                        {pr.returnNumber}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(pr.returnDate), "MMM d, yyyy")}
-                      </p>
-                    </div>
+  const renderMobileView = (returns: SerializedPurchaseReturn[]) => (
+    <>
+      {returns.length === 0 ? (
+        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+          {purchasingLabels.emptyReturns}
+        </div>
+      ) : (
+        returns.map((pr) => (
+          <Card
+            key={pr.id}
+            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+            onClick={() => router.push(`${basePath}/${pr.id}`)}
+          >
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/10 p-1.5 rounded-full">
+                    <RotateCcw className="h-4 w-4 text-primary" />
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] px-1.5 h-5 ${getStatusColor(pr.status)}`}
-                  >
-                    {getStatusLabel(pr.status, "purchasing")}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-1">
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        {purchasingLabels.supplier}
-                      </p>
-                      <p className="font-medium truncate">
-                        {pr.supplier?.name || "-"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Total
-                      </p>
-                      <p className="font-semibold text-primary">
-                        {pr.totalAmount
-                          ? formatRupiah(Number(pr.totalAmount))
-                          : "-"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
-                    <div className="flex items-center gap-1">
-                      <Badge
-                        variant="outline"
-                        className="h-4 px-1 rounded-sm text-[9px] font-normal"
-                      >
-                        PO: {pr.purchaseOrder?.orderNumber || "-"}
-                      </Badge>
-                      <span>• {pr._count.items} Item</span>
-                    </div>
-                    <div className="flex items-center text-primary font-medium">
-                      Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
-                    </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">{pr.returnNumber}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(pr.returnDate), "MMM d, yyyy")}
+                    </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </>
-    ),
-    [],
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 h-5 ${getStatusColor(pr.status)}`}
+                >
+                  {getStatusLabel(pr.status, "purchasing")}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-1">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      {purchasingLabels.supplier}
+                    </p>
+                    <p className="font-medium truncate">
+                      {pr.supplier?.name || "-"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Total
+                    </p>
+                    <p className="font-semibold text-primary">
+                      {pr.totalAmount
+                        ? formatRupiah(Number(pr.totalAmount))
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <Badge
+                      variant="outline"
+                      className="h-4 px-1 rounded-sm text-[9px] font-normal"
+                    >
+                      PO: {pr.purchaseOrder?.orderNumber || "-"}
+                    </Badge>
+                    <span>• {pr._count.items} Item</span>
+                  </div>
+                  <div className="flex items-center text-primary font-medium">
+                    Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </>
   );
 
   return (

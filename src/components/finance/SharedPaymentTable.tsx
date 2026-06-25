@@ -190,7 +190,7 @@ export function SharedPaymentTable({
         },
       },
     ],
-    [isReceived, amountColor, amountPrefix, isDeleting],
+    [isReceived, amountColor, amountPrefix, isDeleting, handleDelete],
   );
 
   return (
