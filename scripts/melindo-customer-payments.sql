@@ -1,7 +1,7 @@
 BEGIN;
 
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0001', 'BBM-01/06/26', '2026-06-02', 5326500, 'Bank Transfer', 'BBM-01/06/26', 'ar-ob-inv-008', NOW(), NOW());
-INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0002', 'BKM-01/06/26', '2026-06-02', 8160000, 'Cash', 'BKM-01/06/26', 'inv-june-048', NOW(), NOW());
+INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0002', 'BKM-01/06/26', '2026-06-02', 8160000, 'Cash', 'BKM-01/06/26', 'inv-june-001', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0003', 'BKM-02/06/26', '2026-06-03', 500000, 'Cash', 'BKM-02/06/26', 'ar-ob-inv-003', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0004', 'BKM-03/06/26', '2026-06-03', 290000, 'Cash', 'BKM-03/06/26', 'inv-june-005', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0005', 'BKM-05/06/26', '2026-06-04', 51370000, 'Cash', 'BKM-05/06/26', 'inv-june-002', NOW(), NOW());
@@ -14,7 +14,7 @@ INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0012', 'BKM-14/06/26', '2026-06-06', 37418000, 'Cash', 'BKM-14/06/26', 'inv-june-011', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0013', 'BKM-18/06/26', '2026-06-06', 338000, 'Cash', 'BKM-18/06/26', 'inv-june-018', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0014', 'BKM-20/06/26', '2026-06-08', 39880000, 'Cash', 'BKM-20/06/26', 'inv-june-010', NOW(), NOW());
-INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0015', 'BKM-22/06/26', '2026-06-08', 13515000, 'Cash', 'BKM-22/06/26', 'inv-june-048', NOW(), NOW());
+INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0015', 'BKM-22/06/26', '2026-06-08', 13515000, 'Cash', 'BKM-22/06/26', 'inv-june-014', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0016', 'BKM-23/06/26', '2026-06-08', 290000, 'Cash', 'BKM-23/06/26', 'inv-june-021', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0017', 'BKM-24/06/26', '2026-06-08', 580000, 'Cash', 'BKM-24/06/26', 'inv-june-022', NOW(), NOW());
 INSERT INTO "Payment" (id, "paymentNumber", "paymentDate", amount, method, notes, "invoiceId", "createdAt", "updatedAt") VALUES ('pay-0018', 'BKM-25/06/26', '2026-06-10', 34879000, 'Cash', 'BKM-25/06/26', 'ar-ob-inv-007', NOW(), NOW());
@@ -42,7 +42,7 @@ COMMIT;
 
 -- Update Invoice paidAmount
 UPDATE "Invoice" SET "paidAmount" = 5326500, status = 'PAID' WHERE id = 'ar-ob-inv-008';
-UPDATE "Invoice" SET "paidAmount" = 8160000, status = 'PARTIAL' WHERE id = 'inv-june-048';
+UPDATE "Invoice" SET "paidAmount" = 8160000, status = 'PAID' WHERE id = 'inv-june-001';
 UPDATE "Invoice" SET "paidAmount" = 500000, status = 'PARTIAL' WHERE id = 'ar-ob-inv-003';
 UPDATE "Invoice" SET "paidAmount" = 290000, status = 'PAID' WHERE id = 'inv-june-005';
 UPDATE "Invoice" SET "paidAmount" = 51370000, status = 'PARTIAL' WHERE id = 'inv-june-002';
@@ -55,7 +55,7 @@ UPDATE "Invoice" SET "paidAmount" = 778800, status = 'PAID' WHERE id = 'ar-ob-in
 UPDATE "Invoice" SET "paidAmount" = 37418000, status = 'PAID' WHERE id = 'inv-june-011';
 UPDATE "Invoice" SET "paidAmount" = 338000, status = 'PAID' WHERE id = 'inv-june-018';
 UPDATE "Invoice" SET "paidAmount" = 39880000, status = 'PAID' WHERE id = 'inv-june-010';
-UPDATE "Invoice" SET "paidAmount" = 21675000, status = 'PAID' WHERE id = 'inv-june-048';
+UPDATE "Invoice" SET "paidAmount" = 13515000, status = 'PAID' WHERE id = 'inv-june-014';
 UPDATE "Invoice" SET "paidAmount" = 290000, status = 'PAID' WHERE id = 'inv-june-021';
 UPDATE "Invoice" SET "paidAmount" = 580000, status = 'PAID' WHERE id = 'inv-june-022';
 UPDATE "Invoice" SET "paidAmount" = 34879000, status = 'PAID' WHERE id = 'ar-ob-inv-007';
