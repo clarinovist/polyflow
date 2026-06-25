@@ -102,6 +102,8 @@ export function PurchaseInvoiceTable({
       PAID: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-900",
       OVERDUE:
         "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900",
+      CANCELLED: "bg-red-50 text-red-500",
+      DRAFT: "bg-slate-100 text-slate-800",
     };
     return (
       <Badge variant="outline" className={styles[status]}>

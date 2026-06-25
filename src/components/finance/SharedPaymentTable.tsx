@@ -127,14 +127,14 @@ export function SharedPaymentTable({
         accessorKey: "status",
         header: () => <div className="text-right">Status</div>,
         size: 120,
-        cell: () => (
+        cell: ({ row }) => (
           <div className="text-right">
             <Badge
               variant="outline"
               className="bg-emerald-50 text-emerald-700 border-emerald-200"
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Lunas
+              {row.original.status || "Lunas"}
             </Badge>
           </div>
         ),

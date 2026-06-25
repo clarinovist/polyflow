@@ -23,7 +23,7 @@ interface SalesQuotationTableProps {
 
 export function SalesQuotationTable({
   initialData,
-  basePath,
+  basePath: _basePath,
 }: SalesQuotationTableProps) {
   const columns: ColumnDef<SerializedSalesQuotation, unknown>[] =
     useMemo(() => {

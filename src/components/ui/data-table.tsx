@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
   flexRender,
@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils/utils";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /** Controls search input visibility. Actual filtering is handled externally. */
   searchKey?: string;
   searchPlaceholder?: string;
   searchValue?: string;
@@ -59,6 +60,8 @@ export function DataTable<TData, TValue>({
   onSearchChange,
   enablePagination = false,
   enableRowSelection = false,
+  onRowSelectionChange,
+  getRowId,
   pageSize = 20,
   children,
   emptyMessage = "Tidak ada data.",
@@ -87,8 +90,19 @@ export function DataTable<TData, TValue>({
       ? { getPaginationRowModel: getPaginationRowModel() }
       : {}),
     ...(enableRowSelection ? { enableRowSelection: true } : {}),
+    ...(getRowId ? { getRowId } : {}),
     initialState: enablePagination ? { pagination: { pageSize } } : undefined,
   });
+
+  // Bridge internal rowSelection state to external callback
+  useEffect(() => {
+    if (onRowSelectionChange && enableRowSelection) {
+      const selectedRows = table
+        .getFilteredSelectedRowModel()
+        .rows.map((r) => r.original);
+      onRowSelectionChange(selectedRows);
+    }
+  }, [rowSelection, onRowSelectionChange, enableRowSelection, table]);
 
   return (
     <div className="space-y-4">
@@ -193,10 +207,12 @@ export function DataTable<TData, TValue>({
 
       {enablePagination && (
         <div className="flex items-center justify-between px-2">
-          <div className="text-muted-foreground text-sm">
-            {table.getFilteredSelectedRowModel().rows.length} dari{" "}
-            {table.getFilteredRowModel().rows.length} baris dipilih
-          </div>
+          {enableRowSelection && (
+            <div className="text-muted-foreground text-sm">
+              {table.getFilteredSelectedRowModel().rows.length} dari{" "}
+              {table.getFilteredRowModel().rows.length} baris dipilih
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-sm">
               Halaman {table.getState().pagination.pageIndex + 1} dari{" "}
