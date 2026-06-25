@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import {
@@ -60,22 +60,25 @@ export function SharedPaymentTable({
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(id);
-    try {
-      const result = await deletePayment(id);
-      if (result.success) {
-        toast.success("Pembayaran berhasil dihapus dan jurnal dibersihkan.");
-        router.refresh();
-      } else {
-        toast.error(result.error || "Gagal menghapus pembayaran");
+  const handleDelete = useCallback(
+    async (id: string) => {
+      setIsDeleting(id);
+      try {
+        const result = await deletePayment(id);
+        if (result.success) {
+          toast.success("Pembayaran berhasil dihapus dan jurnal dibersihkan.");
+          router.refresh();
+        } else {
+          toast.error(result.error || "Gagal menghapus pembayaran");
+        }
+      } catch (_error) {
+        toast.error("Terjadi kesalahan tak terduga");
+      } finally {
+        setIsDeleting(null);
       }
-    } catch (_error) {
-      toast.error("Terjadi kesalahan tak terduga");
-    } finally {
-      setIsDeleting(null);
-    }
-  };
+    },
+    [router],
+  );
 
   const columns: ColumnDef<Payment, unknown>[] = useMemo(
     () => [

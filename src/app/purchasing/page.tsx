@@ -11,6 +11,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { PurchaseOrderStatus } from "@prisma/client";
+
+type SerializedPurchaseOrder = {
+  id: string;
+  orderNumber: string;
+  status: PurchaseOrderStatus;
+  totalAmount: number | null;
+  createdAt: Date | string;
+  supplier: { name: string } | null;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -129,15 +139,8 @@ export default async function PurchasingDashboardPage() {
                   Belum ada purchase order.
                 </p>
               ) : (
-                stats.recentOrders.map(
-                  (order: {
-                    id: string;
-                    orderNumber: string;
-                    status: string;
-                    totalAmount: number | null;
-                    createdAt: Date | string;
-                    supplier?: { name: string } | null;
-                  }) => (
+                (stats.recentOrders as SerializedPurchaseOrder[]).map(
+                  (order) => (
                     <div
                       key={order.id}
                       className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
