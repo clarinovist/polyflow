@@ -78,6 +78,76 @@ export async function createOrder(
 }
 
 export async function updateOrder(data: UpdatePurchaseOrderValues) {
+  // Load current order with items and invoices for validation
+  const currentOrder = await prisma.purchaseOrder.findUnique({
+    where: { id: data.id },
+    include: {
+      items: true,
+      invoices: { select: { id: true, status: true } },
+    },
+  });
+
+  if (!currentOrder) throw new Error("Purchase Order not found");
+
+  const status = currentOrder.status;
+
+  // === STATUS-BASED VALIDATION ===
+
+  // DRAFT: can edit everything freely
+  // SENT: can edit prices/notes/shipping, but NOT quantities for invoiced items
+  // PARTIAL_RECEIVED: stricter — received items are locked
+  // RECEIVED/CANCELLED: no editing allowed
+  if (status === "RECEIVED" || status === "CANCELLED") {
+    throw new Error(`Tidak bisa mengedit PO dengan status ${status}.`);
+  }
+
+  const hasInvoices = currentOrder.invoices.length > 0;
+
+  // Build a map of existing items by id for comparison
+  const existingItemsMap = new Map(
+    currentOrder.items.map((item) => [item.id, item]),
+  );
+
+  // Validate each submitted item
+  for (const submittedItem of data.items) {
+    const existingItem = submittedItem.id
+      ? existingItemsMap.get(submittedItem.id)
+      : undefined;
+
+    if (existingItem) {
+      const receivedQty = Number(existingItem.receivedQty);
+
+      // If item has been received, quantity cannot be reduced below receivedQty
+      if (receivedQty > 0 && submittedItem.quantity < receivedQty) {
+        throw new Error(
+          `Qty untuk "${existingItem.productVariantId}" tidak bisa kurang dari ${receivedQty} (sudah diterima).`,
+        );
+      }
+
+      // If item has been received and PO is SENT, quantity cannot change at all
+      if (
+        receivedQty > 0 &&
+        status === "SENT" &&
+        submittedItem.quantity !== Number(existingItem.quantity)
+      ) {
+        throw new Error(
+          `Qty untuk item yang sudah diterima tidak bisa diubah pada status SENT.`,
+        );
+      }
+
+      // If invoices exist, unit price cannot change (would mismatch invoice)
+      if (
+        hasInvoices &&
+        submittedItem.unitPrice !== Number(existingItem.unitPrice)
+      ) {
+        throw new Error(
+          `Harga satuan tidak bisa diubah karena sudah ada invoice terkait.`,
+        );
+      }
+    }
+  }
+
+  // === CALCULATE TOTALS ===
   let totalAmount = 0;
   let totalDiscount = 0;
   let totalTax = 0;
@@ -107,9 +177,37 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
   const shippingCost = data.shippingCost || 0;
   const finalTotal = totalAmount + shippingCost;
 
+  // === APPLY CHANGES ===
+  // For received items: preserve their receivedQty by updating in-place
+  // For new/removed items: handle carefully
+
   return await prisma.$transaction(async (tx) => {
-    await tx.purchaseOrderItem.deleteMany({
-      where: { purchaseOrderId: data.id },
+    // Delete only items that are NOT received (received items stay)
+    const unreceivedItemIds = currentOrder.items
+      .filter((item) => Number(item.receivedQty) === 0)
+      .map((item) => item.id);
+
+    if (unreceivedItemIds.length > 0) {
+      await tx.purchaseOrderItem.deleteMany({
+        where: { id: { in: unreceivedItemIds } },
+      });
+    }
+
+    // Create new item entries (including updated ones)
+    // Preserve receivedQty for items that existed before
+    const itemsToCreate = itemsWithTotals.map((item) => {
+      const existingItem = data.items.find(
+        (di) => di.productVariantId === item.productVariantId,
+      );
+      const existingRecord = existingItem?.id
+        ? existingItemsMap.get(existingItem.id)
+        : undefined;
+
+      return {
+        ...item,
+        // Preserve receivedQty if item was carried over
+        receivedQty: existingRecord ? existingRecord.receivedQty : 0,
+      };
     });
 
     return await tx.purchaseOrder.update({
@@ -124,7 +222,7 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
         taxAmount: totalTax,
         shippingCost: shippingCost > 0 ? shippingCost : null,
         items: {
-          create: itemsWithTotals,
+          create: itemsToCreate,
         },
       },
       include: { items: true, supplier: true },

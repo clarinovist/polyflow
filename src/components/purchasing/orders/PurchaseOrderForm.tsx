@@ -10,9 +10,14 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createPurchaseOrderSchema,
+  updatePurchaseOrderSchema,
   CreatePurchaseOrderValues,
+  UpdatePurchaseOrderValues,
 } from "@/lib/schemas/purchasing";
-import { createPurchaseOrder } from "@/actions/purchasing/purchasing";
+import {
+  createPurchaseOrder,
+  updatePurchaseOrder,
+} from "@/actions/purchasing/purchasing";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -22,13 +27,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -43,6 +41,7 @@ import {
 import { Plus, Trash2, ShoppingBag, Calculator } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/utils";
 import { ProductCombobox } from "@/components/products/product-combobox";
+import { SupplierCombobox } from "@/components/purchasing/suppliers/supplier-combobox";
 import { Badge } from "@/components/ui/badge";
 import { purchasingLabels, formLabels, actionLabels } from "@/lib/labels";
 
@@ -54,34 +53,75 @@ interface PurchaseOrderFormProps {
     skuCode: string;
     buyPrice: number | null;
   }[];
+  mode?: "create" | "edit";
+  initialData?: {
+    id: string;
+    supplierId: string;
+    orderDate: Date | string;
+    expectedDate?: Date | string | null;
+    notes?: string | null;
+    shippingCost?: number | null;
+    items: {
+      id?: string;
+      productVariantId: string;
+      quantity: number;
+      unitPrice: number;
+      discountPercent?: number;
+      taxPercent?: number;
+    }[];
+  };
 }
 
 export function PurchaseOrderForm({
   suppliers,
   productVariants,
+  mode = "create",
+  initialData,
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<CreatePurchaseOrderValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createPurchaseOrderSchema) as any,
-    defaultValues: {
-      supplierId: "",
-      orderDate: new Date(),
-      expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
-      notes: "",
-      shippingCost: 0,
-      items: [
-        {
-          productVariantId: "",
-          quantity: 1,
-          unitPrice: 0,
-          discountPercent: 0,
-          taxPercent: 0,
+    resolver: zodResolver(
+      mode === "create" ? createPurchaseOrderSchema : updatePurchaseOrderSchema,
+    ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    defaultValues: initialData
+      ? {
+          supplierId: initialData.supplierId,
+          orderDate: new Date(initialData.orderDate),
+          expectedDate: initialData.expectedDate
+            ? new Date(initialData.expectedDate)
+            : null,
+          notes: initialData.notes ?? "",
+          shippingCost: initialData.shippingCost
+            ? Number(initialData.shippingCost)
+            : 0,
+          items: initialData.items.map((item) => ({
+            ...item,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            discountPercent: item.discountPercent
+              ? Number(item.discountPercent)
+              : 0,
+            taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
+          })),
+        }
+      : {
+          supplierId: "",
+          orderDate: new Date(),
+          expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          notes: "",
+          shippingCost: 0,
+          items: [
+            {
+              productVariantId: "",
+              quantity: 1,
+              unitPrice: 0,
+              discountPercent: 0,
+              taxPercent: 0,
+            },
+          ],
         },
-      ],
-    },
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -118,21 +158,42 @@ export function PurchaseOrderForm({
   }, [watchedItems]);
 
   const onSubmit: SubmitHandler<CreatePurchaseOrderValues> = async (data) => {
+    if (mode === "edit") {
+      const confirmed = window.confirm(
+        "Apakah Anda yakin ingin menyimpan perubahan pada PO ini? Perubahan harga/qty akan mempengaruhi total dan jurnal yang sudah terbentuk.",
+      );
+      if (!confirmed) return;
+    }
+
     setIsLoading(true);
     try {
-      const result = await createPurchaseOrder(data);
-      if (!result.success) {
-        toast.error(
-          result.error || "Gagal membuat Purchase Order. Silakan coba lagi.",
-        );
-        return;
+      if (mode === "edit" && initialData?.id) {
+        const result = await updatePurchaseOrder({
+          ...data,
+          id: initialData.id,
+        } as UpdatePurchaseOrderValues);
+        if (result.success) {
+          toast.success("Purchase Order berhasil diupdate");
+          router.push(`/purchasing/orders/${initialData.id}`);
+          router.refresh();
+        } else {
+          toast.error(
+            result.error || "Gagal update Purchase Order. Silakan coba lagi.",
+          );
+        }
+      } else {
+        const result = await createPurchaseOrder(data);
+        if (result.success) {
+          toast.success("Purchase Order berhasil dibuat");
+          if (result.data?.id) {
+            router.push(`/purchasing/orders/${result.data.id}`);
+          }
+        } else {
+          toast.error(
+            result.error || "Gagal membuat Purchase Order. Silakan coba lagi.",
+          );
+        }
       }
-      if (result.data?.id) {
-        toast.success("Purchase Order berhasil dibuat");
-        router.push(`/purchasing/orders/${result.data.id}`);
-        router.refresh();
-      }
-      toast.error("Gagal membuat Purchase Order. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -148,6 +209,18 @@ export function PurchaseOrderForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {mode === "edit" && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-200">
+            <p className="font-semibold">⚠️ Mode Edit PO</p>
+            <ul className="mt-1 list-disc list-inside space-y-1 text-amber-700 dark:text-amber-300">
+              <li>Harga satuan tidak bisa diubah jika sudah ada invoice</li>
+              <li>
+                Qty tidak bisa dikurangi di bawah jumlah yang sudah diterima
+              </li>
+              <li>Perubahan akan memperbarui total PO</li>
+            </ul>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column (Items) - spans 8 columns */}
           <div className="lg:col-span-8 space-y-6">
@@ -210,6 +283,7 @@ export function PurchaseOrderForm({
                                         id: v.id,
                                         name: v.name,
                                         skuCode: v.skuCode,
+                                        buyPrice: v.buyPrice,
                                       }))}
                                       value={field.value}
                                       onValueChange={(val) => {
@@ -218,6 +292,11 @@ export function PurchaseOrderForm({
                                       }}
                                       placeholder="Pilih produk..."
                                       className="h-10 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
+                                      onCreateNew={() =>
+                                        router.push(
+                                          "/dashboard/products/create",
+                                        )
+                                      }
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -479,28 +558,13 @@ export function PurchaseOrderForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pilih Supplier</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="Pilih supplier..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {suppliers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              <div className="flex flex-col text-left">
-                                <span className="font-medium">{s.name}</span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {s.code}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SupplierCombobox
+                          suppliers={suppliers}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -567,14 +631,18 @@ export function PurchaseOrderForm({
                     {isLoading ? (
                       <span className="flex items-center gap-2">
                         <span className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                        Membuat...
+                        {mode === "edit" ? "Menyimpan..." : "Membuat..."}
                       </span>
+                    ) : mode === "edit" ? (
+                      "Simpan Perubahan"
                     ) : (
                       "Konfirmasi Purchase Order"
                     )}
                   </Button>
                   <p className="text-center text-xs text-muted-foreground mt-3">
-                    Membuat pesanan draft. Persetujuan mungkin diperlukan.
+                    {mode === "edit"
+                      ? "Perubahan akan memperbarui total dan jurnal."
+                      : "Membuat pesanan draft. Persetujuan mungkin diperlukan."}
                   </p>
                 </div>
               </CardContent>

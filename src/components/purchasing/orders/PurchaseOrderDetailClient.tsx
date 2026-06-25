@@ -27,6 +27,7 @@ import {
   Receipt,
   Info,
   Trash2,
+  Edit,
 } from "lucide-react";
 import {
   getStatusLabel,
@@ -160,6 +161,17 @@ export function PurchaseOrderDetailClient({
               <CheckCircle className="mr-2 h-4 w-4" /> Tandai Terkirim
             </Button>
           )}
+
+          {!warehouseMode &&
+            (order.status === "DRAFT" ||
+              order.status === "SENT" ||
+              order.status === "PARTIAL_RECEIVED") && (
+              <Link href={`/purchasing/orders/${order.id}/edit`}>
+                <Button variant="outline">
+                  <Edit className="mr-2 h-4 w-4" /> Edit PO
+                </Button>
+              </Link>
+            )}
 
           {(order.status === "SENT" || order.status === "PARTIAL_RECEIVED") && (
             <Link href={`/warehouse/incoming/create-receipt?poId=${order.id}`}>
