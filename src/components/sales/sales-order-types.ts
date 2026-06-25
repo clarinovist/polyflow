@@ -1,4 +1,14 @@
-import { Customer, Location, ProductVariant, Product } from "@prisma/client";
+import {
+  Customer,
+  Location,
+  ProductVariant,
+  Product,
+  SalesOrder,
+  SalesOrderItem,
+  Invoice,
+  ProductionOrder,
+  StockMovement,
+} from "@prisma/client";
 
 export type SerializedCustomer = Omit<
   Customer,
@@ -41,4 +51,126 @@ export interface SalesOrderFormProps {
   products: SerializedProductVariant[];
   mode: "create" | "edit";
   initialData?: { id: string } & Record<string, unknown>;
+}
+
+// ---- Detail page types ----
+
+export type SerializedSalesOrderItem = Omit<
+  SalesOrderItem,
+  | "quantity"
+  | "unitPrice"
+  | "subtotal"
+  | "deliveredQty"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  deliveredQty: number;
+  enteredQuantity?: number | null;
+  enteredUnit?: string | null;
+  conversionFactorSnapshot?: number | null;
+  enteredUnitPrice?: number | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  productVariant: Omit<
+    ProductVariant,
+    | "price"
+    | "buyPrice"
+    | "sellPrice"
+    | "conversionFactor"
+    | "minStockAlert"
+    | "reorderPoint"
+    | "reorderQuantity"
+    | "costingMethod"
+    | "standardCost"
+    | "createdAt"
+    | "updatedAt"
+  > & {
+    conversionFactor: number;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    product: Product;
+  };
+};
+
+export type SerializedStockMovement = Omit<
+  StockMovement,
+  "quantity" | "cost" | "createdAt"
+> & {
+  quantity: number;
+  cost: number | null;
+  createdAt: Date | string;
+};
+
+export type SerializedProductionOrder = Omit<
+  ProductionOrder,
+  | "plannedQuantity"
+  | "actualQuantity"
+  | "plannedStartDate"
+  | "plannedEndDate"
+  | "actualStartDate"
+  | "actualEndDate"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  plannedQuantity: number;
+  actualQuantity: number | null;
+  plannedStartDate: Date | string;
+  plannedEndDate: Date | string | null;
+  actualStartDate: Date | string | null;
+  actualEndDate: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
+export type SerializedSalesOrder = Omit<
+  SalesOrder,
+  "totalAmount" | "orderDate" | "expectedDate" | "createdAt" | "updatedAt"
+> & {
+  totalAmount: number | null;
+  orderDate: Date | string;
+  expectedDate: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  items: SerializedSalesOrderItem[];
+  customer:
+    | (Omit<
+        Customer,
+        "creditLimit" | "discountPercent" | "createdAt" | "updatedAt"
+      > & {
+        creditLimit: number | null;
+        discountPercent: number | null;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+      })
+    | null;
+  sourceLocation: Location | null;
+  invoices: (Omit<
+    Invoice,
+    | "totalAmount"
+    | "paidAmount"
+    | "invoiceDate"
+    | "dueDate"
+    | "createdAt"
+    | "updatedAt"
+  > & {
+    totalAmount: number;
+    paidAmount: number;
+    invoiceDate: Date | string;
+    dueDate: Date | string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+  })[];
+  productionOrders: SerializedProductionOrder[];
+  movements: SerializedStockMovement[];
+  createdBy: { name: string } | null;
+};
+
+export interface SalesOrderDetailClientProps {
+  order: SerializedSalesOrder;
+  basePath?: string;
+  warehouseMode?: boolean;
+  currentUserRole?: string;
 }
