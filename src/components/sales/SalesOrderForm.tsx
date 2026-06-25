@@ -158,9 +158,9 @@ export function SalesOrderForm({
   };
 
   const form = useForm<SalesOrderFormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(
       mode === "create" ? createSalesOrderSchema : updateSalesOrderSchema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ) as any,
     defaultValues: initialData
       ? {
