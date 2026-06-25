@@ -1,106 +1,137 @@
-'use client';
+"use client";
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { formatRupiah } from '@/lib/utils/utils';
-import { format } from 'date-fns';
-import { SalesQuotation, SalesQuotationStatus, Customer } from '@prisma/client';
-import { FileText } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { salesLabels, formLabels, getStatusLabel } from '@/lib/labels';
+import { useMemo } from "react";
+import { type ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { formatRupiah } from "@/lib/utils/utils";
+import { format } from "date-fns";
+import { SalesQuotation, SalesQuotationStatus, Customer } from "@prisma/client";
+import { FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
 
-// Helper types that match the structure of what's passed from server page
-type SerializedSalesQuotation = Omit<SalesQuotation, 'totalAmount'> & {
-    totalAmount: number | null;
-    customer: Customer | null;
-    _count: { items: number };
+type SerializedSalesQuotation = Omit<SalesQuotation, "totalAmount"> & {
+  totalAmount: number | null;
+  customer: Customer | null;
+  _count: { items: number };
 };
 
 interface SalesQuotationTableProps {
-    initialData: SerializedSalesQuotation[];
-    basePath?: string;
+  initialData: SerializedSalesQuotation[];
+  basePath?: string;
 }
 
-export function SalesQuotationTable({ initialData, basePath = '/sales/quotations' }: SalesQuotationTableProps) {
-    const router = useRouter();
+export function SalesQuotationTable({
+  initialData,
+  basePath = "/sales/quotations",
+}: SalesQuotationTableProps) {
+  const router = useRouter();
 
-    const getStatusColor = (status: SalesQuotationStatus) => {
-        switch (status) {
-            case 'DRAFT': return 'bg-slate-100 text-slate-800 border-slate-200';
-            case 'SENT': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'ACCEPTED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'REJECTED': return 'bg-red-100 text-red-800 border-red-200';
-            case 'EXPIRED': return 'bg-amber-100 text-amber-800 border-amber-200';
-            case 'CONVERTED': return 'bg-purple-100 text-purple-800 border-purple-200';
-            default: return 'bg-slate-100 text-slate-800';
-        }
-    };
+  const getStatusColor = (status: SalesQuotationStatus) => {
+    switch (status) {
+      case "DRAFT":
+        return "bg-slate-100 text-slate-800 border-slate-200";
+      case "SENT":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "ACCEPTED":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "REJECTED":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "EXPIRED":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "CONVERTED":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-slate-100 text-slate-800";
+    }
+  };
 
-    return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>{salesLabels.quotationNumber}</TableHead>
-                        <TableHead>{formLabels.date}</TableHead>
-                        <TableHead>{salesLabels.validUntil}</TableHead>
-                        <TableHead>{salesLabels.customer}</TableHead>
-                        <TableHead>{formLabels.status}</TableHead>
-                        <TableHead className="text-right">{salesLabels.items}</TableHead>
-                        <TableHead className="text-right">{formLabels.total}</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {initialData.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                                {salesLabels.emptyQuotations}
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        initialData.map((quotation) => (
-                            <TableRow
-                                key={quotation.id}
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                onClick={() => router.push(`${basePath}/${quotation.id}` as any)}
-                            >
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4 text-muted-foreground" />
-                                        {quotation.quotationNumber}
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {format(new Date(quotation.quotationDate), 'MMM d, yyyy')}
-                                </TableCell>
-                                <TableCell>
-                                    {quotation.validUntil ? format(new Date(quotation.validUntil), 'MMM d, yyyy') : '-'}
-                                </TableCell>
-                                <TableCell>{quotation.customer?.name || 'Prospect'}</TableCell>
-                                <TableCell>
-                                    <Badge variant="secondary" className={getStatusColor(quotation.status)}>
-                                        {getStatusLabel(quotation.status, 'sales')}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                    {quotation._count.items}
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {quotation.totalAmount ? formatRupiah(Number(quotation.totalAmount)) : '-'}
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
-    );
+  const columns: ColumnDef<SerializedSalesQuotation, unknown>[] = useMemo(
+    () => [
+      {
+        id: "quotationNumber",
+        header: salesLabels.quotationNumber,
+        size: 160,
+        accessorFn: (row) => row.quotationNumber,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{row.original.quotationNumber}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "quotationDate",
+        header: formLabels.date,
+        size: 120,
+        sortingFn: "datetime",
+        cell: ({ row }) =>
+          format(new Date(row.original.quotationDate), "MMM d, yyyy"),
+      },
+      {
+        accessorKey: "validUntil",
+        header: salesLabels.validUntil,
+        size: 120,
+        sortingFn: "datetime",
+        cell: ({ row }) =>
+          row.original.validUntil
+            ? format(new Date(row.original.validUntil), "MMM d, yyyy")
+            : "-",
+      },
+      {
+        id: "customer",
+        header: salesLabels.customer,
+        size: 180,
+        accessorFn: (row) => row.customer?.name || "",
+        cell: ({ row }) => row.original.customer?.name || "Prospect",
+      },
+      {
+        accessorKey: "status",
+        header: formLabels.status,
+        size: 110,
+        cell: ({ row }) => (
+          <Badge
+            variant="secondary"
+            className={getStatusColor(row.original.status)}
+          >
+            {getStatusLabel(row.original.status, "sales")}
+          </Badge>
+        ),
+      },
+      {
+        id: "itemCount",
+        header: () => <div className="text-right">{salesLabels.items}</div>,
+        size: 80,
+        accessorFn: (row) => row._count.items,
+        cell: ({ row }) => (
+          <div className="text-right text-muted-foreground">
+            {row.original._count.items}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "totalAmount",
+        header: () => <div className="text-right">{formLabels.total}</div>,
+        size: 150,
+        cell: ({ row }) => (
+          <div className="text-right font-medium">
+            {row.original.totalAmount
+              ? formatRupiah(Number(row.original.totalAmount))
+              : "-"}
+          </div>
+        ),
+      },
+    ],
+    [getStatusColor],
+  );
+
+  return (
+    <DataTable
+      columns={columns}
+      data={initialData}
+      emptyMessage={salesLabels.emptyQuotations}
+      minWidth={900}
+    />
+  );
 }
