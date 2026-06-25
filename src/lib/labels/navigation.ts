@@ -101,8 +101,8 @@ export const planningSidebarLabelsExtended = {
 export const purchasingSidebarLabels = {
   purchasingDashboard: "Dashboard Pembelian",
   purchaseRequests: "Permintaan Pembelian",
-  purchaseOrders: "Purchase Order",
+  purchaseOrders: "Order Pembelian",
   purchaseReturns: "Retur Pembelian",
   supplierManagement: "Supplier",
-  procurementAnalytics: "Analitik Procurement",
+  procurementAnalytics: "Analitik Pembelian",
 } as const;
