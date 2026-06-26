@@ -57,11 +57,8 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
     const [selectedLocationId, setSelectedLocationId] = useState<string>('');
     const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
 
-    // Filter locations for default selection or validation?
-    const validLocations = locations.filter(l =>
-        l.slug?.includes('finished') || l.slug?.includes('scrap') ||
-        l.name.toLowerCase().includes('finished') || l.name.toLowerCase().includes('scrap')
-    );
+    // All locations are valid for quotation-to-order conversion
+    const validLocations = locations;
 
     const handleConvert = async () => {
         if (!selectedLocationId) {
