@@ -30,7 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, MapPin } from "lucide-react";
+import { Loader2, Plus, Pencil, MapPin, Navigation } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FileUpload } from "@/components/ui/file-upload";
 
@@ -56,7 +56,56 @@ export function CustomerDialog({
   trigger,
 }: CustomerDialogProps) {
   const [open, setOpen] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const router = useRouter();
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=id`,
+        { headers: { "User-Agent": "PolyFlowERP/1.0" } },
+      );
+      const data = await res.json();
+      if (data.address) {
+        const a = data.address;
+        if (a.state) form.setValue("province", a.state);
+        if (a.city || a.town || a.county)
+          form.setValue("city", a.city || a.town || a.county);
+        if (a.suburb || a.district || a.village)
+          form.setValue("district", a.suburb || a.district || a.village);
+        if (a.village || a.hamlet || a.neighbourhood)
+          form.setValue("village", a.village || a.hamlet || a.neighbourhood);
+      }
+    } catch {
+      // Silent fail — GPS still works, just no address auto-fill
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Browser tidak mendukung geolocation");
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        form.setValue("latitude", lat);
+        form.setValue("longitude", lng);
+        // Reverse geocode to auto-fill address fields
+        reverseGeocode(lat, lng).then(() => {
+          setIsLocating(false);
+          toast.success("Lokasi & alamat berhasil diambil");
+        });
+      },
+      () => {
+        setIsLocating(false);
+        toast.error("Gagal mengambil lokasi. Pastikan GPS aktif.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
 
   const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
     resolver: zodResolver(
@@ -438,6 +487,22 @@ export function CustomerDialog({
                   )}
                 />
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={getCurrentLocation}
+                disabled={isLocating}
+                className="mb-4"
+              >
+                {isLocating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Navigation className="h-4 w-4 mr-2" />
+                )}
+                {isLocating ? "Mengambil lokasi..." : "Ambil Lokasi Saya"}
+              </Button>
 
               <FormField
                 control={form.control}
