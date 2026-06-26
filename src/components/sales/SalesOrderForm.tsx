@@ -807,42 +807,28 @@ export function SalesOrderForm({
             </p>
           )}
 
-          {/* Desktop: Table view */}
-          <div className="hidden md:block border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr className="border-b">
-                  <th className="h-10 px-4 text-left font-medium w-[300px]">
-                    {formLabels.product}
-                  </th>
-                  <th className="h-10 px-4 text-left font-medium w-[120px]">
-                    {formLabels.qty}
-                  </th>
-                  <th className="h-10 px-4 text-left font-medium w-[150px]">
-                    {formLabels.unitPrice}
-                  </th>
-                  <th className="h-10 px-4 text-left font-medium w-[100px]">
-                    Diskon %
-                  </th>
-                  <th className="h-10 px-4 text-left font-medium w-[100px]">
-                    Pajak %
-                  </th>
-                  <th className="h-10 px-4 text-left font-medium w-[130px]">
-                    DPP Nilai Lain
-                  </th>
-                  <th className="h-10 px-4 text-right font-medium w-[150px]">
-                    {formLabels.subtotal}
-                  </th>
-                  <th className="h-10 px-4 w-[50px]"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((field, index) => (
-                  <tr
-                    key={field.id}
-                    className="border-b last:border-0 hover:bg-muted/50 transition-colors"
-                  >
-                    <td className="p-2 align-middle">
+          {/* Card-per-item layout */}
+          <div className="space-y-3">
+            {fields.map((field, index) => {
+              const item = watchItems?.[index];
+              const qty = item?.quantity || 0;
+              const price = item?.unitPrice || 0;
+              const disc = item?.discountPercent || 0;
+              const tax = item?.taxPercent || 0;
+              const sub = qty * price;
+              const afterDisc = sub - sub * (disc / 100);
+              const lineTotal = afterDisc + afterDisc * (tax / 100);
+              const unitMeta = getLineUnitMeta(index);
+
+              return (
+                <div
+                  key={field.id}
+                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden"
+                >
+                  {/* Header: Product + Qty + Delete */}
+                  <div className="flex items-center gap-3 p-4 pb-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
                       <FormField
                         control={form.control}
                         name={`items.${index}.productVariantId`}
@@ -863,7 +849,7 @@ export function SalesOrderForm({
                                     variant="ghost"
                                     role="combobox"
                                     className={cn(
-                                      "w-[300px] justify-between border-0 shadow-none bg-transparent h-auto p-2 font-medium hover:bg-muted/50",
+                                      "w-full justify-between border-0 shadow-none bg-transparent h-auto p-2 font-medium hover:bg-muted/50",
                                       !field.value && "text-muted-foreground",
                                     )}
                                   >
@@ -1001,224 +987,257 @@ export function SalesOrderForm({
                           </div>
                         )}
                       />
-                    </td>
-                    <td className="p-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                className="border-0 shadow-none bg-transparent h-11 p-2"
-                                {...field}
-                              />
-                            </FormControl>
-                            {getLineUnitMeta(index) && (
-                              <FormDescription className="px-2 text-[10px]">
-                                {getLineUnitMeta(index)?.displayUnit}
-                              </FormDescription>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.unitPrice`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="100"
-                                className="border-0 shadow-none bg-transparent h-11 p-2"
-                                {...field}
-                              />
-                            </FormControl>
-                            {getLineUnitMeta(index) && (
-                              <FormDescription className="px-2 text-[10px]">
-                                per {getLineUnitMeta(index)?.displayUnit}
-                              </FormDescription>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.discountPercent`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="1"
-                                placeholder="0"
-                                className="border-0 shadow-none bg-transparent h-11 p-2"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.taxPercent`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="1"
-                                placeholder="0"
-                                className="border-0 shadow-none bg-transparent h-11 p-2"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </td>
-                    {/* DPP Nilai Lainnya — auto-calculated (11/12 of DPP) */}
-                    <td className="p-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.dppOtherAmount`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="any"
-                                placeholder="Auto (11/12)"
-                                className="border-0 shadow-none bg-zinc-50 dark:bg-zinc-900 h-11 p-2 text-sm"
-                                value={field.value ?? ""}
-                                onChange={(e) =>
-                                  field.onChange(e.target.value === "" ? null : Number(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </td>
-                    <td className="p-4 text-right tabular-nums">
-                      {(() => {
-                        const item = watchItems?.[index];
-                        const qty = item?.quantity || 0;
-                        const price = item?.unitPrice || 0;
-                        const disc = item?.discountPercent || 0;
-                        const tax = item?.taxPercent || 0;
-
-                        const sub = qty * price;
-                        const afterDisc = sub - sub * (disc / 100);
-                        const total = afterDisc + afterDisc * (tax / 100);
-
-                        return formatRupiah(total);
-                      })()}
-                    </td>
-                    <td className="p-2 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-11 w-11 text-muted-foreground hover:text-red-500"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-muted/50 font-medium">
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-2 text-right text-muted-foreground"
-                  >
-                    {formLabels.subtotal}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {formatRupiah(totals.gross)}
-                  </td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-2 text-right text-muted-foreground"
-                  >
-                    Diskon
-                  </td>
-                  <td className="px-4 py-2 text-right text-red-500">
-                    -{formatRupiah(totals.discount)}
-                  </td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-2 text-right text-muted-foreground"
-                  >
-                    Pajak
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {formatRupiah(totals.tax)}
-                  </td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-2 text-right text-muted-foreground"
-                  >
-                    Ongkos Kirim
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <Input
-                      type="number"
-                      min={0}
-                      {...form.register("shippingCost", {
-                        valueAsNumber: true,
-                      })}
-                      className="w-32 text-right ml-auto h-11"
-                      placeholder="0"
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.quantity`}
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-9 w-20 text-center font-mono text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
                     />
-                  </td>
-                  <td></td>
-                </tr>
-                <tr className="border-t border-muted-foreground/20">
-                  <td
-                    colSpan={6}
-                    className="px-4 py-3 text-right text-lg font-bold"
-                  >
-                    Total Keseluruhan
-                  </td>
-                  <td className="px-4 py-3 text-right text-lg font-bold">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => remove(index)}
+                      className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Unit display */}
+                  {unitMeta && (
+                    <div className="px-4 pb-2 -mt-2">
+                      <span className="text-xs text-muted-foreground">
+                        Unit: {unitMeta.displayUnit}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Body: Price fields */}
+                  <div className="px-4 pb-3 space-y-2">
+                    {/* Harga Satuan */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground w-28">
+                        Harga Satuan
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unitPrice`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0 flex-1">
+                              <FormControl>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                    Rp
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    step="100"
+                                    {...field}
+                                    className="h-8 pl-8 text-right font-mono text-sm"
+                                  />
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        {unitMeta && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            per {unitMeta.displayUnit}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Diskon */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground w-28">
+                        Diskon
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.discountPercent`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0 w-20">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  placeholder="0"
+                                  className="h-8 text-center font-mono text-sm"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          %
+                        </span>
+                        <span className="text-xs font-mono text-red-500 ml-auto">
+                          {afterDisc < sub
+                            ? `-${formatRupiah(sub - afterDisc)}`
+                            : "Rp 0"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Pajak */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground w-28">
+                        Pajak
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.taxPercent`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0 w-20">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  placeholder="0"
+                                  className="h-8 text-center font-mono text-sm"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          %
+                        </span>
+                        <span className="text-xs font-mono text-muted-foreground ml-auto">
+                          {afterDisc * (tax / 100) > 0
+                            ? formatRupiah(afterDisc * (tax / 100))
+                            : "Rp 0"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* DPP Nilai Lainnya */}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-muted-foreground w-28">
+                        DPP Nilai Lain
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.dppOtherAmount`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0 flex-1">
+                              <FormControl>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                    Rp
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    placeholder="Auto (11/12)"
+                                    value={field.value ?? ""}
+                                    onChange={(e) =>
+                                      field.onChange(
+                                        e.target.value === ""
+                                          ? null
+                                          : Number(e.target.value),
+                                      )
+                                    }
+                                    className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
+                                  />
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer: Total */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-t">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Total
+                    </span>
+                    <span className="text-sm font-bold font-mono">
+                      {formatRupiah(lineTotal)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {fields.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-lg">
+                Belum ada item. Klik &quot;Tambah Item&quot; untuk menambahkan
+                produk.
+              </div>
+            )}
+
+            {/* Summary totals */}
+            {fields.length > 0 && (
+              <div className="border rounded-lg p-4 bg-muted/30 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {formLabels.subtotal}
+                  </span>
+                  <span className="tabular-nums">
+                    {formatRupiah(totals.gross)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Diskon</span>
+                  <span className="text-red-500 tabular-nums">
+                    -{formatRupiah(totals.discount)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pajak</span>
+                  <span className="tabular-nums">
+                    {formatRupiah(totals.tax)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">
+                    Ongkos Kirim
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    {...form.register("shippingCost", {
+                      valueAsNumber: true,
+                    })}
+                    className="w-32 text-right h-9"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
+                  <span>Total Keseluruhan</span>
+                  <span className="tabular-nums">
                     {formatRupiah(totals.net + watchShippingCost)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Mobile: Card view */}
