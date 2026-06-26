@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   useForm,
   useFieldArray,
@@ -145,6 +145,22 @@ export function PurchaseOrderForm({
 
   const watchedSupplierId = useWatch({ control: form.control, name: "supplierId" });
   const selectedSupplier = suppliers.find((s) => s.id === watchedSupplierId);
+
+  // Auto-calculate DPP Nilai Lainnya = DPP × 11/12 when qty, price, or discount changes
+  useEffect(() => {
+    const items = form.getValues("items");
+    items.forEach((item, index) => {
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.unitPrice || 0);
+      const discount = Number(item.discountPercent || 0);
+      const dpp = qty * price * (1 - discount / 100);
+      const autoDppOther = dpp > 0 ? Math.round(dpp * 11 / 12 * 100) / 100 : null;
+      const current = item.dppOtherAmount;
+      if (current !== autoDppOther) {
+        form.setValue(`items.${index}.dppOtherAmount`, autoDppOther, { shouldDirty: false });
+      }
+    });
+  }, [watchedItems, form]);
 
   const totals = useMemo(() => {
     return watchedItems.reduce(
@@ -373,7 +389,7 @@ export function PurchaseOrderForm({
                             />
                           </div>
 
-                          {/* DPP Nilai Lainnya */}
+                          {/* DPP Nilai Lainnya — auto-calculated (11/12 of DPP) */}
                           <div>
                             <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
                               DPP Nilai Lain
@@ -394,8 +410,8 @@ export function PurchaseOrderForm({
                                         onChange={(e) =>
                                           field.onChange(e.target.value === "" ? null : Number(e.target.value))
                                         }
-                                        className="h-9 pl-8 text-right font-mono text-sm bg-white dark:bg-black/20"
-                                        placeholder="Opsional"
+                                        className="h-9 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
+                                        placeholder="Auto (11/12)"
                                       />
                                     </div>
                                   </FormControl>

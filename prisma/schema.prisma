@@ -738,6 +738,7 @@ model SalesOrderItem {
   discountPercent  Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
   taxPercent       Decimal?       @db.Decimal(5, 2)
+  dppOtherAmount   Decimal?       @db.Decimal(15, 2)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
 

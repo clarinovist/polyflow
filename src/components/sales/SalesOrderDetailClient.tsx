@@ -464,6 +464,11 @@ export function SalesOrderDetailClient({
                     )}
                     {!warehouseMode && (
                       <th className="h-10 px-4 text-right font-medium">
+                        DPP Nilai Lain
+                      </th>
+                    )}
+                    {!warehouseMode && (
+                      <th className="h-10 px-4 text-right font-medium">
                         {formLabels.subtotal}
                       </th>
                     )}
@@ -520,6 +525,11 @@ export function SalesOrderDetailClient({
                         </td>
                       )}
                       {!warehouseMode && (
+                        <td className="p-4 text-right text-muted-foreground">
+                          {item.dppOtherAmount ? formatRupiah(Number(item.dppOtherAmount)) : "-"}
+                        </td>
+                      )}
+                      {!warehouseMode && (
                         <td className="p-4 text-right font-medium">
                           {formatRupiah(Number(item.subtotal))}
                         </td>
@@ -532,7 +542,7 @@ export function SalesOrderDetailClient({
                     {Number(order.discountAmount) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Diskon
@@ -545,7 +555,7 @@ export function SalesOrderDetailClient({
                     {Number(order.taxAmount) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           PPN
@@ -558,7 +568,7 @@ export function SalesOrderDetailClient({
                     {Number(order.shippingCost || 0) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Ongkos Kirim
@@ -569,7 +579,7 @@ export function SalesOrderDetailClient({
                       </tr>
                     )}
                     <tr>
-                      <td colSpan={4} className="p-4 text-right font-bold">
+                      <td colSpan={5} className="p-4 text-right font-bold">
                         Total Keseluruhan
                       </td>
                       <td className="p-4 text-right font-bold text-lg">

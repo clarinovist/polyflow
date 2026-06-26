@@ -45,7 +45,7 @@ import { cn, formatRupiah } from "@/lib/utils/utils";
 import { CalendarIcon, Plus, Trash2, Loader2, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import {
   Command,
@@ -133,6 +133,7 @@ export function SalesOrderForm({
       enteredUnitPrice?: number;
       discountPercent?: number;
       taxPercent?: number;
+      dppOtherAmount?: number | null;
     }[];
     customItems?: {
       tempId: string;
@@ -182,6 +183,7 @@ export function SalesOrderForm({
                 unitPrice: 0,
                 discountPercent: 0,
                 taxPercent: 0,
+                dppOtherAmount: null,
               },
             ],
             orderType: "MAKE_TO_STOCK" as SalesOrderType,
@@ -275,6 +277,22 @@ export function SalesOrderForm({
   const watchItems = useWatch({ control: form.control, name: "items" });
   const watchShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
+
+  // Auto-calculate DPP Nilai Lainnya = DPP × 11/12 when qty, price, or discount changes
+  useEffect(() => {
+    const items = form.getValues("items");
+    items.forEach((item, index) => {
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.unitPrice || 0);
+      const discount = Number(item.discountPercent || 0);
+      const dpp = qty * price * (1 - discount / 100);
+      const autoDppOther = dpp > 0 ? Math.round(dpp * 11 / 12 * 100) / 100 : null;
+      const current = item.dppOtherAmount;
+      if (current !== autoDppOther) {
+        form.setValue(`items.${index}.dppOtherAmount`, autoDppOther, { shouldDirty: false });
+      }
+    });
+  }, [watchItems, form]);
 
   const getLineVariant = (index: number) => {
     const productVariantId = form.getValues(`items.${index}.productVariantId`);
@@ -774,6 +792,7 @@ export function SalesOrderForm({
                   unitPrice: 0,
                   discountPercent: 0,
                   taxPercent: 0,
+                  dppOtherAmount: null,
                 })
               }
             >
@@ -807,6 +826,9 @@ export function SalesOrderForm({
                   </th>
                   <th className="h-10 px-4 text-left font-medium w-[100px]">
                     Pajak %
+                  </th>
+                  <th className="h-10 px-4 text-left font-medium w-[130px]">
+                    DPP Nilai Lain
                   </th>
                   <th className="h-10 px-4 text-right font-medium w-[150px]">
                     {formLabels.subtotal}
@@ -1072,6 +1094,31 @@ export function SalesOrderForm({
                         )}
                       />
                     </td>
+                    {/* DPP Nilai Lainnya — auto-calculated (11/12 of DPP) */}
+                    <td className="p-2">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.dppOtherAmount`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="Auto (11/12)"
+                                className="border-0 shadow-none bg-zinc-50 dark:bg-zinc-900 h-11 p-2 text-sm"
+                                value={field.value ?? ""}
+                                onChange={(e) =>
+                                  field.onChange(e.target.value === "" ? null : Number(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </td>
                     <td className="p-4 text-right tabular-nums">
                       {(() => {
                         const item = watchItems?.[index];
@@ -1104,7 +1151,7 @@ export function SalesOrderForm({
               <tfoot className="bg-muted/50 font-medium">
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-2 text-right text-muted-foreground"
                   >
                     {formLabels.subtotal}
@@ -1116,7 +1163,7 @@ export function SalesOrderForm({
                 </tr>
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-2 text-right text-muted-foreground"
                   >
                     Diskon
@@ -1128,7 +1175,7 @@ export function SalesOrderForm({
                 </tr>
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-2 text-right text-muted-foreground"
                   >
                     Pajak
@@ -1140,7 +1187,7 @@ export function SalesOrderForm({
                 </tr>
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-2 text-right text-muted-foreground"
                   >
                     Ongkos Kirim
@@ -1160,7 +1207,7 @@ export function SalesOrderForm({
                 </tr>
                 <tr className="border-t border-muted-foreground/20">
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-3 text-right text-lg font-bold"
                   >
                     Total Keseluruhan

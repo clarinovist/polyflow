@@ -22,6 +22,7 @@ export const salesOrderItemSchema = z.object({
     .optional(),
   discountPercent: z.coerce.number().min(0).max(100).optional().default(0),
   taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
+  dppOtherAmount: z.coerce.number().min(0).optional().nullable().default(null),
 });
 
 export const customItemSchema = z.object({
