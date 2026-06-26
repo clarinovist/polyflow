@@ -266,81 +266,127 @@ export function PurchaseOrderForm({
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                {/* Desktop Header */}
-                <div className="hidden md:grid md:grid-cols-[1fr_80px_120px_120px_80px_80px_120px_48px] gap-2 px-6 py-3 bg-muted/20 text-[10px] uppercase font-bold text-muted-foreground tracking-wider border-b">
-                  <div>{formLabels.product}</div>
-                  <div className="text-center">{formLabels.qty}</div>
-                  <div>{formLabels.unitPrice}</div>
-                  <div>DPP Nilai Lain</div>
-                  <div className="text-center">Disc %</div>
-                  <div className="text-center">Pajak %</div>
-                  <div className="text-right">{formLabels.total}</div>
-                  <div />
-                </div>
+              <CardContent className="p-4 space-y-3">
+                {fields.map((field, index) => {
+                  const item = watchedItems[index];
+                  const qty = Number(item?.quantity || 0);
+                  const price = Number(item?.unitPrice || 0);
+                  const disc = Number(item?.discountPercent || 0);
+                  const tax = Number(item?.taxPercent || 0);
+                  const raw = qty * price;
+                  const discountAmount = raw * (disc / 100);
+                  const taxable = raw - discountAmount;
+                  const taxAmount = taxable * (tax / 100);
+                  const lineTotal = taxable + taxAmount;
+                  const dppOther = item?.dppOtherAmount;
 
-                <div className="divide-y relative min-h-[200px]">
-                  {fields.map((field, index) => {
-                    const item = watchedItems[index];
-                    const raw = (item?.quantity || 0) * (item?.unitPrice || 0);
-                    const disc = raw * ((item?.discountPercent || 0) / 100);
-                    const taxable = raw - disc;
-                    const tax = taxable * ((item?.taxPercent || 0) / 100);
-                    const lineTotal = taxable + tax;
-                    return (
-                      <div
-                        key={field.id}
-                        className="group p-4 md:px-6 md:py-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_120px_120px_80px_80px_120px_48px] gap-2 items-center">
-                          {/* Product */}
-                          <div className="w-full">
-                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
-                              {formLabels.product}
-                            </div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.productVariantId`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0 text-left">
-                                  <FormControl>
-                                    <ProductCombobox
-                                      products={productVariants.map((v) => ({
-                                        id: v.id,
-                                        name: v.name,
-                                        skuCode: v.skuCode,
-                                        buyPrice: v.buyPrice,
-                                      }))}
-                                      value={field.value}
-                                      onValueChange={(val) => {
-                                        field.onChange(val);
-                                        handleProductChange(index, val);
-                                      }}
-                                      placeholder="Pilih produk..."
-                                      className="h-10 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
-                                      onCreateNew={() =>
-                                        router.push(
-                                          "/dashboard/products/create",
-                                        )
+                  return (
+                    <div
+                      key={field.id}
+                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden"
+                    >
+                      {/* Header: Product + Qty + Delete */}
+                      <div className="flex items-center gap-3 p-4 pb-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.productVariantId`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <ProductCombobox
+                                    products={productVariants.map((v) => ({
+                                      id: v.id,
+                                      name: v.name,
+                                      skuCode: v.skuCode,
+                                      buyPrice: v.buyPrice,
+                                    }))}
+                                    value={field.value}
+                                    onValueChange={(val) => {
+                                      field.onChange(val);
+                                      handleProductChange(index, val);
+                                    }}
+                                    placeholder="Pilih produk..."
+                                    className="h-9 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
+                                    onCreateNew={() =>
+                                      router.push("/dashboard/products/create")
+                                    }
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(Number(e.target.value))
+                                  }
+                                  className="h-9 w-20 text-center font-mono text-sm"
+                                  min={1}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          disabled={fields.length === 1}
+                          className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {/* Body: Price fields */}
+                      <div className="px-4 pb-3 space-y-2">
+                        {/* Harga Satuan */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">Harga Satuan</span>
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.unitPrice`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0 flex-1 max-w-[200px]">
+                                <FormControl>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      onChange={(e) =>
+                                        field.onChange(Number(e.target.value))
                                       }
+                                      className="h-8 pl-8 text-right font-mono text-sm"
                                     />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
 
-                          {/* Qty */}
-                          <div>
-                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
-                              {formLabels.qty}
-                            </div>
+                        {/* Diskon */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">Diskon</span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
                             <FormField
                               control={form.control}
-                              name={`items.${index}.quantity`}
+                              name={`items.${index}.discountPercent`}
                               render={({ field }) => (
-                                <FormItem className="space-y-0">
+                                <FormItem className="space-y-0 w-20">
                                   <FormControl>
                                     <Input
                                       type="number"
@@ -348,155 +394,92 @@ export function PurchaseOrderForm({
                                       onChange={(e) =>
                                         field.onChange(Number(e.target.value))
                                       }
-                                      className="h-9 text-center font-mono text-sm bg-white dark:bg-black/20"
-                                      min={1}
+                                      className="h-8 text-center font-mono text-sm"
+                                      min={0}
+                                      max={100}
+                                      placeholder="0"
                                     />
                                   </FormControl>
-                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
+                            <span className="text-xs text-muted-foreground">%</span>
+                            <span className="text-xs font-mono text-red-500 ml-auto">
+                              {discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : "Rp 0"}
+                            </span>
                           </div>
+                        </div>
 
-                          {/* Price */}
-                          <div>
-                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
-                              {formLabels.unitPrice}
-                            </div>
+                        {/* Pajak */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">Pajak</span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
                             <FormField
                               control={form.control}
-                              name={`items.${index}.unitPrice`}
+                              name={`items.${index}.taxPercent`}
                               render={({ field }) => (
-                                <FormItem className="space-y-0">
+                                <FormItem className="space-y-0 w-20">
                                   <FormControl>
-                                    <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                        Rp
-                                      </span>
-                                      <Input
-                                        type="number"
-                                        {...field}
-                                        onChange={(e) =>
-                                          field.onChange(Number(e.target.value))
-                                        }
-                                        className="h-9 pl-8 text-right font-mono text-sm bg-white dark:bg-black/20"
-                                      />
-                                    </div>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      onChange={(e) =>
+                                        field.onChange(Number(e.target.value))
+                                      }
+                                      className="h-8 text-center font-mono text-sm"
+                                      min={0}
+                                      max={100}
+                                      placeholder="0"
+                                    />
                                   </FormControl>
-                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
+                            <span className="text-xs text-muted-foreground">%</span>
+                            <span className="text-xs font-mono text-muted-foreground ml-auto">
+                              {taxAmount > 0 ? formatRupiah(taxAmount) : "Rp 0"}
+                            </span>
                           </div>
+                        </div>
 
-                          {/* DPP Nilai Lainnya — auto-calculated (11/12 of DPP) */}
-                          <div>
-                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
-                              DPP Nilai Lain
-                            </div>
+                        {/* DPP Nilai Lainnya */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">DPP Nilai Lain</span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
                             <FormField
                               control={form.control}
                               name={`items.${index}.dppOtherAmount`}
                               render={({ field }) => (
-                                <FormItem className="space-y-0">
+                                <FormItem className="space-y-0 flex-1">
                                   <FormControl>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                        Rp
-                                      </span>
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
                                       <Input
                                         type="number"
                                         value={field.value ?? ""}
                                         onChange={(e) =>
                                           field.onChange(e.target.value === "" ? null : Number(e.target.value))
                                         }
-                                        className="h-9 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
+                                        className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
                                         placeholder="Auto (11/12)"
                                       />
                                     </div>
                                   </FormControl>
-                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
-                          </div>
-
-                          {/* Discount % */}
-                          <div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.discountPercent`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) =>
-                                        field.onChange(Number(e.target.value))
-                                      }
-                                      className="h-9 text-center font-mono text-sm bg-white dark:bg-black/20"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          {/* Tax % */}
-                          <div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.taxPercent`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) =>
-                                        field.onChange(Number(e.target.value))
-                                      }
-                                      className="h-9 text-center font-mono text-sm bg-white dark:bg-black/20"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          {/* Subtotal */}
-                          <div className="text-right font-mono text-sm font-medium">
-                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
-                              {formLabels.total}
-                            </div>
-                            {formatRupiah(lineTotal)}
-                          </div>
-
-                          {/* Delete */}
-                          <div className="flex justify-end">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => remove(index)}
-                              disabled={fields.length === 1}
-                              className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Footer: Total */}
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-t">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</span>
+                        <span className="text-sm font-bold font-mono">{formatRupiah(lineTotal)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
 
                 <div className="p-4 border-t bg-muted/10">
                   <Button
