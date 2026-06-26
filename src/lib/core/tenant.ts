@@ -68,6 +68,7 @@ export async function resolveTenantContext(
     }
 
     if (!targetDbUrl) {
+        console.error(`[resolveTenantContext] NOT_FOUND for subdomain="${subdomain}" — tenant query returned null. host="${reqHeaders.get('host')}" forwarded="${reqHeaders.get('x-forwarded-host')}"`);
         return { type: 'NOT_FOUND', subdomain };
     }
 
