@@ -229,6 +229,9 @@ export const getProductionOrders = withTenant(
                 primaryUnit: true,
                 salesUnit: true,
                 conversionFactor: true,
+                product: {
+                  select: { id: true, name: true },
+                },
               },
             },
           },
