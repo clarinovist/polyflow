@@ -278,7 +278,6 @@ export function PurchaseOrderForm({
                   const taxable = raw - discountAmount;
                   const taxAmount = taxable * (tax / 100);
                   const lineTotal = taxable + taxAmount;
-                  const dppOther = item?.dppOtherAmount;
 
                   return (
                     <div

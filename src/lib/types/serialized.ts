@@ -16,7 +16,7 @@ type PrismaDecimal = {
 };
 
 // Check if a type looks like a Prisma Decimal
-type IsDecimal<T> = T extends { d: number[]; toNumber(): number } ? true : false;
+type _IsDecimal<T> = T extends { d: number[]; toNumber(): number } ? true : false;
 
 /**
  * Recursively serialize a type for client components.
