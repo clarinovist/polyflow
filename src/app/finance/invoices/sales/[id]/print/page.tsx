@@ -45,5 +45,5 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
       : undefined,
   };
 
-  return <InvoiceDotMatrixPrint invoice={invoice} showButton={true} companyConfig={companyConfig} />;
+  return <InvoiceDotMatrixPrint invoice={invoice as any} showButton={true} companyConfig={companyConfig} />;
 }

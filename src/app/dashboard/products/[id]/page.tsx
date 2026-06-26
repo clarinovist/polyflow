@@ -14,7 +14,7 @@ export default async function ProductDetailPage(props: { params: Promise<{ id: s
         notFound();
     }
 
-    const product = productRes.data;
+    const product = productRes.data as any;
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

@@ -28,7 +28,7 @@ export default async function WarehousePage() {
             <div className="grid gap-4 h-[calc(100vh-140px)]">
                 <WarehouseRefreshWrapper
                     initialOrders={serializeData(orders) as unknown as ExtendedProductionOrder[]}
-                    formData={serializeData(formData)}
+                    formData={serializeData(formData) as any}
                 />
             </div>
         </div>

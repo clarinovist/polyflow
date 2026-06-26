@@ -21,7 +21,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         notFound();
     }
 
-    const productData = productRes.data as Product & { variants: ProductVariant[] };
+    const productData = productRes.data as unknown as Product & { variants: ProductVariant[] };
 
     // Transform product data to match form values
     const formData: UpdateProductValues = {

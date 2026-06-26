@@ -152,7 +152,8 @@ export function QuickOrderWizard({
           unitPrice: item.unitPrice,
           discountPercent: 0,
           taxPercent: 0,
-        })),
+          dppOtherAmount: null,
+        })), 
       });
 
       if (result.success) {

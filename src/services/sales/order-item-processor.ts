@@ -11,6 +11,7 @@ type SalesLineInput = {
   enteredUnitPrice?: number;
   discountPercent?: number;
   taxPercent?: number;
+  dppOtherAmount?: number | null;
 };
 
 type ProcessedItem = {
@@ -122,6 +123,7 @@ function normalizeSalesLineItem(
       enteredUnitPrice: undefined,
       discountPercent: item.discountPercent || 0,
       taxPercent: item.taxPercent || 0,
+      dppOtherAmount: item.dppOtherAmount || null,
     };
   }
 
@@ -153,6 +155,7 @@ function normalizeSalesLineItem(
     enteredUnitPrice,
     discountPercent: item.discountPercent || 0,
     taxPercent: item.taxPercent || 0,
+    dppOtherAmount: item.dppOtherAmount || null,
   };
 }
 

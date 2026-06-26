@@ -52,7 +52,7 @@ export default async function CustomerDetailPage(props: {
   return (
     <CustomerDetailClient
       customer={serializedCustomer}
-      salesOrders={salesOrders.map((order) => ({
+      salesOrders={salesOrders.map((order: any) => ({
         ...order,
         totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
         customer: order.customer

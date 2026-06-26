@@ -103,7 +103,7 @@ export async function catchError<T>(
 ): Promise<ActionResponse<T>> {
     try {
         const data = await action();
-        return { success: true, data: serializeData(data) };
+        return { success: true, data: serializeData(data) as T };
     } catch (error: unknown) {
         if (error && typeof error === 'object' && 'message' in error) {
             const err = error as { message: string, digest?: string };

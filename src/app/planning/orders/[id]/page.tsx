@@ -43,11 +43,11 @@ export default async function ProductionDetailPage(props: PageProps) {
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}
                 formData={{
-                    locations,
-                    operators,
-                    helpers,
-                    machines,
-                    workShifts,
+                    locations: locations as any,
+                    operators: operators as any,
+                    helpers: helpers as any,
+                    machines: machines as any,
+                    workShifts: workShifts as any,
                     rawMaterials: serializeData(rawMaterials) as unknown as ProductVariant[]
                 }}
             />

@@ -42,8 +42,8 @@ export default async function StockLedgerPage({ params, searchParams }: PageProp
 
     return (
         <StockLedgerClient
-            ledgerData={serializeData(ledgerData)}
-            locations={serializeData(locations)}
+            ledgerData={serializeData(ledgerData) as any}
+            locations={serializeData(locations) as any}
         />
     );
 }

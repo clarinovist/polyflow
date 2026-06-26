@@ -115,7 +115,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
                 <div className="col-span-4">
                     {/* Spacer or future chart */}
                 </div>
-                <TopCustomersList data={stats.topCustomers} />
+                <TopCustomersList data={stats.topCustomers as any} />
             </div>
 
             {/* Recent Orders Table */}

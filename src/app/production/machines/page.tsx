@@ -64,10 +64,10 @@ export default async function ProductionMachinesPage() {
     const workShiftsRaw = workShiftsRes.success && workShiftsRes.data ? workShiftsRes.data : [];
 
     // Serialize
-    const machines = serializeData(machinesRaw) as SerializedMachine[];
+    const machines = serializeData(machinesRaw) as unknown as SerializedMachine[];
     const releasedOrders = serializeData(releasedOrdersRaw) as SerializedProductionOrder[];
-    const employees = serializeData(employeesRaw) as SerializedEmployee[];
-    const workShifts = serializeData(workShiftsRaw) as SerializedWorkShift[];
+    const employees = serializeData(employeesRaw) as unknown as SerializedEmployee[];
+    const workShifts = serializeData(workShiftsRaw) as unknown as SerializedWorkShift[];
 
     return (
         <div className="space-y-6">

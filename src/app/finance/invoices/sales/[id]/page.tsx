@@ -23,7 +23,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
         throw new Error(invoiceResult.error);
     }
 
-    const invoice = invoiceResult.data;
+    const invoice = invoiceResult.data as unknown as typeof invoiceResult['data'] extends infer D ? D : never;
 
     if (!invoice) {
         notFound();
@@ -44,7 +44,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                 </div>
             </div>
 
-            <FinancialInvoiceDetail invoice={invoice} companyConfig={companyConfig} />
+            <FinancialInvoiceDetail invoice={invoice as any} companyConfig={companyConfig} />
         </div>
     );
 }

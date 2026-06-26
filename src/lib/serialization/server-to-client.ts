@@ -3,18 +3,20 @@
  * Converts them to plain numbers/strings/ISO strings recursively to ensure they are fully JSON-serializable
  * without triggering "Only plain objects can be passed to Client Components" errors.
  */
-export function serializeData<T>(obj: T): T {
+import type { Serialized } from '@/lib/types/serialized';
+
+export function serializeData<T>(obj: T): Serialized<T> {
     if (obj === null || obj === undefined) {
-        return obj;
+        return obj as Serialized<T>;
     }
 
     if (typeof obj !== 'object') {
-        return obj;
+        return obj as Serialized<T>;
     }
 
     // Handle Date objects
     if (obj instanceof Date || (typeof obj === 'object' && 'toISOString' in obj && typeof (obj as { toISOString: unknown }).toISOString === 'function')) {
-        return (obj as { toISOString: () => string }).toISOString() as unknown as T;
+        return (obj as { toISOString: () => string }).toISOString() as Serialized<T>;
     }
 
     // Handle Prisma Decimal objects or other custom decimal/bignumber classes safely.
@@ -31,7 +33,7 @@ export function serializeData<T>(obj: T): T {
         try {
             const num = potentialDecimal.toNumber();
             if (typeof num === 'number' && !isNaN(num)) {
-                return num as unknown as T;
+                return num as Serialized<T>;
             }
         } catch {
             // Fall through to toString fallback
@@ -42,12 +44,12 @@ export function serializeData<T>(obj: T): T {
     if (typeof potentialDecimal.toString === 'function' &&
         (Array.isArray(potentialDecimal.d) || potentialDecimal._hex !== undefined)) {
         const val = parseFloat(potentialDecimal.toString());
-        return (isNaN(val) ? potentialDecimal.toString() : val) as unknown as T;
+        return (isNaN(val) ? potentialDecimal.toString() : val) as Serialized<T>;
     }
 
     // Handle arrays recursively
     if (Array.isArray(obj)) {
-        return obj.map(serializeData) as unknown as T;
+        return obj.map(serializeData) as Serialized<T>;
     }
 
     // Handle plain objects recursively
@@ -58,5 +60,5 @@ export function serializeData<T>(obj: T): T {
             serialized[key] = serializeData(objRecord[key]);
         }
     }
-    return serialized as T;
+    return serialized as Serialized<T>;
 }
