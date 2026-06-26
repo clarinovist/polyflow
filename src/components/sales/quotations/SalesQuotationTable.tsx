@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { formatRupiah } from "@/lib/utils/utils";
 import { format } from "date-fns";
 import { SalesQuotation, SalesQuotationStatus, Customer } from "@prisma/client";
-import { FileText } from "lucide-react";
+import { FileText, ChevronRight } from "lucide-react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
 
 type SerializedSalesQuotation = Omit<SalesQuotation, "totalAmount"> & {
@@ -23,8 +25,9 @@ interface SalesQuotationTableProps {
 
 export function SalesQuotationTable({
   initialData,
-  basePath: _basePath,
+  basePath = "/sales/quotations",
 }: SalesQuotationTableProps) {
+  const router = useRouter();
   const columns: ColumnDef<SerializedSalesQuotation, unknown>[] =
     useMemo(() => {
       const getStatusColor = (status: SalesQuotationStatus) => {
@@ -125,12 +128,112 @@ export function SalesQuotationTable({
       ];
     }, []);
 
+  const getStatusColor = (status: SalesQuotationStatus) => {
+    switch (status) {
+      case "DRAFT":
+        return "bg-slate-100 text-slate-800 border-slate-200";
+      case "SENT":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "ACCEPTED":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "REJECTED":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "EXPIRED":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "CONVERTED":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-slate-100 text-slate-800";
+    }
+  };
+
+  const renderMobileView = (quotations: SerializedSalesQuotation[]) => (
+    <>
+      {quotations.length === 0 ? (
+        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+          {salesLabels.emptyQuotations}
+        </div>
+      ) : (
+        quotations.map((q) => (
+          <Card
+            key={q.id}
+            className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+            onClick={() => router.push(`${basePath}/${q.id}`)}
+          >
+            <CardHeader className="p-4 pb-2">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary/10 p-1.5 rounded-full">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">
+                      {q.quotationNumber}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(q.quotationDate), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 h-5 ${getStatusColor(q.status)}`}
+                >
+                  {getStatusLabel(q.status, "sales")}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-1">
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      {salesLabels.customer}
+                    </p>
+                    <p className="font-medium truncate">
+                      {q.customer?.name || "Prospect"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      {formLabels.total}
+                    </p>
+                    <p className="font-semibold text-primary">
+                      {q.totalAmount
+                        ? formatRupiah(Number(q.totalAmount))
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    {q.validUntil && (
+                      <span>
+                        Berlaku hingga{" "}
+                        {format(new Date(q.validUntil), "MMM d, yyyy")}
+                      </span>
+                    )}
+                    <span>• {q._count.items} item</span>
+                  </div>
+                  <div className="flex items-center text-primary font-medium">
+                    Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </>
+  );
+
   return (
     <DataTable
       columns={columns}
       data={initialData}
       emptyMessage={salesLabels.emptyQuotations}
       minWidth={900}
+      renderMobileView={renderMobileView}
     />
   );
 }

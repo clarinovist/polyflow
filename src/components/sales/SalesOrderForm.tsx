@@ -21,6 +21,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn, formatRupiah } from "@/lib/utils/utils";
 import { CalendarIcon, Plus, Trash2, Loader2, Check } from "lucide-react";
 import { format } from "date-fns";
@@ -63,6 +70,7 @@ import type {
   SerializedProductVariant,
   SalesOrderFormProps,
 } from "./sales-order-types";
+import { QuickProductDialog } from "./QuickProductDialog";
 
 export function SalesOrderForm({
   customers,
@@ -70,10 +78,25 @@ export function SalesOrderForm({
   products,
   mode,
   initialData,
+  reorderData,
 }: SalesOrderFormProps) {
   const router = useRouter();
   const [openCustomer, setOpenCustomer] = useState(false);
   const [openProduct, setOpenProduct] = useState<Record<number, boolean>>({});
+  const [mobileProductSearch, setMobileProductSearch] = useState<{
+    open: boolean;
+    index: number;
+  }>({ open: false, index: 0 });
+  const [newProducts, setNewProducts] = useState<SerializedProductVariant[]>(
+    [],
+  );
+  const [quickAddIndex, setQuickAddIndex] = useState<number | null>(null);
+  const [customItemIndex, setCustomItemIndex] = useState<number | null>(null);
+  const [customItemName, setCustomItemName] = useState("");
+  const [customItemPrice, setCustomItemPrice] = useState("");
+  const [customItems, setCustomItems] = useState<
+    { tempId: string; name: string; sellPrice: number }[]
+  >([]);
 
   // Filter locations for stock-based sales fulfillment (Finished Good, Scrap & Packing)
   const stockFulfillmentLocations = locations.filter(
@@ -113,6 +136,11 @@ export function SalesOrderForm({
       discountPercent?: number;
       taxPercent?: number;
     }[];
+    customItems?: {
+      tempId: string;
+      name: string;
+      sellPrice: number;
+    }[];
   };
 
   const form = useForm<SalesOrderFormValues>({
@@ -126,23 +154,40 @@ export function SalesOrderForm({
             ((initialData as Record<string, unknown>)
               .orderType as SalesOrderType) || "MAKE_TO_STOCK", // Ensure orderType exists for form state
         }
-      : {
-          customerId: "",
-          sourceLocationId: "",
-          orderDate: new Date(),
-          notes: "",
-          shippingCost: 0,
-          items: [
-            {
-              productVariantId: "",
-              quantity: 1,
-              unitPrice: 0,
-              discountPercent: 0,
-              taxPercent: 0,
-            },
-          ],
-          orderType: "MAKE_TO_STOCK" as SalesOrderType,
-        },
+      : reorderData
+        ? {
+            customerId: reorderData.customerId,
+            sourceLocationId: reorderData.sourceLocationId,
+            orderDate: new Date(),
+            orderType:
+              (reorderData.orderType as SalesOrderType) || "MAKE_TO_STOCK",
+            notes: reorderData.notes || "",
+            shippingCost: reorderData.shippingCost || 0,
+            items: reorderData.items.map((item) => ({
+              productVariantId: item.productVariantId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discountPercent: item.discountPercent,
+              taxPercent: item.taxPercent,
+            })),
+          }
+        : {
+            customerId: "",
+            sourceLocationId: "",
+            orderDate: new Date(),
+            notes: "",
+            shippingCost: 0,
+            items: [
+              {
+                productVariantId: "",
+                quantity: 1,
+                unitPrice: 0,
+                discountPercent: 0,
+                taxPercent: 0,
+              },
+            ],
+            orderType: "MAKE_TO_STOCK" as SalesOrderType,
+          },
   });
 
   // Filter products based on selected source location
@@ -182,7 +227,8 @@ export function SalesOrderForm({
       : "Pilih gudang sumber untuk reservasi dan shipment stok fisik.";
 
   const filteredProducts = useMemo(() => {
-    let baseProducts = products;
+    const allProducts = [...products, ...newProducts];
+    let baseProducts = allProducts;
 
     // Filter by ProductType based on OrderType
     if (selectedOrderType === "MAKLON_JASA") {
@@ -211,7 +257,7 @@ export function SalesOrderForm({
           inv.locationId === selectedSourceLocationId && inv.quantity > 0,
       ),
     );
-  }, [products, selectedSourceLocationId, selectedOrderType]);
+  }, [products, newProducts, selectedSourceLocationId, selectedOrderType]);
 
   // Clear customerId if Order Type is MTS
   /* useEffect(() => {
@@ -252,6 +298,53 @@ export function SalesOrderForm({
       : baseUnitPrice;
   };
 
+  const selectProduct = (index: number, variant: SerializedProductVariant) => {
+    form.setValue(`items.${index}.productVariantId`, variant.id);
+    const currentPrice = form.getValues(`items.${index}.unitPrice`);
+    if (!currentPrice || currentPrice === 0) {
+      form.setValue(
+        `items.${index}.unitPrice`,
+        toDisplayUnitPrice(variant, variant.sellPrice || 0),
+      );
+    }
+  };
+
+  const handleQuickProductCreated = (
+    newVariant: SerializedProductVariant,
+    targetIndex?: number,
+  ) => {
+    // Add to local products list so it appears in search
+    setNewProducts((prev) => [...prev, newVariant]);
+    // Auto-select in the target line item
+    const idx = targetIndex ?? fields.length - 1;
+    if (idx >= 0 && idx < fields.length) {
+      selectProduct(idx, newVariant);
+    }
+  };
+
+  const CUSTOM_ITEM_PREFIX = "custom:";
+
+  const confirmCustomItem = () => {
+    if (!customItemName.trim() || customItemIndex === null) return;
+    const tempId = `${CUSTOM_ITEM_PREFIX}${Date.now()}`;
+    const price = Number(customItemPrice) || 0;
+
+    // Add to customItems list
+    setCustomItems((prev) => [
+      ...prev,
+      { tempId, name: customItemName.trim(), sellPrice: price },
+    ]);
+
+    // Set the productVariantId in the form
+    form.setValue(`items.${customItemIndex}.productVariantId`, tempId);
+    form.setValue(`items.${customItemIndex}.unitPrice`, price);
+
+    // Reset inline form
+    setCustomItemIndex(null);
+    setCustomItemName("");
+    setCustomItemPrice("");
+  };
+
   const totals = computeOrderTotals(watchItems || []);
 
   const {
@@ -281,7 +374,19 @@ export function SalesOrderForm({
   ): SalesOrderFormValues {
     return {
       ...data,
+      customItems: customItems.length > 0 ? customItems : undefined,
       items: data.items.map((item) => {
+        // Skip normalization for custom items (they don't have real variants yet)
+        if (item.productVariantId.startsWith(CUSTOM_ITEM_PREFIX)) {
+          return {
+            ...item,
+            enteredQuantity: undefined,
+            enteredUnit: undefined,
+            conversionFactorSnapshot: undefined,
+            enteredUnitPrice: undefined,
+          };
+        }
+
         const variant = products.find((p) => p.id === item.productVariantId);
         if (!variant) return item;
 
@@ -672,7 +777,8 @@ export function SalesOrderForm({
             </p>
           )}
 
-          <div className="border rounded-lg overflow-hidden">
+          {/* Desktop: Table view */}
+          <div className="hidden md:block border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr className="border-b">
@@ -730,17 +836,28 @@ export function SalesOrderForm({
                                   >
                                     <div className="truncate text-left">
                                       {field.value
-                                        ? (() => {
-                                            const p = filteredProducts.find(
-                                              (p: SerializedProductVariant) =>
-                                                p.id === field.value,
-                                            );
-                                            return p
-                                              ? p.product.name === p.name
-                                                ? p.name
-                                                : `${p.product.name} - ${p.name}`
-                                              : "Pilih Produk";
-                                          })()
+                                        ? field.value.startsWith(
+                                            CUSTOM_ITEM_PREFIX,
+                                          )
+                                          ? (() => {
+                                              const custom = customItems.find(
+                                                (c) => c.tempId === field.value,
+                                              );
+                                              return custom
+                                                ? `✏️ ${custom.name}`
+                                                : "Pilih Produk";
+                                            })()
+                                          : (() => {
+                                              const p = filteredProducts.find(
+                                                (p: SerializedProductVariant) =>
+                                                  p.id === field.value,
+                                              );
+                                              return p
+                                                ? p.product.name === p.name
+                                                  ? p.name
+                                                  : `${p.product.name} - ${p.name}`
+                                                : "Pilih Produk";
+                                            })()
                                         : "Pilih Produk"}
                                     </div>
                                     <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -764,27 +881,7 @@ export function SalesOrderForm({
                                             key={p.id}
                                             value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
                                             onSelect={() => {
-                                              form.setValue(
-                                                `items.${index}.productVariantId`,
-                                                p.id,
-                                              );
-                                              // Also update unit price if it's 0 or not set
-                                              const currentPrice =
-                                                form.getValues(
-                                                  `items.${index}.unitPrice`,
-                                                );
-                                              if (
-                                                !currentPrice ||
-                                                currentPrice === 0
-                                              ) {
-                                                form.setValue(
-                                                  `items.${index}.unitPrice`,
-                                                  toDisplayUnitPrice(
-                                                    p,
-                                                    p.sellPrice || 0,
-                                                  ),
-                                                );
-                                              }
+                                              selectProduct(index, p);
                                               setOpenProduct((prev) => ({
                                                 ...prev,
                                                 [index]: false,
@@ -828,9 +925,28 @@ export function SalesOrderForm({
                                     <CommandGroup>
                                       <CommandItem
                                         onSelect={() => {
-                                          router.push(
-                                            "/dashboard/products/create",
-                                          );
+                                          setOpenProduct((prev) => ({
+                                            ...prev,
+                                            [index]: false,
+                                          }));
+                                          setCustomItemIndex(index);
+                                        }}
+                                        className="flex items-center gap-2 text-amber-600 cursor-pointer"
+                                      >
+                                        <span className="text-lg leading-none">
+                                          ✏️
+                                        </span>
+                                        <span className="font-medium">
+                                          Ketik Nama Produk Sendiri
+                                        </span>
+                                      </CommandItem>
+                                      <CommandItem
+                                        onSelect={() => {
+                                          setOpenProduct((prev) => ({
+                                            ...prev,
+                                            [index]: false,
+                                          }));
+                                          setQuickAddIndex(index);
                                         }}
                                         className="flex items-center gap-2 text-primary cursor-pointer"
                                       >
@@ -863,7 +979,7 @@ export function SalesOrderForm({
                               <Input
                                 type="number"
                                 step="0.01"
-                                className="border-0 shadow-none bg-transparent h-auto p-2"
+                                className="border-0 shadow-none bg-transparent h-11 p-2"
                                 {...field}
                               />
                             </FormControl>
@@ -887,7 +1003,7 @@ export function SalesOrderForm({
                               <Input
                                 type="number"
                                 step="100"
-                                className="border-0 shadow-none bg-transparent h-auto p-2"
+                                className="border-0 shadow-none bg-transparent h-11 p-2"
                                 {...field}
                               />
                             </FormControl>
@@ -914,7 +1030,7 @@ export function SalesOrderForm({
                                 max="100"
                                 step="1"
                                 placeholder="0"
-                                className="border-0 shadow-none bg-transparent h-auto p-2"
+                                className="border-0 shadow-none bg-transparent h-11 p-2"
                                 {...field}
                               />
                             </FormControl>
@@ -936,7 +1052,7 @@ export function SalesOrderForm({
                                 max="100"
                                 step="1"
                                 placeholder="0"
-                                className="border-0 shadow-none bg-transparent h-auto p-2"
+                                className="border-0 shadow-none bg-transparent h-11 p-2"
                                 {...field}
                               />
                             </FormControl>
@@ -965,7 +1081,7 @@ export function SalesOrderForm({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                        className="h-11 w-11 text-muted-foreground hover:text-red-500"
                         onClick={() => remove(index)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1025,7 +1141,7 @@ export function SalesOrderForm({
                       {...form.register("shippingCost", {
                         valueAsNumber: true,
                       })}
-                      className="w-32 text-right ml-auto"
+                      className="w-32 text-right ml-auto h-11"
                       placeholder="0"
                     />
                   </td>
@@ -1046,6 +1162,252 @@ export function SalesOrderForm({
               </tfoot>
             </table>
           </div>
+
+          {/* Mobile: Card view */}
+          <div className="md:hidden space-y-3">
+            {fields.map((field, index) => {
+              const item = watchItems?.[index];
+              const qty = item?.quantity || 0;
+              const price = item?.unitPrice || 0;
+              const disc = item?.discountPercent || 0;
+              const tax = item?.taxPercent || 0;
+              const sub = qty * price;
+              const afterDisc = sub - sub * (disc / 100);
+              const lineTotal = afterDisc + afterDisc * (tax / 100);
+              const variant = getLineVariant(index);
+              const unitMeta = getLineUnitMeta(index);
+
+              return (
+                <div
+                  key={field.id}
+                  className="border rounded-lg p-4 space-y-3 bg-card"
+                >
+                  {/* Product header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.productVariantId`}
+                        render={({ field: productField }) => (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-between h-11 text-left font-normal",
+                              !productField.value && "text-muted-foreground",
+                            )}
+                            onClick={() =>
+                              setMobileProductSearch({
+                                open: true,
+                                index,
+                              })
+                            }
+                          >
+                            <span className="truncate">
+                              {productField.value
+                                ? productField.value.startsWith(
+                                    CUSTOM_ITEM_PREFIX,
+                                  )
+                                  ? (() => {
+                                      const custom = customItems.find(
+                                        (c) => c.tempId === productField.value,
+                                      );
+                                      return custom
+                                        ? `✏️ ${custom.name}`
+                                        : "Pilih Produk";
+                                    })()
+                                  : (() => {
+                                      const p = filteredProducts.find(
+                                        (pv: SerializedProductVariant) =>
+                                          pv.id === productField.value,
+                                      );
+                                      return p
+                                        ? p.product.name === p.name
+                                          ? p.name
+                                          : `${p.product.name} - ${p.name}`
+                                        : "Pilih Produk";
+                                    })()
+                                : "Pilih Produk"}
+                            </span>
+                            <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        )}
+                      />
+                      {variant && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {variant.skuCode}
+                          {unitMeta?.hasAlternateUnit &&
+                            ` • ${unitMeta.displayUnit}`}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-11 w-11 text-muted-foreground hover:text-red-500 shrink-0"
+                      onClick={() => remove(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Qty & Price */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.quantity`}
+                      render={({ field: qtyField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">
+                            Qty{unitMeta ? ` (${unitMeta.displayUnit})` : ""}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-11"
+                              {...qtyField}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.unitPrice`}
+                      render={({ field: priceField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">
+                            Harga{unitMeta ? ` /${unitMeta.displayUnit}` : ""}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="100"
+                              className="h-11"
+                              {...priceField}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Discount & Tax */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.discountPercent`}
+                      render={({ field: discField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">
+                            Diskon %
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              placeholder="0"
+                              className="h-11"
+                              {...discField}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.taxPercent`}
+                      render={({ field: taxField }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-muted-foreground">
+                            Pajak %
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              placeholder="0"
+                              className="h-11"
+                              {...taxField}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Subtotal */}
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      Subtotal
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums">
+                      {formatRupiah(lineTotal)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {fields.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-lg">
+                Belum ada item. Klik &quot;Tambah Item&quot; untuk menambahkan
+                produk.
+              </div>
+            )}
+
+            {/* Mobile totals */}
+            {fields.length > 0 && (
+              <div className="border rounded-lg p-4 bg-muted/30 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="tabular-nums">
+                    {formatRupiah(totals.gross)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Diskon</span>
+                  <span className="text-red-500 tabular-nums">
+                    -{formatRupiah(totals.discount)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pajak</span>
+                  <span className="tabular-nums">
+                    {formatRupiah(totals.tax)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Ongkos Kirim</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    {...form.register("shippingCost", {
+                      valueAsNumber: true,
+                    })}
+                    className="w-28 text-right h-11"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
+                  <span>Total</span>
+                  <span className="tabular-nums">
+                    {formatRupiah(totals.net + watchShippingCost)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-4">
@@ -1060,6 +1422,171 @@ export function SalesOrderForm({
           </Button>
         </div>
       </form>
+
+      {/* Inline Custom Item Form */}
+      {customItemIndex !== null && (
+        <Dialog
+          open={customItemIndex !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCustomItemIndex(null);
+              setCustomItemName("");
+              setCustomItemPrice("");
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ketik Nama Produk</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="custom-item-name">Nama Produk *</Label>
+                <Input
+                  id="custom-item-name"
+                  value={customItemName}
+                  onChange={(e) => setCustomItemName(e.target.value)}
+                  placeholder="Contoh: Plastik OPP 8 micron"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && customItemName.trim()) {
+                      e.preventDefault();
+                      confirmCustomItem();
+                    }
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="custom-item-price">Harga (Rp)</Label>
+                <Input
+                  id="custom-item-price"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={customItemPrice}
+                  onChange={(e) => setCustomItemPrice(e.target.value)}
+                  placeholder="0 (harga nego, bisa diisi nanti)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Kosongkan atau isi 0 jika harga masih nego. Bisa diubah
+                  setelah order dibuat.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCustomItemIndex(null);
+                    setCustomItemName("");
+                    setCustomItemPrice("");
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button
+                  onClick={confirmCustomItem}
+                  disabled={!customItemName.trim()}
+                >
+                  Pilih Produk Ini
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Quick Add Product Dialog */}
+      <QuickProductDialog
+        onProductCreated={(variant) => {
+          handleQuickProductCreated(
+            variant as SerializedProductVariant,
+            quickAddIndex ?? undefined,
+          );
+          setQuickAddIndex(null);
+        }}
+      />
+
+      {/* Mobile product search dialog */}
+      <Dialog
+        open={mobileProductSearch.open}
+        onOpenChange={(open) =>
+          setMobileProductSearch((prev) => ({ ...prev, open }))
+        }
+      >
+        <DialogContent className="p-0 max-w-none sm:max-w-lg h-[90vh] flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle>Pilih Produk</DialogTitle>
+          </DialogHeader>
+          <Command className="flex-1 overflow-hidden">
+            <CommandInput placeholder="Cari nama, SKU, atau kode produk..." />
+            <CommandList className="flex-1 overflow-y-auto">
+              <CommandEmpty>{productEmptyMessage}</CommandEmpty>
+              <CommandGroup>
+                {filteredProducts.map((p: SerializedProductVariant) => (
+                  <CommandItem
+                    key={p.id}
+                    value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
+                    onSelect={() => {
+                      selectProduct(mobileProductSearch.index, p);
+                      setMobileProductSearch({ open: false, index: 0 });
+                    }}
+                    className="py-3"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        p.id ===
+                          form.getValues(
+                            `items.${mobileProductSearch.index}.productVariantId`,
+                          )
+                          ? "opacity-100"
+                          : "opacity-0",
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {p.product.name === p.name
+                          ? p.name
+                          : `${p.product.name} - ${p.name}`}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {p.skuCode} •{" "}
+                        {formatRupiah(toDisplayUnitPrice(p, p.sellPrice || 0))}/
+                        {getProductionUnitMeta(p).displayUnit}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  onSelect={() => {
+                    const idx = mobileProductSearch.index;
+                    setMobileProductSearch({ open: false, index: 0 });
+                    setCustomItemIndex(idx);
+                  }}
+                  className="flex items-center gap-2 text-amber-600 cursor-pointer py-3"
+                >
+                  <span className="text-lg leading-none">✏️</span>
+                  <span className="font-medium">Ketik Nama Produk Sendiri</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => {
+                    const idx = mobileProductSearch.index;
+                    setMobileProductSearch({ open: false, index: 0 });
+                    setQuickAddIndex(idx);
+                  }}
+                  className="flex items-center gap-2 text-primary cursor-pointer py-3"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="font-medium">Tambah Produk Baru</span>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

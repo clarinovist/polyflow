@@ -7,7 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/utils/utils";
 import { format } from "date-fns";
-import { ArrowRight, Trash2, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Trash2,
+  Loader2,
+  Receipt,
+  ChevronRight,
+} from "lucide-react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
 import { InvoiceStatus } from "@prisma/client";
@@ -54,6 +62,7 @@ export function InvoiceTable({
   invoices,
   basePath = "/sales/orders",
 }: InvoiceTableProps) {
+  const router = useRouter();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const handleDelete = async (id: string, type: "AR" | "AP") => {
@@ -255,12 +264,109 @@ export function InvoiceTable({
     [basePath, isDeleting],
   );
 
+  const getStatusBadgeStyle = (status: InvoiceStatus) => {
+    const styles: Record<string, string> = {
+      UNPAID: "bg-slate-100 text-slate-800",
+      PAID: "bg-emerald-100 text-emerald-800",
+      PARTIAL: "bg-amber-100 text-amber-800",
+      OVERDUE: "bg-red-100 text-red-800 border-red-200",
+      CANCELLED: "bg-red-50 text-red-500",
+    };
+    return styles[status] || styles.UNPAID;
+  };
+
+  const getEntityName = (invoice: InvoiceData) =>
+    invoice.salesOrder?.customer?.name ||
+    invoice.purchaseOrder?.supplier?.name ||
+    "Legacy Internal Stock Build";
+
+  const renderMobileView = (data: InvoiceData[]) => (
+    <>
+      {data.length === 0 ? (
+        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+          {salesLabels.emptyInvoices}
+        </div>
+      ) : (
+        data.map((invoice) => {
+          const linkId = basePath.includes("finance")
+            ? invoice.id
+            : invoice.salesOrderId || invoice.purchaseOrderId || invoice.id;
+          return (
+            <Card
+              key={invoice.id}
+              className="overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+              onClick={() => router.push(`${basePath}/${linkId}`)}
+            >
+              <CardHeader className="p-4 pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-primary/10 p-1.5 rounded-full">
+                      <Receipt className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">
+                        {invoice.invoiceNumber}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(invoice.invoiceDate), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={`text-[10px] px-1.5 h-5 ${getStatusBadgeStyle(invoice.status)}`}
+                  >
+                    {getStatusLabel(invoice.status, "finance")}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-1">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Entitas
+                      </p>
+                      <p className="font-medium truncate">
+                        {getEntityName(invoice)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        {formLabels.total}
+                      </p>
+                      <p className="font-semibold text-primary">
+                        {formatRupiah(Number(invoice.totalAmount))}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      Jatuh tempo:{" "}
+                      {invoice.dueDate
+                        ? format(new Date(invoice.dueDate), "MMM d, yyyy")
+                        : "-"}
+                    </span>
+                    <div className="flex items-center text-primary font-medium">
+                      Lihat Detail <ChevronRight className="h-3 w-3 ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
+    </>
+  );
+
   return (
     <DataTable
       columns={columns}
       data={invoices}
       emptyMessage={salesLabels.emptyInvoices}
       minWidth={900}
+      renderMobileView={renderMobileView}
     />
   );
 }

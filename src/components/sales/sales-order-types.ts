@@ -51,6 +51,20 @@ export interface SalesOrderFormProps {
   products: SerializedProductVariant[];
   mode: "create" | "edit";
   initialData?: { id: string } & Record<string, unknown>;
+  reorderData?: {
+    customerId: string;
+    sourceLocationId: string;
+    orderType: string;
+    notes: string;
+    shippingCost: number;
+    items: {
+      productVariantId: string;
+      quantity: number;
+      unitPrice: number;
+      discountPercent: number;
+      taxPercent: number;
+    }[];
+  };
 }
 
 // ---- Detail page types ----

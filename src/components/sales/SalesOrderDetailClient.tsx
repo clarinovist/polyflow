@@ -27,6 +27,7 @@ import {
   Package,
   Receipt,
   AlertTriangle,
+  Repeat,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -361,6 +362,17 @@ export function SalesOrderDetailClient({
                 disabled={isLoading}
               >
                 <XCircle className="mr-2 h-4 w-4" /> {actionLabels.cancel}
+              </Button>
+            )}
+
+          {/* Quick Reorder: show for DELIVERED orders with a customer */}
+          {!warehouseMode &&
+            order.status === "DELIVERED" &&
+            order.customerId && (
+              <Button variant="outline" asChild>
+                <Link href={`/sales/orders/create?reorder=${order.id}`}>
+                  <Repeat className="mr-2 h-4 w-4" /> Pesan Ulang
+                </Link>
               </Button>
             )}
         </div>

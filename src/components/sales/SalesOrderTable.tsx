@@ -25,9 +25,14 @@ import {
 type SerializedSalesOrder = Omit<SalesOrder, "totalAmount"> & {
   totalAmount: number | null;
   customer:
-    | (Omit<Customer, "creditLimit" | "discountPercent"> & {
+    | (Omit<
+        Customer,
+        "creditLimit" | "discountPercent" | "latitude" | "longitude"
+      > & {
         creditLimit: number | null;
         discountPercent: number | null;
+        latitude: number | null;
+        longitude: number | null;
       })
     | null;
   sourceLocation: Location | null;

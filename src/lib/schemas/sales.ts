@@ -24,6 +24,12 @@ export const salesOrderItemSchema = z.object({
   taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
 });
 
+export const customItemSchema = z.object({
+  tempId: z.string(),
+  name: z.string().min(1, "Product name is required"),
+  sellPrice: z.coerce.number().min(0).optional().default(0),
+});
+
 export const createSalesOrderSchema = z
   .object({
     customerId: z.string().optional(),
@@ -38,6 +44,7 @@ export const createSalesOrderSchema = z
     items: z
       .array(salesOrderItemSchema)
       .min(1, "At least one item is required"),
+    customItems: z.array(customItemSchema).optional().default([]),
   })
   .superRefine((data, ctx) => {
     if (data.orderType === SalesOrderType.MAKE_TO_STOCK && !data.customerId) {

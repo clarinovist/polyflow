@@ -125,6 +125,14 @@ model Customer {
   discountPercent Decimal?               @db.Decimal(5, 2)
   notes           String?
   isActive        Boolean                @default(true)
+  // Location fields
+  latitude        Decimal?               @db.Decimal(10, 7)
+  longitude       Decimal?               @db.Decimal(10, 7)
+  photoUrl        String?
+  province        String?
+  city            String?
+  district        String?
+  village         String?
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   salesOrders     SalesOrder[]
