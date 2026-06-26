@@ -107,7 +107,7 @@ describe('SalesReturnService', () => {
         returnLocationId: 'loc-1',
         reason: 'Defective product',
         items: [
-          { productVariantId: 'pv-1', returnedQty: 10, unitPrice: 100, condition: 'GOOD' },
+          { productVariantId: 'pv-1', returnedQty: 10, unitPrice: 100, reason: 'OTHER', condition: 'GOOD' },
         ],
       }, 'user-1');
 

@@ -171,7 +171,7 @@ describe("PettyCashReportService", () => {
         },
       };
       vi.mocked(prisma.$transaction).mockImplementation(
-        async (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx),
+        (async (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)) as any,
       );
 
       const report = await PettyCashReportService.createDailyReport(

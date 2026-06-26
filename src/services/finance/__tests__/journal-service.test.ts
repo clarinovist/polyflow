@@ -264,7 +264,7 @@ describe("JournalsService", () => {
               : null;
           }
           return null;
-        },
+        }) as any,
       );
 
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({

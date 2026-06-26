@@ -26,9 +26,9 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
+                status: 'DRAFT' as const,
                 plannedQuantity: 100,
-            };
+            } as any;
 
             // Act
             const result = await createProductionOrderWithGeneratedNumber(mockTx as any, data);
@@ -51,8 +51,8 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
-            };
+                status: 'DRAFT' as const,
+            } as any;
 
             // Act
             await createProductionOrderWithGeneratedNumber(mockTx as any, data, {
@@ -76,8 +76,8 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
-            };
+                status: 'DRAFT' as const,
+            } as any;
 
             // Act
             await createProductionOrderWithGeneratedNumber(mockTx as any, data, {
@@ -112,8 +112,8 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
-            };
+                status: 'DRAFT' as const,
+            } as any;
 
             // Act
             const result = await createProductionOrderWithGeneratedNumber(mockTx as any, data);
@@ -141,8 +141,8 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
-            };
+                status: 'DRAFT' as const,
+            } as any;
 
             // Act & Assert
             await expect(
@@ -162,8 +162,8 @@ describe('order-number-service', () => {
             };
 
             const data = {
-                status: 'DRAFT',
-            };
+                status: 'DRAFT' as const,
+            } as any;
 
             // Act & Assert
             await expect(

@@ -201,6 +201,7 @@ describe('createInvoice', () => {
             invoiceNumber: 'INV-001',
             invoiceDate: new Date(),
             termOfPaymentDays: 30,
+            notes: '',
         });
 
         // Assert
@@ -217,6 +218,8 @@ describe('createInvoice', () => {
             purchaseOrderId: 'po-999',
             invoiceNumber: 'INV-001',
             invoiceDate: new Date(),
+            termOfPaymentDays: 0,
+            notes: '',
         })).rejects.toThrow('Purchase Order not found');
     });
 });

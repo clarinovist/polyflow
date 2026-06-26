@@ -351,7 +351,7 @@ describe('ProductionExecutionService.addProductionOutput', () => {
             startTime: new Date(),
             endTime: new Date(),
             userId: 'user-1',
-        });
+        } as any);
 
         // Assert
         expect(tx.productionExecution.create).toHaveBeenCalled();
@@ -373,7 +373,7 @@ describe('ProductionExecutionService.addProductionOutput', () => {
                 scrapQuantity: 0,
                 startTime: new Date(),
                 userId: 'user-1',
-            })
+            } as any)
         ).rejects.toThrow('Output quantity must be greater than 0');
     });
 });

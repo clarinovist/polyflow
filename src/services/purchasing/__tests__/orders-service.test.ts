@@ -48,14 +48,16 @@ describe('OrdersService (Purchasing)', () => {
                 supplierId: 'sup-1',
                 orderDate: new Date(),
                 expectedDate: new Date(),
+                deliveryAddress: null,
                 notes: 'Test PO',
+                shippingCost: 0,
                 items: [
-                    { productVariantId: 'pv-1', quantity: 10, unitPrice: 20 }, // 200
-                    { productVariantId: 'pv-2', quantity: 5, unitPrice: 60 }   // 300 -> Total 500
+                    { productVariantId: 'pv-1', quantity: 10, unitPrice: 20, discountPercent: 0, taxPercent: 0, dppOtherAmount: null }, // 200
+                    { productVariantId: 'pv-2', quantity: 5, unitPrice: 60, discountPercent: 0, taxPercent: 0, dppOtherAmount: null }   // 300 -> Total 500
                 ]
             };
 
-            const result = await createOrder(input, 'user-1');
+            const result = await createOrder(input as any, 'user-1');
 
             expect(result).toEqual(mockCreatedOrder);
             expect(prisma.purchaseOrder.create).toHaveBeenCalledWith(

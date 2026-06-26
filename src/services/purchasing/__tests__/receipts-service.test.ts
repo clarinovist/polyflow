@@ -404,7 +404,7 @@ describe("receipts-service", () => {
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue({
         receiptNumber: "GR-2026-0003",
-      });
+      } as never);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           goodsReceipt: {
@@ -440,7 +440,7 @@ describe("receipts-service", () => {
       const data = { ...baseData, purchaseOrderId: "po-1" };
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue({
         receiptNumber: "GR-2026-INVALID",
-      });
+      } as never);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           goodsReceipt: {

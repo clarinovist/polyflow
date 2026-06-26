@@ -366,7 +366,7 @@ describe("PurchaseReturnService.createReturn", () => {
           productVariantId: "pv-2",
           returnedQty: 3,
           unitCost: 5000,
-          reason: "DEFECTIVE" as const,
+          reason: "DEFECT" as const,
           notes: "",
         },
       ],
@@ -475,7 +475,7 @@ describe("PurchaseReturnService.updateReturn", () => {
     vi.mocked(mockPrisma.purchaseReturn.findUnique).mockResolvedValue(null);
 
     await expect(
-      PurchaseReturnService.updateReturn({ id: "ret-1" }, "user-1"),
+      PurchaseReturnService.updateReturn({ id: "ret-1" } as any, "user-1"),
     ).rejects.toThrow("Purchase Return not found");
   });
 
@@ -485,8 +485,8 @@ describe("PurchaseReturnService.updateReturn", () => {
     );
 
     await expect(
-      PurchaseReturnService.updateReturn({ id: "ret-1" }, "user-1"),
-    ).rejects.toThrow("Can only update DRAFT returns");
+      PurchaseReturnService.updateReturn({ id: "ret-1" } as any, "user-1"),
+      ).rejects.toThrow("Can only update DRAFT returns");
   });
 
   it("updates return without items", async () => {
@@ -499,7 +499,7 @@ describe("PurchaseReturnService.updateReturn", () => {
     } as never);
 
     const result = await PurchaseReturnService.updateReturn(
-      { id: "ret-1", reason: "Updated reason" },
+      { id: "ret-1", reason: "Updated reason" } as any,
       "user-1",
     );
 
@@ -533,13 +533,13 @@ describe("PurchaseReturnService.updateReturn", () => {
         productVariantId: "pv-1",
         returnedQty: 5,
         unitCost: 10000,
-        reason: "DEFECTIVE" as const,
+        reason: "DEFECT" as const,
         notes: "",
       },
     ];
 
     const result = await PurchaseReturnService.updateReturn(
-      { id: "ret-1", items },
+      { id: "ret-1", items } as any,
       "user-1",
     );
 
@@ -555,7 +555,7 @@ describe("PurchaseReturnService.updateReturn", () => {
               productVariantId: "pv-1",
               returnedQty: 5,
               unitCost: 10000,
-              reason: "DEFECTIVE",
+              reason: "DEFECT",
               notes: "",
             },
           ],
@@ -573,7 +573,7 @@ describe("PurchaseReturnService.updateReturn", () => {
     );
 
     await PurchaseReturnService.updateReturn(
-      { id: "ret-1", notes: "just notes" },
+      { id: "ret-1", notes: "just notes" } as any,
       "user-1",
     );
 

@@ -43,7 +43,7 @@ describe("requests-service", () => {
       const year = new Date().getFullYear();
       const requestData = {
         salesOrderId: "so-1",
-        priority: "NORMAL",
+        priority: "NORMAL" as const,
         notes: "Test request",
         items: [
           {
@@ -98,11 +98,13 @@ describe("requests-service", () => {
       const year = new Date().getFullYear();
       const requestData = {
         salesOrderId: "so-1",
-        priority: "URGENT",
+        priority: "URGENT" as const,
+        notes: "",
         items: [
           {
             productVariantId: "pv-1",
             quantity: 5,
+            notes: "",
           },
         ],
       };
@@ -136,11 +138,13 @@ describe("requests-service", () => {
       const year = new Date().getFullYear();
       const requestData = {
         salesOrderId: "so-1",
-        priority: "NORMAL",
+        priority: "NORMAL" as const,
+        notes: "",
         items: [
           {
             productVariantId: "pv-1",
             quantity: 10,
+            notes: "",
           },
         ],
       };
@@ -172,8 +176,9 @@ describe("requests-service", () => {
       const year = new Date().getFullYear();
       const requestData = {
         salesOrderId: "so-1",
-        priority: "NORMAL",
-        items: [{ productVariantId: "pv-1", quantity: 3 }],
+        priority: "NORMAL" as const,
+        notes: "",
+        items: [{ productVariantId: "pv-1", quantity: 3, notes: "" }],
       };
 
       const mockLastRequest = {
@@ -208,12 +213,12 @@ describe("requests-service", () => {
       const year = new Date().getFullYear();
       const requestData = {
         salesOrderId: "so-2",
-        priority: "LOW",
+        priority: "NORMAL" as const,
         notes: "Bulk order",
         items: [
           { productVariantId: "pv-1", quantity: 10, notes: "First" },
           { productVariantId: "pv-2", quantity: 20, notes: "Second" },
-          { productVariantId: "pv-3", quantity: 5 },
+          { productVariantId: "pv-3", quantity: 5, notes: "" },
         ],
       };
 
@@ -258,8 +263,9 @@ describe("requests-service", () => {
       const result = await createPurchaseRequest(
         {
           salesOrderId: "so-1",
-          priority: "NORMAL",
-          items: [{ productVariantId: "pv-1", quantity: 1 }],
+          priority: "NORMAL" as const,
+          notes: "",
+          items: [{ productVariantId: "pv-1", quantity: 1, notes: "" }],
         },
         "user-1",
       );

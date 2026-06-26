@@ -198,6 +198,7 @@ describe("invoice-lifecycle-service", () => {
         {
           salesOrderId: "so-1",
           invoiceDate: new Date(2026, 5, 24),
+          termOfPaymentDays: 0,
         },
         "user-1",
       );
@@ -303,6 +304,7 @@ describe("invoice-lifecycle-service", () => {
           {
             salesOrderId: "so-999",
             invoiceDate: new Date(),
+            termOfPaymentDays: 0,
           },
           "user-1",
         ),
@@ -324,6 +326,7 @@ describe("invoice-lifecycle-service", () => {
           {
             salesOrderId: "so-1",
             invoiceDate: new Date(),
+            termOfPaymentDays: 0,
           },
           "user-1",
         ),
@@ -345,6 +348,7 @@ describe("invoice-lifecycle-service", () => {
           {
             salesOrderId: "so-1",
             invoiceDate: new Date(),
+            termOfPaymentDays: 0,
           },
           "user-1",
         ),

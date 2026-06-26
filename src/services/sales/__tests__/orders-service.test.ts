@@ -133,6 +133,8 @@ describe("confirmOrder", () => {
           expectedDate: null,
           orderType: SalesOrderType.MAKLON_JASA,
           notes: "test",
+          shippingCost: 0,
+          customItems: [],
           items: [
             {
               productVariantId: "pv-1",
@@ -140,11 +142,12 @@ describe("confirmOrder", () => {
               unitPrice: 1000,
               discountPercent: 0,
               taxPercent: 0,
+              dppOtherAmount: null,
             },
           ],
         },
         "user-1",
-      ),
+      ) as any,
     ).rejects.toThrow("Maklon Jasa orders must use a customer-owned warehouse");
   });
 
@@ -171,6 +174,7 @@ describe("confirmOrder", () => {
           orderDate: new Date("2026-04-17T00:00:00.000Z"),
           expectedDate: null,
           notes: "test",
+          shippingCost: 0,
           items: [
             {
               productVariantId: "pv-1",
@@ -178,6 +182,7 @@ describe("confirmOrder", () => {
               unitPrice: 1000,
               discountPercent: 0,
               taxPercent: 0,
+              dppOtherAmount: null,
             },
           ],
         },
@@ -228,6 +233,8 @@ describe("confirmOrder", () => {
         expectedDate: null,
         orderType: SalesOrderType.MAKE_TO_ORDER,
         notes: "100 PACK",
+        shippingCost: 0,
+        customItems: [],
         items: [
           {
             productVariantId: "pv-pack",
@@ -239,6 +246,7 @@ describe("confirmOrder", () => {
             enteredUnitPrice: 1000,
             discountPercent: 0,
             taxPercent: 0,
+            dppOtherAmount: null,
           },
         ],
       },
