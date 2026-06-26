@@ -12,7 +12,7 @@ import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable'
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
 
-import { formatRupiah, serializeData } from '@/lib/utils/utils';
+import { formatRupiah, serializeData, toDecimalNumber } from '@/lib/utils/utils';
 import { Badge } from '@/components/ui/badge';
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -110,16 +110,14 @@ export default async function WarehouseInventoryPage({
 
     const tableVariantTotals = processedInventory.reduce((acc: Record<string, number>, item) => {
         const id = item.productVariantId;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const qty = typeof item.quantity === 'number' ? item.quantity : (item.quantity as any).toNumber();
+        const qty = toDecimalNumber(item.quantity);
         acc[id] = (acc[id] || 0) + qty;
         return acc;
     }, {} as Record<string, number>);
 
     const isTableGlobalLowStock = (item: (InventoryWithRelations | SimplifiedInventory)) => {
         const liveItem = liveInventory.find(li => li.productVariantId === item.productVariantId);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const threshold = (liveItem?.productVariant.minStockAlert as any)?.toNumber();
+        const threshold = toDecimalNumber(liveItem?.productVariant.minStockAlert);
         if (!threshold) return false;
         return tableVariantTotals[item.productVariantId] < threshold;
     };
@@ -133,14 +131,12 @@ export default async function WarehouseInventoryPage({
 
     const liveVariantTotals = liveInventory.reduce((acc: Record<string, number>, item: InventoryWithRelations) => {
         const id = item.productVariantId;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        acc[id] = (acc[id] || 0) + (typeof item.quantity === 'number' ? item.quantity : (item.quantity as any).toNumber());
+        acc[id] = (acc[id] || 0) + toDecimalNumber(item.quantity);
         return acc;
     }, {} as Record<string, number>);
 
     const isLiveGlobalLowStock = (item: InventoryWithRelations) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const threshold = (item.productVariant.minStockAlert as any)?.toNumber();
+        const threshold = toDecimalNumber(item.productVariant.minStockAlert);
         if (!threshold) return false;
         return liveVariantTotals[item.productVariantId] < threshold;
     };
@@ -158,23 +154,20 @@ export default async function WarehouseInventoryPage({
 
     const displayedTotalStock = activeLocationIds.length > 0
         ? displayInventory.reduce((acc, item) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const qty = typeof item.quantity === 'number' ? item.quantity : (item.quantity as any).toNumber();
+            const qty = toDecimalNumber(item.quantity);
             return acc + qty;
         }, 0)
         : dashboardStats.totalStock;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const internalDisplayValue = (displayInventory as any[]).reduce((acc, item) => {
-        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-        const cost = item.averageCost ? (typeof item.averageCost === 'number' ? item.averageCost : item.averageCost.toNumber()) : 0;
+    const internalDisplayValue = displayInventory.reduce((acc, item) => {
+        const qty = toDecimalNumber(item.quantity);
+        const cost = toDecimalNumber(item.averageCost);
         return item.location?.locationType === 'CUSTOMER_OWNED' ? acc : acc + (qty * cost);
     }, 0);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const customerOwnedDisplayValue = (displayInventory as any[]).reduce((acc, item) => {
-        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-        const cost = item.averageCost ? (typeof item.averageCost === 'number' ? item.averageCost : item.averageCost.toNumber()) : 0;
+    const customerOwnedDisplayValue = displayInventory.reduce((acc, item) => {
+        const qty = toDecimalNumber(item.quantity);
+        const cost = toDecimalNumber(item.averageCost);
         return item.location?.locationType === 'CUSTOMER_OWNED' ? acc + (qty * cost) : acc;
     }, 0);
 

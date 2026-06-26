@@ -69,3 +69,28 @@ export function formatQuantity(value: number | null | undefined): string {
 }
 
 export { serializeData } from '@/lib/serialization/server-to-client';
+
+/**
+ * Safely convert a Prisma Decimal or number to a plain number.
+ * Handles: number (passthrough), Decimal objects (duck-typed), null/undefined.
+ */
+export function toDecimalNumber(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return parseFloat(value) || 0;
+
+  // Duck-type: has toNumber() (Prisma Decimal)
+  const obj = value as { toNumber?: () => number };
+  if (typeof obj.toNumber === 'function') {
+    const num = obj.toNumber();
+    return typeof num === 'number' && !isNaN(num) ? num : 0;
+  }
+
+  // Duck-type: has toString() (fallback)
+  const strObj = value as { toString?: () => string };
+  if (typeof strObj.toString === 'function') {
+    return parseFloat(strObj.toString()) || 0;
+  }
+
+  return 0;
+}
