@@ -18,6 +18,7 @@ type InvoiceLineItem = {
     quantity?: unknown;
     unitPrice?: unknown;
     subtotal?: unknown;
+    taxAmount?: unknown;
     enteredQuantity?: unknown;
     enteredUnit?: string | null;
     enteredUnitPrice?: unknown;
@@ -163,12 +164,14 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm font-medium border-b pb-2">
                                 <span>Description</span>
-                                <span>Subtotal</span>
+                                <span>DPP (excl. tax)</span>
                             </div>
                             {salesOrder?.items?.length ? (
                                 salesOrder.items.map((item, index) => {
                                     const productVariant = item.productVariant || {};
                                     const price = getEnteredUnitPriceDisplay({ ...item, ...productVariant });
+                                    // item.subtotal includes tax; DPP = subtotal - taxAmount
+                                    const itemDpp = Number(item.subtotal || 0) - Number(item.taxAmount || 0);
                                     return (
                                         <div key={item.id || index} className="flex justify-between gap-4 text-sm py-2 border-b last:border-0">
                                             <div>
@@ -179,7 +182,7 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                                                     {getEnteredQuantityDisplay({ ...item, ...productVariant })} × {formatRupiah(price.price)}/{price.unit}
                                                 </div>
                                             </div>
-                                            <span>{formatRupiah(Number(item.subtotal || 0))}</span>
+                                            <span>{formatRupiah(itemDpp)}</span>
                                         </div>
                                     );
                                 })

@@ -15,7 +15,7 @@ import {
   Percent,
   History,
   Navigation,
-  Image,
+  ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
@@ -203,12 +203,13 @@ export function CustomerDetailClient({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Image className="h-5 w-5" />
+                  <ImageIcon className="h-5 w-5" />
                   Foto Toko
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {customer.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={customer.photoUrl}
                     alt={`Foto toko ${customer.name}`}
@@ -216,7 +217,7 @@ export function CustomerDetailClient({
                   />
                 ) : (
                   <div className="w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground">
-                    <Image className="h-8 w-8 mb-2 opacity-50" />
+                    <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
                     <p className="text-sm">Belum ada foto</p>
                   </div>
                 )}

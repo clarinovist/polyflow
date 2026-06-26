@@ -48,14 +48,21 @@ interface CustomerDialogProps {
   mode: "create" | "edit";
   initialData?: SerializedCustomer;
   trigger?: React.ReactNode;
+  /** Controlled open state — when provided, the dialog is controlled externally */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function CustomerDialog({
   mode,
   initialData,
   trigger,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: CustomerDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen ?? internalOpen;
+  const setOpen = externalOnOpenChange ?? setInternalOpen;
   const [isLocating, setIsLocating] = useState(false);
   const router = useRouter();
 

@@ -71,6 +71,7 @@ import type {
   SalesOrderFormProps,
 } from "./sales-order-types";
 import { QuickProductDialog } from "./QuickProductDialog";
+import { CustomerDialog } from "@/components/customers/CustomerDialog";
 
 export function SalesOrderForm({
   customers,
@@ -82,6 +83,7 @@ export function SalesOrderForm({
 }: SalesOrderFormProps) {
   const router = useRouter();
   const [openCustomer, setOpenCustomer] = useState(false);
+  const [openNewCustomer, setOpenNewCustomer] = useState(false);
   const [openProduct, setOpenProduct] = useState<Record<number, boolean>>({});
   const [mobileProductSearch, setMobileProductSearch] = useState<{
     open: boolean;
@@ -526,6 +528,19 @@ export function SalesOrderForm({
                                 )}
                               </CommandItem>
                             ))}
+                          </CommandGroup>
+                          <CommandSeparator />
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => {
+                                setOpenCustomer(false);
+                                setOpenNewCustomer(true);
+                              }}
+                              className="cursor-pointer text-blue-600"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Tambah Customer Baru
+                            </CommandItem>
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -1583,6 +1598,14 @@ export function SalesOrderForm({
           </Command>
         </DialogContent>
       </Dialog>
+
+      {/* New Customer Dialog — triggered from customer picker */}
+      <CustomerDialog
+        mode="create"
+        open={openNewCustomer}
+        onOpenChange={setOpenNewCustomer}
+        trigger={<span className="hidden" />}
+      />
     </Form>
   );
 }

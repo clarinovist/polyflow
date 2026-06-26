@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Upload, X, Image } from "lucide-react";
+import { Loader2, Upload, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface FileUploadProps {
@@ -73,6 +73,7 @@ export function FileUpload({
     <div className={className}>
       {value ? (
         <div className="relative group">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
             alt="Upload preview"
@@ -114,7 +115,7 @@ export function FileUpload({
           {isUploading ? (
             <Loader2 className="h-8 w-8 animate-spin" />
           ) : (
-            <Image className="h-8 w-8" />
+            <ImageIcon className="h-8 w-8" />
           )}
           <span className="text-sm">
             {isUploading ? "Mengupload..." : "Klik untuk upload foto"}

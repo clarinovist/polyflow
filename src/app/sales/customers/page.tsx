@@ -193,6 +193,7 @@ export default async function CustomersPage() {
                   <div className="border rounded-lg p-4 active:scale-[0.99] transition-transform">
                     <div className="flex items-start gap-3">
                       {customer.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={customer.photoUrl}
                           alt={customer.name}

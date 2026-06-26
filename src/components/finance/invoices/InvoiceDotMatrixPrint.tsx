@@ -90,8 +90,12 @@ export function InvoiceDotMatrixPrint({
   const discountAmount = Number(so?.discountAmount || 0);
   const shippingCost = Number(so?.shippingCost || 0);
   const grandTotal = Number(invoice.totalAmount);
-  // DPP = subtotal - diskon (dasar pengenaan pajak)
-  const dpp = subtotal - discountAmount;
+  // rawSubtotal = sebelum diskon & pajak (SUBTOTAL di invoice)
+  // item.subtotal = subtotalAfterDiscount + taxAmount
+  // rawSubtotal = subtotal + discountAmount - taxAmount
+  const rawSubtotal = subtotal + discountAmount - taxAmount;
+  // DPP = dasar pengenaan pajak = rawSubtotal - discountAmount = subtotal - taxAmount
+  const dpp = subtotal - taxAmount;
   const dppLain = 0;
   const _coretax = 0;
   const potongan = 0;
@@ -251,7 +255,7 @@ export function InvoiceDotMatrixPrint({
           <div className="financial-summary">
             <div className="summary-row">
               <span>SUBTOTAL :</span>
-              <span>{formatNumberWithDots(subtotal)}</span>
+              <span>{formatNumberWithDots(rawSubtotal)}</span>
             </div>
             {discountAmount > 0 && (
               <div className="summary-row">
