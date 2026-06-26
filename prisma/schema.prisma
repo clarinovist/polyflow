@@ -1102,6 +1102,7 @@ enum ProductType {
   FINISHED_GOOD
   SCRAP
   SERVICE
+  OPERATIONAL
 }
 
 enum Unit {

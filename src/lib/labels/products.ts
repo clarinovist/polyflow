@@ -7,6 +7,7 @@ export const productTypeLabels = {
   PACKAGING: 'Kemasan',
   WIP: 'Dalam Proses',
   SERVICE: 'Jasa',
+  OPERATIONAL: 'Barang Operasional',
 } as const;
 
 /** Product type badge abbreviations (compact) */
@@ -18,6 +19,7 @@ export const productTypeBadgeLabels = {
   PACKAGING: 'Pack',
   WIP: 'WIP',
   SERVICE: 'Service',
+  OPERATIONAL: 'Ops',
 } as const;
 
 /** ProductForm component labels */
@@ -109,6 +111,9 @@ export const productGlossaryLabels = {
   scName: 'Scrap',
   scDesc: 'Limbah produksi dan bahan daur ulang',
   scExample: 'Guntingan Tepi, Produk Reject, Regrind',
+  opName: 'Barang Operasional',
+  opDesc: 'Barang pendukung operasional harian (bukan bahan baku produksi)',
+  opExample: 'Buku Surat Jalan, Baterai, Spare Part Mesin',
   // Glossary items - Units
   kgDesc: 'Kilogram - Pengukuran berat, paling umum untuk bahan baku dan granul',
   rollDesc: 'Gulungan - Untuk produk film, raffia, atau pita dalam bentuk gulungan',

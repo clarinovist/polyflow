@@ -74,6 +74,7 @@ const productTypeBadgeColors: Record<ProductType, string> = {
     PACKAGING: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/10 hover:bg-orange-500/20',
     WIP: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/10 hover:bg-yellow-500/20',
     SERVICE: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/10 hover:bg-pink-500/20',
+    OPERATIONAL: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/10 hover:bg-teal-500/20',
 };
 
 export function ProductTable({ products = [], showPrices = false }: ProductTableProps) {
@@ -206,11 +207,11 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                                 href={`/dashboard/products/${variant.productId}`}
                                                 className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px] hover:text-primary transition-colors"
                                             >
-                                                {variant.productName}
+                                                {variant.name || variant.productName}
                                             </Link>
                                             {variant.name && variant.name !== variant.productName && (
                                                 <span className="text-[11px] text-muted-foreground font-medium">
-                                                    {variant.name}
+                                                    {variant.productName}
                                                 </span>
                                             )}
                                         </div>
