@@ -85,3 +85,4 @@ graphify-out/
 # local planning/working docs
 /docs/plans/
 /docs/marketing/
+.gstack/

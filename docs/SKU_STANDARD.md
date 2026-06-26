@@ -3,6 +3,7 @@
 ## 📋 SKU Format Standard
 
 ### **Format Structure**
+
 ```
 [TYPE][CATEGORY][SEQUENCE]
 ```
@@ -14,33 +15,36 @@
 ## 🏗️ Format Components
 
 ### 1. **Type Code** (2 characters)
+
 Indicates the product type in the production cycle:
 
-| Code | Product Type | Description |
-|------|-------------|-------------|
-| `RM` | Raw Material | Incoming materials from suppliers |
-| `IN` | Intermediate | Result of mixing/blending |
-| `PK` | Packaging | Packaging materials |
-| `WP` | Work in Progress | Semi-finished goods |
-| `FG` | Finished Goods | Ready-to-sell products |
-| `SC` | Scrap | Production waste |
+| Code | Product Type     | Description                       |
+| ---- | ---------------- | --------------------------------- |
+| `RM` | Raw Material     | Incoming materials from suppliers |
+| `IN` | Intermediate     | Result of mixing/blending         |
+| `PK` | Packaging        | Packaging materials               |
+| `WP` | Work in Progress | Semi-finished goods               |
+| `FG` | Finished Goods   | Ready-to-sell products            |
+| `SC` | Scrap            | Production waste                  |
 
 ### 2. **Category Code** (3 characters)
+
 Material or product category identifier:
 
-| Code | Category | Examples |
-|------|----------|----------|
-| `PPG` | PP Granules | Pure polypropylene |
-| `PEG` | PE Granules | Polyethylene |
-| `CLR` | Colorant | Masterbatch colors |
-| `ADD` | Additive | UV stabilizers, etc. |
-| `MIX` | Mixed | Blended compounds |
-| `RAF` | Raffia | Raffia products |
-| `FLM` | Film | Film products |
-| `BAG` | Bags | Bag products |
-| `WST` | Waste | General waste |
+| Code  | Category    | Examples             |
+| ----- | ----------- | -------------------- |
+| `PPG` | PP Granules | Pure polypropylene   |
+| `PEG` | PE Granules | Polyethylene         |
+| `CLR` | Colorant    | Masterbatch colors   |
+| `ADD` | Additive    | UV stabilizers, etc. |
+| `MIX` | Mixed       | Blended compounds    |
+| `RAF` | Raffia      | Raffia products      |
+| `FLM` | Film        | Film products        |
+| `BAG` | Bags        | Bag products         |
+| `WST` | Waste       | General waste        |
 
 ### 3. **Sequence Number** (3 digits)
+
 Sequential identifier starting from 001:
 
 - `001` - First variant in category
@@ -52,6 +56,7 @@ Sequential identifier starting from 001:
 ## ✅ Standard Examples
 
 ### Raw Materials
+
 ```
 RMPPG001  → Pure PP Granules (Standard)
 RMPPG002  → PP Granules (High Flow)
@@ -61,6 +66,7 @@ RMCLR003  → Yellow Colorant Masterbatch
 ```
 
 ### Intermediate Products
+
 ```
 INMIX001  → Red Mixed Granules
 INMIX002  → Blue Mixed Granules
@@ -68,6 +74,7 @@ INMIX003  → Natural Mixed Granules
 ```
 
 ### Work in Progress
+
 ```
 WPRAF001  → Red Raffia Jumbo Roll
 WPRAF002  → Blue Raffia Jumbo Roll
@@ -75,6 +82,7 @@ WPFLM001  → Clear Film Roll
 ```
 
 ### Finished Goods
+
 ```
 FGRAF001  → Red Raffia (5kg Bal)
 FGRAF002  → Red Raffia (10kg Bal)
@@ -83,6 +91,7 @@ FGBAG002  → Fertilizer Bag (25kg)
 ```
 
 ### Scrap
+
 ```
 SCWST001  → Red Waste
 SCWST002  → Mixed Color Waste
@@ -94,6 +103,7 @@ SCWST003  → Edge Trim Waste
 ## 📐 Format Rules
 
 ### ✅ DO's
+
 - Keep exactly 8 characters (no more, no less)
 - Use UPPERCASE only
 - No hyphens, spaces, or special characters
@@ -101,9 +111,10 @@ SCWST003  → Edge Trim Waste
 - Logical category grouping
 
 ### ❌ DON'Ts
+
 - Don't use variable length (e.g., RM-PP-PURE-STANDARD-2024)
 - Don't use lowercase or mixed case
-- Don't use special characters (@, #, -, _)
+- Don't use special characters (@, #, -, \_)
 - Don't embed color/size in SKU (use attributes instead)
 - Don't use random numbers
 
@@ -113,16 +124,17 @@ SCWST003  → Edge Trim Waste
 
 ### Old Format → New Format Mapping
 
-| Old SKU | New SKU | Notes |
-|---------|---------|-------|
-| `RM-PP-PURE` | `RMPPG001` | Pure PP Granules |
-| `RM-COLOR-RED` | `RMCLR001` | Red Colorant |
-| `INT-MIX-RED` | `INMIX001` | Red Mixed Granules |
-| `WIP-ROLL-RED` | `WPRAF001` | Red Raffia Roll |
+| Old SKU            | New SKU    | Notes              |
+| ------------------ | ---------- | ------------------ |
+| `RM-PP-PURE`       | `RMPPG001` | Pure PP Granules   |
+| `RM-COLOR-RED`     | `RMCLR001` | Red Colorant       |
+| `INT-MIX-RED`      | `INMIX001` | Red Mixed Granules |
+| `WIP-ROLL-RED`     | `WPRAF001` | Red Raffia Roll    |
 | `FG-RAF-RED-BAL10` | `FGRAF001` | Red Raffia 5kg Bal |
-| `SCRAP-RED` | `SCWST001` | Red Waste |
+| `SCRAP-RED`        | `SCWST001` | Red Waste          |
 
 ### Migration Strategy
+
 1. Generate new SKU codes following the standard
 2. Update database with new SKU codes
 3. Maintain old SKU mapping for legacy reference
@@ -136,6 +148,7 @@ SCWST003  → Edge Trim Waste
 ### Recommended Category Codes for Plastic Converting
 
 #### Raw Materials
+
 - `PPG` - Polypropylene Granules
 - `PEG` - Polyethylene Granules (HDPE, LDPE, LLDPE)
 - `PSG` - Polystyrene Granules
@@ -146,11 +159,13 @@ SCWST003  → Edge Trim Waste
 - `STB` - Stabilizers
 
 #### Intermediate
+
 - `MIX` - Mixed Compounds (result of mixing)
 - `GRN` - Granulated material
 - `FLK` - Flakes (from recycling)
 
 #### Work in Progress
+
 - `RAF` - Raffia (tape/yarn)
 - `FLM` - Film
 - `SHT` - Sheet
@@ -158,6 +173,7 @@ SCWST003  → Edge Trim Waste
 - `ROL` - Roll (jumbo)
 
 #### Finished Goods
+
 - `RAF` - Raffia products (bales, rolls)
 - `BAG` - Bags (woven, shopping, etc.)
 - `NET` - Netting
@@ -166,6 +182,7 @@ SCWST003  → Edge Trim Waste
 - `SHE` - Sheeting
 
 #### Scrap
+
 - `WST` - General waste
 - `TRM` - Trim/Edge waste
 - `REJ` - Rejected products
@@ -176,6 +193,7 @@ SCWST003  → Edge Trim Waste
 ## 🔢 Sequence Number Guidelines
 
 ### Assignment Strategy
+
 - Start at 001 for each new category
 - Increment sequentially (001, 002, 003...)
 - Don't skip numbers (avoid gaps)
@@ -186,6 +204,7 @@ SCWST003  → Edge Trim Waste
   - 900-999: Obsolete/discontinued (keep for history)
 
 ### Example Sequence
+
 ```
 FGRAF001  → Red Raffia 5kg
 FGRAF002  → Red Raffia 10kg
@@ -205,6 +224,7 @@ FGRAF202  → Custom OEM Raffia (Client B)
 ## 📊 Benefits of This Standard
 
 ### ✅ Advantages
+
 1. **Fixed Length** - Easy to print on labels (no overflow)
 2. **Compact** - Only 8 characters (vs. 15+ in old format)
 3. **Scannable** - Barcode-friendly (no special characters)
@@ -216,40 +236,44 @@ FGRAF202  → Custom OEM Raffia (Client B)
 
 ### 📈 Comparison
 
-| Aspect | Old Format | New Format |
-|--------|-----------|------------|
-| Length | Variable (10-17) | Fixed (8) |
-| Example | `FG-RAF-RED-BAL10` | `FGRAF001` |
-| Hyphens | Yes | No |
-| Barcode | Longer code | Compact |
-| Readability | Descriptive | Coded |
-| Scalability | Limited | High (999 per category) |
+| Aspect      | Old Format         | New Format              |
+| ----------- | ------------------ | ----------------------- |
+| Length      | Variable (10-17)   | Fixed (8)               |
+| Example     | `FG-RAF-RED-BAL10` | `FGRAF001`              |
+| Hyphens     | Yes                | No                      |
+| Barcode     | Longer code        | Compact                 |
+| Readability | Descriptive        | Coded                   |
+| Scalability | Limited            | High (999 per category) |
 
 ---
 
 ## 🚀 Implementation Checklist
 
 ### Phase 1: Setup
+
 - [x] Define SKU format standard
-- [ ] Update database seed with new SKU codes
-- [ ] Document category codes
+- [x] Update database seed with new SKU codes
+- [x] Document category codes
 - [ ] Train team on new format
 
 ### Phase 2: Database
-- [ ] Add validation rule (8 chars, uppercase, alphanumeric)
-- [ ] Update existing SKU codes (migration script)
-- [ ] Test all queries with new format
+
+- [x] Add validation rule (8 chars, uppercase, alphanumeric)
+- [x] Update existing SKU codes (migration script)
+- [x] Test all queries with new format
 
 ### Phase 3: UI/UX
-- [ ] Update product forms with SKU format helper
-- [ ] Add SKU format validation in frontend
-- [ ] Display format example in create form
-- [ ] Add SKU generator utility (auto-increment)
+
+- [x] Update product forms with SKU format helper
+- [x] Add SKU format validation in frontend
+- [x] Display format example in create form
+- [x] Add SKU generator utility (auto-increment)
 
 ### Phase 4: Integration
-- [ ] Generate barcode labels with new SKU
-- [ ] Update reports and exports
-- [ ] Update API documentation
+
+- [x] Generate barcode labels with new SKU
+- [x] Update reports and exports
+- [x] Update API documentation
 - [ ] Print barcode labels for existing inventory
 
 ---
@@ -257,11 +281,13 @@ FGRAF202  → Custom OEM Raffia (Client B)
 ## 🔧 Validation Rules
 
 ### Regex Pattern
+
 ```regex
 ^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$
 ```
 
 **Explanation**:
+
 - `^` - Start of string
 - `(RM|IN|PK|WP|FG|SC)` - Valid type codes
 - `[A-Z]{3}` - Exactly 3 uppercase letters (category)
@@ -269,6 +295,7 @@ FGRAF202  → Custom OEM Raffia (Client B)
 - `$` - End of string
 
 ### Validation Examples
+
 ```
 ✅ RMPPG001  → Valid
 ✅ FGRAF123  → Valid
@@ -286,45 +313,53 @@ FGRAF202  → Custom OEM Raffia (Client B)
 ## 📖 Usage in Code
 
 ### TypeScript Validation
-```typescript
-import { z } from 'zod';
 
-const skuCodeSchema = z.string()
-  .length(8, 'SKU must be exactly 8 characters')
-  .regex(/^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$/, 
-    'SKU format: [TYPE][CATEGORY][SEQUENCE] (e.g., RMPPG001)')
+```typescript
+import { z } from "zod";
+
+const skuCodeSchema = z
+  .string()
+  .length(8, "SKU must be exactly 8 characters")
+  .regex(
+    /^(RM|IN|PK|WP|FG|SC)[A-Z]{3}\d{3}$/,
+    "SKU format: [TYPE][CATEGORY][SEQUENCE] (e.g., RMPPG001)",
+  )
   .toUpperCase();
 ```
 
 ### Auto-Generate Next SKU
+
 ```typescript
-async function generateNextSKU(type: string, category: string): Promise<string> {
+async function generateNextSKU(
+  type: string,
+  category: string,
+): Promise<string> {
   const prefix = `${type}${category}`;
-  
+
   // Find highest sequence number for this prefix
   const lastSKU = await prisma.productVariant.findFirst({
     where: {
       skuCode: {
-        startsWith: prefix
-      }
+        startsWith: prefix,
+      },
     },
     orderBy: {
-      skuCode: 'desc'
-    }
+      skuCode: "desc",
+    },
   });
-  
+
   if (!lastSKU) {
     return `${prefix}001`;
   }
-  
+
   const lastSeq = parseInt(lastSKU.skuCode.slice(-3));
-  const nextSeq = (lastSeq + 1).toString().padStart(3, '0');
-  
+  const nextSeq = (lastSeq + 1).toString().padStart(3, "0");
+
   return `${prefix}${nextSeq}`;
 }
 
 // Usage
-const newSKU = await generateNextSKU('RM', 'PPG'); // Returns: RMPPG001, RMPPG002, etc.
+const newSKU = await generateNextSKU("RM", "PPG"); // Returns: RMPPG001, RMPPG002, etc.
 ```
 
 ---
@@ -332,6 +367,7 @@ const newSKU = await generateNextSKU('RM', 'PPG'); // Returns: RMPPG001, RMPPG00
 ## 🎯 Quick Reference Card
 
 ### SKU Format Cheat Sheet
+
 ```
 ┌─────────────────────────────────────┐
 │   PolyFlow SKU Format Standard      │
@@ -364,8 +400,8 @@ const newSKU = await generateNextSKU('RM', 'PPG'); // Returns: RMPPG001, RMPPG00
 
 ---
 
-**Last Updated**: January 5, 2026
+**Last Updated**: June 26, 2026
 
-**Version**: 1.0
+**Version**: 1.1
 
-**Status**: ✅ Standard Approved - Ready for Implementation
+**Status**: ✅ Standard Approved - Implemented

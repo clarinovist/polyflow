@@ -1,10 +1,13 @@
 # Panduan & Logika Bisnis Manufaktur PolyFlow
-**Versi Dokumen:** 1.2 (Revisi: Full Cycle Mixing-Extrusion-Packing)
+
+**Versi Dokumen:** 1.3 (Revisi: Full Cycle Mixing-Extrusion-Packing + Service Layer)
 **Target Pembaca:** Manajer Produksi, Admin Gudang, & Supervisor
+**Terakhir Diperbarui:** 26 Juni 2026
 
 ---
 
 ## 1. Pendahuluan
+
 Dokumen ini menjelaskan **aturan main (Business Rules)** yang berjalan di balik layar sistem PolyFlow. Dokumen ini mencakup alur produksi ujung-ke-ujung (End-to-End) dari pencampuran bahan hingga pengemasan barang jadi.
 
 ---
@@ -12,6 +15,7 @@ Dokumen ini menjelaskan **aturan main (Business Rules)** yang berjalan di balik 
 ## 2. Alur Proses Lengkap (End-to-End)
 
 Proses produksi plastik di PolyFlow secara umum terdiri dari 3 tahap utama yang saling berkesinambungan:
+
 1.  **Mixing (Pencampuran)**: Biji Plastik + Pigmen -> Compound/Mix.
 2.  **Extrusion (Pencetakan)**: Compound -> Gulungan Plastik (Rolls).
 3.  **Packing/Slitting (Finishing)**: Roll Besar -> Pack Kecil/Potongan Siap Jual.
@@ -19,20 +23,23 @@ Proses produksi plastik di PolyFlow secara umum terdiri dari 3 tahap utama yang 
 ---
 
 ### TAHAP 1: MIXING (Pencampuran)
+
 Di sini kita mengubah "Raw Material" menjadi "WIP (Work In Process)".
 
 **A. Alur Normal**
+
 1.  **Persiapan**: Admin transfer stok (Resin, Pigmen, Kapur) dari Gudang Utama ke "Gudang Mixing".
 2.  **Order**: SPK Mixing turun, misal target 1.000 kg Compound Putih.
 3.  **Eksekusi**: Operator mencampur bahan sesuai resep.
 4.  **Output**: Operator menimbang hasil adukan per karung (sak). Misal 1 sak = 25kg.
 5.  **Pencatatan**: Operator input "25kg".
-    *   **Stok Masuk**: +25kg "Compound Putih" (di Gudang Mixing).
-    *   **Stok Keluar**: -24kg Resin, -0.5kg Pigmen, -0.5kg Kapur (Backflush otomatis).
+    - **Stok Masuk**: +25kg "Compound Putih" (di Gudang Mixing).
+    - **Stok Keluar**: -24kg Resin, -0.5kg Pigmen, -0.5kg Kapur (Backflush otomatis).
 
 **B. Rules & Validasi**
-*   **Must Have Stock**: Tidak bisa input hasil 25kg jika bahan baku resin/pigmen di sistem 0.
-*   **Batch Tracking** (Opsional): Operator bisa scan barcode bahan baku untuk mencatat batch mana yang dipakai (First-In First-Out).
+
+- **Must Have Stock**: Tidak bisa input hasil 25kg jika bahan baku resin/pigmen di sistem 0.
+- **Batch Tracking** (Opsional): Operator bisa scan barcode bahan baku untuk mencatat batch mana yang dipakai (First-In First-Out).
 
 **C. Potensi Error**
 | Error | Penyebab | Solusi |
@@ -43,20 +50,23 @@ Di sini kita mengubah "Raw Material" menjadi "WIP (Work In Process)".
 ---
 
 ### TAHAP 2: EXTRUSION (Pencetakan)
+
 Disini kita mengubah "WIP (Compound)" menjadi "WIP (Rolls)" atau "FG (Barang Jadi)".
 
 **A. Alur Normal**
+
 1.  **Persiapan**: Stok "Compound Putih" sudah tersedia di Gudang Mixing (hasil dari Tahap 1).
 2.  **Order**: SPK Extrusi turun (cetak plasik bening/putih lebar 10cm).
 3.  **Eksekusi**: Operator memasukkan Compound ke corong mesin.
 4.  **Output**: Mesin menghasilkan gulungan plastik (Roll).
 5.  **Pencatatan**: Operator timbang roll -> misal 40kg. Input ke Kiosk.
-    *   **Stok Keluar**: -40kg "Compound Putih" dari Gudang Mixing.
-    *   **Stok Masuk**: +40kg "Roll Putih Polos" di Gudang Extrusion / Rewinding.
+    - **Stok Keluar**: -40kg "Compound Putih" dari Gudang Mixing.
+    - **Stok Masuk**: +40kg "Roll Putih Polos" di Gudang Extrusion / Rewinding.
 
 **B. Rules & Validasi**
-*   **Validasi Sumber**: Sistem akan menolak jika kita mencoba pakai bahan "Compound Biru" untuk order "Plastik Putih" (Sistem lock by Recipe).
-*   **Over-Production**: Diperbolehkan selama Compound masih tersedia.
+
+- **Validasi Sumber**: Sistem akan menolak jika kita mencoba pakai bahan "Compound Biru" untuk order "Plastik Putih" (Sistem lock by Recipe).
+- **Over-Production**: Diperbolehkan selama Compound masih tersedia.
 
 **C. Potensi Error**
 | Error | Penyebab | Solusi |
@@ -67,18 +77,21 @@ Disini kita mengubah "WIP (Compound)" menjadi "WIP (Rolls)" atau "FG (Barang Jad
 ---
 
 ### TAHAP 3: PACKING / FINISHING
+
 Disini kita mengubah "Rolls" menjadi "Barang Siap Jual".
 
 **A. Alur Normal**
+
 1.  **Persiapan**: Roll hasil extrusi didiamkan (curing) lalu dibawa ke meja packing.
 2.  **Order**: SPK Packing (Potong jadi kantong kresek / Pack per 1kg).
 3.  **Eksekusi**: Roll dipotong, di-seal, dan dimasukkan ke karung luar.
 4.  **Output**: Operator input hasil "1 Karung (isi 50 pack)".
-    *   **Stok Keluar**: -50kg "Roll Putih Polos" (Backflush).
-    *   **Stok Masuk**: +1 Karung "Kresek Putih HD" (Finished Good).
+    - **Stok Keluar**: -50kg "Roll Putih Polos" (Backflush).
+    - **Stok Masuk**: +1 Karung "Kresek Putih HD" (Finished Good).
 
 **B. Rules & Validasi**
-*   **Scrap Tinggi**: Di tahap ini paling banyak potongan sisa (trim). System membolehkan input Scrap dalam jumlah besar.
+
+- **Scrap Tinggi**: Di tahap ini paling banyak potongan sisa (trim). System membolehkan input Scrap dalam jumlah besar.
 
 **C. Potensi Error**
 | Error | Penyebab | Solusi |
@@ -88,9 +101,27 @@ Disini kita mengubah "Rolls" menjadi "Barang Siap Jual".
 ---
 
 ## 4. Kesimpulan Studi Kasus (Integrasi)
+
 Jika Anda melihat "Error Merah" di Extrusion, **jangan panik di Extrusion**.
 Cek ke belakang (Backtrace):
+
 1.  Apakah Mixing sudah input hasil? (Kalau Mixing belum input, Extrusi tidak punya bahan).
 2.  Apakah Gudang sudah transfer bahan ke Mixing?
 
 Sistem ini adalah rantai yang saling mengunci demi kebenaran data. Satu titik putus (lupa input), proses selanjutnya tertahan. Ini adalah fitur keamanan, bukan bug.
+
+---
+
+## 5. Service Layer (Arsitektur Terbaru)
+
+Logika manufaktur PolyFlow sekarang diimplementasikan dalam service layer di `src/services/production/`:
+
+- **ProductionService** - Manajemen order produksi inti
+- **CostingService** - Perhitungan COGS (HPP) dan COGM
+- **OrderCostingService** - Costing per order dan analisis varian
+- **InventoryService** - Operasi stok dan alokasi batch FIFO
+
+Server Action di `src/actions/production/` mendelegasikan ke service-service ini, mengikuti pola:
+`Auth Check` → `Input Parsing` → `Call Service` → `Return Result`
+
+**Batch FIFO**: Sistem secara otomatis memilih batch tertua (First-In-First-Out) saat pengambilan bahan.

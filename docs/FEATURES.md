@@ -17,6 +17,7 @@ PolyFlow supports complex product hierarchies with multiple variants per product
 - **Variant Level**: SKU-specific items (e.g., "Pure PP Granules Standard - RM-PP-PURE")
 
 **Product Types**:
+
 - `RAW_MATERIAL` - Incoming materials from suppliers
 - `INTERMEDIATE` - Results of mixing/blending processes
 - `PACKAGING` - Packaging materials
@@ -37,6 +38,7 @@ Every product variant supports dual-unit tracking:
 ```
 
 **Supported Units**:
+
 - `KG` - Kilograms (primary for most materials)
 - `ROLL` - Rolls (for film/raffia)
 - `BAL` - Bales (packed finished goods)
@@ -78,6 +80,7 @@ Store flexible metadata as JSON:
 Real-time inventory across multiple locations:
 
 **Seeded Locations**:
+
 - **Raw Material Warehouse** (`rm_warehouse`) - Incoming materials storage
 - **Mixing Area** (`mixing_area`) - Production Floor 1
 - **Extrusion Area** (`extrusion_area`) - Production Floor 2
@@ -85,6 +88,7 @@ Real-time inventory across multiple locations:
 - **Scrap Warehouse** (`scrap_warehouse`) - Waste materials
 
 **Inventory Model**:
+
 ```typescript
 {
   locationId: string,
@@ -101,12 +105,14 @@ Real-time inventory across multiple locations:
 Complete audit trail for all inventory changes:
 
 **Movement Types**:
+
 - `IN` - Stock received (from suppliers)
 - `OUT` - Stock issued (to customers/production)
 - `TRANSFER` - Between locations
 - `ADJUSTMENT` - Manual corrections
 
 **Movement Record**:
+
 ```typescript
 {
   type: MovementType,
@@ -130,6 +136,7 @@ Dynamic threshold tracking:
 - Configurable thresholds via UI dialog
 
 **Dashboard Low Stock Card**:
+
 ```typescript
 {
   lowStockCount: number,          // Count of variants below threshold
@@ -142,11 +149,13 @@ Dynamic threshold tracking:
 Move inventory between locations with atomic transactions:
 
 **Validation**:
+
 - ✅ Source location has sufficient stock
 - ✅ Source quantity >= transfer quantity
 - ✅ Transaction rolls back on any error
 
 **Process**:
+
 1. Validate source stock
 2. Decrement source inventory
 3. Increment (or upsert) destination inventory
@@ -154,6 +163,7 @@ Move inventory between locations with atomic transactions:
 5. Commit transaction
 
 **Example**:
+
 ```typescript
 await transferStock({
   sourceLocationId: "rm_warehouse",
@@ -161,7 +171,7 @@ await transferStock({
   productVariantId: "RM-PP-PURE",
   quantity: 100,
   notes: "For production batch #123",
-  date: new Date()
+  date: new Date(),
 });
 ```
 
@@ -170,14 +180,17 @@ await transferStock({
 Manual inventory corrections:
 
 **Adjustment Types**:
+
 - `ADJUSTMENT_IN` - Increase stock (e.g., found inventory, corrections)
 - `ADJUSTMENT_OUT` - Decrease stock (e.g., damaged goods, corrections)
 
 **Validation**:
+
 - ✅ OUT adjustments check for sufficient stock
 - ✅ IN adjustments can create new inventory records (upsert)
 
 **Movement Record Direction**:
+
 - IN: `fromLocationId: null`, `toLocationId: locationId`
 - OUT: `fromLocationId: locationId`, `toLocationId: null`
 
@@ -186,6 +199,7 @@ Manual inventory corrections:
 Real-time inventory view with filtering:
 
 **Features**:
+
 - Filter by location
 - Filter by product type
 - Low-stock highlighting (yellow background)
@@ -196,6 +210,7 @@ Real-time inventory view with filtering:
 - **NEW**: Calculated available stock (Total - Reserved)
 
 **Table Columns**:
+
 - Product name
 - SKU code
 - Location
@@ -215,6 +230,7 @@ Periodic physical stock verification workflow:
 #### 1. **Stock Opname Process**
 
 **Workflow**:
+
 1. Create new opname session (select location, date)
 2. System generates count sheet with expected quantities
 3. Warehouse staff performs physical count
@@ -276,16 +292,19 @@ Production recipe management:
 #### 2. **Production Cycle Example**
 
 **Stage 1: Mixing**
+
 - Input: 98 KG Pure PP + 2 KG Red Colorant
 - Output: 100 KG Red Mixed Granules (INTERMEDIATE)
 - Scrap: 1% expected (0.98 KG)
 
 **Stage 2: Extrusion**
+
 - Input: 100 KG Red Mixed Granules
 - Output: 100 KG Red Raffia Jumbo Roll (WIP)
 - Scrap: 2% expected (2 KG)
 
 **Stage 3: Converting**
+
 - Input: WIP Roll
 - Output: Finished Red Raffia Bales (FINISHED_GOOD)
 - Unit: BAL (1 BAL = 5 KG)
@@ -309,6 +328,7 @@ Track production equipment:
 ```
 
 **Machine Types**:
+
 - `MIXER` - Mixing/blending equipment
 - `EXTRUDER` - Extrusion machines
 - `REWINDER` - Rewinding/slitting machines
@@ -316,11 +336,13 @@ Track production equipment:
 - `GRANULATOR` - Granulation/recycling machines
 
 **Machine Status**:
+
 - `ACTIVE` - Operational
 - `MAINTENANCE` - Under maintenance
 - `BROKEN` - Out of service
 
 **Seeded Machines**:
+
 1. Mixer Turbo 01 (MIX-01) - Mixing Area
 2. Extruder Jumbo 01 (EXT-01) - Extrusion Area
 3. Rewinder Kecil A (REW-01) - FG Warehouse
@@ -365,6 +387,7 @@ Intelligent material consumption logic to ensure stock freshness:
 ### Main Dashboard (`/dashboard`)
 
 **KPI Cards**:
+
 1. **Products** - Total master products count
 2. **Total Stock** - Sum of all inventory quantities (all locations)
 3. **Low Stock** - Count of variants below threshold (with amber alert)
@@ -373,6 +396,7 @@ Intelligent material consumption logic to ensure stock freshness:
 6. **Pending Production** - Active production orders count
 
 **Quick Actions**:
+
 - Create Product → `/dashboard/products/create`
 - Stock Adjustment → `/dashboard/inventory/adjustment`
 - Internal Transfer → `/dashboard/inventory/transfer`
@@ -388,24 +412,28 @@ All stats computed server-side via `getDashboardStats()` Server Action using Pri
 Comprehensive business intelligence and reporting:
 
 #### 1. **Sales Analytics**
+
 - Revenue trends and growth metrics
 - Top selling products
 - Customer analysis
 - Sales performance charts
 
 #### 2. **Inventory Analytics**
+
 - Stock aging report
 - Inventory turnover ratio
 - Stock valuation by location
 - Movement trends
 
 #### 3. **Production Analytics**
+
 - Production efficiency metrics
 - Machine utilization
 - Scrap rate analysis
 - OEE calculations
 
 #### 4. **Finance & Accounting Analytics**
+
 - COGS (Cost of Goods Sold) calculations based on Weighted Average
 - Real-time WIP (Work-in-Progress) valuation
 - Asset depreciation tracking
@@ -413,7 +441,9 @@ Comprehensive business intelligence and reporting:
 - Production costing (COGM) breakdowns
 
 #### 5. **Executive Dashboard (New KPIs)**
+
 High-level manufacturing metrics for management:
+
 - **Yield Rate (%)**: Total output vs. raw material input.
 - **Total Scrap (Kg)**: Consolidated scrap quantity from all processes.
 - **Downtime Hours**: Total recorded machine downtime.
@@ -425,11 +455,13 @@ High-level manufacturing metrics for management:
 ### Inventory Dashboard Features
 
 **Filtering**:
+
 - **By Location**: Dropdown selector (all locations)
 - **By Product Type**: Dropdown selector (all types)
 - **Low Stock Toggle**: Show only items below threshold
 
 **Interactive Features**:
+
 - Click row → Edit threshold dialog
 - Threshold update → Real-time save to database
 - Color coding:
@@ -437,6 +469,7 @@ High-level manufacturing metrics for management:
   - Red text → Below threshold
 
 **Movement History**:
+
 - Complete audit trail (`/dashboard/inventory/history`)
 - Filterable by type, location, product
 - Display user attribution
@@ -488,6 +521,7 @@ High-level manufacturing metrics for management:
 ```
 
 **Contact Types**:
+
 - `SUPPLIER` - Material/service providers
 - `CUSTOMER` - Buyers/distributors
 
@@ -500,16 +534,19 @@ High-level manufacturing metrics for management:
 A robust foundation for industrial financial management:
 
 ### 1. **General Ledger**
+
 - **Chart of Accounts (CoA)**: Standardized structure with manufacturing-specific categories.
 - **Journal Entries**: Double-entry bookkeeping with automatic system-generated entries.
 - **Fiscal Periods**: Manage open/closed months for financial integrity.
 
 ### 2. **Fixed Asset Management**
+
 - Track high-value machinery and equipment.
 - Automatic depreciation calculation (Straight Line method).
 - Integration with balance sheet accounts.
 
 ### 3. **Purchasing & AP**
+
 - Supplier invoices linked to Goods Receipts.
 - Payment tracking and AP aging.
 - Purchase tax (PPN) handling.
@@ -571,6 +608,7 @@ See [IMPROVEMENTS.md](./IMPROVEMENTS.md) for detailed roadmap.
 All data mutations use Next.js 16 Server Actions:
 
 **Benefits**:
+
 - ✅ Type-safe client-server communication
 - ✅ Automatic API route generation
 - ✅ Built-in error handling
@@ -580,7 +618,7 @@ All data mutations use Next.js 16 Server Actions:
 All inputs validated using **Zod** schemas:
 
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 export const transferStockSchema = z.object({
   sourceLocationId: z.string().min(1),
@@ -588,7 +626,7 @@ export const transferStockSchema = z.object({
   productVariantId: z.string().min(1),
   quantity: z.number().positive(),
   notes: z.string().optional(),
-  date: z.date()
+  date: z.date(),
 });
 ```
 
@@ -600,19 +638,20 @@ Critical operations use Prisma transactions for atomicity:
 await prisma.$transaction(async (tx) => {
   // 1. Validate
   const sourceStock = await tx.inventory.findUnique(...);
-  
+
   // 2. Decrement source
   await tx.inventory.update(...);
-  
+
   // 3. Increment destination
   await tx.inventory.upsert(...);
-  
+
   // 4. Log movement
   await tx.stockMovement.create(...);
 });
 ```
 
 **Benefits**:
+
 - ✅ All-or-nothing commits
 - ✅ Data consistency guaranteed
 - ✅ Automatic rollback on error
@@ -622,12 +661,12 @@ await prisma.$transaction(async (tx) => {
 Use Next.js `revalidatePath()` for cache invalidation:
 
 ```typescript
-revalidatePath('/dashboard/inventory');
-revalidatePath('/dashboard/inventory/history');
+revalidatePath("/dashboard/inventory");
+revalidatePath("/dashboard/inventory/history");
 ```
 
 This ensures UI reflects latest data without full page reload.
 
 ---
 
-**Last Updated**: January 25, 2026
+**Last Updated**: June 26, 2026

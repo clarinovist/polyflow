@@ -11,12 +11,12 @@ graph TB
     ServerActions[Server Actions]
     Prisma[Prisma ORM]
     PostgreSQL[(PostgreSQL Database)]
-    
+
     Client -->|HTTP/RSC| NextJS
     NextJS -->|Server Components| ServerActions
     ServerActions -->|Query/Mutation| Prisma
     Prisma -->|SQL| PostgreSQL
-    
+
     NextJS -.->|Static Assets| Client
 ```
 
@@ -29,12 +29,14 @@ graph TB
 **Directory**: `/src/app/*`, `/src/components/*`
 
 **Technologies**:
+
 - React 19.2.3 (Server Components + Client Components)
 - TailwindCSS v4 (Utility-first styling)
 - Radix UI (Accessible component primitives)
 - Lucide React (Icons)
 
 **Key Patterns**:
+
 - **Server Components by default** - Reduced client-side JavaScript
 - **Client Components** (`"use client"`) only when needed:
   - Forms with interactivity
@@ -43,6 +45,7 @@ graph TB
 - **File-based routing** via Next.js App Router
 
 **Example Structure**:
+
 ```
 /src/app/dashboard/
   ├── page.tsx              # Server Component (Dashboard)
@@ -75,17 +78,20 @@ graph TB
 **Directory**: `/src/actions/*`
 
 **Technologies**:
+
 - Next.js Server Actions
 - Zod (Runtime validation)
 - Prisma Client
 
 **Key Files**:
+
 - `inventory.ts` - Stock operations (transfer, adjustment, stats)
 - `product.ts` - Product CRUD operations
 
 **Pattern**:
+
 ```typescript
-'use server';
+"use server";
 
 export async function transferStock(data: TransferStockValues) {
   // 1. Validation
@@ -101,8 +107,8 @@ export async function transferStock(data: TransferStockValues) {
     });
 
     // 3. Cache invalidation
-    revalidatePath('/dashboard/inventory');
-    
+    revalidatePath("/dashboard/inventory");
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -111,6 +117,7 @@ export async function transferStock(data: TransferStockValues) {
 ```
 
 **Benefits**:
+
 - Type-safe server-client communication
 - Automatic API route generation
 - No need for separate API layer
@@ -123,26 +130,29 @@ export async function transferStock(data: TransferStockValues) {
 **Directory**: `/prisma/*`, `/src/lib/prisma.ts`
 
 **Key Files**:
+
 - `schema.prisma` - Database schema definition
 - `seed.ts` - Initial data seeding
 - `prisma.ts` - Prisma Client singleton
 
 **Singleton Pattern** (`/src/lib/prisma.ts`):
+
 ```typescript
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: ['query', 'error', 'warn'],
+    log: ["query", "error", "warn"],
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 ```
 
 **Benefits**:
+
 - Prevents multiple Prisma Client instances in dev mode
 - Type-safe database queries
 - Auto-generated TypeScript types
@@ -154,6 +164,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 **Schema**: See `/prisma/schema.prisma`
 
 **Key Models**:
+
 ```mermaid
 erDiagram
     Product ||--o{ ProductVariant : "has"
@@ -169,6 +180,7 @@ erDiagram
 ```
 
 **Data Integrity Constraints**:
+
 - Unique constraints: `skuCode`, `location-variant composite key`
 - Foreign key cascades on delete (BOM → BomItem)
 - Decimal types for precision (money, quantities)
@@ -199,6 +211,7 @@ sequenceDiagram
 ```
 
 **Benefits**:
+
 - No client-side JavaScript for data fetching
 - Automatic request deduplication
 - Streaming SSR for fast TTFB
@@ -231,6 +244,7 @@ sequenceDiagram
 ```
 
 **Key Points**:
+
 - All validation on server (Zod schemas)
 - Transactions ensure atomicity
 - Automatic UI refresh via `revalidatePath()`
@@ -261,12 +275,14 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 ### Reusable UI Components (`/src/components/ui/*`)
 
 **shadcn/ui Pattern**:
+
 - Copy-paste components (not npm package)
 - Built on Radix UI primitives
 - Fully customizable
 - TailwindCSS styling
 
 **Key Components**:
+
 - `button.tsx` - Button with variants
 - `card.tsx` - Card container
 - `dialog.tsx` - Modal dialogs
@@ -274,8 +290,16 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 - `input.tsx` - Text input
 - `select.tsx` - Dropdown select
 - `table.tsx` - Data table
-- `tooltip.tsx` - Tooltips
-- `sonner.tsx` - Toast notifications
+- `data-table.tsx` - Advanced data table with sorting/filtering
+- `responsive-table.tsx` - Mobile-friendly responsive table
+- `responsive-button-group.tsx` - Adaptive button group for mobile
+- `print-preview-modal.tsx` - Print preview with layout options
+- `date-range-picker.tsx` - Date range selection
+- `payment-term-select.tsx` - Payment term dropdown
+- `badge.tsx` - Status badges
+- `command.tsx` - Command palette (cmdk)
+- `scroll-area.tsx` - Custom scroll areas
+- `page-header.tsx` - Standard page headers
 
 ---
 
@@ -291,6 +315,7 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 - ✅ **Data Security**: SQL injection prevention via Prisma; Protected Server Actions
 
 **Missing (Planned)**:
+
 - ❌ Rate limiting
 - ❌ Input sanitization for XSS
 - ❌ Multi-Factor Authentication (MFA)
@@ -307,11 +332,13 @@ app/dashboard/inventory/transfer/page.tsx (Server Component)
 **No Global State Management Library**
 
 PolyFlow intentionally avoids Redux/Zustand/Recoil because:
+
 - Server Components fetch data server-side (no client state needed)
 - Forms use `react-hook-form` for local state
 - Server Actions + `revalidatePath()` handle mutations
 
 **State Patterns**:
+
 1. **Server State**: Fetched in Server Components, passed as props
 2. **Form State**: Managed by `react-hook-form`
 3. **UI State**: Local `useState` in Client Components (dialogs, dropdowns)
@@ -338,18 +365,18 @@ PolyFlow intentionally avoids Redux/Zustand/Recoil because:
 
 ---
 
-## 🧪 Testing Strategy (Planned)
+## 🧪 Testing Strategy (Implemented)
 
-### Recommended Test Pyramid
+### Test Pyramid
 
 ```
         /\
-       /  \  E2E Tests (10%)
+       /  \  E2E Tests (planned)
       /    \  - Playwright
      /------\  - Critical user flows
     /        \
    /  Integ.  \ Integration Tests (30%)
-  /   Tests    \  - Server Actions + Database
+  /   Tests    \  - Service layer + Database
  /              \  - Prisma transactions
 /----------------\
    Unit Tests (60%)
@@ -359,10 +386,26 @@ PolyFlow intentionally avoids Redux/Zustand/Recoil because:
 ```
 
 **Tools**:
-- **Vitest** - Unit + integration tests
-- **Playwright** - E2E tests
+
+- **Vitest** - Unit + integration tests (configured in `vitest.config.ts`)
 - **Testing Library** - React component tests
-- **MSW** - API mocking
+- **jsdom** - DOM environment for unit tests
+
+**Test Files**:
+
+- `src/services/__tests__/` - Service layer tests (accounting, costing, invoice, production, etc.)
+- `src/services/inventory/__tests__/` - Inventory service tests (stock-opname, stock-ledger, core, analytics)
+- `src/services/finance/__tests__/` - Finance service tests (tax, petty-cash, journal, invoice lifecycle, auto-journal)
+- `src/actions/__tests__/` - Server Action tests
+- `src/__tests__/` - Domain-agnostic tests
+
+**Running Tests**:
+
+```bash
+npm run test          # Single run
+npm run test:watch    # Watch mode
+npm run test:coverage # With coverage report
+```
 
 ---
 
@@ -371,6 +414,7 @@ PolyFlow intentionally avoids Redux/Zustand/Recoil because:
 ### Current Setup
 
 **Development**:
+
 - Local PostgreSQL database
 - `npm run dev` on port 3000
 - DB accessible at `localhost:5434` (via `docker-compose.dev.yml`)
@@ -392,6 +436,7 @@ graph LR
 ```
 
 **Production Stack**:
+
 - **Hosting**: Self-hosted VPS (Docker Compose)
 - **Container Registry**: GitHub Container Registry (GHCR)
 - **Reverse Proxy**: Nginx (`ceritakita-network`)
@@ -400,6 +445,7 @@ graph LR
 - **Environment**: Variables set via `.env` on VPS
 
 **Environment Variables**:
+
 ```env
 DATABASE_URL=postgresql://polyflow:password@polyflow-db:5432/polyflow
 AUTH_SECRET=...
@@ -414,38 +460,44 @@ POSTGRES_PASSWORD=...
 ### Local Development Setup
 
 1. **Install dependencies**:
+
    ```bash
    npm install
    ```
 
 2. **Set up database**:
+
    ```bash
-  npx prisma@5.22.0 migrate dev
-  npx prisma@5.22.0 db seed
+   npx prisma@5.22.0 migrate dev
+   npx prisma@5.22.0 db seed
    ```
 
 3. **Run dev server**:
+
    ```bash
    npm run dev
    ```
 
 4. **Generate Prisma Client** (after schema changes):
+
    ```bash
-  npx prisma@5.22.0 generate
+   npx prisma@5.22.0 generate
    ```
 
 5. **Create migration** (after schema changes):
    ```bash
-  npx prisma@5.22.0 migrate dev --name add_batch_tracking
+   npx prisma@5.22.0 migrate dev --name add_batch_tracking
    ```
 
 ### Code Quality Tools
 
 **Current**:
+
 - ESLint (Next.js config)
 - TypeScript strict mode
 
 **Recommended Additions**:
+
 - Prettier (code formatting)
 - Husky (pre-commit hooks)
 - lint-staged (lint only changed files)
@@ -488,6 +540,7 @@ polyflow/
 ```
 
 **Naming Conventions**:
+
 - Components: PascalCase (`ProductForm.tsx`)
 - Server Actions: camelCase (`getProducts`, `createProduct`)
 - Files: kebab-case for routes (`stock-adjustment/`)
@@ -502,15 +555,16 @@ polyflow/
 1. **Modify schema**: Edit `prisma/schema.prisma`
 2. **Create migration**:
    ```bash
-  npx prisma@5.22.0 migrate dev --name add_batch_model
+   npx prisma@5.22.0 migrate dev --name add_batch_model
    ```
 3. **Review SQL**: Check `prisma/migrations/<timestamp>_add_batch_model/migration.sql`
 4. **Apply to production**:
    ```bash
-  npx prisma@5.22.0 migrate deploy
+   npx prisma@5.22.0 migrate deploy
    ```
 
 **Important**:
+
 - Never delete migrations folder
 - Always test migrations on staging before production
 - Use `prisma migrate diff` to preview changes
@@ -523,12 +577,14 @@ polyflow/
 ### Why Server Components?
 
 **Pros**:
+
 - Zero client-side JavaScript for data fetching
 - Direct database access (no API layer needed)
 - Improved performance (no waterfall requests)
 - SEO-friendly (fully rendered HTML)
 
 **Cons**:
+
 - Learning curve (new mental model)
 - Cannot use browser APIs directly
 - Requires careful client/server boundary management
@@ -536,6 +592,7 @@ polyflow/
 ### Why Prisma over TypeORM/Sequelize?
 
 **Pros**:
+
 - Auto-generated TypeScript types
 - Type-safe queries (no runtime errors)
 - Excellent developer experience
@@ -543,6 +600,7 @@ polyflow/
 - Active community and development
 
 **Cons**:
+
 - Not as mature as TypeORM for complex queries
 - Less flexible for raw SQL (but supports it)
 - Vendor lock-in to Prisma schema format
@@ -550,12 +608,14 @@ polyflow/
 ### Why Server Actions over API Routes?
 
 **Pros**:
+
 - Less boilerplate (no need to create `/api/*` routes)
 - Type safety from client to server
 - Built-in CSRF protection
 - Progressive enhancement
 
 **Cons**:
+
 - Relatively new (Next.js 13+)
 - Less control over HTTP response
 - Cannot be called from external clients (mobile apps)
@@ -568,15 +628,35 @@ polyflow/
 
 To prevent "God File" Server Actions and maintain clean boundaries, PolyFlow uses a **Service Pattern** located in `src/services/`.
 
+### Service Directory Structure
+
+```
+src/services/
+├── accounting/        # Accounting & bookkeeping services
+├── analytics/         # Business intelligence & reporting
+├── auth/              # Authentication & session management
+├── core/              # Shared utilities & transaction wizard
+├── dashboard/         # Dashboard aggregation services
+├── finance/           # Finance services (tax, petty cash, journal, invoice)
+├── inventory/         # Inventory services (stock-opname, stock-ledger, analytics)
+├── maklon/            # Maklon (contract manufacturing) services
+├── production/        # Production execution & costing
+├── purchasing/        # Purchase orders & procurement
+├── sales/             # Sales orders & distribution
+└── __tests__/         # Service-level unit tests
+```
+
 ### Core Responsibilities
+
 - **Business Logic**: Complex calculations (e.g., COGS, Yield Rate) are isolated here.
 - **Data Coordination**: Orchestrating multiple Prisma calls across domain boundaries.
 - **Inventory Integrity**: Enforcing FIFO and stock reservation constraints.
 
 ### Example Service Call
+
 ```typescript
 // src/actions/production.ts
-import { ProductionService } from '@/services/production-service';
+import { ProductionService } from "@/services/production-service";
 
 export async function startExecution(orderId: string) {
   return await ProductionService.startOrder(orderId);
@@ -596,11 +676,13 @@ export async function startExecution(orderId: string) {
 ### When to Scale
 
 **Indicators**:
+
 - Database query time > 1 second
 - API response time > 500ms
 - Concurrent users > 1000
 
 **Scaling Strategies**:
+
 1. **Read Replicas** - Offload read-heavy queries
 2. **Caching Layer** - Redis for hot data
 3. **CDN** - Static assets and API responses
@@ -608,4 +690,4 @@ export async function startExecution(orderId: string) {
 
 ---
 
-**Last Updated**: February 28, 2026
+**Last Updated**: June 26, 2026

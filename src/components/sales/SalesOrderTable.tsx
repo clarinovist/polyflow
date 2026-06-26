@@ -172,10 +172,13 @@ export function SalesOrderTable({
         size: 160,
         accessorFn: (row) => row.orderNumber,
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`${basePath}/${row.original.id}`)}
+            className="flex items-center gap-2 text-left hover:underline cursor-pointer"
+          >
             <FileText className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{row.original.orderNumber}</span>
-          </div>
+          </button>
         ),
       },
       {

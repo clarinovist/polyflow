@@ -1,8 +1,11 @@
 # Production Module Business Logistics & Rules
 
+**Last Updated**: June 26, 2026
+
 ## 1. Production Start & Execution
+
 - **Trigger:** Button "START JOB" on Kiosk/Operator Interface.
-- **Validation:** 
+- **Validation:**
   - Checks if Machine/Operator/Shift is assigned (Optional depending on strictness).
   - **Does NOT check** if material has been issued.
   - **Does NOT check** if stock is sufficient at the moment of start.
@@ -10,6 +13,7 @@
 - **Stock Impact:** ZERO. Starting a job does not deduct any inventory.
 
 ## 2. Material Issuance (Pengambilan Bahan)
+
 - **Concept:** Trust-based / Actual-based.
 - **Trigger:** Specific action "Material Issue" / "Ambil Bahan" by Warehouse/Production Admin.
 - **Mechanism:**
@@ -20,8 +24,10 @@
   - **Strict Stock:** Cannot issue if system stock (Quantity in Inventory table) < Requested Quantity.
   - **No Over-Issue Blocking:** System allows issuing MORE than the planned BOM quantity.
   - **Partial Issue:** Allowed. Can issue 10kg now, 20kg later. System accumulates total.
+- **Batch FIFO:** System automatically selects oldest batches (First-In-First-Out) during issuance.
 
 ## 3. Substitutions & Plan Changes
+
 - **Adding Items:** Allowed at any time during production.
 - **Removing Items:**
   - Allowed **ONLY IF** that specific item has **0 issued quantity**.
@@ -29,6 +35,7 @@
 - **Effect:** Useful for ad-hoc substitutions (e.g., ran out of Brand A, added Brand B as new material).
 
 ## 4. Production Output & Scrap
+
 - **Output Entry:** Operator enters "Good Qty" and "Scrap/Reject Qty".
 - **Stock Impact:**
   - **Good Qty:** Increases stock of Finished Good (FG).
@@ -36,3 +43,15 @@
 - **Completion:** Order can be marked `COMPLETED` even if:
   - Material Issued < Standard BOM (Efficiency/Savings).
   - Material Issued > Standard BOM (Waste/Over-usage).
+
+## 5. Service Layer Integration
+
+Production logic is now implemented in `src/services/production/` with the following services:
+
+- **ProductionService** - Core production order management
+- **CostingService** - COGS (HPP) and COGM calculations
+- **OrderCostingService** - Per-order costing and variance analysis
+- **InventoryService** - Stock operations and FIFO batch allocation
+
+Server Actions in `src/actions/production/` delegate to these services, following the pattern:
+`Auth Check` → `Input Parsing` → `Call Service` → `Return Result`
