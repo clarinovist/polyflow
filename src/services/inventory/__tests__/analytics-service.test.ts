@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LocationType, MovementType } from "@prisma/client";
+import { format } from "date-fns";
 import {
   getSuggestedPurchases,
   getInventoryValuation,
@@ -1040,7 +1041,7 @@ describe("analytics-service", () => {
       const { prisma } = await import("@/lib/core/prisma");
 
       const today = new Date();
-      const todayStr = today.toISOString().split("T")[0];
+      const todayStr = format(today, 'yyyy-MM-dd');
 
       vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
         {

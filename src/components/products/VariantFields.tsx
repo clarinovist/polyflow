@@ -245,6 +245,34 @@ export function VariantFields({ control, index, onRemove, canRemove, units, prod
                     />
                 )}
 
+                {productType === ProductType.PACKAGING && (
+                    <FormField
+                        control={control}
+                        name={`variants.${index}.consumptionRule`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Consumption Rule</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || 'PROPORTIONAL'}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Default proportional" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="PROPORTIONAL">Default proportional</SelectItem>
+                                        <SelectItem value="FLOOR_ENTERED_BAL">Floor entered BAL</SelectItem>
+                                        <SelectItem value="CEIL_ENTERED_BAL">Ceil entered BAL</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    Pakai khusus material packing yang konsumsinya mengikuti output BAL, mis. karung.
+                                </p>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+
                 {/* Price Fields */}
                 <FormField
                     control={control}

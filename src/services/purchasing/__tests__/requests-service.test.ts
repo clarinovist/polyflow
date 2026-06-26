@@ -239,7 +239,7 @@ describe("requests-service", () => {
             create: [
               { productVariantId: "pv-1", quantity: 10, notes: "First" },
               { productVariantId: "pv-2", quantity: 20, notes: "Second" },
-              { productVariantId: "pv-3", quantity: 5, notes: undefined },
+              { productVariantId: "pv-3", quantity: 5, notes: "" },
             ],
           },
         }),

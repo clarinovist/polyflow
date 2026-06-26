@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { Unit, ProductType } from '@prisma/client';
-
 import { PRODUCT_CONSTANTS } from '@/lib/constants/products';
+
+const consumptionRuleSchema = z.enum(['PROPORTIONAL', 'FLOOR_ENTERED_BAL', 'CEIL_ENTERED_BAL']);
 
 export const productVariantSchema = z.object({
     id: z.string().optional(), // For editing existing variants
@@ -17,6 +18,7 @@ export const productVariantSchema = z.object({
     price: z.coerce.number().nonnegative("Price must be non-negative").optional().nullable(),
     buyPrice: z.coerce.number().nonnegative("Buy price must be non-negative").optional().nullable(),
     minStockAlert: z.coerce.number().nonnegative("Min stock alert must be non-negative").optional().nullable(),
+    consumptionRule: consumptionRuleSchema.optional().nullable(),
 });
 
 export const createProductSchema = z.object({
@@ -41,6 +43,12 @@ export const createProductSchema = z.object({
         data.variants.forEach((variant) => {
             variant.salesUnit = variant.primaryUnit;
             variant.conversionFactor = 1;
+        });
+    }
+
+    if (data.productType !== ProductType.PACKAGING) {
+        data.variants.forEach((variant) => {
+            variant.consumptionRule = null;
         });
     }
 });
@@ -68,6 +76,12 @@ export const updateProductSchema = z.object({
         data.variants.forEach((variant) => {
             variant.salesUnit = variant.primaryUnit;
             variant.conversionFactor = 1;
+        });
+    }
+
+    if (data.productType !== ProductType.PACKAGING) {
+        data.variants.forEach((variant) => {
+            variant.consumptionRule = null;
         });
     }
 });

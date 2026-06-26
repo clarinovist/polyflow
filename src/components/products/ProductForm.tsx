@@ -40,6 +40,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
                     salesUnit: Unit.KG,
                     conversionFactor: 1,
                     minStockAlert: null,
+                    consumptionRule: null,
                 },
             ],
         },
@@ -55,12 +56,19 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
 
     // Auto-adjust variant units when product type changes to SCRAP or RAW_MATERIAL
     useEffect(() => {
+        const variants = form.getValues('variants');
+
         if (productType === ProductType.SCRAP || productType === ProductType.RAW_MATERIAL) {
-            const variants = form.getValues('variants');
             variants.forEach((variant, index) => {
                 const primaryUnit = variant.primaryUnit || Unit.KG;
                 form.setValue(`variants.${index}.salesUnit`, primaryUnit);
                 form.setValue(`variants.${index}.conversionFactor`, 1);
+            });
+        }
+
+        if (productType !== ProductType.PACKAGING) {
+            variants.forEach((_, index) => {
+                form.setValue(`variants.${index}.consumptionRule`, null);
             });
         }
     }, [productType, form]);
@@ -74,6 +82,7 @@ export function ProductForm({ mode, productTypes, units, initialData }: ProductF
             salesUnit: isSimpleMode ? Unit.KG : Unit.KG,
             conversionFactor: 1,
             minStockAlert: null,
+            consumptionRule: null,
         });
     };
 

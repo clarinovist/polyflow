@@ -2,8 +2,27 @@ import { getProductById, getProductTypes, getUnits } from '@/actions/product';
 import { ProductForm } from '@/components/products/ProductForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
-import { UpdateProductValues } from '@/lib/schemas/product';
+import { UpdateProductValues, ProductVariantFormValues } from '@/lib/schemas/product';
 import { Product, ProductVariant } from '@prisma/client';
+
+const CONSUMPTION_RULES = new Set<ProductVariantFormValues['consumptionRule']>([
+    'PROPORTIONAL',
+    'FLOOR_ENTERED_BAL',
+    'CEIL_ENTERED_BAL',
+    null,
+    undefined,
+]);
+
+function resolveConsumptionRule(attributes: unknown): ProductVariantFormValues['consumptionRule'] {
+    if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+        return 'PROPORTIONAL';
+    }
+
+    const rule = (attributes as Record<string, unknown>).consumptionRule;
+    return CONSUMPTION_RULES.has(rule as ProductVariantFormValues['consumptionRule'])
+        ? (rule as ProductVariantFormValues['consumptionRule']) ?? 'PROPORTIONAL'
+        : 'PROPORTIONAL';
+}
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -39,6 +58,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
             buyPrice: variant.buyPrice ? Number(variant.buyPrice) : null,
             sellPrice: variant.sellPrice ? Number(variant.sellPrice) : null,
             minStockAlert: variant.minStockAlert ? Number(variant.minStockAlert) : null,
+            consumptionRule: resolveConsumptionRule(variant.attributes),
         })),
     };
 
