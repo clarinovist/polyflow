@@ -1,5 +1,6 @@
 import React from 'react';
-import { prisma } from '@/lib/core/prisma';
+import { getSuppliers } from '@/actions/purchasing/supplier';
+import { getProductVariants } from '@/actions/inventory/inventory';
 import { PurchaseOrderForm } from '@/components/purchasing/orders/PurchaseOrderForm';
 import { Metadata } from 'next';
 import { ShoppingCart } from 'lucide-react';
@@ -9,14 +10,13 @@ export const metadata: Metadata = {
 };
 
 export default async function CreatePurchaseOrderPage() {
-    const [suppliers, products] = await Promise.all([
-        prisma.supplier.findMany({
-            select: { id: true, name: true, code: true }
-        }),
-        prisma.productVariant.findMany({
-            select: { id: true, name: true, skuCode: true, buyPrice: true }
-        })
+    const [suppliersRes, productsRes] = await Promise.all([
+        getSuppliers(),
+        getProductVariants(),
     ]);
+
+    const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
+    const products = productsRes.success && productsRes.data ? productsRes.data : [];
 
     // Format buyPrice (Decimal -> number)
     const formattedProducts = products.map(p => ({

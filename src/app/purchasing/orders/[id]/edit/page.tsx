@@ -1,5 +1,7 @@
 import React from "react";
-import { prisma } from "@/lib/core/prisma";
+import { getPurchaseOrderById } from "@/actions/purchasing/purchasing";
+import { getSuppliers } from "@/actions/purchasing/supplier";
+import { getProductVariants } from "@/actions/inventory/inventory";
 import { PurchaseOrderForm } from "@/components/purchasing/orders/PurchaseOrderForm";
 import { notFound } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
@@ -18,18 +20,18 @@ interface PageProps {
 export default async function EditPurchaseOrderPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [order, suppliers, products] = await Promise.all([
-    prisma.purchaseOrder.findUnique({
-      where: { id },
-      include: { items: true },
-    }),
-    prisma.supplier.findMany({
-      select: { id: true, name: true, code: true },
-    }),
-    prisma.productVariant.findMany({
-      select: { id: true, name: true, skuCode: true, buyPrice: true },
-    }),
+  const [orderRes, suppliersRes, productsRes] = await Promise.all([
+    getPurchaseOrderById(id),
+    getSuppliers(),
+    getProductVariants(),
   ]);
+
+  const order =
+    orderRes.success && orderRes.data ? orderRes.data : null;
+  const suppliers =
+    suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
+  const products =
+    productsRes.success && productsRes.data ? productsRes.data : [];
 
   if (!order) {
     notFound();
@@ -52,7 +54,9 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
       productVariantId: item.productVariantId,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
-      discountPercent: item.discountPercent ? Number(item.discountPercent) : 0,
+      discountPercent: item.discountPercent
+        ? Number(item.discountPercent)
+        : 0,
       taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
     })),
   };

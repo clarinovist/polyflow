@@ -1,6 +1,7 @@
 "use server";
 
 import { withTenant } from "@/lib/core/tenant";
+import { prisma } from "@/lib/core/prisma";
 import {
   createPurchaseOrderSchema,
   updatePurchaseOrderSchema,
@@ -290,6 +291,33 @@ export const getPurchaseInvoices = withTenant(
       await requireAuth();
       const invoices = await PurchaseService.getPurchaseInvoices();
       return serializeData(invoices);
+    });
+  },
+);
+
+export const getPurchaseRequests = withTenant(
+  async function getPurchaseRequests() {
+    return safeAction(async () => {
+      await requireAuth();
+      const requests = await prisma.purchaseRequest.findMany({
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: {
+            include: {
+              productVariant: {
+                include: { product: true },
+              },
+            },
+          },
+          salesOrder: {
+            select: { orderNumber: true },
+          },
+          createdBy: {
+            select: { name: true },
+          },
+        },
+      });
+      return serializeData(requests);
     });
   },
 );
