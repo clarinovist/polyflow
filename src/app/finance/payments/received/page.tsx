@@ -1,33 +1,15 @@
 import { getReceivedPayments } from '@/actions/finance/finance';
 import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
-import { prisma } from '@/lib/core/prisma';
+import { getSalesInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
 import { InvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { withTenantPage } from '@/lib/core/tenant';
 
 export const dynamic = 'force-dynamic';
 
 import { parseISO } from 'date-fns';
-
-const getUnpaidInvoices = withTenantPage(async (demand: string) => {
-    return prisma.invoice.findMany({
-        where: {
-            status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] },
-            salesOrder: demand === 'customer'
-                ? { customerId: { not: null } }
-                : { customerId: null }
-        },
-        include: {
-            salesOrder: {
-                include: { customer: true }
-            }
-        },
-        orderBy: { invoiceDate: 'desc' }
-    });
-});
 
 export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
@@ -54,7 +36,17 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
     }
 
     // Fetch unpaid invoices for payment recording
-    const unpaidInvoices = await getUnpaidInvoices(demand);
+    const unpaidInvoicesRes = await getSalesInvoices();
+    const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unpaidInvoices = (allInvoices as any[]).filter((inv: any) => {
+        const matchesStatus = [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE].includes(inv.status);
+        if (!matchesStatus) return false;
+        if (demand === 'customer') {
+            return inv.salesOrder?.customerId != null;
+        }
+        return inv.salesOrder?.customerId == null;
+    });
 
     return (
         <div className="p-6">

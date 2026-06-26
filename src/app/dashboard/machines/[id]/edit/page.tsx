@@ -2,7 +2,7 @@ import { getMachineById } from '@/actions/production/machines';
 import { MachineForm } from '@/components/production/MachineForm';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/core/prisma';
+import { getLocations } from '@/actions/inventory/locations';
 
 interface EditMachinePageProps {
     params: Promise<{ id: string }>;
@@ -11,9 +11,8 @@ interface EditMachinePageProps {
 export default async function EditMachinePage({ params }: EditMachinePageProps) {
     const { id } = await params;
     const result = await getMachineById(id);
-    const locations = await prisma.location.findMany({
-        orderBy: { name: 'asc' }
-    });
+    const locationsRes = await getLocations();
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     if (!result.success || !result.data) {
         notFound();

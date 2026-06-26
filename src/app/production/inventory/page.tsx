@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { getInventoryList, getStockMovements } from '@/actions/inventory/inventory';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,30 +12,18 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductionInventoryPage() {
     // 1. Fetch Current Floor Stock (Mixing Area)
-    const floorInventory = await prisma.inventory.findMany({
-        where: { location: { slug: WAREHOUSE_SLUGS.MIXING } },
-        include: {
-            productVariant: {
-                include: { product: true }
-            }
-        },
-        orderBy: { quantity: 'desc' }
-    });
+    const inventoryRes = await getInventoryList();
+    const allInventory = inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const floorInventory = (allInventory as any[]).filter((item: any) => item.location?.slug === WAREHOUSE_SLUGS.MIXING);
 
     // 2. Fetch Recent Handover Activity (Recent Transfers to Mixing Area)
-    const recentHandovers = await prisma.stockMovement.findMany({
-        where: {
-            toLocation: { slug: WAREHOUSE_SLUGS.MIXING },
-            type: 'TRANSFER'
-        },
-        include: {
-            productVariant: true,
-            fromLocation: true,
-            createdBy: true
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5
-    });
+    const movementsRes = await getStockMovements();
+    const allMovements = movementsRes.success && movementsRes.data ? movementsRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recentHandovers = (allMovements as any[]).filter((move: any) =>
+        move.toLocation?.slug === WAREHOUSE_SLUGS.MIXING && move.type === 'TRANSFER'
+    ).slice(0, 5);
 
     return (
         <div className="space-y-6">

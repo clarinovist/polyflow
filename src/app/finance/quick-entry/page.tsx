@@ -1,9 +1,8 @@
 import { getChartOfAccounts } from '@/actions/finance/accounting';
 import TransactionWizardForm from '@/components/finance/accounting/transaction-wizard-form';
 import { PageHeader } from '@/components/ui/page-header';
-import { prisma } from '@/lib/core/prisma';
+import { getSalesInvoices, getPurchaseInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
-import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -16,30 +15,12 @@ export default async function QuickEntryPage() {
     const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     // Fetch unpaid invoices for the wizard
-    const [salesInvoices, purchaseInvoices] = await Promise.all([
-        prisma.invoice.findMany({
-            where: {
-                status: { in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] }
-            },
-            include: {
-                salesOrder: {
-                    include: { customer: true }
-                }
-            },
-            orderBy: { invoiceDate: 'desc' }
-        }),
-        prisma.purchaseInvoice.findMany({
-            where: {
-                status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE] }
-            },
-            include: {
-                purchaseOrder: {
-                    include: { supplier: true }
-                }
-            },
-            orderBy: { invoiceDate: 'desc' }
-        })
+    const [salesInvoicesRes, purchaseInvoicesRes] = await Promise.all([
+        getSalesInvoices(),
+        getPurchaseInvoices()
     ]);
+    const salesInvoices = salesInvoicesRes.success && salesInvoicesRes.data ? salesInvoicesRes.data : [];
+    const purchaseInvoices = purchaseInvoicesRes.success && purchaseInvoicesRes.data ? purchaseInvoicesRes.data : [];
 
     return (
         <div className="space-y-6 pb-20">

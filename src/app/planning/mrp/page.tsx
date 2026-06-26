@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/core/prisma';
+import { getProductionOrders } from '@/actions/production/production-orders';
+import { getInventoryList } from '@/actions/inventory/inventory';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,35 +14,27 @@ export const dynamic = 'force-dynamic';
 
 export default async function PpicMrpPage() {
     // 1. Fetch active production orders and their material requirements
-    const pendingOrders = await prisma.productionOrder.findMany({
-        where: {
-            status: { in: [ProductionStatus.DRAFT, ProductionStatus.RELEASED] }
-        },
-        include: {
-            bom: {
-                include: {
-                    items: {
-                        include: {
-                            productVariant: true
-                        }
-                    }
-                }
-            }
-        }
-    });
+    const ordersRes = await getProductionOrders();
+    const allOrders = ordersRes;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pendingOrders = (allOrders as any[]).filter((o: any) =>
+        [ProductionStatus.DRAFT, ProductionStatus.RELEASED].includes(o.status)
+    );
 
     // 2. Fetch current RM inventory
-    const rmInventory = await prisma.inventory.findMany({
-        where: { location: { slug: WAREHOUSE_SLUGS.RAW_MATERIAL } },
-        include: { productVariant: true }
-    });
+    const inventoryRes = await getInventoryList();
+    const allInventory = inventoryRes.success && inventoryRes.data ? inventoryRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rmInventory = (allInventory as any[]).filter((item: any) => item.location?.slug === WAREHOUSE_SLUGS.RAW_MATERIAL);
 
     // 3. Aggregate requirements
     const requirementsMap = new Map<string, { name: string, sku: string, totalReq: number, unit: string }>();
 
-    pendingOrders.forEach(order => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pendingOrders.forEach((order: any) => {
         const multiplier = Number(order.plannedQuantity) / Number(order.bom.outputQuantity);
-        order.bom.items.forEach(item => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        order.bom.items.forEach((item: any) => {
             const existing = requirementsMap.get(item.productVariantId) || {
                 name: item.productVariant.name,
                 sku: item.productVariant.skuCode,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { prisma } from '@/lib/core/prisma';
+import { getLocations } from '@/actions/inventory/locations';
 import { Warehouse, MapPin, Globe } from 'lucide-react';
 import { LocationFormDialog } from './location-form-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,9 +15,8 @@ export const metadata: Metadata = {
 // Next.js Server Component
 export default async function LocationsPage() {
     // Fetch all locations
-    const locations = await prisma.location.findMany({
-        orderBy: { name: 'asc' }
-    });
+    const locationsRes = await getLocations();
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     return (
         <div className="flex flex-col gap-6 max-w-6xl mx-auto">

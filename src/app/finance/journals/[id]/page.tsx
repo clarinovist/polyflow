@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/core/prisma';
+import { getJournalById } from '@/actions/finance/journal';
+import { getSalesInvoices, getPurchaseInvoices } from '@/actions/finance/invoices';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -8,48 +9,17 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
-import { withTenant } from '@/lib/core/tenant';
-
 import { JournalActions } from './journal-actions';
 
 interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
 }
 
-// Wrap prisma calls with withTenant for correct tenant DB
-const getJournal = withTenant(async (id: string) => {
-    return prisma.journalEntry.findUnique({
-        where: { id },
-        include: {
-            createdBy: { select: { name: true, email: true } },
-            lines: {
-                include: {
-                    account: true
-                },
-                orderBy: { debit: 'desc' }
-            }
-        }
-    });
-});
-
-const getSalesInvoice = withTenant(async (id: string) => {
-    return prisma.invoice.findUnique({
-        where: { id },
-        include: { salesOrder: { include: { customer: true } } }
-    });
-});
-
-const getPurchaseInvoice = withTenant(async (id: string) => {
-    return prisma.purchaseInvoice.findUnique({
-        where: { id },
-        include: { purchaseOrder: { include: { supplier: true } } }
-    });
-});
-
 export default async function JournalDetailPage({ params }: JournalDetailPageProps) {
     const { id } = await params;
 
-    const journal = await getJournal(id);
+    const journalRes = await getJournalById(id);
+    const journal = journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -60,12 +30,18 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
     let orderNotes: string | null = null;
 
     if (journal.referenceType === 'SALES_INVOICE' && journal.referenceId) {
-        const invoice = await getSalesInvoice(journal.referenceId);
+        const invoiceRes = await getSalesInvoices();
+        const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const invoice = (allInvoices as any[]).find((inv: any) => inv.id === journal.referenceId);
         partyName = invoice?.salesOrder?.customer?.name ?? null;
         orderNotes = invoice?.salesOrder?.notes ?? null;
         partyLabel = 'Pembeli';
     } else if (journal.referenceType === 'PURCHASE_INVOICE' && journal.referenceId) {
-        const invoice = await getPurchaseInvoice(journal.referenceId);
+        const invoiceRes = await getPurchaseInvoices();
+        const allInvoices = invoiceRes.success && invoiceRes.data ? invoiceRes.data : [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const invoice = (allInvoices as any[]).find((inv: any) => inv.id === journal.referenceId);
         partyName = invoice?.purchaseOrder?.supplier?.name ?? null;
         orderNotes = invoice?.purchaseOrder?.notes ?? null;
         partyLabel = 'Pemasok';

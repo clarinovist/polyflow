@@ -1,27 +1,12 @@
 import { getSentPayments } from '@/actions/finance/finance';
 import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsClient';
-import { prisma } from '@/lib/core/prisma';
+import { getPurchaseInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
 import { PurchaseInvoiceStatus } from '@prisma/client';
-import { withTenantPage } from '@/lib/core/tenant';
 
 export const dynamic = 'force-dynamic';
 
 import { parseISO } from 'date-fns';
-
-const getUnpaidInvoices = withTenantPage(async () => {
-    return prisma.purchaseInvoice.findMany({
-        where: {
-            status: { in: [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE] }
-        },
-        include: {
-            purchaseOrder: {
-                include: { supplier: true }
-            }
-        },
-        orderBy: { invoiceDate: 'desc' }
-    });
-});
 
 export default async function SentPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string }> }) {
     const params = await searchParams;
@@ -39,7 +24,12 @@ export default async function SentPaymentsPage({ searchParams }: { searchParams:
     }
 
     // Fetch unpaid purchase invoices for payment recording
-    const unpaidInvoices = await getUnpaidInvoices();
+    const unpaidInvoicesRes = await getPurchaseInvoices();
+    const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unpaidInvoices = (allInvoices as any[]).filter((inv: any) =>
+        [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE].includes(inv.status)
+    );
 
     return (
         <div className="p-6">

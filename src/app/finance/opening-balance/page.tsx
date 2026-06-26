@@ -1,5 +1,6 @@
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { prisma } from '@/lib/core/prisma';
+import { getCustomers } from '@/actions/sales/customer';
+import { getSuppliers } from '@/actions/purchasing/supplier';
 import { OpeningBalanceSpreadsheet } from '@/components/finance/OpeningBalanceSpreadsheet';
 import { getAccountsForOpeningBalance } from '@/actions/finance/opening-balance';
 import { Separator } from '@/components/ui/separator';
@@ -9,15 +10,15 @@ export default async function OpeningBalancePage() {
     await requireAuth();
 
     // Fetch data in parallel
-    const [accountsRes, customersData, suppliersData] = await Promise.all([
+    const [accountsRes, customersRes, suppliersRes] = await Promise.all([
         getAccountsForOpeningBalance(),
-        prisma.customer.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-        prisma.supplier.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
+        getCustomers(),
+        getSuppliers()
     ]);
 
     // Serialize Decimal objects if any (though these simple selects might not need it, it's safer)
-    const customers = serializeData(customersData);
-    const suppliers = serializeData(suppliersData);
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
+    const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
     const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
     return (

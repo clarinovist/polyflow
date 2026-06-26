@@ -1,4 +1,7 @@
-import { prisma } from "@/lib/core/prisma";
+import { getProductionOrders } from '@/actions/production/production-orders';
+import { getMachines } from '@/actions/production/machines';
+import { getEmployees } from '@/actions/admin/employees';
+import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { ProductionStatus } from "@prisma/client";
 import { serializeData } from "@/lib/utils/utils";
 import PotongPlongProductionForm from "./PotongPlongProductionForm";
@@ -9,36 +12,28 @@ export const metadata = {
 
 export default async function PotongPlongKioskPage() {
     // 1. Fetch Orders for Potong/Plong (PACKING/CUTTING category)
-    const orders = await prisma.productionOrder.findMany({
-        where: {
-            status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] },
-            bom: { category: { in: ['PACKING', 'REWORK'] } }
-        },
-        include: {
-            bom: {
-                include: { productVariant: true }
-            },
-            machine: true,
-        },
-        orderBy: { updatedAt: 'desc' }
-    });
+    const ordersRes = await getProductionOrders();
+    const allOrders = ordersRes;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orders = (allOrders as any[]).filter((o: any) =>
+      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS].includes(o.status)
+    );
 
     // 2. Fetch Machines
-    const machines = await prisma.machine.findMany({
-        orderBy: { name: 'asc' }
-    });
+    const machinesRes = await getMachines();
+    const machines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
     // 3. Fetch Employees (Operator / Helpers)
-    const employees = await prisma.employee.findMany({
-        where: { status: 'ACTIVE' },
-        orderBy: { name: 'asc' }
-    });
+    const employeesRes = await getEmployees();
+    const allEmployees = employeesRes.success && employeesRes.data ? employeesRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const employees = (allEmployees as any[]).filter((e: any) => e.status === 'ACTIVE');
 
     // 4. Fetch real WorkShifts from DB
-    const shifts = await prisma.workShift.findMany({
-        where: { status: 'ACTIVE' },
-        orderBy: { name: 'asc' }
-    });
+    const shiftsRes = await getWorkShifts();
+    const allShifts = shiftsRes.success && shiftsRes.data ? shiftsRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shifts = (allShifts as any[]).filter((s: any) => s.status === 'ACTIVE');
 
     const serializedOrders = serializeData(orders);
     const serializedMachines = serializeData(machines);

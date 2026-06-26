@@ -1,5 +1,7 @@
 import React from 'react';
-import { prisma } from '@/lib/core/prisma';
+import { getCustomers } from '@/actions/sales/customer';
+import { getLocations } from '@/actions/inventory/locations';
+import { getProductVariants } from '@/actions/inventory/inventory';
 import { MaklonGoodsReceiptForm } from '@/components/purchasing/orders/MaklonGoodsReceiptForm';
 import { Metadata } from 'next';
 import { Package } from 'lucide-react';
@@ -13,28 +15,22 @@ export const metadata: Metadata = {
 
 export default async function CreateMaklonReceiptPage() {
     // 1. Fetch Master Data Needed for Maklon
-    const customers = await prisma.customer.findMany({
-        select: { id: true, name: true },
-        orderBy: { name: 'asc' }
-    });
+    const customersRes = await getCustomers();
+    const customers = customersRes.success && customersRes.data ? customersRes.data : [];
 
-    const locations = await prisma.location.findMany({
-        where: { locationType: 'CUSTOMER_OWNED' },
-        select: { id: true, name: true, slug: true },
-        orderBy: { name: 'asc' }
-    });
+    const locationsRes = await getLocations();
+    const allLocations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const locations = (allLocations as any[]).filter((l: any) => l.locationType === 'CUSTOMER_OWNED');
 
-    const productVariants = await prisma.productVariant.findMany({
-        include: {
-            product: true
-        },
-        orderBy: { skuCode: 'asc' }
-    });
+    const productVariantsRes = await getProductVariants();
+    const productVariants = productVariantsRes.success && productVariantsRes.data ? productVariantsRes.data : [];
 
     // 2. Format product variants for the form
-    const formattedVariants = productVariants.map((v: { id: string, skuCode: string, product: { name: string } }) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const formattedVariants = (productVariants as any[]).map((v: any) => ({
         id: v.id,
-        name: v.product.name,
+        name: v.product?.name || v.name,
         skuCode: v.skuCode,
     }));
 

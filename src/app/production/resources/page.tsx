@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { getEmployees } from '@/actions/admin/employees';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Clock, ShieldCheck, Hash, Plus } from 'lucide-react';
@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionResourcesPage() {
-    const employees = await prisma.employee.findMany({
-        orderBy: { name: 'asc' }
-    });
+    const employeesRes = await getEmployees();
+    const employees = employeesRes.success && employeesRes.data ? employeesRes.data : [];
 
     const activeCount = employees.filter(e => e.status === 'ACTIVE').length;
 

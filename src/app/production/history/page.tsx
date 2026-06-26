@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/core/prisma';
+import { getProductionHistory } from '@/actions/production/production-execution';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,22 +10,8 @@ import { cn } from '@/lib/utils/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionHistoryPage() {
-    const completions = await prisma.productionExecution.findMany({
-        where: { endTime: { not: null } },
-        include: {
-            productionOrder: {
-                include: {
-                    bom: {
-                        include: { productVariant: true }
-                    }
-                }
-            },
-            operator: true,
-            machine: true
-        },
-        orderBy: { endTime: 'desc' },
-        take: 30
-    });
+    const completionsRes = await getProductionHistory();
+    const completions = completionsRes.success && completionsRes.data ? completionsRes.data : [];
 
     return (
         <div className="space-y-6">

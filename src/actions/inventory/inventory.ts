@@ -1,6 +1,8 @@
 "use server";
 
 import { withTenant } from "@/lib/core/tenant";
+import { prisma } from "@/lib/core/prisma";
+import { serializeData } from "@/lib/utils/utils";
 import { InventoryCoreService } from "@/services/inventory/core-service";
 import { InventoryMovementService } from "@/services/inventory/movement-service";
 import { InventoryQueryService } from "@/services/inventory/query-service";
@@ -166,6 +168,22 @@ export const updateThreshold = withTenant(async function updateThreshold(
     await InventoryCoreService.updateThreshold(productVariantId, minStockAlert);
     revalidatePath("/dashboard");
     revalidatePath("/warehouse/inventory");
+  });
+});
+
+export const getInventoryList = withTenant(async function getInventoryList() {
+  return safeAction(async () => {
+    await requireAuth();
+    const inventory = await prisma.inventory.findMany({
+      include: {
+        productVariant: {
+          include: { product: true },
+        },
+        location: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    return serializeData(inventory);
   });
 });
 

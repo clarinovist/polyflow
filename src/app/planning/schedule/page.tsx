@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/core/prisma';
+import { getMachines } from '@/actions/production/machines';
+import { getProductionOrders } from '@/actions/production/production-orders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProductionStatus } from '@prisma/client';
@@ -12,20 +13,15 @@ import { planningLabels } from '@/lib/labels';
 export const dynamic = 'force-dynamic';
 
 export default async function PpicSchedulePage() {
-    const machines = await prisma.machine.findMany({
-        orderBy: { code: 'asc' }
-    });
+    const machinesRes = await getMachines();
+    const machines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
-    const orders = await prisma.productionOrder.findMany({
-        where: {
-            status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT] }
-        },
-        include: {
-            bom: true,
-            machine: true
-        },
-        orderBy: { plannedStartDate: 'asc' }
-    });
+    const ordersRes = await getProductionOrders();
+    const allOrders = ordersRes;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orders = (allOrders as any[]).filter((o: any) =>
+        [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT].includes(o.status)
+    );
 
     // Simple 7-day lookahead for the "Timeline" view
     const today = startOfDay(new Date());

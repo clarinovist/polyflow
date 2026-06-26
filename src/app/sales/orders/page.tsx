@@ -49,7 +49,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, demand);
     const statsRes = await getSalesOrderStats();
     
-    const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
+    const orders = ordersRes;
     const stats = statsRes.success && statsRes.data ? statsRes.data : {
         totalOrders: 0,
         activeCount: 0,

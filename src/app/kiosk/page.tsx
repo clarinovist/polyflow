@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/core/prisma";
+import { withTenantPage } from "@/lib/core/tenant";
 import { serializeData } from "@/lib/utils/utils";
 import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,7 @@ import KioskRefreshWrapper, { Order } from "./KioskRefreshWrapper";
 import { kioskLabels } from "@/lib/labels";
 import { refreshKioskData } from "@/actions/app/refresh-actions";
 
-export default async function KioskPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-    const params = await searchParams;
-
+const getData = withTenantPage(async function getData() {
     // Fetch active/released orders
     const orders = await prisma.productionOrder.findMany({
         where: {
@@ -37,6 +36,35 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
         ]
     });
 
+    // Fetch employees
+    const employees = await prisma.employee.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, name: true }
+    });
+
+    // Fetch machines
+    const machines = await prisma.machine.findMany({
+        select: { id: true, name: true }
+    });
+
+    // Fetch movements for logs
+    const orderNumbers = orders.map(o => o.orderNumber);
+    const movements = await prisma.stockMovement.findMany({
+        where: {
+            reference: {
+                in: orderNumbers.map(n => `Production Partial Output: WO#${n}`)
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    return { orders, employees, machines, movements };
+});
+
+export default async function KioskPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+    const params = await searchParams;
+    const { orders, employees, machines, movements } = await getData();
+
     const searchQuery = params?.q?.toLowerCase() || '';
 
     // Filter by query (if any)
@@ -47,21 +75,10 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
         )
         : orders;
 
-    // Fetch movements for logs (Detail list)
-    const orderNumbers = filteredOrders.map(o => o.orderNumber);
-    const logs = await prisma.stockMovement.findMany({
-        where: {
-            reference: {
-                in: orderNumbers.map(n => `Production Partial Output: WO#${n}`)
-            }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-
     // Map logs to orders
     const ordersWithLogs = filteredOrders.map(order => ({
         ...order,
-        outputLogs: logs
+        outputLogs: movements
             .filter(l => l.reference === `Production Partial Output: WO#${order.orderNumber}`)
             .map(l => ({
                 id: l.id,
@@ -71,17 +88,6 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
     }));
 
     const serializedOrders = serializeData(ordersWithLogs) as unknown as Order[];
-
-    // Fetch employees for operator selection
-    const employees = await prisma.employee.findMany({
-        where: { status: 'ACTIVE' },
-        orderBy: { name: 'asc' }
-    });
-
-    // Fetch machines for filtering
-    const machines = await prisma.machine.findMany({
-        orderBy: { name: 'asc' }
-    });
 
     return (
         <div className="h-full flex flex-col space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">

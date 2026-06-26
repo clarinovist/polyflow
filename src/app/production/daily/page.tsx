@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/core/prisma";
+import { getProductionOrders } from '@/actions/production/production-orders';
+import { getBoms } from '@/actions/production/boms';
+import { getMachines } from '@/actions/production/machines';
 import { ProductionStatus } from "@prisma/client";
 import { serializeData } from "@/lib/utils/utils";
 import {
@@ -20,55 +22,26 @@ export default async function DailyProductionPage() {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   // Fetch today's production orders
-  const orders = await prisma.productionOrder.findMany({
-    where: {
-      plannedStartDate: {
-        gte: today,
-        lt: tomorrow,
-      },
-      status: {
-        in: [
-          ProductionStatus.RELEASED,
-          ProductionStatus.IN_PROGRESS,
-          ProductionStatus.WAITING_MATERIAL,
-        ],
-      },
-    },
-    include: {
-      bom: {
-        include: {
-          productVariant: true,
-        },
-      },
-      machine: true,
-      executions: {
-        orderBy: { startTime: "desc" },
-      },
-      plannedMaterials: {
-        include: {
-          productVariant: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+  const ordersRes = await getProductionOrders();
+  const allOrders = ordersRes;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const orders = (allOrders as any[]).filter((o: any) => {
+    const plannedDate = new Date(o.plannedStartDate);
+    return plannedDate >= today && plannedDate < tomorrow &&
+      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL].includes(o.status);
   });
 
   // Fetch BOMs with default flag for Quick Produce dialog
-  const boms = await prisma.bom.findMany({
-    where: { isDefault: true },
-    include: {
-      productVariant: {
-        include: { product: true },
-      },
-    },
-    orderBy: { name: "asc" },
-  });
+  const bomsRes = await getBoms();
+  const allBoms = bomsRes.success && bomsRes.data ? bomsRes.data : [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const boms = (allBoms as any[]).filter((b: any) => b.isDefault);
 
   // Fetch active machines
-  const machines = await prisma.machine.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { name: "asc" },
-  });
+  const machinesRes = await getMachines();
+  const allMachines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const machines = (allMachines as any[]).filter((m: any) => m.status === 'ACTIVE');
 
   // Aggregate stats
   const stats = {

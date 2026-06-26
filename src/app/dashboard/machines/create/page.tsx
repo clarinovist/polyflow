@@ -1,11 +1,10 @@
 import { MachineForm } from '@/components/production/MachineForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { prisma } from '@/lib/core/prisma';
+import { getLocations } from '@/actions/inventory/locations';
 
 export default async function CreateMachinePage() {
-    const locations = await prisma.location.findMany({
-        orderBy: { name: 'asc' }
-    });
+    const locationsRes = await getLocations();
+    const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 
     return (
         <div className="space-y-6">

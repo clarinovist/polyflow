@@ -1,4 +1,7 @@
-import { prisma } from '@/lib/core/prisma';
+import { getMachines } from '@/actions/production/machines';
+import { getProductionOrders } from '@/actions/production/production-orders';
+import { getEmployees } from '@/actions/admin/employees';
+import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
@@ -46,40 +49,19 @@ type SerializedWorkShift = WorkShift;
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionMachinesPage() {
-    const machinesRaw = await prisma.machine.findMany({
-        include: {
-            executions: {
-                where: { endTime: null },
-                include: {
-                    productionOrder: {
-                        include: {
-                            bom: { include: { productVariant: true } },
-                            shifts: {
-                                include: { operator: true, helpers: true },
-                                orderBy: { startTime: 'desc' },
-                                take: 1
-                            }
-                        }
-                    },
-                    operator: true
-                }
-            },
-            location: true
-        },
-        orderBy: { code: 'asc' }
-    });
+    const machinesRes = await getMachines();
+    const machinesRaw = machinesRes.success && machinesRes.data ? machinesRes.data : [];
 
-    const releasedOrdersRaw = await prisma.productionOrder.findMany({
-        where: { status: ProductionStatus.RELEASED },
-        include: {
-            bom: { include: { productVariant: true } },
-            machine: true
-        },
-        orderBy: { plannedStartDate: 'asc' }
-    });
+    const ordersRes = await getProductionOrders();
+    const allOrders = ordersRes;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const releasedOrdersRaw = (allOrders as any[]).filter((o: any) => o.status === ProductionStatus.RELEASED);
 
-    const employeesRaw = await prisma.employee.findMany({ orderBy: { name: 'asc' } });
-    const workShiftsRaw = await prisma.workShift.findMany({ orderBy: { startTime: 'asc' } });
+    const employeesRes = await getEmployees();
+    const employeesRaw = employeesRes.success && employeesRes.data ? employeesRes.data : [];
+
+    const workShiftsRes = await getWorkShifts();
+    const workShiftsRaw = workShiftsRes.success && workShiftsRes.data ? workShiftsRes.data : [];
 
     // Serialize
     const machines = serializeData(machinesRaw) as SerializedMachine[];

@@ -1,7 +1,6 @@
-import { prisma } from '@/lib/core/prisma';
+import { getProductionOrders } from '@/actions/production/production-orders';
 import { getProductionFormData } from '@/actions/production/production';
 import WarehouseRefreshWrapper from './WarehouseRefreshWrapper';
-import { ProductionStatus } from '@prisma/client';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
 import { warehouseLabels } from '@/lib/labels';
@@ -10,41 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function WarehousePage() {
     // Fetch Job Queue (Existing Logic)
-    const orders = await prisma.productionOrder.findMany({
-        where: {
-            status: { in: [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS] }
-        },
-        include: {
-            bom: {
-                include: {
-                    productVariant: {
-                        include: {
-                            product: true
-                        }
-                    }
-                }
-            },
-            machine: true,
-            location: true,
-            plannedMaterials: {
-                include: {
-                    productVariant: {
-                        include: {
-                            product: true
-                        }
-                    }
-                }
-            },
-            materialIssues: {
-                include: {
-                    productVariant: true
-                }
-            }
-        },
-        orderBy: {
-            plannedStartDate: 'asc'
-        }
-    });
+    const ordersRes = await getProductionOrders();
+    const orders = ordersRes;
 
     const formDataRes = await getProductionFormData();
     const formData = formDataRes.success && formDataRes.data ? formDataRes.data : { locations: [], operators: [], helpers: [], workShifts: [], boms: [], machines: [], rawMaterials: [] };

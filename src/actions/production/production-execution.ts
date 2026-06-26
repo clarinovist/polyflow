@@ -1,6 +1,7 @@
 "use server";
 
 import { withTenant } from "@/lib/core/tenant";
+import { prisma } from "@/lib/core/prisma";
 import { auth } from "@/auth";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
@@ -162,6 +163,32 @@ export const getActiveExecutions = withTenant(
         });
         return [];
       }
+    });
+  },
+);
+
+export const getProductionHistory = withTenant(
+  async function getProductionHistory() {
+    return safeAction(async () => {
+      const session = await auth();
+      if (!session?.user) return [];
+      const completions = await prisma.productionExecution.findMany({
+        where: { endTime: { not: null } },
+        include: {
+          productionOrder: {
+            include: {
+              bom: {
+                include: { productVariant: true },
+              },
+            },
+          },
+          operator: true,
+          machine: true,
+        },
+        orderBy: { endTime: "desc" },
+        take: 30,
+      });
+      return serializeData(completions);
     });
   },
 );
