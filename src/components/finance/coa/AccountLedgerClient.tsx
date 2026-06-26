@@ -11,7 +11,7 @@ import { TransactionDateFilter } from '@/components/common/transaction-date-filt
 import { DateRange } from 'react-day-picker';
 interface LedgerEntry {
     id: string;
-    date: Date;
+    date: Date | string;
     entryNumber: string;
     description: string;
     reference: string | null;

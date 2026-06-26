@@ -15,8 +15,7 @@ export const getMaklonReport = withTenant(async function getMaklonReport(filters
             endDate: filters?.endDate ? new Date(filters.endDate) : undefined,
             customerId: filters?.customerId || undefined,
         });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return { success: true, data: serializeData(report) as any };
+        return { success: true, data: serializeData(report) };
     } catch (error) {
         return {
             success: false,

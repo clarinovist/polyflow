@@ -14,9 +14,8 @@ export default async function PotongPlongKioskPage() {
     // 1. Fetch Orders for Potong/Plong (PACKING/CUTTING category)
     const ordersRes = await getProductionOrders();
     const allOrders = ordersRes;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orders = (allOrders as any[]).filter((o: any) =>
-      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS].includes(o.status)
+    const orders = (allOrders as Array<Record<string, unknown>>).filter((o) =>
+      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS].includes(o.status as ProductionStatus)
     );
 
     // 2. Fetch Machines
@@ -26,14 +25,12 @@ export default async function PotongPlongKioskPage() {
     // 3. Fetch Employees (Operator / Helpers)
     const employeesRes = await getEmployees();
     const allEmployees = employeesRes.success && employeesRes.data ? employeesRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const employees = (allEmployees as any[]).filter((e: any) => e.status === 'ACTIVE');
+    const employees = (allEmployees as Array<Record<string, unknown>>).filter((e) => e.status === 'ACTIVE');
 
     // 4. Fetch real WorkShifts from DB
     const shiftsRes = await getWorkShifts();
     const allShifts = shiftsRes.success && shiftsRes.data ? shiftsRes.data : [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shifts = (allShifts as any[]).filter((s: any) => s.status === 'ACTIVE');
+    const shifts = (allShifts as Array<Record<string, unknown>>).filter((s) => s.status === 'ACTIVE');
 
     const serializedOrders = serializeData(orders);
     const serializedMachines = serializeData(machines);

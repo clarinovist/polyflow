@@ -35,8 +35,7 @@ export default async function SentPaymentsPage({ searchParams }: { searchParams:
         <div className="p-6">
             <SentPaymentsClient
                 payments={payments.data}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                unpaidInvoices={serializeData(unpaidInvoices) as any}
+                unpaidInvoices={serializeData(unpaidInvoices)}
             />
         </div>
     );

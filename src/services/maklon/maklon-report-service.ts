@@ -27,8 +27,8 @@ export type MaklonOrderReport = {
     grossMarginPct: number; // percentage, 0 if no revenue
     costBreakdown: MaklonCostBreakdown;
     // Dates
-    plannedStartDate: Date;
-    actualEndDate: Date | null;
+    plannedStartDate: Date | string;
+    actualEndDate: Date | string | null;
 };
 
 export type MaklonCustomerReport = {

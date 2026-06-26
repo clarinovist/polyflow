@@ -44,8 +44,7 @@ export default async function WarehouseCreateReceiptPage({ searchParams }: PageP
         notFound();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const order = serializeData(rawOrder) as any;
+    const order = serializeData(rawOrder);
     const locationsRes = await getLocations();
     const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
 

@@ -24,8 +24,7 @@ export default async function DailyProductionPage() {
   // Fetch today's production orders
   const ordersRes = await getProductionOrders();
   const allOrders = ordersRes;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const orders = (allOrders as any[]).filter((o: any) => {
+  const orders = (allOrders as Array<Record<string, unknown>>).filter((o) => {
     const plannedDate = new Date(o.plannedStartDate);
     return plannedDate >= today && plannedDate < tomorrow &&
       [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL].includes(o.status);
@@ -34,14 +33,12 @@ export default async function DailyProductionPage() {
   // Fetch BOMs with default flag for Quick Produce dialog
   const bomsRes = await getBoms();
   const allBoms = bomsRes.success && bomsRes.data ? bomsRes.data : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const boms = (allBoms as any[]).filter((b: any) => b.isDefault);
+  const boms = (allBoms as Array<Record<string, unknown>>).filter((b) => b.isDefault);
 
   // Fetch active machines
   const machinesRes = await getMachines();
   const allMachines = machinesRes.success && machinesRes.data ? machinesRes.data : [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const machines = (allMachines as any[]).filter((m: any) => m.status === 'ACTIVE');
+  const machines = (allMachines as Array<Record<string, unknown>>).filter((m) => m.status === 'ACTIVE');
 
   // Aggregate stats
   const stats = {
