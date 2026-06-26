@@ -98,16 +98,12 @@ export function SalesOrderForm({
     { tempId: string; name: string; sellPrice: number }[]
   >([]);
 
-  // Filter locations for stock-based sales fulfillment (Finished Good, Scrap & Packing)
+  // Filter locations for stock-based sales fulfillment
+  // Non-CUSTOMER_OWNED locations are selectable as source warehouses.
+  // Previously filtered by slug keywords (finished/scrap/packing) which
+  // broke tenants with simpler warehouse names (e.g. "Gudang Utama").
   const stockFulfillmentLocations = locations.filter(
-    (l) =>
-      l.locationType !== "CUSTOMER_OWNED" &&
-      (l.slug?.includes("finished") ||
-        l.slug?.includes("scrap") ||
-        l.slug?.includes("packing") ||
-        l.name.toLowerCase().includes("finished") ||
-        l.name.toLowerCase().includes("scrap") ||
-        l.name.toLowerCase().includes("packing")),
+    (l) => l.locationType !== "CUSTOMER_OWNED",
   );
 
   const maklonProductionLocations = locations.filter(
