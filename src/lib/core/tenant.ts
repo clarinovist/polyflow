@@ -57,14 +57,23 @@ export async function resolveTenantContext(
     }
 
     let targetDbUrl: string | null = null;
-    try {
-        const { prisma } = await import('@/lib/core/prisma');
-        const tenant = await prisma.tenant.findUnique({
-            where: { subdomain }
-        });
-        targetDbUrl = tenant?.dbUrl || null;
-    } catch (error) {
-        console.error('[resolveTenantContext] Error fetching tenant:', error);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const { prisma } = await import('@/lib/core/prisma');
+            const tenant = await prisma.tenant.findUnique({
+                where: { subdomain }
+            });
+            targetDbUrl = tenant?.dbUrl || null;
+            if (targetDbUrl) break;
+            // Tenant not found — might be stale cache, retry once
+            if (attempt < 3) {
+                console.warn(`[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying...`);
+                await new Promise(r => setTimeout(r, 100 * attempt));
+            }
+        } catch (error) {
+            console.error(`[resolveTenantContext] Error fetching tenant (attempt ${attempt}):`, error);
+            if (attempt < 3) await new Promise(r => setTimeout(r, 100 * attempt));
+        }
     }
 
     if (!targetDbUrl) {
