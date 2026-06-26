@@ -18,10 +18,17 @@ export default async function CreatePurchaseOrderPage() {
     const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
     const products = productsRes.success && productsRes.data ? productsRes.data : [];
 
-    // Format buyPrice (Decimal -> number)
+    // Format buyPrice (Decimal -> number) and ensure paymentTermDays is included
     const formattedProducts = products.map(p => ({
         ...p,
         buyPrice: p.buyPrice ? Number(p.buyPrice) : 0
+    }));
+
+    const formattedSuppliers = suppliers.map(s => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        paymentTermDays: s.paymentTermDays,
     }));
 
     return (
@@ -38,7 +45,7 @@ export default async function CreatePurchaseOrderPage() {
             </div>
 
             <PurchaseOrderForm
-                suppliers={suppliers}
+                suppliers={formattedSuppliers}
                 productVariants={formattedProducts}
             />
         </div>

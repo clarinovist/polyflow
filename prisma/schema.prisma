@@ -774,6 +774,7 @@ model PurchaseOrder {
   discountAmount   Decimal?            @db.Decimal(15, 2)
   taxAmount        Decimal?            @db.Decimal(15, 2)
   shippingCost     Decimal?            @db.Decimal(15, 2)
+  deliveryAddress  String?
   notes            String?
   createdById      String?
   createdAt        DateTime            @default(now())
@@ -797,6 +798,7 @@ model PurchaseOrderItem {
   discountPercent  Decimal?       @db.Decimal(5, 2)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
+  dppOtherAmount   Decimal?       @db.Decimal(15, 2)
   receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)

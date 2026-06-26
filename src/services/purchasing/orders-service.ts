@@ -50,6 +50,7 @@ export async function createOrder(
       taxPercent: item.taxPercent || 0,
       taxAmount,
       subtotal: lineSubtotal,
+      dppOtherAmount: item.dppOtherAmount || null,
     };
   });
 
@@ -62,6 +63,7 @@ export async function createOrder(
       supplierId: data.supplierId,
       orderDate: data.orderDate,
       expectedDate: data.expectedDate,
+      deliveryAddress: data.deliveryAddress || null,
       notes: data.notes,
       totalAmount: finalTotal,
       discountAmount: totalDiscount,
@@ -171,6 +173,7 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
       taxPercent: item.taxPercent || 0,
       taxAmount,
       subtotal: lineSubtotal,
+      dppOtherAmount: item.dppOtherAmount || null,
     };
   });
 
@@ -216,6 +219,7 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
         supplierId: data.supplierId,
         orderDate: data.orderDate,
         expectedDate: data.expectedDate,
+        deliveryAddress: data.deliveryAddress || null,
         notes: data.notes,
         totalAmount: finalTotal,
         discountAmount: totalDiscount,

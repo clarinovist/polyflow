@@ -8,12 +8,14 @@ export const purchaseOrderItemSchema = z.object({
   unitPrice: z.coerce.number().positive("Unit price must be positive"),
   discountPercent: z.coerce.number().min(0).max(100).optional().default(0),
   taxPercent: z.coerce.number().min(0).max(100).optional().default(0),
+  dppOtherAmount: z.coerce.number().min(0).optional().nullable().default(null),
 });
 
 export const createPurchaseOrderSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
   orderDate: z.coerce.date(),
   expectedDate: z.coerce.date().optional().nullable(),
+  deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
   notes: z.string().optional().transform(sanitizeHtml),
   shippingCost: z.coerce.number().min(0).optional().default(0),
   items: z
@@ -26,6 +28,7 @@ export const updatePurchaseOrderSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
   orderDate: z.coerce.date(),
   expectedDate: z.coerce.date().optional().nullable(),
+  deliveryAddress: z.string().optional().nullable().transform(sanitizeHtml),
   notes: z.string().optional().transform(sanitizeHtml),
   shippingCost: z.coerce.number().min(0).optional().default(0),
   items: z

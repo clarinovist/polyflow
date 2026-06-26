@@ -42,11 +42,19 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
     buyPrice: p.buyPrice ? Number(p.buyPrice) : 0,
   }));
 
+  const formattedSuppliers = suppliers.map((s) => ({
+    id: s.id,
+    name: s.name,
+    code: s.code,
+    paymentTermDays: s.paymentTermDays,
+  }));
+
   const initialData = {
     id: order.id,
     supplierId: order.supplierId,
     orderDate: order.orderDate,
     expectedDate: order.expectedDate,
+    deliveryAddress: order.deliveryAddress,
     notes: order.notes,
     shippingCost: order.shippingCost ? Number(order.shippingCost) : 0,
     items: order.items.map((item) => ({
@@ -58,6 +66,7 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
         ? Number(item.discountPercent)
         : 0,
       taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
+      dppOtherAmount: item.dppOtherAmount ? Number(item.dppOtherAmount) : null,
     })),
   };
 
@@ -77,7 +86,7 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
       </div>
 
       <PurchaseOrderForm
-        suppliers={suppliers}
+        suppliers={formattedSuppliers}
         productVariants={formattedProducts}
         mode="edit"
         initialData={initialData}

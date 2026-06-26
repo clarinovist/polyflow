@@ -46,7 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { purchasingLabels, formLabels, actionLabels } from "@/lib/labels";
 
 interface PurchaseOrderFormProps {
-  suppliers: { id: string; name: string; code: string | null }[];
+  suppliers: { id: string; name: string; code: string | null; paymentTermDays: number | null }[];
   productVariants: {
     id: string;
     name: string;
@@ -59,6 +59,7 @@ interface PurchaseOrderFormProps {
     supplierId: string;
     orderDate: Date | string;
     expectedDate?: Date | string | null;
+    deliveryAddress?: string | null;
     notes?: string | null;
     shippingCost?: number | null;
     items: {
@@ -68,6 +69,7 @@ interface PurchaseOrderFormProps {
       unitPrice: number;
       discountPercent?: number;
       taxPercent?: number;
+      dppOtherAmount?: number | null;
     }[];
   };
 }
@@ -92,6 +94,7 @@ export function PurchaseOrderForm({
           expectedDate: initialData.expectedDate
             ? new Date(initialData.expectedDate)
             : null,
+          deliveryAddress: initialData.deliveryAddress ?? "",
           notes: initialData.notes ?? "",
           shippingCost: initialData.shippingCost
             ? Number(initialData.shippingCost)
@@ -104,12 +107,14 @@ export function PurchaseOrderForm({
               ? Number(item.discountPercent)
               : 0,
             taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
+            dppOtherAmount: item.dppOtherAmount ? Number(item.dppOtherAmount) : null,
           })),
         }
       : {
           supplierId: "",
           orderDate: new Date(),
           expectedDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          deliveryAddress: "",
           notes: "",
           shippingCost: 0,
           items: [
@@ -119,6 +124,7 @@ export function PurchaseOrderForm({
               unitPrice: 0,
               discountPercent: 0,
               taxPercent: 0,
+              dppOtherAmount: null,
             },
           ],
         },
@@ -136,6 +142,9 @@ export function PurchaseOrderForm({
 
   const watchedShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
+
+  const watchedSupplierId = useWatch({ control: form.control, name: "supplierId" });
+  const selectedSupplier = suppliers.find((s) => s.id === watchedSupplierId);
 
   const totals = useMemo(() => {
     return watchedItems.reduce(
@@ -243,10 +252,11 @@ export function PurchaseOrderForm({
               </CardHeader>
               <CardContent className="p-0">
                 {/* Desktop Header */}
-                <div className="hidden md:grid md:grid-cols-[1fr_80px_120px_80px_80px_120px_48px] gap-2 px-6 py-3 bg-muted/20 text-[10px] uppercase font-bold text-muted-foreground tracking-wider border-b">
+                <div className="hidden md:grid md:grid-cols-[1fr_80px_120px_120px_80px_80px_120px_48px] gap-2 px-6 py-3 bg-muted/20 text-[10px] uppercase font-bold text-muted-foreground tracking-wider border-b">
                   <div>{formLabels.product}</div>
                   <div className="text-center">{formLabels.qty}</div>
                   <div>{formLabels.unitPrice}</div>
+                  <div>DPP Nilai Lain</div>
                   <div className="text-center">Disc %</div>
                   <div className="text-center">Pajak %</div>
                   <div className="text-right">{formLabels.total}</div>
@@ -266,7 +276,7 @@ export function PurchaseOrderForm({
                         key={field.id}
                         className="group p-4 md:px-6 md:py-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
                       >
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_120px_80px_80px_120px_48px] gap-2 items-center">
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_120px_120px_80px_80px_120px_48px] gap-2 items-center">
                           {/* Product */}
                           <div className="w-full">
                             <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
@@ -354,6 +364,38 @@ export function PurchaseOrderForm({
                                           field.onChange(Number(e.target.value))
                                         }
                                         className="h-9 pl-8 text-right font-mono text-sm bg-white dark:bg-black/20"
+                                      />
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          {/* DPP Nilai Lainnya */}
+                          <div>
+                            <div className="md:hidden text-[10px] font-bold text-muted-foreground mb-1">
+                              DPP Nilai Lain
+                            </div>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.dppOtherAmount`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                        Rp
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        value={field.value ?? ""}
+                                        onChange={(e) =>
+                                          field.onChange(e.target.value === "" ? null : Number(e.target.value))
+                                        }
+                                        className="h-9 pl-8 text-right font-mono text-sm bg-white dark:bg-black/20"
+                                        placeholder="Opsional"
                                       />
                                     </div>
                                   </FormControl>
@@ -451,6 +493,7 @@ export function PurchaseOrderForm({
                         unitPrice: 0,
                         discountPercent: 0,
                         taxPercent: 0,
+                        dppOtherAmount: null,
                       })
                     }
                     className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-solid hover:bg-white"
@@ -570,6 +613,14 @@ export function PurchaseOrderForm({
                   )}
                 />
 
+                {/* Tempo (Payment Terms) — read-only from supplier */}
+                {selectedSupplier?.paymentTermDays != null && (
+                  <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-900 rounded-md border">
+                    <span className="text-sm text-muted-foreground">Tempo</span>
+                    <span className="text-sm font-semibold">{selectedSupplier.paymentTermDays} Hari</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -621,6 +672,26 @@ export function PurchaseOrderForm({
                     )}
                   />
                 </div>
+
+                {/* Dikirim Ke (Delivery Address) */}
+                <FormField
+                  control={form.control}
+                  name="deliveryAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dikirim Ke</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ""}
+                          placeholder="Alamat pengiriman barang..."
+                          className="h-10"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="pt-4 border-t">
                   <Button

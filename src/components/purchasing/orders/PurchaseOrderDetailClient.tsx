@@ -47,12 +47,13 @@ import {
 // Serialized types
 type SerializedPOItem = Omit<
   PurchaseOrderItem,
-  "quantity" | "unitPrice" | "subtotal" | "receivedQty"
+  "quantity" | "unitPrice" | "subtotal" | "receivedQty" | "dppOtherAmount"
 > & {
   quantity: number;
   unitPrice: number;
   subtotal: number;
   receivedQty: number;
+  dppOtherAmount: number | null;
   productVariant: {
     id: string;
     name: string;
@@ -68,6 +69,7 @@ type SerializedPO = Omit<
   totalAmount: number | null;
   orderDate: Date | string;
   expectedDate: Date | string | null;
+  deliveryAddress: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   items: SerializedPOItem[];
@@ -283,6 +285,9 @@ export function PurchaseOrderDetailClient({
                         {formLabels.unitPrice}
                       </th>
                       <th className="h-10 px-4 text-right font-medium">
+                        DPP Nilai Lain
+                      </th>
+                      <th className="h-10 px-4 text-right font-medium">
                         {formLabels.subtotal}
                       </th>
                     </tr>
@@ -318,6 +323,9 @@ export function PurchaseOrderDetailClient({
                         <td className="p-4 text-right">
                           {formatRupiah(item.unitPrice)}
                         </td>
+                        <td className="p-4 text-right text-muted-foreground">
+                          {item.dppOtherAmount ? formatRupiah(item.dppOtherAmount) : "-"}
+                        </td>
                         <td className="p-4 text-right font-medium">
                           {formatRupiah(item.subtotal)}
                         </td>
@@ -328,7 +336,7 @@ export function PurchaseOrderDetailClient({
                     {Number(order.discountAmount || 0) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Diskon
@@ -341,7 +349,7 @@ export function PurchaseOrderDetailClient({
                     {Number(order.taxAmount || 0) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           PPN
@@ -354,7 +362,7 @@ export function PurchaseOrderDetailClient({
                     {Number(order.shippingCost || 0) > 0 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Ongkos Kirim
@@ -366,7 +374,7 @@ export function PurchaseOrderDetailClient({
                     )}
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="p-4 text-right font-bold underline decoration-blue-500/30 dark:decoration-blue-400/30 decoration-2"
                       >
                         Total Keseluruhan
@@ -428,6 +436,22 @@ export function PurchaseOrderDetailClient({
                     : "Tidak ditentukan"}
                 </p>
               </div>
+              {order.supplier.paymentTermDays && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    Tempo
+                  </h3>
+                  <p>{order.supplier.paymentTermDays} Hari</p>
+                </div>
+              )}
+              {order.deliveryAddress && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    Dikirim Ke
+                  </h3>
+                  <p className="text-sm">{order.deliveryAddress}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
