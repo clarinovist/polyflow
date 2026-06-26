@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable';
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
-import { Warehouse } from 'lucide-react';
+
 import { formatRupiah, serializeData } from '@/lib/utils/utils';
 import { Badge } from '@/components/ui/badge';
 import { withTenantPage } from '@/lib/core/tenant';
@@ -184,10 +184,6 @@ export default async function WarehouseInventoryPage({
         <div className="h-full flex flex-col space-y-4 p-6 overflow-hidden">
             <div className="flex items-center justify-between shrink-0">
                 <div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <Warehouse className="h-3 w-3" />
-                        <span>Warehouse / Stock Overview</span>
-                    </div>
                     <h1 className="text-2xl font-bold tracking-tight">Kontrol Stok</h1>
                     <p className="text-muted-foreground mt-1">Pantau level stok dan status gudang</p>
                 </div>

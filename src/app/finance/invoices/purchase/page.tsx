@@ -2,7 +2,7 @@ import React from 'react';
 import { PurchaseService } from '@/services/purchasing/purchase-service';
 import { PurchaseInvoiceTable } from '@/components/purchasing/orders/PurchaseInvoiceTable';
 import { Metadata } from 'next';
-import { ShoppingCart } from 'lucide-react';
+
 import { serializeData } from '@/lib/utils/utils';
 import { withTenant } from '@/lib/core/tenant';
 
@@ -35,10 +35,6 @@ export default async function PurchaseInvoicesPage({ searchParams }: { searchPar
         <div className="flex flex-col gap-6 p-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                        <ShoppingCart className="h-3 w-3" />
-                        <span>Payables / Invoices</span>
-                    </div>
                     <h1 className="text-3xl font-bold tracking-tight">Purchase Invoices</h1>
                     <p className="text-muted-foreground">
                         Manage supplier bills and payments.
