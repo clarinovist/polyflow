@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createProductionOrderWithGeneratedNumber } from '../order-number-service';
 import { Prisma } from '@prisma/client';

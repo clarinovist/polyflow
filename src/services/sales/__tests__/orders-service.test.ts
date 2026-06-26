@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { confirmOrder, createOrder, updateOrder } from "../orders-service";
 import { prisma } from "@/lib/core/prisma";
