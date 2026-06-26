@@ -3,17 +3,29 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
-import { Clock, MapPin, CheckCircle2 } from 'lucide-react';
+import { Clock, MapPin, CheckCircle2, Copy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Location, Employee as PrismaEmployee, ProductVariant, Machine, WorkShift } from '@prisma/client';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/utils";
 import { format } from 'date-fns';
 import { BatchIssueMaterialDialog } from '@/components/production/order-detail/BatchIssueMaterialDialog';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
+
+/**
+ * Shorten an order number by showing only the last 3 dash-separated segments.
+ * E.g. "IMP-RAF-202601-EKS-KW1-RAFIA-BIRU-KW" → "RAFIA-BIRU-KW"
+ * If <= 4 segments, returns the full ID unchanged.
+ */
+function shortOrderId(orderNumber: string): string {
+    const segments = orderNumber.split('-');
+    if (segments.length <= 4) return orderNumber;
+    return segments.slice(-3).join('-');
+}
 
 interface WarehouseRefreshWrapperProps {
     initialOrders: ExtendedProductionOrder[];
@@ -81,8 +93,24 @@ export default function WarehouseRefreshWrapper({
                                                 order.status === 'RELEASED' ? "bg-blue-500" : "bg-amber-500"
                                             )} />
 
-                                            {/* Order Number */}
-                                            <span className="font-mono font-bold text-foreground w-20">{order.orderNumber}</span>
+                                            {/* Order Number — truncated with tooltip + copy */}
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span
+                                                        className="font-mono font-bold text-foreground cursor-help"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigator.clipboard.writeText(order.orderNumber);
+                                                        }}
+                                                    >
+                                                        {shortOrderId(order.orderNumber)}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" className="flex items-center gap-2">
+                                                    <span className="font-mono text-xs">{order.orderNumber}</span>
+                                                    <Copy className="w-3 h-3 opacity-60" />
+                                                </TooltipContent>
+                                            </Tooltip>
 
                                             {/* Product */}
                                             <span className="font-medium text-foreground flex-1 text-left truncate flex items-center gap-2">
