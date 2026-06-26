@@ -3,6 +3,7 @@ import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrix
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
 import { getCompanyConfigAsync } from '@/lib/config/company';
+import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
   params: Promise<{ id: string }>;
@@ -26,5 +27,5 @@ export default async function SuratJalanPrintPage({ params }: PrintPageProps) {
 
   const order = serializeData(raw);
 
-  return <SuratJalanDotMatrixPrint order={order as any} showButton={true} companyConfig={companyConfig} />;
+  return <SuratJalanDotMatrixPrint order={order as unknown as ComponentProps<typeof SuratJalanDotMatrixPrint>['order']} showButton={true} companyConfig={companyConfig} />;
 }

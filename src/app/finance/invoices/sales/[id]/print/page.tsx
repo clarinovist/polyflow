@@ -1,7 +1,8 @@
 import { getInvoiceById } from '@/actions/finance/invoice';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 import { notFound } from 'next/navigation';
-import { getCompanyConfigAsync } from '@/lib/config/company';
+import { getCompanyConfigAsync } from "@/lib/config/company";
+import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
   params: Promise<{ id: string }>;
@@ -45,5 +46,5 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
       : undefined,
   };
 
-  return <InvoiceDotMatrixPrint invoice={invoice as any} showButton={true} companyConfig={companyConfig} />;
+  return <InvoiceDotMatrixPrint invoice={invoice as unknown as ComponentProps<typeof InvoiceDotMatrixPrint>['invoice']} showButton={true} companyConfig={companyConfig} />;
 }

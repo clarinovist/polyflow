@@ -58,7 +58,7 @@ export function NotificationBell() {
         // Optimistic UI updates
         mutateCount((prev: number | undefined) => Math.max(0, (prev || 0) - 1), false);
         mutateNotifications(
-            ((prev: NotificationItem[] | undefined) => prev?.map((n) => n.id === id ? { ...n, isRead: true } : n)) as any,
+            (prev: NotificationItem[] | undefined) => prev?.map((n) => n.id === id ? { ...n, isRead: true } : n),
             false
         );
 

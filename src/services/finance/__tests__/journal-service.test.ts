@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createJournalEntry,
@@ -256,8 +255,9 @@ describe("JournalsService", () => {
 
       let findUniqueCallCount = 0;
       vi.mocked(prisma.journalEntry.findUnique).mockImplementation(
-        async (args: Record<string, unknown>) => {
-          if (args.where && "entryNumber" in args.where) {
+        (async (args: Record<string, unknown>) => {
+          const where = args.where as Record<string, unknown> | undefined;
+          if (where && typeof where === 'object' && "entryNumber" in where) {
             // First call: collision exists; subsequent: no collision
             return findUniqueCallCount++ === 0
               ? ({ id: "existing" } as never)

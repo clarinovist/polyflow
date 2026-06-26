@@ -3,6 +3,7 @@ import { getSalesOrdersByCustomerId } from "@/actions/sales/sales";
 import { notFound } from "next/navigation";
 import { CustomerDetailClient } from "@/components/customers/CustomerDetailClient";
 import type { SerializedCustomer } from "@/components/customers/CustomerDetailClient";
+import type { ComponentProps } from 'react';
 
 export default async function CustomerDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -52,7 +53,7 @@ export default async function CustomerDetailPage(props: {
   return (
     <CustomerDetailClient
       customer={serializedCustomer}
-      salesOrders={salesOrders.map((order: any) => ({
+      salesOrders={salesOrders.map((order: typeof salesOrders[number]) => ({
         ...order,
         totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
         customer: order.customer
@@ -70,9 +71,9 @@ export default async function CustomerDetailPage(props: {
               longitude: order.customer.longitude
                 ? Number(order.customer.longitude)
                 : null,
-            } as SerializedCustomer)
+            } as unknown as SerializedCustomer)
           : null,
-      }))}
+      })) as unknown as ComponentProps<typeof CustomerDetailClient>['salesOrders']}
     />
   );
 }

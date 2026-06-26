@@ -8,6 +8,7 @@ import { AnalyticsToolbar } from '@/components/analytics/AnalyticsToolbar';
 import { RevenueChart } from '@/components/sales/analytics/RevenueChart';
 import { TopProductsList, TopCustomersList } from '@/components/sales/analytics/TopLists';
 import { salesLabels } from '@/lib/labels';
+import type { ComponentProps } from 'react';
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
@@ -115,7 +116,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
                 <div className="col-span-4">
                     {/* Spacer or future chart */}
                 </div>
-                <TopCustomersList data={stats.topCustomers as any} />
+                <TopCustomersList data={stats.topCustomers as unknown as ComponentProps<typeof TopCustomersList>['data']} />
             </div>
 
             {/* Recent Orders Table */}
@@ -125,8 +126,7 @@ export default async function SalesDashboardPage(props: { searchParams: SearchPa
                         <CardTitle>{salesLabels.recentSalesOrders}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
+                        <SalesOrderTable initialData={serializedOrders as unknown as ComponentProps<typeof SalesOrderTable>['initialData']} basePath="/sales/orders" />
                     </CardContent>
                 </Card>
             </div>

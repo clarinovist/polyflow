@@ -3,6 +3,7 @@ import { getProductionFormData } from '@/actions/production/production';
 import WarehouseRefreshWrapper from './WarehouseRefreshWrapper';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+import type { ComponentProps } from 'react';
 import { warehouseLabels } from '@/lib/labels';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export default async function WarehousePage() {
             <div className="grid gap-4 h-[calc(100vh-140px)]">
                 <WarehouseRefreshWrapper
                     initialOrders={serializeData(orders) as unknown as ExtendedProductionOrder[]}
-                    formData={serializeData(formData) as any}
+                    formData={serializeData(formData) as unknown as ComponentProps<typeof WarehouseRefreshWrapper>['formData']}
                 />
             </div>
         </div>

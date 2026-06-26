@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { serializeData } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
-import { ProductVariant } from '@prisma/client';
+import { ProductVariant, Location, Employee, Machine, WorkShift } from '@prisma/client';
 
 interface PageProps {
     params: Promise<{
@@ -43,11 +43,11 @@ export default async function ProductionDetailPage(props: PageProps) {
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}
                 formData={{
-                    locations: locations as any,
-                    operators: operators as any,
-                    helpers: helpers as any,
-                    machines: machines as any,
-                    workShifts: workShifts as any,
+                    locations: locations as unknown as Location[],
+                    operators: operators as unknown as Employee[],
+                    helpers: helpers as unknown as Employee[],
+                    machines: machines as unknown as Machine[],
+                    workShifts: workShifts as unknown as WorkShift[],
                     rawMaterials: serializeData(rawMaterials) as unknown as ProductVariant[]
                 }}
             />

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ComponentProps } from 'react';
 
 export default async function ProductDetailPage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -14,7 +15,7 @@ export default async function ProductDetailPage(props: { params: Promise<{ id: s
         notFound();
     }
 
-    const product = productRes.data as any;
+    const product = productRes.data as unknown as ComponentProps<typeof ProductDetail>['product'];
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from "vitest";
 import { Ok, Err, ApplicationError } from "@/lib/utils/result";
 
@@ -6,7 +5,7 @@ describe("Ok", () => {
   it("creates ok result with value", () => {
     const result = Ok(42);
     expect(result.ok).toBe(true);
-    expect(result.value).toBe(42);
+    expect((result as { ok: true; value: number }).value).toBe(42);
   });
 
   it("works with string values", () => {
@@ -26,7 +25,7 @@ describe("Err", () => {
   it("creates error result", () => {
     const result = Err(new Error("fail"));
     expect(result.ok).toBe(false);
-    expect(result.error.message).toBe("fail");
+    expect((result as { ok: false; error: Error }).error.message).toBe("fail");
   });
 
   it("works with string errors", () => {

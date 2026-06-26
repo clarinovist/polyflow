@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock dependencies
@@ -112,7 +111,7 @@ describe('auth.config', () => {
                 rememberMe: true,
                 isSuperAdmin: false,
             });
-            expect(result.lastActive).toBeDefined();
+            expect(result!.lastActive).toBeDefined();
         });
 
         it('should return null when session is idle and not remember me', async () => {
@@ -149,7 +148,7 @@ describe('auth.config', () => {
 
             // Assert
             expect(result).toBeDefined();
-            expect(result.lastActive).toBeGreaterThan(recentTime);
+            expect(result!.lastActive).toBeGreaterThan(recentTime);
         });
 
         it('should keep token when remember me is true even if idle', async () => {

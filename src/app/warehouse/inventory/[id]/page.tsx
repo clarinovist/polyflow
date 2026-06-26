@@ -2,6 +2,7 @@ import { getStockLedgerAction, getLocations } from '@/actions/inventory/inventor
 import { StockLedgerClient } from '@/components/warehouse/StockLedgerClient';
 import { serializeData } from '@/lib/utils/utils';
 import { notFound } from 'next/navigation';
+import type { ComponentProps } from 'react';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -42,8 +43,8 @@ export default async function StockLedgerPage({ params, searchParams }: PageProp
 
     return (
         <StockLedgerClient
-            ledgerData={serializeData(ledgerData) as any}
-            locations={serializeData(locations) as any}
+            ledgerData={serializeData(ledgerData) as unknown as ComponentProps<typeof StockLedgerClient>['ledgerData']}
+            locations={serializeData(locations) as unknown as ComponentProps<typeof StockLedgerClient>['locations']}
         />
     );
 }

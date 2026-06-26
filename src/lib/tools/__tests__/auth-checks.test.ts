@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { requireAuth, requireRole } from '../auth-checks';
 import { Role } from '@prisma/client';
@@ -30,7 +29,7 @@ describe('requireAuth', () => {
     it('should redirect to login when session is null', async () => {
         // Arrange
         const { auth } = await import('@/auth');
-        vi.mocked(auth).mockResolvedValue(null);
+        vi.mocked(auth).mockResolvedValue(null as any);
 
         // Act & Assert
         await expect(requireAuth()).rejects.toThrow('REDIRECT');
@@ -73,7 +72,7 @@ describe('requireAuth', () => {
         const mockSession = { user: { id: 'user-123', role: 'ADMIN' } };
 
         vi.mocked(auth).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'ADMIN' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'ADMIN' } as any);
 
         // Act
         const result = await requireAuth();
@@ -98,7 +97,7 @@ describe('requireRole', () => {
         const { prisma } = await import('@/lib/core/prisma');
 
         vi.mocked(auth).mockResolvedValue({ user: { id: 'user-123' } } as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: null });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: null } as any);
 
         // Act & Assert
         await expect(requireRole(Role.ADMIN)).rejects.toThrow('Unauthorized: User has no role');
@@ -111,7 +110,7 @@ describe('requireRole', () => {
         const mockSession = { user: { id: 'user-123', role: 'ADMIN' } };
 
         vi.mocked(auth).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'ADMIN' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'ADMIN' } as any);
 
         // Act
         const result = await requireRole(Role.WAREHOUSE);
@@ -127,7 +126,7 @@ describe('requireRole', () => {
         const mockSession = { user: { id: 'user-123', role: 'WAREHOUSE' } };
 
         vi.mocked(auth).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'WAREHOUSE' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'WAREHOUSE' } as any);
 
         // Act
         const result = await requireRole(Role.WAREHOUSE);
@@ -143,7 +142,7 @@ describe('requireRole', () => {
         const mockSession = { user: { id: 'user-123', role: 'FINANCE' } };
 
         vi.mocked(auth).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'FINANCE' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'FINANCE' } as any);
 
         // Act
         const result = await requireRole([Role.ADMIN, Role.FINANCE]);
@@ -158,7 +157,7 @@ describe('requireRole', () => {
         const { prisma } = await import('@/lib/core/prisma');
 
         vi.mocked(auth).mockResolvedValue({ user: { id: 'user-123', role: 'WAREHOUSE' } } as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'WAREHOUSE' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'WAREHOUSE' } as any);
 
         // Act & Assert
         await expect(requireRole(Role.FINANCE)).rejects.toThrow(
@@ -170,9 +169,8 @@ describe('requireRole', () => {
         // Arrange
         const { auth } = await import('@/auth');
         const { prisma } = await import('@/lib/core/prisma');
-
         vi.mocked(auth).mockResolvedValue({ user: { id: 'user-123', role: 'OPERATOR' } } as any);
-        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'OPERATOR' });
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'user-123', role: 'OPERATOR' } as any);
 
         // Act & Assert
         await expect(requireRole([Role.ADMIN, Role.FINANCE])).rejects.toThrow(

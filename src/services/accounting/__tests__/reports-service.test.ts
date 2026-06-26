@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/core/prisma", () => ({
@@ -700,7 +699,7 @@ describe("reports-service", () => {
       // 11300 not in expandCodes -> grouped
       const result = await getBalanceSheet(new Date("2026-06-30"));
 
-      const codes = result.assetGroups.map((g) =>
+      const codes = result.assetGroups.map((g: any) =>
         "code" in g ? g.code : g.id,
       );
 

@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCompanyConfigAsync } from "@/lib/config/company";
+import type { ComponentProps } from 'react';
 
 interface PageProps {
     params: Promise<{
@@ -44,7 +45,7 @@ export default async function FinancialInvoicePage({ params }: PageProps) {
                 </div>
             </div>
 
-            <FinancialInvoiceDetail invoice={invoice as any} companyConfig={companyConfig} />
+            <FinancialInvoiceDetail invoice={invoice as unknown as ComponentProps<typeof FinancialInvoiceDetail>['invoice']} companyConfig={companyConfig} />
         </div>
     );
 }

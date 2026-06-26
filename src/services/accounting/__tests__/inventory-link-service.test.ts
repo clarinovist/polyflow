@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mocks must be declared before imports
@@ -122,10 +121,10 @@ describe("inventory-link-service", () => {
     );
     // Mock account.findUnique to resolve account codes to UUIDs
     vi.mocked(prisma.account.findUnique).mockImplementation(
-      async ({ where }: { where: { code?: string; id?: string } }) => {
+      (async ({ where }: { where: { code?: string; id?: string } }) => {
         const code = where.code || where.id;
         return { id: `acc-${code}`, code, name: `Account ${code}` } as never;
-      },
+      }) as any,
     );
   });
 

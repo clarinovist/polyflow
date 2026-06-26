@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QuotationService } from "../quotation-service";
 import { prisma } from "@/lib/core/prisma";
