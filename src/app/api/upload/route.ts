@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  generatePresignedUploadUrl,
-  buildCustomerPhotoKey,
-} from "@/lib/storage/s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { buildCustomerPhotoKey } from "@/lib/storage/s3";
 import { requireAuth } from "@/lib/tools/auth-checks";
+
+const s3Client = new S3Client({
+  region: process.env.S3_REGION || "id-cgk-1",
+  endpoint: process.env.S3_ENDPOINT || "https://id-cgk-1.linodeobjects.com",
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
+  },
+});
+
+const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
+const PUBLIC_URL =
+  process.env.S3_PUBLIC_URL || `https://id-cgk-1.linodeobjects.com/${BUCKET}`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -38,25 +49,19 @@ export async function POST(request: NextRequest) {
       ? buildCustomerPhotoKey(customerId, file.name)
       : `uploads/${Date.now()}.${file.name.split(".").pop()}`;
 
-    const { uploadUrl, publicUrl } = await generatePresignedUploadUrl(
-      key,
-      file.type,
+    // Server-side upload to S3 with public-read ACL
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: buffer,
+        ContentType: file.type,
+        ACL: "public-read",
+      }),
     );
 
-    // Upload file directly to S3 using the presigned URL
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type },
-    });
-
-    if (!uploadResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to upload file" },
-        { status: 500 },
-      );
-    }
-
+    const publicUrl = `${PUBLIC_URL}/${key}`;
     return NextResponse.json({ url: publicUrl, key });
   } catch (error) {
     console.error("Upload error:", error);
