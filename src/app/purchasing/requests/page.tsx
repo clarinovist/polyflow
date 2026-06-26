@@ -27,7 +27,7 @@ export default async function PurchaseRequestsPage() {
           {purchasingLabels.purchaseRequest}
         </h2>
       </div>
-      {/* eslint-disable-next-line @typescript-eslint/no-any */}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <RequestList requests={requests as any} suppliers={suppliers} />
     </div>
   );

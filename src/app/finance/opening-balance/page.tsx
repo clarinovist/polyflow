@@ -4,7 +4,6 @@ import { getSuppliers } from '@/actions/purchasing/supplier';
 import { OpeningBalanceSpreadsheet } from '@/components/finance/OpeningBalanceSpreadsheet';
 import { getAccountsForOpeningBalance } from '@/actions/finance/opening-balance';
 import { Separator } from '@/components/ui/separator';
-import { serializeData } from '@/lib/utils/utils';
 
 export default async function OpeningBalancePage() {
     await requireAuth();
