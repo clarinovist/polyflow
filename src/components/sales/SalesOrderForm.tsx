@@ -12,6 +12,7 @@ import { createSalesOrder, updateSalesOrder } from "@/actions/sales/sales";
 import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -99,6 +100,23 @@ export function SalesOrderForm({
   const [customItems, setCustomItems] = useState<
     { tempId: string; name: string; sellPrice: number }[]
   >([]);
+
+  // Track which items have "Kena Pajak" checked (controls Pajak/DPP visibility)
+  const [taxableItems, setTaxableItems] = useState<Record<number, boolean>>(() => {
+    if (initialData) {
+      const items = (initialData as Record<string, unknown>).items as
+        | { taxPercent?: number }[]
+        | undefined;
+      if (items) {
+        const map: Record<number, boolean> = {};
+        items.forEach((item, i) => {
+          map[i] = (item.taxPercent ?? 0) > 0;
+        });
+        return map;
+      }
+    }
+    return { 0: false };
+  });
 
   // Filter locations for stock-based sales fulfillment
   // Non-CUSTOMER_OWNED locations are selectable as source warehouses.
@@ -786,14 +804,18 @@ export function SalesOrderForm({
               variant="outline"
               size="sm"
               onClick={() =>
-                append({
-                  productVariantId: "",
-                  quantity: 1,
-                  unitPrice: 0,
-                  discountPercent: 0,
-                  taxPercent: 0,
-                  dppOtherAmount: null,
-                })
+                {
+                  const newIndex = fields.length;
+                  setTaxableItems((prev) => ({ ...prev, [newIndex]: false }));
+                  append({
+                    productVariantId: "",
+                    quantity: 1,
+                    unitPrice: 0,
+                    discountPercent: 0,
+                    taxPercent: 0,
+                    dppOtherAmount: null,
+                  });
+                }
               }
             >
               <Plus className="mr-2 h-4 w-4" /> {actionLabels.add} Item
@@ -1097,78 +1119,100 @@ export function SalesOrderForm({
                       </div>
                     </div>
 
-                    {/* Pajak */}
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground w-28">
-                        Pajak
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.taxPercent`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0 w-20">
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="1"
-                                  placeholder="0"
-                                  className="h-8 text-center font-mono text-sm"
-                                  {...field}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          %
-                        </span>
-                        <span className="text-xs font-mono text-muted-foreground ml-auto">
-                          {afterDisc * (tax / 100) > 0
-                            ? formatRupiah(afterDisc * (tax / 100))
-                            : "Rp 0"}
-                        </span>
-                      </div>
+                    {/* Kena Pajak toggle */}
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id={`taxable-so-${index}`}
+                        checked={taxableItems[index] ?? false}
+                        onCheckedChange={(checked) => {
+                          setTaxableItems((prev) => ({ ...prev, [index]: !!checked }));
+                          if (!checked) {
+                            form.setValue(`items.${index}.taxPercent`, 0);
+                            form.setValue(`items.${index}.dppOtherAmount`, null);
+                          }
+                        }}
+                      />
+                      <label htmlFor={`taxable-so-${index}`} className="text-xs text-muted-foreground cursor-pointer select-none">
+                        Kena Pajak
+                      </label>
                     </div>
 
-                    {/* DPPnya */}
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground w-28">
-                        DPP
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.dppOtherAmount`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0 flex-1">
-                              <FormControl>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                    Rp
-                                  </span>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    placeholder="Auto (11/12)"
-                                    value={field.value ?? ""}
-                                    onChange={(e) => {
-                                      const normalized = e.target.value.replace(',', '.');
-                                      const num = Number(normalized);
-                                      field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
-                                    }}
-                                    className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
-                                  />
-                                </div>
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
+                    {/* Pajak & DPP — only when Kena Pajak checked */}
+                    {(taxableItems[index] ?? false) && (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">
+                            Pajak
+                          </span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.taxPercent`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0 w-20">
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      placeholder="0"
+                                      className="h-8 text-center font-mono text-sm"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              %
+                            </span>
+                            <span className="text-xs font-mono text-muted-foreground ml-auto">
+                              {afterDisc * (tax / 100) > 0
+                                ? formatRupiah(afterDisc * (tax / 100))
+                                : "Rp 0"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* DPP */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground w-28">
+                            DPP
+                          </span>
+                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.dppOtherAmount`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0 flex-1">
+                                  <FormControl>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                        Rp
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        placeholder="Auto (11/12)"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const normalized = e.target.value.replace(',', '.');
+                                          const num = Number(normalized);
+                                          field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                        }}
+                                        className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
+                                      />
+                                    </div>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Footer: Total */}
