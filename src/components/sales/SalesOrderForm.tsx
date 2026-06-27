@@ -1030,7 +1030,20 @@ export function SalesOrderForm({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => remove(index)}
+                      onClick={() => {
+                        remove(index);
+                        setTaxableItems(prev => {
+                          const newMap: Record<number, boolean> = {};
+                          Object.keys(prev)
+                            .map(Number)
+                            .sort((a, b) => a - b)
+                            .filter(i => i !== index)
+                            .forEach((oldIdx, newIdx) => {
+                              newMap[newIdx] = prev[oldIdx];
+                            });
+                          return newMap;
+                        });
+                      }}
                       className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1365,7 +1378,20 @@ export function SalesOrderForm({
                       variant="ghost"
                       size="sm"
                       className="h-11 w-11 text-muted-foreground hover:text-red-500 shrink-0"
-                      onClick={() => remove(index)}
+                      onClick={() => {
+                        remove(index);
+                        setTaxableItems(prev => {
+                          const newMap: Record<number, boolean> = {};
+                          Object.keys(prev)
+                            .map(Number)
+                            .sort((a, b) => a - b)
+                            .filter(i => i !== index)
+                            .forEach((oldIdx, newIdx) => {
+                              newMap[newIdx] = prev[oldIdx];
+                            });
+                          return newMap;
+                        });
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -353,7 +353,21 @@ export function PurchaseOrderForm({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => remove(index)}
+                          onClick={() => {
+                            remove(index);
+                            // Re-index taxableItems after removal to stay in sync with form fields
+                            setTaxableItems(prev => {
+                              const newMap: Record<number, boolean> = {};
+                              Object.keys(prev)
+                                .map(Number)
+                                .sort((a, b) => a - b)
+                                .filter(i => i !== index)
+                                .forEach((oldIdx, newIdx) => {
+                                  newMap[newIdx] = prev[oldIdx];
+                                });
+                              return newMap;
+                            });
+                          }}
                           disabled={fields.length === 1}
                           className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
                         >
@@ -489,11 +503,14 @@ export function PurchaseOrderForm({
                                         <div className="relative">
                                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
                                           <Input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={field.value ?? ""}
-                                            onChange={(e) =>
-                                              field.onChange(e.target.value === "" ? null : Number(e.target.value))
-                                            }
+                                            onChange={(e) => {
+                                              const normalized = e.target.value.replace(',', '.');
+                                              const num = Number(normalized);
+                                              field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                            }}
                                             className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
                                             placeholder="Auto (11/12)"
                                           />
