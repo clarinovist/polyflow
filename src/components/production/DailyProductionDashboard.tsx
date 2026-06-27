@@ -218,11 +218,11 @@ function OrderCard({ order }: { order: Order }) {
         )
       : 0;
 
-  const totalOutput = order.executions.reduce(
+  const totalOutput = (order.executions ?? []).reduce(
     (sum, ex) => sum + Number(ex.quantityProduced),
     0,
   );
-  const totalScrap = order.executions.reduce(
+  const totalScrap = (order.executions ?? []).reduce(
     (sum, ex) => sum + Number(ex.scrapQuantity),
     0,
   );
@@ -271,9 +271,9 @@ function OrderCard({ order }: { order: Order }) {
         </div>
 
         {/* Execution stats */}
-        {order.executions.length > 0 && (
+        {(order.executions ?? []).length > 0 && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>{order.executions.length} eksekusi</span>
+            <span>{(order.executions ?? []).length} eksekusi</span>
             <span>Output: {totalOutput.toLocaleString("id-ID")}</span>
             {totalScrap > 0 && (
               <span className="text-red-500">
