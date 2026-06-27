@@ -141,9 +141,15 @@ export function GoodsReceiptForm({
                                                             <FormLabel className="text-xs">Biaya Satuan Aktual (Rp)</FormLabel>
                                                             <FormControl>
                                                                 <Input
-                                                                    type="number"
-                                                                    {...field}
-                                                                    onChange={e => field.onChange(Number(e.target.value))}
+                                                                    type="text"
+                                                                    inputMode="decimal"
+                                                                    value={field.value ?? ''}
+                                                                    onChange={e => {
+                                                                        // Normalize Indonesian decimal format (comma → period)
+                                                                        const normalized = e.target.value.replace(',', '.');
+                                                                        const num = Number(normalized);
+                                                                        field.onChange(isNaN(num) ? 0 : num);
+                                                                    }}
                                                                     className="h-9"
                                                                 />
                                                             </FormControl>
