@@ -275,7 +275,7 @@ export function InvoiceDotMatrixPrint({
             )}
             {dppLain > 0 && (
               <div className="summary-row">
-                <span>DPP Nilai Lain :</span>
+                <span>DPP :</span>
                 <span>{formatNumberWithDots(dppLain)}</span>
               </div>
             )}

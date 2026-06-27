@@ -464,7 +464,7 @@ export function SalesOrderDetailClient({
                     )}
                     {!warehouseMode && (
                       <th className="h-10 px-4 text-right font-medium">
-                        DPP Nilai Lain
+                        DPP
                       </th>
                     )}
                     {!warehouseMode && (

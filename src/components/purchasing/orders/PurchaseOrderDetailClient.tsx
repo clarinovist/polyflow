@@ -285,7 +285,7 @@ export function PurchaseOrderDetailClient({
                         {formLabels.unitPrice}
                       </th>
                       <th className="h-10 px-4 text-right font-medium">
-                        DPP Nilai Lain
+                        DPP
                       </th>
                       <th className="h-10 px-4 text-right font-medium">
                         {formLabels.subtotal}

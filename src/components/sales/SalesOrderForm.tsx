@@ -278,7 +278,7 @@ export function SalesOrderForm({
   const watchShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
 
-  // Auto-calculate DPP Nilai Lainnya = DPP × 11/12 when qty, price, or discount changes
+  // Auto-calculate DPPnya = DPP × 11/12 when qty, price, or discount changes
   useEffect(() => {
     const items = form.getValues("items");
     items.forEach((item, index) => {
@@ -1133,10 +1133,10 @@ export function SalesOrderForm({
                       </div>
                     </div>
 
-                    {/* DPP Nilai Lainnya */}
+                    {/* DPPnya */}
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-muted-foreground w-28">
-                        DPP Nilai Lain
+                        DPP
                       </span>
                       <div className="flex items-center gap-2 flex-1 max-w-[200px]">
                         <FormField
