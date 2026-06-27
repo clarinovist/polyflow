@@ -79,10 +79,10 @@ export default async function SalesMobileDashboardPage() {
           📦 Cek Stok Produk
         </Link>
         <Link
-          href="/sales/orders"
+          href="/sales/mobile/orders"
           className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
         >
-          📋 Lihat Semua Order (Admin)
+          📋 Lihat Semua Order
         </Link>
       </div>
     </div>

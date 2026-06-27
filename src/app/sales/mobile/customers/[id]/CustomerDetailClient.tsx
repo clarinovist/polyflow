@@ -181,7 +181,7 @@ export function CustomerDetailClient({
             {recentOrders.map((order) => (
               <Link
                 key={order.id}
-                href={`/sales/orders/${order.id}`}
+                href={`/sales/mobile/orders/${order.id}`}
                 className="block p-3 border rounded-lg active:scale-[0.98] transition-transform"
               >
                 <div className="flex justify-between items-start">
