@@ -114,7 +114,10 @@ export const authConfig = {
                     // Tenant login page
                     const isLoginPage = pathname === '/login';
                     if (isLoginPage) {
-                        return true; // Always show tenant login (allows workspace switching)
+                        if (isLoggedIn) {
+                            return Response.redirect(new URL('/dashboard', nextUrl));
+                        }
+                        return true;
                     }
 
                     // Other tenant paths without workspace prefix — allow
