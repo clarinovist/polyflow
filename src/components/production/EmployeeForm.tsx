@@ -205,7 +205,11 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                         min="0"
                         step="1000"
                         value={formData.hourlyRate}
-                        onChange={(e) => setFormData({ ...formData, hourlyRate: Number(e.target.value) })}
+                        onChange={(e) => {
+                                const normalized = e.target.value.replace(',', '.');
+                                const num = Number(normalized);
+                                setFormData({ ...formData, hourlyRate: isNaN(num) ? 0 : num });
+                            }}
                         placeholder="e.g. 25000"
                         className="bg-background/50"
                     />

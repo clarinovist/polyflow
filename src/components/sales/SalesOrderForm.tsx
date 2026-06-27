@@ -1155,13 +1155,11 @@ export function SalesOrderForm({
                                     step="any"
                                     placeholder="Auto (11/12)"
                                     value={field.value ?? ""}
-                                    onChange={(e) =>
-                                      field.onChange(
-                                        e.target.value === ""
-                                          ? null
-                                          : Number(e.target.value),
-                                      )
-                                    }
+                                    onChange={(e) => {
+                                      const normalized = e.target.value.replace(',', '.');
+                                      const num = Number(normalized);
+                                      field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                    }}
                                     className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
                                   />
                                 </div>

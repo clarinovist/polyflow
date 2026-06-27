@@ -196,7 +196,11 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                             id="amount"
                                             type="number"
                                             value={paymentAmount}
-                                            onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                                            onChange={(e) => {
+                                                    const normalized = e.target.value.replace(',', '.');
+                                                    const num = Number(normalized);
+                                                    setPaymentAmount(isNaN(num) ? 0 : num);
+                                                }}
                                             className="col-span-3"
                                         />
                                     </div>

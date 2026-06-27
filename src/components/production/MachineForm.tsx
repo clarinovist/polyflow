@@ -143,7 +143,11 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
                         min="0"
                         step="1000"
                         value={formData.costPerHour}
-                        onChange={(e) => setFormData({ ...formData, costPerHour: Number(e.target.value) })}
+                        onChange={(e) => {
+                                const normalized = e.target.value.replace(',', '.');
+                                const num = Number(normalized);
+                                setFormData({ ...formData, costPerHour: isNaN(num) ? 0 : num });
+                            }}
                         placeholder="e.g. 50000"
                         className="bg-background/50"
                     />

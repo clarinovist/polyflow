@@ -363,11 +363,14 @@ export function PurchaseOrderForm({
                                   <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
                                     <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) =>
-                                        field.onChange(Number(e.target.value))
-                                      }
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={field.value ?? ''}
+                                      onChange={(e) => {
+                                        const normalized = e.target.value.replace(',', '.');
+                                        const num = Number(normalized);
+                                        field.onChange(isNaN(num) ? 0 : num);
+                                      }}
                                       className="h-8 pl-8 text-right font-mono text-sm"
                                     />
                                   </div>
@@ -572,11 +575,14 @@ export function PurchaseOrderForm({
                         </FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(Number(e.target.value))
-                            }
+                            type="text"
+                            inputMode="decimal"
+                            value={field.value ?? ''}
+                            onChange={(e) => {
+                              const normalized = e.target.value.replace(',', '.');
+                              const num = Number(normalized);
+                              field.onChange(isNaN(num) ? 0 : num);
+                            }}
                             className="h-8 w-32 text-right font-mono text-sm"
                             min={0}
                             placeholder="0"
