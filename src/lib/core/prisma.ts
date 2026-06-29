@@ -20,10 +20,22 @@ function withTxTimeout(client: PrismaClient): PrismaClient {
 }
 
 // AsyncLocalStorage to hold the tenant-specific Prisma Client instance
-export const tenantContext = new AsyncLocalStorage<PrismaClient>();
+// MUST be a global singleton — Next.js standalone builds can duplicate module
+// instances across SSR chunks, causing context leaks between requests.
+const globalForTenantContext = globalThis as unknown as {
+    __polyflowTenantContext?: AsyncLocalStorage<PrismaClient>;
+};
+export const tenantContext: AsyncLocalStorage<PrismaClient> =
+    globalForTenantContext.__polyflowTenantContext ??
+    (globalForTenantContext.__polyflowTenantContext = new AsyncLocalStorage<PrismaClient>());
 
-// Tenant Connection Factory (from Phase 1)
-const clients: Map<string, PrismaClient> = new Map();
+// Tenant Connection Factory — MUST be global singleton
+const globalForTenantClients = globalThis as unknown as {
+    __polyflowTenantClients?: Map<string, PrismaClient>;
+};
+const clients: Map<string, PrismaClient> =
+    globalForTenantClients.__polyflowTenantClients ??
+    (globalForTenantClients.__polyflowTenantClients = new Map<string, PrismaClient>());
 
 export function getTenantDb(datasourceUrl: string): PrismaClient {
     if (!clients.has(datasourceUrl)) {
@@ -43,11 +55,12 @@ export async function disconnectAllTenants() {
     clients.clear();
 }
 
-// Global Main/Fallback Prisma Client
+// Global Main/Fallback Prisma Client — MUST be global singleton in all environments
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 const mainPrisma = globalForPrisma.prisma || withTxTimeout(new PrismaClient())
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = mainPrisma
+// Always cache on globalThis — prevents duplicate clients across SSR chunks
+globalForPrisma.prisma = mainPrisma
 
 /**
  * Global Proxy for Prisma.
@@ -55,13 +68,21 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = mainPrisma
  * this Proxy intercepts it and routes it to the correct tenant Database
  * IF it's running inside `tenantContext.run()`.
  * If not, it falls back to the Main DB.
+ * 
+ * MUST be a global singleton — if different SSR chunks create separate
+ * proxies, each imports its own `tenantContext` and context routing breaks.
  */
-export const prisma = new Proxy(mainPrisma, {
-    get(target, prop, receiver) {
-        const tenantDb = tenantContext.getStore();
-        if (tenantDb) {
-            return Reflect.get(tenantDb, prop, receiver);
+const globalForPrismaProxy = globalThis as unknown as {
+    __polyflowPrismaProxy?: typeof mainPrisma;
+};
+export const prisma: typeof mainPrisma =
+    globalForPrismaProxy.__polyflowPrismaProxy ??
+    (globalForPrismaProxy.__polyflowPrismaProxy = new Proxy(mainPrisma, {
+        get(target, prop, receiver) {
+            const tenantDb = tenantContext.getStore();
+            if (tenantDb) {
+                return Reflect.get(tenantDb, prop, receiver);
+            }
+            return Reflect.get(target, prop, receiver);
         }
-        return Reflect.get(target, prop, receiver);
-    }
-});
+    }));
