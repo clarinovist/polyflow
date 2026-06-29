@@ -12,7 +12,27 @@ async function getMachines() {
     return safeAction(async () => {
         try {
             const machines = await prisma.machine.findMany({
-                include: { location: true },
+                include: {
+                    location: true,
+                    executions: {
+                        where: { status: 'IN_PROGRESS' },
+                        include: {
+                            productionOrder: {
+                                include: {
+                                    bom: { include: { productVariant: true } },
+                                    shifts: {
+                                        include: {
+                                            operator: true,
+                                            helpers: true,
+                                        }
+                                    }
+                                }
+                            },
+                            operator: true,
+                        },
+                        take: 1,
+                    },
+                },
                 orderBy: { code: 'asc' },
             });
             return machines;
