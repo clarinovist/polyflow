@@ -166,17 +166,17 @@ export function GeneralLedgerClient() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table className="min-w-[900px]">
+                        <div className="rounded-md border">
+                            <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[200px]">{reportLabels.namaAkun}</TableHead>
-                                        <TableHead className="w-[100px]">{reportLabels.tanggal}</TableHead>
-                                        <TableHead className="w-[130px]">{reportLabels.nomor}</TableHead>
-                                        <TableHead>{reportLabels.keterangan}</TableHead>
-                                        <TableHead className="text-right w-[140px]">{reportLabels.debit}</TableHead>
-                                        <TableHead className="text-right w-[140px]">{reportLabels.kredit}</TableHead>
-                                        <TableHead className="text-right w-[150px]">{reportLabels.saldo}</TableHead>
+                                        <TableHead className="w-[180px]">{reportLabels.namaAkun}</TableHead>
+                                        <TableHead className="w-[90px]">{reportLabels.tanggal}</TableHead>
+                                        <TableHead className="w-[120px]">{reportLabels.nomor}</TableHead>
+                                        <TableHead className="w-[200px]">{reportLabels.keterangan}</TableHead>
+                                        <TableHead className="text-right w-[130px]">{reportLabels.debit}</TableHead>
+                                        <TableHead className="text-right w-[130px]">{reportLabels.kredit}</TableHead>
+                                        <TableHead className="text-right w-[140px]">{reportLabels.saldo}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -216,8 +216,8 @@ function AccountSection({ account, fmt }: { account: LedgerAccount; fmt: (n: num
                     <TableCell className="text-muted-foreground text-sm pl-6">-</TableCell>
                     <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'dd/MM/yyyy')}</TableCell>
                     <TableCell className="font-mono text-sm whitespace-nowrap">{entry.entryNumber}</TableCell>
-                    <TableCell>
-                        <div className="flex items-center gap-2">
+                    <TableCell className="max-w-[200px]">
+                        <div className="flex items-center gap-1" title={`${entry.description}${entry.reference ? ` (${entry.reference})` : ''}`}>
                             <span className="truncate">{entry.description}</span>
                             {entry.reference && (
                                 <span className="shrink-0 text-xs text-muted-foreground">({entry.reference})</span>
