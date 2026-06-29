@@ -79,7 +79,6 @@ export function GeneralLedgerClient() {
         const rows: (string | number)[][] = [];
 
         for (const account of data.accounts) {
-            // Account header row
             rows.push([`(${account.code}) ${account.name}`, '', '', '', '', '', '', '', '']);
 
             for (const entry of account.entries) {
@@ -96,7 +95,6 @@ export function GeneralLedgerClient() {
                 ]);
             }
 
-            // Closing row
             rows.push([
                 '',
                 `${reportLabels.saldoAkhir}`,
@@ -109,7 +107,6 @@ export function GeneralLedgerClient() {
                 rupiahForCsv(account.endingBalance)
             ]);
 
-            // Empty separator
             rows.push(['', '', '', '', '', '', '', '', '']);
         }
 
@@ -118,7 +115,7 @@ export function GeneralLedgerClient() {
         downloadCsv(reportFilename('Buku_Besar', `${fromStr}_${toStr}`), headers, rows);
     };
 
-    const formatBalance = (amount: number) => {
+    const fmt = (amount: number) => {
         return new Intl.NumberFormat('id-ID', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -169,28 +166,28 @@ export function GeneralLedgerClient() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="rounded-md border">
-                            <Table>
+                        <div className="overflow-x-auto">
+                            <Table className="min-w-[900px]">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="min-w-[160px]">{reportLabels.namaAkun}</TableHead>
-                                        <TableHead className="min-w-[100px]">{reportLabels.tanggal}</TableHead>
-                                        <TableHead>{reportLabels.nomor}</TableHead>
-                                        <TableHead className="min-w-[200px]">{reportLabels.keterangan}</TableHead>
-                                        <TableHead className="text-right min-w-[130px]">{reportLabels.debit}</TableHead>
-                                        <TableHead className="text-right min-w-[130px]">{reportLabels.kredit}</TableHead>
-                                        <TableHead className="text-right min-w-[130px]">{reportLabels.saldo}</TableHead>
+                                        <TableHead className="w-[200px]">{reportLabels.namaAkun}</TableHead>
+                                        <TableHead className="w-[100px]">{reportLabels.tanggal}</TableHead>
+                                        <TableHead className="w-[130px]">{reportLabels.nomor}</TableHead>
+                                        <TableHead>{reportLabels.keterangan}</TableHead>
+                                        <TableHead className="text-right w-[140px]">{reportLabels.debit}</TableHead>
+                                        <TableHead className="text-right w-[140px]">{reportLabels.kredit}</TableHead>
+                                        <TableHead className="text-right w-[150px]">{reportLabels.saldo}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {data.accounts.map((account) => (
-                                        <AccountSection key={account.id} account={account} formatBalance={formatBalance} />
+                                        <AccountSection key={account.id} account={account} fmt={fmt} />
                                     ))}
                                     {/* Grand total row */}
                                     <TableRow className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2">
                                         <TableCell colSpan={4}>TOTAL</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(data.grandTotalDebit)}</TableCell>
-                                        <TableCell className="text-right">{formatRupiah(data.grandTotalCredit)}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatRupiah(data.grandTotalDebit)}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatRupiah(data.grandTotalCredit)}</TableCell>
                                         <TableCell className="text-right">-</TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -203,7 +200,7 @@ export function GeneralLedgerClient() {
     );
 }
 
-function AccountSection({ account, formatBalance }: { account: LedgerAccount; formatBalance: (n: number) => string }) {
+function AccountSection({ account, fmt }: { account: LedgerAccount; fmt: (n: number) => string }) {
     return (
         <>
             {/* Account header row */}
@@ -216,23 +213,25 @@ function AccountSection({ account, formatBalance }: { account: LedgerAccount; fo
             {/* Transaction rows */}
             {account.entries.map((entry, idx) => (
                 <TableRow key={idx}>
-                    <TableCell className="text-muted-foreground text-sm">-</TableCell>
-                    <TableCell>{format(new Date(entry.date), 'dd/MM/yyyy')}</TableCell>
-                    <TableCell className="font-mono text-sm">{entry.entryNumber}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm pl-6">-</TableCell>
+                    <TableCell className="whitespace-nowrap">{format(new Date(entry.date), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">{entry.entryNumber}</TableCell>
                     <TableCell>
-                        {entry.description}
-                        {entry.reference && (
-                            <span className="ml-2 text-xs text-muted-foreground">({entry.reference})</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <span className="truncate">{entry.description}</span>
+                            {entry.reference && (
+                                <span className="shrink-0 text-xs text-muted-foreground">({entry.reference})</span>
+                            )}
+                        </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                        {entry.debit > 0 ? formatBalance(entry.debit) : '-'}
+                    <TableCell className="text-right font-mono whitespace-nowrap">
+                        {entry.debit > 0 ? fmt(entry.debit) : '-'}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                        {entry.credit > 0 ? formatBalance(entry.credit) : '-'}
+                    <TableCell className="text-right font-mono whitespace-nowrap">
+                        {entry.credit > 0 ? fmt(entry.credit) : '-'}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                        {formatBalance(entry.balance)}
+                    <TableCell className="text-right font-mono font-medium whitespace-nowrap">
+                        {fmt(entry.balance)}
                     </TableCell>
                 </TableRow>
             ))}
@@ -242,14 +241,14 @@ function AccountSection({ account, formatBalance }: { account: LedgerAccount; fo
                 <TableCell colSpan={4} className="text-sm">
                     ({account.code}) {account.name} | {reportLabels.saldoAkhir}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                    {formatBalance(account.totalDebit)}
+                <TableCell className="text-right font-mono whitespace-nowrap">
+                    {fmt(account.totalDebit)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                    {formatBalance(account.totalCredit)}
+                <TableCell className="text-right font-mono whitespace-nowrap">
+                    {fmt(account.totalCredit)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                    {formatBalance(account.endingBalance)}
+                <TableCell className="text-right font-mono whitespace-nowrap">
+                    {fmt(account.endingBalance)}
                 </TableCell>
             </TableRow>
         </>

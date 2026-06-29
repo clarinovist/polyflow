@@ -164,6 +164,11 @@ const financeLinks = [
         label: financeSidebarLabels.trialBalance,
       },
       {
+        href: "/finance/reports/general-ledger",
+        icon: BookOpen,
+        label: financeSidebarLabels.generalLedger,
+      },
+      {
         href: "/finance/reports/budget-variance",
         icon: FileText,
         label: financeSidebarLabels.budgetVariance,

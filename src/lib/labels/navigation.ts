@@ -73,6 +73,7 @@ export const financeSidebarLabels = {
   budgetVariance: "Varians Anggaran",
   taxReport: "Laporan Pajak",
   maklonProfitability: "Profitabilitas Maklon",
+  generalLedger: "Buku Besar",
   chartOfAccounts: "Bagan Akun",
   fiscalPeriods: "Periode Fiskal",
   openingBalance: "Saldo Awal",
