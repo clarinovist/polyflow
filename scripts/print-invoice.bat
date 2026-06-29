@@ -3,13 +3,13 @@ setlocal enabledelayedexpansion
 REM ============================================
 REM  ESC/P Dot Matrix Invoice Printer
 REM  Untuk Feby - Melindo Rafia
+REM  Printer: EPSON LX-300+II (USB)
 REM ============================================
 REM  
 REM  CARA PAKAI:
 REM  1. Download file .prn dari PolyFlow (tombol "ESC/P (Dot Matrix)")
-REM  2. Simpan di folder Downloads (atau folder yang sama dengan script ini)
-REM  3. Double-click script ini
-REM  4. Pilih file .prn yang mau diprint
+REM  2. Double-click script ini
+REM  3. Pilih file .prn yang mau diprint
 REM  
 REM  ATAU: Drag & drop file .prn ke script ini
 REM ============================================
@@ -17,6 +17,7 @@ REM ============================================
 echo.
 echo  ========================================
 echo   ESC/P Dot Matrix Printer - Melindo
+echo   Printer: EPSON LX-300+II
 echo  ========================================
 echo.
 
@@ -26,26 +27,26 @@ if not "%~1"=="" (
     goto :print
 )
 
-REM No file dragged — look for .prn files in Downloads folder
-set "DOWNLOADS=%USERPROFILE%\Downloads"
+REM No file dragged — look for .prn files
 set COUNT=0
 
-REM List .prn files in Downloads
+REM Check Downloads folder first
+set "DOWNLOADS=%USERPROFILE%\Downloads"
 for %%f in ("%DOWNLOADS%\*.prn") do (
     set /a COUNT+=1
     set "FILE_!COUNT!=%%f"
     echo   !COUNT!. %%~nxf
 )
 
-REM Also check current directory
-for %%f in ("*.prn") do (
+REM Also check current directory (where the script is)
+for %%f in ("%~dp0*.prn") do (
     set /a COUNT+=1
     set "FILE_!COUNT!=%%f"
     echo   !COUNT!. %%~nxf
 )
 
 if !COUNT!==0 (
-    echo  Tidak ada file .prn di folder Downloads.
+    echo  Tidak ada file .prn ditemukan.
     echo  Download dulu dari PolyFlow ^(tombol "ESC/P (Dot Matrix)"^)
     echo.
     pause
@@ -53,7 +54,7 @@ if !COUNT!==0 (
 )
 
 echo.
-set /p CHOICE="  Nomor file yang mau diprint (atau tekan Enter untuk balar): "
+set /p CHOICE="  Nomor file yang mau diprint (tekan Enter untuk batal): "
 
 if "!CHOICE!"=="" (
     echo  Batal.
@@ -74,31 +75,68 @@ echo.
 echo  Memprint: !PRN_FILE!
 echo.
 
-REM Send file directly to the printer using COPY command
-REM This sends raw ESC/P bytes to the default printer
-copy /b "!PRN_FILE!" LPT1: 2>nul
-if errorlevel 1 (
-    REM LPT1 failed — try using PRINT command
-    print "!PRN_FILE!" 2>nul
-    if errorlevel 1 (
-        REM PRINT also failed — try PowerShell approach
-        powershell -Command "Get-Content -Path '!PRN_FILE!' -Raw | Out-Printer"
-        if errorlevel 1 (
-            echo.
-            echo  Gagal mengirim ke printer.
-            echo.
-            echo  Coba cara manual:
-            echo  1. Buka Notepad
-            echo  2. File ^> Open ^> pilih file: !PRN_FILE!
-            echo  3. File ^> Print
-            echo.
-            pause
-            exit /b
-        )
-    )
+REM ── Method 1: Send raw bytes to EPSON LX-300+II via USB ──
+REM Try the most common USB port names for Epson printers
+set PRINTED=0
+
+REM Try USB001 (most common)
+copy /b "!PRN_FILE!" USB001: >nul 2>&1
+if !errorlevel!==0 (
+    set PRINTED=1
+    goto :success
 )
 
+REM Try USB002
+copy /b "!PRN_FILE!" USB002: >nul 2>&1
+if !errorlevel!==0 (
+    set PRINTED=1
+    goto :success
+)
+
+REM ── Method 2: Use printer share name ──
+REM First try the default printer name
+copy /b "!PRN_FILE!" "EPSON LX-300+II" >nul 2>&1
+if !errorlevel!==0 (
+    set PRINTED=1
+    goto :success
+)
+
+REM ── Method 3: Use Windows PRINT command ──
+print /D:"EPSON LX-300+II" "!PRN_FILE!" >nul 2>&1
+if !errorlevel!==0 (
+    set PRINTED=1
+    goto :success
+)
+
+REM ── Method 4: PowerShell raw print ──
+powershell -Command "$printer = Get-WmiObject -Query \"SELECT * FROM Win32_Printer WHERE Name LIKE '%%EPSON%%LX%%'\"; if ($printer) { $bytes = [System.IO.File]::ReadAllBytes('!PRN_FILE!'); $port = $printer.PortName; [System.IO.File]::WriteAllBytes($port, $bytes) }" >nul 2>&1
+if !errorlevel!==0 (
+    set PRINTED=1
+    goto :success
+)
+
+REM ── All methods failed ──
 echo.
-echo  Berhasil! Invoice sedang diprint di dot matrix printer.
+echo  Gagal mengirim ke printer EPSON LX-300+II.
+echo.
+echo  Pastikan:
+echo  1. Printer EPSON LX-300+II sudah ON dan terhubung via USB
+echo  2. Printer terinstall di Windows (Devices ^> Printers)
+echo  3. Printer name persis: "EPSON LX-300+II"
+echo.
+echo  Coba cara manual:
+echo  1. Klik kanan file .prn
+echo  2. Open with ^> Notepad
+echo  3. File ^> Print ^> pilih EPSON LX-300+II
+echo.
+pause
+exit /b
+
+:success
+echo.
+echo  ========================================
+echo   Berhasil! Invoice sedang diprint.
+echo   Printer: EPSON LX-300+II
+echo  ========================================
 echo.
 pause
