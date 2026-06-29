@@ -143,6 +143,19 @@ async function getBalanceSheet(asOfDate: Date) {
 }
 );
 
+export const getGeneralLedger = withTenant(
+async function getGeneralLedger(startDate?: Date, endDate?: Date) {
+    return safeAction(async () => {
+        await requireAuth();
+        const data = await AccountingService.getGeneralLedger(
+            startDate ? new Date(startDate) : undefined,
+            endDate ? new Date(endDate) : undefined
+        );
+        return serializeData(data);
+    });
+}
+);
+
 export const getFiscalPeriods = withTenant(
 async function getFiscalPeriods() {
     return safeAction(async () => {

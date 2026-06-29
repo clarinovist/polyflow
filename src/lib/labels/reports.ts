@@ -122,4 +122,15 @@ export const reportLabels = {
   biayaKonversi: 'Biaya Konversi',
   labaMaklon: 'Laba Maklon',
   marginMaklon: 'Margin Maklon',
+
+  // General Ledger / Buku Besar
+  generalLedger: 'Buku Besar',
+  generalLedgerDesc: 'Daftar seluruh transaksi akun buku besar dengan saldo berjalan per akun.',
+  namaAkun: 'Nama Akun / Tanggal',
+  tanggal: 'Tanggal',
+  nomor: 'Nomor',
+  keterangan: 'Keterangan',
+  saldo: 'Saldo',
+  saldoAkhir: 'Saldo Akhir',
+  dalamIDR: '(dalam IDR)',
 } as const;

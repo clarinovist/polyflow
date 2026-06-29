@@ -14,6 +14,7 @@ import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from 
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement, closePeriod } from './reports-service';
 import { getFiscalPeriods, createFiscalPeriod, closeFiscalPeriod, isPeriodOpen, generateClosingEntries } from './periods-service';
 import { recordInventoryMovement, recordMaklonCosts } from './inventory-link-service';
+import { getGeneralLedger } from './general-ledger-service';
 
 export type { CreateJournalEntryInput } from './types';
 
@@ -115,6 +116,14 @@ export class AccountingService {
 
     static async getAccountBalance(accountId: string, startDate?: Date, endDate?: Date) {
         return getAccountBalance(accountId, startDate, endDate);
+    }
+
+    /**
+     * Get General Ledger / Buku Besar (POSTED ONLY)
+     * All accounts with transaction details grouped by account.
+     */
+    static async getGeneralLedger(startDate?: Date, endDate?: Date) {
+        return getGeneralLedger(startDate, endDate);
     }
 
     /**

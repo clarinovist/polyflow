@@ -8,7 +8,8 @@ import {
     Activity,
     PieChart,
     Scale,
-    Factory
+    Factory,
+    BookOpen
 } from "lucide-react";
 import Link from "next/link";
 import { reportLabels } from "@/lib/labels";
@@ -37,6 +38,14 @@ const reports = [
         icon: Activity,
         color: "text-amber-500 dark:text-amber-400",
         bg: "bg-amber-500/10 dark:bg-amber-400/10"
+    },
+    {
+        title: reportLabels.generalLedger,
+        description: reportLabels.generalLedgerDesc,
+        href: "/finance/reports/general-ledger",
+        icon: BookOpen,
+        color: "text-blue-600 dark:text-blue-400",
+        bg: "bg-blue-600/10 dark:bg-blue-400/10"
     },
     {
         title: reportLabels.budgetVariance,
