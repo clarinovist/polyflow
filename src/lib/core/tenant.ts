@@ -59,7 +59,8 @@ export async function resolveTenantContext(
     let targetDbUrl: string | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const { prisma } = await import('@/lib/core/prisma');
+            const { prisma, tenantContext } = await import('@/lib/core/prisma');
+            const activeTenantDb = tenantContext.getStore();
             const tenant = await prisma.tenant.findUnique({
                 where: { subdomain }
             });
@@ -67,8 +68,10 @@ export async function resolveTenantContext(
             if (targetDbUrl) break;
             // Tenant not found — might be stale cache, retry once
             if (attempt < 3) {
-                console.warn(`[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying...`);
+                console.warn(`[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying... (activeTenantContext=${!!activeTenantDb}, tenantResult=${JSON.stringify(tenant)})`);
                 await new Promise(r => setTimeout(r, 100 * attempt));
+            } else {
+                console.error(`[resolveTenantContext] FINAL attempt failed: tenant=${JSON.stringify(tenant)}, activeTenantContext=${!!activeTenantDb}`);
             }
         } catch (error) {
             console.error(`[resolveTenantContext] Error fetching tenant (attempt ${attempt}):`, error);
