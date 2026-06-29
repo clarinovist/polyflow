@@ -61,6 +61,7 @@ function formatDate(date: Date): string {
 
 interface InvoiceDotMatrixPrintProps {
   invoice: InvoicePrintData;
+  invoiceId?: string;
   showButton?: boolean;
   previewMode?: boolean;
   companyConfig?: CompanyConfig;
@@ -68,6 +69,7 @@ interface InvoiceDotMatrixPrintProps {
 
 export function InvoiceDotMatrixPrint({
   invoice,
+  invoiceId,
   showButton = true,
   previewMode = false,
   companyConfig,
@@ -127,6 +129,14 @@ export function InvoiceDotMatrixPrint({
             >
               🖨️ Cetak Invoice
             </button>
+            {invoiceId && (
+              <a
+                href={`/api/print/invoice?id=${invoiceId}`}
+                className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 font-medium inline-flex items-center gap-1"
+              >
+                🖨️ ESC/P (Dot Matrix)
+              </a>
+            )}
           </div>
         </div>
       )}

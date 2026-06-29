@@ -46,5 +46,5 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
       : undefined,
   };
 
-  return <InvoiceDotMatrixPrint invoice={invoice as unknown as ComponentProps<typeof InvoiceDotMatrixPrint>['invoice']} showButton={true} companyConfig={companyConfig} />;
+  return <InvoiceDotMatrixPrint invoice={invoice as unknown as ComponentProps<typeof InvoiceDotMatrixPrint>['invoice']} invoiceId={id} showButton={true} companyConfig={companyConfig} />;
 }
