@@ -67,7 +67,7 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
                 <button
                     onClick={() => setShowPreview(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md text-sm font-medium transition-colors"
@@ -75,6 +75,13 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                     <Printer className="h-4 w-4" />
                     Cetak Dot Matrix
                 </button>
+                <a
+                    href={`/api/print/invoice?id=${invoice.id}`}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                    <Printer className="h-4 w-4" />
+                    ESC/P (Dot Matrix)
+                </a>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
