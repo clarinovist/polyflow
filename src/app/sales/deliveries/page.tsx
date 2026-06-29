@@ -1,6 +1,7 @@
 import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
+import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
 import { serializeData } from '@/lib/utils/utils';
 import { salesLabels } from '@/lib/labels';
 import { Package } from 'lucide-react';
@@ -27,7 +28,10 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                     <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrders}</h1>
                     <p className="text-muted-foreground">{salesLabels.deliveryOrdersDesc}</p>
                 </div>
-                <UrlTransactionDateFilter defaultPreset="this_month" />
+                <div className="flex items-center gap-3">
+                    <UrlTransactionDateFilter defaultPreset="this_month" />
+                    <CreateDeliveryOrderDialog />
+                </div>
             </div>
 
             <Card>

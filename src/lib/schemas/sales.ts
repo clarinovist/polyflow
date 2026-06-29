@@ -96,7 +96,16 @@ export const cancelSalesOrderSchema = z.object({
   reason: z.string().optional().transform(sanitizeHtml), // For audit log
 });
 
+export const createManualDeliveryOrderSchema = z.object({
+  salesOrderId: z.string().min(1, "Sales Order is required"),
+  sourceLocationId: z.string().min(1, "Source location is required"),
+  carrier: z.string().optional().transform(sanitizeHtml),
+  trackingNumber: z.string().optional().transform(sanitizeHtml),
+  notes: z.string().optional().transform(sanitizeHtml),
+});
+
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
 export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;
+export type CreateManualDeliveryOrderValues = z.infer<typeof createManualDeliveryOrderSchema>;
