@@ -365,7 +365,7 @@ export function InvoiceDotMatrixPrint({
       <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
-          font-size: 10px;
+          font-size: 12px;
           line-height: 1.4;
           width: 100%;
           max-width: ${paperSize.widthCm}cm;
@@ -411,7 +411,7 @@ export function InvoiceDotMatrixPrint({
         }
 
         .company-details {
-          font-size: 9px;
+          font-size: 11px;
           line-height: 1.4;
         }
 
@@ -422,12 +422,12 @@ export function InvoiceDotMatrixPrint({
         }
 
         .company-address {
-          font-size: 8px;
+          font-size: 10px;
           white-space: pre-line;
         }
 
         .company-contact {
-          font-size: 8px;
+          font-size: 10px;
         }
 
         .title-section {
@@ -440,7 +440,7 @@ export function InvoiceDotMatrixPrint({
 
         .customer-section {
           text-align: right;
-          font-size: 9px;
+          font-size: 11px;
           line-height: 1.5;
         }
 
@@ -454,6 +454,7 @@ export function InvoiceDotMatrixPrint({
 
         .customer-value {
           margin-left: 6px;
+          font-weight: 500;
         }
 
         /* === ITEMS TABLE === */
@@ -461,19 +462,23 @@ export function InvoiceDotMatrixPrint({
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 8px;
-          font-size: 9px;
+          font-size: 11px;
         }
 
         .items-table th,
         .items-table td {
-          border: 1px solid #000;
+          border: 1.5px solid #000;
           padding: 3px 5px;
         }
 
         .items-table th {
-          background-color: #f0f0f0;
           font-weight: bold;
           text-align: center;
+          border-bottom: 2px solid #000;
+        }
+
+        .items-table td {
+          font-weight: 500;
         }
 
         .col-name {
@@ -521,17 +526,16 @@ export function InvoiceDotMatrixPrint({
           grid-template-columns: 1fr auto;
           gap: 8px;
           margin-bottom: 8px;
-          border: 1px solid #000;
+          border: 1.5px solid #000;
           padding: 5px;
         }
 
         .terbilang-text {
-          font-style: italic;
-          font-size: 9px;
+          font-size: 11px;
         }
 
         .financial-summary {
-          font-size: 9px;
+          font-size: 11px;
           min-width: 150px;
         }
 
@@ -540,6 +544,7 @@ export function InvoiceDotMatrixPrint({
           justify-content: space-between;
           padding: 0;
           line-height: 1.5;
+          font-weight: 500;
         }
 
         .summary-row.bold {
@@ -559,11 +564,11 @@ export function InvoiceDotMatrixPrint({
           grid-template-columns: 1fr 1fr 1fr;
           gap: 8px;
           margin-top: 8px;
-          font-size: 9px;
+          font-size: 11px;
         }
 
         .footer-left {
-          border: 1px solid #000;
+          border: 1.5px solid #000;
           padding: 5px;
         }
 
@@ -573,14 +578,14 @@ export function InvoiceDotMatrixPrint({
         }
 
         .bank-type-label {
-          font-style: italic;
           margin-bottom: 3px;
-          font-size: 8px;
+          font-size: 10px;
         }
 
         .bank-account {
           margin-bottom: 0;
           line-height: 1.4;
+          font-weight: 500;
         }
 
         .footer-spacer {
@@ -598,15 +603,15 @@ export function InvoiceDotMatrixPrint({
         }
 
         .signer-name {
-          font-style: italic;
+          font-weight: 500;
         }
 
         /* === NOTE === */
         .invoice-note {
           margin-top: 6px;
           padding-top: 3px;
-          border-top: 1px solid #000;
-          font-size: 8px;
+          border-top: 1.5px solid #000;
+          font-size: 10px;
           font-weight: bold;
         }
       `}</style>
