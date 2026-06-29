@@ -84,11 +84,18 @@ export async function getGeneralLedger(
         ]
     });
 
-    // Calculate beginning balances for accounts (entries before startDate)
+    // Collect account IDs that have activity in the date range
+    const relevantAccountIds = new Set<string>();
+    for (const line of lines) {
+        relevantAccountIds.add(line.accountId);
+    }
+
+    // Calculate beginning balances only for relevant accounts (optimization)
     const beginningBalances = new Map<string, number>();
-    if (startDate) {
+    if (startDate && relevantAccountIds.size > 0) {
         const preLines = await prisma.journalLine.findMany({
             where: {
+                accountId: { in: Array.from(relevantAccountIds) },
                 journalEntry: {
                     status: 'POSTED',
                     entryDate: { lt: startDate }
