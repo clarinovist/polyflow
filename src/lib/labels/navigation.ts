@@ -38,13 +38,16 @@ export const warehouseSidebarLabels = {
   jobQueue: "Antrian Tugas",
   incomingReceipts: "Penerimaan Barang",
   outgoingOrders: "Barang Keluar",
-  stockOverview: "Ikhtisar Stok",
   stockOpname: "Stock Opname",
+  stockOverview: "Ikhtisar Stok",
   stockTransfer: "Transfer Stok",
   stockAdjustment: "Penyesuaian Stok",
-  stockAging: "Aging Stok",
-  historyLogs: "Log Riwayat",
   locations: "Lokasi",
+  analyticsDashboard: "Dashboard Analitik",
+  stockAging: "Aging Stok",
+  stockMovement: "Mutasi Stok",
+  transferAnalytics: "Analitik Transfer",
+  adjustmentAnalytics: "Analitik Penyesuaian",
 } as const;
 
 export const financeSidebarLabels = {
