@@ -71,23 +71,6 @@ const financeLinks = [
         icon: HistoryIcon,
         label: financeSidebarLabels.aging,
       },
-      {
-        href: "/finance/foh-allocation",
-        icon: TrendingUp,
-        label: financeSidebarLabels.fohAllocation,
-      },
-      {
-        href: "/finance/costing",
-        icon: TrendingUp,
-        label: financeSidebarLabels.costingDashboard,
-        children: [
-          {
-            href: "/finance/costing/hpp-report",
-            icon: FileText,
-            label: financeSidebarLabels.hppReport,
-          },
-        ],
-      },
     ],
   },
   {
@@ -132,6 +115,11 @@ const financeLinks = [
         href: "/finance/assets",
         icon: Building2,
         label: financeSidebarLabels.fixedAssets,
+      },
+      {
+        href: "/finance/foh-allocation",
+        icon: TrendingUp,
+        label: financeSidebarLabels.fohAllocation,
       },
     ],
   },
@@ -183,6 +171,11 @@ const financeLinks = [
         href: "/finance/reports/general-ledger",
         icon: BookOpen,
         label: financeSidebarLabels.generalLedger,
+      },
+      {
+        href: "/finance/reports/hpp",
+        icon: FileText,
+        label: financeSidebarLabels.hppReport,
       },
       {
         href: "/finance/reports/tax",

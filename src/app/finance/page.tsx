@@ -258,7 +258,7 @@ export default async function FinanceDashboardPage({
                   Journals
                 </Button>
               </Link>
-              <Link href="/finance/costing">
+              <Link href="/production/costing">
                 <Button
                   variant="ghost"
                   className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium"
@@ -266,7 +266,7 @@ export default async function FinanceDashboardPage({
                   Costing Dashboard
                 </Button>
               </Link>
-              <Link href="/finance/costing/hpp-report">
+              <Link href="/finance/reports/hpp">
                 <Button
                   variant="ghost"
                   className="w-full h-10 bg-indigo-500/20 hover:bg-indigo-500/40 text-white border-none text-xs font-medium"

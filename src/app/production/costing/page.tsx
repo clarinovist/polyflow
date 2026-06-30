@@ -139,7 +139,7 @@ export default async function CostingPage(props: {
     if (nextFlag !== "all") params.set("flag", nextFlag);
 
     const query = params.toString();
-    return query ? `/finance/costing?${query}` : "/finance/costing";
+    return query ? `/production/costing?${query}` : "/production/costing";
   };
 
   return (
@@ -156,7 +156,7 @@ export default async function CostingPage(props: {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" asChild>
-            <Link href="/finance/costing/hpp-report">
+            <Link href="/finance/reports/hpp">
               <FileText className="mr-2 h-4 w-4" />
               Laporan HPP
             </Link>

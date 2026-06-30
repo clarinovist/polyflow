@@ -24,7 +24,7 @@ export default async function BomsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
-            <Link href="/finance/costing/hpp-report">
+            <Link href="/finance/reports/hpp">
               <FileText className="mr-2 h-4 w-4" />
               Laporan HPP
             </Link>

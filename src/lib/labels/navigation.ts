@@ -38,6 +38,7 @@ export const productionSidebarLabels = {
   packingMonthlyReport: "Laporan Packing",
   workShifts: "Shift Kerja",
   operatorKiosk: "Kiosk Operator",
+  costingDashboard: "Costing Dashboard",
 } as const;
 
 export const warehouseSidebarLabels = {
@@ -68,7 +69,7 @@ export const financeSidebarLabels = {
   budgeting: "Anggaran vs Aktual",
   budgetInput: "Input Anggaran",
   aging: "Aging AR/AP",
-  fohAllocation: "Alokasi FOH",
+  fohAllocation: "Alokasi Biaya Pabrik",
   costingDashboard: "Costing Dashboard",
   hppReport: "Laporan HPP",
   quickEntry: "Quick Entry",

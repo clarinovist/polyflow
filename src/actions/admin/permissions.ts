@@ -167,6 +167,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/production/inventory",
     "/production/resources",
     "/production/history",
+    "/production/costing",
   ],
   PLANNING: [
     "/dashboard",
@@ -196,7 +197,6 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
   FINANCE: [
     "/dashboard",
     "/finance",
-    "/finance/costing",
     "/finance/reports",
     "/finance/journals",
     "/finance/coa",
