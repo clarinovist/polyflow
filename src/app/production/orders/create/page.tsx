@@ -26,7 +26,7 @@ export default async function CreateProductionOrderPage({
     return (
         <div className="p-6 md:p-8 max-w-7xl mx-auto">
             <Link
-                href="/planning/orders"
+                href="/production/orders"
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit mb-6"
             >
                 <ArrowLeft className="h-4 w-4" />

@@ -61,7 +61,7 @@ export const updateProductionIssueStatus = withTenant(
         );
 
         if (productionOrderId) {
-          revalidatePath(`/planning/orders/${productionOrderId}`);
+          revalidatePath(`/production/orders/${productionOrderId}`);
         }
 
         return serializeData(issue);
@@ -90,7 +90,7 @@ export const deleteProductionIssue = withTenant(
 
         await ProductionService.deleteIssue(issueId);
 
-        revalidatePath(`/planning/orders/${productionOrderId}`);
+        revalidatePath(`/production/orders/${productionOrderId}`);
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;
