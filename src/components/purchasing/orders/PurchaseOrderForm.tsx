@@ -261,7 +261,7 @@ export function PurchaseOrderForm({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column (Items) - spans 8 columns */}
           <div className="lg:col-span-8 space-y-6">
-            <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <Card className="border-zinc-200 dark:border-zinc-700/50 shadow-sm overflow-hidden">
               <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b pb-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -273,7 +273,7 @@ export function PurchaseOrderForm({
                       Pilih produk dan kuantitas.
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="bg-white">
+                  <Badge variant="outline" className="bg-white dark:bg-zinc-800 dark:text-zinc-200">
                     {fields.length} Item
                   </Badge>
                 </div>
@@ -369,7 +369,7 @@ export function PurchaseOrderForm({
                             });
                           }}
                           disabled={fields.length === 1}
-                          className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 flex-shrink-0"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -550,7 +550,7 @@ export function PurchaseOrderForm({
                         dppOtherAmount: null,
                       });
                     }}
-                    className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-solid hover:bg-white"
+                    className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-solid hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <Plus className="h-4 w-4 mr-2" /> {actionLabels.add} Item
                   </Button>
@@ -583,9 +583,9 @@ export function PurchaseOrderForm({
 
           {/* Right Column (Summary) - spans 4 columns */}
           <div className="lg:col-span-4 space-y-6">
-            <Card className="sticky top-6 border-zinc-200 shadow-lg overflow-hidden">
-              <div className="bg-zinc-900 text-white p-6">
-                <div className="flex items-center gap-2 text-zinc-400 text-xs uppercase tracking-widest font-bold mb-4">
+            <Card className="sticky top-6 border-zinc-200 dark:border-zinc-700/50 shadow-lg overflow-hidden">
+              <div className="bg-zinc-900 dark:bg-zinc-800 text-white p-6">
+                <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-300 text-xs uppercase tracking-widest font-bold mb-4">
                   <Calculator className="h-3 w-3" /> Estimasi Total
                 </div>
                 <div className="text-3xl font-bold font-mono tracking-tight">
@@ -644,7 +644,7 @@ export function PurchaseOrderForm({
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-between font-bold pt-2 border-t">
+                  <div className="flex justify-between font-bold pt-3 border-t border-zinc-200 dark:border-zinc-700">
                     <span>Total</span>
                     <span className="font-mono">
                       {formatRupiah(totals.net + watchedShippingCost)}
