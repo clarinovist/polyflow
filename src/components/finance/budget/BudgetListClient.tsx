@@ -112,7 +112,7 @@ export function BudgetListClient({ initialBudgets, accounts, year: initialYear }
                 <div className="flex items-center gap-2">
                     <Select value={year} onValueChange={(val) => {
                         setYear(val);
-                        window.location.href = `/finance/budget?year=${val}`;
+                        window.location.href = `/finance/budgeting/input?year=${val}`;
                     }}>
                         <SelectTrigger className="w-[120px]">
                             <SelectValue placeholder="Year" />

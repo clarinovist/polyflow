@@ -6,6 +6,7 @@ import { getBudgetVsActuals } from "@/actions/finance/budgeting-actions";
 import { formatRupiah } from "@/lib/utils/utils";
 import { ArrowUpIcon, ArrowDownIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { BudgetingTabs } from "@/components/finance/budget/BudgetingTabs";
 
 interface BudgetRow {
   id: string;
@@ -82,6 +83,8 @@ export default function BudgetingPage() {
           />
         </div>
       </div>
+
+      <BudgetingTabs activeTab="overview" />
 
       <Card>
         <CardHeader>

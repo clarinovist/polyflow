@@ -50,7 +50,7 @@ const reports = [
     {
         title: reportLabels.budgetVariance,
         description: reportLabels.budgetVarianceDesc,
-        href: "/finance/reports/budget-variance",
+        href: "/finance/budgeting/variance",
         icon: PieChart,
         color: "text-purple-500 dark:text-purple-400",
         bg: "bg-purple-500/10 dark:bg-purple-400/10"

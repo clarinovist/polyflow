@@ -40,10 +40,14 @@ import {
 } from "@/components/ui/card";
 import { Plus, Trash2, ShoppingBag, Calculator } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/utils";
+import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
 import { ProductCombobox } from "@/components/products/product-combobox";
 import { SupplierCombobox } from "@/components/purchasing/suppliers/supplier-combobox";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { purchasingLabels, formLabels, actionLabels } from "@/lib/labels";
 
 interface PurchaseOrderFormProps {
@@ -71,6 +75,7 @@ interface PurchaseOrderFormProps {
       discountPercent?: number;
       taxPercent?: number;
       dppOtherAmount?: number | null;
+      ppnMode?: 'INCLUDE' | 'EXCLUDE';
     }[];
   };
 }
@@ -120,6 +125,7 @@ export function PurchaseOrderForm({
               : 0,
             taxPercent: item.taxPercent ? Number(item.taxPercent) : 0,
             dppOtherAmount: item.dppOtherAmount ? Number(item.dppOtherAmount) : null,
+            ppnMode: (item.ppnMode as 'INCLUDE' | 'EXCLUDE') || 'EXCLUDE',
           })),
         }
       : {
@@ -137,6 +143,7 @@ export function PurchaseOrderForm({
               discountPercent: 0,
               taxPercent: 0,
               dppOtherAmount: null,
+              ppnMode: 'EXCLUDE',
             },
           ],
         },
@@ -183,11 +190,15 @@ export function PurchaseOrderForm({
         const discount =
           rawSubtotal * (Number(item.discountPercent || 0) / 100);
         const taxable = rawSubtotal - discount;
-        const tax = taxable * (Number(item.taxPercent || 0) / 100);
+        
+        // Use calculatePpn based on ppnMode
+        const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+        const ppnResult = calculatePpn(taxable, Number(item.taxPercent || 0), ppnMode);
+        
         acc.gross += rawSubtotal;
         acc.discount += discount;
-        acc.tax += tax;
-        acc.net += taxable + tax;
+        acc.tax += ppnResult.taxAmount;
+        acc.net += ppnResult.total;
         return acc;
       },
       { gross: 0, discount: 0, tax: 0, net: 0 },
@@ -285,11 +296,12 @@ export function PurchaseOrderForm({
                   const price = Number(item?.unitPrice || 0);
                   const disc = Number(item?.discountPercent || 0);
                   const tax = Number(item?.taxPercent || 0);
+                  const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
                   const raw = qty * price;
                   const discountAmount = raw * (disc / 100);
                   const taxable = raw - discountAmount;
-                  const taxAmount = taxable * (tax / 100);
-                  const lineTotal = taxable + taxAmount;
+                  const ppnResult = calculatePpn(taxable, tax, ppnMode);
+                  const lineTotal = ppnResult.total;
 
                   return (
                     <div
@@ -391,11 +403,10 @@ export function PurchaseOrderForm({
                                     <Input
                                       type="text"
                                       inputMode="decimal"
-                                      value={field.value ?? ''}
+                                      value={formatIndonesianPrice(field.value ?? 0)}
                                       onChange={(e) => {
-                                        const normalized = e.target.value.replace(',', '.');
-                                        const num = Number(normalized);
-                                        field.onChange(isNaN(num) ? 0 : num);
+                                        const num = parseIndonesianPrice(e.target.value);
+                                        field.onChange(num);
                                       }}
                                       className="h-8 pl-8 text-right font-mono text-sm"
                                     />
@@ -456,6 +467,41 @@ export function PurchaseOrderForm({
                           </label>
                         </div>
 
+                        {/* PPN Mode — only when Kena Pajak checked */}
+                        {(taxableItems[index] ?? false) && (
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground w-28">Mode PPN</span>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.ppnMode`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0 flex-1">
+                                  <FormControl>
+                                    <RadioGroup
+                                      value={field.value || 'EXCLUDE'}
+                                      onValueChange={field.onChange}
+                                      className="flex gap-4"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <RadioGroupItem value="EXCLUDE" id={`ppn-exclude-${index}`} />
+                                        <Label htmlFor={`ppn-exclude-${index}`} className="text-xs cursor-pointer">
+                                          Exclude (harga + pajak)
+                                        </Label>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <RadioGroupItem value="INCLUDE" id={`ppn-include-${index}`} />
+                                        <Label htmlFor={`ppn-include-${index}`} className="text-xs cursor-pointer">
+                                          Include (harga termasuk)
+                                        </Label>
+                                      </div>
+                                    </RadioGroup>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
+
                         {/* Pajak — only when Kena Pajak checked */}
                         {(taxableItems[index] ?? false) && (
                           <>
@@ -485,7 +531,7 @@ export function PurchaseOrderForm({
                                 />
                                 <span className="text-xs text-muted-foreground">%</span>
                                 <span className="text-xs font-mono text-muted-foreground ml-auto">
-                                  {taxAmount > 0 ? formatRupiah(taxAmount) : "Rp 0"}
+                                  {ppnResult.taxAmount > 0 ? formatRupiah(ppnResult.taxAmount) : "Rp 0"}
                                 </span>
                               </div>
                             </div>
@@ -548,6 +594,7 @@ export function PurchaseOrderForm({
                         discountPercent: 0,
                         taxPercent: 0,
                         dppOtherAmount: null,
+                        ppnMode: 'EXCLUDE',
                       });
                     }}
                     className="w-full border-dashed text-muted-foreground hover:text-foreground hover:border-solid hover:bg-zinc-100 dark:hover:bg-zinc-800"

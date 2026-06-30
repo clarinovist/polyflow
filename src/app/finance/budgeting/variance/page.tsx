@@ -11,6 +11,7 @@ import { RotateCw, Download, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { reportLabels } from '@/lib/labels';
+import { BudgetingTabs } from '@/components/finance/budget/BudgetingTabs';
 
 interface VarianceItem {
     accountCode: string;
@@ -71,7 +72,7 @@ export default function BudgetVariancePage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-7xl mx-auto pb-10">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">{reportLabels.variansAnggaran}</h1>
@@ -109,6 +110,8 @@ export default function BudgetVariancePage() {
                 </div>
             </div>
 
+            <BudgetingTabs activeTab="variance" />
+
             <Card>
                 <CardHeader>
                     <CardTitle>{reportLabels.variansAnggaran}</CardTitle>
@@ -139,9 +142,6 @@ export default function BudgetVariancePage() {
                                     data.map((item) => {
                                         const isOver = item.variance > 0;
                                         const isUnder = item.variance < 0;
-                                        // For Expenses: Over is Bad (Red), Under is Good (Green)
-                                        // For Revenue: Over is Good (Green), Under is Bad (Red)
-                                        // Simple logic: if variance is positive, show up icon.
 
                                         return (
                                             <TableRow key={item.accountCode}>

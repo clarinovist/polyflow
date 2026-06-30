@@ -67,11 +67,6 @@ const financeLinks = [
         label: financeSidebarLabels.bankReconciliation,
       },
       {
-        href: "/finance/budgeting",
-        icon: TrendingUp,
-        label: financeSidebarLabels.budgeting,
-      },
-      {
         href: "/finance/aging",
         icon: HistoryIcon,
         label: financeSidebarLabels.aging,
@@ -141,6 +136,27 @@ const financeLinks = [
     ],
   },
   {
+    heading: financeSidebarLabels.budgetPlanning,
+    items: [
+      {
+        href: "/finance/budgeting",
+        icon: TrendingUp,
+        label: financeSidebarLabels.budgeting,
+        exact: true,
+      },
+      {
+        href: "/finance/budgeting/input",
+        icon: Wallet,
+        label: financeSidebarLabels.budgetInput,
+      },
+      {
+        href: "/finance/budgeting/variance",
+        icon: FileText,
+        label: financeSidebarLabels.budgetVariance,
+      },
+    ],
+  },
+  {
     heading: "Laporan Keuangan",
     items: [
       {
@@ -167,11 +183,6 @@ const financeLinks = [
         href: "/finance/reports/general-ledger",
         icon: BookOpen,
         label: financeSidebarLabels.generalLedger,
-      },
-      {
-        href: "/finance/reports/budget-variance",
-        icon: FileText,
-        label: financeSidebarLabels.budgetVariance,
       },
       {
         href: "/finance/reports/tax",

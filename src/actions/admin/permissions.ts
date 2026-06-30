@@ -202,7 +202,7 @@ const DEFAULT_PERMISSIONS: Record<Role, string[]> = {
     "/finance/coa",
     "/finance/periods",
     "/finance/assets",
-    "/finance/budget",
+    "/finance/budgeting",
     "/sales/invoices",
     "/finance/invoices",
   ],

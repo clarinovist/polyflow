@@ -279,7 +279,7 @@ async function setBudget(data: { accountId: string, year: number, month: number,
         await requireAuth();
         try {
             const budget = await BudgetService.setBudget(data);
-            revalidatePath('/finance/budget');
+            revalidatePath('/finance/budgeting/input');
             return serializeData(budget);
         } catch {
             throw new BusinessRuleError('Gagal memproses transaksi akuntansi');

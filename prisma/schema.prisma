@@ -739,6 +739,7 @@ model SalesOrderItem {
   taxAmount        Decimal?       @db.Decimal(15, 2)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   dppOtherAmount   Decimal?       @db.Decimal(15, 2)
+  ppnMode          PpnMode        @default(EXCLUDE)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
 
@@ -800,6 +801,7 @@ model PurchaseOrderItem {
   taxPercent       Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
   dppOtherAmount   Decimal?       @db.Decimal(15, 2)
+  ppnMode          PpnMode        @default(EXCLUDE)
   receivedQty      Decimal        @default(0) @db.Decimal(15, 4)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
   purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
@@ -1667,4 +1669,9 @@ model PeriodLock {
 
   @@unique([year, month])
   @@map("period_locks")
+}
+
+enum PpnMode {
+  INCLUDE   // Harga sudah termasuk PPN
+  EXCLUDE   // Harga belum termasuk PPN (default)
 }

@@ -66,7 +66,7 @@ async function upsertBudget(data: BudgetFormValues) {
                 });
             }
 
-            revalidatePath('/finance/budget');
+            revalidatePath('/finance/budgeting/input');
         } catch (error) {
             if (error instanceof ValidationError) throw error;
             logger.error('Failed to save budget', { error, module: 'BudgetActions' });
