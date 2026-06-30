@@ -88,6 +88,8 @@ export function PurchaseOrderForm({
 }: PurchaseOrderFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  // Track raw input values for price fields (to allow typing commas/dots)
+  const [rawPriceInputs, setRawPriceInputs] = useState<Record<number, string>>({});
   // Track which items have "Kena Pajak" checked (controls DPP visibility)
   const [taxableItems, setTaxableItems] = useState<Record<number, boolean>>(() => {
     if (initialData) {
@@ -403,10 +405,24 @@ export function PurchaseOrderForm({
                                     <Input
                                       type="text"
                                       inputMode="decimal"
-                                      value={formatIndonesianPrice(field.value ?? 0)}
+                                      value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(field.value ?? 0)}
                                       onChange={(e) => {
+                                        // Store raw value for display
+                                        setRawPriceInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                        // Parse and update form value
                                         const num = parseIndonesianPrice(e.target.value);
                                         field.onChange(num);
+                                      }}
+                                      onBlur={() => {
+                                        // On blur, format the value properly
+                                        const num = parseIndonesianPrice(rawPriceInputs[index] || '0');
+                                        field.onChange(num);
+                                        // Clear raw input to show formatted value
+                                        setRawPriceInputs(prev => {
+                                          const next = { ...prev };
+                                          delete next[index];
+                                          return next;
+                                        });
                                       }}
                                       className="h-8 pl-8 text-right font-mono text-sm"
                                     />
