@@ -91,8 +91,8 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
             } else {
                 throw new Error(res.error);
             }
-        } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan retur Maklon');
+        } catch {
+            toast.error('Gagal menyimpan retur Maklon. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

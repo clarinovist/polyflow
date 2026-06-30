@@ -80,10 +80,10 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices }: Re
                     variant: 'destructive'
                 });
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Gagal',
-                description: error instanceof Error ? error.message : 'Gagal mencatat pembayaran',
+                description: 'Gagal mencatat pembayaran customer. Silakan coba lagi.',
                 variant: 'destructive'
             });
         } finally {

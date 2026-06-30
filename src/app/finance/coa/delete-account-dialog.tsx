@@ -38,7 +38,7 @@ export function DeleteAccountDialog({ id, name, code }: DeleteAccountDialogProps
                 toast.error(result.error || 'Gagal menghapus akun');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menghapus akun. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

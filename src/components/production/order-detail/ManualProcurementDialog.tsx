@@ -96,8 +96,8 @@ export function ManualProcurementDialog({ order }: ManualProcurementDialogProps)
                 // Reset form
                 setItems(items.map(i => ({ ...i, procureQty: 0, selected: false })));
             }
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Gagal membuat Purchase Request');
+        } catch {
+            toast.error('Gagal membuat permintaan pembelian. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }

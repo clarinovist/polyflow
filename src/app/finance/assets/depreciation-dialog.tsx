@@ -43,7 +43,7 @@ export function DepreciationDialog() {
                 setOpen(false);
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menghitung depresiasi. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

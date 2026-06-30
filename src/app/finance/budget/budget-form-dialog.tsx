@@ -52,7 +52,7 @@ export function BudgetFormDialog({ accounts, currentYear, currentMonth }: { acco
                 toast.error(res.error || 'Gagal menetapkan anggaran');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan anggaran. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

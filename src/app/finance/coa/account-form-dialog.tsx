@@ -93,7 +93,7 @@ export function AccountFormDialog({ account, mode = 'create' }: AccountFormDialo
                 toast.error(result.error || 'Gagal menyimpan akun');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan akun. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

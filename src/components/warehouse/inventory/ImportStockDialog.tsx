@@ -100,8 +100,8 @@ export function ImportStockDialog() {
             setProgress(100);
             setStatusMessage('');
             setStep('preview');
-        } catch (error) {
-            toast.error(`Terjadi kesalahan saat memproses file: ${error instanceof Error ? error.message : 'Error tidak diketahui'}`);
+        } catch {
+               toast.error('Gagal memproses file. Periksa format file dan coba lagi.');
             setFile(null); // Reset
         } finally {
             setIsProcessing(false);
@@ -149,8 +149,8 @@ export function ImportStockDialog() {
 
             // Move to result step
             setStep('result');
-        } catch (error) {
-            toast.error(`Impor gagal: ${error instanceof Error ? error.message : 'Error tidak diketahui'}`);
+        } catch {
+               toast.error('Gagal mengimpor data. Silakan coba lagi.');
         } finally {
             setIsProcessing(false);
         }

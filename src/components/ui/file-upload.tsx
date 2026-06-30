@@ -47,7 +47,7 @@ export function FileUpload({
       onChange(data.url);
       toast.success("Foto berhasil diupload");
     } catch {
-      toast.error("Terjadi kesalahan saat upload");
+      toast.error("Gagal mengunggah file. Silakan coba lagi.");
     } finally {
       setIsUploading(false);
     }

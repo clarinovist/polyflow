@@ -59,8 +59,8 @@ export function SalesReturnDetailClient({ salesReturn, currentUserRole, basePath
             const actionText = actionName === 'CONFIRM' ? 'dikonfirmasi' : actionName === 'COMPLETE' ? 'diselesaikan' : 'diproses';
             toast.success(`Retur Penjualan berhasil ${actionText}`);
             router.refresh();
-        } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Gagal memproses retur penjualan. Silakan coba lagi.');
+        } catch {
+            toast.error('Gagal memproses retur penjualan. Silakan coba lagi.')
         } finally {
             setActionLoading(null);
         }

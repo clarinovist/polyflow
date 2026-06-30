@@ -87,9 +87,9 @@ export function PeriodManagementClient({
         await generatePeriodsForYear(parseInt(year));
         toast.success(`Periode untuk tahun ${year} berhasil digenerate.`);
         router.refresh();
-      } catch (error: unknown) {
+      } catch {
         const message =
-          error instanceof Error ? error.message : "Gagal membuat periode.";
+          "Gagal membuat periode. Silakan coba lagi.";
         toast.error(message);
       }
     });
@@ -125,7 +125,7 @@ export function PeriodManagementClient({
         router.refresh();
       } catch (error: unknown) {
         const message =
-          error instanceof Error ? error.message : "Failed to close period";
+          error instanceof Error ? error.message : "Gagal menutup periode";
         toast.error(message);
       }
     });

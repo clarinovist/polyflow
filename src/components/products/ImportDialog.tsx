@@ -76,7 +76,7 @@ export function ImportDialog() {
             setStatusMessage('');
             setStep('preview');
         } catch (error) {
-            alert(`Error parsing file: ${error instanceof Error ? error.message : "Unknown error"}`);
+            alert(`Gagal membaca file: ${error instanceof Error ? "Format file tidak valid" : "Format file tidak valid"}`);
         } finally {
             setIsProcessing(false);
         }
@@ -116,7 +116,7 @@ export function ImportDialog() {
             // Move to result step
             setStep('result');
         } catch (error) {
-            alert(`Error importing products: ${error instanceof Error ? error.message : "Unknown error"}`);
+            alert(`Gagal mengimpor produk: ${error instanceof Error ? "Terjadi kesalahan saat impor" : "Terjadi kesalahan saat impor"}`);
         } finally {
             setIsProcessing(false);
         }

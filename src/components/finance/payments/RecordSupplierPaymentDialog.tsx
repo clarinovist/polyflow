@@ -79,10 +79,10 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                     variant: 'destructive'
                 });
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Gagal',
-                description: error instanceof Error ? error.message : 'Gagal mencatat pembayaran',
+                description: 'Gagal mencatat pembayaran supplier. Silakan coba lagi.',
                 variant: 'destructive'
             });
         } finally {

@@ -132,8 +132,8 @@ export default function PotongPlongProductionForm({
             toast.success(`${json.count ?? reports.length} laporan berhasil disubmit!`);
             form.reset({ reports: [makeEmpty()] });
             router.refresh();
-        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            toast.error(error.message);
+        } catch {
+            toast.error('Gagal menyimpan data produksi. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

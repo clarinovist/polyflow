@@ -44,7 +44,7 @@ export function PeriodFormDialog() {
                 toast.error(result.error || 'Gagal membuat periode');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan periode. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

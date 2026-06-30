@@ -63,7 +63,7 @@ export function AssetFormDialog({ accounts }: { accounts: Account[] }) {
                 toast.error(res.error || 'Gagal membuat aset');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan aset. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }

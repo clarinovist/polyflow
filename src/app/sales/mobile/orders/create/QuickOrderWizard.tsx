@@ -163,7 +163,7 @@ export function QuickOrderWizard({
         toast.error(result.error || "Gagal membuat order");
       }
     } catch {
-      toast.error("Terjadi kesalahan");
+      toast.error("Gagal membuat pesanan. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }

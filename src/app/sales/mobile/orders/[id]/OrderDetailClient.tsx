@@ -79,7 +79,7 @@ export function OrderDetailClient({ order }: OrderDetailClientProps) {
         toast.error(result.error || `Gagal ${actionLabel.toLowerCase()}`);
       }
     } catch {
-      toast.error("Terjadi kesalahan");
+      toast.error("Gagal memuat detail pesanan. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }

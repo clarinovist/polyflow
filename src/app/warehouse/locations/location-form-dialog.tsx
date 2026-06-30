@@ -89,7 +89,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
             setOpen(false);
             router.refresh();
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan lokasi. Silakan coba lagi.")
         } finally {
             setIsLoading(false);
         }

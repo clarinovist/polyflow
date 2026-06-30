@@ -93,10 +93,10 @@ export default function DailyPettyCashReportPage() {
                 const errorMsg = result && 'error' in result ? String(result.error) : `${actionName} gagal.`;
                 toast({ title: 'Gagal', description: errorMsg, variant: 'destructive' });
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Gagal',
-                description: error instanceof Error ? error.message : `${actionName} gagal.`,
+                description: `${actionName} gagal. Silakan coba lagi.`,
                 variant: 'destructive'
             });
         } finally {

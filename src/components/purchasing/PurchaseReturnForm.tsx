@@ -69,8 +69,8 @@ export function PurchaseReturnForm({ suppliers, locations, products, purchaseOrd
                 // await updatePurchaseReturnAction(data);
                 toast.success('Retur Pembelian berhasil diperbarui');
             }
-        } catch (error: unknown) {
-            toast.error(error instanceof Error ? error.message : 'Gagal menyimpan retur pembelian. Silakan coba lagi.');
+        } catch {
+            toast.error('Gagal menyimpan retur pembelian. Silakan coba lagi.')
         } finally {
             setIsSubmitting(false);
         }

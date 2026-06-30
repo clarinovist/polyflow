@@ -101,11 +101,11 @@ export function ShiftDialog({
                 form.reset();
                 if (onSuccess) onSuccess();
             } else {
-                toast.error(result.error || 'Something went wrong');
+                toast.error(result.error || 'Gagal menyimpan shift');
             }
         } catch (error) {
             console.error(error);
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error("Gagal menyimpan shift. Silakan coba lagi.")
         } finally {
             setLoading(false);
         }
