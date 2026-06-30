@@ -22,7 +22,7 @@ export function AcknowledgeHandoverButton({ movementId }: { movementId: string }
             }
         } catch (error) {
             console.error(error);
-            toast.error('Terjadi kesalahan');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }

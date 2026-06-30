@@ -128,7 +128,7 @@ export function BulkTransferDialog({ open, onOpenChange, items, userId }: BulkTr
                 toast.success(`Berhasil mentransfer ${validItems.length} item`);
                 onOpenChange(false);
             } else {
-                toast.error(`Terjadi kesalahan: ${result.error}`);
+                toast.error(`Gagal: ${result.error}`);
             }
         } catch (_error) {
             toast.error('Gagal menjalankan transfer massal');

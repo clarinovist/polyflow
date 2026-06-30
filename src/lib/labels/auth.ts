@@ -31,8 +31,8 @@ export const workspaceDiscoveryLabels = {
 
 /** Error boundary labels */
 export const errorBoundaryLabels = {
-  title: 'Terjadi kesalahan',
-  description: 'Terjadi kesalahan tak terduga di bagian aplikasi ini.',
+  title: 'Gagal memproses',
+  description: 'Silakan coba lagi atau hubungi admin.',
   reloadPage: 'Muat Ulang Halaman',
 } as const;
 

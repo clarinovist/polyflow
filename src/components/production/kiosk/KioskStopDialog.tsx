@@ -95,7 +95,7 @@ export function KioskStopDialog({
                 toast.error(result.error || "Gagal menyelesaikan SPK");
             }
         } catch {
-            toast.error("Terjadi kesalahan");
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }

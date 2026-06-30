@@ -139,7 +139,7 @@ export function OpnameDetailClient({ session, currentUserId, basePath = '/wareho
                 toast.success("Sesi berhasil diselesaikan dan inventaris diperbarui");
                 router.refresh();
             } else {
-                toast.error(`Terjadi kesalahan: ${result.error}`);
+                toast.error(`Gagal: ${result.error}`);
             }
         } catch {
             toast.error('Gagal menyelesaikan sesi');

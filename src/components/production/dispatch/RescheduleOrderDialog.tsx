@@ -54,7 +54,7 @@ export function RescheduleOrderDialog({
             }
         } catch (err) {
             console.error(err);
-            toast.error('Terjadi kesalahan saat menjadwalkan ulang');
+            toast.error('Gagal menjadwalkan ulang. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }

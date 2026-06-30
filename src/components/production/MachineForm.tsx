@@ -62,7 +62,7 @@ export function MachineForm({ initialData, locations }: MachineFormProps) {
         } catch (err) {
             console.error('[MACHINE_FORM_SUBMIT_ERROR]', err);
             toast.error('Kegagalan tak terduga', {
-                description: 'Terjadi kesalahan tak terduga. Periksa koneksi Anda dan coba lagi.'
+                description: 'Gagal menyimpan. Periksa koneksi Anda dan coba lagi.'
             });
             setLoading(false);
         }

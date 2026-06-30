@@ -71,7 +71,7 @@ export function KioskLogOutputDialog({
                 toast.error(result.error || "Gagal mencatat hasil");
             }
         } catch (error) {
-            toast.error("Terjadi kesalahan tidak terduga");
+            toast.error('Gagal memproses. Silakan coba lagi.');
             console.error(error);
         } finally {
             setIsLoading(false);

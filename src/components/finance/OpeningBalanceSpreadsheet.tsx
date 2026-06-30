@@ -131,7 +131,7 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
             }
         } catch (error) {
             console.error(error);
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses BOM. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

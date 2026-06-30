@@ -40,7 +40,7 @@ export function DeleteButton({ id, onDelete, entityName = 'Item' }: DeleteButton
                 toast.error(result.error || `Gagal menghapus ${entityName}.`);
             }
         } catch {
-            toast.error('Terjadi kesalahan tak terduga. Silakan coba lagi.');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsDeleting(false);
         }

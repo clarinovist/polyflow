@@ -72,7 +72,7 @@ export function SharedPaymentTable({
           toast.error(result.error || "Gagal menghapus pembayaran");
         }
       } catch (_error) {
-        toast.error("Terjadi kesalahan tak terduga");
+        toast.error('Gagal memproses. Silakan coba lagi.');
       } finally {
         setIsDeleting(null);
       }

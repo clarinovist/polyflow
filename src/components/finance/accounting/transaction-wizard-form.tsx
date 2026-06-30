@@ -130,7 +130,7 @@ export default function TransactionWizardForm({
                 toast.error(result.error || 'Gagal mencatat transaksi');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tidak terduga.');
+            toast.error('Gagal memproses transaksi. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }

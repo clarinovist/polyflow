@@ -69,7 +69,7 @@ export function ProductionPlanningDialog({
                 setHasSimulated(true);
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan saat simulasi');
+            toast.error('Gagal menjalankan simulasi. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

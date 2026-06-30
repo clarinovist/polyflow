@@ -55,7 +55,7 @@ export function AssignJobButton({ machineId, machineCode, releasedOrders }: Assi
             }
         } catch (err) {
             console.error(err);
-            toast.error('Terjadi kesalahan');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }

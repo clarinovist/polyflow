@@ -70,7 +70,7 @@ export function AddIssueDialog({ orderId, disabled }: AddIssueDialogProps) {
             }
         } catch (error) {
             console.error(error);
-            toast.error('Terjadi kesalahan tidak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

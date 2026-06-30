@@ -128,7 +128,7 @@ export function LinkProductDialog({ supplierId, supplierName }: LinkProductDialo
                 toast.error(result.error || 'Gagal menautkan produk. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
+            toast.error('Gagal menghubungkan produk. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

@@ -82,7 +82,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                     toast.error(result.error || "Gagal memulai produksi");
                 }
             } catch {
-                toast.error("Terjadi kesalahan sistem");
+                toast.error('Gagal memproses. Silakan coba lagi.');
             } finally {
                 setIsLoading(false);
             }

@@ -63,7 +63,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
         try {
             const result = await createOpnameSession(locationId, remarks);
             if (!result.success) {
-                toast.error(`Terjadi kesalahan: ${result.error || 'Error tidak diketahui'}`);
+                toast.error(`Gagal membuat opname: ${result.error || 'Silakan coba lagi'}`);
                 return;
             }
             if (result.data) {
@@ -72,7 +72,7 @@ export function CreateOpnameDialog({ basePath = '/warehouse/inventory/opname' }:
                 router.push(`${basePath}/${result.data.id}`);
             }
         } catch {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses BOM. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

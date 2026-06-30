@@ -489,9 +489,9 @@ export function ProductionOrderForm({
       setIsSubmitting(false);
 
       if (!response.success) {
-        toast.error("Terjadi kesalahan", {
+        toast.error("Gagal membuat SPK", {
           description:
-            response.error || "Terjadi kesalahan yang tidak diketahui",
+            response.error || "Silakan periksa data dan coba lagi",
         });
         return;
       }

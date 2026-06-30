@@ -106,7 +106,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                 toast.error('Gagal menghitung ulang cost chain', { description: result.error });
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsRecalculating(false);
         }

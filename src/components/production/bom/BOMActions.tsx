@@ -44,7 +44,7 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                 toast.error('Gagal menghapus resep', { description: result.error });
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses BOM. Silakan coba lagi.');
         } finally {
             setIsDeleting(false);
             setShowDeleteDialog(false);
@@ -64,7 +64,7 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                 toast.error('Gagal menghitung ulang cost chain', { description: result.error });
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses BOM. Silakan coba lagi.');
         } finally {
             setIsRecalculating(false);
         }

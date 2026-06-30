@@ -74,7 +74,7 @@ export function PurchaseInvoiceTable({
       }
     } catch (error) {
       console.error(error);
-      toast.error("Terjadi kesalahan yang tidak terduga. Silakan coba lagi.");
+      toast.error("Gagal memproses invoice. Silakan coba lagi.");
     } finally {
       setIsDeleting(null);
     }

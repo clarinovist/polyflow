@@ -212,7 +212,7 @@ export function BOMForm({
                 toast.error(res.error || 'Gagal menyimpan BOM');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

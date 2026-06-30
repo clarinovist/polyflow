@@ -98,7 +98,7 @@ export function OpeningBalanceForm({ customers, suppliers }: OpeningBalanceFormP
                 toast.error(res.error || 'Gagal menyimpan');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses BOM. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }

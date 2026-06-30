@@ -36,7 +36,7 @@ export function VoidExecutionButton({ executionId, productionOrderId, orderNumbe
                 toast.error(result.error || 'Gagal membatalkan eksekusi');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

@@ -51,7 +51,7 @@ export function ReassignMachineDialog({
             }
         } catch (err) {
             console.error(err);
-            toast.error('Terjadi kesalahan saat memindahkan mesin');
+            toast.error('Gagal memindahkan mesin. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }

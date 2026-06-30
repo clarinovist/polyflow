@@ -59,7 +59,7 @@ export function OpeningBalanceHistory({ data }: OpeningBalanceHistoryProps) {
                 toast.error(res.error || 'Gagal menghapus');
             }
         } catch {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsDeleting(null);
         }

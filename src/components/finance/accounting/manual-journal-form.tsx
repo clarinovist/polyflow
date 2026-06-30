@@ -95,7 +95,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                 toast.error(result.error || 'Gagal membuat jurnal');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga. Periksa data Anda dan coba lagi.');
+            toast.error('Gagal membuat jurnal. Periksa koneksi Anda dan coba lagi.');
         } finally {
             setLoading(false);
         }

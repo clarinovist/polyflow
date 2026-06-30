@@ -141,7 +141,7 @@ export function BulkAdjustDialog({ open, onOpenChange, items, userId }: BulkAdju
                 toast.success(`Berhasil menyesuaikan stok ${validItems.length} item`);
                 onOpenChange(false);
             } else {
-                toast.error(`Terjadi kesalahan: ${result.error}`);
+                toast.error(`Gagal: ${result.error}`);
             }
         } catch (_error) {
             toast.error('Gagal menjalankan penyesuaian massal');

@@ -74,7 +74,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                 toast.error(result.error || 'Gagal membuat sub-order');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsCreating(null);
         }

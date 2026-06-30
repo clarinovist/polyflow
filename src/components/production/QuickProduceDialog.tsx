@@ -133,7 +133,7 @@ export function QuickProduceDialog({
         toast.error(result.error || "Gagal membuat order");
       }
     } catch {
-      toast.error("Terjadi kesalahan. Coba lagi.");
+      toast.error('Gagal menyimpan. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }

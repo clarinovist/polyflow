@@ -97,7 +97,7 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
         } catch (err) {
             console.error('[EMPLOYEE_FORM_SUBMIT_ERROR]', err);
             toast.error('Kegagalan tak terduga', {
-                description: 'Terjadi kesalahan tak terduga. Silakan coba lagi nanti.'
+                description: 'Gagal menyimpan. Silakan coba lagi.'
             });
             setLoading(false);
         }

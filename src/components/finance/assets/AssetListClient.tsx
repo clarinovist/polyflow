@@ -152,7 +152,7 @@ export function AssetListClient({
         );
       }
     } catch {
-      toast.error("Terjadi kesalahan");
+      toast.error('Gagal memproses. Silakan coba lagi.');
     } finally {
       setRunningDepr(false);
     }

@@ -149,7 +149,7 @@ export function JournalListClient() {
       }
     } catch (error) {
       console.error("Batch post error", error);
-      toast.error("Terjadi kesalahan tak terduga");
+      toast.error('Gagal memproses. Silakan coba lagi.');
     } finally {
       setBatchLoading(false);
     }

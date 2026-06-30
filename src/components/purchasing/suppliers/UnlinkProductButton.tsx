@@ -25,7 +25,7 @@ export function UnlinkProductButton({ id }: UnlinkProductButtonProps) {
                 toast.error(result.error || 'Gagal melepas tautan produk. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan. Silakan coba lagi.');
+            toast.error('Gagal memproses. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

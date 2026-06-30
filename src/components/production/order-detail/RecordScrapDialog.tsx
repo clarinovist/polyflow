@@ -37,7 +37,7 @@ export function RecordScrapDialog({ order, locations }: { order: ExtendedProduct
                 toast.error(result.error || 'Gagal mencatat scrap');
             }
         } catch (error) {
-            toast.error('Terjadi kesalahan tak terduga');
+            toast.error('Gagal memproses. Silakan coba lagi.');
             console.error(error);
         } finally {
             setIsPending(false);

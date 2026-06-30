@@ -157,7 +157,7 @@ export function BatchIssueMaterialDialog({
                 toast.error(res.error || 'Gagal menyesuaikan stok');
             }
         } catch (_e) {
-            toast.error('Terjadi kesalahan saat menyesuaikan stok');
+            toast.error('Gagal menyesuaikan stok. Silakan coba lagi.');
         }
     };
 
@@ -319,8 +319,8 @@ export function BatchIssueMaterialDialog({
                     toast.error(result.error || 'Gagal memperbarui material');
                 }
             }
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Terjadi kesalahan tak terduga');
+        } catch {
+            toast.error('Gagal menyesuaikan stok. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
