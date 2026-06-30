@@ -1,3 +1,4 @@
+import { auth } from '@/auth';
 import { PackingReportService } from '@/services/production/packing-report-service';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +21,12 @@ interface PageProps {
 
 export default async function PackingMonthlyReportPage({ searchParams }: PageProps) {
     const params = await searchParams;
-    
+    const session = await auth();
+    const userRole = (session?.user as { role?: string })?.role || 'PRODUCTION';
+
+    // Only ADMIN and PLANNING can see cost/HPP data
+    const showCostData = userRole === 'ADMIN' || userRole === 'PLANNING';
+
     // Default to current month (YYYY-MM) in local time
     const today = new Date();
     const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -49,7 +55,7 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Laporan Produksi Packing</h1>
                     <p className="text-muted-foreground text-sm">
-                        Laporan total hasil produksi barang jadi dan HPP dari Packing Area untuk periode {monthName}.
+                        Laporan total hasil produksi barang jadi{showCostData ? ' dan HPP ' : ' '}dari Packing Area untuk periode {monthName}.
                     </p>
                 </div>
                 <div className="flex items-center gap-3 self-end md:self-auto">
@@ -62,7 +68,7 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className={showCostData ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4" : "grid grid-cols-1 sm:grid-cols-3 gap-4"}>
                 <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
                     <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -77,33 +83,37 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                     </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Avg HPP / Unit</p>
-                                <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(averageHpp)}</h3>
+                {showCostData && (
+                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Avg HPP / Unit</p>
+                                    <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(averageHpp)}</h3>
+                                </div>
+                                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl">
+                                    <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                </div>
                             </div>
-                            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl">
-                                <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
 
-                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Total Nilai Produksi</p>
-                                <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(totalCost)}</h3>
+                {showCostData && (
+                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Total Nilai Produksi</p>
+                                    <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(totalCost)}</h3>
+                                </div>
+                                <div className="p-3 bg-violet-50 dark:bg-violet-950/30 rounded-xl">
+                                    <DollarSign className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                                </div>
                             </div>
-                            <div className="p-3 bg-violet-50 dark:bg-violet-950/30 rounded-xl">
-                                <DollarSign className="h-6 w-6 text-violet-600 dark:text-violet-400" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
                     <CardContent className="pt-6">
@@ -119,19 +129,21 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                     </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Biaya Karung</p>
-                                <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(totalKarungCost)}</h3>
+                {showCostData && (
+                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/75">Biaya Karung</p>
+                                    <h3 className="text-2xl font-bold text-foreground mt-1">{formatRupiah(totalKarungCost)}</h3>
+                                </div>
+                                <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-xl">
+                                    <DollarSign className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                                </div>
                             </div>
-                            <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-xl">
-                                <DollarSign className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
 
                 <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
                     <CardContent className="pt-6">
@@ -153,7 +165,7 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle className="text-lg font-bold">Rincian Hasil Packing</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">Akumulasi hasil produksi, karung terpakai, dan HPP per varian barang jadi.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Akumulasi hasil produksi{showCostData ? ', karung terpakai, dan HPP' : ' dan karung terpakai'} per varian barang jadi.</p>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -166,15 +178,21 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                                     <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Total Qty</TableHead>
                                     <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Jumlah SPK</TableHead>
                                     <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Karung</TableHead>
-                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Biaya Karung</TableHead>
-                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Rata-rata HPP</TableHead>
-                                    <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Total Biaya</TableHead>
+                                    {showCostData && (
+                                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Biaya Karung</TableHead>
+                                    )}
+                                    {showCostData && (
+                                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Rata-rata HPP</TableHead>
+                                    )}
+                                    {showCostData && (
+                                        <TableHead className="text-right font-semibold text-zinc-700 dark:text-zinc-300">Total Biaya</TableHead>
+                                    )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center py-12 text-muted-foreground italic">
+                                        <TableCell colSpan={showCostData ? 8 : 5} className="text-center py-12 text-muted-foreground italic">
                                             Tidak ada data hasil produksi packing pada periode {monthName}.
                                         </TableCell>
                                     </TableRow>
@@ -197,17 +215,23 @@ export default async function PackingMonthlyReportPage({ searchParams }: PagePro
                                             <TableCell className="text-right text-sm text-foreground">
                                                 {item.karungConsumed.toLocaleString('id-ID')}
                                             </TableCell>
-                                            <TableCell className="text-right text-sm text-foreground">
-                                                {formatRupiah(item.karungCost)}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant="outline" className="border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
-                                                    {formatRupiah(item.averageHpp)}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-bold text-sm text-foreground">
-                                                {formatRupiah(item.totalCost)}
-                                            </TableCell>
+                                            {showCostData && (
+                                                <TableCell className="text-right text-sm text-foreground">
+                                                    {formatRupiah(item.karungCost)}
+                                                </TableCell>
+                                            )}
+                                            {showCostData && (
+                                                <TableCell className="text-right">
+                                                    <Badge variant="outline" className="border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
+                                                        {formatRupiah(item.averageHpp)}
+                                                    </Badge>
+                                                </TableCell>
+                                            )}
+                                            {showCostData && (
+                                                <TableCell className="text-right font-bold text-sm text-foreground">
+                                                    {formatRupiah(item.totalCost)}
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     ))
                                 )}
