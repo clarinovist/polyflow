@@ -1,3 +1,5 @@
+import { calculatePpn, type PpnMode } from '@/lib/utils/ppn';
+
 export type OrderTotals = {
   gross: number;
   discount: number;
@@ -10,11 +12,13 @@ type OrderLineItem = {
   unitPrice?: number;
   discountPercent?: number;
   taxPercent?: number;
+  ppnMode?: 'INCLUDE' | 'EXCLUDE';
 };
 
 /**
  * Computes order totals from line items.
  * Shared by SalesOrderForm, SalesQuotationForm, PurchaseOrderForm, etc.
+ * Supports both INCLUDE and EXCLUDE PPN modes.
  */
 export function computeOrderTotals(items: OrderLineItem[]): OrderTotals {
   return items.reduce(
@@ -24,12 +28,15 @@ export function computeOrderTotals(items: OrderLineItem[]): OrderTotals {
       const subtotal = qty * price;
       const discount = subtotal * ((item.discountPercent || 0) / 100);
       const taxable = subtotal - discount;
-      const tax = taxable * ((item.taxPercent || 0) / 100);
+      
+      // Use calculatePpn based on ppnMode
+      const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+      const ppnResult = calculatePpn(taxable, item.taxPercent || 0, ppnMode);
 
       acc.gross += subtotal;
       acc.discount += discount;
-      acc.tax += tax;
-      acc.net += taxable + tax;
+      acc.tax += ppnResult.taxAmount;
+      acc.net += ppnResult.total;
       return acc;
     },
     { gross: 0, discount: 0, tax: 0, net: 0 },

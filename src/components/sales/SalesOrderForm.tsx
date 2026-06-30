@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn, formatRupiah } from "@/lib/utils/utils";
+import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
 import { CalendarIcon, Plus, Trash2, Loader2, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -152,6 +154,7 @@ export function SalesOrderForm({
       discountPercent?: number;
       taxPercent?: number;
       dppOtherAmount?: number | null;
+      ppnMode?: 'INCLUDE' | 'EXCLUDE';
     }[];
     customItems?: {
       tempId: string;
@@ -186,6 +189,7 @@ export function SalesOrderForm({
               unitPrice: item.unitPrice,
               discountPercent: item.discountPercent,
               taxPercent: item.taxPercent,
+              ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
             })),
           }
         : {
@@ -202,6 +206,7 @@ export function SalesOrderForm({
                 discountPercent: 0,
                 taxPercent: 0,
                 dppOtherAmount: null,
+                ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
               },
             ],
             orderType: "MAKE_TO_STOCK" as SalesOrderType,
@@ -814,6 +819,7 @@ export function SalesOrderForm({
                     discountPercent: 0,
                     taxPercent: 0,
                     dppOtherAmount: null,
+                    ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
                   });
                 }
               }
@@ -1078,9 +1084,13 @@ export function SalesOrderForm({
                                     Rp
                                   </span>
                                   <Input
-                                    type="number"
-                                    step="100"
-                                    {...field}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={formatIndonesianPrice(field.value ?? 0)}
+                                    onChange={(e) => {
+                                      const num = parseIndonesianPrice(e.target.value);
+                                      field.onChange(num);
+                                    }}
                                     className="h-8 pl-8 text-right font-mono text-sm"
                                   />
                                 </div>
@@ -1149,6 +1159,41 @@ export function SalesOrderForm({
                         Kena Pajak
                       </label>
                     </div>
+
+                    {/* PPN Mode — only when Kena Pajak checked */}
+                    {(taxableItems[index] ?? false) && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground w-28">Mode PPN</span>
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.ppnMode`}
+                          render={({ field }) => (
+                            <FormItem className="space-y-0 flex-1">
+                              <FormControl>
+                                <RadioGroup
+                                  value={field.value || 'EXCLUDE'}
+                                  onValueChange={field.onChange}
+                                  className="flex gap-4"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <RadioGroupItem value="EXCLUDE" id={`ppn-exclude-so-${index}`} />
+                                    <Label htmlFor={`ppn-exclude-so-${index}`} className="text-xs cursor-pointer">
+                                      Exclude (harga + pajak)
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <RadioGroupItem value="INCLUDE" id={`ppn-include-so-${index}`} />
+                                    <Label htmlFor={`ppn-include-so-${index}`} className="text-xs cursor-pointer">
+                                      Include (harga termasuk)
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
 
                     {/* Pajak & DPP — only when Kena Pajak checked */}
                     {(taxableItems[index] ?? false) && (
