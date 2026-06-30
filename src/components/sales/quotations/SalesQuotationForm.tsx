@@ -194,7 +194,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                 toast.error(result.error || "Gagal menyimpan quotation. Silakan coba lagi.");
             }
         } catch (_error) {
-            toast.error("Terjadi kesalahan yang tidak terduga. Silakan coba lagi.");
+            toast.error("Gagal menyimpan penawaran. Silakan coba lagi.");
         } finally {
             setIsSubmitting(false);
         }

@@ -39,7 +39,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 toast.error(result.error || 'Gagal memperbarui status. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
+            toast.error('Gagal memproses surat jalan. Silakan coba lagi.');
         } finally {
             setIsLoading(false);
         }

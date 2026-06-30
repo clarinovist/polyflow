@@ -504,7 +504,7 @@ export function ProductionOrderForm({
       }
     } catch {
       setIsSubmitting(false);
-      toast.error("Terjadi kesalahan", {});
+      toast.error("Gagal membuat SPK. Silakan coba lagi.");
     }
   }
 

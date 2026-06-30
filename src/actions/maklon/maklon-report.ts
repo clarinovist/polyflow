@@ -16,10 +16,10 @@ export const getMaklonReport = withTenant(async function getMaklonReport(filters
             customerId: filters?.customerId || undefined,
         });
         return { success: true, data: serializeData(report) };
-    } catch (error) {
+    } catch {
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: 'Gagal memuat laporan Maklon',
         };
     }
 });
@@ -28,10 +28,10 @@ export const getMaklonCustomers = withTenant(async function getMaklonCustomers()
     try {
         const customers = await MaklonReportService.getCustomers();
         return { success: true, data: customers };
-    } catch (error) {
+    } catch {
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: 'Gagal memuat laporan Maklon',
         };
     }
 });

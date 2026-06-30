@@ -30,8 +30,8 @@ export async function createMaklonReceiptAction(data: {
         revalidatePath('/dashboard/maklon/receipts');
         revalidatePath('/dashboard/inventory');
         return { success: true, data: receipt };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses penerimaan Maklon' };
     }
 }
 

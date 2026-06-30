@@ -98,7 +98,7 @@ export function SalesOrderDetailClient({
         );
       }
     } catch {
-      toast.error("Terjadi kesalahan. Silakan coba lagi.");
+      toast.error("Gagal memproses pesanan. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +135,7 @@ export function SalesOrderDetailClient({
         );
       }
     } catch (_error) {
-      toast.error("Terjadi kesalahan. Silakan coba lagi.");
+      toast.error("Gagal memproses pesanan. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }

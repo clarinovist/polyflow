@@ -23,7 +23,7 @@ function EditTenantDialog({ tenant, onUpdated }: { tenant: Tenant, onUpdated: ()
         const result = await updateTenant(tenant.id, formData);
 
         if (!result.success) {
-            toast.error(result.error || 'Terjadi kesalahan tidak diketahui');
+            toast.error(result.error || 'Gagal memproses. Silakan coba lagi.');
         } else {
             toast.success(`${name} berhasil diperbarui.`);
             setIsOpen(false);
@@ -94,7 +94,7 @@ function ResetPasswordDialog({ tenant }: { tenant: Tenant }) {
         const result = await resetTenantAdminPassword(tenant.id, formData);
 
         if (!result.success) {
-            toast.error(result.error || 'Terjadi kesalahan tidak diketahui');
+            toast.error(result.error || 'Gagal memproses. Silakan coba lagi.');
         } else {
             toast.success(`Password admin untuk ${tenant.name} berhasil direset.`);
             setIsOpen(false);
@@ -154,7 +154,7 @@ export function SuperAdminClient({ initialTenants }: { initialTenants: Tenant[] 
             loading: `Provisioning ${name}... Please wait, this takes about 30 seconds...`,
             success: (result) => {
                 if (!result.success) {
-                    throw new Error(result.error || 'Unknown error');
+                    throw new Error(result.error || 'Gagal menjalankan perintah');
                 }
                 setIsOpen(false);
                 // In a real app we'd revalidate path to fetch the new tenant from DB

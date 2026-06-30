@@ -16,8 +16,8 @@ export const addMaklonCostAction = withTenant(async function addMaklonCostAction
         
         revalidatePath(`/production/orders/${data.productionOrderId}`);
         return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses biaya Maklon' };
     }
 });
 
@@ -28,7 +28,7 @@ export const removeMaklonCostAction = withTenant(async function removeMaklonCost
 
         revalidatePath(`/production/orders/${productionOrderId}`)
         return { success: true };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses biaya Maklon' };
     }
 });

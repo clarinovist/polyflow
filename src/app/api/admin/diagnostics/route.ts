@@ -74,10 +74,10 @@ export async function GET() {
             environment: envCompleteness
         }, { status: 200 });
         
-    } catch (error) {
+    } catch {
         return NextResponse.json({
             status: 'ERROR',
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Gagal menjalankan diagnostics'
         }, { status: 500 });
     }
 }

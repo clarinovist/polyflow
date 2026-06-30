@@ -56,7 +56,7 @@ export function AssistantInterface() {
             if (response.success && response.data) {
                 setResult({ sql: response.data.sql, data: Array.isArray(response.data.data) ? response.data.data : [response.data.data] });
             } else {
-                setResult({ error: !response.success ? response.error : 'Unknown error' });
+                setResult({ error: !response.success ? response.error : 'Gagal memproses permintaan' });
             }
 
             if (response.success) {

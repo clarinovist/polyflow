@@ -50,8 +50,8 @@ async function exportSalesAnalytics(dateRange: DateRange) {
 
             const buf = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
             return buf;
-        } catch (error: unknown) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : "Unknown error");
+        } catch {
+            throw new BusinessRuleError("Gagal menghitung analytics. Silakan coba lagi.");
         }
     });
 }
@@ -98,8 +98,8 @@ async function exportProductionAnalytics(dateRange: DateRange) {
 
             const buf = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
             return buf;
-        } catch (error: unknown) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : "Unknown error");
+        } catch {
+            throw new BusinessRuleError("Gagal menghitung analytics. Silakan coba lagi.");
         }
     });
 }

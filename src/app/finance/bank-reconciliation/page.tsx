@@ -226,7 +226,7 @@ export default function BankReconciliationPage() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Terjadi kesalahan");
+      toast.error("Gagal memproses rekonsiliasi. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -258,7 +258,7 @@ export default function BankReconciliationPage() {
         );
       }
     } catch {
-      toast.error("Terjadi kesalahan");
+      toast.error("Gagal memproses rekonsiliasi. Silakan coba lagi.");
     } finally {
       setConfirming(false);
     }

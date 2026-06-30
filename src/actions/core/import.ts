@@ -184,7 +184,7 @@ async function importProducts(products: ImportProduct[]) {
             };
         } catch (error) {
             logger.error('Failed to import products', { error, module: 'ImportActions' });
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'An unknown error occurred');
+            throw new BusinessRuleError('Gagal mengimpor data');
         }
     });
 }

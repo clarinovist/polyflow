@@ -134,7 +134,7 @@ export function QuickProductDialog({
         toast.error(result.error || "Gagal membuat produk");
       }
     } catch {
-      toast.error("Terjadi kesalahan. Silakan coba lagi.");
+      toast.error("Gagal menyimpan produk. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }

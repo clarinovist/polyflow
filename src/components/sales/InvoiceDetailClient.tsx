@@ -114,7 +114,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                 toast.error(result.error || 'Gagal memperbarui invoice. Silakan coba lagi.');
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
+            toast.error('Gagal memproses invoice. Silakan coba lagi.');
         } finally {
             setIsUpdating(false);
         }
@@ -155,7 +155,7 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                         toast.error(result.error || 'Gagal mengonfirmasi invoice. Silakan coba lagi.');
                                     }
                                 } catch (_error) {
-                                    toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
+                                    toast.error('Gagal memproses invoice. Silakan coba lagi.');
                                 } finally {
                                     setIsUpdating(false);
                                 }

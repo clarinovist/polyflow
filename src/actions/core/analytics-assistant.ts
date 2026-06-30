@@ -165,7 +165,7 @@ export const generateAndRunQuery = withTenant(
           module: "AnalyticsAssistant",
         });
         throw new BusinessRuleError(
-          error instanceof Error ? error.message : "Unknown error",
+          "Gagal memproses permintaan analytics",
         );
       }
     });

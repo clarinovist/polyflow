@@ -30,8 +30,8 @@ export async function createMaklonReturnAction(data: {
         revalidatePath('/dashboard/maklon/returns');
         revalidatePath('/dashboard/inventory');
         return { success: true, data: serializeData(ret) };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses retur Maklon' };
     }
 }
 
@@ -47,8 +47,8 @@ export async function getMaklonReturnsAction(params?: {
         
         const returns = await MaklonReturnService.getReturns(params);
         return { success: true, data: serializeData(returns) };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses retur Maklon' };
     }
 }
 
@@ -60,7 +60,7 @@ export async function getMaklonReturnByIdAction(id: string) {
         const ret = await MaklonReturnService.getReturnById(id);
         if (!ret) throw new Error('Return not found');
         return { success: true, data: serializeData(ret) };
-    } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } catch {
+        return { success: false, error: 'Gagal memproses retur Maklon' };
     }
 }

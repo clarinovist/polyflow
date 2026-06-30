@@ -33,7 +33,7 @@ export default function SystemHealthPage() {
             setDiagnostics(data);
             setError(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
+            setError(err instanceof Error ? 'Gagal memuat data sistem' : 'Gagal memuat data sistem');
         } finally {
             setLoading(false);
         }

@@ -106,7 +106,7 @@ export function CreateDeliveryOrderDialog() {
       resetForm();
       router.refresh();
     } catch {
-      toast.error('Terjadi kesalahan tak terduga');
+      toast.error('Gagal membuat surat jalan. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
     }

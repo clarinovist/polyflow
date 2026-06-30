@@ -60,7 +60,7 @@ export function ShipmentDialog({ orderId, orderNumber, isMaklon = false, isOpen,
                 toast.error(result.error || (isMaklon ? 'Gagal menutup order jasa. Silakan coba lagi.' : 'Gagal mengirim pesanan. Silakan coba lagi.'));
             }
         } catch (_error) {
-            toast.error('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.');
+            toast.error('Gagal mengirim pesanan. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }

@@ -30,8 +30,8 @@ async function createAccount(data: { code: string; name: string; type: AccountTy
             const account = await AccountingService.createAccount(data);
             revalidatePath('/finance/coa');
             return serializeData(account);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -45,8 +45,8 @@ async function updateAccount(id: string, data: { code?: string; name?: string; t
             const account = await AccountingService.updateAccount(id, data);
             revalidatePath('/finance/coa');
             return serializeData(account);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -59,8 +59,8 @@ async function deleteAccount(id: string) {
         try {
             await AccountingService.deleteAccount(id);
             revalidatePath('/finance/coa');
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -79,8 +79,8 @@ async function createManualJournalEntry(data: CreateJournalEntryInput) {
 
             revalidatePath('/finance/journals');
             return serializeData(entry);
-        } catch (error) {
-            logger.error('Failed to create manual journal entry', { error, module: 'AccountingActions' });
+        } catch {
+            logger.error('Failed to create manual journal entry', { module: 'AccountingActions' });
             throw new BusinessRuleError('Failed to create journal entry. Please check input data.');
         }
     });
@@ -174,8 +174,8 @@ async function createFiscalPeriod(year: number, month: number) {
             const period = await AccountingService.createFiscalPeriod(year, month);
             revalidatePath('/finance/periods');
             return serializeData(period);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -190,8 +190,8 @@ async function closeFiscalPeriod(id: string) {
             revalidatePath('/finance/periods');
             revalidatePath('/finance/journals');
             return serializeData(period);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -205,8 +205,8 @@ async function createYearEndClosingEntry(year: number) {
             await AccountingService.createYearEndClosingEntry(year, session.user.id);
             revalidatePath('/finance/journals');
             revalidatePath('/finance/coa');
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -240,8 +240,8 @@ async function createFixedAsset(data: {
             const asset = await FixedAssetService.createAsset(data);
             revalidatePath('/finance/assets');
             return serializeData(asset);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -256,8 +256,8 @@ async function runDepreciation(year: number, month: number) {
             revalidatePath('/finance/assets');
             revalidatePath('/finance/journals');
             return { count: results.length };
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
@@ -281,8 +281,8 @@ async function setBudget(data: { accountId: string, year: number, month: number,
             const budget = await BudgetService.setBudget(data);
             revalidatePath('/finance/budget');
             return serializeData(budget);
-        } catch (error) {
-            throw new BusinessRuleError(error instanceof Error ? error.message : 'Unknown error');
+        } catch {
+            throw new BusinessRuleError('Gagal memproses transaksi akuntansi');
         }
     });
 }
