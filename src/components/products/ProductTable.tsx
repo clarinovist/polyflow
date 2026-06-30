@@ -7,7 +7,7 @@ import { ProductType, Unit, Prisma } from '@prisma/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Info, Package } from 'lucide-react';
+import { Edit, Trash2, Info, Package, Search } from 'lucide-react';
 import { formatRupiah } from '@/lib/utils/utils';
 import { deleteVariant } from '@/actions/product';
 import { toast } from 'sonner';
@@ -81,6 +81,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [variantToDelete, setVariantToDelete] = useState<ProductVariant | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
 
     // Flatten products into variants
@@ -94,6 +95,17 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
             }))
         ) as ProductVariant[];
     }, [products]);
+
+    // Filter variants by search query
+    const filteredVariants = useMemo(() => {
+        if (!searchQuery.trim()) return flattenedVariants;
+        const q = searchQuery.toLowerCase();
+        return flattenedVariants.filter(v =>
+            v.productName.toLowerCase().includes(q) ||
+            v.name.toLowerCase().includes(q) ||
+            v.skuCode.toLowerCase().includes(q)
+        );
+    }, [flattenedVariants, searchQuery]);
 
     const handleDeleteClick = (variant: ProductVariant) => {
         setVariantToDelete(variant);
@@ -135,6 +147,35 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
 
     return (
         <TooltipProvider>
+            {/* Search Bar */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                        type="text"
+                        placeholder="Cari nama produk, varian, atau SKU..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-muted/30 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-colors placeholder:text-muted-foreground/60"
+                    />
+                </div>
+                {searchQuery && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {filteredVariants.length} dari {flattenedVariants.length} item
+                    </span>
+                )}
+            </div>
+
+            {/* No search results */}
+            {filteredVariants.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                    <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/30" />
+                    <p className="text-sm font-medium">Tidak ada hasil untuk &quot;{searchQuery}&quot;</p>
+                    <p className="text-xs mt-1">Coba kata kunci lain</p>
+                </div>
+            )}
+
+            {filteredVariants.length > 0 && (
             <div className="overflow-x-auto">
                 <ResponsiveTable minWidth={1000}>
                     <Table>
@@ -199,7 +240,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {flattenedVariants.map((variant) => (
+                            {filteredVariants.map((variant) => (
                                 <TableRow key={variant.id} className="group border-white/5 hover:bg-primary/[0.02] transition-colors">
                                     <TableCell className="pl-6 py-4">
                                         <div className="flex flex-col">
@@ -325,6 +366,7 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                     </Table>
                 </ResponsiveTable>
             </div>
+            )}
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
