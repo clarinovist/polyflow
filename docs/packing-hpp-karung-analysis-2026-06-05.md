@@ -158,14 +158,14 @@ Implikasi: output stock movement untuk batch saat ini bisa belum memasukkan kons
 Halaman yang ada:
 
 - `/production/history` hanya menampilkan 30 execution terakhir, belum filter bulan/lokasi/kategori.
-- `/production/costing` dan `/finance/costing` lebih fokus cost, belum laporan total produksi packing bulanan.
+- `/production/costing` lebih fokus cost, belum laporan total produksi packing bulanan.
 - `CostReportingService.getFinishedGoodsCosting()` belum filter khusus `Bom.category = PACKING` dan `Location.slug = packing_area`.
 
 File terkait:
 
 - `src/app/production/history/page.tsx`
 - `src/app/production/costing/page.tsx`
-- `src/app/finance/costing/components/CostingDashboardClient.tsx`
+- `src/app/production/costing/components/CostingDashboardClient.tsx`
 - `src/services/finance/cost-reporting-service.ts`
 
 ### 3.7 `actualEndDate` tidak selalu otomatis terisi

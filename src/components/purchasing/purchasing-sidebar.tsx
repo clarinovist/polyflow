@@ -23,7 +23,7 @@ interface PurchasingSidebarProps {
 
 const purchasingLinks = [
   {
-    heading: "Overview",
+    heading: "Ringkasan",
     items: [
       {
         href: "/purchasing",
@@ -33,7 +33,7 @@ const purchasingLinks = [
     ],
   },
   {
-    heading: "Transactions",
+    heading: "Transaksi",
     items: [
       {
         href: "/purchasing/requests",
@@ -53,7 +53,7 @@ const purchasingLinks = [
     ],
   },
   {
-    heading: "Master Data",
+    heading: "Data Master",
     items: [
       {
         href: "/purchasing/suppliers",
@@ -63,7 +63,7 @@ const purchasingLinks = [
     ],
   },
   {
-    heading: "Analytics",
+    heading: "Analitik",
     items: [
       {
         href: "/purchasing/analytics",

@@ -29,7 +29,7 @@ interface ProductionSidebarProps {
 
 const productionLinks = [
   {
-    heading: "Overview",
+    heading: "Ringkasan",
     items: [
       {
         href: "/production",
@@ -40,7 +40,7 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Production Planning",
+    heading: "Perencanaan Produksi",
     items: [
       {
         href: "/production/orders",
@@ -65,7 +65,7 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Floor Management",
+    heading: "Manajemen Lantai",
     items: [
       {
         href: "/production/daily",
@@ -80,7 +80,7 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Resources & Stock",
+    heading: "Sumber Daya & Stok",
     items: [
       {
         href: "/production/inventory",
@@ -110,7 +110,7 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Analytics & Tools",
+    heading: "Analitik & Tools",
     items: [
       {
         href: "/production/analytics",

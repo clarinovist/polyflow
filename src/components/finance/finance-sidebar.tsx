@@ -11,6 +11,7 @@ import {
   Building2,
   History as HistoryIcon,
   Zap,
+  Calculator,
   TrendingUp,
   Wallet,
   Landmark,
@@ -118,7 +119,7 @@ const financeLinks = [
       },
       {
         href: "/finance/foh-allocation",
-        icon: TrendingUp,
+        icon: Calculator,
         label: financeSidebarLabels.fohAllocation,
       },
     ],

@@ -24,13 +24,13 @@ interface SalesSidebarProps {
 
 const salesLinks = [
     {
-        heading: 'Overview',
+        heading: 'Ringkasan',
         items: [
             { href: '/sales', icon: LayoutDashboard, label: salesSidebarLabels.salesDashboard },
         ],
     },
     {
-        heading: 'Transactions',
+        heading: 'Transaksi',
         items: [
             { href: '/sales/quotations', icon: FileText, label: salesSidebarLabels.quotations },
             { href: '/sales/orders', icon: ShoppingCart, label: salesSidebarLabels.salesOrders },
@@ -41,7 +41,7 @@ const salesLinks = [
         ],
     },
     {
-        heading: 'Customers',
+        heading: 'Pelanggan',
         items: [
             { href: '/sales/customers', icon: Users2, label: salesSidebarLabels.customerManagement },
         ],
