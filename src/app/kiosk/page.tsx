@@ -4,7 +4,7 @@ import { serializeData } from "@/lib/utils/utils";
 import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search } from "lucide-react";
-import KioskRefreshWrapper, { Order } from "./KioskRefreshWrapper";
+import KioskRefreshWrapper, { Order } from './KioskRefreshWrapper';
 import { kioskLabels } from "@/lib/labels";
 import { refreshKioskData } from "@/actions/app/refresh-actions";
 
@@ -36,15 +36,33 @@ const getData = withTenantPage(async function getData() {
         ]
     });
 
-    // Fetch employees
+    // Fetch employees with their machine assignments
     const employees = await prisma.employee.findMany({
         where: { status: 'ACTIVE' },
-        select: { id: true, name: true }
+        select: { 
+            id: true, 
+            name: true,
+            machineAssignments: {
+                select: {
+                    machineId: true,
+                    isPrimary: true,
+                }
+            }
+        }
     });
 
-    // Fetch machines
+    // Fetch machines with their assigned operators
     const machines = await prisma.machine.findMany({
-        select: { id: true, name: true }
+        select: { 
+            id: true, 
+            name: true,
+            operators: {
+                select: {
+                    employeeId: true,
+                    isPrimary: true,
+                }
+            }
+        }
     });
 
     // Fetch movements for logs
@@ -114,8 +132,16 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
 
             <KioskRefreshWrapper
                 initialOrders={serializedOrders}
-                employees={employees.map(e => ({ id: e.id, name: e.name }))}
-                machines={machines.map(m => ({ id: m.id, name: m.name }))}
+                employees={employees.map(e => ({ 
+                    id: e.id, 
+                    name: e.name,
+                    machineIds: e.machineAssignments.map(a => a.machineId)
+                }))}
+                machines={machines.map(m => ({ 
+                    id: m.id, 
+                    name: m.name,
+                    operatorIds: m.operators.map(o => o.employeeId)
+                }))}
             />
         </div>
     );

@@ -42,11 +42,13 @@ export interface Order {
 export interface Employee {
     id: string;
     name: string;
+    machineIds?: string[];
 }
 
 export interface Machine {
     id: string;
     name: string;
+    operatorIds?: string[];
 }
 
 export default function KioskRefreshWrapper({ initialOrders, employees, machines }: { initialOrders: Order[], employees: Employee[], machines: Machine[] }) {
@@ -62,7 +64,6 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
     // Hydrate operator from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('kiosk_operator_id');
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (saved) setSelectedOperatorId(saved);
         setIsInitialized(true);
     }, []);
@@ -75,6 +76,23 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
             localStorage.removeItem('kiosk_operator_id');
         }
     }, [selectedOperatorId, isInitialized]);
+
+    // Auto-set machine filter based on operator assignment
+    // Use useMemo to compute the default machine ID
+    const defaultMachineId = selectedOperatorId 
+        ? (() => {
+            const operator = employees.find(e => e.id === selectedOperatorId);
+            if (operator?.machineIds && operator.machineIds.length === 1) {
+                return operator.machineIds[0];
+            }
+            return "ALL";
+        })()
+        : "ALL";
+
+    // Sync the computed default to state
+    useEffect(() => {
+        setSelectedMachineId(defaultMachineId);
+    }, [defaultMachineId]);
 
     // Barcode Listener
     useBarcodeScanner((code) => {
@@ -114,6 +132,37 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
 
     const hasFilter = searchParams.has('q');
 
+    // Get operator's assigned machine IDs
+    const operatorMachineIds = selectedOperatorId 
+        ? employees.find(e => e.id === selectedOperatorId)?.machineIds || []
+        : [];
+
+    // Filter orders based on operator's machine assignments
+    const getFilteredOrders = () => {
+        let filtered = initialOrders;
+
+        // If operator has machine assignments, filter to only show those machines' orders
+        if (selectedOperatorId && operatorMachineIds.length > 0) {
+            filtered = filtered.filter(order => 
+                order.machine && operatorMachineIds.includes(order.machine.id)
+            );
+        }
+
+        // Apply machine filter if selected
+        if (selectedMachineId && selectedMachineId !== "ALL") {
+            filtered = filtered.filter(order => order.machine?.id === selectedMachineId);
+        }
+
+        return filtered;
+    };
+
+    const filteredOrders = getFilteredOrders();
+
+    // Get available machines for the operator (for filter dropdown)
+    const availableMachines = selectedOperatorId && operatorMachineIds.length > 0
+        ? machines.filter(m => operatorMachineIds.includes(m.id))
+        : machines;
+
     if (!selectedOperatorId && isInitialized) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 bg-card rounded-2xl border-4 border-dashed animate-in fade-in zoom-in duration-300">
@@ -135,7 +184,17 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm">
                                 {emp.name.charAt(0)}
                             </div>
-                            <span className="truncate">{emp.name}</span>
+                            <div className="flex flex-col">
+                                <span className="truncate">{emp.name}</span>
+                                {emp.machineIds && emp.machineIds.length > 0 && (
+                                    <span className="text-xs text-muted-foreground font-normal">
+                                        {emp.machineIds.length === 1 
+                                            ? machines.find(m => m.id === emp.machineIds![0])?.name || 'Machine assigned'
+                                            : `${emp.machineIds.length} machines`
+                                        }
+                                    </span>
+                                )}
+                            </div>
                         </Button>
                     ))}
                 </div>
@@ -166,6 +225,11 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                     <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-tight">Active Operator</span>
                         <span className="text-xl font-black uppercase tracking-tight">{employees.find(e => e.id === selectedOperatorId)?.name}</span>
+                        {operatorMachineIds.length > 0 && (
+                            <span className="text-xs text-emerald-600 font-medium">
+                                Assigned to: {operatorMachineIds.map(id => machines.find(m => m.id === id)?.name).filter(Boolean).join(', ')}
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -178,7 +242,7 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                             onChange={(e) => setSelectedMachineId(e.target.value)}
                         >
                             <option value="ALL">-- ALL MACHINES --</option>
-                            {machines.map(m => (
+                            {availableMachines.map(m => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
                         </select>
@@ -198,6 +262,14 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                 </div>
             </div>
 
+            {/* Operator machine assignment notice */}
+            {selectedOperatorId && operatorMachineIds.length === 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950 border-2 border-amber-200 dark:border-amber-800 rounded-xl p-4 text-amber-800 dark:text-amber-200">
+                    <p className="font-bold">⚠️ No Machine Assignment</p>
+                    <p className="text-sm">You are not assigned to any specific machine. Contact your supervisor to get assigned.</p>
+                </div>
+            )}
+
             {hasFilter && (
                 <div className="flex justify-start">
                     <Button variant="outline" onClick={clearFilter} className="h-10 border-2 text-muted-foreground font-bold text-sm px-4">
@@ -207,12 +279,17 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
-                {initialOrders.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                     <div className="col-span-full flex flex-col items-center justify-center p-20 text-muted-foreground bg-muted/20 rounded-2xl border-4 border-dashed">
                         {hasFilter ? (
                             <>
                                 <p className="text-2xl font-bold">No jobs match filter &quot;{searchParams.get('q')}&quot;.</p>
                                 <Button variant="link" onClick={clearFilter} className="text-xl">Clear Filter</Button>
+                            </>
+                        ) : operatorMachineIds.length > 0 ? (
+                            <>
+                                <p className="text-2xl font-bold">NO JOBS FOR YOUR MACHINES</p>
+                                <p className="text-lg">No work orders assigned to your machines ({operatorMachineIds.map(id => machines.find(m => m.id === id)?.name).filter(Boolean).join(', ')}).</p>
                             </>
                         ) : (
                             <>
@@ -222,15 +299,13 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                         )}
                     </div>
                 ) : (
-                    initialOrders
-                        .filter(order => selectedMachineId === "ALL" || order.machine?.id === selectedMachineId)
-                        .map(order => (
-                            <KioskOrderCard
-                                key={order.id}
-                                order={order}
-                                operatorId={selectedOperatorId || undefined}
-                            />
-                        ))
+                    filteredOrders.map(order => (
+                        <KioskOrderCard
+                            key={order.id}
+                            order={order}
+                            operatorId={selectedOperatorId || undefined}
+                        />
+                    ))
                 )}
             </div>
         </div>
