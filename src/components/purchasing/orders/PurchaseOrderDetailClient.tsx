@@ -353,6 +353,17 @@ export function PurchaseOrderDetailClient({
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           PPN
+                          {(() => {
+                            // Check if any item has INCLUDE mode
+                            const hasInclude = order.items.some((item: { ppnMode?: string }) => item.ppnMode === 'INCLUDE');
+                            const hasExclude = order.items.some((item: { ppnMode?: string }) => item.ppnMode === 'EXCLUDE' || !item.ppnMode);
+                            if (hasInclude && !hasExclude) {
+                              return <span className="ml-1 text-xs">(Include)</span>;
+                            } else if (hasInclude && hasExclude) {
+                              return <span className="ml-1 text-xs">(Campur)</span>;
+                            }
+                            return null;
+                          })()}
                         </td>
                         <td className="p-2 text-right text-sm">
                           {formatRupiah(Number(order.taxAmount))}
