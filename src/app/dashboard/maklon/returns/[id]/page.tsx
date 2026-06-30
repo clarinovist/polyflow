@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getMaklonReturnByIdAction } from '@/actions/maklon/maklon-return';
-import { MaklonReturnDetailClient } from '@/components/planning/maklon/MaklonReturnDetailClient';
+import { MaklonReturnDetailClient } from '@/components/production/maklon/MaklonReturnDetailClient';
 
 export default async function MaklonReturnDetailPage({
     params

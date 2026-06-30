@@ -13,7 +13,6 @@ describe('Access Policy Helpers', () => {
       expect(getWorkspaceFromPath('/production/orders/123')).toBe('production');
       expect(getWorkspaceFromPath('/finance/tax')).toBe('finance');
       expect(getWorkspaceFromPath('/sales')).toBe('sales');
-      expect(getWorkspaceFromPath('/planning/forecast')).toBe('planning');
       expect(getWorkspaceFromPath('/admin/users')).toBe('admin');
     });
 

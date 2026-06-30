@@ -28,7 +28,7 @@ export const createProductionIssue = withTenant(
           reportedById: session.user.id,
         });
 
-        revalidatePath(`/planning/orders/${data.productionOrderId}`);
+        revalidatePath(`/production/orders/${data.productionOrderId}`);
         return serializeData(issue);
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;

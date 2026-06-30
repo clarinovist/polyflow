@@ -88,7 +88,7 @@ export function ProductionOrderDetail({ order, formData }: PageProps) {
       loading: "Deleting order...",
       success: (result) => {
         if (result.success) {
-          router.push("/planning/orders");
+          router.push("/production/orders");
           return "Order deleted successfully";
         } else {
           throw new Error(result.error);

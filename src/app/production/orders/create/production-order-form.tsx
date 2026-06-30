@@ -500,7 +500,7 @@ export function ProductionOrderForm({
         toast.success("Work Order berhasil dibuat", {
           description: `Order ${response.data.orderNumber} berhasil dibuat.`,
         });
-        router.push(`/planning/orders/${response.data.id}`);
+        router.push(`/production/orders/${response.data.id}`);
       }
     } catch {
       setIsSubmitting(false);

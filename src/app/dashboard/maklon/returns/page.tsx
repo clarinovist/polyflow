@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { getMaklonReturnsAction } from '@/actions/maklon/maklon-return';
-import { MaklonReturnTable } from '@/components/planning/maklon/MaklonReturnTable';
+import { MaklonReturnTable } from '@/components/production/maklon/MaklonReturnTable';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default async function MaklonReturnsPage({

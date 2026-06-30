@@ -131,7 +131,7 @@ export function ChildOrderList({ order }: ChildOrderListProps) {
                     <div className="space-y-2">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4">{productionComponentLabels.activeWorkOrders}</h4>
                         {childOrders.map(child => (
-                            <div key={child.id} onClick={() => router.push(`/planning/orders/${child.id}`)} className="cursor-pointer group flex items-center justify-between p-3 bg-white dark:bg-card border dark:border-border hover:border-blue-300 dark:hover:border-blue-500 transition-colors rounded-lg">
+                            <div key={child.id} onClick={() => router.push(`/production/orders/${child.id}`)} className="cursor-pointer group flex items-center justify-between p-3 bg-white dark:bg-card border dark:border-border hover:border-blue-300 dark:hover:border-blue-500 transition-colors rounded-lg">
                                 <div className="flex items-center gap-3">
                                     <div className={cn("w-2 h-2 rounded-full",
                                         child.status === 'COMPLETED' ? "bg-emerald-500" :

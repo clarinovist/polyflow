@@ -285,7 +285,7 @@ function OrderCard({ order }: { order: Order }) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 pt-1">
-          <Link href={`/planning/orders/${order.id}`} className="flex-1">
+          <Link href={`/production/orders/${order.id}`} className="flex-1">
             <Button variant="outline" size="sm" className="w-full gap-1.5">
               <ExternalLink className="h-3.5 w-3.5" />
               Detail

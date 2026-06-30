@@ -21,7 +21,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MessageCircleHeart,
-  CalendarClock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -60,7 +59,6 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
     items: [
       { title: mainNavLabels.sales, href: "/sales", icon: ShoppingCart },
       { title: mainNavLabels.purchasing, href: "/purchasing", icon: Truck },
-      { title: mainNavLabels.planning, href: "/planning", icon: CalendarClock },
       { title: mainNavLabels.production, href: "/production", icon: Factory },
       {
         title: mainNavLabels.inventory,

@@ -224,7 +224,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <SummaryCard
                     title={dashboardLabels.manufacturing}
                     icon={Factory}
-                    href="/planning/orders"
+                    href="/production/orders"
                     iconBg="bg-amber-100 dark:bg-amber-900/30"
                     iconColor="text-amber-600 dark:text-amber-400"
                 >
@@ -237,7 +237,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                         />
                         <MetricRow label={dashboardLabels.downtime} value={`${stats.production.downtimeHours.toFixed(1)} jam`} />
                         <div className="pt-2">
-                            <Link href="/planning/production-analytics" className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 transition-colors">
+                            <Link href="/production/analytics" className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 transition-colors">
                                 {dashboardLabels.viewAnalytics} <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -276,7 +276,7 @@ export default function DashboardClient({ stats }: DashboardClientProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <QuickAction href="/production/machines" label={dashboardLabels.logDowntime} icon={TrendingDown} color="text-red-600" bg="bg-red-50 dark:bg-red-900/10" border="hover:border-red-200 dark:hover:border-red-800" />
                     <QuickAction href="/kiosk" label={dashboardLabels.recordScrap} icon={Factory} color="text-amber-600" bg="bg-amber-50 dark:bg-amber-900/10" border="hover:border-amber-200 dark:hover:border-amber-800" />
-                    <QuickAction href="/planning/orders/create" label={dashboardLabels.newProductionOrder} icon={Factory} color="text-blue-600" bg="bg-blue-50 dark:bg-blue-900/10" border="hover:border-blue-200 dark:hover:border-blue-800" />
+                    <QuickAction href="/production/orders/create" label={dashboardLabels.newProductionOrder} icon={Factory} color="text-blue-600" bg="bg-blue-50 dark:bg-blue-900/10" border="hover:border-blue-200 dark:hover:border-blue-800" />
                     <QuickAction href="/dashboard/products/create" label={dashboardLabels.addNewProduct} icon={Package} color="text-emerald-600" bg="bg-emerald-50 dark:bg-emerald-900/10" border="hover:border-emerald-200 dark:hover:border-emerald-800" />
                 </div>
             </div>

@@ -16,7 +16,7 @@ const PATH_LABELS: Record<string, string> = {
   // Workspaces
   dashboard: "Dashboard",
   sales: "Penjualan",
-  planning: "Planning",
+  // planning merged into production
   production: "Produksi",
   warehouse: "Gudang",
   finance: "Finance",

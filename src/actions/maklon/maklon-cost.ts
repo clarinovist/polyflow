@@ -14,7 +14,7 @@ export const addMaklonCostAction = withTenant(async function addMaklonCostAction
         await MaklonCostService.addCostItem(data);
         await MaklonCostService.updateEstimatedConversionCost(data.productionOrderId);
         
-        revalidatePath(`/planning/orders/${data.productionOrderId}`);
+        revalidatePath(`/production/orders/${data.productionOrderId}`);
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -26,7 +26,7 @@ export const removeMaklonCostAction = withTenant(async function removeMaklonCost
         await MaklonCostService.removeCostItem(id);
         await MaklonCostService.updateEstimatedConversionCost(productionOrderId);
 
-        revalidatePath(`/planning/orders/${productionOrderId}`);
+        revalidatePath(`/production/orders/${productionOrderId}`)
         return { success: true };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

@@ -34,14 +34,14 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
         const query = new URLSearchParams();
         if (nextCategory) query.set('category', nextCategory);
         if (demand) query.set('demand', demand);
-        return query.toString() ? `/planning/orders?${query.toString()}` : '/planning/orders';
+        return query.toString() ? `/production/orders?${query.toString()}` : '/production/orders';
     };
 
     const buildDemandHref = (nextDemand: 'customer' | 'internal') => {
         const query = new URLSearchParams();
         if (category) query.set('category', category);
         query.set('demand', nextDemand);
-        return `/planning/orders?${query.toString()}`;
+        return `/production/orders?${query.toString()}`;
     };
 
     return (
@@ -53,13 +53,13 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                     <p className="text-muted-foreground mt-2">{planningLabels.planNewJob}</p>
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                    <Link href="/planning/orders/create" className="w-full sm:w-auto">
+                    <Link href="/production/orders/create" className="w-full sm:w-auto">
                         <Button variant="outline" className="w-full sm:w-auto gap-2">
                             <Plus className="h-4 w-4" />
                             {planningLabels.createOrder}
                         </Button>
                     </Link>
-                    <Link href="/planning/orders/create?intent=internal" className="w-full sm:w-auto">
+                    <Link href="/production/orders/create?intent=internal" className="w-full sm:w-auto">
                         <Button className="w-full sm:w-auto gap-2">
                             <Plus className="h-4 w-4" />
                             {planningLabels.internalReplenishment}
@@ -182,7 +182,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                             return (
                                                 <TableRow key={order.id} className="hover:bg-muted/50 group cursor-pointer">
                                                     <TableCell className="font-medium">
-                                                        <Link href={`/planning/orders/${order.id}`} className="hover:underline text-foreground">
+                                                        <Link href={`/production/orders/${order.id}`} className="hover:underline text-foreground">
                                                             {order.orderNumber}
                                                         </Link>
                                                     </TableCell>
@@ -241,7 +241,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                         {format(new Date(order.plannedStartDate), 'MMM dd, yyyy')}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <Link href={`/planning/orders/${order.id}`}>
+                                                        <Link href={`/production/orders/${order.id}`}>
                                                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                                                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                                                             </Button>

@@ -1,7 +1,7 @@
 import { getCustomers } from '@/actions/sales/customer';
 import { getCustomerOwnedLocations } from '@/actions/inventory/locations';
 import { getProductVariants } from '@/actions/inventory/inventory';
-import { MaklonReturnForm } from '@/components/planning/maklon/MaklonReturnForm';
+import { MaklonReturnForm } from '@/components/production/maklon/MaklonReturnForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { serializeData } from '@/lib/utils/utils';
 

@@ -137,7 +137,7 @@ export const quickCreateProductionOrder = withTenant(
 
         revalidatePath("/production");
         revalidatePath("/production/daily");
-        revalidatePath("/planning");
+        revalidatePath("/production");
         return serializeData(order);
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;

@@ -136,7 +136,7 @@ export const cancelOrderFromPlanning = withTenant(
           });
         });
 
-        revalidatePath("/planning/requests");
+        revalidatePath("/production/requests");
         revalidatePath("/sales");
         return true;
       } catch (error) {

@@ -10,6 +10,8 @@ import {
   Users,
   ClipboardCheck,
   FileText,
+  BarChart3,
+  Calendar,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -26,7 +28,7 @@ interface ProductionSidebarProps {
 
 const productionLinks = [
   {
-    heading: "Floor Management",
+    heading: "Overview",
     items: [
       {
         href: "/production",
@@ -34,6 +36,36 @@ const productionLinks = [
         label: productionSidebarLabels.overview,
         exact: true,
       },
+    ],
+  },
+  {
+    heading: "Production Planning",
+    items: [
+      {
+        href: "/production/orders",
+        icon: Factory,
+        label: productionSidebarLabels.workOrders,
+      },
+      {
+        href: "/production/requests",
+        icon: ClipboardCheck,
+        label: productionSidebarLabels.incomingRequests,
+      },
+      {
+        href: "/production/schedule",
+        icon: Calendar,
+        label: productionSidebarLabels.productionSchedule,
+      },
+      {
+        href: "/production/mrp",
+        icon: FileText,
+        label: productionSidebarLabels.materialRequirements,
+      },
+    ],
+  },
+  {
+    heading: "Floor Management",
+    items: [
       {
         href: "/production/daily",
         icon: CalendarPlus,
@@ -77,8 +109,13 @@ const productionLinks = [
     ],
   },
   {
-    heading: "Tools",
+    heading: "Analytics & Tools",
     items: [
+      {
+        href: "/production/analytics",
+        icon: BarChart3,
+        label: productionSidebarLabels.productionAnalytics,
+      },
       {
         href: "/kiosk",
         icon: ClipboardCheck,

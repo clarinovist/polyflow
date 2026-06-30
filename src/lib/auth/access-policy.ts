@@ -5,7 +5,6 @@ export type WorkspaceKey =
   | "production"
   | "finance"
   | "sales"
-  | "planning"
   | "purchasing";
 
 /**
@@ -24,10 +23,10 @@ export const WORKSPACE_ACCESS_POLICY: Record<WorkspaceKey, readonly string[]> =
       "PRODUCTION",
     ],
     warehouse: ["ADMIN", "WAREHOUSE", "PRODUCTION", "PLANNING"],
-    production: ["ADMIN", "PRODUCTION", "PLANNING"],
+    production: ["ADMIN", "PRODUCTION", "PLANNING", "PROCUREMENT"],
     finance: ["ADMIN", "FINANCE"],
     sales: ["ADMIN", "SALES"],
-    planning: ["ADMIN", "PLANNING", "PROCUREMENT"],
+    // planning merged into production
     purchasing: ["ADMIN", "PROCUREMENT", "PLANNING"],
   } as const;
 
@@ -46,7 +45,6 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
       "production",
       "finance",
       "sales",
-      "planning",
       "purchasing",
     ].includes(workspaceCandidate)
   ) {

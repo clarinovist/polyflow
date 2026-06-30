@@ -2,7 +2,6 @@
 export const mainNavLabels = {
   sales: "Penjualan",
   purchasing: "Pembelian",
-  planning: "Planning",
   production: "Produksi",
   inventory: "Stok",
   accounting: "Finance",
@@ -24,6 +23,13 @@ export const mainNavLabels = {
 /** Sidebar by domain */
 export const productionSidebarLabels = {
   overview: "Overview",
+  // Production Planning
+  workOrders: "SPK Produksi",
+  incomingRequests: "Permintaan Masuk",
+  productionSchedule: "Jadwal Produksi",
+  materialRequirements: "Kebutuhan Material",
+  productionAnalytics: "Analitik Produksi",
+  // Production Floor
   dailyProduction: "Produksi Hari Ini",
   machineBoard: "Papan Mesin",
   floorStock: "Stok Lantai",
