@@ -135,16 +135,16 @@ export async function recordInventoryMovement(
     const lines = [];
 
     if (movement.type === 'PURCHASE' || movement.goodsReceiptId) {
-        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
+        const invAccount = productVariant.product.inventoryAccountId || (await resolveAccountCode(productType, 'inventory')).code;
         lines.push(
             { accountId: (await getAccountId(invAccount, db)), debit: totalAmount, credit: 0, description: `GR: ${productVariant.name}` },
-            { accountId: (await getAccountId(resolveAccountCode(productType, 'trade-payable'), db)), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
+            { accountId: (await getAccountId((await resolveAccountCode(productType, 'trade-payable')).code, db)), debit: 0, credit: totalAmount, description: `Trade Payable: ${productVariant.name}` }
         );
     }
 
     else if (movement.type === 'OUT' && movement.salesOrderId) {
-        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
-        const cogsAccount = productVariant.product.cogsAccountId || resolveAccountCode(productType, 'cogs');
+        const invAccount = productVariant.product.inventoryAccountId || (await resolveAccountCode(productType, 'inventory')).code;
+        const cogsAccount = productVariant.product.cogsAccountId || (await resolveAccountCode(productType, 'cogs')).code;
         lines.push(
             { accountId: (await getAccountId(cogsAccount, db)), debit: totalAmount, credit: 0, description: `COGS: ${productVariant.name}` },
             { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: totalAmount, description: `Shipment: ${productVariant.name}` }
@@ -152,8 +152,8 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'OUT' && !movement.salesOrderId) {
-        const creditAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
-        const wipAccount = productVariant.product.wipAccountId || resolveAccountCode(productType, 'wip');
+        const creditAccount = productVariant.product.inventoryAccountId || (await resolveAccountCode(productType, 'inventory')).code;
+        const wipAccount = productVariant.product.wipAccountId || (await resolveAccountCode(productType, 'wip')).code;
         lines.push(
             { accountId: (await getAccountId(wipAccount, db)), debit: totalAmount, credit: 0, description: `Production Issue: ${productVariant.name}` },
             { accountId: (await getAccountId(creditAccount, db)), debit: 0, credit: totalAmount, description: `Material Consumed` }
@@ -161,8 +161,8 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'IN' && !movement.goodsReceiptId) {
-        const debitAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
-        const wipAccount = productVariant.product.wipAccountId || resolveAccountCode(productType, 'wip');
+        const debitAccount = productVariant.product.inventoryAccountId || (await resolveAccountCode(productType, 'inventory')).code;
+        const wipAccount = productVariant.product.wipAccountId || (await resolveAccountCode(productType, 'wip')).code;
         lines.push(
             { accountId: (await getAccountId(debitAccount, db)), debit: totalAmount, credit: 0, description: `Production Output: ${productVariant.name}` },
             { accountId: (await getAccountId(wipAccount, db)), debit: 0, credit: totalAmount, description: `WIP Relief` }
@@ -170,18 +170,18 @@ export async function recordInventoryMovement(
     }
 
     else if (movement.type === 'ADJUSTMENT') {
-        const invAccount = productVariant.product.inventoryAccountId || resolveAccountCode(productType, 'inventory');
+        const invAccount = productVariant.product.inventoryAccountId || (await resolveAccountCode(productType, 'inventory')).code;
         const absAmt = Math.abs(totalAmount);
 
         // If toLocationId is present, stock went IN (Gain). If it's null, stock went OUT (Loss).
         if (movement.toLocationId !== null) {
             lines.push(
                 { accountId: (await getAccountId(invAccount, db)), debit: absAmt, credit: 0, description: `Stock Adj (In)` },
-                { accountId: (await getAccountId(resolveAccountCode(productType, 'adjustment-gain'), db)), debit: 0, credit: absAmt, description: `Adj Gain` }
+                { accountId: (await getAccountId((await resolveAccountCode(productType, 'adjustment-gain')).code, db)), debit: 0, credit: absAmt, description: `Adj Gain` }
             );
         } else {
             lines.push(
-                { accountId: (await getAccountId(resolveAccountCode(productType, 'adjustment-loss'), db)), debit: absAmt, credit: 0, description: `Adj Loss` },
+                { accountId: (await getAccountId((await resolveAccountCode(productType, 'adjustment-loss')).code, db)), debit: absAmt, credit: 0, description: `Adj Loss` },
                 { accountId: (await getAccountId(invAccount, db)), debit: 0, credit: absAmt, description: `Stock Adj (Out)` }
             );
         }
@@ -256,10 +256,10 @@ export async function recordMaklonCosts(productionOrderId: string, tx: Prisma.Tr
     if (!order || !order.isMaklon || !order.maklonCostItems || order.maklonCostItems.length === 0) return;
 
     // Accounts
-    const overheadAccount = await getAccountId(resolveAccountCode(null, 'manufacturing-overhead'), db); // Manufacturing Overhead
-    const payableAccount = await getAccountId(resolveAccountCode(null, 'accrued-liabilities'), db); // Accrued Liabilities (AP / Accruals)
-    const rawMaterialExpense = await getAccountId(resolveAccountCode(null, 'cogs'), db); // COGS / RM Consumed
-    const invAccount = await getAccountId(resolveAccountCode('RAW_MATERIAL', 'inventory'), db); // RM Inventory
+    const overheadAccount = await getAccountId((await resolveAccountCode(null, 'manufacturing-overhead')).code, db); // Manufacturing Overhead
+    const payableAccount = await getAccountId((await resolveAccountCode(null, 'accrued-liabilities')).code, db); // Accrued Liabilities (AP / Accruals)
+    const rawMaterialExpense = await getAccountId((await resolveAccountCode(null, 'cogs')).code, db); // COGS / RM Consumed
+    const invAccount = await getAccountId((await resolveAccountCode('RAW_MATERIAL', 'inventory')).code, db); // RM Inventory
 
     const lines = [];
     for (const item of order.maklonCostItems) {
