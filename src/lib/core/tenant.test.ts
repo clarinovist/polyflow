@@ -2,19 +2,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { extractSubdomain, resolveTenantContext } from './tenant';
 
-const { mockPrisma, mockGetTenantDb } = vi.hoisted(() => {
+const { mockPrisma, mockGetTenantDb, mockGetMainPrisma } = vi.hoisted(() => {
+    const mockPrismaInstance = {
+        tenant: {
+            findUnique: vi.fn(),
+        }
+    };
     return {
-        mockPrisma: {
-            tenant: {
-                findUnique: vi.fn(),
-            }
-        },
-        mockGetTenantDb: vi.fn((url) => ({ isMockTenantDb: true, url } as never))
+        mockPrisma: mockPrismaInstance,
+        mockGetTenantDb: vi.fn((url) => ({ isMockTenantDb: true, url } as never)),
+        mockGetMainPrisma: vi.fn(() => mockPrismaInstance),
     };
 });
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: mockPrisma,
+    getMainPrisma: mockGetMainPrisma,
     getTenantDb: mockGetTenantDb,
     tenantContext: {
         run: vi.fn((_db, cb) => cb()),

@@ -63,6 +63,15 @@ const mainPrisma = globalForPrisma.prisma || withTxTimeout(new PrismaClient())
 globalForPrisma.prisma = mainPrisma
 
 /**
+ * Access the main (non-tenant) Prisma client directly.
+ * Use this for queries that MUST run on the main database
+ * (e.g. tenant lookup) regardless of AsyncLocalStorage context state.
+ */
+export function getMainPrisma(): PrismaClient {
+    return mainPrisma;
+}
+
+/**
  * Global Proxy for Prisma.
  * Whenever `prisma.user.findMany()` is called anywhere in the app, 
  * this Proxy intercepts it and routes it to the correct tenant Database

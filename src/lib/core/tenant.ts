@@ -59,9 +59,18 @@ export async function resolveTenantContext(
     let targetDbUrl: string | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const { prisma, tenantContext } = await import('@/lib/core/prisma');
+            // CRITICAL: Always use mainPrisma for tenant lookup.
+            // The prisma proxy routes to tenant DB if AsyncLocalStorage context
+            // is leaked from a previous request — but the Tenant table only
+            // exists in the main database. Using the proxy here causes
+            // "Tenant not found" errors when context leaks.
+            const { getMainPrisma, tenantContext } = await import('@/lib/core/prisma');
             const activeTenantDb = tenantContext.getStore();
-            const tenant = await prisma.tenant.findUnique({
+            if (activeTenantDb && attempt === 1) {
+                console.warn(`[resolveTenantContext] LEAKED context detected for subdomain="${subdomain}" — bypassing with mainPrisma`);
+            }
+            const mainPrisma = getMainPrisma();
+            const tenant = await mainPrisma.tenant.findUnique({
                 where: { subdomain }
             });
             targetDbUrl = tenant?.dbUrl || null;
