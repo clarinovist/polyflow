@@ -26,7 +26,7 @@ export default async function StockAgingPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" asChild>
-                        <Link href="/warehouse/analytics">
+                        <Link href="/warehouse/inventory">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Inventaris
                         </Link>
                     </Button>

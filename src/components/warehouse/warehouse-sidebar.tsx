@@ -11,8 +11,6 @@ import {
     Clock,
     History,
     BarChart3,
-    Shuffle,
-    Wrench,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -43,6 +41,7 @@ const warehouseLinks = [
             { href: '/warehouse/inventory', icon: Warehouse, label: warehouseSidebarLabels.stockOverview },
             { href: '/warehouse/inventory/transfer', icon: ArrowLeftRight, label: warehouseSidebarLabels.stockTransfer },
             { href: '/warehouse/inventory/adjustment', icon: PackagePlus, label: warehouseSidebarLabels.stockAdjustment },
+            { href: '/warehouse/inventory/aging', icon: Clock, label: warehouseSidebarLabels.stockAging },
             { href: '/warehouse/locations', icon: Warehouse, label: warehouseSidebarLabels.locations },
         ],
     },
@@ -50,10 +49,7 @@ const warehouseLinks = [
         heading: 'Analitik',
         items: [
             { href: '/warehouse/analytics', icon: BarChart3, label: warehouseSidebarLabels.analyticsDashboard },
-            { href: '/warehouse/inventory/aging', icon: Clock, label: warehouseSidebarLabels.stockAging },
-            { href: '/warehouse/analytics/history', icon: History, label: warehouseSidebarLabels.stockMovement },
-            { href: '/warehouse/analytics/transfer', icon: Shuffle, label: warehouseSidebarLabels.transferAnalytics },
-            { href: '/warehouse/analytics/adjustment', icon: Wrench, label: warehouseSidebarLabels.adjustmentAnalytics },
+            { href: '/warehouse/inventory/history', icon: History, label: warehouseSidebarLabels.stockMovement },
         ],
     },
 ];

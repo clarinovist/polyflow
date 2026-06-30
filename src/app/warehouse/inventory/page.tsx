@@ -3,6 +3,8 @@ import {
     getLocations,
     getDashboardStats,
     getInventoryAsOf,
+    getInventoryTurnover,
+    getDaysOfInventoryOnHand,
 } from '@/actions/inventory/inventory';
 import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
 import { canViewPrices } from '@/actions/admin/permissions';
@@ -11,8 +13,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable';
 import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
 import { WarehouseNavigator } from '@/components/warehouse/inventory/WarehouseNavigator';
+import { Activity, CalendarClock } from 'lucide-react';
 
-import { formatRupiah, serializeData, toDecimalNumber } from '@/lib/utils/utils';
+import { formatRupiah, serializeData, toDecimalNumber, cn } from '@/lib/utils/utils';
 import { Badge } from '@/components/ui/badge';
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -46,15 +49,21 @@ export default async function WarehouseInventoryPage({
         liveInventoryRes,
         locationsRes,
         dashboardStatsRes,
+        turnoverStatsRes,
+        dohStatsRes,
     ] = await Promise.all([
         getInventoryStats(),
         getLocations(),
         getDashboardStats(),
+        getInventoryTurnover(),
+        getDaysOfInventoryOnHand(),
     ]);
 
     const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
     const locations = locationsRes.success && locationsRes.data ? locationsRes.data : [];
     const dashboardStats = dashboardStatsRes.success && dashboardStatsRes.data ? dashboardStatsRes.data : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
+    const turnoverStats = turnoverStatsRes.success && turnoverStatsRes.data ? turnoverStatsRes.data : { turnoverRatio: 0, averageInventory: 0, totalCOGS: 0 };
+    const dohStats = dohStatsRes.success && dohStatsRes.data ? dohStatsRes.data : { daysOnHand: 0 };
 
     const showPricesRes = await canViewPrices();
     const showPrices = showPricesRes.success && showPricesRes.data ? showPricesRes.data : false;
@@ -175,10 +184,24 @@ export default async function WarehouseInventoryPage({
 
     return (
         <div className="h-full flex flex-col space-y-4 p-6 overflow-hidden">
-            <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-end justify-between shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Kontrol Stok</h1>
                     <p className="text-muted-foreground mt-1">Pantau level stok dan status gudang</p>
+                </div>
+                <div className="flex items-center gap-8">
+                    <StatBlock
+                        label="Turnover"
+                        value={turnoverStats.turnoverRatio}
+                        icon={<Activity className="h-4 w-4" />}
+                        color="text-foreground"
+                    />
+                    <StatBlock
+                        label="Days on Hand"
+                        value={dohStats.daysOnHand.toFixed(1)}
+                        icon={<CalendarClock className="h-4 w-4" />}
+                        color="text-foreground"
+                    />
                 </div>
             </div>
 
@@ -224,6 +247,18 @@ export default async function WarehouseInventoryPage({
                     </CardContent>
                 </Card>
             </div>
+        </div>
+    );
+}
+
+function StatBlock({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color: string }) {
+    return (
+        <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1.5">
+                <div className={cn("opacity-40", color)}>{icon}</div>
+                <p className="text-xl font-bold tracking-tight text-foreground leading-none">{value}</p>
+            </div>
+            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest leading-none pr-5">{label}</p>
         </div>
     );
 }

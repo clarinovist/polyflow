@@ -1,282 +1,226 @@
 import {
-    getInventoryStats,
-    getInventoryAsOf,
-    getDashboardStats,
+    getInventoryValuation,
     getInventoryTurnover,
     getDaysOfInventoryOnHand,
+    getDashboardStats,
 } from '@/actions/inventory/inventory';
 import { ABCAnalysisService } from '@/services/inventory/abc-analysis-service';
+import { StockAgingService } from '@/services/inventory/stock-aging-service';
 import { canViewPrices } from '@/actions/admin/permissions';
-import { InventoryWithRelations } from '@/types/inventory';
-import { CardContent } from '@/components/ui/card';
-import { InventoryTable } from '@/components/warehouse/inventory/InventoryTable';
-import type { InventoryItem } from '@/components/warehouse/inventory/inventory-table-types';
-import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Box, Activity, CalendarClock } from 'lucide-react';
-import { serializeData, formatRupiah, cn } from '@/lib/utils/utils';
+import { formatRupiah, cn } from '@/lib/utils/utils';
+import {
+    Activity,
+    CalendarClock,
+    AlertTriangle,
+    DollarSign,
+    BarChart3,
+    Clock,
+    ArrowRight,
+} from 'lucide-react';
+import Link from 'next/link';
 
+export const metadata = {
+    title: 'Dashboard Analitik | PolyFlow Warehouse',
+};
 
-import { withTenantPage } from '@/lib/core/tenant';
-
-const getAbcData = withTenantPage(async () => {
-    return ABCAnalysisService.calculateABCClassification();
-});
-interface SimplifiedInventory {
-    productVariantId: string;
-    locationId: string;
-    quantity: number;
-}
-
-export default async function InventoryDashboard({
-    searchParams,
-}: {
-    searchParams: Promise<{
-        locationId?: string;
-        type?: string;
-        lowStock?: string;
-        asOf?: string;
-        compareWith?: string;
-    }>;
-}) {
-    const params = await searchParams;
-    const asOfDate = params.asOf ? new Date(params.asOf) : null;
-    const compareDate = params.compareWith ? new Date(params.compareWith) : null;
-
-    // Fetch data in parallel
+export default async function AnalyticsDashboard() {
     const [
-        liveInventoryRes,
-        dashboardStatsRes,
-        turnoverStatsRes,
-        dohStatsRes,
+        valuationRes,
+        turnoverRes,
+        dohRes,
+        dashboardRes,
+        agingSummaryRes,
     ] = await Promise.all([
-        getInventoryStats(),
-        getDashboardStats(),
+        getInventoryValuation(),
         getInventoryTurnover(),
         getDaysOfInventoryOnHand(),
+        getDashboardStats(),
+        StockAgingService.getAgingSummary(),
     ]);
-    
-    const liveInventory = liveInventoryRes.success && liveInventoryRes.data ? liveInventoryRes.data : [];
-    const dashboardStats = dashboardStatsRes.success && dashboardStatsRes.data ? dashboardStatsRes.data : { totalStock: 0, lowStockCount: 0, totalValue: 0 };
-    const turnoverStats = turnoverStatsRes.success && turnoverStatsRes.data ? turnoverStatsRes.data : { turnoverRatio: 0, averageInventory: 0, totalCOGS: 0 };
-    const dohStats = dohStatsRes.success && dohStatsRes.data ? dohStatsRes.data : { daysOnHand: 0 };
+
+    const valuation = valuationRes.success && valuationRes.data ? valuationRes.data : { totalValuation: 0, financeValuation: 0, customerOwnedValuation: 0 };
+    const turnover = turnoverRes.success && turnoverRes.data ? turnoverRes.data : { turnoverRatio: 0, cogs: 0, averageInventory: 0 };
+    const doh = dohRes.success && dohRes.data ? dohRes.data : { daysOnHand: 0 };
+    const dashboard = dashboardRes.success && dashboardRes.data ? dashboardRes.data : { totalStock: 0, lowStockCount: 0 };
+    const agingSummary = agingSummaryRes;
 
     const showPricesRes = await canViewPrices();
     const showPrices = showPricesRes.success && showPricesRes.data ? showPricesRes.data : false;
 
-    // Parse active location IDs (support multi-select)
-    const activeLocationIds = params.locationId
-        ? (Array.isArray(params.locationId) ? params.locationId : [params.locationId])
-        : [];
-
-
-
-    // Initialize table inventory with live data
-    let tableInventory: (InventoryWithRelations | SimplifiedInventory)[] = liveInventory;
-
-    // Phase 1: Historical Data Logic (Only affects Table)
-    if (asOfDate) {
-        const historicalInventoryRes = await getInventoryAsOf(asOfDate);
-        const historicalInventory = historicalInventoryRes.success && historicalInventoryRes.data ? historicalInventoryRes.data : [];
-
-        // Map historical quantities to a new tableInventory array
-        tableInventory = liveInventory.map(item => {
-            const histItem = historicalInventory.find(
-                h => h.productVariantId === item.productVariantId && h.locationId === item.locationId
-            );
-            return {
-                ...item,
-                quantity: histItem ? histItem.quantity : 0
-            };
-        });
-    }
-
-    // Phase 2: Comparison logic (Only affects Table)
-    const comparisonData: Record<string, number> = {};
-    if (compareDate) {
-        const compInventoryRes = await getInventoryAsOf(compareDate);
-        const compInventory = compInventoryRes.success && compInventoryRes.data ? compInventoryRes.data : [];
-        compInventory.forEach(item => {
-            const key = `${item.productVariantId}-${item.locationId}`;
-            comparisonData[key] = item.quantity;
-        });
-    }
-
-    // Phase 3: Location Filtering (Live + History + Comparison)
-    // If activeLocationIds are present, filter by checking if item's locationId is in the list
-    let processedInventory = tableInventory;
-    if (activeLocationIds.length > 0) {
-        processedInventory = tableInventory.filter(item => activeLocationIds.includes(item.locationId));
-    }
-
-    // Phase 2: ABC Analysis (Global)
-    let abcMap: Record<string, string> | undefined;
+    let abcSummary = { a: 0, b: 0, c: 0 };
     try {
-        const abcResults = await getAbcData();
-        abcMap = abcResults.reduce((acc: Record<string, string>, item) => {
-            acc[item.productVariantId] = item.class;
-            return acc;
-        }, {} as Record<string, string>);
-    } catch (e) {
-        console.error('Failed to calculate ABC:', e);
+        const abcResults = await ABCAnalysisService.calculateABCClassification();
+        abcSummary = {
+            a: abcResults.filter(i => i.class === 'A').length,
+            b: abcResults.filter(i => i.class === 'B').length,
+            c: abcResults.filter(i => i.class === 'C').length,
+        };
+    } catch {
+        // ABC not available
     }
-
-    // --- LOGIC B: TABLE (RESPECTS DATE) ---
-    // Calculate totals for table data (historical or live) - grouped by variant for the current filtered view
-    const tableVariantTotals = processedInventory.reduce((acc: Record<string, number>, item) => {
-        const id = item.productVariantId;
-        const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-        acc[id] = (acc[id] || 0) + qty;
-        return acc;
-    }, {} as Record<string, number>);
-
-    // Helper for table filtering (Low Stock)
-    const isTableGlobalLowStock = (item: InventoryWithRelations | SimplifiedInventory) => {
-        const liveItem = liveInventory.find(li => li.productVariantId === item.productVariantId);
-        const threshold = liveItem?.productVariant.minStockAlert?.toNumber();
-        if (!threshold) return false;
-
-        // Check if the TOTAL stock for this variant (in the current filtered view) is below threshold
-        return tableVariantTotals[item.productVariantId] < threshold;
-    };
-
-    // Filter table inventory for display (Low Stock Filter)
-    let displayInventory = processedInventory;
-    const isLowStockFilter = params.lowStock === 'true';
-
-    if (isLowStockFilter) {
-        displayInventory = displayInventory.filter(isTableGlobalLowStock);
-    }
-
-
-
-
-
-
-    // Calculate displayed total stock based on filtered view
-    const displayedTotalStock = activeLocationIds.length > 0
-        ? displayInventory.reduce((acc, item) => {
-            const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-            return acc + qty;
-        }, 0)
-        : dashboardStats.totalStock;
-
-    // Calculate displayed total value based on filtered view
-    const displayedTotalValue = activeLocationIds.length > 0
-        ? displayInventory.reduce((acc, item) => {
-            if ('productVariant' in item) {
-                const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-                const price = item.productVariant.price ? item.productVariant.price.toNumber() : 0;
-                return acc + (qty * price);
-            }
-            return acc;
-        }, 0)
-        : 0;
-
-    const finalTotalValue = activeLocationIds.length > 0
-        ? displayedTotalValue
-        : liveInventory.reduce((acc, item) => {
-            const qty = typeof item.quantity === 'number' ? item.quantity : item.quantity.toNumber();
-            const price = item.productVariant.price ? item.productVariant.price.toNumber() : 0;
-            return acc + (qty * price);
-        }, 0);
-
-
-    // Serialize Decimal fields for client component
-    const serializedInventory = serializeData(displayInventory) as InventoryItem[];
-
 
     return (
-        <div className="h-[calc(100vh-2rem)] flex flex-col space-y-4 p-6 overflow-hidden bg-background">
-            {/* Professional Strategic Header */}
-            <div className="flex items-end justify-between shrink-0 mb-2">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Analisis Inventaris</h1>
-                    <p className="text-sm text-muted-foreground mt-1 font-geist">Tinjauan performa dan kesehatan stok</p>
-                </div>
-
-                <div className="flex items-center gap-10">
-                    <StatBlock
-                        label="Turnover Ratio"
-                        value={turnoverStats.turnoverRatio}
-                        icon={<Activity className="h-4 w-4" />}
-                        color="text-foreground"
-                    />
-                    <StatBlock
-                        label="Days on Hand"
-                        value={dohStats.daysOnHand.toFixed(1)}
-                        icon={<CalendarClock className="h-4 w-4" />}
-                        color="text-foreground"
-                    />
-                    <StatBlock
-                        label="Low Stock Alert"
-                        value={dashboardStats.lowStockCount}
-                        icon={<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
-                        color="text-amber-600 dark:text-amber-400"
-                    />
-                    <StatBlock
-                        label="Active SKUs"
-                        value={liveInventory.length}
-                        icon={<Box className="h-4 w-4" />}
-                        color="text-foreground"
-                    />
-                </div>
+        <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+            {/* Header */}
+            <div>
+                <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard Analitik</h1>
+                <p className="text-sm text-muted-foreground mt-1">Ringkasan KPI dan kesehatan persediaan</p>
             </div>
 
-            {/* Main Content Area - Card-less for Modern ERP Feel */}
-            <div className="flex-1 overflow-hidden min-h-0">
-                <div className="h-full flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                    <CardContent suppressHydrationWarning className="p-0 flex-1 overflow-hidden">
-                        <div className="h-full overflow-auto">
-                            <InventoryTable
-                                inventory={serializedInventory}
-                                variantTotals={tableVariantTotals}
-                                comparisonData={comparisonData}
-                                showComparison={!!compareDate}
-                                initialDate={params.asOf}
-                                initialCompareDate={params.compareWith}
-                                showPrices={showPrices}
-                                abcMap={abcMap}
-                                // Passing badges as props to let InventoryTable render them in its filter row
-                                topBadges={
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
-                                            <span className="font-bold">{displayedTotalStock.toLocaleString()}</span>
-                                            <span className="opacity-70">units</span>
-                                        </Badge>
-                                        {showPrices && (
-                                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 flex items-center gap-1.5 px-2 py-0 text-[10px] font-medium h-6">
-                                                <span className="font-bold">{formatRupiah(finalTotalValue)}</span>
-                                                <span className="opacity-70">value</span>
-                                            </Badge>
-                                        )}
-                                        {asOfDate && (
-                                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] h-6 px-2">
-                                                Snapshot: {format(asOfDate, 'MMM d')}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                }
-                            />
+            {/* Primary KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard
+                    title="Total Nilai Stok"
+                    value={showPrices ? formatRupiah(valuation.totalValuation) : '—'}
+                    icon={<DollarSign className="h-4 w-4" />}
+                    color="text-emerald-600 dark:text-emerald-400"
+                />
+                <KPICard
+                    title="Turnover Ratio"
+                    value={turnover.turnoverRatio.toString()}
+                    suffix="x"
+                    icon={<Activity className="h-4 w-4" />}
+                    color="text-blue-600 dark:text-blue-400"
+                />
+                <KPICard
+                    title="Days on Hand"
+                    value={doh.daysOnHand.toFixed(1)}
+                    suffix="hari"
+                    icon={<CalendarClock className="h-4 w-4" />}
+                    color="text-purple-600 dark:text-purple-400"
+                />
+                <KPICard
+                    title="Low Stock Alert"
+                    value={dashboard.lowStockCount.toString()}
+                    icon={<AlertTriangle className="h-4 w-4" />}
+                    color={dashboard.lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}
+                />
+            </div>
+
+            {/* Secondary Row: ABC + Aging */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* ABC Classification */}
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                            Klasifikasi ABC
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center gap-6">
+                            <ABCBar label="A" count={abcSummary.a} total={abcSummary.a + abcSummary.b + abcSummary.c} color="bg-emerald-500" />
+                            <ABCBar label="B" count={abcSummary.b} total={abcSummary.a + abcSummary.b + abcSummary.c} color="bg-amber-500" />
+                            <ABCBar label="C" count={abcSummary.c} total={abcSummary.a + abcSummary.b + abcSummary.c} color="bg-red-500" />
                         </div>
                     </CardContent>
-                </div>
+                </Card>
+
+                {/* Stock Aging Summary */}
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            Ringkasan Aging Stok
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Total Item</span>
+                                <span className="text-sm font-bold">{agingSummary.totalItems.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Rata-rata Umur</span>
+                                <span className="text-sm font-bold">{agingSummary.avgDays.toFixed(0)} hari</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Slow Moving (&gt;90 hari)</span>
+                                <span className={cn("text-sm font-bold", agingSummary.slowMovingCount > 0 ? 'text-red-600 dark:text-red-400' : '')}>
+                                    {agingSummary.slowMovingCount.toLocaleString()} item
+                                </span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Quick Links */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Link href="/warehouse/inventory">
+                    <QuickLinkCard title="Kontrol Stok" description="Lihat tabel inventaris lengkap" />
+                </Link>
+                <Link href="/warehouse/inventory/aging">
+                    <QuickLinkCard title="Detail Aging" description="Analisis umur stok per item" />
+                </Link>
+                <Link href="/warehouse/inventory/history">
+                    <QuickLinkCard title="Riwayat Mutasi" description="Lacak semua pergerakan stok" />
+                </Link>
             </div>
         </div>
     );
 }
 
-function StatBlock({ label, value, icon, color }: { label: string, value: string | number, icon: React.ReactNode, color: string }) {
+function KPICard({ title, value, suffix, icon, color }: {
+    title: string;
+    value: string;
+    suffix?: string;
+    icon: React.ReactNode;
+    color: string;
+}) {
     return (
-        <div className="flex flex-col items-start gap-1">
-            <div className="flex items-center gap-2">
-                <div className={cn("opacity-40", color)}>{icon}</div>
-                <p className="text-2xl font-bold tracking-tight text-foreground leading-none">{value}</p>
+        <Card>
+            <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                        <div className="flex items-baseline gap-1">
+                            <p className="text-2xl font-bold tracking-tight">{value}</p>
+                            {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+                        </div>
+                    </div>
+                    <div className={cn("p-2 rounded-lg bg-muted/50", color)}>{icon}</div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ABCBar({ label, count, total, color }: {
+    label: string;
+    count: number;
+    total: number;
+    color: string;
+}) {
+    const pct = total > 0 ? (count / total) * 100 : 0;
+    return (
+        <div className="flex-1 space-y-1.5">
+            <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-5">
+                    {label}
+                </Badge>
+                <span className="text-xs text-muted-foreground">{count} item</span>
             </div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-none pl-6">{label}</p>
+            <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+                <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground text-right">{pct.toFixed(0)}%</p>
         </div>
     );
 }
 
-
-
+function QuickLinkCard({ title, description }: { title: string; description: string }) {
+    return (
+        <Card className="hover:border-primary/30 transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                    <p className="text-sm font-semibold">{title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </CardContent>
+        </Card>
+    );
+}
