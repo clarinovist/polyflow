@@ -47,6 +47,7 @@ export {
   getBomWithInventory,
   createProductionFromSalesOrder,
   simulateMrp,
+  cancelOrderFromPlanning,
 } from "./production-mrp";
 
 export { createChildProductionOrder } from "./production-child";

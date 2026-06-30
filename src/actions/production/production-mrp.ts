@@ -1,6 +1,7 @@
 "use server";
 
 import { withTenant } from "@/lib/core/tenant";
+import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
 import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
 import { requireAuth, requirePlanningRole } from "@/lib/tools/auth-checks";
@@ -8,6 +9,11 @@ import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
 import { MrpService } from "@/services/production/mrp-service";
+import {
+  SalesOrderStatus,
+  ReservationStatus,
+  ReservationType,
+} from "@prisma/client";
 
 export const getBomWithInventory = withTenant(
   async function getBomWithInventory(
@@ -79,6 +85,68 @@ export const createProductionFromSalesOrder = withTenant(
         throw new BusinessRuleError(
           "Failed to automatically trigger production order from Sales Order.",
         );
+      }
+    });
+  },
+);
+
+export const cancelOrderFromPlanning = withTenant(
+  async function cancelOrderFromPlanning(salesOrderId: string) {
+    return safeAction(async () => {
+      try {
+        await requirePlanningRole();
+
+        // Verify order exists and is cancellable
+        const order = await prisma.salesOrder.findUnique({
+          where: { id: salesOrderId },
+          include: { productionOrders: true },
+        });
+
+        if (!order) {
+          throw new BusinessRuleError("Order not found");
+        }
+
+        if (order.productionOrders.length > 0) {
+          throw new BusinessRuleError(
+            "Cannot cancel order with existing production orders",
+          );
+        }
+
+        if (
+          order.status !== SalesOrderStatus.CONFIRMED &&
+          order.status !== SalesOrderStatus.IN_PRODUCTION
+        ) {
+          throw new BusinessRuleError("Order is not in a cancellable state");
+        }
+
+        // Cancel stock reservations and update status
+        await prisma.$transaction(async (tx) => {
+          await tx.stockReservation.updateMany({
+            where: {
+              referenceId: order.id,
+              reservedFor: ReservationType.SALES_ORDER,
+              status: ReservationStatus.ACTIVE,
+            },
+            data: { status: ReservationStatus.CANCELLED },
+          });
+
+          await tx.salesOrder.update({
+            where: { id: salesOrderId },
+            data: { status: SalesOrderStatus.CANCELLED },
+          });
+        });
+
+        revalidatePath("/planning/requests");
+        revalidatePath("/sales");
+        return true;
+      } catch (error) {
+        if (error instanceof BusinessRuleError) throw error;
+        logger.error("Failed to cancel order from planning", {
+          salesOrderId,
+          error,
+          module: "ProductionActions",
+        });
+        throw new BusinessRuleError("Failed to cancel order. Please try again.");
       }
     });
   },
