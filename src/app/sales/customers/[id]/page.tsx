@@ -88,9 +88,7 @@ export default async function CustomerDetailPage(props: {
         .filter(
           (p) =>
             p.product.productType === "FINISHED_GOOD" ||
-            p.product.productType === "SCRAP" ||
-            p.product.productType === "PACKAGING" ||
-            p.product.productType === "SERVICE",
+            p.product.productType === "PACKAGING",
         )
         .map((p) => ({
           ...p,

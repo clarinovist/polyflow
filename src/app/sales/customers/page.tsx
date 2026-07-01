@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Phone, MapPin, Eye, Plus } from "lucide-react";
+import { Users, Phone, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Customer } from "@prisma/client";
@@ -59,7 +59,7 @@ export default async function CustomersPage() {
                   <TableHead>{salesLabels.phone}</TableHead>
                   <TableHead>{salesLabels.billingAddress}</TableHead>
                   <TableHead>{salesLabels.status}</TableHead>
-                  <TableHead className="w-[120px] text-right">
+                  <TableHead className="w-[80px] text-right">
                     {salesLabels.actions}
                   </TableHead>
                 </TableRow>
@@ -99,7 +99,12 @@ export default async function CustomersPage() {
                         {customer.code || "-"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {customer.name}
+                        <Link
+                          href={`/sales/customers/${customer.id}`}
+                          className="hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          {customer.name}
+                        </Link>
                       </TableCell>
                       <TableCell>
                         {customer.phone ? (
@@ -139,11 +144,6 @@ export default async function CustomersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Link href={`/sales/customers/${customer.id}`}>
-                            <Button variant="ghost" size="icon">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
                           <CustomerDialog
                             mode="edit"
                             initialData={{
