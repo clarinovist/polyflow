@@ -126,6 +126,26 @@ export async function getPurchaseInvoiceById(id: string) {
           orderNumber: true,
           totalAmount: true,
           supplier: { select: { name: true, code: true } },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              unitPrice: true,
+              subtotal: true,
+              discountPercent: true,
+              taxPercent: true,
+              taxAmount: true,
+              productVariant: {
+                select: {
+                  id: true,
+                  name: true,
+                  skuCode: true,
+                  primaryUnit: true,
+                },
+              },
+            },
+            orderBy: { id: "asc" },
+          },
         },
       },
       payments: {

@@ -4,7 +4,23 @@ import { Separator } from "@/components/ui/separator";
 import { formatRupiah } from "@/lib/utils/utils";
 import { PurchaseInvoiceStatus } from "@prisma/client";
 import { format } from "date-fns";
-import { AlertCircle, CreditCard, History } from "lucide-react";
+import { AlertCircle, CreditCard, History, Package } from "lucide-react";
+
+interface PurchaseOrderItemData {
+    id: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    discountPercent?: number | null;
+    taxPercent?: number | null;
+    taxAmount?: number | null;
+    productVariant: {
+        id: string;
+        name: string;
+        skuCode: string;
+        primaryUnit: string;
+    };
+}
 
 interface FinancialPurchaseInvoiceDetailProps {
     invoice: {
@@ -19,6 +35,7 @@ interface FinancialPurchaseInvoiceDetailProps {
             orderNumber: string;
             supplier: { name: string };
             totalAmount: number;
+            items?: PurchaseOrderItemData[];
         };
         payments?: {
             id: string;
@@ -28,6 +45,14 @@ interface FinancialPurchaseInvoiceDetailProps {
             notes?: string | null;
         }[];
     };
+}
+
+function formatQty(value: number): string {
+    if (!value && value !== 0) return "-";
+    // Show decimals only if not a whole number
+    return Number.isInteger(value)
+        ? value.toLocaleString("id-ID")
+        : value.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
 export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInvoiceDetailProps) {
@@ -44,6 +69,9 @@ export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInv
             </Badge>
         );
     };
+
+    const items = invoice.purchaseOrder.items ?? [];
+    const hasItems = items.length > 0;
 
     return (
         <div className="space-y-6">
@@ -110,32 +138,73 @@ export function FinancialPurchaseInvoiceDetail({ invoice }: FinancialPurchaseInv
                 </Card>
             </div>
 
-            {/* Read-Only Items View */}
+            {/* Purchase Summary — Line Items */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Purchase Summary (Financial View)</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Purchase Summary
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border p-4 bg-muted/20">
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Operational details (quantity, delivery status) are hidden in this view.
-                        </p>
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm font-medium border-b pb-2">
-                                <span>Description</span>
-                                <span>Amount</span>
-                            </div>
-                            <div className="flex justify-between text-sm py-2">
-                                <span>Purchase Order Total</span>
-                                <span>{formatRupiah(Number(invoice.purchaseOrder.totalAmount))}</span>
-                            </div>
-                            <Separator className="my-2" />
-                            <div className="flex justify-between font-bold">
-                                <span>Invoice Total</span>
-                                <span>{formatRupiah(Number(invoice.totalAmount))}</span>
+                    {hasItems ? (
+                        <div className="rounded-md border overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-muted/50">
+                                        <th className="text-left p-3 font-medium text-muted-foreground">Produk</th>
+                                        <th className="text-left p-3 font-medium text-muted-foreground">SKU</th>
+                                        <th className="text-right p-3 font-medium text-muted-foreground">Qty</th>
+                                        <th className="text-right p-3 font-medium text-muted-foreground">Harga Satuan</th>
+                                        <th className="text-right p-3 font-medium text-muted-foreground">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {items.map((item) => (
+                                        <tr key={item.id} className="border-t">
+                                            <td className="p-3 font-medium">{item.productVariant.name}</td>
+                                            <td className="p-3 text-muted-foreground">{item.productVariant.skuCode}</td>
+                                            <td className="p-3 text-right">
+                                                {formatQty(Number(item.quantity))}
+                                                <span className="text-muted-foreground ml-1 text-xs">
+                                                    {item.productVariant.primaryUnit}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-right">{formatRupiah(Number(item.unitPrice))}</td>
+                                            <td className="p-3 text-right font-medium">{formatRupiah(Number(item.subtotal))}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="border-t-2 bg-muted/30">
+                                        <td colSpan={4} className="p-3 font-bold">Invoice Total</td>
+                                        <td className="p-3 text-right font-bold">{formatRupiah(Number(invoice.totalAmount))}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="rounded-md border p-4 bg-muted/20">
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Operational details (quantity, delivery status) are hidden in this view.
+                            </p>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm font-medium border-b pb-2">
+                                    <span>Description</span>
+                                    <span>Amount</span>
+                                </div>
+                                <div className="flex justify-between text-sm py-2">
+                                    <span>Purchase Order Total</span>
+                                    <span>{formatRupiah(Number(invoice.purchaseOrder.totalAmount))}</span>
+                                </div>
+                                <Separator className="my-2" />
+                                <div className="flex justify-between font-bold">
+                                    <span>Invoice Total</span>
+                                    <span>{formatRupiah(Number(invoice.totalAmount))}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </CardContent>
             </Card>
 
