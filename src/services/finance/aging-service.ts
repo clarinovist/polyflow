@@ -1,16 +1,36 @@
 import { prisma } from '@/lib/core/prisma';
 import { InvoiceStatus, PurchaseInvoiceStatus } from '@prisma/client';
 
+export interface AgingInvoiceDetail {
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: Date;
+    dueDate: Date | null;
+    daysOverdue: number; // negatif = belum jatuh tempo
+    outstanding: number;
+    status: string;
+    bucket: 'notYetDue' | '1-30' | '31-60' | '61-90' | '90+';
+}
+
 export interface AgingRow {
     partnerId: string;
     partnerName: string;
     type: 'AR' | 'AP';
-    notYetDue: number; // dueDate belum lewat
-    current: number; // 1-30 days overdue
+    notYetDue: number;
+    current: number;
     days31to60: number;
     days61to90: number;
     over90: number;
     total: number;
+    invoices: AgingInvoiceDetail[];
+}
+
+function getBucket(daysOverdue: number): AgingInvoiceDetail['bucket'] {
+    if (daysOverdue < 0) return 'notYetDue';
+    if (daysOverdue <= 30) return '1-30';
+    if (daysOverdue <= 60) return '31-60';
+    if (daysOverdue <= 90) return '61-90';
+    return '90+';
 }
 
 export class AgingService {
@@ -28,7 +48,8 @@ export class AgingService {
                 salesOrder: {
                     include: { customer: true }
                 }
-            }
+            },
+            orderBy: { invoiceDate: 'asc' }
         });
 
         const now = new Date().getTime();
@@ -51,21 +72,33 @@ export class AgingService {
                     days31to60: 0,
                     days61to90: 0,
                     over90: 0,
-                    total: 0
+                    total: 0,
+                    invoices: []
                 });
             }
 
             const row = map.get(customerId)!;
             const baseDate = inv.dueDate || inv.invoiceDate;
-            const daysOld = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const daysOverdue = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const bucket = getBucket(daysOverdue);
 
-            if (daysOld < 0) row.notYetDue += outstanding;
-            else if (daysOld <= 30) row.current += outstanding;
-            else if (daysOld <= 60) row.days31to60 += outstanding;
-            else if (daysOld <= 90) row.days61to90 += outstanding;
+            if (daysOverdue < 0) row.notYetDue += outstanding;
+            else if (daysOverdue <= 30) row.current += outstanding;
+            else if (daysOverdue <= 60) row.days31to60 += outstanding;
+            else if (daysOverdue <= 90) row.days61to90 += outstanding;
             else row.over90 += outstanding;
 
             row.total += outstanding;
+            row.invoices.push({
+                invoiceId: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                invoiceDate: inv.invoiceDate,
+                dueDate: inv.dueDate,
+                daysOverdue,
+                outstanding,
+                status: inv.status,
+                bucket
+            });
         }
 
         return Array.from(map.values()).sort((a, b) => b.total - a.total);
@@ -85,7 +118,8 @@ export class AgingService {
                 purchaseOrder: {
                     include: { supplier: true }
                 }
-            }
+            },
+            orderBy: { invoiceDate: 'asc' }
         });
 
         const now = new Date().getTime();
@@ -108,21 +142,33 @@ export class AgingService {
                     days31to60: 0,
                     days61to90: 0,
                     over90: 0,
-                    total: 0
+                    total: 0,
+                    invoices: []
                 });
             }
 
             const row = map.get(supplierId)!;
             const baseDate = inv.dueDate || inv.invoiceDate;
-            const daysOld = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const daysOverdue = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
+            const bucket = getBucket(daysOverdue);
 
-            if (daysOld < 0) row.notYetDue += outstanding;
-            else if (daysOld <= 30) row.current += outstanding;
-            else if (daysOld <= 60) row.days31to60 += outstanding;
-            else if (daysOld <= 90) row.days61to90 += outstanding;
+            if (daysOverdue < 0) row.notYetDue += outstanding;
+            else if (daysOverdue <= 30) row.current += outstanding;
+            else if (daysOverdue <= 60) row.days31to60 += outstanding;
+            else if (daysOverdue <= 90) row.days61to90 += outstanding;
             else row.over90 += outstanding;
 
             row.total += outstanding;
+            row.invoices.push({
+                invoiceId: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                invoiceDate: inv.invoiceDate,
+                dueDate: inv.dueDate,
+                daysOverdue,
+                outstanding,
+                status: inv.status,
+                bucket
+            });
         }
 
         return Array.from(map.values()).sort((a, b) => b.total - a.total);
