@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/ui/data-table";
 import {
@@ -14,11 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/utils/utils";
 import { format } from "date-fns";
-import { CheckCircle2, CreditCard, Trash2, Loader2 } from "lucide-react";
+import { CheckCircle2, CreditCard, Trash2, Loader2, Search } from "lucide-react";
 import { deletePayment } from "@/actions/finance/finance";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +59,18 @@ export function SharedPaymentTable({
   const amountPrefix = isReceived ? "+" : "-";
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter((p) => {
+      const lowerSearch = searchTerm.toLowerCase();
+      return (
+        p.referenceNumber.toLowerCase().includes(lowerSearch) ||
+        p.entityName.toLowerCase().includes(lowerSearch) ||
+        p.method.toLowerCase().includes(lowerSearch)
+      );
+    });
+  }, [payments, searchTerm]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -208,10 +220,24 @@ export function SharedPaymentTable({
       <CardContent>
         <DataTable
           columns={columns}
-          data={payments}
+          data={filteredPayments}
           emptyMessage="Tidak ada catatan pembayaran."
           minWidth={800}
-        />
+        >
+          <div className="relative max-w-sm w-full">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={
+                isReceived
+                  ? "Cari referensi atau pelanggan..."
+                  : "Cari referensi atau supplier..."
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </DataTable>
       </CardContent>
     </Card>
   );

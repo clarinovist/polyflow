@@ -18,6 +18,13 @@ import {
 import { PurchaseInvoiceStatus } from "@prisma/client";
 import Link from "next/link";
 import { deleteInvoice } from "@/actions/finance/invoices";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -60,6 +67,7 @@ export function PurchaseInvoiceTable({
 }: PurchaseInvoiceTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const handleDelete = async (id: string) => {
     setIsDeleting(id);
@@ -81,17 +89,21 @@ export function PurchaseInvoiceTable({
   };
 
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(
-      (inv) =>
-        inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.purchaseOrder.orderNumber
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        inv.purchaseOrder.supplier.name
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()),
-    );
-  }, [invoices, searchTerm]);
+    return invoices.filter((inv) => {
+      // 1. Filter by status
+      if (statusFilter !== "ALL" && inv.status !== statusFilter) {
+        return false;
+      }
+
+      // 2. Filter by search term
+      const lowerSearch = searchTerm.toLowerCase();
+      return (
+        inv.invoiceNumber.toLowerCase().includes(lowerSearch) ||
+        inv.purchaseOrder.orderNumber.toLowerCase().includes(lowerSearch) ||
+        inv.purchaseOrder.supplier.name.toLowerCase().includes(lowerSearch)
+      );
+    });
+  }, [invoices, searchTerm, statusFilter]);
 
   const getStatusBadge = (status: PurchaseInvoiceStatus) => {
     const styles: Record<string, string> = {
@@ -275,14 +287,30 @@ export function PurchaseInvoiceTable({
       emptyMessage={purchasingLabels.emptyInvoices}
       minWidth={1000}
     >
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Cari invoice, PO, atau supplier..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="relative max-w-sm flex-1 sm:w-80">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari invoice, PO, atau supplier..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 w-full"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Semua Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua Status</SelectItem>
+            <SelectItem value="DRAFT">Draft</SelectItem>
+            <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
+            <SelectItem value="PARTIAL">Dibayar Sebagian</SelectItem>
+            <SelectItem value="PAID">Lunas</SelectItem>
+            <SelectItem value="OVERDUE">Lewat Jatuh Tempo</SelectItem>
+            <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </DataTable>
   );

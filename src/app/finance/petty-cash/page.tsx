@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getPettyCashTransactions,
   getPettyCashBalance,
@@ -16,9 +16,18 @@ import {
   Clock,
   FileText,
   ClipboardList,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Transaction {
   id: string;
@@ -36,6 +45,35 @@ export default function PettyCashPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      // 1. Filter by status
+      if (statusFilter !== "ALL" && t.status !== statusFilter) {
+        return false;
+      }
+      // 2. Filter by type
+      if (typeFilter !== "ALL" && t.type !== typeFilter) {
+        return false;
+      }
+      // 3. Filter by search term
+      const lowerSearch = searchTerm.toLowerCase();
+      const voucherNum = (t.voucherNumber || "").toLowerCase();
+      const desc = (t.description || "").toLowerCase();
+      const accName = (t.expenseAccount?.name || "").toLowerCase();
+      const accCode = (t.expenseAccount?.code || "").toLowerCase();
+
+      return (
+        voucherNum.includes(lowerSearch) ||
+        desc.includes(lowerSearch) ||
+        accName.includes(lowerSearch) ||
+        accCode.includes(lowerSearch)
+      );
+    });
+  }, [transactions, searchTerm, statusFilter, typeFilter]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -205,13 +243,45 @@ export default function PettyCashPage() {
         <CardHeader>
           <CardTitle>Transaction History</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative max-w-sm flex-1 sm:w-80">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari voucher atau deskripsi..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 w-full"
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Semua Tipe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Semua Tipe</SelectItem>
+                <SelectItem value="INCOME">Pemasukan (Income)</SelectItem>
+                <SelectItem value="EXPENSE">Pengeluaran (Expense)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Semua Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Semua Status</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="POSTED">Posted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {loading ? (
             <div className="py-8 text-center text-muted-foreground text-sm flex justify-center items-center gap-2">
               <RefreshCw className="h-4 w-4 animate-spin" /> Loading
               transactions...
             </div>
-          ) : transactions.length === 0 ? (
+          ) : filteredTransactions.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground text-sm">
               Tidak ada transaksi kas kecil ditemukan.
             </div>
@@ -234,7 +304,7 @@ export default function PettyCashPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t) => (
+                  {filteredTransactions.map((t) => (
                     <tr
                       key={t.id}
                       className="border-b transition-colors hover:bg-muted/50 border-border/50"

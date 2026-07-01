@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -11,7 +11,8 @@ import {
 import { getAgingSummary } from "@/actions/finance/aging-actions";
 import { formatRupiah } from "@/lib/utils/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface AgingRow {
   partnerName: string;
@@ -133,6 +134,19 @@ export default function AgingPage() {
   const [apData, setApData] = useState<AgingRow[]>([]);
   const [loadingAR, setLoadingAR] = useState(true);
   const [loadingAP, setLoadingAP] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredAR = useMemo(() => {
+    return arData.filter((row) =>
+      row.partnerName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [arData, searchTerm]);
+
+  const filteredAP = useMemo(() => {
+    return apData.filter((row) =>
+      row.partnerName.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [apData, searchTerm]);
 
   useEffect(() => {
     getAgingSummary("AR")
@@ -165,14 +179,25 @@ export default function AgingPage() {
       </div>
 
       <Tabs defaultValue="ar" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="ar">Piutang (AR)</TabsTrigger>
-          <TabsTrigger value="ap">Hutang (AP)</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="ar">Piutang (AR)</TabsTrigger>
+            <TabsTrigger value="ap">Hutang (AP)</TabsTrigger>
+          </TabsList>
+          <div className="relative max-w-sm w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cari nama mitra..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
 
         <TabsContent value="ar">
           <AgingTable
-            data={arData}
+            data={filteredAR}
             loading={loadingAR}
             title="Aging Piutang"
             description="Saldo outstanding dari Customer"
@@ -182,7 +207,7 @@ export default function AgingPage() {
 
         <TabsContent value="ap">
           <AgingTable
-            data={apData}
+            data={filteredAP}
             loading={loadingAP}
             title="Aging Hutang"
             description="Saldo outstanding ke Supplier"

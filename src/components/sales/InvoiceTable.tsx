@@ -13,6 +13,7 @@ import {
   Loader2,
   Receipt,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,14 @@ import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
 import { InvoiceStatus } from "@prisma/client";
 import { deleteInvoice } from "@/actions/finance/invoices";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,6 +73,37 @@ export function InvoiceTable({
 }: InvoiceTableProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      // 1. Filter by status
+      if (statusFilter !== "ALL" && inv.status !== statusFilter) {
+        return false;
+      }
+
+      // 2. Filter by search term
+      const lowerSearch = searchTerm.toLowerCase();
+      const entityName = (
+        inv.salesOrder?.customer?.name ||
+        inv.purchaseOrder?.supplier?.name ||
+        "Legacy Internal Stock Build"
+      ).toLowerCase();
+      const invoiceNum = inv.invoiceNumber.toLowerCase();
+      const orderRef = (
+        inv.salesOrder?.orderNumber ||
+        inv.purchaseOrder?.orderNumber ||
+        ""
+      ).toLowerCase();
+
+      return (
+        invoiceNum.includes(lowerSearch) ||
+        entityName.includes(lowerSearch) ||
+        orderRef.includes(lowerSearch)
+      );
+    });
+  }, [invoices, searchTerm, statusFilter]);
 
   const handleDelete = async (id: string, type: "AR" | "AP") => {
     setIsDeleting(id);
@@ -363,10 +403,36 @@ export function InvoiceTable({
   return (
     <DataTable
       columns={columns}
-      data={invoices}
+      data={filteredInvoices}
       emptyMessage={salesLabels.emptyInvoices}
       minWidth={900}
       renderMobileView={renderMobileView}
-    />
+    >
+      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="relative max-w-sm flex-1 sm:w-80">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari invoice, order, atau entitas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 w-full"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Semua Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Semua Status</SelectItem>
+            <SelectItem value="DRAFT">Draft</SelectItem>
+            <SelectItem value="UNPAID">Belum Dibayar</SelectItem>
+            <SelectItem value="PARTIAL">Dibayar Sebagian</SelectItem>
+            <SelectItem value="PAID">Lunas</SelectItem>
+            <SelectItem value="OVERDUE">Lewat Jatuh Tempo</SelectItem>
+            <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </DataTable>
   );
 }
