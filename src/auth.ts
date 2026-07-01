@@ -75,6 +75,10 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         throw new Error('UserNotFound');
                     }
 
+                    if (user.isActive === false) {
+                        throw new Error('UserInactive');
+                    }
+
                     const passwordsMatch = await bcrypt.compare(password, user.password);
 
                     if (passwordsMatch) {

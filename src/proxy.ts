@@ -11,6 +11,7 @@ const handler = auth((req) => {
   const host = req.headers.get("host") || "";
   const hostname = host.split(":")[0];
   const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", req.nextUrl.pathname);
 
   // SECURITY: Always clear any client-provided x-tenant-subdomain header to prevent tenant spoofing
   requestHeaders.delete("x-tenant-subdomain");

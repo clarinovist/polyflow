@@ -4,6 +4,7 @@ import { PurchasingSidebar } from "@/components/purchasing/purchasing-sidebar";
 import { canAccessWorkspace } from "@/lib/auth/access-policy";
 import { PathBreadCrumb } from "@/components/layout/path-breadcrumb";
 import { SidebarSpacer } from "@/components/layout/sidebar-spacer";
+import { getMyPermissions } from "@/actions/admin/permissions";
 
 export default async function PurchasingLayout({
   children,
@@ -17,6 +18,13 @@ export default async function PurchasingLayout({
   }
 
   if (!canAccessWorkspace(session.user, "purchasing")) {
+    redirect("/dashboard?error=Unauthorized");
+  }
+
+  const permissionsRes = await getMyPermissions();
+  const permissions =
+    permissionsRes.success && permissionsRes.data ? permissionsRes.data : [];
+  if (permissions !== "ALL" && !permissions.includes("/purchasing")) {
     redirect("/dashboard?error=Unauthorized");
   }
 

@@ -5,6 +5,7 @@ import { ClockDisplay } from '../kiosk/ClockDisplay';
 import { canAccessWorkspace } from '@/lib/auth/access-policy';
 import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
+import { getMyPermissions } from '@/actions/admin/permissions';
 
 export default async function WarehouseLayout({
     children,
@@ -25,6 +26,12 @@ export default async function WarehouseLayout({
 
     if (!canAccessWorkspace(session.user, 'warehouse')) {
         redirect('/dashboard');
+    }
+
+    const permissionsRes = await getMyPermissions();
+    const permissions = permissionsRes.success && permissionsRes.data ? permissionsRes.data : [];
+    if (permissions !== 'ALL' && !permissions.includes('/warehouse')) {
+        redirect('/logout');
     }
 
     return (

@@ -4,6 +4,7 @@ import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
 export default async function DashboardLayout({
     children,
@@ -27,6 +28,19 @@ export default async function DashboardLayout({
     // The getMyPermissions action handles the 'ALL' logic for admins.
     const permissionsRes = await getMyPermissions();
     const permissions = permissionsRes.success && permissionsRes.data ? permissionsRes.data : [];
+    const reqHeaders = await headers();
+    const pathname = reqHeaders.get('x-pathname') || '/dashboard';
+
+    if (permissions !== 'ALL') {
+        const canAccessCurrentDashboardPath =
+            pathname === '/dashboard'
+                ? permissions.includes('/dashboard')
+                : permissions.some((resource) => pathname === resource || pathname.startsWith(`${resource}/`));
+
+        if (!canAccessCurrentDashboardPath) {
+            redirect(permissions.find((resource) => resource.startsWith('/')) || '/login');
+        }
+    }
 
     return (
         <div className="min-h-screen bg-secondary/30">

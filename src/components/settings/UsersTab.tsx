@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getUsers, createUser, updateUser, deleteUser, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
+import { getUsers, createUser, updateUser, deleteUser, reactivateUser, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Loader2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Loader2, Pencil, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserData {
@@ -40,8 +40,19 @@ interface UserData {
     name: string | null;
     email: string;
     role: Role;
+    isActive: boolean;
     createdAt: Date;
 }
+
+const USER_ROLES: { value: Role; label: string }[] = [
+    { value: 'ADMIN', label: 'Admin' },
+    { value: 'PLANNING', label: 'Planning' },
+    { value: 'WAREHOUSE', label: 'Warehouse' },
+    { value: 'PRODUCTION', label: 'Production' },
+    { value: 'SALES', label: 'Sales' },
+    { value: 'FINANCE', label: 'Finance' },
+    { value: 'PROCUREMENT', label: 'Procurement' },
+];
 
 export function UsersTab() {
     const [users, setUsers] = useState<UserData[]>([]);
@@ -109,12 +120,22 @@ export function UsersTab() {
         setIsSubmitting(false);
     };
 
-    const handleDelete = async (userId: string) => {
-        if (!confirm('Yakin ingin menghapus pengguna ini?')) return;
+    const handleDeactivate = async (userId: string) => {
+        if (!confirm('Yakin ingin menonaktifkan pengguna ini? User tidak akan bisa login, tetapi histori transaksi tetap aman.')) return;
 
         const result = await deleteUser(userId);
         if (result.success) {
-            toast.success('Pengguna berhasil dihapus.');
+            toast.success('Pengguna berhasil dinonaktifkan.');
+            fetchUsers();
+        } else {
+            toast.error(result.error);
+        }
+    };
+
+    const handleReactivate = async (userId: string) => {
+        const result = await reactivateUser(userId);
+        if (result.success) {
+            toast.success('Pengguna berhasil diaktifkan kembali.');
             fetchUsers();
         } else {
             toast.error(result.error);
@@ -192,11 +213,11 @@ export function UsersTab() {
                                         <SelectValue placeholder="Pilih peran" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
-                                        <SelectItem value="PLANNING">Planning</SelectItem>
-                                        <SelectItem value="WAREHOUSE">Warehouse</SelectItem>
-                                        <SelectItem value="PRODUCTION">Production</SelectItem>
-                                        <SelectItem value="SALES">Sales</SelectItem>
+                                        {USER_ROLES.map((role) => (
+                                            <SelectItem key={role.value} value={role.value}>
+                                                {role.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -226,6 +247,7 @@ export function UsersTab() {
                                     <TableHead>Nama</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Peran</TableHead>
+                                    <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -244,6 +266,11 @@ export function UsersTab() {
                                         <TableCell>
                                             <Badge variant="outline">{user.role}</Badge>
                                         </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.isActive ? 'default' : 'secondary'}>
+                                                {user.isActive ? 'Aktif' : 'Nonaktif'}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button
@@ -257,10 +284,15 @@ export function UsersTab() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={() => handleDelete(user.id)}
+                                                    className={
+                                                        user.isActive
+                                                            ? "h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                            : "h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                                                    }
+                                                    onClick={() => user.isActive ? handleDeactivate(user.id) : handleReactivate(user.id)}
+                                                    title={user.isActive ? 'Nonaktifkan pengguna' : 'Aktifkan pengguna'}
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    {user.isActive ? <Trash2 className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -316,11 +348,11 @@ export function UsersTab() {
                                                 <SelectValue placeholder="Pilih peran" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="ADMIN">Admin</SelectItem>
-                                                <SelectItem value="PLANNING">Planning</SelectItem>
-                                                <SelectItem value="WAREHOUSE">Warehouse</SelectItem>
-                                                <SelectItem value="PRODUCTION">Production</SelectItem>
-                                                <SelectItem value="SALES">Sales</SelectItem>
+                                                {USER_ROLES.map((role) => (
+                                                    <SelectItem key={role.value} value={role.value}>
+                                                        {role.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>

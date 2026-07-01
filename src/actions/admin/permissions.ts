@@ -19,6 +19,17 @@ async function checkAdmin() {
   if (!session?.user || session.user.role !== "ADMIN") {
     throw new AuthorizationError("Unauthorized: Admin access required");
   }
+
+  if (session.user.id) {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isActive: true },
+    });
+    if (!currentUser?.isActive) {
+      throw new AuthorizationError("Unauthorized: User account is inactive");
+    }
+  }
+
   return session;
 }
 
@@ -225,6 +236,14 @@ export const getMyPermissions = withTenant(async function getMyPermissions() {
     const session = await auth();
     if (!session?.user) return [];
 
+    if (session.user.id) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isActive: true },
+      });
+      if (!currentUser?.isActive) return [];
+    }
+
     if (session.user.role === "ADMIN") {
       return "ALL";
     }
@@ -256,6 +275,14 @@ export const canViewPrices = withTenant(async function canViewPrices() {
   return safeAction(async () => {
     const session = await auth();
     if (!session?.user) return false;
+
+    if (session.user.id) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isActive: true },
+      });
+      if (!currentUser?.isActive) return false;
+    }
 
     if (session.user.role === "ADMIN") return true;
 
