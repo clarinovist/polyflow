@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Loader2, Pencil, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserData {
@@ -78,6 +78,13 @@ export function UsersTab() {
         role: 'WAREHOUSE',
     });
 
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [editConfirmPassword, setEditConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showEditPassword, setShowEditPassword] = useState(false);
+    const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
+
     const fetchUsers = async () => {
         const result = await getUsers();
         if (result.success && result.data) {
@@ -94,12 +101,25 @@ export function UsersTab() {
     }, []);
 
     const handleCreate = async () => {
+        if (!formData.name || !formData.email || !formData.password) {
+            toast.error('Semua field wajib diisi');
+            return;
+        }
+        if (formData.password.length < 6) {
+            toast.error('Kata sandi minimal 6 karakter');
+            return;
+        }
+        if (formData.password !== confirmPassword) {
+            toast.error('Konfirmasi kata sandi tidak cocok');
+            return;
+        }
         setIsSubmitting(true);
         const result = await createUser(formData);
         if (result.success) {
             toast.success('Pengguna berhasil dibuat.');
             setCreateOpen(false);
             setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
+            setConfirmPassword('');
             fetchUsers();
         } else {
             toast.error(result.error || 'Gagal membuat pengguna');
@@ -108,11 +128,22 @@ export function UsersTab() {
     };
 
     const handleUpdate = async () => {
+        if (editData.password) {
+            if (editData.password.length < 6) {
+                toast.error('Kata sandi baru minimal 6 karakter');
+                return;
+            }
+            if (editData.password !== editConfirmPassword) {
+                toast.error('Konfirmasi kata sandi baru tidak cocok');
+                return;
+            }
+        }
         setIsSubmitting(true);
         const result = await updateUser(editData);
         if (result.success) {
             toast.success('Pengguna berhasil diperbarui.');
             setEditOpen(false);
+            setEditConfirmPassword('');
             fetchUsers();
         } else {
             toast.error(result.error || 'Gagal memperbarui pengguna');
@@ -150,6 +181,9 @@ export function UsersTab() {
             role: user.role,
             password: '', // Always start empty
         });
+        setEditConfirmPassword('');
+        setShowEditPassword(false);
+        setShowEditConfirmPassword(false);
         setEditOpen(true);
     };
 
@@ -162,7 +196,15 @@ export function UsersTab() {
                         Kelola akses sistem dan peran.
                     </CardDescription>
                 </div>
-                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <Dialog open={createOpen} onOpenChange={(open) => {
+                    setCreateOpen(open);
+                    if (!open) {
+                        setFormData({ name: '', email: '', password: '', role: 'WAREHOUSE' });
+                        setConfirmPassword('');
+                        setShowPassword(false);
+                        setShowConfirmPassword(false);
+                    }
+                }}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="mr-2 h-4 w-4" />
@@ -195,13 +237,42 @@ export function UsersTab() {
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                />
+                                <Label htmlFor="password">Kata Sandi</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                        className="pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="confirm-password">Konfirmasi Kata Sandi</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="confirm-password"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="pr-10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="role">Role</Label>
@@ -302,7 +373,14 @@ export function UsersTab() {
                         </Table>
 
                         {/* Edit User Dialog */}
-                        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                        <Dialog open={editOpen} onOpenChange={(open) => {
+                            setEditOpen(open);
+                            if (!open) {
+                                setEditConfirmPassword('');
+                                setShowEditPassword(false);
+                                setShowEditConfirmPassword(false);
+                            }
+                        }}>
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Ubah Pengguna</DialogTitle>
@@ -330,13 +408,45 @@ export function UsersTab() {
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="edit-password">Kata Sandi Baru (Opsional)</Label>
-                                        <Input
-                                            id="edit-password"
-                                            type="password"
-                                            placeholder="••••••••"
-                                            value={editData.password}
-                                            onChange={(e) => setEditData({ ...editData, password: e.target.value })}
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="edit-password"
+                                                type={showEditPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                value={editData.password}
+                                                onChange={(e) => setEditData({ ...editData, password: e.target.value })}
+                                                className="pr-10"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowEditPassword(!showEditPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="edit-confirm-password">Konfirmasi Kata Sandi Baru</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="edit-confirm-password"
+                                                type={showEditConfirmPassword ? "text" : "password"}
+                                                placeholder="••••••••"
+                                                value={editConfirmPassword}
+                                                onChange={(e) => setEditConfirmPassword(e.target.value)}
+                                                className="pr-10"
+                                                disabled={!editData.password}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                disabled={!editData.password}
+                                            >
+                                                {showEditConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="edit-role">Role</Label>
