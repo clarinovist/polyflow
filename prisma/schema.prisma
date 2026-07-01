@@ -736,7 +736,7 @@ model SalesQuotationItem {
   enteredUnit      Unit?
   conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
   enteredUnitPrice Decimal?       @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(5, 2)
+  discountPercent  Decimal?       @db.Decimal(15, 6)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
   subtotal         Decimal        @db.Decimal(15, 2)
@@ -760,7 +760,7 @@ model SalesOrderItem {
   deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
-  discountPercent  Decimal?       @db.Decimal(5, 2)
+  discountPercent  Decimal?       @db.Decimal(15, 6)
   taxAmount        Decimal?       @db.Decimal(15, 2)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   dppOtherAmount   Decimal?       @db.Decimal(15, 2)
@@ -822,7 +822,7 @@ model PurchaseOrderItem {
   quantity         Decimal        @db.Decimal(15, 4)
   unitPrice        Decimal        @db.Decimal(15, 4)
   subtotal         Decimal        @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(5, 2)
+  discountPercent  Decimal?       @db.Decimal(15, 6)
   taxPercent       Decimal?       @db.Decimal(5, 2)
   taxAmount        Decimal?       @db.Decimal(15, 2)
   dppOtherAmount   Decimal?       @db.Decimal(15, 2)

@@ -113,6 +113,35 @@ export function SalesOrderForm({
   >([]);
   // Track raw input values for price fields (to allow typing commas/dots)
   const [rawPriceInputs, setRawPriceInputs] = useState<Record<number, string>>({});
+  const [discountTypes, setDiscountTypes] = useState<Record<number, 'PERCENT' | 'NOMINAL'>>(() => {
+    let itemsToProcess: { discountPercent?: number }[] = [];
+    if (initialData?.items) {
+      itemsToProcess = initialData.items as Record<string, unknown>[];
+    } else if (reorderData?.items) {
+      itemsToProcess = reorderData.items;
+    }
+    const typesMap: Record<number, 'PERCENT' | 'NOMINAL'> = {};
+    itemsToProcess.forEach((_, i) => {
+      typesMap[i] = 'PERCENT';
+    });
+    return typesMap;
+  });
+  const [rawDiscountInputs, setRawDiscountInputs] = useState<Record<number, string>>(() => {
+    let itemsToProcess: { discountPercent?: number }[] = [];
+    if (initialData?.items) {
+      itemsToProcess = initialData.items as Record<string, unknown>[];
+    } else if (reorderData?.items) {
+      itemsToProcess = reorderData.items;
+    }
+    const inputsMap: Record<number, string> = {};
+    itemsToProcess.forEach((item, i) => {
+      const percent = Number(item.discountPercent || 0);
+      if (percent > 0) {
+        inputsMap[i] = String(Math.round(percent * 1000000) / 1000000);
+      }
+    });
+    return inputsMap;
+  });
   const previousCustomerIdRef = useRef<string | undefined>(
     initialData
       ? ((initialData as Record<string, unknown>).customerId as string | undefined)
@@ -321,9 +350,31 @@ export function SalesOrderForm({
   const watchShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
 
+  // Adjust discount percents when subtotal changes for NOMINAL discounts
+  useEffect(() => {
+    if (!watchItems) return;
+    const items = form.getValues("items") || [];
+    items.forEach((item, index) => {
+      const type = discountTypes[index];
+      if (type === 'NOMINAL') {
+        const rawInput = rawDiscountInputs[index] || '';
+        const nominal = rawInput ? parseIndonesianPrice(rawInput) : 0;
+        const qty = Number(item.quantity || 0);
+        const price = Number(item.unitPrice || 0);
+        const subtotal = qty * price;
+        const calculatedPercent = subtotal > 0 ? (nominal / subtotal) * 100 : 0;
+        
+        const currentPercent = Number(item.discountPercent || 0);
+        if (Math.abs(currentPercent - calculatedPercent) > 0.000001) {
+          form.setValue(`items.${index}.discountPercent`, calculatedPercent, { shouldDirty: false });
+        }
+      }
+    });
+  }, [watchItems, discountTypes, rawDiscountInputs, form]);
+
   // Auto-calculate DPPnya = DPP × 11/12 when qty, price, or discount changes
   useEffect(() => {
-    const items = form.getValues("items");
+    const items = form.getValues("items") || [];
     items.forEach((item, index) => {
       const qty = Number(item.quantity || 0);
       const price = Number(item.unitPrice || 0);
@@ -336,6 +387,111 @@ export function SalesOrderForm({
       }
     });
   }, [watchItems, form]);
+
+  const handleRemoveItem = (index: number) => {
+    remove(index);
+    setTaxableItems(prev => {
+      const newMap: Record<number, boolean> = {};
+      Object.keys(prev)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .filter(i => i !== index)
+        .forEach((oldIdx, newIdx) => {
+          newMap[newIdx] = prev[oldIdx];
+        });
+      return newMap;
+    });
+    setDiscountTypes(prev => {
+      const newMap: Record<number, 'PERCENT' | 'NOMINAL'> = {};
+      Object.keys(prev)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .filter(i => i !== index)
+        .forEach((oldIdx, newIdx) => {
+          newMap[newIdx] = prev[oldIdx];
+        });
+      return newMap;
+    });
+    setRawDiscountInputs(prev => {
+      const newMap: Record<number, string> = {};
+      Object.keys(prev)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .filter(i => i !== index)
+        .forEach((oldIdx, newIdx) => {
+          newMap[newIdx] = prev[oldIdx];
+        });
+      return newMap;
+    });
+  };
+
+  const toggleDiscountType = (index: number) => {
+    const currentType = discountTypes[index] || 'PERCENT';
+    const nextType = currentType === 'PERCENT' ? 'NOMINAL' : 'PERCENT';
+    
+    const currentPercent = Number(form.getValues(`items.${index}.discountPercent`) || 0);
+    const qty = Number(form.getValues(`items.${index}.quantity`) || 0);
+    const price = Number(form.getValues(`items.${index}.unitPrice`) || 0);
+    const subtotal = qty * price;
+
+    let nextValueString = '';
+
+    if (nextType === 'NOMINAL') {
+      const nominal = subtotal * (currentPercent / 100);
+      nextValueString = nominal > 0 ? String(Math.round(nominal)) : '';
+    } else {
+      const rawInput = rawDiscountInputs[index] || '';
+      const nominal = rawInput ? parseIndonesianPrice(rawInput) : (subtotal * (currentPercent / 100));
+      const percent = subtotal > 0 ? (nominal / subtotal) * 100 : 0;
+      nextValueString = percent > 0 ? String(Math.round(percent * 1000000) / 1000000) : '';
+    }
+
+    setDiscountTypes(prev => ({ ...prev, [index]: nextType }));
+    
+    if (nextValueString) {
+      setRawDiscountInputs(prev => ({ 
+        ...prev, 
+        [index]: nextType === 'NOMINAL' ? formatIndonesianPrice(Number(nextValueString)) : nextValueString 
+      }));
+      const val = Number(nextValueString);
+      if (nextType === 'NOMINAL') {
+        const calculatedPercent = subtotal > 0 ? (val / subtotal) * 100 : 0;
+        form.setValue(`items.${index}.discountPercent`, calculatedPercent, { shouldDirty: true });
+      } else {
+        form.setValue(`items.${index}.discountPercent`, val, { shouldDirty: true });
+      }
+    } else {
+      setRawDiscountInputs(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      form.setValue(`items.${index}.discountPercent`, 0, { shouldDirty: true });
+    }
+  };
+
+  const handleDiscountChange = (index: number, valStr: string) => {
+    setRawDiscountInputs(prev => ({ ...prev, [index]: valStr }));
+    
+    const type = discountTypes[index] || 'PERCENT';
+    const qty = Number(form.getValues(`items.${index}.quantity`) || 0);
+    const price = Number(form.getValues(`items.${index}.unitPrice`) || 0);
+    const subtotal = qty * price;
+
+    if (!valStr) {
+      form.setValue(`items.${index}.discountPercent`, 0, { shouldDirty: true });
+      return;
+    }
+
+    if (type === 'NOMINAL') {
+      const nominal = parseIndonesianPrice(valStr);
+      const calculatedPercent = subtotal > 0 ? (nominal / subtotal) * 100 : 0;
+      form.setValue(`items.${index}.discountPercent`, calculatedPercent, { shouldDirty: true });
+    } else {
+      const percent = Number(valStr);
+      form.setValue(`items.${index}.discountPercent`, percent, { shouldDirty: true });
+    }
+  };
 
   const getLineVariant = (index: number) => {
     const productVariantId = form.getValues(`items.${index}.productVariantId`);
@@ -889,6 +1045,7 @@ export function SalesOrderForm({
                 {
                   const newIndex = fields.length;
                   setTaxableItems((prev) => ({ ...prev, [newIndex]: false }));
+                  setDiscountTypes((prev) => ({ ...prev, [newIndex]: 'PERCENT' }));
                   append({
                     productVariantId: "",
                     quantity: 1,
@@ -1138,29 +1295,70 @@ export function SalesOrderForm({
                         <FormField
                           control={form.control}
                           name={`items.${index}.discountPercent`}
-                          render={({ field: discField }) => (
-                            <div className="flex flex-col items-end gap-1">
-                              <div className="relative w-full">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="1"
-                                  placeholder="0"
-                                  className="h-9 pl-2 pr-6 text-right font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  {...discField}
-                                />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                  %
-                                </span>
+                          render={({ field: discField }) => {
+                            const discType = discountTypes[index] || 'PERCENT';
+                            const rawVal = rawDiscountInputs[index];
+                            
+                            let displayValue = '';
+                            if (rawVal !== undefined) {
+                              displayValue = rawVal;
+                            } else {
+                              if (discType === 'NOMINAL') {
+                                const currentPercent = Number(discField.value || 0);
+                                const nominalVal = sub * (currentPercent / 100);
+                                displayValue = nominalVal > 0 ? formatIndonesianPrice(Math.round(nominalVal)) : '';
+                              } else {
+                                const currentPercent = Number(discField.value || 0);
+                                displayValue = currentPercent > 0 ? String(Math.round(currentPercent * 1000000) / 1000000) : '';
+                              }
+                            }
+
+                            return (
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="relative w-full">
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="0"
+                                    value={displayValue}
+                                    onChange={(e) => handleDiscountChange(index, e.target.value)}
+                                    onBlur={() => {
+                                      const rawVal = rawDiscountInputs[index] || '';
+                                      if (rawVal) {
+                                        if (discType === 'NOMINAL') {
+                                          const nominal = parseIndonesianPrice(rawVal);
+                                          setRawDiscountInputs(prev => ({ ...prev, [index]: formatIndonesianPrice(nominal) }));
+                                        } else {
+                                          const percent = Number(rawVal);
+                                          setRawDiscountInputs(prev => ({ ...prev, [index]: String(percent) }));
+                                        }
+                                      } else {
+                                        setRawDiscountInputs(prev => {
+                                          const next = { ...prev };
+                                          delete next[index];
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    className="h-9 pl-2 pr-9 text-right font-mono text-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDiscountType(index)}
+                                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1 py-0.5 rounded border border-input hover:bg-muted bg-popover text-foreground transition-colors cursor-pointer select-none"
+                                    title="Klik untuk mengubah tipe diskon (% / Rp)"
+                                  >
+                                    {discType === 'PERCENT' ? '%' : 'Rp'}
+                                  </button>
+                                </div>
+                                {afterDisc < sub && (
+                                  <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
+                                    -{formatRupiah(sub - afterDisc)}
+                                  </span>
+                                )}
                               </div>
-                              {afterDisc < sub && (
-                                <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
-                                  -{formatRupiah(sub - afterDisc)}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                            );
+                          }}
                         />
                       </TableCell>
                       
@@ -1296,20 +1494,7 @@ export function SalesOrderForm({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            remove(index);
-                            setTaxableItems(prev => {
-                              const newMap: Record<number, boolean> = {};
-                              Object.keys(prev)
-                                .map(Number)
-                                .sort((a, b) => a - b)
-                                .filter(i => i !== index)
-                                .forEach((oldIdx, newIdx) => {
-                                  newMap[newIdx] = prev[oldIdx];
-                                });
-                              return newMap;
-                            });
-                          }}
+                          onClick={() => handleRemoveItem(index)}
                           className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1458,20 +1643,7 @@ export function SalesOrderForm({
                       variant="ghost"
                       size="sm"
                       className="h-11 w-11 text-muted-foreground hover:text-red-500 shrink-0"
-                      onClick={() => {
-                        remove(index);
-                        setTaxableItems(prev => {
-                          const newMap: Record<number, boolean> = {};
-                          Object.keys(prev)
-                            .map(Number)
-                            .sort((a, b) => a - b)
-                            .filter(i => i !== index)
-                            .forEach((oldIdx, newIdx) => {
-                              newMap[newIdx] = prev[oldIdx];
-                            });
-                          return newMap;
-                        });
-                      }}
+                      onClick={() => handleRemoveItem(index)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1531,25 +1703,78 @@ export function SalesOrderForm({
                     <FormField
                       control={form.control}
                       name={`items.${index}.discountPercent`}
-                      render={({ field: discField }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-muted-foreground">
-                            Diskon %
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="1"
-                              placeholder="0"
-                              className="h-11"
-                              {...discField}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field: discField }) => {
+                        const discType = discountTypes[index] || 'PERCENT';
+                        const rawVal = rawDiscountInputs[index];
+                        
+                        let displayValue = '';
+                        if (rawVal !== undefined) {
+                          displayValue = rawVal;
+                        } else {
+                          if (discType === 'NOMINAL') {
+                            const currentPercent = Number(discField.value || 0);
+                            const nominalVal = sub * (currentPercent / 100);
+                            displayValue = nominalVal > 0 ? formatIndonesianPrice(Math.round(nominalVal)) : '';
+                          } else {
+                            const currentPercent = Number(discField.value || 0);
+                            displayValue = currentPercent > 0 ? String(Math.round(currentPercent * 1000000) / 1000000) : '';
+                          }
+                        }
+
+                        return (
+                          <FormItem>
+                            <FormLabel className="text-xs text-muted-foreground flex justify-between items-center">
+                              <span>Diskon</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleDiscountType(index)}
+                                className="text-[10px] font-semibold text-primary border rounded px-1 hover:bg-muted transition-colors cursor-pointer"
+                              >
+                                Tipe: {discType === 'PERCENT' ? '%' : 'Rp'}
+                              </button>
+                            </FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={displayValue}
+                                  onChange={(e) => handleDiscountChange(index, e.target.value)}
+                                  onBlur={() => {
+                                    const rawVal = rawDiscountInputs[index] || '';
+                                    if (rawVal) {
+                                      if (discType === 'NOMINAL') {
+                                        const nominal = parseIndonesianPrice(rawVal);
+                                        setRawDiscountInputs(prev => ({ ...prev, [index]: formatIndonesianPrice(nominal) }));
+                                      } else {
+                                        const percent = Number(rawVal);
+                                        setRawDiscountInputs(prev => ({ ...prev, [index]: String(percent) }));
+                                      }
+                                    } else {
+                                      setRawDiscountInputs(prev => {
+                                        const next = { ...prev };
+                                        delete next[index];
+                                        return next;
+                                      });
+                                    }
+                                  }}
+                                  className="h-11 pr-8 text-right font-mono"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
+                                  {discType === 'PERCENT' ? '%' : 'Rp'}
+                                </span>
+                              </div>
+                            </FormControl>
+                            {afterDisc < sub && (
+                              <div className="text-[10px] font-mono text-red-500 text-right mt-1">
+                                -{formatRupiah(sub - afterDisc)}
+                              </div>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     <FormField
                       control={form.control}
