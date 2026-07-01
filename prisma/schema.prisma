@@ -140,6 +140,7 @@ model Customer {
   updatedAt       DateTime               @updatedAt
   salesOrders     SalesOrder[]
   quotations      SalesQuotation[]
+  productPrices   CustomerProductPrice[]
   salesReturns    SalesReturn[]
   maklonOrders    ProductionOrder[]      @relation("MaklonCustomer")
   maklonReceipts  GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
@@ -243,10 +244,28 @@ model ProductVariant {
   opnameItems          StockOpnameItem[]
   StockReservation     StockReservation[]
   supplierProducts     SupplierProduct[]
+  customerPrices       CustomerProductPrice[]
   costHistory          CostHistory[]
   salesReturnItems     SalesReturnItem[]
   purchaseReturnItems  PurchaseReturnItem[]
   maklonReturnItems    MaklonMaterialReturnItem[]
+}
+
+model CustomerProductPrice {
+  id               String         @id @default(uuid())
+  customerId       String
+  productVariantId String
+  unitPrice        Decimal        @db.Decimal(15, 2)
+  isActive         Boolean        @default(true)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  customer         Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, productVariantId])
+  @@index([customerId])
+  @@index([productVariantId])
 }
 
 model CostHistory {

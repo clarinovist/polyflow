@@ -1,5 +1,7 @@
 import { getCustomerById } from "@/actions/sales/customer";
 import { getSalesOrdersByCustomerId } from "@/actions/sales/sales";
+import { getProductVariants } from "@/actions/inventory/inventory";
+import { getCustomerProductPrices } from "@/actions/sales/customer-product-prices";
 import { notFound } from "next/navigation";
 import { CustomerDetailClient } from "@/components/customers/CustomerDetailClient";
 import type { SerializedCustomer } from "@/components/customers/CustomerDetailClient";
@@ -22,6 +24,13 @@ export default async function CustomerDetailPage(props: {
   if (!customer) {
     notFound();
   }
+
+  const [pricesRes, productsRes] = await Promise.all([
+    getCustomerProductPrices(id),
+    getProductVariants(),
+  ]);
+  const prices = pricesRes.success && pricesRes.data ? pricesRes.data : [];
+  const products = productsRes.success && productsRes.data ? productsRes.data : [];
 
   const serializedCustomer = {
     id: customer.id,
@@ -74,6 +83,26 @@ export default async function CustomerDetailPage(props: {
             } as unknown as SerializedCustomer)
           : null,
       })) as unknown as ComponentProps<typeof CustomerDetailClient>['salesOrders']}
+      customerProductPrices={prices as unknown as ComponentProps<typeof CustomerDetailClient>['customerProductPrices']}
+      products={products
+        .filter(
+          (p) =>
+            p.product.productType === "FINISHED_GOOD" ||
+            p.product.productType === "SCRAP" ||
+            p.product.productType === "PACKAGING" ||
+            p.product.productType === "SERVICE",
+        )
+        .map((p) => ({
+          ...p,
+          price: p.price ? Number(p.price) : null,
+          buyPrice: p.buyPrice ? Number(p.buyPrice) : null,
+          sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
+          conversionFactor: Number(p.conversionFactor),
+          minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
+          reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
+          reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
+          standardCost: p.standardCost ? Number(p.standardCost) : null,
+        })) as unknown as ComponentProps<typeof CustomerDetailClient>['products']}
     />
   );
 }

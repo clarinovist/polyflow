@@ -36,6 +36,11 @@ export default async function CreateSalesQuotationPage() {
                                 minStockAlert: p.minStockAlert ? Number(p.minStockAlert) : null,
                                 reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
                                 reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
+                                customerPrices: p.customerPrices?.map((price) => ({
+                                    customerId: price.customerId,
+                                    unitPrice: Number(price.unitPrice),
+                                    isActive: price.isActive,
+                                })) || [],
                                 inventories: p.inventories?.map((inv) => ({
                                     locationId: inv.locationId,
                                     quantity: Number(inv.quantity)

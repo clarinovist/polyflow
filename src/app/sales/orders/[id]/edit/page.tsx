@@ -85,6 +85,11 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
                                 reorderPoint: p.reorderPoint ? Number(p.reorderPoint) : null,
                                 reorderQuantity: p.reorderQuantity ? Number(p.reorderQuantity) : null,
                                 standardCost: p.standardCost ? Number(p.standardCost) : null,
+                                customerPrices: p.customerPrices?.map((price) => ({
+                                    customerId: price.customerId,
+                                    unitPrice: Number(price.unitPrice),
+                                    isActive: price.isActive,
+                                })) || [],
                                 inventories: p.inventories?.map((inv) => ({
                                     locationId: inv.locationId,
                                     quantity: Number(inv.quantity)

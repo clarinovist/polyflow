@@ -33,7 +33,7 @@ import { cn, formatRupiah } from '@/lib/utils/utils';
 import { CalendarIcon, Plus, Trash2, Loader2, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Customer, ProductVariant, Product, Unit } from '@prisma/client';
@@ -54,6 +54,11 @@ type SerializedProductVariant = Omit<ProductVariant, 'price' | 'buyPrice' | 'sel
     minStockAlert: number | null;
     reorderPoint: number | null;
     reorderQuantity: number | null;
+    customerPrices?: {
+        customerId: string;
+        unitPrice: number;
+        isActive: boolean;
+    }[];
     product: Product;
     inventories: {
         locationId: string;
@@ -72,6 +77,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openCustomer, setOpenCustomer] = useState(false);
+    const previousCustomerIdRef = useRef<string | undefined>(initialData?.customerId);
 
     // Unified type to satisfy react-hook-form's need for a consistent generic standard
     type SalesQuotationFormValues = {
@@ -116,6 +122,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
     });
 
     const watchItems = useWatch({ control: form.control, name: 'items' });
+    const selectedCustomerId = useWatch({ control: form.control, name: 'customerId' });
 
     const getLineVariant = (index: number) => {
         const productVariantId = form.getValues(`items.${index}.productVariantId`);
@@ -131,6 +138,43 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
         const meta = getProductionUnitMeta(variant);
         return meta.hasAlternateUnit ? baseUnitPrice * meta.conversionFactor : baseUnitPrice;
     };
+
+    const getCustomerBasePrice = useCallback((variant: SerializedProductVariant) => {
+        const customerPrice = selectedCustomerId
+            ? variant.customerPrices?.find((price) => price.customerId === selectedCustomerId && price.isActive)
+            : undefined;
+        return customerPrice?.unitPrice ?? variant.sellPrice ?? variant.price ?? 0;
+    }, [selectedCustomerId]);
+
+    const getPriceSourceLabel = useCallback((variant: SerializedProductVariant) => {
+        if (!selectedCustomerId) return 'Harga default';
+        return variant.customerPrices?.some((price) => price.customerId === selectedCustomerId && price.isActive)
+            ? 'Harga khusus customer'
+            : 'Harga default';
+    }, [selectedCustomerId]);
+
+    useEffect(() => {
+        const previousCustomerId = previousCustomerIdRef.current;
+        previousCustomerIdRef.current = selectedCustomerId;
+
+        if (!previousCustomerId || previousCustomerId === selectedCustomerId) return;
+
+        const items = form.getValues('items');
+        if (!items.some((item) => item.productVariantId)) return;
+
+        const shouldUpdate = window.confirm('Customer berubah. Update harga item sesuai harga customer baru?');
+        if (!shouldUpdate) return;
+
+        items.forEach((item, index) => {
+            const variant = products.find((p) => p.id === item.productVariantId);
+            if (!variant) return;
+            form.setValue(
+                `items.${index}.unitPrice`,
+                toDisplayUnitPrice(variant, getCustomerBasePrice(variant)),
+                { shouldDirty: true, shouldValidate: true },
+            );
+        });
+    }, [selectedCustomerId, form, products, getCustomerBasePrice]);
 
     const totals = watchItems?.reduce((acc, item) => {
         const qty = item.quantity || 0;
@@ -424,7 +468,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                                 if (selectedPrd) {
                                                                     form.setValue(
                                                                         `items.${index}.unitPrice`, 
-                                                                        toDisplayUnitPrice(selectedPrd, selectedPrd.sellPrice || selectedPrd.price || 0),
+                                                                        toDisplayUnitPrice(selectedPrd, getCustomerBasePrice(selectedPrd)),
                                                                         { shouldValidate: true, shouldDirty: true }
                                                                     );
                                                                 }
@@ -439,7 +483,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                             <SelectContent>
                                                                 {products.map((p) => (
                                                                     <SelectItem key={p.id} value={p.id}>
-                                                                        {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`} ({p.skuCode})
+                                                                        {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`} ({p.skuCode}) · {formatRupiah(toDisplayUnitPrice(p, getCustomerBasePrice(p)))} · {getPriceSourceLabel(p)}
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
@@ -492,6 +536,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                                                         {getLineUnitMeta(index) && (
                                                             <div className="px-2 text-[10px] text-muted-foreground">
                                                                 per {getLineUnitMeta(index)?.displayUnit}
+                                                                {getLineVariant(index) ? ` · ${getPriceSourceLabel(getLineVariant(index)!)} ` : ''}
                                                             </div>
                                                         )}
                                                         <FormMessage />

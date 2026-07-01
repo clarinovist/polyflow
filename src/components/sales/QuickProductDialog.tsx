@@ -121,6 +121,12 @@ export function QuickProductDialog({
                   locationId: inv.locationId,
                   quantity: Number(inv.quantity),
                 })) || [],
+              customerPrices:
+                newVariant.customerPrices?.map((cp) => ({
+                  customerId: cp.customerId,
+                  unitPrice: Number(cp.unitPrice),
+                  isActive: cp.isActive,
+                })) || [],
             };
             toast.success("Produk berhasil dibuat & dipilih");
             setOpen(false);

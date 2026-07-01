@@ -125,6 +125,14 @@ export class InventoryQueryService {
                         locationId: true,
                         quantity: true
                     }
+                },
+                customerPrices: {
+                    where: { isActive: true },
+                    select: {
+                        customerId: true,
+                        unitPrice: true,
+                        isActive: true,
+                    }
                 }
             }
         });

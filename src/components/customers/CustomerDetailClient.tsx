@@ -16,12 +16,14 @@ import {
   History,
   Navigation,
   ImageIcon,
+  Tags,
 } from "lucide-react";
 import Link from "next/link";
 import { CustomerDialog } from "@/components/customers/CustomerDialog";
 import { SalesOrderTable } from "@/components/sales/SalesOrderTable";
+import { CustomerProductPricesManager } from "@/components/customers/CustomerProductPricesManager";
 
-import { Customer, SalesOrder, Location } from "@prisma/client";
+import { Customer, SalesOrder, Location, Product, ProductVariant } from "@prisma/client";
 
 export type SerializedCustomer = Omit<
   Customer,
@@ -40,14 +42,50 @@ type SerializedSalesOrder = Omit<SalesOrder, "totalAmount"> & {
   _count: { items: number };
 };
 
+type SerializedProductVariant = Omit<
+  ProductVariant,
+  | "price"
+  | "buyPrice"
+  | "sellPrice"
+  | "conversionFactor"
+  | "minStockAlert"
+  | "reorderPoint"
+  | "reorderQuantity"
+  | "standardCost"
+> & {
+  price: number | null;
+  buyPrice: number | null;
+  sellPrice: number | null;
+  conversionFactor: number;
+  minStockAlert: number | null;
+  reorderPoint: number | null;
+  reorderQuantity: number | null;
+  standardCost: number | null;
+  product: Product;
+};
+
+type SerializedCustomerProductPrice = {
+  id: string;
+  customerId: string;
+  productVariantId: string;
+  unitPrice: number;
+  isActive: boolean;
+  notes: string | null;
+  productVariant: SerializedProductVariant;
+};
+
 interface CustomerDetailClientProps {
   customer: SerializedCustomer;
   salesOrders: SerializedSalesOrder[];
+  customerProductPrices: SerializedCustomerProductPrice[];
+  products: SerializedProductVariant[];
 }
 
 export function CustomerDetailClient({
   customer,
   salesOrders,
+  customerProductPrices,
+  products,
 }: CustomerDetailClientProps) {
   return (
     <div className="p-6 space-y-6">
@@ -90,6 +128,7 @@ export function CustomerDetailClient({
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">Sales History</TabsTrigger>
+          <TabsTrigger value="prices">Harga Produk</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -288,6 +327,24 @@ export function CustomerDetailClient({
             </CardHeader>
             <CardContent>
               <SalesOrderTable initialData={salesOrders} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="prices" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tags className="h-5 w-5" />
+                Harga Produk Customer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CustomerProductPricesManager
+                customerId={customer.id}
+                prices={customerProductPrices}
+                products={products}
+              />
             </CardContent>
           </Card>
         </TabsContent>

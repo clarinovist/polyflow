@@ -56,7 +56,7 @@ import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-f
 import { CalendarIcon, Plus, Trash2, Loader2, Check, Info, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 
 import {
   Command,
@@ -113,6 +113,11 @@ export function SalesOrderForm({
   >([]);
   // Track raw input values for price fields (to allow typing commas/dots)
   const [rawPriceInputs, setRawPriceInputs] = useState<Record<number, string>>({});
+  const previousCustomerIdRef = useRef<string | undefined>(
+    initialData
+      ? ((initialData as Record<string, unknown>).customerId as string | undefined)
+      : reorderData?.customerId,
+  );
 
   // Track which items have "Kena Pajak" checked (controls Pajak/DPP visibility)
   const [taxableItems, setTaxableItems] = useState<Record<number, boolean>>(() => {
@@ -234,6 +239,10 @@ export function SalesOrderForm({
     control: form.control,
     name: "orderType",
   });
+  const selectedCustomerId = useWatch({
+    control: form.control,
+    name: "customerId",
+  });
 
   const selectableLocations =
     selectedOrderType === "MAKLON_JASA"
@@ -348,16 +357,59 @@ export function SalesOrderForm({
       : baseUnitPrice;
   };
 
+  const getCustomerBasePrice = useCallback((variant: SerializedProductVariant) => {
+    const customerPrice = selectedCustomerId
+      ? variant.customerPrices?.find(
+          (price) => price.customerId === selectedCustomerId && price.isActive,
+        )
+      : undefined;
+    return customerPrice?.unitPrice ?? variant.sellPrice ?? variant.price ?? 0;
+  }, [selectedCustomerId]);
+
+  const getPriceSourceLabel = useCallback((variant: SerializedProductVariant) => {
+    if (!selectedCustomerId) return "Harga default";
+    return variant.customerPrices?.some(
+      (price) => price.customerId === selectedCustomerId && price.isActive,
+    )
+      ? "Harga khusus customer"
+      : "Harga default";
+  }, [selectedCustomerId]);
+
   const selectProduct = (index: number, variant: SerializedProductVariant) => {
     form.setValue(`items.${index}.productVariantId`, variant.id);
-    const currentPrice = form.getValues(`items.${index}.unitPrice`);
-    if (!currentPrice || currentPrice === 0) {
+    form.setValue(
+      `items.${index}.unitPrice`,
+      toDisplayUnitPrice(variant, getCustomerBasePrice(variant)),
+    );
+  };
+
+  useEffect(() => {
+    const previousCustomerId = previousCustomerIdRef.current;
+    previousCustomerIdRef.current = selectedCustomerId;
+
+    if (!previousCustomerId || previousCustomerId === selectedCustomerId) {
+      return;
+    }
+
+    const items = form.getValues("items");
+    const hasProducts = items.some((item) => item.productVariantId);
+    if (!hasProducts) return;
+
+    const shouldUpdate = window.confirm(
+      "Customer berubah. Update harga item sesuai harga customer baru?",
+    );
+    if (!shouldUpdate) return;
+
+    items.forEach((item, index) => {
+      const variant = products.find((p) => p.id === item.productVariantId);
+      if (!variant) return;
       form.setValue(
         `items.${index}.unitPrice`,
-        toDisplayUnitPrice(variant, variant.sellPrice || 0),
+        toDisplayUnitPrice(variant, getCustomerBasePrice(variant)),
+        { shouldDirty: true, shouldValidate: true },
       );
-    }
-  };
+    });
+  }, [selectedCustomerId, form, products, getCustomerBasePrice]);
 
   const handleQuickProductCreated = (
     newVariant: SerializedProductVariant,
@@ -963,7 +1015,8 @@ export function SalesOrderForm({
                                                 {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`}
                                               </span>
                                               <span className="text-xs text-muted-foreground">
-                                                {p.skuCode} • {formatRupiah(toDisplayUnitPrice(p, p.sellPrice || 0))}/{getProductionUnitMeta(p).displayUnit}
+                                                {p.skuCode} • {formatRupiah(toDisplayUnitPrice(p, getCustomerBasePrice(p)))}/{getProductionUnitMeta(p).displayUnit}
+                                                {" · "}{getPriceSourceLabel(p)}
                                               </span>
                                             </div>
                                           </CommandItem>
@@ -1070,6 +1123,11 @@ export function SalesOrderForm({
                                   />
                                 </div>
                               </FormControl>
+                              {variant && (
+                                <span className="mt-1 text-[10px] text-muted-foreground text-right">
+                                  {getPriceSourceLabel(variant)}
+                                </span>
+                              )}
                             </div>
                           )}
                         />
@@ -1455,6 +1513,11 @@ export function SalesOrderForm({
                               {...priceField}
                             />
                           </FormControl>
+                          {variant && (
+                            <div className="text-[10px] text-muted-foreground text-right">
+                              {getPriceSourceLabel(variant)}
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1720,8 +1783,9 @@ export function SalesOrderForm({
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {p.skuCode} •{" "}
-                        {formatRupiah(toDisplayUnitPrice(p, p.sellPrice || 0))}/
+                        {formatRupiah(toDisplayUnitPrice(p, getCustomerBasePrice(p)))}/
                         {getProductionUnitMeta(p).displayUnit}
+                        {" · "}{getPriceSourceLabel(p)}
                       </span>
                     </div>
                   </CommandItem>

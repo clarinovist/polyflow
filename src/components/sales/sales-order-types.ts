@@ -38,6 +38,11 @@ export type SerializedProductVariant = Omit<
   reorderPoint: number | null;
   reorderQuantity: number | null;
   standardCost: number | null;
+  customerPrices?: {
+    customerId: string;
+    unitPrice: number;
+    isActive: boolean;
+  }[];
   product: Product;
   inventories: {
     locationId: string;
