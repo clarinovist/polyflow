@@ -73,6 +73,7 @@ export function QuickProductDialog({
           | "RAW_MATERIAL"
           | "SCRAP"
           | "PACKAGING"
+          | "AUXILIARY"
           | "SERVICE",
         variants: [
           {
@@ -180,6 +181,7 @@ export function QuickProductDialog({
               <SelectContent>
                 <SelectItem value="FINISHED_GOOD">Finished Good</SelectItem>
                 <SelectItem value="PACKAGING">Packaging</SelectItem>
+                <SelectItem value="AUXILIARY">Bahan Penolong</SelectItem>
                 <SelectItem value="SCRAP">Scrap</SelectItem>
               </SelectContent>
             </Select>

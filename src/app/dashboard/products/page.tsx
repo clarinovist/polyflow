@@ -70,6 +70,7 @@ export default async function ProductsPage({
                     <Link href="/dashboard/products?type=INTERMEDIATE"><TabsTrigger value="INTERMEDIATE">Intermediate</TabsTrigger></Link>
                     <Link href="/dashboard/products?type=FINISHED_GOOD"><TabsTrigger value="FINISHED_GOOD">Finished Goods</TabsTrigger></Link>
                     <Link href="/dashboard/products?type=PACKAGING"><TabsTrigger value="PACKAGING">Packaging</TabsTrigger></Link>
+                    <Link href="/dashboard/products?type=AUXILIARY"><TabsTrigger value="AUXILIARY">Bahan Penolong</TabsTrigger></Link>
                     <Link href="/dashboard/products?type=SCRAP"><TabsTrigger value="SCRAP">Scrap</TabsTrigger></Link>
                 </TabsList>
 

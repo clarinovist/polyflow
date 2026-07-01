@@ -72,6 +72,7 @@ const productTypeBadgeColors: Record<ProductType, string> = {
     SCRAP: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/10 hover:bg-gray-500/20',
     INTERMEDIATE: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/10 hover:bg-purple-500/20',
     PACKAGING: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/10 hover:bg-orange-500/20',
+    AUXILIARY: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/10 hover:bg-indigo-500/20',
     WIP: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/10 hover:bg-yellow-500/20',
     SERVICE: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/10 hover:bg-pink-500/20',
     OPERATIONAL: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/10 hover:bg-teal-500/20',
