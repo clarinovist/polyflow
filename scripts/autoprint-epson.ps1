@@ -273,7 +273,7 @@ $action = {
             throw "Child print process exit code $LASTEXITCODE"
         }
     } catch {
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] GAGAL print $name: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] GAGAL print ${name}: $($_.Exception.Message)" -ForegroundColor Red
     } finally {
         if ($lockStream) { $lockStream.Close() }
         Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
