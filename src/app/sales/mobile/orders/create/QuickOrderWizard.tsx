@@ -83,6 +83,10 @@ export function QuickOrderWizard({
     );
   });
 
+  const displayProducts = productSearch
+    ? filteredProducts
+    : filteredProducts.slice(0, 50);
+
   const addItem = (product: Product) => {
     const existing = items.find((i) => i.productVariantId === product.id);
     if (existing) {
@@ -283,57 +287,55 @@ export function QuickOrderWizard({
           </div>
 
           {/* Product Results */}
-          {productSearch && (
-            <div className="max-h-48 overflow-y-auto border rounded-lg">
-              {filteredProducts.length === 0 ? (
-                <p className="p-3 text-sm text-muted-foreground text-center">
-                  Produk tidak ditemukan
-                </p>
-              ) : (
-                filteredProducts.map((p) => {
-                  const stock = p.inventories.reduce(
-                    (sum, inv) => sum + inv.quantity,
-                    0,
-                  );
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => addItem(p)}
-                      className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-sm font-medium truncate">
-                            {p.productName === p.name
-                              ? p.name
-                              : `${p.productName} - ${p.name}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {p.skuCode} • {p.displayUnit}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">
-                            {p.sellPrice ? formatRupiah(p.sellPrice) : "-"}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Stok: {stock}
-                          </p>
-                        </div>
+          <div className="max-h-48 overflow-y-auto border rounded-lg">
+            {displayProducts.length === 0 ? (
+              <p className="p-3 text-sm text-muted-foreground text-center">
+                Produk tidak ditemukan
+              </p>
+            ) : (
+              displayProducts.map((p) => {
+                const stock = p.inventories.reduce(
+                  (sum, inv) => sum + inv.quantity,
+                  0,
+                );
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => addItem(p)}
+                    className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium truncate">
+                          {p.productName === p.name
+                            ? p.name
+                            : `${p.productName} - ${p.name}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.skuCode} • {p.displayUnit}
+                        </p>
                       </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          )}
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          {p.sellPrice ? formatRupiah(p.sellPrice) : "-"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Stok: {stock}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
 
           {/* Added Items */}
           <div className="space-y-2">
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Ketik nama produk untuk menambahkan
+                Belum ada produk ditambahkan
               </p>
             ) : (
               items.map((item) => {
