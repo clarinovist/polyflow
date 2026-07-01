@@ -49,7 +49,7 @@ async function createLocation(data: CreateLocationValues) {
                 throw new ValidationError('Invalid location data', parsed.error.flatten().fieldErrors as Record<string, unknown>);
             }
 
-            const { name, slug, description, locationType } = parsed.data;
+            const { name, slug, description, locationType, locationPurpose } = parsed.data;
 
             // Simple slug generation if not provided
             const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -67,7 +67,8 @@ async function createLocation(data: CreateLocationValues) {
                     name,
                     slug: finalSlug,
                     description,
-                    locationType
+                    locationType,
+                    locationPurpose
                 }
             });
 
@@ -90,7 +91,7 @@ async function updateLocation(id: string, data: UpdateLocationValues) {
                 throw new ValidationError('Invalid location data', parsed.error.flatten().fieldErrors as Record<string, unknown>);
             }
 
-            const { name, slug, description, locationType } = parsed.data;
+            const { name, slug, description, locationType, locationPurpose } = parsed.data;
 
             // Simple slug generation if not provided
             const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -109,7 +110,8 @@ async function updateLocation(id: string, data: UpdateLocationValues) {
                     name,
                     slug: finalSlug,
                     description,
-                    locationType
+                    locationType,
+                    locationPurpose
                 }
             });
 

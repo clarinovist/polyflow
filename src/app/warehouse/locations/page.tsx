@@ -12,6 +12,28 @@ export const metadata: Metadata = {
     title: 'Locations | Master Data | PolyFlow',
 };
 
+const purposeLabels: Record<string, string> = {
+    RAW_MATERIAL: 'Bahan Baku',
+    FINISHED_GOOD: 'Barang Jadi',
+    PACKING: 'Area Packing',
+    WIP: 'Barang Dalam Proses',
+    MIXING: 'Area Mixing',
+    SCRAP: 'Limbah/Scrap',
+    OPERATIONAL: 'Barang Operasional',
+    GENERAL_PURPOSE: 'Umum',
+};
+
+const purposeColors: Record<string, string> = {
+    RAW_MATERIAL: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200',
+    FINISHED_GOOD: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200',
+    PACKING: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200',
+    WIP: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200',
+    MIXING: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300 border-cyan-200',
+    SCRAP: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200',
+    OPERATIONAL: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200',
+    GENERAL_PURPOSE: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200',
+};
+
 // Next.js Server Component
 export default async function LocationsPage() {
     // Fetch all locations
@@ -58,7 +80,8 @@ export default async function LocationsPage() {
                                         name: location.name,
                                         slug: location.slug,
                                         description: location.description || '',
-                                        locationType: location.locationType as 'INTERNAL' | 'CUSTOMER_OWNED'
+                                        locationType: location.locationType as 'INTERNAL' | 'CUSTOMER_OWNED',
+                                        locationPurpose: location.locationPurpose as 'RAW_MATERIAL' | 'FINISHED_GOOD' | 'PACKING' | 'WIP' | 'MIXING' | 'SCRAP' | 'OPERATIONAL' | 'GENERAL_PURPOSE' | undefined
                                     }}
                                 />
                             </div>
@@ -75,12 +98,17 @@ export default async function LocationsPage() {
                                     </p>
                                 )}
                                 
-                                <div className="mt-2">
+                                <div className="mt-2 flex flex-wrap gap-2">
                                     <Badge variant={location.locationType === 'CUSTOMER_OWNED' ? "secondary" : "outline"}
                                            className={location.locationType === 'CUSTOMER_OWNED' ? "bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200" : ""}
                                     >
                                         {location.locationType === 'CUSTOMER_OWNED' ? 'Maklon Storage' : 'Internal Warehouse'}
                                     </Badge>
+                                    {location.locationPurpose && location.locationPurpose !== 'GENERAL_PURPOSE' && (
+                                        <Badge variant="outline" className={purposeColors[location.locationPurpose] || ''}>
+                                            {purposeLabels[location.locationPurpose] || location.locationPurpose}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>

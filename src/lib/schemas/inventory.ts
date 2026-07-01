@@ -150,6 +150,19 @@ export const createLocationSchema = z.object({
     .optional()
     .transform((desc) => (desc ? sanitizeHtml(desc) : undefined)),
   locationType: z.enum(["INTERNAL", "CUSTOMER_OWNED"] as const),
+  locationPurpose: z
+    .enum([
+      "RAW_MATERIAL",
+      "FINISHED_GOOD",
+      "PACKING",
+      "WIP",
+      "MIXING",
+      "SCRAP",
+      "OPERATIONAL",
+      "GENERAL_PURPOSE",
+    ] as const)
+    .optional()
+    .default("GENERAL_PURPOSE"),
 });
 
 export const updateLocationSchema = createLocationSchema;

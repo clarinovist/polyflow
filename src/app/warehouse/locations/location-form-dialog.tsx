@@ -37,6 +37,7 @@ export interface LocationData {
     slug?: string | null;
     description?: string | null;
     locationType: 'INTERNAL' | 'CUSTOMER_OWNED';
+    locationPurpose?: 'RAW_MATERIAL' | 'FINISHED_GOOD' | 'PACKING' | 'WIP' | 'MIXING' | 'SCRAP' | 'OPERATIONAL' | 'GENERAL_PURPOSE';
 }
 
 interface LocationFormDialogProps {
@@ -58,6 +59,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
             slug: initialData?.slug || '',
             description: initialData?.description || '',
             locationType: initialData?.locationType || 'INTERNAL',
+            locationPurpose: initialData?.locationPurpose || 'GENERAL_PURPOSE',
         },
     });
 
@@ -69,6 +71,7 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
                 slug: initialData?.slug || '',
                 description: initialData?.description || '',
                 locationType: initialData?.locationType || 'INTERNAL',
+                locationPurpose: initialData?.locationPurpose || 'GENERAL_PURPOSE',
             });
         }
     };
@@ -172,6 +175,40 @@ export function LocationFormDialog({ initialData, trigger }: LocationFormDialogP
                                             <SelectItem value="CUSTOMER_OWNED">Customer Owned (Maklon)</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="locationPurpose"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tujuan Gudang</FormLabel>
+                                    <Select 
+                                        onValueChange={field.onChange} 
+                                        defaultValue={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih tujuan gudang" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="RAW_MATERIAL">Bahan Baku</SelectItem>
+                                            <SelectItem value="FINISHED_GOOD">Barang Jadi</SelectItem>
+                                            <SelectItem value="PACKING">Area Packing</SelectItem>
+                                            <SelectItem value="WIP">Barang Dalam Proses</SelectItem>
+                                            <SelectItem value="MIXING">Area Mixing</SelectItem>
+                                            <SelectItem value="SCRAP">Limbah/Scrap</SelectItem>
+                                            <SelectItem value="OPERATIONAL">Barang Operasional</SelectItem>
+                                            <SelectItem value="GENERAL_PURPOSE">Umum</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription className="text-xs">
+                                        Kategori gudang untuk filtering di form transaksi.
+                                    </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}

@@ -137,11 +137,11 @@ export function SalesOrderForm({
   });
 
   // Filter locations for stock-based sales fulfillment
-  // Non-CUSTOMER_OWNED locations are selectable as source warehouses.
-  // Previously filtered by slug keywords (finished/scrap/packing) which
-  // broke tenants with simpler warehouse names (e.g. "Gudang Utama").
+  // Uses locationPurpose for proper categorization (FINISHED_GOOD, PACKING, GENERAL_PURPOSE)
+  // Previously filtered by slug keywords which broke tenants with simpler warehouse names.
   const stockFulfillmentLocations = locations.filter(
-    (l) => l.locationType !== "CUSTOMER_OWNED",
+    (l) => l.locationType !== "CUSTOMER_OWNED" &&
+      ["FINISHED_GOOD", "PACKING", "GENERAL_PURPOSE"].includes(l.locationPurpose),
   );
 
   const maklonProductionLocations = locations.filter(

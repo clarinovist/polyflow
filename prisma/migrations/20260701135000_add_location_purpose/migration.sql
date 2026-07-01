@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "LocationPurpose" AS ENUM ('RAW_MATERIAL', 'FINISHED_GOOD', 'PACKING', 'WIP', 'MIXING', 'SCRAP', 'OPERATIONAL', 'GENERAL_PURPOSE');
+
+-- AlterTable
+ALTER TABLE "Location" ADD COLUMN "locationPurpose" "LocationPurpose" NOT NULL DEFAULT 'GENERAL_PURPOSE';

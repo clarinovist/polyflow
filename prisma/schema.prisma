@@ -166,6 +166,7 @@ model Location {
   slug             String                 @unique
   description      String?
   locationType     LocationType           @default(INTERNAL)
+  locationPurpose  LocationPurpose        @default(GENERAL_PURPOSE)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   Batch            Batch[]
@@ -1575,6 +1576,17 @@ model PettyCashTransaction {
 enum LocationType {
   INTERNAL
   CUSTOMER_OWNED
+}
+
+enum LocationPurpose {
+  RAW_MATERIAL
+  FINISHED_GOOD
+  PACKING
+  WIP
+  MIXING
+  SCRAP
+  OPERATIONAL
+  GENERAL_PURPOSE
 }
 
 model MaklonCostItem {
