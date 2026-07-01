@@ -37,7 +37,10 @@ export function PrintPreviewModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="border rounded-lg overflow-hidden bg-white print:border-none print:rounded-none">
+        <div
+          data-print-preview-root
+          className="border rounded-lg overflow-hidden bg-white print:border-none print:rounded-none"
+        >
           {children}
         </div>
 
@@ -55,6 +58,30 @@ export function PrintPreviewModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+      {open && (
+        <style>{`
+          @media print {
+            body * {
+              visibility: hidden !important;
+            }
+
+            [data-print-preview-root],
+            [data-print-preview-root] * {
+              visibility: visible !important;
+            }
+
+            [data-print-preview-root] {
+              position: absolute !important;
+              inset: 0 auto auto 0 !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: 0 !important;
+              overflow: visible !important;
+            }
+          }
+        `}</style>
+      )}
     </Dialog>
   );
 }

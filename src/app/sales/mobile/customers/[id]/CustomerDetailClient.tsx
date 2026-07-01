@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { formatRupiah } from "@/lib/utils/utils";
+import { VisitCheckInCard } from "@/components/sales/mobile/VisitCheckInCard";
 
 type Customer = {
   id: string;
@@ -43,16 +44,34 @@ type Order = {
   orderDate: Date | string;
 };
 
+type Invoice = {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: Date | string;
+  dueDate: Date | string | null;
+  totalAmount: number;
+  paidAmount: number;
+  status: string;
+  orderNumber: string;
+};
+
 interface CustomerDetailClientProps {
   customer: Customer;
   recentOrders: Order[];
+  outstandingInvoices: Invoice[];
 }
 
 export function CustomerDetailClient({
   customer,
   recentOrders,
+  outstandingInvoices,
 }: CustomerDetailClientProps) {
   const router = useRouter();
+
+  const totalOutstanding = outstandingInvoices.reduce(
+    (sum, inv) => sum + (inv.totalAmount - inv.paidAmount),
+    0
+  );
 
   return (
     <div className="p-4 space-y-4">
@@ -120,6 +139,14 @@ export function CustomerDetailClient({
         </Link>
       </div>
 
+      {/* Geolocation Check-in Card */}
+      <VisitCheckInCard
+        customerId={customer.id}
+        customerName={customer.name}
+        targetLatitude={customer.latitude}
+        targetLongitude={customer.longitude}
+      />
+
       {/* Address */}
       <div className="border rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -151,7 +178,7 @@ export function CustomerDetailClient({
           <CreditCard className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Informasi Keuangan</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm border-b pb-3 mb-3">
           <div>
             <p className="text-xs text-muted-foreground">Credit Limit</p>
             <p className="font-medium">
@@ -167,6 +194,70 @@ export function CustomerDetailClient({
             </p>
           </div>
         </div>
+        <div className="flex justify-between items-center text-sm pt-1">
+          <p className="text-xs text-muted-foreground">Total Piutang Outstanding</p>
+          <p className={`font-bold text-sm ${totalOutstanding > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+            {formatRupiah(totalOutstanding)}
+          </p>
+        </div>
+      </div>
+
+      {/* Outstanding Invoices */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 flex items-center justify-between">
+          <span>Piutang & Faktur Outstanding</span>
+          {outstandingInvoices.length > 0 && (
+            <Badge variant="destructive" className="text-[10px] font-bold">
+              {outstandingInvoices.length} Faktur
+            </Badge>
+          )}
+        </h3>
+        {outstandingInvoices.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4 border rounded-xl bg-muted/10">
+            Tidak ada piutang outstanding
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {outstandingInvoices.map((inv) => {
+              const remaining = inv.totalAmount - inv.paidAmount;
+              const isOverdue = inv.status === "OVERDUE" || (inv.dueDate && new Date(inv.dueDate) < new Date());
+              return (
+                <div
+                  key={inv.id}
+                  className="p-3 border rounded-xl bg-card space-y-2 shadow-sm"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold text-sm text-foreground">{inv.invoiceNumber}</p>
+                      <p className="text-[10px] text-muted-foreground">Order: {inv.orderNumber}</p>
+                    </div>
+                    <Badge
+                      variant={isOverdue ? "destructive" : "secondary"}
+                      className="text-[10px] uppercase font-bold px-2 py-0.5"
+                    >
+                      {isOverdue ? "Overdue" : inv.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t text-xs">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Jatuh Tempo</p>
+                      <p className={`font-medium ${isOverdue ? "text-destructive font-semibold" : "text-foreground"}`}>
+                        {inv.dueDate ? format(new Date(inv.dueDate), "dd MMM yyyy") : "-"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground">Sisa Piutang</p>
+                      <p className="font-bold text-rose-600 dark:text-rose-400">
+                        {formatRupiah(remaining)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Recent Orders */}

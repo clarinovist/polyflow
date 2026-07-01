@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, ShoppingBag, Package, ClipboardList } from "lucide-react";
@@ -15,6 +16,13 @@ const tabs = [
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  useEffect(() => {
+    // Clear bypass_mobile cookie if it exists when landing on mobile view
+    if (typeof document !== "undefined" && document.cookie.includes("bypass_mobile=true")) {
+      document.cookie = "bypass_mobile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    }
+  }, []);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t">

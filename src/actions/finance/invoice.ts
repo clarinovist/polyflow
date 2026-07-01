@@ -129,3 +129,66 @@ async function updateInvoiceStatus(data: { id: string, status: InvoiceStatus, pa
     });
 }
 );
+
+export const getOutstandingInvoicesByCustomerId = withTenant(
+async function getOutstandingInvoicesByCustomerId(customerId: string) {
+    return safeAction(async () => {
+        await requireAuth();
+        const invoices = await prisma.invoice.findMany({
+            where: {
+                salesOrder: {
+                    customerId: customerId
+                },
+                status: {
+                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
+                }
+            },
+            include: {
+                salesOrder: {
+                    select: {
+                        orderNumber: true
+                    }
+                }
+            },
+            orderBy: {
+                dueDate: 'asc'
+            }
+        });
+        return serializeData(invoices);
+    });
+}
+);
+
+export const getOutstandingInvoices = withTenant(
+async function getOutstandingInvoices() {
+    return safeAction(async () => {
+        await requireAuth();
+        const invoices = await prisma.invoice.findMany({
+            where: {
+                status: {
+                    in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE]
+                },
+                salesOrder: {
+                    customerId: { not: null }
+                }
+            },
+            include: {
+                salesOrder: {
+                    select: {
+                        orderNumber: true,
+                        customer: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                dueDate: 'asc'
+            }
+        });
+        return serializeData(invoices);
+    });
+}
+);

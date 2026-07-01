@@ -9,6 +9,13 @@ import {
     type EscpInvoiceData,
 } from '@/services/printing/escp-generator';
 
+function toSafeDownloadFilename(value: string): string {
+    return value
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim() || 'invoice';
+}
+
 export const GET = withTenantRoute(async (req: NextRequest) => {
     try {
         await requireAuth();
@@ -112,11 +119,13 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         const uint8 = toUint8Array(escpBytes);
         const buffer = Buffer.from(uint8);
 
+        const filename = toSafeDownloadFilename(invoice.invoiceNumber);
+
         return new NextResponse(buffer, {
             status: 200,
             headers: {
                 'Content-Type': 'application/octet-stream',
-                'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}.prn"`,
+                'Content-Disposition': `attachment; filename="${filename}.prn"`,
                 'Content-Length': buffer.length.toString(),
             },
         });

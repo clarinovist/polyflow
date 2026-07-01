@@ -97,26 +97,50 @@ export const authConfig = {
                 if (isTenantSubdomain) {
                     const workspace = getWorkspaceFromPath(pathname);
 
-                    if (workspace) {
-                        if (isLoggedIn) {
-                            if (pathname === '/logout') return true;
+                    if (isLoggedIn) {
+                        if (pathname === '/logout') return true;
 
-                            const user = auth.user as { role?: string; isSuperAdmin?: boolean };
+                        const user = auth.user as { role?: string; isSuperAdmin?: boolean };
+                        const role = user?.role?.toUpperCase();
+
+                        // Mobile Sales Redirect logic
+                        const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+                        const cookies = typeof headers.get === 'function' ? headers.get('cookie') || '' : '';
+                        const hasMobileBypass = cookies.includes('bypass_mobile=true');
+
+                        if (role === 'SALES' && isMobile && !hasMobileBypass) {
+                            // If they are not already on mobile sales pages, redirect them to /sales/mobile
+                            if (!pathname.startsWith('/sales/mobile')) {
+                                return Response.redirect(new URL('/sales/mobile', nextUrl));
+                            }
+                        }
+
+                        if (workspace) {
                             if (!canAccessWorkspace(user, workspace)) {
                                 const redirectUrl = getDefaultRedirectForUser(user);
                                 return Response.redirect(new URL(redirectUrl, nextUrl));
                             }
                             return true;
                         }
+
+                        // Tenant login page
+                        const isLoginPage = pathname === '/login';
+                        if (isLoginPage) {
+                            return Response.redirect(new URL('/dashboard', nextUrl));
+                        }
+
+                        // Other tenant paths without workspace prefix — allow
+                        return true;
+                    }
+
+                    // Unauthenticated tenant access
+                    if (workspace) {
                         return false; // Redirect unauthenticated to login
                     }
 
-                    // Tenant login page
                     const isLoginPage = pathname === '/login';
                     if (isLoginPage) {
-                        if (isLoggedIn) {
-                            return Response.redirect(new URL('/dashboard', nextUrl));
-                        }
                         return true;
                     }
 

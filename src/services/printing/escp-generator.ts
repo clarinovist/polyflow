@@ -16,10 +16,21 @@ const FF  = 0x0C;  // Form Feed
 const CR  = 0x0D;  // Carriage Return
 const LF  = 0x0A;  // Line Feed
 
-// ─── Helper: Convert string to byte array (ASCII) ─────────────────────
+// ─── Helper: Convert string to byte array (ASCII-safe ESC/P) ──────────
+
+function toPrinterSafeText(s: string): string {
+    return s
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/[–—]/g, '-')
+        .replace(/…/g, '...')
+        .replace(/[^\x20-\x7E]/g, '?');
+}
 
 function str(s: string): number[] {
-    return Array.from(s, c => c.charCodeAt(0));
+    return Array.from(toPrinterSafeText(s), c => c.charCodeAt(0));
 }
 
 // ─── ESC/P Command Builders ───────────────────────────────────────────
@@ -374,6 +385,7 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
 
     // ── NOTE ──
     bytes.push(...str(dashLine()));
+    bytes.push(...newline());
     bytes.push(...setBold(true));
     bytes.push(...str(`NOTE : ${data.footerNote}`));
     bytes.push(...setBold(false));

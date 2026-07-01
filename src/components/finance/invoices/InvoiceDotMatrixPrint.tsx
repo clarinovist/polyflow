@@ -351,7 +351,7 @@ export function InvoiceDotMatrixPrint({
         dangerouslySetInnerHTML={{
           __html: `
         @page {
-          size: auto;
+          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
           margin: ${paperSize.marginMm}mm;
         }
 
@@ -363,7 +363,16 @@ export function InvoiceDotMatrixPrint({
             margin: 0;
             padding: 0;
           }
+          html, body {
+            width: ${paperSize.widthCm}cm;
+            min-height: ${paperSize.heightCm}cm;
+          }
           .print-page {
+            width: ${paperSize.widthCm}cm;
+            min-height: ${paperSize.heightCm}cm;
+            max-width: none;
+            margin: 0;
+            box-sizing: border-box;
             page-break-inside: avoid;
             page-break-after: avoid;
           }
@@ -379,6 +388,7 @@ export function InvoiceDotMatrixPrint({
           line-height: 1.4;
           width: 100%;
           max-width: ${paperSize.widthCm}cm;
+          min-height: ${paperSize.heightCm}cm;
           margin: 0 auto;
           padding: ${paperSize.marginMm}mm;
           color: #000;

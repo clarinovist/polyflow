@@ -1,5 +1,6 @@
 import { getCustomerById } from "@/actions/sales/customer";
 import { getSalesOrdersByCustomerId } from "@/actions/sales/sales";
+import { getOutstandingInvoicesByCustomerId } from "@/actions/finance/invoice";
 import { notFound } from "next/navigation";
 import { CustomerDetailClient } from "./CustomerDetailClient";
 
@@ -8,14 +9,16 @@ export default async function SalesMobileCustomerDetailPage(props: {
 }) {
   const { id } = await props.params;
 
-  const [customerRes, ordersRes] = await Promise.all([
+  const [customerRes, ordersRes, invoicesRes] = await Promise.all([
     getCustomerById(id),
     getSalesOrdersByCustomerId(id),
+    getOutstandingInvoicesByCustomerId(id),
   ]);
 
   const customer =
     customerRes?.success && customerRes.data ? customerRes.data : null;
   const orders = ordersRes?.success && ordersRes.data ? ordersRes.data : [];
+  const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
 
   if (!customer) {
     notFound();
@@ -48,6 +51,16 @@ export default async function SalesMobileCustomerDetailPage(props: {
         totalAmount: o.totalAmount ? Number(o.totalAmount) : null,
         status: o.status,
         orderDate: o.orderDate,
+      }))}
+      outstandingInvoices={invoices.map((inv) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        invoiceDate: inv.invoiceDate,
+        dueDate: inv.dueDate,
+        totalAmount: Number(inv.totalAmount),
+        paidAmount: Number(inv.paidAmount),
+        status: inv.status,
+        orderNumber: inv.salesOrder?.orderNumber || "",
       }))}
     />
   );

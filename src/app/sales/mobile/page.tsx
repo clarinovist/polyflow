@@ -1,10 +1,36 @@
 import { getSalesOrderStats } from "@/actions/sales/sales";
+import { getOutstandingInvoices } from "@/actions/finance/invoice";
+import { getCustomers } from "@/actions/sales/customer";
 import { ShoppingCart, CheckCircle, XCircle, Plus, Search } from "lucide-react";
 import Link from "next/link";
+import { SwitchToDesktopButton } from "@/components/sales/mobile/SwitchToDesktopButton";
+import { DailyJourneyPlan } from "@/components/sales/mobile/DailyJourneyPlan";
+import { VisitSyncBanner } from "@/components/sales/mobile/VisitSyncBanner";
+import { formatRupiah } from "@/lib/utils/utils";
 
 export default async function SalesMobileDashboardPage() {
-  const statsRes = await getSalesOrderStats();
+  const [statsRes, invoicesRes, customersRes] = await Promise.all([
+    getSalesOrderStats(),
+    getOutstandingInvoices(),
+    getCustomers(),
+  ]);
   const stats = statsRes?.success && statsRes.data ? statsRes.data : null;
+  const invoices = invoicesRes?.success && invoicesRes.data ? invoicesRes.data : [];
+  const customers = customersRes?.success && customersRes.data ? customersRes.data : [];
+
+  const totalOutstanding = invoices.reduce(
+    (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
+    0
+  );
+
+  const activeCustomers = customers
+    .filter((c) => c.isActive)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      city: c.city,
+    }));
 
   return (
     <div className="p-4 space-y-4">
@@ -13,6 +39,9 @@ export default async function SalesMobileDashboardPage() {
         <h1 className="text-xl font-bold">Sales Mobile</h1>
         <p className="text-sm text-muted-foreground">Ringkasan hari ini</p>
       </div>
+
+      {/* Sync Banner */}
+      <VisitSyncBanner />
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
@@ -37,6 +66,9 @@ export default async function SalesMobileDashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* Journey Plan */}
+      <DailyJourneyPlan activeCustomers={activeCustomers} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3">
@@ -73,6 +105,12 @@ export default async function SalesMobileDashboardPage() {
       {/* Links */}
       <div className="space-y-2">
         <Link
+          href="/sales/mobile/receivables"
+          className="block p-3 border rounded-xl text-sm font-semibold active:scale-[0.98] transition-transform bg-rose-50/50 dark:bg-rose-950/10 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-900/30"
+        >
+          💰 Total Piutang: <span className="font-bold">{formatRupiah(totalOutstanding)}</span>
+        </Link>
+        <Link
           href="/sales/mobile/stock"
           className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
         >
@@ -84,6 +122,13 @@ export default async function SalesMobileDashboardPage() {
         >
           📋 Lihat Semua Order
         </Link>
+        <Link
+          href="/sales/mobile/visits"
+          className="block p-3 border rounded-xl text-sm font-medium active:scale-[0.98] transition-transform"
+        >
+          🚗 Lihat Riwayat Kunjungan
+        </Link>
+        <SwitchToDesktopButton />
       </div>
     </div>
   );

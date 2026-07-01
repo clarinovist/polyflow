@@ -8,6 +8,7 @@ import {
     Users2,
     RotateCcw,
     CircleDollarSign,
+    Smartphone,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -27,6 +28,7 @@ const salesLinks = [
         heading: 'Ringkasan',
         items: [
             { href: '/sales', icon: LayoutDashboard, label: salesSidebarLabels.salesDashboard },
+            { href: '/sales/mobile', icon: Smartphone, label: 'Tampilan Mobile' },
         ],
     },
     {

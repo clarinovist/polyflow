@@ -53,6 +53,7 @@ model User {
   finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
   voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
   lockedPeriods                            PeriodLock[]
+  salesVisits                              SalesVisit[]           @relation("SalesVisitCreator")
 }
 
 model Employee {
@@ -142,6 +143,7 @@ model Customer {
   maklonOrders    ProductionOrder[]      @relation("MaklonCustomer")
   maklonReceipts  GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
   maklonReturns   MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
+  salesVisits     SalesVisit[]
 }
 
 model ApiKey {
@@ -1692,4 +1694,25 @@ model MachineOperator {
   @@unique([machineId, employeeId])
   @@index([employeeId])
   @@index([machineId])
+}
+
+model SalesVisit {
+  id               String       @id @default(uuid())
+  customerId       String
+  customer         Customer     @relation(fields: [customerId], references: [id])
+  userId           String
+  user             User         @relation("SalesVisitCreator", fields: [userId], references: [id])
+  checkInTime      DateTime
+  checkOutTime     DateTime
+  durationSeconds  Int
+  latitude         Decimal      @db.Decimal(10, 7)
+  longitude        Decimal      @db.Decimal(10, 7)
+  distance         Float
+  notes            String?      @db.Text
+  photoUrl         String?      @db.Text
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([customerId])
 }

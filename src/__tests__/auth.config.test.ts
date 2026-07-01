@@ -255,5 +255,74 @@ describe('auth.config', () => {
             // Assert
             expect(result).toBe(false);
         });
+
+        it('should redirect SALES user to /sales/mobile if accessing from mobile without bypass', async () => {
+            // Arrange
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath } = await import('@/lib/auth/access-policy');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            vi.mocked(getWorkspaceFromPath).mockReturnValue('dashboard');
+            
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                // Act
+                await authorizedCallback({
+                    auth: { user: { role: 'SALES' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/dashboard'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15'],
+                        ]),
+                    },
+                } as any);
+
+                // Assert
+                expect(mockRedirect).toHaveBeenCalled();
+                const redirectUrl = mockRedirect.mock.calls[0][0];
+                expect(redirectUrl.pathname).toBe('/sales/mobile');
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should NOT redirect SALES user on mobile if bypass cookie is present', async () => {
+            // Arrange
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath, canAccessWorkspace } = await import('@/lib/auth/access-policy');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            vi.mocked(getWorkspaceFromPath).mockReturnValue('dashboard');
+            vi.mocked(canAccessWorkspace).mockReturnValue(true);
+            
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                // Act
+                const result = await authorizedCallback({
+                    auth: { user: { role: 'SALES' } },
+                    request: {
+                        nextUrl: new URL('https://kiyowo.polyflow.uk/dashboard'),
+                        headers: new Map([
+                            ['host', 'kiyowo.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15'],
+                            ['cookie', 'bypass_mobile=true'],
+                        ]),
+                    },
+                } as any);
+
+                // Assert
+                expect(mockRedirect).not.toHaveBeenCalled();
+                expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
     });
 });

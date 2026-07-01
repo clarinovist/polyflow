@@ -148,6 +148,17 @@ export async function getOrderById(id: string) {
       },
       productionOrders: true,
       invoices: true,
+      deliveryOrders: {
+        include: {
+          items: {
+            include: {
+              productVariant: {
+                include: { product: true },
+              },
+            },
+          },
+        },
+      },
       createdBy: {
         select: { name: true },
       },

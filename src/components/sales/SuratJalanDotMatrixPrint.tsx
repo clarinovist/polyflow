@@ -227,6 +227,17 @@ export function SuratJalanDotMatrixPrint({
             margin: 0;
             padding: 0;
           }
+          html, body {
+            width: ${paperSize.widthCm}cm;
+            min-height: ${paperSize.heightCm}cm;
+          }
+          .print-page {
+            width: ${paperSize.widthCm}cm;
+            min-height: ${paperSize.heightCm}cm;
+            max-width: none;
+            margin: 0;
+            box-sizing: border-box;
+          }
         }
       `,
         }}
@@ -237,11 +248,14 @@ export function SuratJalanDotMatrixPrint({
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
           font-size: 9px;
           line-height: 1.3;
+          width: 100%;
           max-width: ${paperSize.widthCm}cm;
+          min-height: ${paperSize.heightCm}cm;
           margin: 0 auto;
           padding: ${paperSize.marginMm}mm;
           color: #000;
           background: #fff;
+          box-sizing: border-box;
         }
 
         /* === HEADER === */
