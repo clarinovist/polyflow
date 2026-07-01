@@ -312,9 +312,9 @@ export function PurchaseOrderForm({
                       <TableRow>
                         <TableHead className="w-[50px] text-center">#</TableHead>
                         <TableHead className="min-w-[250px]">Produk</TableHead>
-                        <TableHead className="w-[110px] text-center">Qty</TableHead>
+                        <TableHead className="w-[120px] px-2 text-center">Qty</TableHead>
                         <TableHead className="w-[180px] text-right">Harga Satuan</TableHead>
-                        <TableHead className="w-[130px] text-right">Diskon</TableHead>
+                        <TableHead className="w-[120px] px-2 text-right">Diskon</TableHead>
                         <TableHead className="w-[110px] text-center">Pajak</TableHead>
                         <TableHead className="w-[160px] text-right">Subtotal</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
@@ -380,7 +380,7 @@ export function PurchaseOrderForm({
                             </TableCell>
                             
                             {/* Qty */}
-                            <TableCell className="pt-3">
+                            <TableCell className="px-2 pt-3">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.quantity`}
@@ -389,7 +389,7 @@ export function PurchaseOrderForm({
                                     <FormControl>
                                       <Input
                                         type="number"
-                                        className="h-9 w-full text-center font-mono text-sm no-stepper"
+                                        className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         min={1}
                                         {...qtyField}
                                         onChange={(e) => qtyField.onChange(Number(e.target.value))}
@@ -442,7 +442,7 @@ export function PurchaseOrderForm({
                             </TableCell>
                             
                             {/* Diskon */}
-                            <TableCell className="pt-3">
+                            <TableCell className="px-2 pt-3">
                               <FormField
                                 control={form.control}
                                 name={`items.${index}.discountPercent`}
@@ -454,7 +454,7 @@ export function PurchaseOrderForm({
                                         min="0"
                                         max="100"
                                         placeholder="0"
-                                        className="h-9 pr-6 text-right font-mono text-sm"
+                                        className="h-9 pl-2 pr-6 text-right font-mono text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         {...discField}
                                         onChange={(e) => discField.onChange(Number(e.target.value))}
                                       />
@@ -462,9 +462,11 @@ export function PurchaseOrderForm({
                                         %
                                       </span>
                                     </div>
-                                    <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
-                                      {discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : "Rp 0"}
-                                    </span>
+                                    {discountAmount > 0 && (
+                                      <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
+                                        -{formatRupiah(discountAmount)}
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               />
