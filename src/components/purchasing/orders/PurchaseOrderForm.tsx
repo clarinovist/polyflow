@@ -389,7 +389,7 @@ export function PurchaseOrderForm({
                                     <FormControl>
                                       <Input
                                         type="number"
-                                        className="h-9 w-full text-center font-mono text-sm"
+                                        className="h-9 w-full text-center font-mono text-sm no-stepper"
                                         min={1}
                                         {...qtyField}
                                         onChange={(e) => qtyField.onChange(Number(e.target.value))}
@@ -694,7 +694,7 @@ export function PurchaseOrderForm({
                                     onChange={(e) =>
                                       qtyField.onChange(Number(e.target.value))
                                     }
-                                    className="h-9 w-20 text-center font-mono text-sm"
+                                    className="h-9 w-24 text-center font-mono text-sm no-stepper"
                                     min={1}
                                   />
                                 </FormControl>

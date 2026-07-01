@@ -37,8 +37,12 @@ export function calculatePpn(
   taxPercent: number = 11,
   ppnMode: PpnMode = 'EXCLUDE'
 ): PpnCalculation {
-  if (subtotal <= 0 || taxPercent <= 0) {
+  if (subtotal <= 0) {
     return { dpp: 0, taxAmount: 0, total: 0 };
+  }
+
+  if (taxPercent <= 0) {
+    return { dpp: subtotal, taxAmount: 0, total: subtotal };
   }
 
   if (ppnMode === 'INCLUDE') {
