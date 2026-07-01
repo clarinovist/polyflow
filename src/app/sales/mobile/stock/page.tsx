@@ -17,7 +17,6 @@ export default async function SalesMobileStockPage() {
     .filter(
       (p) =>
         p.product.productType === "FINISHED_GOOD" ||
-        p.product.productType === "SCRAP" ||
         p.product.productType === "PACKAGING",
     )
     .map((p) => ({
@@ -39,10 +38,8 @@ export default async function SalesMobileStockPage() {
       (l) =>
         l.locationType !== "CUSTOMER_OWNED" &&
         (l.slug?.includes("finished") ||
-          l.slug?.includes("scrap") ||
           l.slug?.includes("packing") ||
           l.name.toLowerCase().includes("finished") ||
-          l.name.toLowerCase().includes("scrap") ||
           l.name.toLowerCase().includes("packing")),
     )
     .map((l) => ({ id: l.id, name: l.name }));

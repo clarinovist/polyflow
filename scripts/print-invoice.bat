@@ -5,18 +5,18 @@ REM  ESC/P Dot Matrix Invoice Printer
 REM  Untuk Feby - Melindo Rafia
 REM  Printer: EPSON LX-300+II (USB)
 REM ============================================
-REM  
+REM
 REM  CARA PAKAI:
 REM  1. Download file .prn dari PolyFlow (tombol "ESC/P (Dot Matrix)")
 REM  2. Double-click script ini
 REM  3. Pilih file .prn yang mau diprint
-REM  
+REM
 REM  ATAU: Drag & drop file .prn ke script ini
 REM ============================================
 
 echo.
 echo  ========================================
-echo   ESC/P Dot Matrix Printer - Melindo
+echo   ESC/P RAW Dot Matrix Printer - Melindo
 echo   Printer: EPSON LX-300+II
 echo  ========================================
 echo.
@@ -50,7 +50,7 @@ if !COUNT!==0 (
     echo  Download dulu dari PolyFlow ^(tombol "ESC/P (Dot Matrix)"^)
     echo.
     pause
-    exit /b
+    exit /b 1
 )
 
 echo.
@@ -59,7 +59,7 @@ set /p CHOICE="  Nomor file yang mau diprint (tekan Enter untuk batal): "
 if "!CHOICE!"=="" (
     echo  Batal.
     pause
-    exit /b
+    exit /b 0
 )
 
 REM Get the selected file
@@ -67,76 +67,42 @@ set "PRN_FILE=!FILE_%CHOICE%!"
 if not defined PRN_FILE (
     echo  Nomor tidak valid.
     pause
-    exit /b
+    exit /b 1
 )
 
 :print
 echo.
-echo  Memprint: !PRN_FILE!
+echo  Memprint RAW ke EPSON LX-300+II: !PRN_FILE!
 echo.
 
-REM ── Method 1: Send raw bytes to EPSON LX-300+II via USB ──
-REM Try the most common USB port names for Epson printers
-set PRINTED=0
-
-REM Try USB001 (most common)
-copy /b "!PRN_FILE!" USB001: >nul 2>&1
+REM Kirim .prn sebagai RAW bytes via Windows spooler.
+REM Ini menjaga control code ESC/P tetap utuh untuk dot matrix.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0autoprint-epson.ps1" -FilePath "!PRN_FILE!" -KeepPrintedFiles
 if !errorlevel!==0 (
-    set PRINTED=1
     goto :success
 )
 
-REM Try USB002
-copy /b "!PRN_FILE!" USB002: >nul 2>&1
-if !errorlevel!==0 (
-    set PRINTED=1
-    goto :success
-)
-
-REM ── Method 2: Use printer share name ──
-REM First try the default printer name
-copy /b "!PRN_FILE!" "EPSON LX-300+II" >nul 2>&1
-if !errorlevel!==0 (
-    set PRINTED=1
-    goto :success
-)
-
-REM ── Method 3: Use Windows PRINT command ──
-print /D:"EPSON LX-300+II" "!PRN_FILE!" >nul 2>&1
-if !errorlevel!==0 (
-    set PRINTED=1
-    goto :success
-)
-
-REM ── Method 4: PowerShell raw print ──
-powershell -Command "$printer = Get-WmiObject -Query \"SELECT * FROM Win32_Printer WHERE Name LIKE '%%EPSON%%LX%%'\"; if ($printer) { $bytes = [System.IO.File]::ReadAllBytes('!PRN_FILE!'); $port = $printer.PortName; [System.IO.File]::WriteAllBytes($port, $bytes) }" >nul 2>&1
-if !errorlevel!==0 (
-    set PRINTED=1
-    goto :success
-)
-
-REM ── All methods failed ──
+REM ── Print failed ──
 echo.
-echo  Gagal mengirim ke printer EPSON LX-300+II.
+echo  Gagal mengirim RAW print ke EPSON LX-300+II.
 echo.
 echo  Pastikan:
 echo  1. Printer EPSON LX-300+II sudah ON dan terhubung via USB
-echo  2. Printer terinstall di Windows (Devices ^> Printers)
+echo  2. Printer terinstall di Windows ^(Devices ^> Printers^)
 echo  3. Printer name persis: "EPSON LX-300+II"
+echo  4. Windows Print Spooler sedang berjalan
 echo.
-echo  Coba cara manual:
-echo  1. Klik kanan file .prn
-echo  2. Open with ^> Notepad
-echo  3. File ^> Print ^> pilih EPSON LX-300+II
+echo  Jangan print file .prn lewat Notepad karena ESC/P control code bisa rusak.
 echo.
 pause
-exit /b
+exit /b 1
 
 :success
 echo.
 echo  ========================================
-echo   Berhasil! Invoice sedang diprint.
+echo   Berhasil! Invoice dikirim ke printer.
 echo   Printer: EPSON LX-300+II
 echo  ========================================
 echo.
 pause
+exit /b 0

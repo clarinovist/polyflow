@@ -8,4 +8,4 @@ REM  Script berjalan di background
 REM ============================================
 
 REM Run PowerShell script minimized (no terminal window blocking)
-powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0autoprint-epson.ps1"
+powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0autoprint-epson.ps1"
