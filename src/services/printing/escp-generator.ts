@@ -76,13 +76,13 @@ function _setAbsolutePosition(col: number): number[] {
     return [ESC, 0x24, lo, hi]; // ESC $ nL nH
 }
 
-/** Set left margin (in columns) */
-function _setLeftMargin(col: number): number[] {
+/** Set left margin (in columns at current CPI) */
+function setLeftMargin(col: number): number[] {
     return [ESC, 0x6C, col]; // ESC l n
 }
 
-/** Set right margin (in columns) */
-function _setRightMargin(col: number): number[] {
+/** Set right margin (in columns at current CPI) */
+function setRightMargin(col: number): number[] {
     return [ESC, 0x51, col]; // ESC Q n
 }
 
@@ -107,7 +107,7 @@ function _lines(n: number): number[] {
 
 // ─── Layout Helpers ───────────────────────────────────────────────────
 
-const LINE_WIDTH = 95; // characters at 10 CPI on 9.5" paper
+const LINE_WIDTH = 108; // characters at 12 CPI on 9.5" paper (with 2-col margins)
 
 /** Pad string to fixed width */
 function pad(s: string, width: number, align: 'left' | 'right' | 'center' = 'left'): string {
@@ -204,17 +204,24 @@ interface EscpInvoiceData {
 
 export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     const bytes: number[] = [];
-    const COL_NAME = 38; // width for item name column
+    const COL_NAME = 42; // width for item name column
     const COL_QTY = 8;
     const COL_UNIT = 10;
-    const COL_PRICE = 15;
-    const COL_DISC = 8;
-    const COL_TOTAL = 16;
+    const COL_PRICE = 18;
+    const COL_DISC = 10;
+    const COL_TOTAL = 20;
 
     // ── Initialize printer ──
     bytes.push(...init());
     bytes.push(...setQuality(1));   // NLQ mode
     bytes.push(...setCPI(12));      // 12 CPI for main body
+
+    // ── Set explicit margins (at 12 CPI) ──
+    // LX-300+II on 9.5" paper: 9.5 × 12 = 114 columns
+    // Left margin col 2 (clear sprocket holes), right margin col 112
+    // Printable width = 110 chars, we use 108 for safety
+    bytes.push(...setLeftMargin(2));
+    bytes.push(...setRightMargin(112));
 
     // ── HEADER ──
     // Company name in 10 CPI (larger)
@@ -258,9 +265,9 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
     for (let i = 0; i < Math.max(leftCol.length, rightCol.length); i++) {
         const left = leftCol[i] || '';
         const right = rightCol[i] || '';
-        // Split line: left side takes 50 chars, right side takes the rest
-        const leftPart = pad(left, 50);
-        const rightPart = pad(right, LINE_WIDTH - 50, 'left');
+        // Split line: left side takes 55 chars, right side takes the rest
+        const leftPart = pad(left, 55);
+        const rightPart = pad(right, LINE_WIDTH - 55, 'left');
         bytes.push(...str(leftPart + rightPart));
         bytes.push(...newline());
     }
@@ -347,9 +354,9 @@ export function generateEscpInvoice(data: EscpInvoiceData): number[] {
         const isTotal = label === 'TOTAL :' || label === 'SISA TAGIHAN :';
         if (isTotal) bytes.push(...setBold(true));
         bytes.push(...str(
-            pad('', 60) +
-            pad(label, 20, 'right') +
-            pad(value, 15, 'right')
+            pad('', 65) +
+            pad(label, 23, 'right') +
+            pad(value, 20, 'right')
         ));
         if (isTotal) bytes.push(...setBold(false));
         bytes.push(...newline());
