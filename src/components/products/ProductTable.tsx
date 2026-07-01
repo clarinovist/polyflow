@@ -248,11 +248,11 @@ export function ProductTable({ products = [], showPrices = false }: ProductTable
                                                 href={`/dashboard/products/${variant.productId}`}
                                                 className="font-bold text-sm tracking-tight text-foreground truncate max-w-[300px] hover:text-primary transition-colors"
                                             >
-                                                {variant.productName}
+                                                {variant.name || variant.productName}
                                             </Link>
                                             {variant.name && variant.name !== variant.productName && (
                                                 <span className="text-[11px] text-muted-foreground font-medium">
-                                                    {variant.name}
+                                                    {variant.productName}
                                                 </span>
                                             )}
                                         </div>
