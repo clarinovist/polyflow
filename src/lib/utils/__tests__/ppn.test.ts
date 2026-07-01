@@ -26,9 +26,9 @@ describe('calculatePpn', () => {
 
     it('handles zero tax percent', () => {
       const result = calculatePpn(1000000, 0, 'EXCLUDE');
-      expect(result.dpp).toBe(0);
+      expect(result.dpp).toBe(1000000);
       expect(result.taxAmount).toBe(0);
-      expect(result.total).toBe(0);
+      expect(result.total).toBe(1000000);
     });
   });
 
