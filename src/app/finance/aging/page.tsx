@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 
 interface AgingRow {
   partnerName: string;
+  notYetDue: number;
   current: number;
   days31to60: number;
   days61to90: number;
@@ -58,7 +59,8 @@ const AgingTable = ({
                 <th className="h-10 px-4 text-left font-medium">
                   {partnerNameHeader}
                 </th>
-                <th className="h-10 px-4 text-right font-medium">0-30 Hari</th>
+                <th className="h-10 px-4 text-right font-medium text-emerald-600">Belum Jatuh Tempo</th>
+                <th className="h-10 px-4 text-right font-medium">1-30 Hari</th>
                 <th className="h-10 px-4 text-right font-medium">31-60 Hari</th>
                 <th className="h-10 px-4 text-right font-medium">61-90 Hari</th>
                 <th className="h-10 px-4 text-right font-medium">
@@ -77,6 +79,9 @@ const AgingTable = ({
                 >
                   <td className="p-4 align-middle font-medium">
                     {row.partnerName}
+                  </td>
+                  <td className="p-4 align-middle text-right font-mono text-emerald-600">
+                    {formatRupiah(row.notYetDue)}
                   </td>
                   <td className="p-4 align-middle text-right font-mono">
                     {formatRupiah(row.current)}
@@ -99,6 +104,11 @@ const AgingTable = ({
             <tfoot>
               <tr className="border-t-2 font-bold bg-muted/30">
                 <td className="p-4 align-middle text-left">Grand Total</td>
+                <td className="p-4 align-middle text-right font-mono text-emerald-600">
+                  {formatRupiah(
+                    data.reduce((sum, row) => sum + row.notYetDue, 0),
+                  )}
+                </td>
                 <td className="p-4 align-middle text-right font-mono">
                   {formatRupiah(
                     data.reduce((sum, row) => sum + row.current, 0),

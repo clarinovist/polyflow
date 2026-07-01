@@ -5,7 +5,8 @@ export interface AgingRow {
     partnerId: string;
     partnerName: string;
     type: 'AR' | 'AP';
-    current: number; // 0-30 days
+    notYetDue: number; // dueDate belum lewat
+    current: number; // 1-30 days overdue
     days31to60: number;
     days61to90: number;
     over90: number;
@@ -45,6 +46,7 @@ export class AgingService {
                     partnerId: customerId,
                     partnerName: customerName,
                     type: 'AR',
+                    notYetDue: 0,
                     current: 0,
                     days31to60: 0,
                     days61to90: 0,
@@ -57,7 +59,8 @@ export class AgingService {
             const baseDate = inv.dueDate || inv.invoiceDate;
             const daysOld = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
 
-            if (daysOld <= 30) row.current += outstanding;
+            if (daysOld < 0) row.notYetDue += outstanding;
+            else if (daysOld <= 30) row.current += outstanding;
             else if (daysOld <= 60) row.days31to60 += outstanding;
             else if (daysOld <= 90) row.days61to90 += outstanding;
             else row.over90 += outstanding;
@@ -100,6 +103,7 @@ export class AgingService {
                     partnerId: supplierId,
                     partnerName: supplierName,
                     type: 'AP',
+                    notYetDue: 0,
                     current: 0,
                     days31to60: 0,
                     days61to90: 0,
@@ -112,7 +116,8 @@ export class AgingService {
             const baseDate = inv.dueDate || inv.invoiceDate;
             const daysOld = Math.floor((now - baseDate.getTime()) / (1000 * 3600 * 24));
 
-            if (daysOld <= 30) row.current += outstanding;
+            if (daysOld < 0) row.notYetDue += outstanding;
+            else if (daysOld <= 30) row.current += outstanding;
             else if (daysOld <= 60) row.days31to60 += outstanding;
             else if (daysOld <= 90) row.days61to90 += outstanding;
             else row.over90 += outstanding;
