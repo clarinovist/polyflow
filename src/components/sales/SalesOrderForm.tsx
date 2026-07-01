@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn, formatRupiah } from "@/lib/utils/utils";
 import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
-import { CalendarIcon, Plus, Trash2, Loader2, Check } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, Check, Info } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
@@ -63,6 +63,7 @@ import { SalesOrderType, ProductType, Unit } from "@prisma/client";
 import { useAction } from "@/hooks/use-action";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   getProductionUnitMeta,
   toBaseQuantity,
@@ -494,11 +495,10 @@ export function SalesOrderForm({
         )}
 
         <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-          <AlertTitle>Sales Order untuk kebutuhan customer</AlertTitle>
+          <AlertTitle>Sales Order untuk pesanan customer</AlertTitle>
           <AlertDescription>
-            Gunakan Sales Order untuk transaksi customer, baik dipenuhi dari
-            stok maupun made to order. Jika tujuan order hanya untuk build stock
-            internal, gunakan Production Order dari menu Planning.
+            Untuk build stock internal, gunakan Production Order di menu
+            Planning.
           </AlertDescription>
         </Alert>
 
@@ -590,8 +590,7 @@ export function SalesOrderForm({
                     </PopoverContent>
                   </Popover>
                   <FormDescription>
-                    Customer tetap wajib diisi. Jika tujuan order hanya build
-                    stock internal, gunakan Production Order manual.
+                    Wajib diisi untuk Sales Order customer.
                   </FormDescription>
                   {!!selectedCustomer?.creditLimit && (
                     <div
@@ -650,7 +649,28 @@ export function SalesOrderForm({
             name="orderType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{salesLabels.orderType}</FormLabel>
+                <FormLabel className="flex items-center gap-1.5">
+                  {salesLabels.orderType}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        aria-label="Penjelasan tipe pesanan"
+                        className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                        tabIndex={0}
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-left leading-relaxed">
+                      <p>MTS: dipenuhi dari stok tersedia.</p>
+                      <p>MTO: produksi berdasarkan pesanan.</p>
+                      <p>
+                        Maklon Jasa: jasa berbasis bahan titipan customer;
+                        konsumsi bahan lewat Production Execution.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value || "MAKE_TO_STOCK"}
@@ -671,12 +691,7 @@ export function SalesOrderForm({
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  Make to Stock berarti order customer dipenuhi dari stok lebih
-                  dulu. Make to Order berarti demand langsung memicu produksi
-                  berdasarkan pesanan. Maklon Jasa dipakai untuk jasa berbasis
-                  bahan titipan customer; item sales harus service dan konsumsi
-                  bahan terjadi di Production Execution, bukan shipment sales
-                  biasa.
+                  Pilih alur pemenuhan order.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
