@@ -4,13 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Standard select is used to ensure iOS/Android native selector wheel compatibility
 import {
   ArrowLeft,
   ArrowRight,
@@ -247,18 +241,18 @@ export function QuickOrderWizard({
             <label className="text-xs text-muted-foreground">
               Gudang Sumber *
             </label>
-            <Select value={locationId} onValueChange={setLocationId}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Pilih gudang" />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="w-full h-11 px-3 border border-input rounded-lg bg-background text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              <option value="" disabled>Pilih gudang</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <Button
