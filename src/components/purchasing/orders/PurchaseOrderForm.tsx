@@ -38,7 +38,20 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Plus, Trash2, ShoppingBag, Calculator } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Plus, Trash2, ShoppingBag, Calculator, Settings } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/utils";
 import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
 import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
@@ -292,309 +305,630 @@ export function PurchaseOrderForm({
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                {fields.map((field, index) => {
-                  const item = watchedItems[index];
-                  const qty = Number(item?.quantity || 0);
-                  const price = Number(item?.unitPrice || 0);
-                  const disc = Number(item?.discountPercent || 0);
-                  const tax = Number(item?.taxPercent || 0);
-                  const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
-                  const raw = qty * price;
-                  const discountAmount = raw * (disc / 100);
-                  const taxable = raw - discountAmount;
-                  const ppnResult = calculatePpn(taxable, tax, ppnMode);
-                  const lineTotal = ppnResult.total;
+                {/* Desktop Table View */}
+                <div className="hidden md:block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-zinc-50 dark:bg-zinc-900">
+                      <TableRow>
+                        <TableHead className="w-[50px] text-center">#</TableHead>
+                        <TableHead className="min-w-[250px]">Produk</TableHead>
+                        <TableHead className="w-[110px] text-center">Qty</TableHead>
+                        <TableHead className="w-[180px] text-right">Harga Satuan</TableHead>
+                        <TableHead className="w-[130px] text-right">Diskon</TableHead>
+                        <TableHead className="w-[110px] text-center">Pajak</TableHead>
+                        <TableHead className="w-[160px] text-right">Subtotal</TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fields.map((field, index) => {
+                        const item = watchedItems[index];
+                        const qty = Number(item?.quantity || 0);
+                        const price = Number(item?.unitPrice || 0);
+                        const disc = Number(item?.discountPercent || 0);
+                        const tax = Number(item?.taxPercent || 0);
+                        const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
+                        const raw = qty * price;
+                        const discountAmount = raw * (disc / 100);
+                        const taxable = raw - discountAmount;
+                        const ppnResult = calculatePpn(taxable, tax, ppnMode);
+                        const lineTotal = ppnResult.total;
+                        const selectedVariant = productVariants.find((v) => v.id === item?.productVariantId);
 
-                  return (
-                    <div
-                      key={field.id}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden"
-                    >
-                      {/* Header: Product + Qty + Delete */}
-                      <div className="flex items-center gap-3 p-4 pb-3">
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
+                        return (
+                          <TableRow key={field.id} className="align-top">
+                            <TableCell className="text-center pt-5 font-mono text-sm text-muted-foreground">
+                              {index + 1}
+                            </TableCell>
+                            
+                            {/* Produk */}
+                            <TableCell className="pt-3">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.productVariantId`}
+                                render={({ field: productField }) => (
+                                  <FormItem className="space-y-0">
+                                    <FormControl>
+                                      <ProductCombobox
+                                        products={productVariants.map((v) => ({
+                                          id: v.id,
+                                          name: v.name,
+                                          skuCode: v.skuCode,
+                                          buyPrice: v.buyPrice,
+                                        }))}
+                                        value={productField.value}
+                                        onValueChange={(val) => {
+                                          productField.onChange(val);
+                                          handleProductChange(index, val);
+                                        }}
+                                        placeholder="Pilih produk..."
+                                        className="h-9 w-full justify-start border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 font-normal text-left truncate text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                                        onCreateNew={() =>
+                                          router.push("/dashboard/products/create")
+                                        }
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              {selectedVariant && (
+                                <div className="text-[11px] text-muted-foreground mt-1 px-1">
+                                  {selectedVariant.skuCode}
+                                </div>
+                              )}
+                            </TableCell>
+                            
+                            {/* Qty */}
+                            <TableCell className="pt-3">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.quantity`}
+                                render={({ field: qtyField }) => (
+                                  <FormItem className="space-y-0">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        className="h-9 w-full text-center font-mono text-sm"
+                                        min={1}
+                                        {...qtyField}
+                                        onChange={(e) => qtyField.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            
+                            {/* Harga Satuan */}
+                            <TableCell className="pt-3">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.unitPrice`}
+                                render={({ field: priceField }) => (
+                                  <FormItem className="space-y-0">
+                                    <FormControl>
+                                      <div className="relative">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                          Rp
+                                        </span>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(priceField.value ?? 0)}
+                                          onChange={(e) => {
+                                            setRawPriceInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                            const num = parseIndonesianPrice(e.target.value);
+                                            priceField.onChange(num);
+                                          }}
+                                          onBlur={() => {
+                                            const num = parseIndonesianPrice(rawPriceInputs[index] || '0');
+                                            priceField.onChange(num);
+                                            setRawPriceInputs(prev => {
+                                              const next = { ...prev };
+                                              delete next[index];
+                                              return next;
+                                            });
+                                          }}
+                                          className="h-9 pl-7 text-right font-mono text-sm"
+                                        />
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                            
+                            {/* Diskon */}
+                            <TableCell className="pt-3">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountPercent`}
+                                render={({ field: discField }) => (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <div className="relative w-full">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        placeholder="0"
+                                        className="h-9 pr-6 text-right font-mono text-sm"
+                                        {...discField}
+                                        onChange={(e) => discField.onChange(Number(e.target.value))}
+                                      />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                        %
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
+                                      {discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : "Rp 0"}
+                                    </span>
+                                  </div>
+                                )}
+                              />
+                            </TableCell>
+                            
+                            {/* Pajak */}
+                            <TableCell className="pt-3">
+                              <div className="flex items-center justify-center gap-1 mt-1.5">
+                                <Checkbox
+                                  id={`taxable-po-table-${index}`}
+                                  checked={taxableItems[index] ?? false}
+                                  onCheckedChange={(checked) => {
+                                    setTaxableItems((prev) => ({ ...prev, [index]: !!checked }));
+                                    if (!checked) {
+                                      form.setValue(`items.${index}.taxPercent`, 0);
+                                      form.setValue(`items.${index}.dppOtherAmount`, null);
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`taxable-po-table-${index}`}
+                                  className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                                >
+                                  PPN
+                                </label>
+                                
+                                {(taxableItems[index] ?? false) && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
+                                      >
+                                        <Settings className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-4 space-y-4" align="end">
+                                      <h4 className="font-medium text-sm border-b pb-2">Opsi Pajak Lanjutan</h4>
+                                      
+                                      <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Mode PPN</Label>
+                                        <FormField
+                                          control={form.control}
+                                          name={`items.${index}.ppnMode`}
+                                          render={({ field: ppnField }) => (
+                                            <RadioGroup
+                                              value={ppnField.value || 'EXCLUDE'}
+                                              onValueChange={ppnField.onChange}
+                                              className="flex flex-col gap-2 pt-1"
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <RadioGroupItem value="EXCLUDE" id={`ppn-excl-pop-${index}`} />
+                                                <Label htmlFor={`ppn-excl-pop-${index}`} className="text-xs cursor-pointer">
+                                                  Exclude (harga + pajak)
+                                                </Label>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <RadioGroupItem value="INCLUDE" id={`ppn-incl-pop-${index}`} />
+                                                <Label htmlFor={`ppn-incl-pop-${index}`} className="text-xs cursor-pointer">
+                                                  Include (harga termasuk)
+                                                </Label>
+                                              </div>
+                                            </RadioGroup>
+                                          )}
+                                        />
+                                      </div>
+
+                                      <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Tarif Pajak (%)</Label>
+                                        <div className="flex items-center gap-2">
+                                          <FormField
+                                            control={form.control}
+                                            name={`items.${index}.taxPercent`}
+                                            render={({ field: taxField }) => (
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                className="h-8 w-20 text-center font-mono text-sm"
+                                                {...taxField}
+                                                onChange={(e) => taxField.onChange(Number(e.target.value))}
+                                              />
+                                            )}
+                                          />
+                                          <span className="text-xs text-muted-foreground">%</span>
+                                          <span className="text-xs font-mono text-muted-foreground ml-auto">
+                                            {ppnResult.taxAmount > 0 ? formatRupiah(ppnResult.taxAmount) : "Rp 0"}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">DPP (Dasar Pengenaan Pajak)</Label>
+                                        <FormField
+                                          control={form.control}
+                                          name={`items.${index}.dppOtherAmount`}
+                                          render={({ field: dppField }) => (
+                                            <div className="relative">
+                                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                Rp
+                                              </span>
+                                              <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                placeholder="Auto (11/12)"
+                                                value={dppField.value ?? ""}
+                                                onChange={(e) => {
+                                                  const normalized = e.target.value.replace(',', '.');
+                                                  const num = Number(normalized);
+                                                  dppField.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                                }}
+                                                className="h-8 pl-7 text-right font-mono text-xs bg-zinc-50 dark:bg-zinc-900"
+                                              />
+                                            </div>
+                                          )}
+                                        />
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </div>
+                            </TableCell>
+                            
+                            {/* Subtotal */}
+                            <TableCell className="pt-4 text-right font-bold font-mono text-sm text-foreground">
+                              {formatRupiah(lineTotal)}
+                            </TableCell>
+                            
+                            {/* Trash action */}
+                            <TableCell className="pt-2 text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  remove(index);
+                                  setTaxableItems(prev => {
+                                    const newMap: Record<number, boolean> = {};
+                                    Object.keys(prev)
+                                      .map(Number)
+                                      .sort((a, b) => a - b)
+                                      .filter(i => i !== index)
+                                      .forEach((oldIdx, newIdx) => {
+                                        newMap[newIdx] = prev[oldIdx];
+                                      });
+                                    return newMap;
+                                  });
+                                }}
+                                disabled={fields.length === 1}
+                                className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {fields.map((field, index) => {
+                    const item = watchedItems[index];
+                    const qty = Number(item?.quantity || 0);
+                    const price = Number(item?.unitPrice || 0);
+                    const disc = Number(item?.discountPercent || 0);
+                    const tax = Number(item?.taxPercent || 0);
+                    const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
+                    const raw = qty * price;
+                    const discountAmount = raw * (disc / 100);
+                    const taxable = raw - discountAmount;
+                    const ppnResult = calculatePpn(taxable, tax, ppnMode);
+                    const lineTotal = ppnResult.total;
+
+                    return (
+                      <div
+                        key={field.id}
+                        className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden"
+                      >
+                        {/* Header: Product + Qty + Delete */}
+                        <div className="flex items-center gap-3 p-4 pb-3">
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.productVariantId`}
+                              render={({ field: productField }) => (
+                                <FormItem className="space-y-0">
+                                  <FormControl>
+                                    <ProductCombobox
+                                      products={productVariants.map((v) => ({
+                                        id: v.id,
+                                        name: v.name,
+                                        skuCode: v.skuCode,
+                                        buyPrice: v.buyPrice,
+                                      }))}
+                                      value={productField.value}
+                                      onValueChange={(val) => {
+                                        productField.onChange(val);
+                                        handleProductChange(index, val);
+                                      }}
+                                      placeholder="Pilih produk..."
+                                      className="h-9 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
+                                      onCreateNew={() =>
+                                        router.push("/dashboard/products/create")
+                                      }
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                           <FormField
                             control={form.control}
-                            name={`items.${index}.productVariantId`}
-                            render={({ field }) => (
+                            name={`items.${index}.quantity`}
+                            render={({ field: qtyField }) => (
                               <FormItem className="space-y-0">
                                 <FormControl>
-                                  <ProductCombobox
-                                    products={productVariants.map((v) => ({
-                                      id: v.id,
-                                      name: v.name,
-                                      skuCode: v.skuCode,
-                                      buyPrice: v.buyPrice,
-                                    }))}
-                                    value={field.value}
-                                    onValueChange={(val) => {
-                                      field.onChange(val);
-                                      handleProductChange(index, val);
-                                    }}
-                                    placeholder="Pilih produk..."
-                                    className="h-9 border-0 bg-transparent shadow-none p-0 hover:bg-transparent font-medium text-foreground w-full justify-start"
-                                    onCreateNew={() =>
-                                      router.push("/dashboard/products/create")
+                                  <Input
+                                    type="number"
+                                    {...qtyField}
+                                    onChange={(e) =>
+                                      qtyField.onChange(Number(e.target.value))
                                     }
+                                    className="h-9 w-20 text-center font-mono text-sm"
+                                    min={1}
                                   />
                                 </FormControl>
-                                <FormMessage />
                               </FormItem>
                             )}
                           />
-                        </div>
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0">
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  onChange={(e) =>
-                                    field.onChange(Number(e.target.value))
-                                  }
-                                  className="h-9 w-20 text-center font-mono text-sm"
-                                  min={1}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            remove(index);
-                            // Re-index taxableItems after removal to stay in sync with form fields
-                            setTaxableItems(prev => {
-                              const newMap: Record<number, boolean> = {};
-                              Object.keys(prev)
-                                .map(Number)
-                                .sort((a, b) => a - b)
-                                .filter(i => i !== index)
-                                .forEach((oldIdx, newIdx) => {
-                                  newMap[newIdx] = prev[oldIdx];
-                                });
-                              return newMap;
-                            });
-                          }}
-                          disabled={fields.length === 1}
-                          className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 flex-shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      {/* Body: Price fields */}
-                      <div className="px-4 pb-3 space-y-2">
-                        {/* Harga Satuan */}
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground w-28">Harga Satuan</span>
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.unitPrice`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-0 flex-1 max-w-[200px]">
-                                <FormControl>
-                                  <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
-                                    <Input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(field.value ?? 0)}
-                                      onChange={(e) => {
-                                        // Store raw value for display
-                                        setRawPriceInputs(prev => ({ ...prev, [index]: e.target.value }));
-                                        // Parse and update form value
-                                        const num = parseIndonesianPrice(e.target.value);
-                                        field.onChange(num);
-                                      }}
-                                      onBlur={() => {
-                                        // On blur, format the value properly
-                                        const num = parseIndonesianPrice(rawPriceInputs[index] || '0');
-                                        field.onChange(num);
-                                        // Clear raw input to show formatted value
-                                        setRawPriceInputs(prev => {
-                                          const next = { ...prev };
-                                          delete next[index];
-                                          return next;
-                                        });
-                                      }}
-                                      className="h-8 pl-8 text-right font-mono text-sm"
-                                    />
-                                  </div>
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        {/* Diskon */}
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground w-28">Diskon</span>
-                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.discountPercent`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0 w-20">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) =>
-                                        field.onChange(Number(e.target.value))
-                                      }
-                                      className="h-8 text-center font-mono text-sm"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            <span className="text-xs text-muted-foreground">%</span>
-                            <span className="text-xs font-mono text-red-500 ml-auto">
-                              {discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : "Rp 0"}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Kena Pajak toggle */}
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id={`taxable-${index}`}
-                            checked={taxableItems[index] ?? false}
-                            onCheckedChange={(checked) => {
-                              setTaxableItems(prev => ({ ...prev, [index]: !!checked }));
-                              if (!checked) {
-                                form.setValue(`items.${index}.taxPercent`, 0);
-                                form.setValue(`items.${index}.dppOtherAmount`, null);
-                              }
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              remove(index);
+                              setTaxableItems(prev => {
+                                const newMap: Record<number, boolean> = {};
+                                Object.keys(prev)
+                                  .map(Number)
+                                  .sort((a, b) => a - b)
+                                  .filter(i => i !== index)
+                                  .forEach((oldIdx, newIdx) => {
+                                    newMap[newIdx] = prev[oldIdx];
+                                  });
+                                return newMap;
+                              });
                             }}
-                          />
-                          <label htmlFor={`taxable-${index}`} className="text-xs text-muted-foreground cursor-pointer select-none">
-                            Kena Pajak
-                          </label>
+                            disabled={fields.length === 1}
+                            className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 flex-shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
 
-                        {/* PPN Mode — only when Kena Pajak checked */}
-                        {(taxableItems[index] ?? false) && (
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-muted-foreground w-28">Mode PPN</span>
+                        {/* Body: Price fields */}
+                        <div className="px-4 pb-3 space-y-2">
+                          {/* Harga Satuan */}
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-muted-foreground w-28">Harga Satuan</span>
                             <FormField
                               control={form.control}
-                              name={`items.${index}.ppnMode`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0 flex-1">
+                              name={`items.${index}.unitPrice`}
+                              render={({ field: priceField }) => (
+                                <FormItem className="space-y-0 flex-1 max-w-[200px]">
                                   <FormControl>
-                                    <RadioGroup
-                                      value={field.value || 'EXCLUDE'}
-                                      onValueChange={field.onChange}
-                                      className="flex gap-4"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <RadioGroupItem value="EXCLUDE" id={`ppn-exclude-${index}`} />
-                                        <Label htmlFor={`ppn-exclude-${index}`} className="text-xs cursor-pointer">
-                                          Exclude (harga + pajak)
-                                        </Label>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <RadioGroupItem value="INCLUDE" id={`ppn-include-${index}`} />
-                                        <Label htmlFor={`ppn-include-${index}`} className="text-xs cursor-pointer">
-                                          Include (harga termasuk)
-                                        </Label>
-                                      </div>
-                                    </RadioGroup>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(priceField.value ?? 0)}
+                                        onChange={(e) => {
+                                          setRawPriceInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                          const num = parseIndonesianPrice(e.target.value);
+                                          priceField.onChange(num);
+                                        }}
+                                        onBlur={() => {
+                                          const num = parseIndonesianPrice(rawPriceInputs[index] || '0');
+                                          priceField.onChange(num);
+                                          setRawPriceInputs(prev => {
+                                            const next = { ...prev };
+                                            delete next[index];
+                                            return next;
+                                          });
+                                        }}
+                                        className="h-8 pl-8 text-right font-mono text-sm"
+                                      />
+                                    </div>
                                   </FormControl>
                                 </FormItem>
                               )}
                             />
                           </div>
-                        )}
 
-                        {/* Pajak — only when Kena Pajak checked */}
-                        {(taxableItems[index] ?? false) && (
-                          <>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs text-muted-foreground w-28">Pajak</span>
-                              <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.taxPercent`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-0 w-20">
-                                      <FormControl>
-                                        <Input
-                                          type="number"
-                                          {...field}
-                                          onChange={(e) =>
-                                            field.onChange(Number(e.target.value))
-                                          }
-                                          className="h-8 text-center font-mono text-sm"
-                                          min={0}
-                                          max={100}
-                                          placeholder="0"
-                                        />
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-                                <span className="text-xs text-muted-foreground">%</span>
-                                <span className="text-xs font-mono text-muted-foreground ml-auto">
-                                  {ppnResult.taxAmount > 0 ? formatRupiah(ppnResult.taxAmount) : "Rp 0"}
-                                </span>
-                              </div>
+                          {/* Diskon */}
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-muted-foreground w-28">Diskon</span>
+                            <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.discountPercent`}
+                                render={({ field: discField }) => (
+                                  <FormItem className="space-y-0 w-20">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...discField}
+                                        onChange={(e) =>
+                                          discField.onChange(Number(e.target.value))
+                                        }
+                                        className="h-8 text-center font-mono text-sm"
+                                        min={0}
+                                        max={100}
+                                        placeholder="0"
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <span className="text-xs text-muted-foreground">%</span>
+                              <span className="text-xs font-mono text-red-500 ml-auto">
+                                {discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : "Rp 0"}
+                              </span>
                             </div>
+                          </div>
 
-                            {/* DPP */}
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs text-muted-foreground w-28">DPP</span>
-                              <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.dppOtherAmount`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-0 flex-1">
-                                      <FormControl>
-                                        <div className="relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
-                                          <Input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={field.value ?? ""}
-                                            onChange={(e) => {
-                                              const normalized = e.target.value.replace(',', '.');
-                                              const num = Number(normalized);
-                                              field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
-                                            }}
-                                            className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
-                                            placeholder="Auto (11/12)"
-                                          />
+                          {/* Kena Pajak toggle */}
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              id={`taxable-${index}`}
+                              checked={taxableItems[index] ?? false}
+                              onCheckedChange={(checked) => {
+                                setTaxableItems(prev => ({ ...prev, [index]: !!checked }));
+                                if (!checked) {
+                                  form.setValue(`items.${index}.taxPercent`, 0);
+                                  form.setValue(`items.${index}.dppOtherAmount`, null);
+                                }
+                              }}
+                            />
+                            <label htmlFor={`taxable-${index}`} className="text-xs text-muted-foreground cursor-pointer select-none">
+                              Kena Pajak
+                            </label>
+                          </div>
+
+                          {/* PPN Mode — only when Kena Pajak checked */}
+                          {(taxableItems[index] ?? false) && (
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground w-28">Mode PPN</span>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.ppnMode`}
+                                render={({ field: ppnField }) => (
+                                  <FormItem className="space-y-0 flex-1">
+                                    <FormControl>
+                                      <RadioGroup
+                                        value={ppnField.value || 'EXCLUDE'}
+                                        onValueChange={ppnField.onChange}
+                                        className="flex gap-4"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <RadioGroupItem value="EXCLUDE" id={`ppn-exclude-${index}`} />
+                                          <Label htmlFor={`ppn-exclude-${index}`} className="text-xs cursor-pointer">
+                                            Exclude (harga + pajak)
+                                          </Label>
                                         </div>
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
+                                        <div className="flex items-center gap-2">
+                                          <RadioGroupItem value="INCLUDE" id={`ppn-include-${index}`} />
+                                          <Label htmlFor={`ppn-include-${index}`} className="text-xs cursor-pointer">
+                                            Include (harga termasuk)
+                                          </Label>
+                                        </div>
+                                      </RadioGroup>
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
                             </div>
-                          </>
-                        )}
-                      </div>
+                          )}
 
-                      {/* Footer: Total */}
-                      <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-t">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</span>
-                        <span className="text-sm font-bold font-mono">{formatRupiah(lineTotal)}</span>
+                          {/* Pajak — only when Kena Pajak checked */}
+                          {(taxableItems[index] ?? false) && (
+                            <>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-muted-foreground w-28">Pajak</span>
+                                <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.taxPercent`}
+                                    render={({ field: taxField }) => (
+                                      <FormItem className="space-y-0 w-20">
+                                        <FormControl>
+                                          <Input
+                                            type="number"
+                                            {...taxField}
+                                            onChange={(e) =>
+                                              taxField.onChange(Number(e.target.value))
+                                            }
+                                            className="h-8 text-center font-mono text-sm"
+                                            min={0}
+                                            max={100}
+                                            placeholder="0"
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <span className="text-xs text-muted-foreground">%</span>
+                                  <span className="text-xs font-mono text-muted-foreground ml-auto">
+                                    {ppnResult.taxAmount > 0 ? formatRupiah(ppnResult.taxAmount) : "Rp 0"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* DPP */}
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-muted-foreground w-28">DPP</span>
+                                <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.dppOtherAmount`}
+                                    render={({ field: dppField }) => (
+                                      <FormItem className="space-y-0 flex-1">
+                                        <FormControl>
+                                          <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                                            <Input
+                                              type="text"
+                                              inputMode="decimal"
+                                              value={dppField.value ?? ""}
+                                              onChange={(e) => {
+                                                const normalized = e.target.value.replace(',', '.');
+                                                const num = Number(normalized);
+                                                dppField.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                              }}
+                                              className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
+                                              placeholder="Auto (11/12)"
+                                            />
+                                          </div>
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Footer: Total */}
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-t">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</span>
+                          <span className="text-sm font-bold font-mono">{formatRupiah(lineTotal)}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
 
                 <div className="p-4 border-t bg-muted/10">
                   <Button

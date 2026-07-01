@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { createProduct } from "@/actions/product/product-mutations";
 import { getProductVariants } from "@/actions/inventory/inventory";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ import type { SerializedProductVariant } from "./sales-order-types";
 
 interface QuickProductDialogProps {
   onProductCreated: (variant: SerializedProductVariant) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
 }
 
@@ -44,9 +46,13 @@ function generateSkuFromName(name: string): string {
 
 export function QuickProductDialog({
   onProductCreated,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
   trigger,
 }: QuickProductDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : localOpen;
+  const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setLocalOpen;
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
   const [sellPrice, setSellPrice] = useState("");
@@ -142,14 +148,7 @@ export function QuickProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button type="button" variant="ghost" className="text-primary">
-            <Plus className="mr-2 h-4 w-4" />
-            Tambah Produk Baru
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Tambah Produk Cepat</DialogTitle>

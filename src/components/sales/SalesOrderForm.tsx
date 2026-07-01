@@ -43,9 +43,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn, formatRupiah } from "@/lib/utils/utils";
 import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
-import { CalendarIcon, Plus, Trash2, Loader2, Check, Info } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, Check, Info, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
@@ -852,524 +860,460 @@ export function SalesOrderForm({
             </p>
           )}
 
-          {/* Card-per-item layout */}
-          <div className="space-y-3">
-            {fields.map((field, index) => {
-              const item = watchItems?.[index];
-              const qty = item?.quantity || 0;
-              const price = item?.unitPrice || 0;
-              const disc = item?.discountPercent || 0;
-              const tax = item?.taxPercent || 0;
-              const sub = qty * price;
-              const afterDisc = sub - sub * (disc / 100);
-              const lineTotal = afterDisc + afterDisc * (tax / 100);
-              const unitMeta = getLineUnitMeta(index);
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-zinc-50 dark:bg-zinc-900">
+                <TableRow>
+                  <TableHead className="w-[50px] text-center">#</TableHead>
+                  <TableHead className="min-w-[250px]">Produk</TableHead>
+                  <TableHead className="w-[110px] text-center">Qty</TableHead>
+                  <TableHead className="w-[180px] text-right">Harga Satuan</TableHead>
+                  <TableHead className="w-[130px] text-right">Diskon</TableHead>
+                  <TableHead className="w-[110px] text-center">Pajak</TableHead>
+                  <TableHead className="w-[160px] text-right">Subtotal</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fields.map((field, index) => {
+                  const item = watchItems?.[index];
+                  const qty = item?.quantity || 0;
+                  const price = item?.unitPrice || 0;
+                  const disc = item?.discountPercent || 0;
+                  const tax = item?.taxPercent || 0;
+                  const sub = qty * price;
+                  const afterDisc = sub - sub * (disc / 100);
+                  const lineTotal = afterDisc + afterDisc * (tax / 100);
+                  const unitMeta = getLineUnitMeta(index);
+                  const variant = getLineVariant(index);
 
-              return (
-                <div
-                  key={field.id}
-                  className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50 overflow-hidden"
-                >
-                  {/* Header: Product + Qty + Delete */}
-                  <div className="flex items-center gap-3 p-4 pb-3">
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.productVariantId`}
-                        render={({ field, fieldState }) => (
-                          <div className="flex items-center gap-2">
-                            <Popover
-                              open={openProduct[index]}
-                              onOpenChange={(open) =>
-                                setOpenProduct((prev) => ({
-                                  ...prev,
-                                  [index]: open,
-                                }))
-                              }
-                            >
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="ghost"
-                                    role="combobox"
-                                    className={cn(
-                                      "w-full justify-between border-0 shadow-none bg-transparent h-auto p-2 font-medium hover:bg-muted/50",
-                                      !field.value && "text-muted-foreground",
-                                    )}
-                                  >
-                                    <div className="truncate text-left">
-                                      {field.value
-                                        ? field.value.startsWith(
-                                            CUSTOM_ITEM_PREFIX,
-                                          )
-                                          ? (() => {
-                                              const custom = customItems.find(
-                                                (c) => c.tempId === field.value,
-                                              );
-                                              return custom
-                                                ? `✏️ ${custom.name}`
-                                                : "Pilih Produk";
-                                            })()
-                                          : (() => {
-                                              const p = filteredProducts.find(
-                                                (p: SerializedProductVariant) =>
-                                                  p.id === field.value,
-                                              );
-                                              return p
-                                                ? p.product.name === p.name
-                                                  ? p.name
-                                                  : `${p.product.name} - ${p.name}`
-                                                : "Pilih Produk";
-                                            })()
-                                        : "Pilih Produk"}
-                                    </div>
-                                    <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-[400px] p-0"
-                                align="start"
+                  return (
+                    <TableRow key={field.id} className="align-top">
+                      <TableCell className="text-center pt-5 font-mono text-sm text-muted-foreground">
+                        {index + 1}
+                      </TableCell>
+                      
+                      {/* Produk */}
+                      <TableCell className="pt-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.productVariantId`}
+                          render={({ field: productField, fieldState }) => (
+                            <div className="flex flex-col gap-1">
+                              <Popover
+                                open={openProduct[index]}
+                                onOpenChange={(open) =>
+                                  setOpenProduct((prev) => ({
+                                    ...prev,
+                                    [index]: open,
+                                  }))
+                                }
                               >
-                                <Command>
-                                  <CommandInput placeholder="Cari produk..." />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      {productEmptyMessage}
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                      {filteredProducts.map(
-                                        (p: SerializedProductVariant) => (
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      className={cn(
+                                        "w-full justify-between h-9 px-3 font-normal text-left truncate",
+                                        !productField.value && "text-muted-foreground",
+                                      )}
+                                    >
+                                      <div className="truncate text-left flex-1">
+                                        {productField.value
+                                          ? productField.value.startsWith(CUSTOM_ITEM_PREFIX)
+                                            ? (() => {
+                                                const custom = customItems.find((c) => c.tempId === productField.value);
+                                                return custom ? `✏️ ${custom.name}` : "Pilih Produk";
+                                              })()
+                                            : (() => {
+                                                const p = filteredProducts.find((p) => p.id === productField.value);
+                                                return p ? (p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`) : "Pilih Produk";
+                                              })()
+                                          : "Pilih Produk"}
+                                      </div>
+                                      <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Cari produk..." />
+                                    <CommandList>
+                                      <CommandEmpty>{productEmptyMessage}</CommandEmpty>
+                                      <CommandGroup>
+                                        {filteredProducts.map((p: SerializedProductVariant) => (
                                           <CommandItem
                                             key={p.id}
                                             value={`${p.product.name} ${p.name} ${p.skuCode}`.toLowerCase()}
                                             onSelect={() => {
                                               selectProduct(index, p);
-                                              setOpenProduct((prev) => ({
-                                                ...prev,
-                                                [index]: false,
-                                              }));
+                                              setOpenProduct((prev) => ({ ...prev, [index]: false }));
                                             }}
                                           >
                                             <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
-                                                p.id === field.value
-                                                  ? "opacity-100"
-                                                  : "opacity-0",
+                                                p.id === productField.value ? "opacity-100" : "opacity-0"
                                               )}
                                             />
                                             <div className="flex flex-col">
                                               <span>
-                                                {p.product.name === p.name
-                                                  ? p.name
-                                                  : `${p.product.name} - ${p.name}`}
+                                                {p.product.name === p.name ? p.name : `${p.product.name} - ${p.name}`}
                                               </span>
                                               <span className="text-xs text-muted-foreground">
-                                                {p.skuCode} •{" "}
-                                                {formatRupiah(
-                                                  toDisplayUnitPrice(
-                                                    p,
-                                                    p.sellPrice || 0,
-                                                  ),
-                                                )}
-                                                /
-                                                {
-                                                  getProductionUnitMeta(p)
-                                                    .displayUnit
-                                                }
+                                                {p.skuCode} • {formatRupiah(toDisplayUnitPrice(p, p.sellPrice || 0))}/{getProductionUnitMeta(p).displayUnit}
                                               </span>
                                             </div>
                                           </CommandItem>
-                                        ),
-                                      )}
-                                    </CommandGroup>
-                                    <CommandSeparator />
-                                    <CommandGroup>
-                                      <CommandItem
-                                        onSelect={() => {
-                                          setOpenProduct((prev) => ({
-                                            ...prev,
-                                            [index]: false,
-                                          }));
-                                          setCustomItemIndex(index);
-                                        }}
-                                        className="flex items-center gap-2 text-amber-600 cursor-pointer"
-                                      >
-                                        <span className="text-lg leading-none">
-                                          ✏️
-                                        </span>
-                                        <span className="font-medium">
-                                          Ketik Nama Produk Sendiri
-                                        </span>
-                                      </CommandItem>
-                                      <CommandItem
-                                        onSelect={() => {
-                                          setOpenProduct((prev) => ({
-                                            ...prev,
-                                            [index]: false,
-                                          }));
-                                          setQuickAddIndex(index);
-                                        }}
-                                        className="flex items-center gap-2 text-primary cursor-pointer"
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                        <span className="font-medium">
-                                          Tambah Produk Baru
-                                        </span>
-                                      </CommandItem>
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                            {fieldState.error && (
-                              <span className="text-xs text-destructive whitespace-nowrap">
-                                {fieldState.error.message}
-                              </span>
-                            )}
+                                        ))}
+                                      </CommandGroup>
+                                      <CommandSeparator />
+                                      <CommandGroup>
+                                        <CommandItem
+                                          onSelect={() => {
+                                            setOpenProduct((prev) => ({ ...prev, [index]: false }));
+                                            setCustomItemIndex(index);
+                                          }}
+                                          className="flex items-center gap-2 text-amber-600 cursor-pointer"
+                                        >
+                                          <span className="text-lg leading-none">✏️</span>
+                                          <span className="font-medium">Ketik Nama Produk Sendiri</span>
+                                        </CommandItem>
+                                        <CommandItem
+                                          onSelect={() => {
+                                            setOpenProduct((prev) => ({ ...prev, [index]: false }));
+                                            setQuickAddIndex(index);
+                                          }}
+                                          className="flex items-center gap-2 text-primary cursor-pointer"
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                          <span className="font-medium">Tambah Produk Baru</span>
+                                        </CommandItem>
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                              {fieldState.error && (
+                                <span className="text-xs text-destructive whitespace-nowrap px-1">
+                                  {fieldState.error.message}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        />
+                        {variant && (
+                          <div className="text-[11px] text-muted-foreground mt-1 px-1">
+                            {variant.skuCode}
                           </div>
                         )}
-                      />
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              className="h-9 w-20 text-center font-mono text-sm"
-                              {...field}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        remove(index);
-                        setTaxableItems(prev => {
-                          const newMap: Record<number, boolean> = {};
-                          Object.keys(prev)
-                            .map(Number)
-                            .sort((a, b) => a - b)
-                            .filter(i => i !== index)
-                            .forEach((oldIdx, newIdx) => {
-                              newMap[newIdx] = prev[oldIdx];
-                            });
-                          return newMap;
-                        });
-                      }}
-                      className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Unit display */}
-                  {unitMeta && (
-                    <div className="px-4 pb-2 -mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        Unit: {unitMeta.displayUnit}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Body: Price fields */}
-                  <div className="px-4 pb-3 space-y-2">
-                    {/* Harga Satuan */}
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground w-28">
-                        Harga Satuan
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                      </TableCell>
+                      
+                      {/* Qty */}
+                      <TableCell className="pt-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field: qtyField }) => (
+                            <div className="flex flex-col items-center">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="h-9 w-full text-center font-mono text-sm"
+                                  {...qtyField}
+                                />
+                              </FormControl>
+                              {unitMeta && (
+                                <span className="text-[10px] text-muted-foreground mt-1 font-medium whitespace-nowrap">
+                                  {unitMeta.displayUnit}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        />
+                      </TableCell>
+                      
+                      {/* Harga Satuan */}
+                      <TableCell className="pt-3">
                         <FormField
                           control={form.control}
                           name={`items.${index}.unitPrice`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0 flex-1">
+                          render={({ field: priceField }) => (
+                            <div className="flex flex-col">
                               <FormControl>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                                     Rp
                                   </span>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
-                                    value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(field.value ?? 0)}
+                                    value={rawPriceInputs[index] !== undefined ? rawPriceInputs[index] : formatIndonesianPrice(priceField.value ?? 0)}
                                     onChange={(e) => {
-                                      // Store raw value for display
                                       setRawPriceInputs(prev => ({ ...prev, [index]: e.target.value }));
-                                      // Parse and update form value
                                       const num = parseIndonesianPrice(e.target.value);
-                                      field.onChange(num);
+                                      priceField.onChange(num);
                                     }}
                                     onBlur={() => {
-                                      // On blur, format the value properly
                                       const num = parseIndonesianPrice(rawPriceInputs[index] || '0');
-                                      field.onChange(num);
-                                      // Clear raw input to show formatted value
+                                      priceField.onChange(num);
                                       setRawPriceInputs(prev => {
                                         const next = { ...prev };
                                         delete next[index];
                                         return next;
                                       });
                                     }}
-                                    className="h-8 pl-8 text-right font-mono text-sm"
+                                    className="h-9 pl-7 text-right font-mono text-sm"
                                   />
                                 </div>
                               </FormControl>
-                            </FormItem>
+                            </div>
                           )}
                         />
-                        {unitMeta && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            per {unitMeta.displayUnit}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Diskon */}
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground w-28">
-                        Diskon
-                      </span>
-                      <div className="flex items-center gap-2 flex-1 max-w-[200px]">
+                      </TableCell>
+                      
+                      {/* Diskon */}
+                      <TableCell className="pt-3">
                         <FormField
                           control={form.control}
                           name={`items.${index}.discountPercent`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0 w-20">
-                              <FormControl>
+                          render={({ field: discField }) => (
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="relative w-full">
                                 <Input
                                   type="number"
                                   min="0"
                                   max="100"
                                   step="1"
                                   placeholder="0"
-                                  className="h-8 text-center font-mono text-sm"
-                                  {...field}
+                                  className="h-9 pr-6 text-right font-mono text-sm"
+                                  {...discField}
                                 />
-                              </FormControl>
-                            </FormItem>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                  %
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-red-500 whitespace-nowrap">
+                                {afterDisc < sub ? `-${formatRupiah(sub - afterDisc)}` : "Rp 0"}
+                              </span>
+                            </div>
                           )}
                         />
-                        <span className="text-xs text-muted-foreground">
-                          %
-                        </span>
-                        <span className="text-xs font-mono text-red-500 ml-auto">
-                          {afterDisc < sub
-                            ? `-${formatRupiah(sub - afterDisc)}`
-                            : "Rp 0"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Kena Pajak toggle */}
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id={`taxable-so-${index}`}
-                        checked={taxableItems[index] ?? false}
-                        onCheckedChange={(checked) => {
-                          setTaxableItems((prev) => ({ ...prev, [index]: !!checked }));
-                          if (!checked) {
-                            form.setValue(`items.${index}.taxPercent`, 0);
-                            form.setValue(`items.${index}.dppOtherAmount`, null);
-                          }
-                        }}
-                      />
-                      <label htmlFor={`taxable-so-${index}`} className="text-xs text-muted-foreground cursor-pointer select-none">
-                        Kena Pajak
-                      </label>
-                    </div>
-
-                    {/* PPN Mode — only when Kena Pajak checked */}
-                    {(taxableItems[index] ?? false) && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground w-28">Mode PPN</span>
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.ppnMode`}
-                          render={({ field }) => (
-                            <FormItem className="space-y-0 flex-1">
-                              <FormControl>
-                                <RadioGroup
-                                  value={field.value || 'EXCLUDE'}
-                                  onValueChange={field.onChange}
-                                  className="flex gap-4"
+                      </TableCell>
+                      
+                      {/* Pajak */}
+                      <TableCell className="pt-3">
+                        <div className="flex items-center justify-center gap-1 mt-1.5">
+                          <Checkbox
+                            id={`taxable-so-table-${index}`}
+                            checked={taxableItems[index] ?? false}
+                            onCheckedChange={(checked) => {
+                              setTaxableItems((prev) => ({ ...prev, [index]: !!checked }));
+                              if (!checked) {
+                                form.setValue(`items.${index}.taxPercent`, 0);
+                                form.setValue(`items.${index}.dppOtherAmount`, null);
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`taxable-so-table-${index}`}
+                            className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                          >
+                            PPN
+                          </label>
+                          
+                          {(taxableItems[index] ?? false) && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <RadioGroupItem value="EXCLUDE" id={`ppn-exclude-so-${index}`} />
-                                    <Label htmlFor={`ppn-exclude-so-${index}`} className="text-xs cursor-pointer">
-                                      Exclude (harga + pajak)
-                                    </Label>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <RadioGroupItem value="INCLUDE" id={`ppn-include-so-${index}`} />
-                                    <Label htmlFor={`ppn-include-so-${index}`} className="text-xs cursor-pointer">
-                                      Include (harga termasuk)
-                                    </Label>
-                                  </div>
-                                </RadioGroup>
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
+                                  <Settings className="h-3.5 w-3.5" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 p-4 space-y-4" align="end">
+                                <h4 className="font-medium text-sm border-b pb-2">Opsi Pajak Lanjutan</h4>
+                                
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">Mode PPN</Label>
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.ppnMode`}
+                                    render={({ field: ppnField }) => (
+                                      <RadioGroup
+                                        value={ppnField.value || 'EXCLUDE'}
+                                        onValueChange={ppnField.onChange}
+                                        className="flex flex-col gap-2 pt-1"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <RadioGroupItem value="EXCLUDE" id={`ppn-excl-pop-${index}`} />
+                                          <Label htmlFor={`ppn-excl-pop-${index}`} className="text-xs cursor-pointer">
+                                            Exclude (harga + pajak)
+                                          </Label>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <RadioGroupItem value="INCLUDE" id={`ppn-incl-pop-${index}`} />
+                                          <Label htmlFor={`ppn-incl-pop-${index}`} className="text-xs cursor-pointer">
+                                            Include (harga termasuk)
+                                          </Label>
+                                        </div>
+                                      </RadioGroup>
+                                    )}
+                                  />
+                                </div>
 
-                    {/* Pajak & DPP — only when Kena Pajak checked */}
-                    {(taxableItems[index] ?? false) && (
-                      <>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground w-28">
-                            Pajak
-                          </span>
-                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.taxPercent`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0 w-20">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="1"
-                                      placeholder="0"
-                                      className="h-8 text-center font-mono text-sm"
-                                      {...field}
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">Tarif Pajak (%)</Label>
+                                  <div className="flex items-center gap-2">
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.taxPercent`}
+                                      render={({ field: taxField }) => (
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          step="1"
+                                          className="h-8 w-20 text-center font-mono text-sm"
+                                          {...taxField}
+                                        />
+                                      )}
                                     />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            <span className="text-xs text-muted-foreground">
-                              %
-                            </span>
-                            <span className="text-xs font-mono text-muted-foreground ml-auto">
-                              {afterDisc * (tax / 100) > 0
-                                ? formatRupiah(afterDisc * (tax / 100))
-                                : "Rp 0"}
-                            </span>
-                          </div>
+                                    <span className="text-xs text-muted-foreground">%</span>
+                                    <span className="text-xs font-mono text-muted-foreground ml-auto">
+                                      {afterDisc * (tax / 100) > 0 ? formatRupiah(afterDisc * (tax / 100)) : "Rp 0"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">DPP (Dasar Pengenaan Pajak)</Label>
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.dppOtherAmount`}
+                                    render={({ field: dppField }) => (
+                                      <div className="relative">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                          Rp
+                                        </span>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          step="any"
+                                          placeholder="Auto (11/12)"
+                                          value={dppField.value ?? ""}
+                                          onChange={(e) => {
+                                            const normalized = e.target.value.replace(',', '.');
+                                            const num = Number(normalized);
+                                            dppField.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
+                                          }}
+                                          className="h-8 pl-7 text-right font-mono text-xs bg-zinc-50 dark:bg-zinc-900"
+                                        />
+                                      </div>
+                                    )}
+                                  />
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
                         </div>
-
-                        {/* DPP */}
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground w-28">
-                            DPP
-                          </span>
-                          <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.dppOtherAmount`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-0 flex-1">
-                                  <FormControl>
-                                    <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                        Rp
-                                      </span>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        step="any"
-                                        placeholder="Auto (11/12)"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const normalized = e.target.value.replace(',', '.');
-                                          const num = Number(normalized);
-                                          field.onChange(e.target.value === "" ? null : isNaN(num) ? 0 : num);
-                                        }}
-                                        className="h-8 pl-8 text-right font-mono text-sm bg-zinc-50 dark:bg-zinc-900"
-                                      />
-                                    </div>
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Footer: Total */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-t">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Total
-                    </span>
-                    <span className="text-sm font-bold font-mono">
-                      {formatRupiah(lineTotal)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {fields.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground text-sm border border-dashed rounded-lg">
-                Belum ada item. Klik &quot;Tambah Item&quot; untuk menambahkan
-                produk.
-              </div>
-            )}
-
-            {/* Summary totals */}
-            {fields.length > 0 && (
-              <div className="border rounded-lg p-4 bg-muted/30 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {formLabels.subtotal}
-                  </span>
-                  <span className="tabular-nums">
-                    {formatRupiah(totals.gross)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Diskon</span>
-                  <span className="text-red-500 tabular-nums">
-                    -{formatRupiah(totals.discount)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Pajak</span>
-                  <span className="tabular-nums">
-                    {formatRupiah(totals.tax)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">
-                    Ongkos Kirim
-                  </span>
-                  <Input
-                    type="number"
-                    min={0}
-                    {...form.register("shippingCost", {
-                      valueAsNumber: true,
-                    })}
-                    className="w-32 text-right h-9"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
-                  <span>Total Keseluruhan</span>
-                  <span className="tabular-nums">
-                    {formatRupiah(totals.net + watchShippingCost)}
-                  </span>
-                </div>
-              </div>
-            )}
+                      </TableCell>
+                      
+                      {/* Subtotal */}
+                      <TableCell className="pt-4 text-right font-bold font-mono text-sm text-foreground">
+                        {formatRupiah(lineTotal)}
+                      </TableCell>
+                      
+                      {/* Trash action */}
+                      <TableCell className="pt-2 text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            remove(index);
+                            setTaxableItems(prev => {
+                              const newMap: Record<number, boolean> = {};
+                              Object.keys(prev)
+                                .map(Number)
+                                .sort((a, b) => a - b)
+                                .filter(i => i !== index)
+                                .forEach((oldIdx, newIdx) => {
+                                  newMap[newIdx] = prev[oldIdx];
+                                });
+                              return newMap;
+                            });
+                          }}
+                          className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {fields.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm border-dashed">
+                      Belum ada item. Klik &quot;Tambah Item&quot; untuk menambahkan produk.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
+
+          {/* Desktop Summary Totals */}
+          {fields.length > 0 && (
+            <div className="hidden md:block w-full max-w-sm ml-auto border rounded-lg p-4 bg-muted/30 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {formLabels.subtotal}
+                </span>
+                <span className="tabular-nums">
+                  {formatRupiah(totals.gross)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Diskon</span>
+                <span className="text-red-500 tabular-nums">
+                  -{formatRupiah(totals.discount)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Pajak</span>
+                <span className="tabular-nums">
+                  {formatRupiah(totals.tax)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">
+                  Ongkos Kirim
+                </span>
+                <Input
+                  type="number"
+                  min={0}
+                  {...form.register("shippingCost", {
+                    valueAsNumber: true,
+                  })}
+                  className="w-32 text-right h-9"
+                  placeholder="0"
+                />
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
+                <span>Total Keseluruhan</span>
+                <span className="tabular-nums">
+                  {formatRupiah(totals.net + watchShippingCost)}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Mobile: Card view */}
           <div className="md:hidden space-y-3">
@@ -1718,6 +1662,10 @@ export function SalesOrderForm({
 
       {/* Quick Add Product Dialog */}
       <QuickProductDialog
+        open={quickAddIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setQuickAddIndex(null);
+        }}
         onProductCreated={(variant) => {
           handleQuickProductCreated(
             variant as SerializedProductVariant,
