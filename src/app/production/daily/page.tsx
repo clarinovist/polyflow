@@ -15,21 +15,15 @@ export const dynamic = "force-dynamic";
 
 export default async function DailyProductionPage() {
   const session = await auth();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  // Fetch today's production orders
+  // Fetch all production orders, then filter by active status
+  // This includes orders from previous days that are still in progress
   const ordersRes = await getProductionOrders();
   const allOrders = ordersRes;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const orders = (allOrders as any[]).filter((o: any) => {
-    const plannedDate = new Date(o.plannedStartDate);
-    return plannedDate >= today && plannedDate < tomorrow &&
-      [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL].includes(o.status);
-  });
+  const orders = (allOrders as any[]).filter((o: any) =>
+    [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.WAITING_MATERIAL].includes(o.status)
+  );
 
   // Fetch BOMs with default flag for Quick Produce dialog
   const bomsRes = await getBoms();
@@ -59,10 +53,10 @@ export default async function DailyProductionPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Produksi Hari Ini
+          Produksi Aktif
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Kelola produksi harian — tambah produk, pantau progress.
+          Kelola produksi yang sedang berjalan — termasuk yang terbawa dari hari sebelumnya.
         </p>
       </div>
 

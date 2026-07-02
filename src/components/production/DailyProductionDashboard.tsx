@@ -120,7 +120,7 @@ export function DailyProductionDashboard({
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Produk hari ini
+              Semua order aktif
             </p>
           </CardContent>
         </Card>
@@ -173,10 +173,10 @@ export function DailyProductionDashboard({
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Factory className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-semibold text-muted-foreground">
-              Belum ada produksi hari ini
+              Belum ada produksi aktif
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
-              Klik &quot;Tambah Produk&quot; untuk memulai produksi harian.
+              Klik &quot;Tambah Produk&quot; untuk memulai produksi.
             </p>
             <Button
               onClick={() => setDialogOpen(true)}

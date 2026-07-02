@@ -30,7 +30,7 @@ export const productionSidebarLabels = {
   materialRequirements: "Kebutuhan Material",
   productionAnalytics: "Analitik Produksi",
   // Production Floor
-  dailyProduction: "Produksi Hari Ini",
+  dailyProduction: "Produksi Aktif",
   machineBoard: "Papan Mesin",
   floorStock: "Stok Lantai",
   teamShifts: "Tim / Shift",
