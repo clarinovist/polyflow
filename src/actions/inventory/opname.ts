@@ -31,7 +31,7 @@ export const getOpnameSession = withTenant(async function getOpnameSession(
   id: string,
 ) {
   return safeAction(async () => {
-    return await prisma.stockOpname.findUnique({
+    const session = await prisma.stockOpname.findUnique({
       where: { id },
       include: {
         location: true,
@@ -52,6 +52,12 @@ export const getOpnameSession = withTenant(async function getOpnameSession(
         },
       },
     });
+
+    if (!session) {
+      throw new NotFoundError("StockOpname", id);
+    }
+
+    return session;
   });
 });
 

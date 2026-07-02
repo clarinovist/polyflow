@@ -168,7 +168,7 @@ export default async function ProductionMachinesPage() {
 
                                 <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
                                     <MachineActions id={machine.id} name={machine.name} />
-                                    <Link href={`/production/resources/machines/${machine.id}`}>
+                                    <Link href={`/production/machines/${machine.id}`}>
                                         <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-foreground">
                                             History
                                         </Button>

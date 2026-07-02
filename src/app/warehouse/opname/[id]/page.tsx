@@ -1,6 +1,6 @@
 import { getOpnameSession } from '@/actions/inventory/opname';
 import { auth } from '@/auth';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { OpnameDetailClient, OpnameSession } from '@/components/warehouse/inventory/opname/OpnameDetailClient';
 import { serializeData } from '@/lib/utils/utils';
 
@@ -13,7 +13,7 @@ export default async function WarehouseOpnameDetailPage({ params }: PageProps) {
     const result = await getOpnameSession(id);
 
     if (!result.success || !result.data) {
-        notFound();
+        redirect('/warehouse/opname?error=not-found');
     }
 
     const serializedSession = serializeData(result.data) as unknown as OpnameSession;

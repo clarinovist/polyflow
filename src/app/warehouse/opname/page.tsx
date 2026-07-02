@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { CreateOpnameDialog } from '@/components/warehouse/inventory/opname/CreateOpnameDialog';
 import { Separator } from '@/components/ui/separator';
+import { Suspense } from 'react';
+import { SearchParamsToast } from '@/components/shared/SearchParamsToast';
 
 export default async function WarehouseOpnameListPage() {
     try {
@@ -22,6 +24,9 @@ export default async function WarehouseOpnameListPage() {
 
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
+            <Suspense>
+                <SearchParamsToast />
+            </Suspense>
             <div className="flex items-center justify-between space-y-2">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Stock Opname</h2>

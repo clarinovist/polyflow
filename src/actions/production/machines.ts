@@ -160,3 +160,43 @@ async function setMachineStatus(id: string, status: MachineStatus) {
     });
 }
 );
+
+export const getMachineHistory = withTenant(
+async function getMachineHistory(machineId: string) {
+    return safeAction(async () => {
+        try {
+            const machine = await prisma.machine.findUnique({
+                where: { id: machineId },
+                include: { location: true },
+            });
+            if (!machine) throw new NotFoundError('Machine', machineId);
+
+            const executions = await prisma.productionExecution.findMany({
+                where: { machineId },
+                include: {
+                    productionOrder: {
+                        include: {
+                            bom: { include: { productVariant: true } },
+                            shifts: {
+                                include: {
+                                    operator: true,
+                                    helpers: true,
+                                }
+                            }
+                        }
+                    },
+                    operator: true,
+                },
+                orderBy: { startTime: 'desc' },
+                take: 100,
+            });
+
+            return { machine, executions };
+        } catch (error) {
+            if (error instanceof NotFoundError) throw error;
+            logger.error('Failed to get machine history', { machineId, error, module: 'MachineActions' });
+            throw new BusinessRuleError('Failed to retrieve machine history.');
+        }
+    });
+}
+);
