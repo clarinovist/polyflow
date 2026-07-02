@@ -76,10 +76,11 @@ export default async function ProductionMachinesPage() {
     // Build a map: machineId → IN_PROGRESS orders assigned to that machine
     const ordersByMachine = new Map<string, SerializedProductionOrder[]>();
     for (const order of inProgressOrders) {
-        if (order.machineId) {
-            const existing = ordersByMachine.get(order.machineId) || [];
+        const mid = order.machine?.id;
+        if (mid) {
+            const existing = ordersByMachine.get(mid) || [];
             existing.push(order);
-            ordersByMachine.set(order.machineId, existing);
+            ordersByMachine.set(mid, existing);
         }
     }
 
