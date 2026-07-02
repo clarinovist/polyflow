@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// Standard select is used to ensure iOS/Android native selector wheel compatibility
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,10 +11,21 @@ import {
   Search,
   Trash2,
   Loader2,
+  Plus,
+  UserPlus,
+  PackagePlus,
 } from "lucide-react";
 import { createSalesOrder } from "@/actions/sales/sales";
+import { quickCreateCustomer } from "@/actions/sales/customer";
+import { quickCreateProduct } from "@/actions/product";
 import { toast } from "sonner";
 import { formatRupiah } from "@/lib/utils/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Customer = {
   id: string;
@@ -50,9 +60,18 @@ type OrderItem = {
   unitPrice: number;
 };
 
+const UNIT_OPTIONS = [
+  { value: "KG", label: "KG" },
+  { value: "ROLL", label: "Roll" },
+  { value: "BAL", label: "Bal" },
+  { value: "PACK", label: "Pack/PCS" },
+  { value: "ZAK", label: "Zak" },
+  { value: "KARTON", label: "Karton" },
+];
+
 export function QuickOrderWizard({
-  customers,
-  products,
+  customers: initialCustomers,
+  products: initialProducts,
   locations,
   preselectedCustomerId,
 }: QuickOrderWizardProps) {
@@ -60,9 +79,14 @@ export function QuickOrderWizard({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Dynamic lists (can grow when user adds new customer/product)
+  const [customers, setCustomers] = useState(initialCustomers);
+  const [products, setProducts] = useState(initialProducts);
+
   // Step 1: Customer & Location
   const [customerId, setCustomerId] = useState(preselectedCustomerId || "");
   const [locationId, setLocationId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
 
   // Step 2: Items
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -71,8 +95,37 @@ export function QuickOrderWizard({
   // Step 3: Review
   const [notes, setNotes] = useState("");
 
+  // Quick-add dialog state
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+
+  // Quick-add customer form
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [newCustomerAddress, setNewCustomerAddress] = useState("");
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+
+  // Quick-add product form
+  const [newProductName, setNewProductName] = useState("");
+  const [newVariantName, setNewVariantName] = useState("");
+  const [newSkuCode, setNewSkuCode] = useState("");
+  const [newUnit, setNewUnit] = useState("KG");
+  const [newSellPrice, setNewSellPrice] = useState("");
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
+  // Customer filtering
+  const filteredCustomers = customers.filter((c) => {
+    if (!customerSearch) return true;
+    const q = customerSearch.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.code?.toLowerCase().includes(q)
+    );
+  });
+
+  // Product filtering
   const filteredProducts = products.filter((p) => {
     if (!productSearch) return true;
     const q = productSearch.toLowerCase();
@@ -131,6 +184,81 @@ export function QuickOrderWizard({
     return sum + sub;
   }, 0);
 
+  // Quick-add customer handler
+  const handleAddCustomer = async () => {
+    if (!newCustomerName.trim()) {
+      toast.error("Nama customer wajib diisi");
+      return;
+    }
+    setIsAddingCustomer(true);
+    try {
+      const result = await quickCreateCustomer({
+        name: newCustomerName.trim(),
+        phone: newCustomerPhone.trim() || undefined,
+        billingAddress: newCustomerAddress.trim() || undefined,
+      });
+
+      if (result.success && result.data) {
+        const newCustomer = result.data as Customer;
+        setCustomers((prev) => [newCustomer, ...prev]);
+        setCustomerId(newCustomer.id);
+        setCustomerSearch("");
+        setShowAddCustomer(false);
+        setNewCustomerName("");
+        setNewCustomerPhone("");
+        setNewCustomerAddress("");
+        toast.success(`Customer "${newCustomer.name}" berhasil dibuat`);
+      } else if (!result.success) {
+        toast.error(result.error || "Gagal membuat customer");
+      }
+    } catch {
+      toast.error("Gagal membuat customer");
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
+
+  // Quick-add product handler
+  const handleAddProduct = async () => {
+    if (!newProductName.trim()) {
+      toast.error("Nama produk wajib diisi");
+      return;
+    }
+    if (!newSkuCode.trim()) {
+      toast.error("SKU wajib diisi");
+      return;
+    }
+    setIsAddingProduct(true);
+    try {
+      const result = await quickCreateProduct({
+        productName: newProductName.trim(),
+        variantName: newVariantName.trim() || newProductName.trim(),
+        skuCode: newSkuCode.trim().toUpperCase(),
+        primaryUnit: newUnit,
+        sellPrice: newSellPrice ? Number(newSellPrice) : undefined,
+      });
+
+      if (result.success && result.data) {
+        const newProduct = result.data as Product;
+        setProducts((prev) => [newProduct, ...prev]);
+        addItem(newProduct);
+        setShowAddProduct(false);
+        setNewProductName("");
+        setNewVariantName("");
+        setNewSkuCode("");
+        setNewUnit("KG");
+        setNewSellPrice("");
+        toast.success(`Produk "${newProduct.productName}" berhasil dibuat`);
+      } else if (!result.success) {
+        toast.error(result.error || "Gagal membuat produk");
+      }
+    } catch {
+      toast.error("Gagal membuat produk");
+    } finally {
+      setIsAddingProduct(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!customerId || items.length === 0) return;
 
@@ -152,7 +280,7 @@ export function QuickOrderWizard({
           taxPercent: 0,
           dppOtherAmount: null,
           ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
-        })), 
+        })),
       });
 
       if (result.success) {
@@ -204,40 +332,75 @@ export function QuickOrderWizard({
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Customer *</label>
+            {/* Customer Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Cari customer..."
                 value={
-                  selectedCustomer
+                  selectedCustomer && !customerSearch
                     ? selectedCustomer.name
-                    : customerId
-                      ? "Customer dipilih"
-                      : ""
+                    : customerSearch
                 }
-                readOnly
+                onChange={(e) => {
+                  setCustomerSearch(e.target.value);
+                  if (selectedCustomer && e.target.value !== selectedCustomer.name) {
+                    setCustomerId("");
+                  }
+                }}
+                onFocus={() => {
+                  if (selectedCustomer) {
+                    setCustomerSearch(selectedCustomer.name);
+                    setCustomerId("");
+                  }
+                }}
                 className="pl-9 h-11"
               />
             </div>
             {/* Customer quick list */}
             <div className="max-h-48 overflow-y-auto border rounded-lg">
-              {customers.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCustomerId(c.id)}
-                  className={`w-full text-left p-3 text-sm border-b last:border-0 flex justify-between items-center ${
-                    customerId === c.id
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-muted/50"
-                  }`}
-                >
-                  <span className="truncate">{c.name}</span>
-                  {customerId === c.id && (
-                    <Check className="h-4 w-4 shrink-0" />
-                  )}
-                </button>
-              ))}
+              {filteredCustomers.length === 0 && customerSearch ? (
+                <p className="p-3 text-sm text-muted-foreground text-center">
+                  Customer tidak ditemukan
+                </p>
+              ) : (
+                filteredCustomers.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setCustomerId(c.id);
+                      setCustomerSearch("");
+                    }}
+                    className={`w-full text-left p-3 text-sm border-b last:border-0 flex justify-between items-center ${
+                      customerId === c.id
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <span className="truncate block">{c.name}</span>
+                      {c.code && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {c.code}
+                        </span>
+                      )}
+                    </div>
+                    {customerId === c.id && (
+                      <Check className="h-4 w-4 shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+              {/* Add Customer Button */}
+              <button
+                type="button"
+                onClick={() => setShowAddCustomer(true)}
+                className="w-full text-left p-3 text-sm border-t flex items-center gap-2 text-primary hover:bg-primary/5 transition-colors"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="font-medium">Tambah Customer Baru</span>
+              </button>
             </div>
           </div>
 
@@ -292,45 +455,69 @@ export function QuickOrderWizard({
           {/* Product Results */}
           <div className="max-h-48 overflow-y-auto border rounded-lg">
             {displayProducts.length === 0 ? (
-              <p className="p-3 text-sm text-muted-foreground text-center">
-                Produk tidak ditemukan
-              </p>
+              <div className="p-3 text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Produk tidak ditemukan
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewProductName(productSearch);
+                    setShowAddProduct(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary font-medium hover:underline"
+                >
+                  <PackagePlus className="h-4 w-4" />
+                  Tambah &quot;{productSearch}&quot; sebagai produk baru
+                </button>
+              </div>
             ) : (
-              displayProducts.map((p) => {
-                const stock = p.inventories.reduce(
-                  (sum, inv) => sum + inv.quantity,
-                  0,
-                );
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => addItem(p)}
-                    className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-medium truncate">
-                          {p.productName === p.name
-                            ? p.name
-                            : `${p.productName} - ${p.name}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.skuCode} • {p.displayUnit}
-                        </p>
+              <>
+                {displayProducts.map((p) => {
+                  const stock = p.inventories.reduce(
+                    (sum, inv) => sum + inv.quantity,
+                    0,
+                  );
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => addItem(p)}
+                      className="w-full text-left p-3 border-b last:border-0 hover:bg-muted/50"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium truncate">
+                            {p.productName === p.name
+                              ? p.name
+                              : `${p.productName} - ${p.name}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {p.skuCode} • {p.displayUnit}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">
+                            {p.sellPrice ? formatRupiah(p.sellPrice) : "-"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Stok: {stock}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {p.sellPrice ? formatRupiah(p.sellPrice) : "-"}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Stok: {stock}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
+                    </button>
+                  );
+                })}
+                {/* Add Product Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowAddProduct(true)}
+                  className="w-full text-left p-3 text-sm border-t flex items-center gap-2 text-primary hover:bg-primary/5 transition-colors"
+                >
+                  <PackagePlus className="h-4 w-4" />
+                  <span className="font-medium">Tambah Produk Baru</span>
+                </button>
+              </>
             )}
           </div>
 
@@ -511,6 +698,170 @@ export function QuickOrderWizard({
           </Button>
         </div>
       )}
+
+      {/* Quick Add Customer Dialog */}
+      <Dialog open={showAddCustomer} onOpenChange={setShowAddCustomer}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Tambah Customer Baru
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Nama Customer *
+              </label>
+              <Input
+                placeholder="Nama customer..."
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                className="h-11 mt-1"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Telepon
+              </label>
+              <Input
+                placeholder="08xxx..."
+                value={newCustomerPhone}
+                onChange={(e) => setNewCustomerPhone(e.target.value)}
+                className="h-11 mt-1"
+                type="tel"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Alamat
+              </label>
+              <Input
+                placeholder="Alamat penagihan..."
+                value={newCustomerAddress}
+                onChange={(e) => setNewCustomerAddress(e.target.value)}
+                className="h-11 mt-1"
+              />
+            </div>
+            <Button
+              className="w-full h-11"
+              disabled={!newCustomerName.trim() || isAddingCustomer}
+              onClick={handleAddCustomer}
+            >
+              {isAddingCustomer ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {isAddingCustomer ? "Menyimpan..." : "Simpan Customer"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Product Dialog */}
+      <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackagePlus className="h-5 w-5" />
+              Tambah Produk Baru
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Nama Produk *
+              </label>
+              <Input
+                placeholder="Contoh: Rafia Hitam"
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
+                className="h-11 mt-1"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Nama Varian
+              </label>
+              <Input
+                placeholder="Kosongkan jika sama dengan nama produk"
+                value={newVariantName}
+                onChange={(e) => setNewVariantName(e.target.value)}
+                className="h-11 mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">
+                  SKU *
+                </label>
+                <Input
+                  placeholder="RFH001"
+                  value={newSkuCode}
+                  onChange={(e) =>
+                    setNewSkuCode(e.target.value.toUpperCase())
+                  }
+                  className="h-11 mt-1"
+                  maxLength={20}
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  5-20 karakter, huruf besar & angka
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">
+                  Satuan *
+                </label>
+                <select
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  className="w-full h-11 mt-1 px-3 border border-input rounded-lg bg-background text-sm"
+                >
+                  {UNIT_OPTIONS.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Harga Jual
+              </label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={newSellPrice}
+                onChange={(e) => setNewSellPrice(e.target.value)}
+                className="h-11 mt-1"
+                min="0"
+                step="100"
+              />
+            </div>
+            <Button
+              className="w-full h-11"
+              disabled={
+                !newProductName.trim() ||
+                !newSkuCode.trim() ||
+                newSkuCode.length < 5 ||
+                isAddingProduct
+              }
+              onClick={handleAddProduct}
+            >
+              {isAddingProduct ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {isAddingProduct ? "Menyimpan..." : "Simpan Produk"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

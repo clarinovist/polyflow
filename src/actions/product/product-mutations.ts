@@ -8,7 +8,7 @@ import {
   CreateProductValues,
   UpdateProductValues,
 } from "@/lib/schemas/product";
-import { Prisma } from "@prisma/client";
+import { Prisma, Unit } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { logger } from "@/lib/config/logger";
@@ -250,6 +250,73 @@ export const updateProduct = withTenant(async function updateProduct(
         "Failed to update product. Please check the inputs.",
       );
     }
+  });
+});
+
+/**
+ * Quick-create a product with a single variant (for mobile sales flow).
+ * Product type defaults to FINISHED_GOOD. Returns the created variant object.
+ */
+export const quickCreateProduct = withTenant(async function quickCreateProduct(
+  data: {
+    productName: string;
+    variantName: string;
+    skuCode: string;
+    primaryUnit: string;
+    sellPrice?: number;
+  },
+) {
+  return safeAction(async () => {
+    await requireAuth();
+
+    if (!data.productName.trim()) {
+      throw new BusinessRuleError('Nama produk wajib diisi');
+    }
+    if (!data.skuCode.trim()) {
+      throw new BusinessRuleError('SKU wajib diisi');
+    }
+
+    const existingSku = await prisma.productVariant.findUnique({
+      where: { skuCode: data.skuCode.toUpperCase() },
+      select: { id: true },
+    });
+    if (existingSku) {
+      throw new BusinessRuleError(`SKU ${data.skuCode.toUpperCase()} sudah ada`);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          name: data.productName.trim(),
+          productType: 'FINISHED_GOOD',
+        },
+      });
+
+      const variant = await tx.productVariant.create({
+        data: {
+          productId: product.id,
+          name: data.variantName.trim() || data.productName.trim(),
+          skuCode: data.skuCode.toUpperCase(),
+          primaryUnit: data.primaryUnit as Unit,
+          salesUnit: data.primaryUnit as Unit,
+          conversionFactor: new Prisma.Decimal(1),
+          price: data.sellPrice ? new Prisma.Decimal(data.sellPrice) : null,
+        },
+      });
+
+      return { product, variant };
+    });
+
+    revalidatePath('/dashboard/products');
+    return {
+      id: result.variant.id,
+      name: result.variant.name,
+      productName: result.product.name,
+      skuCode: result.variant.skuCode,
+      sellPrice: data.sellPrice || 0,
+      displayUnit: data.primaryUnit,
+      inventories: [] as { locationId: string; quantity: number }[],
+    };
   });
 });
 

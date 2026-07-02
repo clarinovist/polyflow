@@ -18,4 +18,5 @@ export {
   updateProduct,
   deleteProduct,
   deleteVariant,
+  quickCreateProduct,
 } from "./product/product-mutations";

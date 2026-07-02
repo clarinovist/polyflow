@@ -142,6 +142,42 @@ async function updateCustomer(data: UpdateCustomerValues) {
 }
 );
 
+/**
+ * Quick-create customer with minimal fields (for mobile sales flow).
+ * Returns the created customer object so the caller can immediately use it.
+ */
+export const quickCreateCustomer = withTenant(
+async function quickCreateCustomer(data: { name: string; phone?: string; billingAddress?: string }) {
+    return safeAction(async () => {
+        await requireAuth();
+
+        if (!data.name.trim()) {
+            throw new BusinessRuleError('Nama customer wajib diisi');
+        }
+
+        const code = await getNextCustomerCode();
+
+        const customer = await prisma.customer.create({
+            data: {
+                name: data.name.trim(),
+                code,
+                phone: data.phone?.trim() || null,
+                billingAddress: data.billingAddress?.trim() || null,
+            },
+        });
+
+        revalidatePath('/sales/mobile');
+        return {
+            id: customer.id,
+            name: customer.name,
+            code: customer.code,
+            creditLimit: null as number | null,
+            paymentTermDays: null as number | null,
+        };
+    });
+}
+);
+
 export const deleteCustomer = withTenant(
 async function deleteCustomer(id: string) {
     return safeAction(async () => {
