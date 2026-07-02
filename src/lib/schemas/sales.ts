@@ -35,7 +35,7 @@ export const customItemSchema = z.object({
 export const createSalesOrderSchema = z
   .object({
     customerId: z.string().optional(),
-    sourceLocationId: z.string().min(1, "Source location is required"),
+    sourceLocationId: z.string().optional().default(""),
     orderDate: z.coerce.date(),
     expectedDate: z.coerce.date().optional().nullable(),
     orderType: z
@@ -69,12 +69,21 @@ export const createSalesOrderSchema = z
         path: ["customerId"],
       });
     }
+
+    // Maklon Jasa still requires a source location (customer-owned warehouse)
+    if (data.orderType === SalesOrderType.MAKLON_JASA && !data.sourceLocationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Source location is required for Maklon Jasa orders",
+        path: ["sourceLocationId"],
+      });
+    }
   });
 
 export const updateSalesOrderSchema = z.object({
   id: z.string(),
   customerId: z.string().optional(),
-  sourceLocationId: z.string().min(1, "Source location is required"),
+  sourceLocationId: z.string().optional().default(""),
   orderDate: z.coerce.date(),
   expectedDate: z.coerce.date().optional().nullable(),
   notes: z.string().optional().transform(sanitizeHtml),

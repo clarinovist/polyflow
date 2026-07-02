@@ -132,7 +132,7 @@ export function QuickOrderWizard({
   }, 0);
 
   const handleSubmit = async () => {
-    if (!customerId || !locationId || items.length === 0) return;
+    if (!customerId || items.length === 0) return;
 
     setIsSubmitting(true);
     try {
@@ -200,7 +200,7 @@ export function QuickOrderWizard({
       {/* Step 1: Customer & Location */}
       {step === 1 && (
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold">Pilih Customer & Gudang</h2>
+          <h2 className="text-sm font-semibold">Pilih Customer</h2>
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Customer *</label>
@@ -243,25 +243,28 @@ export function QuickOrderWizard({
 
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">
-              Gudang Sumber *
+              Gudang Sumber <span className="text-muted-foreground/60">(opsional)</span>
             </label>
             <select
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
               className="w-full h-11 px-3 border border-input rounded-lg bg-background text-sm focus:ring-2 focus:ring-primary/20 outline-none"
             >
-              <option value="" disabled>Pilih gudang</option>
+              <option value="">Semua gudang</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
                 </option>
               ))}
             </select>
+            <p className="text-[10px] text-muted-foreground">
+              Bisa dikosongkan untuk order cepat. Pilih gudang saat ingin kirim barang.
+            </p>
           </div>
 
           <Button
             className="w-full h-11"
-            disabled={!customerId || !locationId}
+            disabled={!customerId}
             onClick={() => setStep(2)}
           >
             Selanjutnya
@@ -439,7 +442,9 @@ export function QuickOrderWizard({
             <p className="font-medium">{selectedCustomer?.name || "-"}</p>
             <p className="text-xs text-muted-foreground mt-1">Gudang</p>
             <p className="font-medium">
-              {locations.find((l) => l.id === locationId)?.name || "-"}
+              {locationId
+                ? locations.find((l) => l.id === locationId)?.name || "-"
+                : <span className="text-muted-foreground italic">Belum ditentukan</span>}
             </p>
           </div>
 

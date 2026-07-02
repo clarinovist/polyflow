@@ -278,6 +278,8 @@ export function SalesOrderForm({
       ? maklonProductionLocations
       : stockFulfillmentLocations;
 
+  const isLocationRequired = selectedOrderType === "MAKLON_JASA";
+
   const productEmptyMessage =
     selectedOrderType === "MAKLON_JASA"
       ? "Tidak ada service item untuk Maklon Jasa. Stok fisik di Maklon Packing Area dipakai saat production execution, bukan dipilih sebagai item sales."
@@ -286,17 +288,17 @@ export function SalesOrderForm({
   const sourceLocationLabel =
     selectedOrderType === "MAKLON_JASA"
       ? salesLabels.customerWarehouse
-      : `${salesLabels.sourceWarehouse} (Warehouse)`;
+      : `${salesLabels.sourceWarehouse} (Opsional)`;
 
   const sourceLocationPlaceholder =
     selectedOrderType === "MAKLON_JASA"
       ? "Pilih gudang customer"
-      : "Pilih gudang";
+      : "Pilih gudang (opsional)";
 
   const sourceLocationDescription =
     selectedOrderType === "MAKLON_JASA"
       ? "Untuk Maklon Jasa, field ini harus memakai warehouse customer-owned. Lokasi ini menjadi default sumber bahan titipan customer untuk flow maklon, lalu Production Execution tetap memprioritaskan stok yang sudah dipindah ke lokasi proses jika ada."
-      : "Pilih gudang sumber untuk reservasi dan shipment stok fisik.";
+      : "Bisa dikosongkan untuk order cepat. Pilih gudang saat ingin reservasi stok atau kirim barang.";
 
   const filteredProducts = useMemo(() => {
     const allProducts = [...products, ...newProducts];
@@ -837,8 +839,11 @@ export function SalesOrderForm({
               <FormItem>
                 <FormLabel>{sourceLocationLabel}</FormLabel>
                 <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  onValueChange={(value) => {
+                    // "none" sentinel means no location selected
+                    field.onChange(value === "__none__" ? "" : value);
+                  }}
+                  value={field.value || "__none__"}
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -846,6 +851,11 @@ export function SalesOrderForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    {!isLocationRequired && (
+                      <SelectItem value="__none__">
+                        <span className="text-muted-foreground italic">Semua gudang</span>
+                      </SelectItem>
+                    )}
                     {selectableLocations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name}

@@ -187,7 +187,10 @@ export async function createOrder(
 
   const orderNumber = `${prefix}${nextNumber.toString().padStart(4, "0")}`;
 
-  await validateMaklonSourceLocation(data.sourceLocationId, data.orderType);
+  // Normalize empty string to null for Prisma
+  const sourceLocationId = data.sourceLocationId || null;
+
+  await validateMaklonSourceLocation(sourceLocationId || "", data.orderType);
 
   const {
     totalAmount,
@@ -207,7 +210,7 @@ export async function createOrder(
     data: {
       orderNumber,
       customerId: data.customerId ? data.customerId : undefined,
-      sourceLocationId: data.sourceLocationId,
+      sourceLocationId: sourceLocationId,
       orderDate: data.orderDate,
       expectedDate: data.expectedDate,
       orderType: data.orderType,
@@ -304,8 +307,11 @@ export async function updateOrder(
     }
   }
 
+  // Normalize empty string to null for Prisma
+  const sourceLocationId = data.sourceLocationId || null;
+
   await validateMaklonSourceLocation(
-    data.sourceLocationId,
+    sourceLocationId || "",
     currentOrder.orderType,
   );
 
@@ -365,7 +371,7 @@ export async function updateOrder(
       where: { id: data.id },
       data: {
         customerId: data.customerId,
-        sourceLocationId: data.sourceLocationId,
+        sourceLocationId: sourceLocationId,
         orderDate: data.orderDate,
         expectedDate: data.expectedDate,
         notes: data.notes,
@@ -402,6 +408,11 @@ export async function confirmOrder(id: string, userId: string) {
   if (!order.customerId) {
     throw new Error(
       "Sales Order without customer is treated as a legacy internal stock build. Assign a customer first, or use a Production Order for internal replenishment.",
+    );
+  }
+  if (!order.sourceLocationId) {
+    throw new Error(
+      "Source location is required before confirming. Please edit the order and select a warehouse.",
     );
   }
 
