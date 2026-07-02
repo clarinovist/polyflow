@@ -4,7 +4,7 @@ import { getEmployees } from '@/actions/admin/employees';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PauseCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -41,6 +41,7 @@ type SerializedMachine = Machine & {
 type SerializedProductionOrder = ProductionOrder & {
     bom: (Bom & { productVariant: ProductVariant });
     machine: Machine | null;
+    shifts: (ProductionShift & { operator: Employee | null; helpers: Employee[] })[];
 };
 
 type SerializedEmployee = Employee;
@@ -56,6 +57,8 @@ export default async function ProductionMachinesPage() {
     const allOrders = ordersRes;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const releasedOrdersRaw = (allOrders as any[]).filter((o: any) => o.status === ProductionStatus.RELEASED);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inProgressOrdersRaw = (allOrders as any[]).filter((o: any) => o.status === ProductionStatus.IN_PROGRESS);
 
     const employeesRes = await getEmployees();
     const employeesRaw = employeesRes.success && employeesRes.data ? employeesRes.data : [];
@@ -66,8 +69,19 @@ export default async function ProductionMachinesPage() {
     // Serialize
     const machines = serializeData(machinesRaw) as unknown as SerializedMachine[];
     const releasedOrders = serializeData(releasedOrdersRaw) as SerializedProductionOrder[];
+    const inProgressOrders = serializeData(inProgressOrdersRaw) as SerializedProductionOrder[];
     const employees = serializeData(employeesRaw) as unknown as SerializedEmployee[];
     const workShifts = serializeData(workShiftsRaw) as unknown as SerializedWorkShift[];
+
+    // Build a map: machineId → IN_PROGRESS orders assigned to that machine
+    const ordersByMachine = new Map<string, SerializedProductionOrder[]>();
+    for (const order of inProgressOrders) {
+        if (order.machineId) {
+            const existing = ordersByMachine.get(order.machineId) || [];
+            existing.push(order);
+            ordersByMachine.set(order.machineId, existing);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -82,11 +96,18 @@ export default async function ProductionMachinesPage() {
                     const activeOrder = activeExecution?.productionOrder;
                     const activeShift = activeOrder?.shifts?.[0];
 
+                    // Fallback: check if there's an IN_PROGRESS order assigned to this machine
+                    // but without an active execution (execution completed or missing)
+                    const assignedOrders = ordersByMachine.get(machine.id) || [];
+                    const assignedOrder = !activeExecution ? assignedOrders[0] : null;
+                    const assignedShift = assignedOrder?.shifts?.[0];
+
                     return (
                         <Card key={machine.id} className={cn(
                             "group hover:shadow-xl transition-all border-l-4 relative overflow-hidden",
                             machine.status === 'ACTIVE' && activeExecution ? "border-l-emerald-500 bg-emerald-50/10 dark:bg-emerald-900/10" :
-                                machine.status === 'ACTIVE' ? "border-l-zinc-300 dark:border-l-zinc-600" : "border-l-rose-500 dark:border-l-rose-400 bg-rose-50/10 dark:bg-rose-900/10"
+                                machine.status === 'ACTIVE' && assignedOrder ? "border-l-amber-500 bg-amber-50/10 dark:bg-amber-900/10" :
+                                    machine.status === 'ACTIVE' ? "border-l-zinc-300 dark:border-l-zinc-600" : "border-l-rose-500 dark:border-l-rose-400 bg-rose-50/10 dark:bg-rose-900/10"
                         )}>
                             <CardHeader className="pb-3 px-4">
                                 <div className="flex justify-between items-start">
@@ -101,6 +122,7 @@ export default async function ProductionMachinesPage() {
                             </CardHeader>
                             <CardContent className="space-y-4 px-4 pb-4">
                                 {activeExecution && activeOrder ? (
+                                    /* Case 1: Active execution running */
                                     <div className="space-y-3">
                                         <div className="p-3 rounded-lg bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 shadow-inner">
                                             <div className="flex items-center justify-between mb-2">
@@ -152,7 +174,64 @@ export default async function ProductionMachinesPage() {
                                             />
                                         </div>
                                     </div>
+                                ) : assignedOrder ? (
+                                    /* Case 2: Order assigned but no active execution */
+                                    <div className="space-y-3">
+                                        <div className="p-3 rounded-lg bg-amber-950/50 dark:bg-amber-950/30 border border-amber-800/50 shadow-inner">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-1.5 leading-none">
+                                                    <PauseCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+                                                    <span className="text-[9px] uppercase font-black tracking-widest text-amber-500 dark:text-amber-400">Paused</span>
+                                                </div>
+                                                <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 font-bold">#{assignedOrder.orderNumber}</span>
+                                            </div>
+                                            <p className="text-xs font-black text-white truncate mb-1">
+                                                {assignedOrder.bom.productVariant.name}
+                                            </p>
+                                            <p className="text-[9px] text-amber-400/80 mt-1">
+                                                Order aktif — eksekusi belum dimulai atau sudah selesai
+                                            </p>
+
+                                            {assignedShift ? (
+                                                <div className="flex items-center gap-2 mt-3 pt-2 border-t border-amber-800/50">
+                                                    <div className="h-6 w-6 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400">
+                                                        {assignedShift.operator?.name?.charAt(0) || 'E'}
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-[10px] font-black text-zinc-200 dark:text-zinc-300 truncate leading-none uppercase tracking-tighter">
+                                                            {assignedShift.operator?.name || 'Unassigned'}
+                                                        </span>
+                                                        <span className="text-[8px] font-black text-zinc-600 dark:text-zinc-400 uppercase mt-0.5">{assignedShift.shiftName}</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase mt-2 italic flex items-center gap-1">
+                                                    <div className="h-1 w-1 rounded-full bg-rose-500 dark:bg-rose-400" />
+                                                    Shift Assignment Needed
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <ShiftManagerDialog
+                                                orderId={assignedOrder.id}
+                                                orderNumber={assignedOrder.orderNumber}
+                                                shifts={assignedOrder.shifts || []}
+                                                operators={employees}
+                                                helpers={employees}
+                                                workShifts={workShifts}
+                                                machines={machines}
+                                            />
+                                            <ReassignMachineButton
+                                                orderId={assignedOrder.id}
+                                                orderNumber={assignedOrder.orderNumber}
+                                                currentMachineId={machine.id}
+                                                machines={machines}
+                                            />
+                                        </div>
+                                    </div>
                                 ) : (
+                                    /* Case 3: Station idle */
                                     <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
                                         <div className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-2">
                                             <Loader2 className="h-4 w-4 text-zinc-400 opacity-50" />
