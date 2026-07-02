@@ -214,7 +214,7 @@ export function InvoiceDotMatrixPrint({
           <tbody>
             {items.map((item, idx) => {
               const pv = item.productVariant;
-              const productName = pv?.product?.name || pv?.name || "-";
+              const productName = pv?.name || pv?.product?.name || "-";
               const qty = Number(item.enteredQuantity || item.quantity || 0);
               const unit =
                 item.enteredUnit || pv?.salesUnit || pv?.primaryUnit || "";

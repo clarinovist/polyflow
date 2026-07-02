@@ -92,7 +92,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             invoiceDate: new Date(invoice.invoiceDate),
             dueDate: invoice.dueDate ? new Date(invoice.dueDate) : null,
             items: items.map(item => ({
-                name: item.productVariant?.product?.name || item.productVariant?.name || '-',
+                name: item.productVariant?.name || item.productVariant?.product?.name || '-',
                 qty: Number(item.quantity || 0),
                 unit: item.productVariant?.primaryUnit || 'pcs',
                 unitPrice: Number(item.unitPrice || 0),

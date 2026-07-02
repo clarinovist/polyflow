@@ -933,7 +933,10 @@ describe("analytics-service", () => {
   // ------------------------------------------------------------------ //
   describe("getStockMovementTrends", () => {
     it("should group movements by date for month period", async () => {
-      // Arrange
+      // Arrange - mock current date to June 15, 2026 so the test dates are in range
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-15T12:00:00"));
+
       const { prisma } = await import("@/lib/core/prisma");
 
       vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([
@@ -981,6 +984,9 @@ describe("analytics-service", () => {
       expect(jun2!.out).toBe(0);
       expect(jun2!.transfer).toBe(20);
       expect(jun2!.adjustment).toBe(5);
+
+      // Cleanup
+      vi.useRealTimers();
     });
 
     it("should default to month period", async () => {
