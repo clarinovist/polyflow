@@ -12,7 +12,8 @@ type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
 /**
  * Check GL account balance won't go negative after posting.
  * For ASSET accounts: balance = debit - credit. A credit posting reduces balance.
- * Throws if posting would make the balance negative.
+ * For LIABILITY/EQUITY/REVENUE accounts: normal balance is credit — skip the guard.
+ * Throws if posting would make an asset balance negative.
  */
 async function validateGlBalance(
     db: Prisma.TransactionClient,
@@ -21,6 +22,17 @@ async function validateGlBalance(
     productName: string
 ) {
     if (creditAmount <= 0) return;
+
+    const account = await db.account.findUnique({
+        where: { id: accountId },
+        select: { code: true, name: true, type: true }
+    });
+
+    if (!account) return;
+
+    // Only validate for ASSET accounts (debit-normal).
+    // LIABILITY, EQUITY, REVENUE have credit-normal balance — large credits are expected.
+    if (account.type !== 'ASSET') return;
 
     const result = await db.journalLine.aggregate({
         where: {
@@ -35,10 +47,9 @@ async function validateGlBalance(
     const currentBalance = totalDebit - totalCredit;
 
     if (currentBalance < creditAmount) {
-        const account = await db.account.findUnique({ where: { id: accountId }, select: { code: true, name: true } });
         throw new BusinessRuleError(
             `Saldo akun GL akan minus!\n` +
-            `Akun: ${account?.code} - ${account?.name}\n` +
+            `Akun: ${account.code} - ${account.name}\n` +
             `Saldo saat ini: Rp ${currentBalance.toLocaleString('id-ID')}\n` +
             `Akan di-credit: Rp ${creditAmount.toLocaleString('id-ID')}\n` +
             `Produk: ${productName}\n` +
