@@ -83,13 +83,17 @@ export function ShiftManager({ orderId, shifts, operators, helpers, readOnly, wo
                                 <div className="flex flex-col">
                                     <CardTitle className="text-base font-medium flex items-center gap-2">
                                         {shift.shiftName}
-                                        <Badge variant="outline" className="font-normal text-xs">
-                                            {format(new Date(shift.startTime), 'p')} - {format(new Date(shift.endTime), 'p')}
-                                        </Badge>
+                                        {shift.startTime && shift.endTime && (
+                                            <Badge variant="outline" className="font-normal text-xs">
+                                                {format(new Date(shift.startTime), 'p')} - {format(new Date(shift.endTime), 'p')}
+                                            </Badge>
+                                        )}
                                     </CardTitle>
-                                    <span className="text-sm text-slate-500">
-                                        {format(new Date(shift.startTime), 'PPP')}
-                                    </span>
+                                    {shift.startTime && (
+                                        <span className="text-sm text-slate-500">
+                                            {format(new Date(shift.startTime), 'PPP')}
+                                        </span>
+                                    )}
                                 </div>
                                 {!readOnly && (
                                     <Button

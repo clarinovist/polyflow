@@ -143,43 +143,30 @@ export function InvoiceDotMatrixPrint({
 
       <div className="print-page">
         {/* === HEADER === */}
-        <div className="invoice-header">
-          <div className="company-section">
-            {COMPANY.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={COMPANY.logoUrl}
-                alt={COMPANY.name}
-                className="company-logo-img"
-              />
-            ) : (
-              <div className="company-logo">MJ</div>
-            )}
-            <div className="company-details">
-              <div className="company-name">{COMPANY.name}</div>
-              <div className="company-address">{COMPANY.address}</div>
-              <div className="company-contact">Telp : {COMPANY.phone}</div>
-              <div className="company-contact">Email : {COMPANY.email}</div>
-            </div>
+        <div className="company-section">
+          {COMPANY.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={COMPANY.logoUrl}
+              alt={COMPANY.name}
+              className="company-logo-img"
+            />
+          ) : (
+            <div className="company-logo">MJ</div>
+          )}
+          <div className="company-details">
+            <div className="company-name">{COMPANY.name}</div>
+            <div className="company-address">{COMPANY.address}</div>
+            <div className="company-contact">Telp : {COMPANY.phone}</div>
+            <div className="company-contact">Email : {COMPANY.email}</div>
           </div>
+        </div>
+        {/* === INVOICE TITLE (centered) === */}
+        <div className="title-section">INVOICE</div>
 
-          <div className="title-section">INVOICE</div>
-
-          <div className="customer-section">
-            <div className="customer-row">
-              <span className="customer-label">NAMA PELANGGAN :</span>
-              <span className="customer-value">{customer?.name || "-"}</span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">ALAMAT :</span>
-              <span className="customer-value">
-                {customer?.billingAddress || "-"}
-              </span>
-            </div>
-            <div className="customer-row">
-              <span className="customer-label">NPWP :</span>
-              <span className="customer-value">{customer?.taxId || "-"}</span>
-            </div>
+        {/* === CUSTOMER & INVOICE INFO (two columns) === */}
+        <div className="customer-info-row">
+          <div className="customer-left">
             <div className="customer-row">
               <span className="customer-label">NO INVOICE :</span>
               <span className="customer-value">{invoice.invoiceNumber}</span>
@@ -195,6 +182,22 @@ export function InvoiceDotMatrixPrint({
               <span className="customer-value">
                 {invoice.dueDate ? formatDate(new Date(invoice.dueDate)) : "-"}
               </span>
+            </div>
+          </div>
+          <div className="customer-right">
+            <div className="customer-row">
+              <span className="customer-label">NAMA PELANGGAN :</span>
+              <span className="customer-value">{customer?.name || "-"}</span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">ALAMAT :</span>
+              <span className="customer-value">
+                {customer?.billingAddress || "-"}
+              </span>
+            </div>
+            <div className="customer-row">
+              <span className="customer-label">NPWP :</span>
+              <span className="customer-value">{customer?.taxId || "-"}</span>
             </div>
           </div>
         </div>
@@ -257,88 +260,86 @@ export function InvoiceDotMatrixPrint({
           </tfoot>
         </table>
 
-        {/* === TERBILANG === */}
-        <div className="terbilang-section">
-          <div className="terbilang-text">
-            Terbilang : {terbilang(grandTotal)}
+        {/* === BOTTOM SECTION: Terbilang + Bank (left) | Summary + Signature (right) === */}
+        <div className="bottom-section">
+          <div className="bottom-left">
+            <div className="terbilang-line">
+              Terbilang : {terbilang(grandTotal)}
+            </div>
+            <div className="bank-section">
+              <div className="keterangan-label">KETERANGAN BANK :</div>
+              <div className="bank-type-label">
+                {isPPN ? "(Penjualan PPN)" : "(Penjualan Non PPN)"}
+              </div>
+              <div className="bank-account">
+                A/N{" "}
+                {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]
+                  ?.holder || COMPANY.name}
+              </div>
+              {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map(
+                (acc) => (
+                  <div key={acc.account} className="bank-account">
+                    {acc.bank} : {acc.account}
+                  </div>
+                ),
+              )}
+            </div>
           </div>
-          <div className="financial-summary">
-            <div className="summary-row">
-              <span>SUBTOTAL :</span>
-              <span>{formatNumberWithDots(rawSubtotal)}</span>
-            </div>
-            {discountAmount > 0 && (
+
+          <div className="bottom-right">
+            <div className="financial-summary">
               <div className="summary-row">
-                <span>DISKON :</span>
-                <span>-{formatNumberWithDots(discountAmount)}</span>
+                <span>SUBTOTAL :</span>
+                <span>{formatNumberWithDots(rawSubtotal)}</span>
               </div>
-            )}
-            <div className="summary-row">
-              <span>DPP :</span>
-              <span>{formatNumberWithDots(dpp)}</span>
-            </div>
-            {taxAmount > 0 && (
-              <div className="summary-row">
-                <span>PPN 11% :</span>
-                <span>{formatNumberWithDots(taxAmount)}</span>
-              </div>
-            )}
-            {dppLain > 0 && (
+              {discountAmount > 0 && (
+                <div className="summary-row">
+                  <span>DISKON :</span>
+                  <span>-{formatNumberWithDots(discountAmount)}</span>
+                </div>
+              )}
               <div className="summary-row">
                 <span>DPP :</span>
-                <span>{formatNumberWithDots(dppLain)}</span>
+                <span>{formatNumberWithDots(dpp)}</span>
               </div>
-            )}
-            {shippingCost > 0 && (
-              <div className="summary-row">
-                <span>ONGKOS KIRIM :</span>
-                <span>{formatNumberWithDots(shippingCost)}</span>
-              </div>
-            )}
-            <div className="summary-row bold">
-              <span>TOTAL :</span>
-              <span>{formatNumberWithDots(grandTotal)}</span>
-            </div>
-            <div className="summary-row">
-              <span>POTONGAN :</span>
-              <span>{formatNumberWithDots(potongan)}</span>
-            </div>
-            <div className="summary-row bold">
-              <span>SISA TAGIHAN :</span>
-              <span className="highlight">
-                {formatNumberWithDots(sisaTagihan)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* === FOOTER === */}
-        <div className="invoice-footer">
-          <div className="footer-left">
-            <div className="keterangan-label">KETERANGAN BANK :</div>
-            <div className="bank-type-label">
-              {isPPN ? "(Penjualan PPN)" : "(Penjualan Non PPN)"}
-            </div>
-            <div className="bank-account">
-              A/N{" "}
-              {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN)[0]
-                ?.holder || COMPANY.name}
-            </div>
-            {(isPPN ? COMPANY.bankAccountsPPN : COMPANY.bankAccountsNonPPN).map(
-              (acc) => (
-                <div key={acc.account} className="bank-account">
-                  {acc.bank} : {acc.account}
+              {taxAmount > 0 && (
+                <div className="summary-row">
+                  <span>PPN 11% :</span>
+                  <span>{formatNumberWithDots(taxAmount)}</span>
                 </div>
-              ),
-            )}
-          </div>
-
-          <div className="footer-spacer"></div>
-
-          <div className="footer-right">
-            <div className="hormat-text">Hormat kami,</div>
-            <div className="signature-space"></div>
-            <div className="signer-name">( {COMPANY.signerName} )</div>
+              )}
+              {dppLain > 0 && (
+                <div className="summary-row">
+                  <span>DPP :</span>
+                  <span>{formatNumberWithDots(dppLain)}</span>
+                </div>
+              )}
+              {shippingCost > 0 && (
+                <div className="summary-row">
+                  <span>ONGKOS KIRIM :</span>
+                  <span>{formatNumberWithDots(shippingCost)}</span>
+                </div>
+              )}
+              <div className="summary-row bold">
+                <span>TOTAL :</span>
+                <span>{formatNumberWithDots(grandTotal)}</span>
+              </div>
+              <div className="summary-row">
+                <span>POTONGAN :</span>
+                <span>{formatNumberWithDots(potongan)}</span>
+              </div>
+              <div className="summary-row bold">
+                <span>SISA TAGIHAN :</span>
+                <span className="highlight">
+                  {formatNumberWithDots(sisaTagihan)}
+                </span>
+              </div>
+            </div>
+            <div className="footer-right">
+              <div className="hormat-text">Hormat kami,</div>
+              <div className="signature-space"></div>
+              <div className="signer-name">( {COMPANY.signerName} )</div>
+            </div>
           </div>
         </div>
 
@@ -458,10 +459,16 @@ export function InvoiceDotMatrixPrint({
           letter-spacing: 2px;
         }
 
-        .customer-section {
+        .customer-name-section {
           text-align: right;
           font-size: 11px;
           line-height: 1.5;
+        }
+
+        .customer-info-section {
+          font-size: 11px;
+          line-height: 1.5;
+          margin-bottom: 8px;
         }
 
         .customer-row {
@@ -541,22 +548,15 @@ export function InvoiceDotMatrixPrint({
         }
 
         /* === TERBILANG === */
-        .terbilang-section {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 8px;
-          margin-bottom: 8px;
-          border: 1.5px solid #000;
-          padding: 5px;
-        }
-
-        .terbilang-text {
+        .terbilang-line {
           font-size: 11px;
+          margin-bottom: 4px;
         }
 
         .financial-summary {
           font-size: 11px;
-          min-width: 150px;
+          text-align: right;
+          margin-bottom: 8px;
         }
 
         .summary-row {
@@ -580,9 +580,9 @@ export function InvoiceDotMatrixPrint({
 
         /* === FOOTER === */
         .invoice-footer {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
           margin-top: 8px;
           font-size: 11px;
         }

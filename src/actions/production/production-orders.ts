@@ -259,7 +259,10 @@ export const getProductionOrders = withTenant(
           select: {
             id: true,
             shiftName: true,
-            operator: { select: { name: true } },
+            startTime: true,
+            endTime: true,
+            operator: { select: { id: true, name: true, code: true } },
+            helpers: { select: { id: true, name: true, code: true } },
           },
         },
       },
