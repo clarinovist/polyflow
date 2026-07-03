@@ -10,6 +10,10 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     journalLine: {
       aggregate: vi.fn(),
+      findMany: vi.fn(),
+    },
+    journalEntry: {
+      findMany: vi.fn(),
     },
     pettyCashDailyReport: {
       findFirst: vi.fn(),
@@ -21,6 +25,9 @@ vi.mock("@/lib/core/prisma", () => ({
     pettyCashTransaction: {
       findMany: vi.fn(),
       updateMany: vi.fn(),
+    },
+    user: {
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({}),
@@ -72,22 +79,40 @@ describe("PettyCashReportService", () => {
           _sum: { debit: 200000, credit: 50000 },
         } as never);
 
-      const mockTransactions = [
-        {
-          id: "tx-1",
-          voucherNumber: "PCV-001",
-          date: new Date("2026-06-09"),
-          description: "Beli kertas",
-          amount: 50000,
-          type: "EXPENSE",
-          status: "POSTED",
-          expenseAccount: { code: "61100", name: "Biaya Kantor" },
-          createdBy: { name: "Admin" },
-        },
-      ];
-      vi.mocked(prisma.pettyCashTransaction.findMany).mockResolvedValue(
-        mockTransactions as never,
-      );
+      // Mock journalLine.findMany for getDailyTransactionsFromJournals
+      // First call: petty cash lines (on the petty cash account)
+      vi.mocked(prisma.journalLine.findMany)
+        .mockResolvedValueOnce([
+          {
+            id: "jl-1",
+            journalEntryId: "je-1",
+            debit: 0,
+            credit: 50000,
+            journalEntry: {
+              id: "je-1",
+              entryNumber: "JE-001",
+              entryDate: new Date("2026-06-09"),
+              description: "Beli kertas",
+              reference: "PCV-001",
+              createdById: "user-1",
+            },
+          },
+        ] as never)
+        // Second call: contra-lines (on expense accounts)
+        .mockResolvedValueOnce([
+          {
+            id: "jl-2",
+            journalEntryId: "je-1",
+            debit: 50000,
+            credit: 0,
+            account: { id: "exp-acc", code: "61100", name: "Biaya Kantor" },
+          },
+        ] as never);
+
+      // Mock user lookup for creator name
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: "user-1", name: "Admin" },
+      ] as never);
 
       const report = await PettyCashReportService.getDailyReport(
         new Date("2026-06-09"),
@@ -97,7 +122,17 @@ describe("PettyCashReportService", () => {
       expect(report.totalIn).toBe(200000);
       expect(report.totalOut).toBe(50000);
       expect(report.closingBalance).toBe(550000);
-      expect(report.transactions).toEqual(mockTransactions);
+      expect(report.transactions).toHaveLength(1);
+      expect(report.transactions[0]).toMatchObject({
+        id: "je-1",
+        voucherNumber: "PCV-001",
+        description: "Beli kertas",
+        amount: 50000,
+        type: "EXPENSE",
+        status: "POSTED",
+        expenseAccount: { id: "exp-acc", code: "61100", name: "Biaya Kantor" },
+        createdBy: { name: "Admin" },
+      });
     });
 
     it("should return saved report when it exists", async () => {
