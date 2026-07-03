@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils/utils";
 import { format, subDays } from "date-fns";
 import { id as localeID } from "date-fns/locale";
+import Link from "next/link";
 
 interface Transaction {
     id: string;
@@ -34,6 +35,7 @@ interface ReportData {
 }
 
 interface LedgerRow {
+    id: string;
     date: string;
     noInv: string;
     voucherNumber: string;
@@ -91,6 +93,7 @@ export default function RekapKasPage() {
 
         // 1) Opening balance row
         rows.push({
+            id: 'opening',
             date: format(prevDate, 'dd MMM yyyy', { locale: localeID }),
             noInv: '',
             voucherNumber: '',
@@ -109,6 +112,7 @@ export default function RekapKasPage() {
             const amt = Number(t.amount);
             runningBalance += amt;
             rows.push({
+                id: t.id,
                 date: format(new Date(t.date), 'dd MMM yyyy', { locale: localeID }),
                 noInv: '',
                 voucherNumber: `BKM-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
@@ -125,6 +129,7 @@ export default function RekapKasPage() {
             const amt = Number(t.amount);
             runningBalance -= amt;
             rows.push({
+                id: t.id,
                 date: format(new Date(t.date), 'dd MMM yyyy', { locale: localeID }),
                 noInv: '',
                 voucherNumber: `BKK-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
@@ -274,7 +279,17 @@ export default function RekapKasPage() {
                                                 {row.noInv}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                                                {row.voucherNumber}
+                                                {row.id !== 'opening' && row.voucherNumber ? (
+                                                    <Link
+                                                        href="/finance/petty-cash"
+                                                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                                                        title="Lihat detail transaksi"
+                                                    >
+                                                        {row.voucherNumber}
+                                                    </Link>
+                                                ) : (
+                                                    row.voucherNumber
+                                                )}
                                             </td>
                                             <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
                                                 {row.memo}

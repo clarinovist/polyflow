@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/utils";
 import { format, subDays } from "date-fns";
 import { id as localeID } from "date-fns/locale";
+import Link from "next/link";
 
 interface Transaction {
   id: string;
@@ -380,7 +381,13 @@ export default function CashOpnamePage() {
                           : ""}
                       </td>
                       <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                        {t.voucherNumber}
+                        <Link
+                          href="/finance/petty-cash"
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                          title="Lihat detail transaksi"
+                        >
+                          {t.voucherNumber}
+                        </Link>
                       </td>
                       <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
                         {t.description}
