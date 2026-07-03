@@ -35,6 +35,7 @@ interface KioskStopDialogProps {
         quantity: number;
         createdAt: string;
     }>;
+    operatorId?: string;
     onSuccess: () => void;
 }
 
@@ -49,6 +50,7 @@ export function KioskStopDialog({
     currentProduced,
     targetQuantity,
     logs,
+    operatorId,
     onSuccess
 }: KioskStopDialogProps) {
     const [loading, setLoading] = useState(false);
@@ -89,7 +91,8 @@ export function KioskStopDialog({
                 scrapProngkolQty: prongkolNum,
                 scrapDaunQty: daunNum,
                 notes,
-                completed
+                completed,
+                operatorId: operatorId
             });
 
             if (result.success) {

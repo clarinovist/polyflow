@@ -221,6 +221,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         currentProduced={order.actualQuantity || 0}
                         targetQuantity={order.plannedQuantity}
                         logs={order.outputLogs || []}
+                        operatorId={operatorId}
                         onSuccess={() => {
                             router.refresh();
                         }}
@@ -233,6 +234,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         primaryUnit={unitMeta.primaryUnit}
                         salesUnit={unitMeta.salesUnit}
                         conversionFactor={unitMeta.conversionFactor}
+                        operatorId={operatorId}
                         onSuccess={() => {
                             router.refresh();
                         }}

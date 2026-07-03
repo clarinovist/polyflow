@@ -63,11 +63,21 @@ export const stopExecution = withTenant(async function stopExecution(
     }
 
     try {
-      const session = await requireAuth();
+      // Try to get user session, but allow kiosk mode without auth
+      let userId: string | undefined;
+      try {
+        const session = await requireAuth();
+        userId = session.user.id;
+      } catch {
+        // Kiosk mode: no session required if operatorId is provided
+        if (!result.data.operatorId) {
+          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+        }
+      }
 
       const execution = await ProductionService.stopExecution({
         ...result.data,
-        userId: session.user.id,
+        userId,
       });
 
       revalidatePath("/production");
@@ -124,11 +134,21 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
     }
 
     try {
-      const session = await requireAuth();
+      // Try to get user session, but allow kiosk mode without auth
+      let userId: string | undefined;
+      try {
+        const session = await requireAuth();
+        userId = session.user.id;
+      } catch {
+        // Kiosk mode: no session required if operatorId is provided
+        if (!result.data.operatorId) {
+          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+        }
+      }
 
       await ProductionService.logRunningOutput({
         ...result.data,
-        userId: session.user.id,
+        userId,
       });
 
       revalidatePath("/production");

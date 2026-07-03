@@ -21,6 +21,7 @@ interface KioskLogOutputDialogProps {
     primaryUnit?: string | null;
     salesUnit?: string | null;
     conversionFactor?: unknown;
+    operatorId?: string;
     onSuccess?: () => void;
 }
 
@@ -32,6 +33,7 @@ export function KioskLogOutputDialog({
     primaryUnit,
     salesUnit,
     conversionFactor,
+    operatorId,
     onSuccess
 }: KioskLogOutputDialogProps) {
     const [quantity, setQuantity] = useState<string>('');
@@ -62,7 +64,8 @@ export function KioskLogOutputDialog({
                 scrapQuantity: totalScrap,
                 scrapProngkolQty: prongkolNum,
                 scrapDaunQty: daunNum,
-                notes: notes || ''
+                notes: notes || '',
+                operatorId: operatorId
             });
 
             if (result.success) {
