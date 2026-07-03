@@ -4,7 +4,9 @@ export type OrderTotals = {
   gross: number;
   discount: number;
   tax: number;
+  dpp: number;
   net: number;
+  hasInclude: boolean;
 };
 
 type OrderLineItem = {
@@ -36,9 +38,12 @@ export function computeOrderTotals(items: OrderLineItem[]): OrderTotals {
       acc.gross += subtotal;
       acc.discount += discount;
       acc.tax += ppnResult.taxAmount;
+      acc.dpp += ppnResult.dpp;
+      if (ppnMode === 'INCLUDE' && ppnResult.taxAmount > 0) acc.hasInclude = true;
+      // net = what customer actually pays
       acc.net += ppnResult.total;
       return acc;
     },
-    { gross: 0, discount: 0, tax: 0, net: 0 },
+    { gross: 0, discount: 0, tax: 0, dpp: 0, net: 0, hasInclude: false } as OrderTotals,
   );
 }

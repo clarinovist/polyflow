@@ -52,6 +52,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn, formatRupiah } from "@/lib/utils/utils";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
 import { parseIndonesianPrice, formatIndonesianPrice } from "@/lib/utils/price-format";
 import { CalendarIcon, Plus, Trash2, Loader2, Check, Info, Settings } from "lucide-react";
 import { format } from "date-fns";
@@ -1103,7 +1104,9 @@ export function SalesOrderForm({
                   const tax = item?.taxPercent || 0;
                   const sub = qty * price;
                   const afterDisc = sub - sub * (disc / 100);
-                  const lineTotal = afterDisc + afterDisc * (tax / 100);
+                  const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
+                  const ppnResult = calculatePpn(afterDisc, tax, ppnMode);
+                  const lineTotal = ppnMode === 'INCLUDE' ? ppnResult.dpp : ppnResult.total;
                   const unitMeta = getLineUnitMeta(index);
                   const variant = getLineVariant(index);
 
@@ -1543,7 +1546,7 @@ export function SalesOrderForm({
                   {formLabels.subtotal}
                 </span>
                 <span className="tabular-nums">
-                  {formatRupiah(totals.gross)}
+                  {formatRupiah(totals.hasInclude ? totals.dpp : totals.gross)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -1591,7 +1594,9 @@ export function SalesOrderForm({
               const tax = item?.taxPercent || 0;
               const sub = qty * price;
               const afterDisc = sub - sub * (disc / 100);
-              const lineTotal = afterDisc + afterDisc * (tax / 100);
+              const ppnMode = (item?.ppnMode || 'EXCLUDE') as PpnMode;
+              const ppnResult = calculatePpn(afterDisc, tax, ppnMode);
+              const lineTotal = ppnMode === 'INCLUDE' ? ppnResult.dpp : ppnResult.total;
               const variant = getLineVariant(index);
               const unitMeta = getLineUnitMeta(index);
 
