@@ -708,7 +708,8 @@ export function PurchaseOrderForm({
                                       qtyField.onChange(Number(e.target.value))
                                     }
                                     className="h-9 w-28 text-center font-mono text-sm no-stepper"
-                                    min={1}
+                                    min={0.01}
+                                    step="any"
                                   />
                                 </FormControl>
                               </FormItem>
