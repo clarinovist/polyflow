@@ -483,6 +483,17 @@ export function PurchaseOrderForm({
                                     if (!checked) {
                                       form.setValue(`items.${index}.taxPercent`, 0);
                                       form.setValue(`items.${index}.dppOtherAmount`, null);
+                                    } else {
+                                      // Auto-set PPN 11% when checkbox is checked and tax is 0
+                                      const currentTax = Number(form.getValues(`items.${index}.taxPercent`) || 0);
+                                      if (currentTax === 0) {
+                                        form.setValue(`items.${index}.taxPercent`, 11);
+                                      }
+                                      // Default to INCLUDE if no mode set
+                                      const currentMode = form.getValues(`items.${index}.ppnMode`);
+                                      if (!currentMode || currentMode === 'EXCLUDE') {
+                                        form.setValue(`items.${index}.ppnMode`, 'INCLUDE');
+                                      }
                                     }
                                   }}
                                 />
