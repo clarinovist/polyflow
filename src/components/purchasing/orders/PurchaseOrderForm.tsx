@@ -213,10 +213,13 @@ export function PurchaseOrderForm({
         acc.gross += rawSubtotal;
         acc.discount += discount;
         acc.tax += ppnResult.taxAmount;
+        acc.dpp += ppnResult.dpp;
+        if (ppnMode === 'INCLUDE' && ppnResult.taxAmount > 0) acc.hasInclude = true;
+        // net = what customer actually pays (gross for INCLUDE, gross+tax for EXCLUDE)
         acc.net += ppnResult.total;
         return acc;
       },
-      { gross: 0, discount: 0, tax: 0, net: 0 },
+      { gross: 0, discount: 0, tax: 0, dpp: 0, net: 0, hasInclude: false },
     );
   }, [watchedItems]);
 
@@ -332,7 +335,9 @@ export function PurchaseOrderForm({
                         const discountAmount = raw * (disc / 100);
                         const taxable = raw - discountAmount;
                         const ppnResult = calculatePpn(taxable, tax, ppnMode);
-                        const lineTotal = ppnResult.total;
+                        // INCLUDE: subtotal shows DPP (base price without tax)
+                        // EXCLUDE: subtotal shows gross (price before tax is added)
+                        const lineTotal = ppnMode === 'INCLUDE' ? ppnResult.dpp : ppnResult.total;
                         const selectedVariant = productVariants.find((v) => v.id === item?.productVariantId);
 
                         return (
@@ -1010,7 +1015,7 @@ export function PurchaseOrderForm({
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
                     <span className="font-mono">
-                      {formatRupiah(totals.gross)}
+                      {formatRupiah(totals.hasInclude ? totals.dpp : totals.gross)}
                     </span>
                   </div>
                   {totals.discount > 0 && (
