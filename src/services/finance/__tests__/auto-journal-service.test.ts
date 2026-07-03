@@ -8,6 +8,7 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     account: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -26,13 +27,14 @@ describe("AutoJournalService payment journals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-     
-    vi.mocked(prisma.account.findUnique).mockImplementation((async ({
+     vi.mocked(prisma.account.findUnique).mockImplementation((async ({
       where,
     }: any) => ({
       id: `acc-${where.code}`,
       code: where.code,
     })) as never);
+
+    vi.mocked(prisma.account.findFirst).mockResolvedValue(null as never);
   });
 
   it("uses sales payment id as journal referenceId", async () => {

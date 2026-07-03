@@ -52,8 +52,8 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Trade Payable" },
   ],
   "petty-cash": [
-    { code: "11110" },
     { nameContains: "Kas Kecil" },
+    { code: "11110" },
     { nameContains: "Petty Cash" },
   ],
   "bank-bca": [
