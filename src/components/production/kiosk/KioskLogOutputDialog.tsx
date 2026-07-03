@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { logRunningOutput } from "@/actions/production/production";
 import { Loader2, Save, AlertTriangle, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
 import { kioskLabels } from "@/lib/labels";
@@ -23,7 +22,7 @@ interface KioskLogOutputDialogProps {
     salesUnit?: string | null;
     conversionFactor?: unknown;
     operatorId?: string;
-    employees?: Array<{ id: string; name: string }>;
+    orderHelpers?: Array<{ id: string; name: string }>;
     onSuccess?: () => void;
 }
 
@@ -36,20 +35,21 @@ export function KioskLogOutputDialog({
     salesUnit,
     conversionFactor,
     operatorId,
-    employees = [],
+    orderHelpers = [],
     onSuccess
 }: KioskLogOutputDialogProps) {
     const [quantity, setQuantity] = useState<string>('');
     const [scrapProngkol, setScrapProngkol] = useState<string>('');
     const [scrapDaun, setScrapDaun] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
-    const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
     const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
-    // Filter out current operator from helper list
-    const availableHelpers = employees.filter(e => e.id !== operatorId);
+    // Get helper IDs from order (excluding current operator)
+    const helperIds = orderHelpers
+        .filter(h => h.id !== operatorId)
+        .map(h => h.id);
 
     const submitOutput = async () => {
         const qtyNum = parseFloat(quantity);
@@ -73,7 +73,7 @@ export function KioskLogOutputDialog({
                 scrapDaunQty: daunNum,
                 notes: notes || '',
                 operatorId: operatorId,
-                helperIds: selectedHelpers.length > 0 ? selectedHelpers : undefined
+                helperIds: helperIds.length > 0 ? helperIds : undefined
             });
 
             if (result.success) {
@@ -82,7 +82,6 @@ export function KioskLogOutputDialog({
                 setScrapProngkol('');
                 setScrapDaun('');
                 setNotes('');
-                setSelectedHelpers([]);
                 setShowScrapWarning(false);
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
@@ -243,42 +242,31 @@ export function KioskLogOutputDialog({
                         />
                     </div>
 
-                    {/* Helper Selection */}
-                    {availableHelpers.length > 0 && (
+                    {/* Display Order Helpers (read-only) */}
+                    {orderHelpers.length > 0 && (
                         <div className="space-y-2">
-                            <Label className="flex items-center gap-2 text-base font-semibold">
+                            <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                                 <Users className="h-4 w-4" />
-                                Helper (Opsional)
+                                Tim Produksi
                             </Label>
-                            <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto p-2 bg-muted/30 rounded-lg border">
-                                {availableHelpers.map((emp) => (
-                                    <label
+                            <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-lg border">
+                                {orderHelpers.map((emp) => (
+                                    <span
                                         key={emp.id}
-                                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
-                                            selectedHelpers.includes(emp.id)
-                                                ? 'bg-primary/10 border border-primary/30'
-                                                : 'hover:bg-muted/50'
+                                        className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                                            emp.id === operatorId
+                                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                                : 'bg-muted text-muted-foreground'
                                         }`}
                                     >
-                                        <Checkbox
-                                            checked={selectedHelpers.includes(emp.id)}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedHelpers(prev =>
-                                                    checked
-                                                        ? [...prev, emp.id]
-                                                        : prev.filter(id => id !== emp.id)
-                                                );
-                                            }}
-                                        />
-                                        <span className="text-sm font-medium truncate">{emp.name}</span>
-                                    </label>
+                                        {emp.name}
+                                        {emp.id === operatorId && ' (Anda)'}
+                                    </span>
                                 ))}
                             </div>
-                            {selectedHelpers.length > 0 && (
-                                <p className="text-xs text-muted-foreground">
-                                    {selectedHelpers.length} helper dipilih
-                                </p>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Helper ditetapkan oleh planner di SPK
+                            </p>
                         </div>
                     )}
 

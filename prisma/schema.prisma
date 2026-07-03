@@ -70,6 +70,7 @@ model Employee {
   executionsAsHelper   ProductionExecution[] @relation("ExecutionHelpers")
   shiftsAsOperator     ProductionShift[]     @relation("ShiftOperator")
   shiftsAsHelper       ProductionShift[]     @relation("ShiftHelpers")
+  ordersAsHelper       ProductionOrder[]     @relation("OrderHelpers")
   machineAssignments   MachineOperator[]
 }
 
@@ -492,6 +493,7 @@ model ProductionOrder {
   scrapRecords            ScrapRecord[]
   issues                  ProductionIssue[]
   stockMovements          StockMovement[]
+  helpers                 Employee[]            @relation("OrderHelpers")
 
   @@index([actualEndDate])
   @@index([updatedAt, status])

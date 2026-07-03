@@ -28,6 +28,12 @@ const getData = withTenantPage(async function getData() {
                 },
                 orderBy: { startTime: 'desc' },
                 take: 1
+            },
+            helpers: {
+                select: {
+                    id: true,
+                    name: true
+                }
             }
         },
         orderBy: [
