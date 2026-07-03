@@ -1080,8 +1080,8 @@ export function SalesOrderForm({
           )}
 
           {/* Desktop Table View */}
-          <div className="hidden md:block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 overflow-hidden">
-            <Table>
+          <div className="hidden md:block rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 overflow-x-auto">
+            <Table className="min-w-[900px]">
               <TableHeader className="bg-zinc-50 dark:bg-zinc-900">
                 <TableRow>
                   <TableHead className="w-[50px] text-center">#</TableHead>
