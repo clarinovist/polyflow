@@ -172,6 +172,7 @@ export const logRunningOutputSchema = z.object({
     scrapDaunQty: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional().transform(sanitizeHtml),
     operatorId: z.string().optional(),
+    helperIds: z.array(z.string()).optional(),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;

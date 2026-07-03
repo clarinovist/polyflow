@@ -304,6 +304,7 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
                             key={order.id}
                             order={order}
                             operatorId={selectedOperatorId || undefined}
+                            employees={employees.map(e => ({ id: e.id, name: e.name }))}
                         />
                     ))
                 )}

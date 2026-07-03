@@ -408,6 +408,8 @@ export class ProductionExecutionService {
       scrapProngkolQty = 0,
       scrapDaunQty = 0,
       notes,
+      operatorId: _operatorId,
+      helperIds,
       userId,
     } = data;
 
@@ -454,6 +456,9 @@ export class ProductionExecutionService {
           }),
           conversionFactorSnapshot:
             resolved.conversionSnapshot ?? execution.conversionFactorSnapshot,
+          ...(helperIds && helperIds.length > 0 ? {
+            helpers: { connect: helperIds.map((id) => ({ id })) }
+          } : {}),
         },
       });
 

@@ -51,9 +51,10 @@ interface ProductionOrder {
 interface KioskOrderCardProps {
     order: ProductionOrder;
     operatorId?: string; // To be passed from context or selection
+    employees?: Array<{ id: string; name: string }>;
 }
 
-export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
+export function KioskOrderCard({ order, operatorId, employees }: KioskOrderCardProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [stopDialogOpen, setStopDialogOpen] = useState(false);
@@ -235,6 +236,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
                         salesUnit={unitMeta.salesUnit}
                         conversionFactor={unitMeta.conversionFactor}
                         operatorId={operatorId}
+                        employees={employees}
                         onSuccess={() => {
                             router.refresh();
                         }}
