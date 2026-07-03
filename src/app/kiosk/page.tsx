@@ -46,7 +46,7 @@ const getData = withTenantPage(async function getData() {
     const employees = await prisma.employee.findMany({
         where: { 
             status: 'ACTIVE',
-            machineAssignments: { some: {} }
+            role: 'OPERATOR'
         },
         select: { 
             id: true, 
