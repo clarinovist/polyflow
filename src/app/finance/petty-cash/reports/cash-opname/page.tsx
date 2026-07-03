@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/utils";
 import { format, subDays } from "date-fns";
 import { id as localeID } from "date-fns/locale";
-import Link from "next/link";
 
 interface Transaction {
   id: string;
@@ -335,116 +334,6 @@ export default function CashOpnamePage() {
                 {formatNumber(totalIn)}
               </span>
             </div>
-          </div>
-
-          {/* ===== TRANSACTION TABLE ===== */}
-          <div className="mb-4">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border border-black dark:border-gray-600">
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left w-24 text-gray-900 dark:text-gray-100">
-                    Tanggal
-                  </th>
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
-                    No Inv/No Po
-                  </th>
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
-                    Nomor Transaksi
-                  </th>
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-left text-gray-900 dark:text-gray-100">
-                    Memo
-                  </th>
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
-                    Pengembalian Kasbon
-                  </th>
-                  <th className="border border-black dark:border-gray-600 px-2 py-1 text-right w-32 text-gray-900 dark:text-gray-100">
-                    Pengeluaran Kasbon
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.transactions
-                  .filter((t) => t.status === "POSTED")
-                  .map((t) => (
-                    <tr
-                      key={t.id}
-                      className="border border-black dark:border-gray-600"
-                    >
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                        {format(new Date(t.date), "d MMM yyyy", {
-                          locale: localeID,
-                        })}
-                      </td>
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-xs text-gray-800 dark:text-gray-200">
-                        {t.type === "EXPENSE"
-                          ? `1117-MELINDO JAY/BKM-${format(new Date(t.date), "dd/MM/yy")}`
-                          : ""}
-                      </td>
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 font-mono text-xs text-gray-800 dark:text-gray-200">
-                        <Link
-                          href="/finance/petty-cash"
-                          className="text-blue-600 dark:text-blue-400 hover:underline"
-                          title="Lihat detail transaksi"
-                        >
-                          {t.voucherNumber}
-                        </Link>
-                      </td>
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-gray-800 dark:text-gray-200">
-                        {t.description}
-                      </td>
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                        {t.type === "REPLENISHMENT"
-                          ? formatNumber(Number(t.amount))
-                          : ""}
-                      </td>
-                      <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-800 dark:text-gray-200">
-                        {t.type === "EXPENSE"
-                          ? formatNumber(Number(t.amount))
-                          : ""}
-                      </td>
-                    </tr>
-                  ))}
-                {data.transactions.filter((t) => t.status === "POSTED")
-                  .length === 0 && (
-                  <tr className="border border-black dark:border-gray-600">
-                    <td
-                      colSpan={6}
-                      className="border border-black dark:border-gray-600 px-2 py-2 text-center text-muted-foreground italic"
-                    >
-                      Tidak ada transaksi terposting
-                    </td>
-                  </tr>
-                )}
-                {/* Total row */}
-                <tr className="border border-black dark:border-gray-600 font-bold">
-                  <td
-                    colSpan={4}
-                    className="border border-black dark:border-gray-600 px-2 py-1 text-right text-gray-900 dark:text-gray-100"
-                  >
-                    TOTAL KASBON :
-                  </td>
-                  <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
-                    {formatNumber(
-                      data.transactions
-                        .filter(
-                          (t) =>
-                            t.type === "REPLENISHMENT" && t.status === "POSTED",
-                        )
-                        .reduce((s, t) => s + Number(t.amount), 0),
-                    )}
-                  </td>
-                  <td className="border border-black dark:border-gray-600 px-2 py-1 text-right font-mono text-gray-900 dark:text-gray-100">
-                    {formatNumber(
-                      data.transactions
-                        .filter(
-                          (t) => t.type === "EXPENSE" && t.status === "POSTED",
-                        )
-                        .reduce((s, t) => s + Number(t.amount), 0),
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
 
           {/* ===== FINANCIAL SUMMARY ===== */}
