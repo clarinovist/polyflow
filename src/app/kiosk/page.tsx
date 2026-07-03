@@ -42,9 +42,12 @@ const getData = withTenantPage(async function getData() {
         ]
     });
 
-    // Fetch employees with their machine assignments
+    // Fetch employees with their machine assignments (operators only)
     const employees = await prisma.employee.findMany({
-        where: { status: 'ACTIVE' },
+        where: { 
+            status: 'ACTIVE',
+            machineAssignments: { some: {} }
+        },
         select: { 
             id: true, 
             name: true,
