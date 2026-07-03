@@ -5,6 +5,7 @@ import {
   CreatePurchaseOrderValues,
   UpdatePurchaseOrderValues,
 } from "@/lib/schemas/purchasing";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
 
 export async function createOrder(
   data: CreatePurchaseOrderValues,
@@ -35,12 +36,12 @@ export async function createOrder(
     const rawSubtotal = item.quantity * item.unitPrice;
     const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
     const subtotalAfterDiscount = rawSubtotal - discountAmount;
-    const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
-    const lineSubtotal = subtotalAfterDiscount + taxAmount;
+    const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+    const ppnResult = calculatePpn(subtotalAfterDiscount, item.taxPercent || 0, ppnMode);
 
     totalDiscount += discountAmount;
-    totalTax += taxAmount;
-    totalAmount += lineSubtotal;
+    totalTax += ppnResult.taxAmount;
+    totalAmount += ppnResult.total;
 
     return {
       productVariantId: item.productVariantId,
@@ -48,9 +49,10 @@ export async function createOrder(
       unitPrice: item.unitPrice,
       discountPercent: item.discountPercent || 0,
       taxPercent: item.taxPercent || 0,
-      taxAmount,
-      subtotal: lineSubtotal,
+      taxAmount: ppnResult.taxAmount,
+      subtotal: ppnResult.total,
       dppOtherAmount: item.dppOtherAmount || null,
+      ppnMode: ppnMode,
     };
   });
 
@@ -158,12 +160,12 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
     const rawSubtotal = item.quantity * item.unitPrice;
     const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
     const subtotalAfterDiscount = rawSubtotal - discountAmount;
-    const taxAmount = subtotalAfterDiscount * ((item.taxPercent || 0) / 100);
-    const lineSubtotal = subtotalAfterDiscount + taxAmount;
+    const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+    const ppnResult = calculatePpn(subtotalAfterDiscount, item.taxPercent || 0, ppnMode);
 
     totalDiscount += discountAmount;
-    totalTax += taxAmount;
-    totalAmount += lineSubtotal;
+    totalTax += ppnResult.taxAmount;
+    totalAmount += ppnResult.total;
 
     return {
       productVariantId: item.productVariantId,
@@ -171,9 +173,10 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
       unitPrice: item.unitPrice,
       discountPercent: item.discountPercent || 0,
       taxPercent: item.taxPercent || 0,
-      taxAmount,
-      subtotal: lineSubtotal,
+      taxAmount: ppnResult.taxAmount,
+      subtotal: ppnResult.total,
       dppOtherAmount: item.dppOtherAmount || null,
+      ppnMode: ppnMode,
     };
   });
 

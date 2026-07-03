@@ -234,6 +234,8 @@ export async function createOrder(
           taxPercent: item.taxPercent,
           taxAmount: item.taxAmount,
           subtotal: item.subtotal,
+          dppOtherAmount: item.dppOtherAmount,
+          ppnMode: item.ppnMode,
         })),
       },
     },
@@ -362,6 +364,8 @@ export async function updateOrder(
         taxPercent: item.taxPercent,
         taxAmount: item.taxAmount,
         subtotal: item.subtotal,
+        dppOtherAmount: item.dppOtherAmount,
+        ppnMode: item.ppnMode,
         // Preserve deliveredQty if item was carried over
         deliveredQty: existingRecord ? existingRecord.deliveredQty : 0,
       };

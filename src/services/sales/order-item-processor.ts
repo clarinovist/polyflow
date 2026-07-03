@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/core/prisma";
 import { SalesOrderType, ProductType, Unit } from "@prisma/client";
+import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
 
 type SalesLineInput = {
   productVariantId: string;
@@ -12,6 +13,7 @@ type SalesLineInput = {
   discountPercent?: number;
   taxPercent?: number;
   dppOtherAmount?: number | null;
+  ppnMode?: 'INCLUDE' | 'EXCLUDE';
 };
 
 type ProcessedItem = {
@@ -26,6 +28,8 @@ type ProcessedItem = {
   taxPercent: number;
   taxAmount: number;
   subtotal: number;
+  dppOtherAmount: number | null;
+  ppnMode: PpnMode;
 };
 
 type OrderItemTotals = {
@@ -124,6 +128,7 @@ function normalizeSalesLineItem(
       discountPercent: item.discountPercent || 0,
       taxPercent: item.taxPercent || 0,
       dppOtherAmount: item.dppOtherAmount || null,
+      ppnMode: (item.ppnMode || 'EXCLUDE') as PpnMode,
     };
   }
 
@@ -156,6 +161,7 @@ function normalizeSalesLineItem(
     discountPercent: item.discountPercent || 0,
     taxPercent: item.taxPercent || 0,
     dppOtherAmount: item.dppOtherAmount || null,
+    ppnMode: (item.ppnMode || 'EXCLUDE') as PpnMode,
   };
 }
 
@@ -197,17 +203,17 @@ export async function processOrderItems(
       const rawSubtotal = normalized.quantity * normalized.unitPrice;
       const discountAmount = rawSubtotal * (normalized.discountPercent / 100);
       const subtotalAfterDiscount = rawSubtotal - discountAmount;
-      const taxAmount = subtotalAfterDiscount * (normalized.taxPercent / 100);
-      const flowSubtotal = subtotalAfterDiscount + taxAmount;
+      const ppnMode = normalized.ppnMode;
+      const ppnResult = calculatePpn(subtotalAfterDiscount, normalized.taxPercent, ppnMode);
 
       totalDiscount += discountAmount;
-      totalTax += taxAmount;
-      totalAmount += flowSubtotal;
+      totalTax += ppnResult.taxAmount;
+      totalAmount += ppnResult.total;
 
       return {
         ...normalized,
-        taxAmount,
-        subtotal: flowSubtotal,
+        taxAmount: ppnResult.taxAmount,
+        subtotal: ppnResult.total,
       };
     }),
   );
