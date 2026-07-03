@@ -284,9 +284,11 @@ export function PurchaseOrderDetailClient({
                       <th className="h-10 px-4 text-right font-medium">
                         {formLabels.unitPrice}
                       </th>
-                      <th className="h-10 px-4 text-right font-medium">
-                        DPP
-                      </th>
+                      {order.items.some((item: { ppnMode?: string; kenaPajak?: boolean }) => item.kenaPajak || item.ppnMode) && (
+                        <th className="h-10 px-4 text-right font-medium">
+                          DPP
+                        </th>
+                      )}
                       <th className="h-10 px-4 text-right font-medium">
                         {formLabels.subtotal}
                       </th>
@@ -323,9 +325,11 @@ export function PurchaseOrderDetailClient({
                         <td className="p-4 text-right">
                           {formatRupiah(item.unitPrice)}
                         </td>
-                        <td className="p-4 text-right text-muted-foreground">
-                          {item.dppOtherAmount ? formatRupiah(item.dppOtherAmount) : "-"}
-                        </td>
+                        {order.items.some((i: { ppnMode?: string; kenaPajak?: boolean }) => i.kenaPajak || i.ppnMode) && (
+                          <td className="p-4 text-right text-muted-foreground">
+                            {item.dppOtherAmount ? formatRupiah(item.dppOtherAmount) : "-"}
+                          </td>
+                        )}
                         <td className="p-4 text-right font-medium">
                           {formatRupiah(item.subtotal)}
                         </td>

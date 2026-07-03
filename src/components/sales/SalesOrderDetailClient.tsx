@@ -462,7 +462,7 @@ export function SalesOrderDetailClient({
                         {formLabels.unitPrice}
                       </th>
                     )}
-                    {!warehouseMode && (
+                    {!warehouseMode && order.items.some((item: { ppnMode?: string; kenaPajak?: boolean }) => item.kenaPajak || item.ppnMode) && (
                       <th className="h-10 px-4 text-right font-medium">
                         DPP
                       </th>
@@ -524,7 +524,7 @@ export function SalesOrderDetailClient({
                           })()}
                         </td>
                       )}
-                      {!warehouseMode && (
+                      {!warehouseMode && order.items.some((i: { ppnMode?: string; kenaPajak?: boolean }) => i.kenaPajak || i.ppnMode) && (
                         <td className="p-4 text-right text-muted-foreground">
                           {item.dppOtherAmount ? formatRupiah(Number(item.dppOtherAmount)) : "-"}
                         </td>
