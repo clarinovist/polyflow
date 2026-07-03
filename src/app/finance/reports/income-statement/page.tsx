@@ -128,7 +128,8 @@ export default function IncomeStatementPage() {
         rows.push(['', '', '']);
         rows.push(['IV. PENDAPATAN/BEBAN LAINNYA', '', '']);
         for (const item of data.other.filter(i => !hideZero || Math.abs(i.netBalance) > 0.01)) {
-            rows.push([item.name, item.code, rupiahForCsv(item.netBalance)]);
+            const isExpense = item.code.startsWith('9');
+            rows.push([item.name, item.code, rupiahForCsv(isExpense ? -Math.abs(item.netBalance) : item.netBalance)]);
         }
         rows.push(['', '', '']);
         rows.push(['LABA BERSIH (NET INCOME)', '', rupiahForCsv(data.netIncome)]);
@@ -348,16 +349,19 @@ export default function IncomeStatementPage() {
                                         </TableRow>
                                         {data.other
                                             .filter(item => !hideZero || Math.abs(item.netBalance) > 0.01)
-                                            .map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="pl-8">{item.name}</TableCell>
-                                                    <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
-                                                    <TableCell className="text-right font-mono">
-                                                        {formatRupiah(Math.abs(item.netBalance))}
-                                                        {item.netBalance < 0 ? ' (Beban)' : ''}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
+                                            .map((item) => {
+                                                // Account 9xxxx = expense/loss, should reduce income
+                                                const isExpense = item.code.startsWith('9');
+                                                return (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="pl-8">{item.name}</TableCell>
+                                                        <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
+                                                        <TableCell className={`text-right font-mono ${isExpense ? 'text-red-500' : ''}`}>
+                                                            {isExpense ? `(${formatRupiah(Math.abs(item.netBalance))})` : formatRupiah(item.netBalance)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
 
                                         {/* Net Income */}
                                         <TableRow className="bg-primary/10 hover:bg-primary/10 font-bold border-t-2">
