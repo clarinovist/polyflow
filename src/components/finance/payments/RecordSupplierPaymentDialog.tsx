@@ -5,11 +5,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { recordSupplierPayment } from '@/actions/finance/finance';
-import { formatRupiah } from '@/lib/utils/utils';
-import { Loader2 } from 'lucide-react';
+import { formatRupiah, cn } from '@/lib/utils/utils';
+import { Loader2, ChevronsUpDown, Check, Receipt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface PurchaseInvoice {
@@ -36,6 +38,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [method, setMethod] = useState('Bank Transfer');
     const [notes, setNotes] = useState('');
+    const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false);
 
     const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
     const remainingBalance = selectedInvoice
@@ -50,6 +53,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
             setPaymentDate(new Date().toISOString().split('T')[0]);
             setMethod('Bank Transfer');
             setNotes('');
+            setInvoiceSearchOpen(false);
         }
     }, [open]);
 
@@ -103,21 +107,90 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="invoice">Pilih Invoice Pembelian</Label>
-                        <Select value={selectedInvoiceId} onValueChange={setSelectedInvoiceId} required>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Pilih invoice yang belum lunas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {invoices.map((inv) => {
-                                    const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
-                                    return (
-                                        <SelectItem key={inv.id} value={inv.id}>
-                                            {inv.invoiceNumber} - {inv.purchaseOrder.supplier.name} ({formatRupiah(balance)})
-                                        </SelectItem>
-                                    );
-                                })}
-                            </SelectContent>
-                        </Select>
+                        <Popover open={invoiceSearchOpen} onOpenChange={setInvoiceSearchOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={invoiceSearchOpen}
+                                    className={cn(
+                                        "w-full justify-between font-normal min-w-0 h-11",
+                                        !selectedInvoiceId && "text-muted-foreground",
+                                    )}
+                                >
+                                    {selectedInvoice ? (
+                                        <span className="flex items-center gap-2 truncate min-w-0">
+                                            <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                            <span className="truncate flex-1 text-left">
+                                                {selectedInvoice.invoiceNumber} — {selectedInvoice.purchaseOrder.supplier.name}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground shrink-0 font-mono">
+                                                {formatRupiah(Number(selectedInvoice.totalAmount) - Number(selectedInvoice.paidAmount))}
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        <span className="truncate">Pilih invoice yang belum lunas</span>
+                                    )}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                className="w-[--radix-popover-trigger-width] p-0"
+                                align="start"
+                            >
+                                <Command
+                                    filter={(val, search) => {
+                                        const inv = invoices.find(i => i.id === val);
+                                        if (!inv) return 0;
+                                        const q = search.toLowerCase();
+                                        return inv.invoiceNumber.toLowerCase().includes(q) ||
+                                            inv.purchaseOrder.supplier.name.toLowerCase().includes(q)
+                                            ? 1
+                                            : 0;
+                                    }}
+                                >
+                                    <CommandInput placeholder="Cari no invoice atau supplier..." />
+                                    <CommandList>
+                                        <CommandEmpty>Tidak ada invoice ditemukan.</CommandEmpty>
+                                        <CommandGroup>
+                                            {invoices.map((inv) => {
+                                                const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                                return (
+                                                    <CommandItem
+                                                        key={inv.id}
+                                                        value={inv.id}
+                                                        onSelect={(currentValue) => {
+                                                            setSelectedInvoiceId(currentValue === selectedInvoiceId ? '' : currentValue);
+                                                            setInvoiceSearchOpen(false);
+                                                        }}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "h-4 w-4 shrink-0",
+                                                                selectedInvoiceId === inv.id ? "opacity-100" : "opacity-0",
+                                                            )}
+                                                        />
+                                                        <div className="flex flex-col min-w-0 flex-1">
+                                                            <span className="truncate font-medium">
+                                                                {inv.invoiceNumber}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {inv.purchaseOrder.supplier.name}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs font-mono text-muted-foreground shrink-0">
+                                                            {formatRupiah(balance)}
+                                                        </span>
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     {selectedInvoice && (
