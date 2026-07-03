@@ -53,7 +53,8 @@ export function KioskStopDialog({
 }: KioskStopDialogProps) {
     const [loading, setLoading] = useState(false);
     const [quantity, setQuantity] = useState('0');
-    const [scrap, setScrap] = useState('0');
+    const [scrapProngkol, setScrapProngkol] = useState('0');
+    const [scrapDaun, setScrapDaun] = useState('0');
     const [notes, setNotes] = useState('');
     const [completed, setCompleted] = useState(false);
     const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
@@ -62,7 +63,9 @@ export function KioskStopDialog({
         e.preventDefault();
 
         const qtyNum = parseFloat(quantity) || 0;
-        const scrapNum = parseFloat(scrap) || 0;
+        const prongkolNum = parseFloat(scrapProngkol) || 0;
+        const daunNum = parseFloat(scrapDaun) || 0;
+        const totalScrap = prongkolNum + daunNum;
         const baseQty = unitMeta.hasAlternateUnit
             ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
             : qtyNum;
@@ -82,7 +85,9 @@ export function KioskStopDialog({
                 enteredUnit: unitMeta.hasAlternateUnit && qtyNum > 0 ? unitMeta.salesUnit as Unit : undefined,
                 baseQuantityProduced: unitMeta.hasAlternateUnit && qtyNum > 0 ? baseQty : undefined,
                 conversionFactorSnapshot: unitMeta.hasAlternateUnit && qtyNum > 0 ? unitMeta.conversionFactor : undefined,
-                scrapQuantity: scrapNum,
+                scrapQuantity: totalScrap,
+                scrapProngkolQty: prongkolNum,
+                scrapDaunQty: daunNum,
                 notes,
                 completed
             });
@@ -158,15 +163,27 @@ export function KioskStopDialog({
                         <p className="text-xs text-muted-foreground italic">Kosongkan jika semua hasil sudah dicatat sebelumnya.</p>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="scrap">Tambah Scrap ({unitMeta.primaryUnit})</Label>
-                        <Input
-                            id="scrap"
-                            type="number"
-                            step="0.01"
-                            value={scrap}
-                            onChange={(e) => setScrap(e.target.value)}
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="scrap-prongkol" className="text-sm font-semibold">Scrap Prongkol ({unitMeta.primaryUnit})</Label>
+                            <Input
+                                id="scrap-prongkol"
+                                type="number"
+                                step="0.01"
+                                value={scrapProngkol}
+                                onChange={(e) => setScrapProngkol(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="scrap-daun" className="text-sm font-semibold">Scrap Daun ({unitMeta.primaryUnit})</Label>
+                            <Input
+                                id="scrap-daun"
+                                type="number"
+                                step="0.01"
+                                value={scrapDaun}
+                                onChange={(e) => setScrapDaun(e.target.value)}
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">

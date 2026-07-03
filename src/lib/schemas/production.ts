@@ -150,6 +150,8 @@ export const stopExecutionSchema = z.object({
     baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),
     conversionFactorSnapshot: z.coerce.number().positive("Conversion factor must be positive").optional(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
+    scrapProngkolQty: z.coerce.number().nonnegative().default(0),
+    scrapDaunQty: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional().transform(sanitizeHtml),
     completed: z.boolean().optional(),
 });
@@ -165,6 +167,8 @@ export const logRunningOutputSchema = z.object({
     baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),
     conversionFactorSnapshot: z.coerce.number().positive("Conversion factor must be positive").optional(),
     scrapQuantity: z.coerce.number().nonnegative().default(0),
+    scrapProngkolQty: z.coerce.number().nonnegative().default(0),
+    scrapDaunQty: z.coerce.number().nonnegative().default(0),
     notes: z.string().optional().transform(sanitizeHtml),
 });
 

@@ -96,12 +96,14 @@ describe('ProductionExecutionService', () => {
 
         // Execute logRunningOutput
         await ProductionExecutionService.logRunningOutput({
-            executionId: 'exec-1',
-            quantityProduced: 100,
-            scrapQuantity: 0,
-            notes: 'Test notes',
-            userId: 'user-1'
-        });
+                    executionId: 'exec-1',
+                    quantityProduced: 10,
+                    scrapQuantity: 0,
+                    scrapProngkolQty: 0,
+                    scrapDaunQty: 0,
+                    notes: 'test',
+                    userId: 'user-1',
+                });
 
         // Verify that COGM calculation was called and threw an error, but the error was caught
         expect(ProductionCostService.calculateBatchCOGM).toHaveBeenCalled();

@@ -213,6 +213,8 @@ describe("ProductionService", () => {
         executionId: "exec-1",
         quantityProduced: 20,
         scrapQuantity: 0,
+        scrapProngkolQty: 0,
+        scrapDaunQty: 0,
         completed: true,
         notes: "Finished early",
       });

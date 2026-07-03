@@ -59,6 +59,8 @@ describe('Production Actions Security', () => {
                 executionId: 'exec-123',
                 quantityProduced: 10,
                 scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
                 notes: '',
                 completed: true,
             });
@@ -92,6 +94,8 @@ describe('Production Actions Security', () => {
                 executionId: 'exec-123',
                 quantityProduced: 5,
                 scrapQuantity: 0,
+                scrapProngkolQty: 0,
+                scrapDaunQty: 0,
                 notes: ''
             });
             expect(result.success).toBe(false);

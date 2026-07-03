@@ -307,12 +307,14 @@ describe('ProductionExecutionService.logRunningOutput', () => {
 
         // Act
         await ProductionExecutionService.logRunningOutput({
-            executionId: 'exec-1',
-            quantityProduced: 50,
-            scrapQuantity: 5,
-            notes: 'Partial output',
-            userId: 'user-1',
-        });
+                    executionId: 'exec-1',
+                    quantityProduced: 50,
+                    scrapQuantity: 5,
+                    scrapProngkolQty: 0,
+                    scrapDaunQty: 0,
+                    notes: 'Partial log',
+                    userId: 'user-1',
+                });
 
         // Assert
         expect(tx.productionExecution.update).toHaveBeenCalledWith(

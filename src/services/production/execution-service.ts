@@ -303,6 +303,8 @@ export class ProductionExecutionService {
       baseQuantityProduced,
       conversionFactorSnapshot,
       scrapQuantity,
+      scrapProngkolQty = 0,
+      scrapDaunQty = 0,
       notes,
       userId,
     } = data;
@@ -369,6 +371,16 @@ export class ProductionExecutionService {
         referencePrefix: "Backflush (Stop)",
       });
 
+      await recordExecutionScrap({
+        tx,
+        productionOrderId,
+        executionId,
+        scrapQuantity: Number(scrapQuantity),
+        scrapProngkolQty: Number(scrapProngkolQty),
+        scrapDaunQty: Number(scrapDaunQty),
+        userId,
+      });
+
       if (data.completed && order.isMaklon) {
         await AccountingService.recordMaklonCosts(productionOrderId, tx);
       }
@@ -393,6 +405,8 @@ export class ProductionExecutionService {
       baseQuantityProduced,
       conversionFactorSnapshot,
       scrapQuantity,
+      scrapProngkolQty = 0,
+      scrapDaunQty = 0,
       notes,
       userId,
     } = data;
@@ -451,6 +465,16 @@ export class ProductionExecutionService {
         userId,
         resolved,
         referencePrefix: "Backflush (Partial)",
+      });
+
+      await recordExecutionScrap({
+        tx,
+        productionOrderId,
+        executionId,
+        scrapQuantity: Number(scrapQuantity),
+        scrapProngkolQty: Number(scrapProngkolQty),
+        scrapDaunQty: Number(scrapDaunQty),
+        userId,
       });
     });
 

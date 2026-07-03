@@ -35,7 +35,8 @@ export function KioskLogOutputDialog({
     onSuccess
 }: KioskLogOutputDialogProps) {
     const [quantity, setQuantity] = useState<string>('');
-    const [scrap, setScrap] = useState<string>('');
+    const [scrapProngkol, setScrapProngkol] = useState<string>('');
+    const [scrapDaun, setScrapDaun] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
@@ -46,6 +47,9 @@ export function KioskLogOutputDialog({
         const baseQty = unitMeta.hasAlternateUnit
             ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
             : qtyNum;
+        const prongkolNum = parseFloat(scrapProngkol) || 0;
+        const daunNum = parseFloat(scrapDaun) || 0;
+        const totalScrap = prongkolNum + daunNum;
         setIsLoading(true);
         try {
             const result = await logRunningOutput({
@@ -55,14 +59,17 @@ export function KioskLogOutputDialog({
                 enteredUnit: unitMeta.hasAlternateUnit ? unitMeta.salesUnit as Unit : undefined,
                 baseQuantityProduced: unitMeta.hasAlternateUnit ? baseQty : undefined,
                 conversionFactorSnapshot: unitMeta.hasAlternateUnit ? unitMeta.conversionFactor : undefined,
-                scrapQuantity: parseFloat(scrap) || 0,
+                scrapQuantity: totalScrap,
+                scrapProngkolQty: prongkolNum,
+                scrapDaunQty: daunNum,
                 notes: notes || ''
             });
 
             if (result.success) {
                 toast.success("Hasil berhasil dicatat!");
                 setQuantity('');
-                setScrap('');
+                setScrapProngkol('');
+                setScrapDaun('');
                 setNotes('');
                 setShowScrapWarning(false);
                 onOpenChange(false);
@@ -87,7 +94,7 @@ export function KioskLogOutputDialog({
             return;
         }
 
-        const scrapNum = parseFloat(scrap) || 0;
+        const scrapNum = (parseFloat(scrapProngkol) || 0) + (parseFloat(scrapDaun) || 0);
 
         // Soft warning if scrap is 0
         if (scrapNum === 0 && !showScrapWarning) {
@@ -131,23 +138,43 @@ export function KioskLogOutputDialog({
                                 autoFocus
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="log-scrap" className="text-base font-semibold text-amber-500">{kioskLabels.scrap} ({unitMeta.primaryUnit})</Label>
-                            <Input
-                                id="log-scrap"
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                className={`h-16 text-2xl font-bold ${showScrapWarning
-                                    ? 'bg-red-500/10 border-red-500/50 ring-2 ring-red-400 focus:border-red-500 focus:ring-red-500'
-                                    : 'bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500'
-                                    }`}
-                                value={scrap}
-                                onChange={(e) => {
-                                    setScrap(e.target.value);
-                                    if (showScrapWarning) setShowScrapWarning(false);
-                                }}
-                            />
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="log-scrap-prongkol" className="text-sm font-semibold text-amber-500">Scrap Prongkol ({unitMeta.primaryUnit})</Label>
+                                <Input
+                                    id="log-scrap-prongkol"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    className={`h-12 text-xl font-bold ${showScrapWarning
+                                        ? 'bg-red-500/10 border-red-500/50 ring-2 ring-red-400 focus:border-red-500 focus:ring-red-500'
+                                        : 'bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500'
+                                        }`}
+                                    value={scrapProngkol}
+                                    onChange={(e) => {
+                                        setScrapProngkol(e.target.value);
+                                        if (showScrapWarning) setShowScrapWarning(false);
+                                    }}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="log-scrap-daun" className="text-sm font-semibold text-amber-500">Scrap Daun ({unitMeta.primaryUnit})</Label>
+                                <Input
+                                    id="log-scrap-daun"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    className={`h-12 text-xl font-bold ${showScrapWarning
+                                        ? 'bg-red-500/10 border-red-500/50 ring-2 ring-red-400 focus:border-red-500 focus:ring-red-500'
+                                        : 'bg-amber-500/10 border-amber-500/30 focus:border-amber-500 focus:ring-amber-500'
+                                        }`}
+                                    value={scrapDaun}
+                                    onChange={(e) => {
+                                        setScrapDaun(e.target.value);
+                                        if (showScrapWarning) setShowScrapWarning(false);
+                                    }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -172,8 +199,8 @@ export function KioskLogOutputDialog({
                                     className="border-amber-400 text-amber-700 hover:bg-amber-100"
                                     onClick={() => {
                                         setShowScrapWarning(false);
-                                        // Focus on scrap input
-                                        document.getElementById('log-scrap')?.focus();
+                                        // Focus on first scrap input
+                                        document.getElementById('log-scrap-prongkol')?.focus();
                                     }}
                                 >
                                     Isi Scrap
