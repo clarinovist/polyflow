@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
 import { ArrowLeft, Cog, CheckCircle2, Clock, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/utils';
+import { formatWIB } from '@/lib/utils/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,11 +137,11 @@ export default async function MachineHistoryPage({ params }: { params: Promise<{
                                 >
                                     <TableCell className="text-xs whitespace-nowrap">
                                         <div className="font-medium">
-                                            {exec.startTime ? format(new Date(exec.startTime), 'dd MMM yyyy') : '-'}
+                                            {exec.startTime ? formatWIB(exec.startTime, 'dd MMM yyyy') : '-'}
                                         </div>
                                         <div className="text-[10px] text-muted-foreground">
-                                            {exec.startTime ? format(new Date(exec.startTime), 'HH:mm') : '-'}
-                                            {exec.endTime ? ` - ${format(new Date(exec.endTime), 'HH:mm')}` : ''}
+                                            {exec.startTime ? formatWIB(exec.startTime, 'HH:mm') : '-'}
+                                            {exec.endTime ? ` - ${formatWIB(exec.endTime, 'HH:mm')}` : ''}
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-mono text-xs font-bold">

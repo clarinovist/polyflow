@@ -2,10 +2,10 @@ import { getProductionHistory } from '@/actions/production/production-execution'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
 import { History, CheckCircle2, Package, Clock } from 'lucide-react';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
 import { cn } from '@/lib/utils/utils';
+import { formatWIB } from '@/lib/utils/timezone';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,8 +60,8 @@ export default async function ProductionHistoryPage() {
                             {completions.map((exec) => (
                                 <TableRow key={exec.id} className={cn(exec.status === 'VOIDED' && "opacity-50 line-through bg-muted/30")}>
                                     <TableCell className="text-xs whitespace-nowrap">
-                                        <div className="font-medium">{exec.endTime ? format(new Date(exec.endTime), 'MMM dd, HH:mm') : '-'}</div>
-                                        <div className="text-[10px] text-muted-foreground">{exec.startTime ? format(new Date(exec.startTime), 'HH:mm') : '-'} started</div>
+                                        <div className="font-medium">{exec.endTime ? formatWIB(exec.endTime, 'MMM dd, HH:mm') : '-'}</div>
+                                        <div className="text-[10px] text-muted-foreground">{exec.startTime ? formatWIB(exec.startTime, 'HH:mm') : '-'} started</div>
                                         {exec.status === 'VOIDED' && <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1 mt-1">Voided</Badge>}
                                     </TableCell>
                                     <TableCell className="font-mono text-xs font-bold">{exec.productionOrder.orderNumber}</TableCell>

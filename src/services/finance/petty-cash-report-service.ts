@@ -75,6 +75,108 @@ export class PettyCashReportService {
     }
 
     /**
+     * Fetch daily transactions from journal lines affecting the petty cash account.
+     * Returns data in the same shape as PettyCashTransaction for frontend compatibility.
+     */
+    private static async getDailyTransactionsFromJournals(
+        accountId: string,
+        startOfDay: Date,
+        endOfDay: Date
+    ) {
+        // Get all journal lines hitting the petty cash account on this date
+        const pettyCashLines = await prisma.journalLine.findMany({
+            where: {
+                accountId,
+                journalEntry: {
+                    status: JournalStatus.POSTED,
+                    entryDate: { gte: startOfDay, lte: endOfDay }
+                }
+            },
+            include: {
+                journalEntry: {
+                    select: {
+                        id: true,
+                        entryNumber: true,
+                        entryDate: true,
+                        description: true,
+                        reference: true,
+                        createdById: true,
+                    }
+                }
+            },
+            orderBy: { journalEntry: { entryDate: 'asc' } }
+        });
+
+        if (pettyCashLines.length === 0) return [];
+
+        // For each petty cash line, find the contra-line to get the expense account & description
+        const journalEntryIds = [...new Set(pettyCashLines.map(l => l.journalEntryId))];
+
+        const allLines = await prisma.journalLine.findMany({
+            where: {
+                journalEntryId: { in: journalEntryIds },
+                accountId: { not: accountId }
+            },
+            include: {
+                account: { select: { id: true, code: true, name: true } }
+            }
+        });
+
+        // Group contra-lines by journalEntryId
+        const contraLinesByEntry = new Map<string, typeof allLines>();
+        for (const line of allLines) {
+            const existing = contraLinesByEntry.get(line.journalEntryId) || [];
+            existing.push(line);
+            contraLinesByEntry.set(line.journalEntryId, existing);
+        }
+
+        // Get unique creator IDs for user name lookup
+        const creatorIds = [...new Set(
+            pettyCashLines.map(l => l.journalEntry.createdById).filter(Boolean)
+        )] as string[];
+
+        const creators = creatorIds.length > 0
+            ? await prisma.user.findMany({
+                where: { id: { in: creatorIds } },
+                select: { id: true, name: true }
+            })
+            : [];
+
+        const creatorMap = new Map(creators.map(u => [u.id, u]));
+
+        // Build transaction-like objects
+        return pettyCashLines.map(line => {
+            const je = line.journalEntry;
+            const pcDebit = Number(line.debit);
+            const pcCredit = Number(line.credit);
+
+            // Determine type: debit on petty cash = money in (REPLENISHMENT), credit = money out (EXPENSE)
+            const type = pcDebit > 0 ? 'REPLENISHMENT' : 'EXPENSE';
+            const amount = pcDebit > 0 ? pcDebit : pcCredit;
+
+            // Find contra-line for expense account info
+            const contraLines = contraLinesByEntry.get(line.journalEntryId) || [];
+            const expenseLine = type === 'EXPENSE'
+                ? contraLines.find(cl => Number(cl.debit) > 0) // expense account is debited
+                : contraLines.find(cl => Number(cl.credit) > 0); // bank account is credited
+
+            const creator = je.createdById ? creatorMap.get(je.createdById) : null;
+
+            return {
+                id: line.journalEntryId,
+                voucherNumber: je.reference || je.entryNumber || '',
+                date: je.entryDate.toISOString(),
+                description: je.description,
+                amount,
+                type,
+                status: 'POSTED',
+                expenseAccount: expenseLine?.account || null,
+                createdBy: { name: creator?.name || 'System' },
+            };
+        });
+    }
+
+    /**
      * Get daily petty cash report for a given date.
      * - If a saved report exists, return it with full relations.
      * - If not, compute balances on-the-fly and return savedReport: null.
@@ -122,14 +224,10 @@ export class PettyCashReportService {
         const { totalIn, totalOut } = await PettyCashReportService.calcDailyTotals(account.id, startOfDay, endOfDay);
         const closingBalance = openingBalance + totalIn - totalOut;
 
-        const transactions = await prisma.pettyCashTransaction.findMany({
-            where: { date: { gte: startOfDay, lte: endOfDay } },
-            include: {
-                expenseAccount: true,
-                createdBy: { select: { name: true } }
-            },
-            orderBy: { voucherNumber: 'asc' }
-        });
+        // Fetch transactions from journal lines affecting the petty cash account
+        const transactions = await PettyCashReportService.getDailyTransactionsFromJournals(
+            account.id, startOfDay, endOfDay
+        );
 
         return {
             savedReport: null,
