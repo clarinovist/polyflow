@@ -462,7 +462,7 @@ export function SalesOrderDetailClient({
                         {formLabels.unitPrice}
                       </th>
                     )}
-                    {!warehouseMode && order.items.some((item: { ppnMode?: string; kenaPajak?: boolean }) => item.kenaPajak || item.ppnMode) && (
+                    {!warehouseMode && order.items.some((item) => Number(item.taxPercent || 0) > 0 || Number(item.taxAmount || 0) > 0) && (
                       <th className="h-10 px-4 text-right font-medium">
                         DPP
                       </th>
@@ -524,7 +524,7 @@ export function SalesOrderDetailClient({
                           })()}
                         </td>
                       )}
-                      {!warehouseMode && order.items.some((i: { ppnMode?: string; kenaPajak?: boolean }) => i.kenaPajak || i.ppnMode) && (
+                      {!warehouseMode && order.items.some((i) => Number(i.taxPercent || 0) > 0 || Number(i.taxAmount || 0) > 0) && (
                         <td className="p-4 text-right text-muted-foreground">
                           {item.dppOtherAmount ? formatRupiah(Number(item.dppOtherAmount)) : "-"}
                         </td>
