@@ -1086,7 +1086,7 @@ export function SalesOrderForm({
                 <TableRow>
                   <TableHead className="w-[50px] text-center">#</TableHead>
                   <TableHead className="min-w-[250px]">Produk</TableHead>
-                  <TableHead className="w-[120px] px-2 text-center">Qty</TableHead>
+                  <TableHead className="w-[150px] px-2 text-center">Qty</TableHead>
                   <TableHead className="w-[180px] text-right">Harga Satuan</TableHead>
                   <TableHead className="w-[120px] px-2 text-right">Diskon</TableHead>
                   <TableHead className="w-[110px] text-center">Pajak</TableHead>

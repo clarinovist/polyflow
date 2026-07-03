@@ -312,7 +312,7 @@ export function PurchaseOrderForm({
                       <TableRow>
                         <TableHead className="w-[50px] text-center">#</TableHead>
                         <TableHead className="min-w-[250px]">Produk</TableHead>
-                        <TableHead className="w-[120px] px-2 text-center">Qty</TableHead>
+                        <TableHead className="w-[150px] px-2 text-center">Qty</TableHead>
                         <TableHead className="w-[180px] text-right">Harga Satuan</TableHead>
                         <TableHead className="w-[120px] px-2 text-right">Diskon</TableHead>
                         <TableHead className="w-[110px] text-center">Pajak</TableHead>
@@ -696,7 +696,7 @@ export function PurchaseOrderForm({
                                     onChange={(e) =>
                                       qtyField.onChange(Number(e.target.value))
                                     }
-                                    className="h-9 w-24 text-center font-mono text-sm no-stepper"
+                                    className="h-9 w-28 text-center font-mono text-sm no-stepper"
                                     min={1}
                                   />
                                 </FormControl>
