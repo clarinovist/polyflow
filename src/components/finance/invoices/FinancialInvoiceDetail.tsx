@@ -224,6 +224,7 @@ export function FinancialInvoiceDetail({ invoice, companyConfig }: FinancialInvo
                 open={showPreview}
                 onOpenChange={setShowPreview}
                 title={`Invoice ${invoice.invoiceNumber}`}
+                landscape={true}
             >
                 <InvoiceDotMatrixPrint
                     invoice={{

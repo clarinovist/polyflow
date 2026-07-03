@@ -352,7 +352,7 @@ export function InvoiceDotMatrixPrint({
         dangerouslySetInnerHTML={{
           __html: `
         @page {
-          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
+          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm landscape;
           margin: ${paperSize.marginMm}mm;
         }
 

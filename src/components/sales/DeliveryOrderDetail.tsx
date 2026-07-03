@@ -249,6 +249,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 open={showPreview}
                 onOpenChange={setShowPreview}
                 title={`Surat Jalan ${order.orderNumber}`}
+                landscape={true}
             >
                 <SuratJalanDotMatrixPrint order={order} showButton={false} previewMode={true} companyConfig={companyConfig} />
             </PrintPreviewModal>

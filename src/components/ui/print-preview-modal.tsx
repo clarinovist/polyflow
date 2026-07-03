@@ -15,6 +15,8 @@ interface PrintPreviewModalProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   children: React.ReactNode;
+  /** Use wider modal for landscape print layouts */
+  landscape?: boolean;
 }
 
 export function PrintPreviewModal({
@@ -22,6 +24,7 @@ export function PrintPreviewModal({
   onOpenChange,
   title,
   children,
+  landscape = false,
 }: PrintPreviewModalProps) {
   const handlePrint = () => {
     window.print();
@@ -29,7 +32,7 @@ export function PrintPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none print:overflow-visible">
+      <DialogContent className={`${landscape ? 'max-w-[1200px]' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none print:overflow-visible`}>
         <DialogHeader className="no-print">
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5" />
