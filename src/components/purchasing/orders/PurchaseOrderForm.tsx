@@ -395,7 +395,8 @@ export function PurchaseOrderForm({
                                       <Input
                                         type="number"
                                         className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        min={1}
+                                        min={0.01}
+                                        step="any"
                                         {...qtyField}
                                         onChange={(e) => qtyField.onChange(Number(e.target.value))}
                                       />
