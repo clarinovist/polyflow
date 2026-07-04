@@ -103,6 +103,8 @@ export function PurchaseOrderForm({
   const [isLoading, setIsLoading] = useState(false);
   // Track raw input values for price fields (to allow typing commas/dots)
   const [rawPriceInputs, setRawPriceInputs] = useState<Record<number, string>>({});
+  // Track raw input values for qty fields (to allow empty during editing)
+  const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>({});
   // Track which items have "Kena Pajak" checked (controls DPP visibility)
   const [taxableItems, setTaxableItems] = useState<Record<number, boolean>>(() => {
     if (initialData) {
@@ -393,12 +395,27 @@ export function PurchaseOrderForm({
                                   <FormItem className="space-y-0">
                                     <FormControl>
                                       <Input
-                                        type="number"
+                                        type="text"
+                                        inputMode="decimal"
                                         className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        min={0.01}
-                                        step="any"
-                                        {...qtyField}
-                                        onChange={(e) => qtyField.onChange(Number(e.target.value))}
+                                        value={rawQtyInputs[index] !== undefined ? rawQtyInputs[index] : (qtyField.value ?? '')}
+                                        onChange={(e) => {
+                                          setRawQtyInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                          const num = Number(e.target.value.replace(',', '.'));
+                                          if (!isNaN(num) && e.target.value !== '') {
+                                            qtyField.onChange(num);
+                                          }
+                                        }}
+                                        onBlur={() => {
+                                          const raw = rawQtyInputs[index];
+                                          const num = Number((raw || '0').replace(',', '.'));
+                                          qtyField.onChange(isNaN(num) ? 0 : num);
+                                          setRawQtyInputs(prev => {
+                                            const next = { ...prev };
+                                            delete next[index];
+                                            return next;
+                                          });
+                                        }}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -708,14 +725,27 @@ export function PurchaseOrderForm({
                               <FormItem className="space-y-0">
                                 <FormControl>
                                   <Input
-                                    type="number"
-                                    {...qtyField}
-                                    onChange={(e) =>
-                                      qtyField.onChange(Number(e.target.value))
-                                    }
+                                    type="text"
+                                    inputMode="decimal"
                                     className="h-9 w-28 text-center font-mono text-sm no-stepper"
-                                    min={0.01}
-                                    step="any"
+                                    value={rawQtyInputs[index] !== undefined ? rawQtyInputs[index] : (qtyField.value ?? '')}
+                                    onChange={(e) => {
+                                      setRawQtyInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                      const num = Number(e.target.value.replace(',', '.'));
+                                      if (!isNaN(num) && e.target.value !== '') {
+                                        qtyField.onChange(num);
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      const raw = rawQtyInputs[index];
+                                      const num = Number((raw || '0').replace(',', '.'));
+                                      qtyField.onChange(isNaN(num) ? 0 : num);
+                                      setRawQtyInputs(prev => {
+                                        const next = { ...prev };
+                                        delete next[index];
+                                        return next;
+                                      });
+                                    }}
                                   />
                                 </FormControl>
                               </FormItem>

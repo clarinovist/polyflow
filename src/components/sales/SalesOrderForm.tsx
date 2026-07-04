@@ -114,6 +114,8 @@ export function SalesOrderForm({
   >([]);
   // Track raw input values for price fields (to allow typing commas/dots)
   const [rawPriceInputs, setRawPriceInputs] = useState<Record<number, string>>({});
+  // Track raw input values for qty fields (to allow empty during editing)
+  const [rawQtyInputs, setRawQtyInputs] = useState<Record<number, string>>({});
   const [discountTypes, setDiscountTypes] = useState<Record<number, 'PERCENT' | 'NOMINAL'>>(() => {
     let itemsToProcess: { discountPercent?: number }[] = [];
     if (initialData?.items) {
@@ -1243,10 +1245,27 @@ export function SalesOrderForm({
                             <div className="flex flex-col items-center">
                               <FormControl>
                                 <Input
-                                  type="number"
-                                  step="0.01"
+                                  type="text"
+                                  inputMode="decimal"
                                   className="h-9 w-full text-center font-mono text-sm px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  {...qtyField}
+                                  value={rawQtyInputs[index] !== undefined ? rawQtyInputs[index] : (qtyField.value ?? '')}
+                                  onChange={(e) => {
+                                    setRawQtyInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                    const num = Number(e.target.value.replace(',', '.'));
+                                    if (!isNaN(num) && e.target.value !== '') {
+                                      qtyField.onChange(num);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const raw = rawQtyInputs[index];
+                                    const num = Number((raw || '0').replace(',', '.'));
+                                    qtyField.onChange(isNaN(num) ? 0 : num);
+                                    setRawQtyInputs(prev => {
+                                      const next = { ...prev };
+                                      delete next[index];
+                                      return next;
+                                    });
+                                  }}
                                 />
                               </FormControl>
                               {unitMeta && (
@@ -1687,10 +1706,27 @@ export function SalesOrderForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="text"
+                              inputMode="decimal"
                               className="h-11"
-                              {...qtyField}
+                              value={rawQtyInputs[index] !== undefined ? rawQtyInputs[index] : (qtyField.value ?? '')}
+                              onChange={(e) => {
+                                setRawQtyInputs(prev => ({ ...prev, [index]: e.target.value }));
+                                const num = Number(e.target.value.replace(',', '.'));
+                                if (!isNaN(num) && e.target.value !== '') {
+                                  qtyField.onChange(num);
+                                }
+                              }}
+                              onBlur={() => {
+                                const raw = rawQtyInputs[index];
+                                const num = Number((raw || '0').replace(',', '.'));
+                                qtyField.onChange(isNaN(num) ? 0 : num);
+                                setRawQtyInputs(prev => {
+                                  const next = { ...prev };
+                                  delete next[index];
+                                  return next;
+                                });
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
