@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,14 +25,22 @@ import {
   AlertCircle,
   Loader2,
   FileSpreadsheet,
+  Plus,
+  History,
+  Eye,
+  ArrowLeft,
 } from "lucide-react";
 import {
   autoMatchReconciliation,
   confirmReconciliation,
+  listReconciliations,
+  createReconciliation,
 } from "@/actions/finance/reconciliation-actions";
 import { getChartOfAccounts } from "@/actions/finance/accounting";
 import { formatRupiah } from "@/lib/utils/utils";
 import { toast } from "sonner";
+
+// ── Types ──
 
 interface BankStatementRow {
   id: string;
@@ -55,17 +64,31 @@ interface BankAccount {
   category?: string;
 }
 
+interface ReconciliationRecord {
+  id: string;
+  accountId: string;
+  periodStart: string;
+  periodEnd: string;
+  bankBalance: number;
+  bookBalance: number;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  createdAt: string;
+  account: { code: string; name: string };
+  createdBy: { name: string };
+  _count: { items: number; adjustments: number };
+}
+
+// ── CSV Parser ──
+
 function parseBankStatementCsv(text: string): BankStatementRow[] {
   const lines = text.trim().split("\n");
   if (lines.length < 2) return [];
 
-  // Detect separator: comma or semicolon
   const separator = lines[0].includes(";") ? ";" : ",";
   const headers = lines[0]
     .split(separator)
     .map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
 
-  // Try to find column indices
   const dateIdx = headers.findIndex(
     (h) => h.includes("tanggal") || h === "date" || h === "tgl",
   );
@@ -87,7 +110,7 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
     (h) => h === "amount" || h === "jumlah" || h === "nominal",
   );
 
-  if (dateIdx === -1) return []; // Need at least a date column
+  if (dateIdx === -1) return [];
 
   const rows: BankStatementRow[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -99,7 +122,6 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
     const dateStr = cols[dateIdx];
     if (!dateStr) continue;
 
-    // Parse date (support DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY)
     let date: Date;
     if (dateStr.includes("/")) {
       const parts = dateStr.split("/");
@@ -117,7 +139,6 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
 
     let amount = 0;
     if (debitIdx >= 0 && creditIdx >= 0) {
-      // Separate debit/credit columns
       const debit =
         parseFloat(
           (cols[debitIdx] || "0").replace(/[^0-9.,-]/g, "").replace(",", "."),
@@ -126,7 +147,7 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
         parseFloat(
           (cols[creditIdx] || "0").replace(/[^0-9.,-]/g, "").replace(",", "."),
         ) || 0;
-      amount = debit - credit; // positive = inflow, negative = outflow
+      amount = debit - credit;
     } else if (amountIdx >= 0) {
       amount =
         parseFloat(
@@ -135,18 +156,47 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
     }
 
     if (amount !== 0) {
-      rows.push({
-        id: `S${i}`,
-        date,
-        description,
-        amount,
-      });
+      rows.push({ id: `S${i}`, date, description, amount });
     }
   }
   return rows;
 }
 
+// ── Status Badge ──
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    DRAFT: "bg-gray-100 text-gray-700 border-gray-200",
+    IN_PROGRESS: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    CANCELLED: "bg-red-50 text-red-700 border-red-200",
+  };
+  const labels: Record<string, string> = {
+    DRAFT: "Draft",
+    IN_PROGRESS: "In Progress",
+    COMPLETED: "Selesai",
+    CANCELLED: "Dibatalkan",
+  };
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${styles[status] ?? styles.DRAFT}`}
+    >
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+// ── Main Component ──
+
 export default function BankReconciliationPage() {
+  const router = useRouter();
+
+  // History
+  const [reconciliations, setReconciliations] = useState<ReconciliationRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Create flow
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -154,8 +204,22 @@ export default function BankReconciliationPage() {
   const [results, setResults] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [parsedRows, setParsedRows] = useState<BankStatementRow[]>([]);
 
+  // Load history
+  useEffect(() => {
+    setLoadingHistory(true);
+    listReconciliations()
+      .then((res: Record<string, unknown>) => {
+        if (res.success) {
+          setReconciliations(res.data as unknown as ReconciliationRecord[]);
+        }
+      })
+      .finally(() => setLoadingHistory(false));
+  }, []);
+
+  // Load accounts
   useEffect(() => {
     getChartOfAccounts().then((res: Record<string, unknown>) => {
       if (res.success) {
@@ -232,6 +296,42 @@ export default function BankReconciliationPage() {
     }
   };
 
+  const handleSaveAndContinue = async () => {
+    if (!selectedAccount || !startDate || !endDate) {
+      toast.error("Pilih akun bank dan periode terlebih dahulu");
+      return;
+    }
+    if (parsedRows.length === 0) {
+      toast.error("Upload file bank statement terlebih dahulu");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await createReconciliation(
+        selectedAccount,
+        new Date(startDate),
+        new Date(endDate),
+        parsedRows,
+      );
+      if (res && "success" in res && res.success) {
+        const data = res.data as { id: string };
+        toast.success("Rekonsiliasi berhasil dibuat");
+        router.push(`/finance/bank-reconciliation/${data.id}`);
+      } else {
+        toast.error(
+          res && "error" in res
+            ? (res.error as string)
+            : "Gagal menyimpan rekonsiliasi",
+        );
+      }
+    } catch {
+      toast.error("Gagal menyimpan rekonsiliasi. Silakan coba lagi.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleConfirm = async () => {
     const matchedIds = results
       .filter((r) => r.confidence === 100 && r.matchedJournalLineId)
@@ -250,6 +350,12 @@ export default function BankReconciliationPage() {
         toast.success(data.message);
         setResults([]);
         setParsedRows([]);
+        setShowCreateForm(false);
+        // Refresh history
+        setLoadingHistory(true);
+        listReconciliations().then((r: Record<string, unknown>) => {
+          if (r.success) setReconciliations(r.data as unknown as ReconciliationRecord[]);
+        }).finally(() => setLoadingHistory(false));
       } else {
         toast.error(
           res && "error" in res
@@ -269,181 +375,321 @@ export default function BankReconciliationPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Rekonsiliasi Bank</h1>
-        <p className="text-muted-foreground">
-          Cocokkan mutasi bank dengan jurnal umum
-        </p>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Rekonsiliasi Bank</h1>
+          <p className="text-muted-foreground">
+            Cocokkan mutasi bank dengan jurnal umum
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="gap-2"
+        >
+          {showCreateForm ? (
+            <>
+              <ArrowLeft className="h-4 w-4" />
+              Kembali
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              Rekonsiliasi Baru
+            </>
+          )}
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Parameter Rekonsiliasi</CardTitle>
-          <CardDescription>
-            Pilih akun bank, periode, dan upload file mutasi bank (CSV)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Akun Bank</Label>
-              <Select
-                value={selectedAccount}
-                onValueChange={setSelectedAccount}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih Akun" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
-                      {acc.code} - {acc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tanggal Mulai</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tanggal Akhir</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>File Mutasi Bank (CSV)</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="file"
-                accept=".csv,.txt"
-                onChange={handleFileUpload}
-                className="flex-1"
-              />
-              {parsedRows.length > 0 && (
-                <span className="text-sm text-emerald-600 flex items-center gap-1">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  {parsedRows.length} baris
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Format CSV: kolom tanggal, keterangan, jumlah (atau debit + credit
-              terpisah)
-            </p>
-          </div>
-
-          <div className="pt-4 flex justify-end">
-            <Button
-              onClick={handleAutoMatch}
-              disabled={loading || parsedRows.length === 0}
-              className="gap-2"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UploadCloud className="h-4 w-4" />
-              )}
-              Auto Match
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {results.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>Hasil Rekonsiliasi</CardTitle>
-                <CardDescription>
-                  Review hasil pencocokan dan konfirmasi
-                </CardDescription>
+      {/* ── Create Form (hidden when showing history) ── */}
+      {showCreateForm ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Parameter Rekonsiliasi</CardTitle>
+              <CardDescription>
+                Pilih akun bank, periode, dan upload file mutasi bank (CSV)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Akun Bank</Label>
+                  <Select
+                    value={selectedAccount}
+                    onValueChange={setSelectedAccount}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih Akun" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((acc) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tanggal Mulai</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tanggal Akhir</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="flex gap-3 text-sm">
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <CheckCircle className="h-4 w-4" /> {matchedCount} cocok
-                </span>
-                <span className="flex items-center gap-1 text-amber-600">
-                  <AlertCircle className="h-4 w-4" /> {unmatchedCount} belum
-                  cocok
-                </span>
+
+              <div className="space-y-2">
+                <Label>File Mutasi Bank (CSV)</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleFileUpload}
+                    className="flex-1"
+                  />
+                  {parsedRows.length > 0 && (
+                    <span className="text-sm text-emerald-600 flex items-center gap-1">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      {parsedRows.length} baris
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Format CSV: kolom tanggal, keterangan, jumlah (atau debit + credit terpisah)
+                </p>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/20 text-muted-foreground">
-                    <th className="h-10 px-4 text-left font-medium">Tanggal</th>
-                    <th className="h-10 px-4 text-left font-medium">
-                      Keterangan
-                    </th>
-                    <th className="h-10 px-4 text-right font-medium">Jumlah</th>
-                    <th className="h-10 px-4 text-left font-medium">Status</th>
-                    <th className="h-10 px-4 text-left font-medium">
-                      Jurnal Cocok
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((r, i) => (
-                    <tr key={i} className="border-b hover:bg-muted/50">
-                      <td className="p-4 whitespace-nowrap">
-                        {new Date(r.statementRow.date).toLocaleDateString(
-                          "id-ID",
-                        )}
-                      </td>
-                      <td className="p-4">{r.statementRow.description}</td>
-                      <td className="p-4 text-right font-mono">
-                        {formatRupiah(r.statementRow.amount)}
-                      </td>
-                      <td className="p-4">
-                        {r.confidence === 100 ? (
-                          <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded text-xs">
-                            <CheckCircle className="h-3.5 w-3.5" /> Cocok
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded text-xs">
-                            <AlertCircle className="h-3.5 w-3.5" /> Belum Cocok
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground">
-                        {r.matchedJournalLineId
-                          ? `ID: ${r.matchedJournalLineId.slice(0, 8)}...`
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {matchedCount > 0 && (
-              <div className="mt-4 flex justify-end">
+
+              <div className="pt-4 flex justify-end gap-3">
                 <Button
-                  onClick={handleConfirm}
-                  disabled={confirming}
+                  variant="outline"
+                  onClick={() => setShowCreateForm(false)}
+                >
+                  Batal
+                </Button>
+                {parsedRows.length > 0 && (
+                  <Button
+                    onClick={handleAutoMatch}
+                    disabled={loading || !selectedAccount || !startDate || !endDate}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <UploadCloud className="h-4 w-4" />
+                    )}
+                    Auto Match
+                  </Button>
+                )}
+                <Button
+                  onClick={handleSaveAndContinue}
+                  disabled={saving || parsedRows.length === 0}
                   className="gap-2"
                 >
-                  {confirming ? (
+                  {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <CheckCircle className="h-4 w-4" />
                   )}
-                  Konfirmasi Rekonsiliasi ({matchedCount} baris)
+                  Simpan & Lanjutkan
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Match Results (inline preview) ── */}
+          {results.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>Hasil Pencocokan Sementara</CardTitle>
+                    <CardDescription>
+                      Review hasil auto match sebelum menyimpan
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-3 text-sm">
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <CheckCircle className="h-4 w-4" /> {matchedCount} cocok
+                    </span>
+                    <span className="flex items-center gap-1 text-amber-600">
+                      <AlertCircle className="h-4 w-4" /> {unmatchedCount} belum
+                      cocok
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/20 text-muted-foreground">
+                        <th className="h-10 px-4 text-left font-medium">Tanggal</th>
+                        <th className="h-10 px-4 text-left font-medium">Keterangan</th>
+                        <th className="h-10 px-4 text-right font-medium">Jumlah</th>
+                        <th className="h-10 px-4 text-left font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.map((r, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/50">
+                          <td className="p-4 whitespace-nowrap">
+                            {new Date(r.statementRow.date).toLocaleDateString("id-ID")}
+                          </td>
+                          <td className="p-4">{r.statementRow.description}</td>
+                          <td className="p-4 text-right font-mono">
+                            {formatRupiah(r.statementRow.amount)}
+                          </td>
+                          <td className="p-4">
+                            {r.confidence === 100 ? (
+                              <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded text-xs">
+                                <CheckCircle className="h-3.5 w-3.5" /> Cocok
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded text-xs">
+                                <AlertCircle className="h-3.5 w-3.5" /> Belum Cocok
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {matchedCount > 0 && (
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={confirming}
+                      className="gap-2"
+                    >
+                      {confirming ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4" />
+                      )}
+                      Konfirmasi ({matchedCount} baris)
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : (
+        /* ── History List ── */
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Riwayat Rekonsiliasi
+            </CardTitle>
+            <CardDescription>
+              Daftar rekonsiliasi bank yang telah dibuat
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Memuat data...
+              </div>
+            ) : reconciliations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <History className="h-12 w-12 mb-3 opacity-30" />
+                <p className="font-medium">Belum ada rekonsiliasi</p>
+                <p className="text-sm">Klik &quot;Rekonsiliasi Baru&quot; untuk memulai</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/20 text-muted-foreground">
+                      <th className="h-10 px-4 text-left font-medium">Periode</th>
+                      <th className="h-10 px-4 text-left font-medium">Akun</th>
+                      <th className="h-10 px-4 text-right font-medium">Saldo Bank</th>
+                      <th className="h-10 px-4 text-right font-medium">Saldo Buku</th>
+                      <th className="h-10 px-4 text-center font-medium">Status</th>
+                      <th className="h-10 px-4 text-left font-medium">Dibuat</th>
+                      <th className="h-10 px-4 text-right font-medium">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconciliations.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b hover:bg-muted/50 cursor-pointer"
+                        onClick={() =>
+                          router.push(`/finance/bank-reconciliation/${r.id}`)
+                        }
+                      >
+                        <td className="p-4 whitespace-nowrap">
+                          {new Date(r.periodStart).toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                          })}{" "}
+                          –{" "}
+                          {new Date(r.periodEnd).toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="p-4">
+                          <div className="font-medium">
+                            {r.account.code}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.account.name}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-mono">
+                          {formatRupiah(r.bankBalance)}
+                        </td>
+                        <td className="p-4 text-right font-mono">
+                          {formatRupiah(r.bookBalance)}
+                        </td>
+                        <td className="p-4 text-center">
+                          <StatusBadge status={r.status} />
+                        </td>
+                        <td className="p-4 text-muted-foreground text-xs">
+                          {new Date(r.createdAt).toLocaleDateString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          <br />
+                          {r.createdBy.name}
+                        </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/finance/bank-reconciliation/${r.id}`);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Detail
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

@@ -52,6 +52,7 @@ model User {
   readyToPrintPettyCashReports             PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
   physicalSignedPettyCashReports           PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
   finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
+  bankReconciliations                      BankReconciliation[]
   voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
   lockedPeriods                            PeriodLock[]
   salesVisits                              SalesVisit[]           @relation("SalesVisitCreator")
@@ -923,6 +924,7 @@ model Account {
   depreciationExpense   FixedAsset[]           @relation("DeprExpenseAccount")
   journalLines          JournalLine[]
   pettyCashTransactions PettyCashTransaction[]
+  bankReconciliations   BankReconciliation[]
 
   @@index([code])
   @@index([parentId])
@@ -948,6 +950,7 @@ model JournalEntry {
   createdBy            User?                 @relation("JournalCreator", fields: [createdById], references: [id])
   lines                JournalLine[]
   pettyCashTransaction PettyCashTransaction?
+  reconciliationAdjustments BankReconciliationAdjustment[]
 
   @@index([entryDate])
   @@index([referenceType, referenceId])
@@ -968,6 +971,8 @@ model JournalLine {
 
   account        Account      @relation(fields: [accountId], references: [id])
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  bankReconciliationItems BankReconciliationItem[]
 
   @@index([journalEntryId])
   @@index([accountId])
@@ -1323,6 +1328,7 @@ enum ReferenceType {
   SALES_RETURN
   PURCHASE_RETURN
   PETTY_CASH
+  BANK_RECONCILIATION
 }
 
 enum JournalStatus {
@@ -1750,4 +1756,113 @@ model SalesVisit {
 
   @@index([userId])
   @@index([customerId])
+}
+
+// ==========================================
+// Bank Reconciliation
+// ==========================================
+
+model BankReconciliation {
+  id            String               @id @default(uuid())
+  accountId     String
+  account       Account              @relation(fields: [accountId], references: [id])
+  periodStart   DateTime
+  periodEnd     DateTime
+  bankBalance   Decimal              @db.Decimal(15, 2)
+  bookBalance   Decimal              @db.Decimal(15, 2)
+  adjustedBankBalance Decimal?        @db.Decimal(15, 2)
+  adjustedBookBalance Decimal?        @db.Decimal(15, 2)
+  status        ReconciliationStatus @default(DRAFT)
+  notes         String?
+  createdById   String
+  createdBy     User                 @relation(fields: [createdById], references: [id])
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  completedAt   DateTime?
+
+  items         BankReconciliationItem[]
+  adjustments   BankReconciliationAdjustment[]
+
+  @@index([accountId])
+  @@index([periodStart, periodEnd])
+  @@index([status])
+}
+
+enum ReconciliationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model BankReconciliationItem {
+  id                String              @id @default(uuid())
+  reconciliationId  String
+  reconciliation    BankReconciliation  @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  // Bank statement side
+  bankDate          DateTime?
+  bankDescription   String?
+  bankAmount        Decimal?            @db.Decimal(15, 2)
+  bankRef           String?
+
+  // GL side (matched journal line)
+  journalLineId     String?
+  journalLine       JournalLine?        @relation(fields: [journalLineId], references: [id])
+  glDate            DateTime?
+  glDescription     String?
+  glDebit           Decimal?            @db.Decimal(15, 2)
+  glCredit          Decimal?            @db.Decimal(15, 2)
+
+  // Matching
+  matchStatus       MatchStatus         @default(UNMATCHED_BANK_ONLY)
+  confidence        Int                 @default(0)
+  matchedBy         String?
+  matchedAt         DateTime?
+  notes             String?
+
+  @@index([reconciliationId])
+  @@index([journalLineId])
+  @@index([matchStatus])
+}
+
+enum MatchStatus {
+  MATCHED
+  UNMATCHED_BANK_ONLY
+  UNMATCHED_GL_ONLY
+  MANUALLY_MATCHED
+}
+
+model BankReconciliationAdjustment {
+  id                String              @id @default(uuid())
+  reconciliationId  String
+  reconciliation    BankReconciliation  @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  side              AdjustmentSide
+  type              AdjustmentType
+  description       String
+  amount            Decimal             @db.Decimal(15, 2)
+  journalEntryId    String?
+  journalEntry      JournalEntry?       @relation(fields: [journalEntryId], references: [id])
+
+  createdAt         DateTime            @default(now())
+
+  @@index([reconciliationId])
+}
+
+enum AdjustmentSide {
+  BANK
+  BOOK
+}
+
+enum AdjustmentType {
+  DEPOSIT_IN_TRANSIT
+  OUTSTANDING_CHECK
+  BANK_FEE
+  INTEREST_INCOME
+  NSF_CHECK
+  COLLECTION
+  CORRECTION_ADD
+  CORRECTION_SUBTRACT
+  OTHER
 }

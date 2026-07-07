@@ -1,23 +1,582 @@
 import { prisma } from "@/lib/core/prisma";
-import { JournalStatus } from "@prisma/client";
+import { NotFoundError } from "@/lib/errors/errors";
+import {
+  AdjustmentSide,
+  AdjustmentType,
+  JournalStatus,
+  MatchStatus,
+  ReconciliationStatus,
+} from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+
+// ==========================================
+// Types
+// ==========================================
 
 export interface BankStatementRow {
-  id: string; // client-generated ID for tracking
+  id: string;
   date: Date;
   description: string;
-  amount: number; // positive = inflow/debit to bank, negative = outflow/credit to bank
+  amount: number; // positive = inflow/credit to bank, negative = outflow/debit from bank
+  ref?: string;
 }
 
 export interface MatchResult {
   statementRow: BankStatementRow;
   matchedJournalLineId?: string;
-  confidence: number; // 0-100%
+  confidence: number;
   candidates: Record<string, unknown>[];
 }
 
+// ==========================================
+// Service
+// ==========================================
+
 export class ReconciliationService {
   /**
-   * Auto-match bank statement rows against un-reconciled journal lines for a specific Bank Account
+   * Create a new reconciliation session and save bank statement items
+   */
+  static async createReconciliation(
+    accountId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    statements: BankStatementRow[],
+    userId: string,
+  ) {
+    // Calculate bank balance from statements
+    const bankBalance = statements.reduce((sum, s) => sum + s.amount, 0);
+
+    // Get GL balance for the account in the period
+    const glLines = await prisma.journalLine.findMany({
+      where: {
+        accountId,
+        journalEntry: {
+          status: JournalStatus.POSTED,
+          entryDate: { gte: periodStart, lte: periodEnd },
+        },
+      },
+      include: { journalEntry: true },
+    });
+
+    const bookBalance = glLines.reduce((sum, line) => {
+      const debit = line.debit?.toNumber() ?? 0;
+      const credit = line.credit?.toNumber() ?? 0;
+      return sum + debit - credit;
+    }, 0);
+
+    // Create reconciliation header with items
+    const reconciliation = await prisma.bankReconciliation.create({
+      data: {
+        accountId,
+        periodStart,
+        periodEnd,
+        bankBalance: new Decimal(bankBalance),
+        bookBalance: new Decimal(bookBalance),
+        createdById: userId,
+        status: ReconciliationStatus.DRAFT,
+        items: {
+          create: statements.map((s) => ({
+            bankDate: s.date,
+            bankDescription: s.description,
+            bankAmount: new Decimal(s.amount),
+            bankRef: s.ref ?? null,
+            matchStatus: MatchStatus.UNMATCHED_BANK_ONLY,
+          })),
+        },
+      },
+      include: {
+        items: true,
+        account: { select: { code: true, name: true } },
+      },
+    });
+
+    return reconciliation;
+  }
+
+  /**
+   * Get reconciliation with all items and adjustments
+   */
+  static async getReconciliation(id: string) {
+    const reconciliation = await prisma.bankReconciliation.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            journalLine: {
+              include: {
+                journalEntry: {
+                  select: {
+                    id: true,
+                    entryNumber: true,
+                    entryDate: true,
+                    description: true,
+                    reference: true,
+                    referenceType: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { bankDate: "asc" },
+        },
+        adjustments: {
+          include: {
+            journalEntry: {
+              select: { id: true, entryNumber: true },
+            },
+          },
+        },
+        account: { select: { id: true, code: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundError("BankReconciliation", id);
+    }
+
+    return reconciliation;
+  }
+
+  /**
+   * List all reconciliations
+   */
+  static async listReconciliations(accountId?: string) {
+    return prisma.bankReconciliation.findMany({
+      where: accountId ? { accountId } : {},
+      include: {
+        account: { select: { code: true, name: true } },
+        createdBy: { select: { name: true } },
+        _count: { select: { items: true, adjustments: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+  }
+
+  /**
+   * Auto-match bank statement rows against journal lines and save results
+   */
+  static async autoMatchAndSave(reconciliationId: string) {
+    const reconciliation = await prisma.bankReconciliation.findUnique({
+      where: { id: reconciliationId },
+      include: { items: true },
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundError("BankReconciliation", reconciliationId);
+    }
+
+    const unmatchedItems = reconciliation.items.filter(
+      (i) => i.matchStatus === MatchStatus.UNMATCHED_BANK_ONLY,
+    );
+
+    // Get unreconciled journal lines for this account
+    const journalLines = await prisma.journalLine.findMany({
+      where: {
+        accountId: reconciliation.accountId,
+        reconciledAt: null,
+        journalEntry: {
+          status: JournalStatus.POSTED,
+          entryDate: {
+            gte: reconciliation.periodStart,
+            lte: reconciliation.periodEnd,
+          },
+        },
+      },
+      include: { journalEntry: true },
+    });
+
+    let matchedCount = 0;
+    let unmatchedCount = 0;
+
+    for (const item of unmatchedItems) {
+      const bankAmount = item.bankAmount?.toNumber() ?? 0;
+      const bankDate = item.bankDate;
+
+      if (!bankDate) {
+        unmatchedCount++;
+        continue;
+      }
+
+      // Find candidates: match amount (within tolerance) and date (within 3 days)
+      const candidates = journalLines.filter((line) => {
+        const lineDebit = line.debit?.toNumber() ?? 0;
+        const lineCredit = line.credit?.toNumber() ?? 0;
+        const lineAmount = lineDebit - lineCredit;
+
+        if (Math.abs(lineAmount - bankAmount) > 0.01) return false;
+
+        const daysDiff =
+          Math.abs(
+            line.journalEntry.entryDate.getTime() - bankDate.getTime(),
+          ) /
+          (1000 * 3600 * 24);
+        return daysDiff <= 3;
+      });
+
+      if (candidates.length === 1) {
+        await prisma.bankReconciliationItem.update({
+          where: { id: item.id },
+          data: {
+            journalLineId: candidates[0].id,
+            glDate: candidates[0].journalEntry.entryDate,
+            glDescription: candidates[0].journalEntry.description,
+            glDebit: candidates[0].debit,
+            glCredit: candidates[0].credit,
+            matchStatus: MatchStatus.MATCHED,
+            confidence: 100,
+            matchedBy: "AUTO",
+            matchedAt: new Date(),
+          },
+        });
+        matchedCount++;
+      } else if (candidates.length > 1) {
+        // Multiple candidates — keep as unmatched for manual review
+        unmatchedCount++;
+      } else {
+        unmatchedCount++;
+      }
+    }
+
+    // Update status
+    await prisma.bankReconciliation.update({
+      where: { id: reconciliationId },
+      data: { status: ReconciliationStatus.IN_PROGRESS },
+    });
+
+    return { matched: matchedCount, unmatched: unmatchedCount };
+  }
+
+  /**
+   * Manually match a bank item with a journal line
+   */
+  static async manualMatch(
+    itemId: string,
+    journalLineId: string,
+  ) {
+    const journalLine = await prisma.journalLine.findUnique({
+      where: { id: journalLineId },
+      include: { journalEntry: true },
+    });
+
+    if (!journalLine) {
+      throw new NotFoundError("JournalLine", journalLineId);
+    }
+
+    return prisma.bankReconciliationItem.update({
+      where: { id: itemId },
+      data: {
+        journalLineId,
+        glDate: journalLine.journalEntry.entryDate,
+        glDescription: journalLine.journalEntry.description,
+        glDebit: journalLine.debit,
+        glCredit: journalLine.credit,
+        matchStatus: MatchStatus.MANUALLY_MATCHED,
+        confidence: 100,
+        matchedBy: "MANUAL",
+        matchedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Add an adjustment to the reconciliation
+   */
+  static async addAdjustment(
+    reconciliationId: string,
+    adjustment: {
+      side: AdjustmentSide;
+      type: AdjustmentType;
+      description: string;
+      amount: number;
+    },
+  ) {
+    return prisma.bankReconciliationAdjustment.create({
+      data: {
+        reconciliationId,
+        side: adjustment.side,
+        type: adjustment.type,
+        description: adjustment.description,
+        amount: new Decimal(adjustment.amount),
+      },
+    });
+  }
+
+  /**
+   * Remove an adjustment
+   */
+  static async removeAdjustment(adjustmentId: string) {
+    return prisma.bankReconciliationAdjustment.delete({
+      where: { id: adjustmentId },
+    });
+  }
+
+  /**
+   * Calculate adjusted balances for both sides
+   */
+  static async calculateAdjustedBalances(reconciliationId: string) {
+    const reconciliation = await prisma.bankReconciliation.findUnique({
+      where: { id: reconciliationId },
+      include: { adjustments: true },
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundError("BankReconciliation", reconciliationId);
+    }
+
+    const bankBalance = reconciliation.bankBalance.toNumber();
+    const bookBalance = reconciliation.bookBalance.toNumber();
+
+    let bankAdjustments = 0;
+    let bookAdjustments = 0;
+
+    for (const adj of reconciliation.adjustments) {
+      const amount = adj.amount.toNumber();
+      if (adj.side === AdjustmentSide.BANK) {
+        bankAdjustments += amount;
+      } else {
+        bookAdjustments += amount;
+      }
+    }
+
+    const adjustedBankBalance = bankBalance + bankAdjustments;
+    const adjustedBookBalance = bookBalance + bookAdjustments;
+
+    await prisma.bankReconciliation.update({
+      where: { id: reconciliationId },
+      data: {
+        adjustedBankBalance: new Decimal(adjustedBankBalance),
+        adjustedBookBalance: new Decimal(adjustedBookBalance),
+      },
+    });
+
+    return {
+      bankBalance,
+      bookBalance,
+      bankAdjustments,
+      bookAdjustments,
+      adjustedBankBalance,
+      adjustedBookBalance,
+      difference: adjustedBankBalance - adjustedBookBalance,
+    };
+  }
+
+  /**
+   * Complete the reconciliation — mark matched lines as reconciled
+   */
+  static async completeReconciliation(reconciliationId: string) {
+    const reconciliation = await prisma.bankReconciliation.findUnique({
+      where: { id: reconciliationId },
+      include: { items: true },
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundError("BankReconciliation", reconciliationId);
+    }
+
+    // Mark all matched journal lines as reconciled
+    const matchedLineIds = reconciliation.items
+      .filter((i) => i.journalLineId)
+      .map((i) => i.journalLineId!);
+
+    if (matchedLineIds.length > 0) {
+      await prisma.journalLine.updateMany({
+        where: { id: { in: matchedLineIds } },
+        data: { reconciledAt: new Date() },
+      });
+    }
+
+    // Update reconciliation status
+    return prisma.bankReconciliation.update({
+      where: { id: reconciliationId },
+      data: {
+        status: ReconciliationStatus.COMPLETED,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Get GL entries for an account (for side-by-side view)
+   */
+  static async getGLEntries(
+    accountId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const lines = await prisma.journalLine.findMany({
+      where: {
+        accountId,
+        journalEntry: {
+          status: JournalStatus.POSTED,
+          entryDate: { gte: startDate, lte: endDate },
+        },
+      },
+      include: {
+        journalEntry: {
+          select: {
+            id: true,
+            entryNumber: true,
+            entryDate: true,
+            description: true,
+            reference: true,
+            referenceType: true,
+          },
+        },
+      },
+      orderBy: { journalEntry: { entryDate: "asc" } },
+    });
+
+    let runningBalance = 0;
+    return lines.map((line) => {
+      const debit = line.debit?.toNumber() ?? 0;
+      const credit = line.credit?.toNumber() ?? 0;
+      runningBalance += debit - credit;
+
+      return {
+        id: line.id,
+        date: line.journalEntry.entryDate,
+        entryNumber: line.journalEntry.entryNumber,
+        description: line.journalEntry.description,
+        debit,
+        credit,
+        balance: runningBalance,
+        isReconciled: !!line.reconciledAt,
+      };
+    });
+  }
+
+  /**
+   * Get unreconciled GL entries for manual matching
+   */
+  static async getUnreconciledEntries(
+    accountId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    return prisma.journalLine.findMany({
+      where: {
+        accountId,
+        reconciledAt: null,
+        journalEntry: {
+          status: JournalStatus.POSTED,
+          entryDate: { gte: startDate, lte: endDate },
+        },
+      },
+      include: {
+        journalEntry: {
+          select: {
+            id: true,
+            entryNumber: true,
+            entryDate: true,
+            description: true,
+          },
+        },
+      },
+      orderBy: { journalEntry: { entryDate: "asc" } },
+    });
+  }
+
+  /**
+   * Create journal entries for book-side adjustments
+   */
+  static async createAdjustmentJournals(
+    reconciliationId: string,
+    userId: string,
+  ): Promise<{ created: number }> {
+    const reconciliation = await prisma.bankReconciliation.findUnique({
+      where: { id: reconciliationId },
+      include: { adjustments: true, account: true },
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundError("BankReconciliation", reconciliationId);
+    }
+
+    const bookAdjustments = reconciliation.adjustments.filter(
+      (a) => a.side === AdjustmentSide.BOOK && !a.journalEntryId,
+    );
+
+    let created = 0;
+
+    for (const adj of bookAdjustments) {
+      const amount = adj.amount.toNumber();
+      if (amount === 0) continue;
+
+      const isPositive = amount > 0;
+      const absAmount = Math.abs(amount);
+
+      // Get account IDs for the journal
+      const { debitAccountCode, creditAccountCode } =
+        getAdjustmentAccountCodes(adj.type);
+
+      const debitAccount = await prisma.account.findUnique({
+        where: { code: debitAccountCode },
+      });
+      const creditAccount = await prisma.account.findUnique({
+        where: { code: creditAccountCode },
+      });
+
+      if (!debitAccount || !creditAccount) continue;
+
+      // Get next entry number
+      const lastEntry = await prisma.journalEntry.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { entryNumber: true },
+      });
+      const nextNumber = generateNextEntryNumber(
+        lastEntry?.entryNumber ?? "JE - 2026 -00000",
+      );
+
+      // Create journal entry
+      const journalEntry = await prisma.journalEntry.create({
+        data: {
+          entryNumber: nextNumber,
+          entryDate: new Date(),
+          description: `Rekonsiliasi Bank - ${adj.description}`,
+          reference: reconciliationId,
+          referenceType: "BANK_RECONCILIATION",
+          status: "POSTED",
+          createdById: userId,
+          isAutoGenerated: true,
+          lines: {
+            create: [
+              {
+                accountId: isPositive
+                  ? reconciliation.accountId
+                  : creditAccount.id,
+                debit: isPositive ? absAmount : 0,
+                credit: isPositive ? 0 : absAmount,
+                description: adj.description,
+              },
+              {
+                accountId: isPositive
+                  ? debitAccount.id
+                  : reconciliation.accountId,
+                debit: isPositive ? 0 : absAmount,
+                credit: isPositive ? absAmount : 0,
+                description: adj.description,
+              },
+            ],
+          },
+        },
+      });
+
+      // Link adjustment to journal
+      await prisma.bankReconciliationAdjustment.update({
+        where: { id: adj.id },
+        data: { journalEntryId: journalEntry.id },
+      });
+
+      created++;
+    }
+
+    return { created };
+  }
+
+  /**
+   * Legacy: auto-match without persistence (kept for backward compatibility)
    */
   static async autoMatch(
     accountId: string,
@@ -25,34 +584,21 @@ export class ReconciliationService {
     endDate: Date,
     statements: BankStatementRow[],
   ): Promise<MatchResult[]> {
-    // Fetch journal lines for this account that are not yet reconciled
-    // For prototype, we assume we just match against any POSTED journal entry in that date range
-    // Since we don't have an `isReconciled` flag in JournalLine, we just find potential matches.
-
     const journalLines = await prisma.journalLine.findMany({
       where: {
         accountId,
-        reconciledAt: null, // Exclude already-reconciled lines
+        reconciledAt: null,
         journalEntry: {
           status: JournalStatus.POSTED,
-          entryDate: {
-            gte: startDate,
-            lte: endDate,
-          },
+          entryDate: { gte: startDate, lte: endDate },
         },
       },
-      include: {
-        journalEntry: true,
-      },
+      include: { journalEntry: true },
     });
 
     const results: MatchResult[] = [];
 
     for (const row of statements) {
-      // Amount in journal: Debit is positive balance for Asset (Bank)
-      // So if row.amount > 0, we look for Debit = row.amount
-      // If row.amount < 0, we look for Credit = Math.abs(row.amount)
-
       const targetDebit = row.amount > 0 ? row.amount : 0;
       const targetCredit = row.amount < 0 ? Math.abs(row.amount) : 0;
 
@@ -60,14 +606,13 @@ export class ReconciliationService {
         const lineDebit = line.debit ? line.debit.toNumber() : 0;
         const lineCredit = line.credit ? line.credit.toNumber() : 0;
 
-        // Match amount with epsilon tolerance for floating-point precision
-        const EPSILON = 0.01;
-        if (Math.abs(lineDebit - targetDebit) > EPSILON) return false;
-        if (Math.abs(lineCredit - targetCredit) > EPSILON) return false;
+        if (Math.abs(lineDebit - targetDebit) > 0.01) return false;
+        if (Math.abs(lineCredit - targetCredit) > 0.01) return false;
 
-        // Match date (within 3 days)
         const daysDiff =
-          Math.abs(line.journalEntry.entryDate.getTime() - row.date.getTime()) /
+          Math.abs(
+            line.journalEntry.entryDate.getTime() - row.date.getTime(),
+          ) /
           (1000 * 3600 * 24);
         return daysDiff <= 3;
       });
@@ -76,14 +621,13 @@ export class ReconciliationService {
         results.push({
           statementRow: row,
           matchedJournalLineId: candidates[0].id,
-          confidence: 100, // Exact amount and within 3 days
+          confidence: 100,
           candidates,
         });
       } else if (candidates.length > 1) {
-        // Return all candidates for manual review
         results.push({
           statementRow: row,
-          confidence: 50, // Multiple exact amount matches
+          confidence: 50,
           candidates,
         });
       } else {
@@ -99,7 +643,7 @@ export class ReconciliationService {
   }
 
   /**
-   * Confirm reconciliation — mark matched journal lines as reconciled
+   * Legacy: confirm reconciliation (kept for backward compatibility)
    */
   static async confirmReconciliation(
     matchedLineIds: string[],
@@ -113,4 +657,37 @@ export class ReconciliationService {
 
     return { count: result.count };
   }
+}
+
+// ==========================================
+// Helper Functions
+// ==========================================
+
+function getAdjustmentAccountCodes(type: AdjustmentType): {
+  debitAccountCode: string;
+  creditAccountCode: string;
+} {
+  switch (type) {
+    case AdjustmentType.BANK_FEE:
+      return { debitAccountCode: "5-501", creditAccountCode: "1-114" };
+    case AdjustmentType.INTEREST_INCOME:
+      return { debitAccountCode: "1-114", creditAccountCode: "4-401" };
+    case AdjustmentType.NSF_CHECK:
+      return { debitAccountCode: "2-110b", creditAccountCode: "1-114" };
+    case AdjustmentType.COLLECTION:
+      return { debitAccountCode: "1-114", creditAccountCode: "1-115b" };
+    case AdjustmentType.CORRECTION_ADD:
+      return { debitAccountCode: "1-114", creditAccountCode: "3-201b" };
+    case AdjustmentType.CORRECTION_SUBTRACT:
+      return { debitAccountCode: "3-201b", creditAccountCode: "1-114" };
+    default:
+      return { debitAccountCode: "1-199", creditAccountCode: "1-114" };
+  }
+}
+
+function generateNextEntryNumber(lastEntryNumber: string): string {
+  const match = lastEntryNumber.match(/(\d+)$/);
+  if (!match) return "JE - 2026 -00001";
+  const nextNum = parseInt(match[1]) + 1;
+  return `JE - 2026 -${nextNum.toString().padStart(5, "0")}`;
 }
