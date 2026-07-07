@@ -61,19 +61,19 @@ export default function KioskRefreshWrapper({ initialOrders, employees, machines
     const [isInitialized, setIsInitialized] = useState(false);
     const [_isPending, startTransition] = useTransition();
 
-    // Hydrate operator from localStorage
+    // Hydrate operator from sessionStorage (per-tab, not synced across devices)
     useEffect(() => {
-        const saved = localStorage.getItem('kiosk_operator_id');
+        const saved = sessionStorage.getItem('kiosk_operator_id');
         if (saved) setSelectedOperatorId(saved);
         setIsInitialized(true);
     }, []);
 
-    // Save operator to localStorage
+    // Save operator to sessionStorage (per-tab isolation)
     useEffect(() => {
         if (selectedOperatorId) {
-            localStorage.setItem('kiosk_operator_id', selectedOperatorId);
+            sessionStorage.setItem('kiosk_operator_id', selectedOperatorId);
         } else if (isInitialized) {
-            localStorage.removeItem('kiosk_operator_id');
+            sessionStorage.removeItem('kiosk_operator_id');
         }
     }, [selectedOperatorId, isInitialized]);
 
