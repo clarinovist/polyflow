@@ -62,18 +62,9 @@ export function KioskLogOutputDialog({
         const res = await fetch('/api/upload/production-photo', { method: 'POST', body: formData });
         if (!res.ok) return null;
 
-        const { uploadUrl, publicUrl } = await res.json();
-
-        const uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            body: file,
-            headers: { 'Content-Type': file.type },
-        });
-        if (!uploadRes.ok) return null;
-
-        return publicUrl;
+        const data = await res.json();
+        return data.publicUrl || null;
     };
-
     const submitOutput = async () => {
         const qtyNum = parseFloat(quantity);
         const baseQty = unitMeta.hasAlternateUnit

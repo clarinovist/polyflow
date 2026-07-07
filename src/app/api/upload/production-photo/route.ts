@@ -32,13 +32,35 @@ export async function POST(req: NextRequest) {
     }
 
     const key = buildProductionPhotoKey(executionId, file.name);
-    const { uploadUrl, publicUrl } = await generateR2PresignedUploadUrl(key, file.type);
+    const { publicUrl } = await generateR2PresignedUploadUrl(key, file.type);
 
-    return NextResponse.json({ uploadUrl, publicUrl, key });
+    // Upload directly from server (avoids CORS issues with browser-to-R2 upload)
+    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const s3Client = new S3Client({
+      region: process.env.S3_REGION || "auto",
+      endpoint: process.env.S3_ENDPOINT,
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
+      },
+    });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET || "polyflow-uploads",
+        Key: key,
+        Body: buffer,
+        ContentType: file.type,
+      })
+    );
+
+    return NextResponse.json({ success: true, publicUrl, key });
   } catch (error) {
-    console.error("Failed to generate upload URL:", error);
+    console.error("Failed to upload production photo:", error);
     return NextResponse.json(
-      { error: "Failed to generate upload URL" },
+      { error: "Failed to upload photo" },
       { status: 500 }
     );
   }
