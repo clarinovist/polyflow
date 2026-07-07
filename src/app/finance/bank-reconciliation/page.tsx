@@ -81,35 +81,38 @@ interface ReconciliationRecord {
 // ── CSV Parser ──
 
 function parseBankStatementCsv(text: string): BankStatementRow[] {
-  const lines = text.trim().split("\n");
-  if (lines.length < 1) return [];
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
 
-  const separator = lines[0].includes(";") ? ";" : ",";
-  const firstLineCols = lines[0]
+  // Detect separator from header line (after metadata)
+  // Find the actual header line containing "Tanggal"
+  let headerIdx = -1;
+  let separator = ",";
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes("tanggal")) {
+      headerIdx = i;
+      separator = line.includes(";") ? ";" : ",";
+      break;
+    }
+  }
+
+  // If no "Tanggal" header found, try first line
+  if (headerIdx === -1) {
+    headerIdx = 0;
+    separator = lines[0].includes(";") ? ";" : ",";
+  }
+
+  // Parse header columns
+  const headerLine = lines[headerIdx].replace(/^"|"$/g, "");
+  const headers = headerLine
     .split(separator)
     .map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
 
-  // Check if first row is a header or data
-  const isHeader =
-    firstLineCols.some(
-      (h) =>
-        h.includes("tanggal") ||
-        h === "date" ||
-        h === "tgl" ||
-        h.includes("keterangan") ||
-        h.includes("description") ||
-        h.includes("narasi") ||
-        h === "memo",
-    ) || lines.length < 2;
-
-  const headerRow = isHeader ? firstLineCols : [];
-  const dataStartIdx = isHeader ? 1 : 0;
-
-  // Header-based column detection
-  const dateIdx = headerRow.findIndex(
+  const dateIdx = headers.findIndex(
     (h) => h.includes("tanggal") || h === "date" || h === "tgl",
   );
-  const descIdx = headerRow.findIndex(
+  const descIdx = headers.findIndex(
     (h) =>
       h.includes("keterangan") ||
       h.includes("description") ||
@@ -117,16 +120,20 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
       h === "narasi" ||
       h === "memo",
   );
-  const debitIdx = headerRow.findIndex(
+  const debitIdx = headers.findIndex(
     (h) => h.includes("debit") || h.includes("db") || h === "debet",
   );
-  const creditIdx = headerRow.findIndex(
+  const creditIdx = headers.findIndex(
     (h) => h.includes("credit") || h.includes("cr") || h === "kredit",
   );
-  const amountIdx = headerRow.findIndex(
-    (h) => h === "amount" || h === "jumlah" || h === "nominal",
+  const amountIdx = headers.findIndex(
+    (h) =>
+      h === "amount" ||
+      h === "jumlah" ||
+      h.includes("jumlah") ||
+      h === "nominal",
   );
-  const dbCrIdx = headerRow.findIndex(
+  const dbCrIdx = headers.findIndex(
     (h) =>
       h.includes("db/cr") ||
       h.includes("dbcr") ||
@@ -134,17 +141,28 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
       h === "type",
   );
 
-  // For headerless CSV: assume positional columns
-  // BCA Corporate: Tanggal(0), Keterangan(1), Cabang(2), Jumlah(3), DB/CR(4), Saldo(5)
+  // Positional fallback for BCA Corporate: Tanggal(0), Keterangan(1), Cabang(2), Jumlah(3), Saldo(4)
   const resolvedDateIdx = dateIdx >= 0 ? dateIdx : 0;
   const resolvedDescIdx = descIdx >= 0 ? descIdx : 1;
   const resolvedAmountIdx = amountIdx >= 0 ? amountIdx : 3;
-  const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : 4;
+  const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : -1;
 
   const rows: BankStatementRow[] = [];
-  for (let i = dataStartIdx; i < lines.length; i++) {
-    const line = lines[i].trim();
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    let line = lines[i].trim();
     if (!line) continue;
+
+    // Skip summary lines
+    if (
+      line.toLowerCase().startsWith("saldo") ||
+      line.toLowerCase().startsWith("mutasi")
+    )
+      continue;
+
+    // Remove outer quotes if present (BCA format: "field1,field2,field3")
+    if (line.startsWith('"') && line.endsWith('"')) {
+      line = line.slice(1, -1);
+    }
 
     const cols = line
       .split(separator)
@@ -161,9 +179,11 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
         date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
       } else if (parts[2]?.length === 4) {
         date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      } else {
-        // MM/DD/YY or DD/MM/YY — assume DD/MM/YY
+      } else if (parts[2]?.length === 2) {
+        // DD/MM/YY → 20YY-MM-DD
         date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+      } else {
+        continue;
       }
     } else if (dateStr.includes("-")) {
       date = new Date(dateStr);
@@ -178,22 +198,44 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
     let amount = 0;
     if (debitIdx >= 0 && creditIdx >= 0) {
       // Separate debit/credit columns
-      const debit = parseFloat(cols[debitIdx]?.replace(/[.,]/g, "")) || 0;
-      const credit = parseFloat(cols[creditIdx]?.replace(/[.,]/g, "")) || 0;
+      const debit = parseIndonesianNumber(cols[debitIdx]);
+      const credit = parseIndonesianNumber(cols[creditIdx]);
       amount = debit > 0 ? debit : -credit;
-    } else {
-      // Single amount column
-      const rawAmount =
-        parseFloat(cols[resolvedAmountIdx]?.replace(/[.,]/g, "")) || 0;
-      // Check DB/CR indicator
-      const dbCr = (cols[resolvedDbCrIdx] || "").toUpperCase();
-      if (dbCr === "DB" || dbCr === "DEBET" || dbCr === "D") {
-        amount = -Math.abs(rawAmount);
-      } else if (dbCr === "CR" || dbCr === "CREDIT" || dbCr === "C") {
-        amount = Math.abs(rawAmount);
+    } else if (resolvedAmountIdx >= 0) {
+      // Single "Jumlah" column — may contain "30,000.00 DB" or "5,550,000.00 CR"
+      const rawValue = cols[resolvedAmountIdx] || "";
+      // Split amount and direction (e.g., "30,000.00 DB" → ["30,000.00", "DB"])
+      const parts = rawValue.trim().split(/\s+/);
+      const amountStr = parts[0] || "0";
+      const direction = (parts[1] || "").toUpperCase();
+
+      const parsedAmount = parseIndonesianNumber(amountStr);
+
+      // Determine sign from direction indicator
+      if (
+        direction === "DB" ||
+        direction === "DEBET" ||
+        direction === "D" ||
+        direction === "DEBIT"
+      ) {
+        amount = -Math.abs(parsedAmount);
+      } else if (
+        direction === "CR" ||
+        direction === "CREDIT" ||
+        direction === "C" ||
+        direction === "KREDIT"
+      ) {
+        amount = Math.abs(parsedAmount);
       } else {
-        // No DB/CR column — use sign of amount
-        amount = rawAmount;
+        // Check dedicated DB/CR column
+        const dbCr = resolvedDbCrIdx >= 0 ? (cols[resolvedDbCrIdx] || "").toUpperCase() : "";
+        if (dbCr === "DB" || dbCr === "DEBET" || dbCr === "D") {
+          amount = -Math.abs(parsedAmount);
+        } else if (dbCr === "CR" || dbCr === "CREDIT" || dbCr === "C") {
+          amount = Math.abs(parsedAmount);
+        } else {
+          amount = parsedAmount;
+        }
       }
     }
 
@@ -203,6 +245,28 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
   }
 
   return rows;
+}
+
+/** Parse Indonesian number format: "30,000.00" → 30000, "5.550.000,00" → 5550000 */
+function parseIndonesianNumber(str: string): number {
+  if (!str) return 0;
+  // Remove non-numeric chars except . and ,
+  const cleaned = str.replace(/[^0-9.,-]/g, "");
+  if (!cleaned) return 0;
+
+  // Detect format: if comma is followed by 3 digits, it's thousand separator
+  // "30,000.00" → comma is thousand separator → remove commas
+  // "5.550.000,00" → dot is thousand separator → swap dot and comma
+  if (/,\d{3}/.test(cleaned)) {
+    // Comma is thousand separator: "30,000.00" → remove commas
+    return parseFloat(cleaned.replace(/,/g, "")) || 0;
+  } else if (/\.\d{3}/.test(cleaned)) {
+    // Dot is thousand separator: "5.550.000,00" → swap
+    return parseFloat(cleaned.replace(/\./g, "").replace(",", ".")) || 0;
+  } else {
+    // Standard: "30000.00" or "30000,00"
+    return parseFloat(cleaned.replace(",", ".")) || 0;
+  }
 }
 
 // ── Status Badge ──
