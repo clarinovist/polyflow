@@ -15,6 +15,7 @@ CONTAINER="${DB_CONTAINER:-polyflow-db}"
 DB_USER="${DB_USER:-polyflow}"
 MAIN_DB_NAME="${MAIN_DB_NAME:-polyflow}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
+R2_RETENTION_DAYS="${R2_RETENTION_DAYS:-90}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TARGET="all"
 DRY_RUN=0
@@ -167,7 +168,36 @@ done
 if [[ "$DRY_RUN" -eq 0 ]]; then
   deleted=$(find "$BACKUP_DIR" -maxdepth 1 -name '*.sql.gz' -mtime +"$RETENTION_DAYS" -delete -print | wc -l | tr -d ' ')
   if [[ "$deleted" -gt 0 ]]; then
-    log "Cleaned up $deleted backup(s) older than $RETENTION_DAYS days"
+    log "Cleaned up $deleted local backup(s) older than $RETENTION_DAYS days"
+  fi
+
+  # Clean up old R2 backups if credentials are configured
+  if [[ -n "${S3_ENDPOINT:-}" && -n "${S3_ACCESS_KEY_ID:-}" && -n "${S3_SECRET_ACCESS_KEY:-}" ]]; then
+    log "Cleaning R2 backups older than $R2_RETENTION_DAYS days..."
+    cutoff_date=$(date -d "-${R2_RETENTION_DAYS} days" +%Y-%m-%d 2>/dev/null || date -v-${R2_RETENTION_DAYS}d +%Y-%m-%d 2>/dev/null)
+    if [[ -n "$cutoff_date" ]]; then
+      r2_deleted=0
+      while IFS= read -r line; do
+        key=$(echo "$line" | awk '{print $4}')
+        date_str=$(echo "$line" | awk '{print $1}')
+        if [[ "$date_str" < "$cutoff_date" && "$key" == *"/backups/"* ]]; then
+          AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+          AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+          aws s3 rm "s3://${S3_BUCKET}/$key" \
+            --endpoint-url "$S3_ENDPOINT" \
+            --region "${S3_REGION:-auto}" \
+            --quiet 2>/dev/null && ((r2_deleted++)) || true
+        fi
+      done < <(AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+               AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+               aws s3 ls "s3://${S3_BUCKET}/" \
+                 --endpoint-url "$S3_ENDPOINT" \
+                 --region "${S3_REGION:-auto}" \
+                 --recursive 2>/dev/null | grep "/backups/")
+      if [[ "$r2_deleted" -gt 0 ]]; then
+        log "Cleaned up $r2_deleted R2 backup(s) older than $R2_RETENTION_DAYS days"
+      fi
+    fi
   fi
 fi
 
