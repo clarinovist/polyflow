@@ -154,35 +154,43 @@ export const recordPurchasePayment = withTenant(
         : new Date();
       const method = options?.method || "Bank Transfer";
 
-      const updated = await PurchaseService.recordPayment(
-        id,
-        amount,
-        session.user.id,
-        {
-          paymentDate,
+      try {
+        const updated = await PurchaseService.recordPayment(
+          id,
+          amount,
+          session.user.id,
+          {
+            paymentDate,
+            method,
+            notes: options?.notes,
+          },
+        );
+
+        revalidatePath("/finance/invoices/purchase");
+        revalidatePath(`/finance/invoices/${id}`);
+        revalidatePath(`/finance/invoices/${id}`);
+
+        // Auto-Journal: Purchase Payment
+        await AutoJournalService.handlePurchasePayment(
+          updated.paymentId,
+          amount,
           method,
-          notes: options?.notes,
-        },
-      );
-
-      revalidatePath("/finance/invoices/purchase");
-      revalidatePath(`/finance/invoices/${id}`);
-      revalidatePath(`/finance/invoices/${id}`);
-
-      // Auto-Journal: Purchase Payment
-      await AutoJournalService.handlePurchasePayment(
-        updated.paymentId,
-        amount,
-        method,
-      ).catch((error) => {
-        logger.error("Auto-Journal failed for purchase payment", {
-          error,
-          invoiceId: id,
-          module: "AutoJournalService",
+        ).catch((error) => {
+          logger.error("Auto-Journal failed for purchase payment", {
+            error,
+            invoiceId: id,
+            module: "AutoJournalService",
+          });
         });
-      });
 
-      return serializeData(updated);
+        return serializeData(updated);
+      } catch (error) {
+        // Pass through validation errors with specific messages
+        if (error instanceof Error && error.message.includes('exceeds')) {
+          throw new BusinessRuleError(error.message);
+        }
+        throw error;
+      }
     });
   },
 );

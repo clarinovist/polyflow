@@ -207,6 +207,12 @@ export const recordSupplierPayment = withTenant(
           error instanceof NotFoundError
         )
           throw error;
+
+        // Pass through validation errors with specific messages
+        if (error instanceof Error && error.message.includes('exceeds')) {
+          throw new BusinessRuleError(error.message);
+        }
+
         logger.error("Failed to record supplier payment", {
           error,
           invoiceId: data.invoiceId,

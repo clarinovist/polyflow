@@ -59,12 +59,34 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        const parsedAmount = parseFloat(amount);
+
+        // Client-side validation: prevent overpayment
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            toast({
+                title: 'Error',
+                description: 'Silakan masukkan jumlah pembayaran yang valid.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        if (parsedAmount > remainingBalance) {
+            toast({
+                title: 'Error',
+                description: `Jumlah pembayaran (${formatRupiah(parsedAmount)}) tidak boleh melebihi sisa tagihan (${formatRupiah(remainingBalance)}).`,
+                variant: 'destructive'
+            });
+            return;
+        }
+
         setLoading(true);
 
         try {
             const result = await recordSupplierPayment({
                 invoiceId: selectedInvoiceId,
-                amount: parseFloat(amount),
+                amount: parsedAmount,
                 paymentDate: new Date(paymentDate),
                 method,
                 notes
@@ -212,16 +234,35 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
 
                     <div className="space-y-2">
                         <Label htmlFor="amount">Jumlah Pembayaran</Label>
-                        <Input
-                            id="amount"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            max={remainingBalance}
-                            required
-                        />
+                        <div className="flex gap-2">
+                            <Input
+                                id="amount"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                max={remainingBalance}
+                                className="flex-1"
+                                required
+                            />
+                            {selectedInvoice && remainingBalance > 0 && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setAmount(remainingBalance.toString())}
+                                    className="shrink-0 text-xs"
+                                >
+                                    Bayar Lunas
+                                </Button>
+                            )}
+                        </div>
+                        {parseFloat(amount) > remainingBalance && remainingBalance > 0 && (
+                            <p className="text-xs text-red-500 mt-1">
+                                ⚠️ Jumlah melebihi sisa tagihan ({formatRupiah(remainingBalance)})
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
