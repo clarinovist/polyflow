@@ -33,7 +33,15 @@ export const startExecution = withTenant(async function startExecution(
     }
 
     try {
-      await requireAuth();
+      // Try to get user session, but allow kiosk mode without auth
+      try {
+        await requireAuth();
+      } catch {
+        // Kiosk mode: no session required if operatorId is provided
+        if (!result.data.operatorId) {
+          throw new BusinessRuleError("Authentication required or operator ID must be provided");
+        }
+      }
 
       const execution = await ProductionService.startExecution(result.data);
 
