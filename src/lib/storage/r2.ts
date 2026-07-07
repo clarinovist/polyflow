@@ -1,17 +1,18 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+// Reuse existing S3-compatible env vars (already configured for Cloudflare R2)
 const r2Client = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  region: process.env.S3_REGION || "auto",
+  endpoint: process.env.S3_ENDPOINT,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+    accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
   },
 });
 
-const BUCKET = process.env.R2_BUCKET || "polyflow-uploads";
-const PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
+const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
+const PUBLIC_URL = process.env.S3_PUBLIC_URL || "";
 
 export async function generateR2PresignedUploadUrl(
   key: string,
