@@ -4,7 +4,7 @@ import { SalesQuotation, SalesQuotationItem, ProductVariant, Product, Customer, 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, ArrowRight, Printer } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, User as UserIcon, CheckCircle2, ArrowRight, Printer, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
@@ -105,6 +105,11 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                     <ArrowLeft className="h-4 w-4" /> Kembali ke Penawaran
                 </Button>
                 <div className="flex items-center gap-2">
+                    {quotation.status !== 'CONVERTED' && quotation.status !== 'EXPIRED' && quotation.status !== 'REJECTED' && (
+                        <Button variant="outline" className="gap-2" onClick={() => router.push(`/sales/quotations/${quotation.id}/edit`)}>
+                            <Pencil className="h-4 w-4" /> Edit
+                        </Button>
+                    )}
                     <Button variant="outline" className="gap-2">
                         <Printer className="h-4 w-4" /> Cetak / PDF
                     </Button>
