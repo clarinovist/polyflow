@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateR2PresignedUploadUrl, buildProductionPhotoKey } from "@/lib/storage/r2";
+import {
+  getTenantPrefix,
+  buildProductionPhotoKey,
+  uploadToR2,
+} from "@/lib/storage/r2";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,30 +35,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const key = buildProductionPhotoKey(executionId, file.name);
-    const { publicUrl } = await generateR2PresignedUploadUrl(key, file.type);
-
-    // Upload directly from server (avoids CORS issues with browser-to-R2 upload)
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-    const s3Client = new S3Client({
-      region: process.env.S3_REGION || "auto",
-      endpoint: process.env.S3_ENDPOINT,
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
-      },
-    });
-
+    const tenant = await getTenantPrefix();
+    const key = buildProductionPhotoKey(tenant, executionId, file.name);
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: process.env.S3_BUCKET || "polyflow-uploads",
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-      })
-    );
+    const publicUrl = await uploadToR2(key, buffer, file.type);
 
     return NextResponse.json({ success: true, publicUrl, key });
   } catch (error) {

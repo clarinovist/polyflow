@@ -79,6 +79,22 @@ backup_one_db() {
   fi
 
   log "Backup created: $backup_file ($(numfmt --to=iec "$backup_size" 2>/dev/null || echo "${backup_size} bytes"))"
+
+  # Upload to R2 if credentials are configured
+  if [[ -n "${S3_ENDPOINT:-}" && -n "${S3_ACCESS_KEY_ID:-}" && -n "${S3_SECRET_ACCESS_KEY:-}" ]]; then
+    local r2_key="${label}/backups/${db_name}/${TIMESTAMP}.sql.gz"
+    log "Uploading to R2: $r2_key"
+    if AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
+       AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
+       aws s3 cp "$backup_file" "s3://${S3_BUCKET:-polyflow-uploads}/$r2_key" \
+       --endpoint-url "$S3_ENDPOINT" \
+       --region "${S3_REGION:-auto}" \
+       --quiet 2>/dev/null; then
+      log "R2 upload complete: $r2_key"
+    else
+      log "WARNING: R2 upload failed (local backup still exists)"
+    fi
+  fi
 }
 
 declare -a BACKUP_LABELS=()

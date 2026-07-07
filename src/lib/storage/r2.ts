@@ -1,5 +1,7 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { headers } from "next/headers";
+import { extractSubdomain } from "@/lib/core/tenant";
 
 // Reuse existing S3-compatible env vars (already configured for Cloudflare R2)
 const r2Client = new S3Client({
@@ -13,6 +15,27 @@ const r2Client = new S3Client({
 
 const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
 const PUBLIC_URL = process.env.S3_PUBLIC_URL || "";
+
+/**
+ * Get tenant identifier from request headers.
+ * Returns tenant subdomain (e.g., "kiyowo", "melindo") or "default" if not found.
+ */
+export async function getTenantPrefix(): Promise<string> {
+  try {
+    const headersList = await headers();
+    const host = headersList.get("host") || "";
+    const forwardedHost = headersList.get("x-forwarded-host") || "";
+
+    let subdomain = extractSubdomain(host);
+    if (!subdomain) {
+      subdomain = extractSubdomain(forwardedHost);
+    }
+
+    return subdomain || "default";
+  } catch {
+    return "default";
+  }
+}
 
 export async function generateR2PresignedUploadUrl(
   key: string,
@@ -31,11 +54,62 @@ export async function generateR2PresignedUploadUrl(
   return { uploadUrl, publicUrl };
 }
 
+/**
+ * Upload file directly to R2 (server-side, avoids CORS issues).
+ */
+export async function uploadToR2(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  await r2Client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    }),
+  );
+
+  return `${PUBLIC_URL}/${key}`;
+}
+
+/**
+ * Build R2 key for production photos.
+ * Format: {tenant}/production/{executionId}/{timestamp}.{ext}
+ */
 export function buildProductionPhotoKey(
+  tenant: string,
   executionId: string,
   filename: string,
 ): string {
   const ext = filename.split(".").pop() || "jpg";
   const timestamp = Date.now();
-  return `production/${executionId}/${timestamp}.${ext}`;
+  return `${tenant}/production/${executionId}/${timestamp}.${ext}`;
+}
+
+/**
+ * Build R2 key for customer photos.
+ * Format: {tenant}/customers/{customerId}/{timestamp}.{ext}
+ */
+export function buildCustomerPhotoKey(
+  tenant: string,
+  customerId: string,
+  filename: string,
+): string {
+  const ext = filename.split(".").pop() || "jpg";
+  const timestamp = Date.now();
+  return `${tenant}/customers/${customerId}/${timestamp}.${ext}`;
+}
+
+/**
+ * Build R2 key for database backups.
+ * Format: {tenant}/backups/{database}/{date}.sql.gz
+ */
+export function buildBackupKey(
+  tenant: string,
+  database: string,
+): string {
+  const date = new Date().toISOString().split("T")[0];
+  return `${tenant}/backups/${database}/${date}.sql.gz`;
 }
