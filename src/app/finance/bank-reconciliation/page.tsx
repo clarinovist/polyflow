@@ -82,17 +82,34 @@ interface ReconciliationRecord {
 
 function parseBankStatementCsv(text: string): BankStatementRow[] {
   const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
+  if (lines.length < 1) return [];
 
   const separator = lines[0].includes(";") ? ";" : ",";
-  const headers = lines[0]
+  const firstLineCols = lines[0]
     .split(separator)
     .map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
 
-  const dateIdx = headers.findIndex(
+  // Check if first row is a header or data
+  const isHeader =
+    firstLineCols.some(
+      (h) =>
+        h.includes("tanggal") ||
+        h === "date" ||
+        h === "tgl" ||
+        h.includes("keterangan") ||
+        h.includes("description") ||
+        h.includes("narasi") ||
+        h === "memo",
+    ) || lines.length < 2;
+
+  const headerRow = isHeader ? firstLineCols : [];
+  const dataStartIdx = isHeader ? 1 : 0;
+
+  // Header-based column detection
+  const dateIdx = headerRow.findIndex(
     (h) => h.includes("tanggal") || h === "date" || h === "tgl",
   );
-  const descIdx = headers.findIndex(
+  const descIdx = headerRow.findIndex(
     (h) =>
       h.includes("keterangan") ||
       h.includes("description") ||
@@ -100,26 +117,41 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
       h === "narasi" ||
       h === "memo",
   );
-  const debitIdx = headers.findIndex(
+  const debitIdx = headerRow.findIndex(
     (h) => h.includes("debit") || h.includes("db") || h === "debet",
   );
-  const creditIdx = headers.findIndex(
+  const creditIdx = headerRow.findIndex(
     (h) => h.includes("credit") || h.includes("cr") || h === "kredit",
   );
-  const amountIdx = headers.findIndex(
+  const amountIdx = headerRow.findIndex(
     (h) => h === "amount" || h === "jumlah" || h === "nominal",
   );
+  const dbCrIdx = headerRow.findIndex(
+    (h) =>
+      h.includes("db/cr") ||
+      h.includes("dbcr") ||
+      h.includes("d/c") ||
+      h === "type",
+  );
 
-  if (dateIdx === -1) return [];
+  // For headerless CSV: assume positional columns
+  // BCA Corporate: Tanggal(0), Keterangan(1), Cabang(2), Jumlah(3), DB/CR(4), Saldo(5)
+  const resolvedDateIdx = dateIdx >= 0 ? dateIdx : 0;
+  const resolvedDescIdx = descIdx >= 0 ? descIdx : 1;
+  const resolvedAmountIdx = amountIdx >= 0 ? amountIdx : 3;
+  const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : 4;
 
   const rows: BankStatementRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i]
+  for (let i = dataStartIdx; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cols = line
       .split(separator)
       .map((c) => c.trim().replace(/['"]/g, ""));
     if (cols.length < 2) continue;
 
-    const dateStr = cols[dateIdx];
+    const dateStr = cols[resolvedDateIdx];
     if (!dateStr) continue;
 
     let date: Date;
@@ -127,38 +159,49 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
       const parts = dateStr.split("/");
       if (parts[0].length === 4) {
         date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-      } else {
+      } else if (parts[2]?.length === 4) {
         date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      } else {
+        // MM/DD/YY or DD/MM/YY — assume DD/MM/YY
+        date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
       }
-    } else {
+    } else if (dateStr.includes("-")) {
       date = new Date(dateStr);
+    } else {
+      continue;
     }
     if (isNaN(date.getTime())) continue;
 
-    const description = descIdx >= 0 ? cols[descIdx] : `Transaksi baris ${i}`;
+    const description =
+      cols[resolvedDescIdx] || `Transaksi baris ${i}`;
 
     let amount = 0;
     if (debitIdx >= 0 && creditIdx >= 0) {
-      const debit =
-        parseFloat(
-          (cols[debitIdx] || "0").replace(/[^0-9.,-]/g, "").replace(",", "."),
-        ) || 0;
-      const credit =
-        parseFloat(
-          (cols[creditIdx] || "0").replace(/[^0-9.,-]/g, "").replace(",", "."),
-        ) || 0;
-      amount = debit - credit;
-    } else if (amountIdx >= 0) {
-      amount =
-        parseFloat(
-          (cols[amountIdx] || "0").replace(/[^0-9.,-]/g, "").replace(",", "."),
-        ) || 0;
+      // Separate debit/credit columns
+      const debit = parseFloat(cols[debitIdx]?.replace(/[.,]/g, "")) || 0;
+      const credit = parseFloat(cols[creditIdx]?.replace(/[.,]/g, "")) || 0;
+      amount = debit > 0 ? debit : -credit;
+    } else {
+      // Single amount column
+      const rawAmount =
+        parseFloat(cols[resolvedAmountIdx]?.replace(/[.,]/g, "")) || 0;
+      // Check DB/CR indicator
+      const dbCr = (cols[resolvedDbCrIdx] || "").toUpperCase();
+      if (dbCr === "DB" || dbCr === "DEBET" || dbCr === "D") {
+        amount = -Math.abs(rawAmount);
+      } else if (dbCr === "CR" || dbCr === "CREDIT" || dbCr === "C") {
+        amount = Math.abs(rawAmount);
+      } else {
+        // No DB/CR column — use sign of amount
+        amount = rawAmount;
+      }
     }
 
-    if (amount !== 0) {
-      rows.push({ id: `S${i}`, date, description, amount });
-    }
+    if (amount === 0) continue;
+
+    rows.push({ id: `S${i}`, date, description, amount });
   }
+
   return rows;
 }
 
