@@ -2,7 +2,7 @@ import { getProductionHistory } from '@/actions/production/production-execution'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { History, CheckCircle2, Package, Clock } from 'lucide-react';
+import { History, CheckCircle2, Package, Clock, Camera } from 'lucide-react';
 import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
 import { cn } from '@/lib/utils/utils';
 import { formatWIB } from '@/lib/utils/timezone';
@@ -53,6 +53,7 @@ export default async function ProductionHistoryPage() {
                                 <TableHead>Machine</TableHead>
                                 <TableHead>Operator</TableHead>
                                 <TableHead className="text-right">Yield</TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -80,6 +81,13 @@ export default async function ProductionHistoryPage() {
                                             {exec.status === 'VOIDED' ? '-' : Number(exec.quantityProduced || 0).toLocaleString()}
                                         </span>
                                         {exec.status !== 'VOIDED' && <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>}
+                                    </TableCell>
+                                    <TableCell>
+                                        {(exec as unknown as { photoUrl?: string }).photoUrl && (
+                                            <a href={(exec as unknown as { photoUrl?: string }).photoUrl} target="_blank" rel="noopener noreferrer" title="Lihat foto">
+                                                <Camera className="h-4 w-4 text-emerald-600 hover:text-emerald-700" />
+                                            </a>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         {exec.status !== 'VOIDED' && (

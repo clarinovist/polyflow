@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
 import { kioskLabels } from "@/lib/labels";
+import { CameraCapture } from "@/components/ui/camera-capture";
 
 interface KioskLogOutputDialogProps {
     open: boolean;
@@ -44,12 +45,34 @@ export function KioskLogOutputDialog({
     const [notes, setNotes] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
     // Get helper IDs from order (excluding current operator)
     const helperIds = orderHelpers
         .filter(h => h.id !== operatorId)
         .map(h => h.id);
+
+    const uploadPhoto = async (file: File): Promise<string | null> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('executionId', executionId);
+
+        const res = await fetch('/api/upload/production-photo', { method: 'POST', body: formData });
+        if (!res.ok) return null;
+
+        const { uploadUrl, publicUrl } = await res.json();
+
+        const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type },
+        });
+        if (!uploadRes.ok) return null;
+
+        return publicUrl;
+    };
 
     const submitOutput = async () => {
         const qtyNum = parseFloat(quantity);
@@ -61,6 +84,14 @@ export function KioskLogOutputDialog({
         const totalScrap = prongkolNum + daunNum;
         setIsLoading(true);
         try {
+            // Upload photo if provided
+            let photoUrl: string | undefined;
+            if (photoFile) {
+                setIsUploadingPhoto(true);
+                photoUrl = await uploadPhoto(photoFile) || undefined;
+                setIsUploadingPhoto(false);
+            }
+
             const result = await logRunningOutput({
                 executionId,
                 quantityProduced: baseQty,
@@ -73,7 +104,8 @@ export function KioskLogOutputDialog({
                 scrapDaunQty: daunNum,
                 notes: notes || '',
                 operatorId: operatorId,
-                helperIds: helperIds.length > 0 ? helperIds : undefined
+                helperIds: helperIds.length > 0 ? helperIds : undefined,
+                photoUrl,
             });
 
             if (result.success) {
@@ -83,6 +115,7 @@ export function KioskLogOutputDialog({
                 setScrapDaun('');
                 setNotes('');
                 setShowScrapWarning(false);
+                setPhotoFile(null);
                 onOpenChange(false);
                 if (onSuccess) onSuccess();
             } else {
@@ -230,6 +263,21 @@ export function KioskLogOutputDialog({
                             </div>
                         </div>
                     )}
+
+                    {/* Photo Capture */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Foto Hasil (Opsional)</Label>
+                        <CameraCapture
+                            onCapture={setPhotoFile}
+                            onRemove={() => setPhotoFile(null)}
+                            disabled={isLoading || isUploadingPhoto}
+                        />
+                        {isUploadingPhoto && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Mengupload foto...
+                            </p>
+                        )}
+                    </div>
 
                     <div className="space-y-2">
                         <Label htmlFor="log-notes">Catatan (Opsional)</Label>

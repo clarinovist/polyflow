@@ -410,6 +410,7 @@ export class ProductionExecutionService {
       notes,
       operatorId: _operatorId,
       helperIds,
+      photoUrl,
       userId,
     } = data;
 
@@ -448,6 +449,7 @@ export class ProductionExecutionService {
               ? `${execution.notes}\n[Log]: ${notes}`
               : `[Log]: ${notes}`
             : undefined,
+          photoUrl: photoUrl ?? execution.photoUrl,
           ...mergeExecutionEnteredQuantity({
             currentEnteredQuantity: execution.enteredQuantity,
             currentEnteredUnit: execution.enteredUnit,

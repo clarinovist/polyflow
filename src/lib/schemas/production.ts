@@ -173,6 +173,7 @@ export const logRunningOutputSchema = z.object({
     notes: z.string().optional().transform(sanitizeHtml),
     operatorId: z.string().optional(),
     helperIds: z.array(z.string()).optional(),
+    photoUrl: z.string().url().optional(),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;

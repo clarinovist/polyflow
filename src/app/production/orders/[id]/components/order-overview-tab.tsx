@@ -4,7 +4,7 @@ import { Machine } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { History, Factory } from "lucide-react";
+import { History, Factory, Camera } from "lucide-react";
 import { cn, formatRupiah } from "@/lib/utils/utils";
 import {
   formatProductionQuantity,
@@ -235,6 +235,7 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                       <th className="p-3">Operator</th>
                       <th className="p-3 text-right">Output</th>
                       <th className="p-3 text-right">Scrap</th>
+                      <th className="p-3 w-[40px]"></th>
                       <th className="p-3 text-right">Action</th>
                     </tr>
                   </thead>
@@ -316,6 +317,13 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                                   Number(exec.scrapProngkolQty || 0);
                                 return totalScrap > 0 ? totalScrap : "-";
                               })()}
+                        </td>
+                        <td className="p-3">
+                          {(exec as unknown as { photoUrl?: string }).photoUrl && (
+                            <a href={(exec as unknown as { photoUrl?: string }).photoUrl} target="_blank" rel="noopener noreferrer" title="Lihat foto">
+                              <Camera className="h-4 w-4 text-emerald-600 hover:text-emerald-700" />
+                            </a>
+                          )}
                         </td>
                         <td className="p-3 text-right">
                           {exec.status !== "VOIDED" && (
