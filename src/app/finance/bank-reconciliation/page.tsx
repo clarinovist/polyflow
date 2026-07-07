@@ -494,7 +494,7 @@ export default function BankReconciliationPage() {
                 )}
                 <Button
                   onClick={handleSaveAndContinue}
-                  disabled={saving || parsedRows.length === 0}
+                  disabled={saving || !selectedAccount || !startDate || !endDate}
                   className="gap-2"
                 >
                   {saving ? (
@@ -504,6 +504,11 @@ export default function BankReconciliationPage() {
                   )}
                   Simpan & Lanjutkan
                 </Button>
+                {parsedRows.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 Upload CSV opsional — bisa input mutasi bank manual di halaman detail
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
