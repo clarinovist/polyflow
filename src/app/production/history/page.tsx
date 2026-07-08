@@ -11,8 +11,8 @@ export default async function ProductionHistoryPage() {
 
     // Calculate stats
     const totalOrders = groups.length;
-    const totalLogs = groups.reduce((sum: number, g: any) => sum + g.executions.length, 0);
-    const totalYield = groups.reduce((sum: number, g: any) => sum + g.totalQuantity, 0);
+    const totalLogs = groups.reduce((sum: number, g: { executions: unknown[] }) => sum + g.executions.length, 0);
+    const totalYield = groups.reduce((sum: number, g: { totalQuantity: number }) => sum + g.totalQuantity, 0);
 
     return (
         <div className="space-y-6">
