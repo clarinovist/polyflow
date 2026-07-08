@@ -1,114 +1,60 @@
 import { getProductionHistory } from '@/actions/production/production-execution';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { History, CheckCircle2, Package, Clock, Camera } from 'lucide-react';
-import { VoidExecutionButton } from '@/components/production/VoidExecutionButton';
-import { cn } from '@/lib/utils/utils';
-import { formatWIB } from '@/lib/utils/timezone';
+import { History, Camera } from 'lucide-react';
+import { ProductionHistoryClient } from '@/components/production/ProductionHistoryClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductionHistoryPage() {
-    const completionsRes = await getProductionHistory();
-    const completions = completionsRes.success && completionsRes.data ? completionsRes.data : [];
+    const groupsRes = await getProductionHistory();
+    const groups = groupsRes.success && groupsRes.data ? groupsRes.data : [];
+
+    // Calculate stats
+    const totalOrders = groups.length;
+    const totalLogs = groups.reduce((sum: number, g: any) => sum + g.executions.length, 0);
+    const totalYield = groups.reduce((sum: number, g: any) => sum + g.totalQuantity, 0);
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Log Hasil Produksi</h2>
-                    <p className="text-muted-foreground">Historical record of production completions and yield.</p>
+                    <p className="text-muted-foreground">Dokumentasi output produksi per SPK.</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                    { label: "Completed Today", value: "24 Jobs", icon: CheckCircle2, color: "text-emerald-600" },
-                    { label: "Total Yield (KG)", value: "12,450", icon: Package, color: "text-blue-600" },
-                    { label: "Avg Cycle Time", value: "2.4 hrs", icon: Clock, color: "text-amber-600" },
-                    { label: "Records", value: completions.length.toString(), icon: History, color: "text-zinc-600" },
-                ].map((stat) => (
-                    <Card key={stat.label}>
-                        <CardContent className="pt-4 flex flex-col items-center justify-center text-center">
-                            <stat.icon className={`h-8 w-8 ${stat.color} opacity-80 mb-2`} />
-                            <div className="text-xl font-bold">{stat.value}</div>
-                            <p className="text-xs text-muted-foreground">{stat.label}</p>
-                        </CardContent>
-                    </Card>
-                ))}
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                    <CardContent className="pt-4 flex flex-col items-center justify-center text-center">
+                        <History className="h-8 w-8 text-zinc-600 opacity-80 mb-2" />
+                        <div className="text-xl font-bold">{totalOrders}</div>
+                        <p className="text-xs text-muted-foreground">Total SPK</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-4 flex flex-col items-center justify-center text-center">
+                        <Camera className="h-8 w-8 text-emerald-600 opacity-80 mb-2" />
+                        <div className="text-xl font-bold">{totalLogs}</div>
+                        <p className="text-xs text-muted-foreground">Total Log Output</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-4 flex flex-col items-center justify-center text-center">
+                        <div className="text-emerald-600 text-3xl font-bold mb-1">KG</div>
+                        <div className="text-xl font-bold">{totalYield.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Total Yield</p>
+                    </CardContent>
+                </Card>
             </div>
 
+            {/* Grouped Table */}
             <Card>
                 <CardHeader>
                     <CardTitle>Aktivitas Terbaru</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date / Time</TableHead>
-                                <TableHead>Order #</TableHead>
-                                <TableHead>Product</TableHead>
-                                <TableHead>Machine</TableHead>
-                                <TableHead>Operator</TableHead>
-                                <TableHead className="text-right">Yield</TableHead>
-                                <TableHead className="w-[40px]"></TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {completions.map((exec) => (
-                                <TableRow key={exec.id} className={cn(exec.status === 'VOIDED' && "opacity-50 line-through bg-muted/30")}>
-                                    <TableCell className="text-xs whitespace-nowrap">
-                                        <div className="font-medium">{exec.endTime ? formatWIB(exec.endTime, 'MMM dd, HH:mm') : '-'}</div>
-                                        <div className="text-[10px] text-muted-foreground">{exec.startTime ? formatWIB(exec.startTime, 'HH:mm') : '-'} started</div>
-                                        {exec.status === 'VOIDED' && <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1 mt-1">Voided</Badge>}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs font-bold">{exec.productionOrder.orderNumber}</TableCell>
-                                    <TableCell>
-                                        <div className="text-sm font-medium">{exec.productionOrder.bom.productVariant.name}</div>
-                                        <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{exec.productionOrder.bom.name}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="text-[10px] bg-zinc-50 dark:bg-zinc-900/50 dark:border-zinc-800">{exec.machine?.code || 'N/A'}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                        {exec.operator?.name || 'Automated'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                            {exec.status === 'VOIDED' ? '-' : Number(exec.quantityProduced || 0).toLocaleString()}
-                                        </span>
-                                        {exec.status !== 'VOIDED' && <span className="text-[10px] ml-1 text-muted-foreground">{exec.productionOrder.bom.productVariant.primaryUnit}</span>}
-                                    </TableCell>
-                                    <TableCell>
-                                        {(exec as unknown as { photoUrl?: string }).photoUrl && (
-                                            <a href={(exec as unknown as { photoUrl?: string }).photoUrl} target="_blank" rel="noopener noreferrer" title="Lihat foto">
-                                                <Camera className="h-4 w-4 text-emerald-600 hover:text-emerald-700" />
-                                            </a>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {exec.status !== 'VOIDED' && (
-                                            <VoidExecutionButton
-                                                executionId={exec.id}
-                                                productionOrderId={exec.productionOrderId}
-                                                orderNumber={exec.productionOrder.orderNumber}
-                                            />
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {completions.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
-                                        Tidak ada catatan produksi historis ditemukan.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                    <ProductionHistoryClient groups={groups} />
                 </CardContent>
             </Card>
         </div>

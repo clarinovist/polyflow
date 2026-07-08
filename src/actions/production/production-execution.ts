@@ -200,8 +200,13 @@ export const getProductionHistory = withTenant(
     return safeAction(async () => {
       const session = await auth();
       if (!session?.user) return [];
+
+      // Get all completed executions (not voided), more than before
       const completions = await prisma.productionExecution.findMany({
-        where: { endTime: { not: null } },
+        where: {
+          endTime: { not: null },
+          status: { not: 'VOIDED' },
+        },
         include: {
           productionOrder: {
             include: {
@@ -214,9 +219,47 @@ export const getProductionHistory = withTenant(
           machine: true,
         },
         orderBy: { endTime: "desc" },
-        take: 30,
+        take: 200, // More records since we now have multiple per SPK
       });
-      return serializeData(completions);
+
+      // Group executions by productionOrderId
+      const groupedMap = new Map<string, {
+        productionOrder: typeof completions[0]['productionOrder'];
+        executions: typeof completions;
+        totalQuantity: number;
+        totalScrap: number;
+        latestEndTime: Date | null;
+      }>();
+
+      for (const exec of completions) {
+        const orderId = exec.productionOrderId;
+        if (!groupedMap.has(orderId)) {
+          groupedMap.set(orderId, {
+            productionOrder: exec.productionOrder,
+            executions: [],
+            totalQuantity: 0,
+            totalScrap: 0,
+            latestEndTime: null,
+          });
+        }
+        const group = groupedMap.get(orderId)!;
+        group.executions.push(exec);
+        group.totalQuantity += Number(exec.quantityProduced || 0);
+        group.totalScrap += Number(exec.scrapQuantity || 0);
+        // Track latest endTime for sorting
+        if (exec.endTime && (!group.latestEndTime || exec.endTime > group.latestEndTime)) {
+          group.latestEndTime = exec.endTime;
+        }
+      }
+
+      // Convert to array and sort by latest endTime
+      const grouped = Array.from(groupedMap.values()).sort((a, b) => {
+        if (!a.latestEndTime) return 1;
+        if (!b.latestEndTime) return -1;
+        return b.latestEndTime.getTime() - a.latestEndTime.getTime();
+      });
+
+      return serializeData(grouped);
     });
   },
 );

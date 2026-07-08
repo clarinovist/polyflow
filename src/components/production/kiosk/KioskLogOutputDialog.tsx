@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { logRunningOutput } from "@/actions/production/production";
-import { Loader2, Save, AlertTriangle, Users } from "lucide-react";
+import { Loader2, Save, AlertTriangle, Users, Camera, CheckCircle2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { getProductionUnitMeta, toBaseQuantity } from "@/lib/utils/production-units";
 import { Unit } from "@prisma/client";
@@ -47,6 +47,13 @@ export function KioskLogOutputDialog({
     const [showScrapWarning, setShowScrapWarning] = useState(false);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [loggedOutputs, setLoggedOutputs] = useState<Array<{
+        id: string;
+        quantity: number;
+        unit: string;
+        hasPhoto: boolean;
+        timestamp: Date;
+    }>>([]);
     const unitMeta = getProductionUnitMeta({ primaryUnit, salesUnit, conversionFactor });
 
     // Get helper IDs from order (excluding current operator)
@@ -101,13 +108,26 @@ export function KioskLogOutputDialog({
 
             if (result.success) {
                 toast.success("Hasil berhasil dicatat!");
+
+                // Add to logged outputs history
+                setLoggedOutputs(prev => [...prev, {
+                    id: Date.now().toString(),
+                    quantity: qtyNum,
+                    unit: unitMeta.displayUnit,
+                    hasPhoto: !!photoUrl,
+                    timestamp: new Date(),
+                }]);
+
+                // Reset form for next log
                 setQuantity('');
                 setScrapProngkol('');
                 setScrapDaun('');
                 setNotes('');
                 setShowScrapWarning(false);
                 setPhotoFile(null);
-                onOpenChange(false);
+
+                // DON'T close dialog — allow multiple logs
+                // onOpenChange(false);
                 if (onSuccess) onSuccess();
             } else {
                 toast.error(result.error || "Gagal mencatat hasil");
@@ -143,6 +163,7 @@ export function KioskLogOutputDialog({
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             setShowScrapWarning(false);
+            setLoggedOutputs([]); // Reset history when closing
         }
         onOpenChange(open);
     };
@@ -309,10 +330,55 @@ export function KioskLogOutputDialog({
                         </div>
                     )}
 
+                    {/* Logged Outputs History */}
+                    {loggedOutputs.length > 0 && (
+                        <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    Riwayat Log ({loggedOutputs.length})
+                                </Label>
+                                <span className="text-xs text-muted-foreground">
+                                    Total: {loggedOutputs.reduce((sum, l) => sum + l.quantity, 0).toLocaleString()} {unitMeta.displayUnit}
+                                </span>
+                            </div>
+                            <div className="space-y-1.5 max-h-[150px] overflow-auto">
+                                {loggedOutputs.map((log, idx) => (
+                                    <div
+                                        key={log.id}
+                                        className="flex items-center justify-between p-2 bg-background rounded text-sm"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-muted-foreground w-5 text-right text-xs">#{idx + 1}</span>
+                                            <span className="font-bold">{log.quantity.toLocaleString()} {log.unit}</span>
+                                            {log.hasPhoto && (
+                                                <Camera className="h-3.5 w-3.5 text-emerald-600" />
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                            {log.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <DialogFooter className="gap-4 sm:gap-4">
                         <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} className="h-12 text-lg">
                             Batal
                         </Button>
+                        {loggedOutputs.length > 0 && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => handleOpenChange(false)}
+                                className="h-12 text-lg"
+                            >
+                                <CheckCircle2 className="mr-2 h-5 w-5" />
+                                Selesai
+                            </Button>
+                        )}
                         <Button
                             type="submit"
                             disabled={isLoading}

@@ -284,16 +284,19 @@ describe('ProductionExecutionService.logRunningOutput', () => {
         vi.clearAllMocks();
     });
 
-    it('should update execution and order quantities via logRunningOutput', async () => {
+    it('should create new execution and order quantities via logRunningOutput', async () => {
         // Arrange
         vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
             id: 'exec-1',
             productionOrderId: 'po-1',
+            machineId: 'machine-1',
+            operatorId: 'op-1',
+            shiftId: 'shift-1',
             enteredQuantity: null,
             enteredUnit: null,
             notes: null,
         } as never);
-        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1' } as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
         vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
             id: 'po-1',
             actualQuantity: 100,
@@ -316,9 +319,15 @@ describe('ProductionExecutionService.logRunningOutput', () => {
                     userId: 'user-1',
                 });
 
-        // Assert
-        expect(tx.productionExecution.update).toHaveBeenCalledWith(
-            expect.objectContaining({ where: { id: 'exec-1' } })
+        // Assert — now creates new execution instead of updating
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    productionOrderId: 'po-1',
+                    quantityProduced: expect.anything(),
+                    status: 'COMPLETED',
+                })
+            })
         );
         expect(tx.productionOrder.update).toHaveBeenCalled();
     });

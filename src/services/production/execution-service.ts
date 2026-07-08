@@ -392,7 +392,9 @@ export class ProductionExecutionService {
   }
 
   /**
-   * Log Production Output (While Running)
+   * Log Running Output — CREATE a new completed execution per log.
+   * Each log output becomes its own execution record with its own photo.
+   * The running execution stays active (not modified).
    */
   static async logRunningOutput(
     data: LogRunningOutputValues & { userId?: string },
@@ -414,13 +416,15 @@ export class ProductionExecutionService {
       userId,
     } = data;
 
-    let resolvedBaseQty = Number(quantityProduced);
     await prisma.$transaction(async (tx) => {
-      const execution = await tx.productionExecution.findUniqueOrThrow({
+      // 1. Get running execution to inherit its context (machine, operator, shift)
+      const runningExecution = await tx.productionExecution.findUniqueOrThrow({
         where: { id: executionId },
       });
 
-      const productionOrderId = execution.productionOrderId;
+      const productionOrderId = runningExecution.productionOrderId;
+
+      // 2. Resolve quantity
       const resolved = await resolveOutputQuantity({
         productionOrderId,
         quantityProduced: Number(quantityProduced),
@@ -437,47 +441,48 @@ export class ProductionExecutionService {
             : undefined,
         tx,
       });
-      resolvedBaseQty = resolved.baseQty;
 
-      await tx.productionExecution.update({
-        where: { id: executionId },
+      // 3. CREATE a new completed execution (not update the running one!)
+      const newExecution = await tx.productionExecution.create({
         data: {
-          quantityProduced: { increment: resolvedBaseQty },
-          scrapQuantity: { increment: scrapQuantity },
-          notes: notes
-            ? execution.notes
-              ? `${execution.notes}\n[Log]: ${notes}`
-              : `[Log]: ${notes}`
+          productionOrderId,
+          machineId: runningExecution.machineId,
+          operatorId: runningExecution.operatorId,
+          shiftId: runningExecution.shiftId,
+          quantityProduced: resolved.baseQty,
+          scrapQuantity: scrapQuantity || 0,
+          scrapProngkolQty: scrapProngkolQty || 0,
+          scrapDaunQty: scrapDaunQty || 0,
+          enteredQuantity: resolved.enteredQty,
+          enteredUnit: resolved.enteredUnit as Unit,
+          conversionFactorSnapshot: resolved.conversionSnapshot,
+          notes: notes ? `[Log]: ${notes}` : null,
+          photoUrl: photoUrl || null,
+          startTime: new Date(),
+          endTime: new Date(),
+          status: 'COMPLETED',
+          helpers: helperIds && helperIds.length > 0
+            ? { connect: helperIds.map((id) => ({ id })) }
             : undefined,
-          photoUrl: photoUrl ?? execution.photoUrl,
-          ...mergeExecutionEnteredQuantity({
-            currentEnteredQuantity: execution.enteredQuantity,
-            currentEnteredUnit: execution.enteredUnit,
-            nextEnteredQuantity: resolved.enteredQty,
-            nextEnteredUnit: resolved.enteredUnit,
-          }),
-          conversionFactorSnapshot:
-            resolved.conversionSnapshot ?? execution.conversionFactorSnapshot,
-          ...(helperIds && helperIds.length > 0 ? {
-            helpers: { connect: helperIds.map((id) => ({ id })) }
-          } : {}),
         },
       });
 
+      // 4. Process output and backflush
       await processOutputAndBackflush({
         tx,
         productionOrderId,
-        resolvedBaseQty,
-        scrapQuantity,
+        resolvedBaseQty: resolved.baseQty,
+        scrapQuantity: scrapQuantity || 0,
         userId,
         resolved,
         referencePrefix: "Backflush (Partial)",
       });
 
+      // 5. Record scrap for this log
       await recordExecutionScrap({
         tx,
         productionOrderId,
-        executionId,
+        executionId: newExecution.id,
         scrapQuantity: Number(scrapQuantity),
         scrapProngkolQty: Number(scrapProngkolQty),
         scrapDaunQty: Number(scrapDaunQty),

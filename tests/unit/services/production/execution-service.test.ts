@@ -39,7 +39,11 @@ describe('ProductionExecutionService', () => {
                     findUniqueOrThrow: vi.fn().mockResolvedValue({
                         id: 'exec-1',
                         productionOrderId: 'po-1',
+                        machineId: 'machine-1',
+                        operatorId: 'op-1',
+                        shiftId: 'shift-1',
                     }),
+                    create: vi.fn().mockResolvedValue({ id: 'exec-new' }),
                     update: vi.fn(),
                 },
                 productionOrder: {
