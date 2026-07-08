@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Search } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
 import { DateRange } from 'react-day-picker';
@@ -50,6 +51,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
     const searchParams = useSearchParams();
     const { account, entries, summary } = ledgerData;
     const [isExporting, setIsExporting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Default to current month if no search params
     const now = new Date();
@@ -121,6 +123,18 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
         }).format(amount);
     };
 
+    // Filter entries by search term
+    const filteredEntries = searchTerm.trim()
+        ? entries.filter((entry) => {
+              const lowerSearch = searchTerm.toLowerCase();
+              return (
+                  entry.description.toLowerCase().includes(lowerSearch) ||
+                  entry.entryNumber.toLowerCase().includes(lowerSearch) ||
+                  (entry.reference && entry.reference.toLowerCase().includes(lowerSearch))
+              );
+          })
+        : entries;
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -157,6 +171,15 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                             defaultPreset="this_month"
                             className="w-[300px]"
                         />
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari keterangan, no jurnal, atau referensi..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 w-[280px]"
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -200,7 +223,7 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                 <CardHeader>
                     <CardTitle>Transaction History</CardTitle>
                     <CardDescription>
-                        All journal entries for this account ({entries.length} transactions)
+                        All journal entries for this account ({filteredEntries.length} transactions)
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -224,14 +247,14 @@ export function AccountLedgerClient({ ledgerData }: AccountLedgerClientProps) {
                                         {formatCurrency(summary.beginningBalance)}
                                     </TableCell>
                                 </TableRow>
-                                {entries.length === 0 ? (
+                                {filteredEntries.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                            Tidak ada transaksi ditemukan
+                                            {searchTerm ? 'Tidak ada transaksi cocok dengan pencarian' : 'Tidak ada transaksi ditemukan'}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    entries.map((entry) => (
+                                    filteredEntries.map((entry) => (
                                         <TableRow key={entry.id}>
                                             <TableCell className="whitespace-nowrap">
                                                 {format(new Date(entry.date), 'dd MMM yyyy')}

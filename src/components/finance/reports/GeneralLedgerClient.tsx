@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getGeneralLedger } from '@/actions/finance/accounting';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
-import { RotateCw, Download } from 'lucide-react';
+import { RotateCw, Download, Search } from 'lucide-react';
 import { downloadCsv, rupiahForCsv, reportFilename } from '@/lib/utils/csv-export';
 import { reportLabels } from '@/lib/labels';
 
@@ -45,6 +46,7 @@ interface GeneralLedgerData {
 export function GeneralLedgerClient() {
     const [data, setData] = useState<GeneralLedgerData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), 0, 1),
         to: new Date()
@@ -122,6 +124,42 @@ export function GeneralLedgerClient() {
         }).format(amount);
     };
 
+    // Filter accounts and entries by search term
+    const filteredAccounts = data?.accounts
+        .map((account) => {
+            if (!searchTerm.trim()) return account;
+
+            const lowerSearch = searchTerm.toLowerCase();
+            const accountMatch =
+                account.code.toLowerCase().includes(lowerSearch) ||
+                account.name.toLowerCase().includes(lowerSearch);
+
+            if (accountMatch) return account; // Show whole account if name/code matches
+
+            // Filter entries within account
+            const filteredEntries = account.entries.filter(
+                (entry) =>
+                    entry.description.toLowerCase().includes(lowerSearch) ||
+                    entry.entryNumber.toLowerCase().includes(lowerSearch) ||
+                    (entry.reference && entry.reference.toLowerCase().includes(lowerSearch))
+            );
+
+            if (filteredEntries.length === 0) return null; // No matching entries
+
+            // Recalculate totals for filtered entries
+            const totalDebit = filteredEntries.reduce((sum, e) => sum + e.debit, 0);
+            const totalCredit = filteredEntries.reduce((sum, e) => sum + e.credit, 0);
+
+            return {
+                ...account,
+                entries: filteredEntries,
+                totalDebit,
+                totalCredit,
+                endingBalance: filteredEntries[filteredEntries.length - 1]?.balance ?? account.endingBalance,
+            };
+        })
+        .filter(Boolean) as LedgerAccount[] | undefined;
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -132,6 +170,15 @@ export function GeneralLedgerClient() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari akun, keterangan, atau no jurnal..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 w-[280px]"
+                        />
+                    </div>
                     <DatePickerWithRange
                         date={dateRange}
                         onDateChange={setDateRange}
@@ -180,7 +227,7 @@ export function GeneralLedgerClient() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {data.accounts.map((account) => (
+                                    {(filteredAccounts ?? []).map((account) => (
                                         <AccountSection key={account.id} account={account} fmt={fmt} />
                                     ))}
                                     {/* Grand total row */}
