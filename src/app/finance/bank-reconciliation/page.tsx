@@ -78,39 +78,75 @@ interface ReconciliationRecord {
   _count: { items: number; adjustments: number };
 }
 
-// ── CSV Parser ──
+// ── CSV Parser (Auto-detect: BCA Corporate / Mandiri / generic) ──
+
+/** Detect CSV format from header line */
+type BankFormat = "mandiri" | "bca" | "generic";
+
+function detectBankFormat(headerLine: string): BankFormat {
+  const h = headerLine.toLowerCase();
+  if (h.includes("postdate") && h.includes("credit amount")) return "mandiri";
+  if (h.includes("tanggal") && h.includes("keterangan")) return "bca";
+  return "generic";
+}
+
+/** Parse Mandiri date: "03 July 2026 06:15:33" → Date */
+function parseMandiriDate(str: string): Date | null {
+  // Map English month names to month numbers
+  const months: Record<string, string> = {
+    january: "01", february: "02", march: "03", april: "04",
+    may: "05", june: "06", july: "07", august: "08",
+    september: "09", october: "10", november: "11", december: "12",
+  };
+  // Pattern: "DD Month YYYY HH:MM:SS"
+  const match = str.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+  if (!match) return null;
+  const [, day, monthName, year] = match;
+  const month = months[monthName.toLowerCase()];
+  if (!month) return null;
+  const d = new Date(`${year}-${month}-${day.padStart(2, "0")}`);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function parseBankStatementCsv(text: string): BankStatementRow[] {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
-  // Detect separator from header line (after metadata)
-  // Find the actual header line containing "Tanggal"
+  // ── 1. Find header line and detect format ──
   let headerIdx = -1;
+  let format: BankFormat = "generic";
   let separator = ",";
+
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
-    const line = lines[i].toLowerCase();
-    if (line.includes("tanggal")) {
+    const line = lines[i];
+    const detected = detectBankFormat(line);
+    if (detected !== "generic") {
       headerIdx = i;
-      separator = line.includes(";") ? ";" : ",";
+      format = detected;
+      separator = detected === "mandiri" ? ";" : line.includes(";") ? ";" : ",";
       break;
     }
   }
 
-  // If no "Tanggal" header found, try first line
+  // Fallback: detect separator from first line
   if (headerIdx === -1) {
     headerIdx = 0;
     separator = lines[0].includes(";") ? ";" : ",";
   }
 
-  // Parse header columns
+  // ── 2. Parse header columns ──
   const headerLine = lines[headerIdx].replace(/^"|"$/g, "");
   const headers = headerLine
     .split(separator)
     .map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
 
+  // Column index resolution
   const dateIdx = headers.findIndex(
-    (h) => h.includes("tanggal") || h === "date" || h === "tgl",
+    (h) =>
+      h.includes("tanggal") ||
+      h === "date" ||
+      h === "tgl" ||
+      h === "postdate",
   );
   const descIdx = headers.findIndex(
     (h) =>
@@ -118,7 +154,8 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
       h.includes("description") ||
       h.includes("deskripsi") ||
       h === "narasi" ||
-      h === "memo",
+      h === "memo" ||
+      h === "remarks",
   );
   const debitIdx = headers.findIndex(
     (h) => h.includes("debit") || h.includes("db") || h === "debet",
@@ -147,15 +184,19 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
   const resolvedAmountIdx = amountIdx >= 0 ? amountIdx : 3;
   const resolvedDbCrIdx = dbCrIdx >= 0 ? dbCrIdx : -1;
 
+  // ── 3. Parse data rows ──
   const rows: BankStatementRow[] = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
     let line = lines[i].trim();
     if (!line) continue;
 
-    // Skip summary lines
+    // Skip summary/total lines
+    const lower = line.toLowerCase();
     if (
-      line.toLowerCase().startsWith("saldo") ||
-      line.toLowerCase().startsWith("mutasi")
+      lower.startsWith("saldo") ||
+      lower.startsWith("mutasi") ||
+      lower.startsWith("total") ||
+      lower.startsWith("closing balance")
     )
       continue;
 
@@ -172,46 +213,56 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
     const dateStr = cols[resolvedDateIdx];
     if (!dateStr) continue;
 
-    let date: Date;
-    if (dateStr.includes("/")) {
-      const parts = dateStr.split("/");
-      if (parts[0].length === 4) {
-        date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
-      } else if (parts[2]?.length === 4) {
-        date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      } else if (parts[2]?.length === 2) {
-        // DD/MM/YY → 20YY-MM-DD
-        date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
-      } else {
-        continue;
-      }
-    } else if (dateStr.includes("-")) {
-      date = new Date(dateStr);
-    } else {
-      continue;
-    }
-    if (isNaN(date.getTime())) continue;
+    // ── Date parsing ──
+    let date: Date | null = null;
 
+    if (format === "mandiri") {
+      // Mandiri: "03 July 2026 06:15:33"
+      date = parseMandiriDate(dateStr);
+    } else {
+      // BCA / generic: DD/MM/YYYY or DD/MM/YY or YYYY-MM-DD
+      if (dateStr.includes("/")) {
+        const parts = dateStr.split("/");
+        if (parts[0].length === 4) {
+          date = new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        } else if (parts[2]?.length === 4) {
+          date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } else if (parts[2]?.length === 2) {
+          date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+        }
+      } else if (dateStr.includes("-")) {
+        date = new Date(dateStr);
+      }
+    }
+
+    if (!date || isNaN(date.getTime())) continue;
+
+    // ── Description ──
     const description =
       cols[resolvedDescIdx] || `Transaksi baris ${i}`;
 
+    // ── Amount parsing ──
     let amount = 0;
-    if (debitIdx >= 0 && creditIdx >= 0) {
-      // Separate debit/credit columns
+
+    if (format === "mandiri") {
+      // Mandiri: separate Credit Amount and Debit Amount columns
+      const creditVal = parseIndonesianNumber(cols[creditIdx] || "0");
+      const debitVal = parseIndonesianNumber(cols[debitIdx] || "0");
+      amount = creditVal - debitVal; // credit = positive (money in), debit = negative (money out)
+    } else if (debitIdx >= 0 && creditIdx >= 0 && format !== "bca") {
+      // Generic format with separate debit/credit columns
       const debit = parseIndonesianNumber(cols[debitIdx]);
       const credit = parseIndonesianNumber(cols[creditIdx]);
-      amount = debit > 0 ? debit : -credit;
+      amount = credit - debit;
     } else if (resolvedAmountIdx >= 0) {
-      // Single "Jumlah" column — may contain "30,000.00 DB" or "5,550,000.00 CR"
+      // BCA / generic: single "Jumlah" column with DB/CR suffix
       const rawValue = cols[resolvedAmountIdx] || "";
-      // Split amount and direction (e.g., "30,000.00 DB" → ["30,000.00", "DB"])
       const parts = rawValue.trim().split(/\s+/);
       const amountStr = parts[0] || "0";
       const direction = (parts[1] || "").toUpperCase();
 
       const parsedAmount = parseIndonesianNumber(amountStr);
 
-      // Determine sign from direction indicator
       if (
         direction === "DB" ||
         direction === "DEBET" ||
@@ -228,7 +279,8 @@ function parseBankStatementCsv(text: string): BankStatementRow[] {
         amount = Math.abs(parsedAmount);
       } else {
         // Check dedicated DB/CR column
-        const dbCr = resolvedDbCrIdx >= 0 ? (cols[resolvedDbCrIdx] || "").toUpperCase() : "";
+        const dbCr =
+          resolvedDbCrIdx >= 0 ? (cols[resolvedDbCrIdx] || "").toUpperCase() : "";
         if (dbCr === "DB" || dbCr === "DEBET" || dbCr === "D") {
           amount = -Math.abs(parsedAmount);
         } else if (dbCr === "CR" || dbCr === "CREDIT" || dbCr === "C") {
