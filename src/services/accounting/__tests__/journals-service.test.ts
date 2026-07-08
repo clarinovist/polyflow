@@ -6,6 +6,7 @@ import { ReferenceType, Prisma } from '@prisma/client';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([{max_num: 100}]),
         journalEntry: {
             create: vi.fn(),
             findFirst: vi.fn(),

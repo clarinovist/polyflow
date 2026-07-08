@@ -11,6 +11,7 @@ vi.mock('@/lib/core/prisma', () => {
             }
             return [];
         }),
+        $queryRaw: vi.fn().mockResolvedValue([{max_num: 100}]),
         systemSequence: {
             upsert: vi.fn(),
             update: vi.fn(),
@@ -175,7 +176,7 @@ describe('AccountingService', () => {
         it('should successfully void a POSTED journal', async () => {
             const result = await AccountingService.voidJournal('je-1', 'user-1');
             expect(result.status).toBe('VOIDED');
-            expect(prisma.journalEntry.findUnique).toHaveBeenCalledWith({ where: { id: 'je-1' } });
+            expect(prisma.journalEntry.findUnique).toHaveBeenCalledWith({ where: { id: 'je-1' }, include: { lines: true } });
             expect(prisma.journalEntry.update).toHaveBeenCalledWith({
                 where: { id: 'je-1' },
                 data: { status: 'VOIDED', approvedById: 'user-1', approvedAt: expect.any(Date) }
