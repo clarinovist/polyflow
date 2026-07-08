@@ -327,13 +327,9 @@ export function SalesOrderForm({
     )
       return baseProducts;
 
-    // For MTS, only show products that have stock in the selected location
-    return baseProducts.filter((p: SerializedProductVariant) =>
-      p.inventories.some(
-        (inv) =>
-          inv.locationId === selectedSourceLocationId && inv.quantity > 0,
-      ),
-    );
+    // For MTS, show all products — stock validation happens at fulfillment time.
+    // This allows selling raw materials (barter) even if stock shows 0 in UI.
+    return baseProducts;
   }, [products, newProducts, selectedSourceLocationId, selectedOrderType]);
 
   // Clear customerId if Order Type is MTS
