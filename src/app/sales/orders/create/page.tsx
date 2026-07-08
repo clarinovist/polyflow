@@ -79,7 +79,8 @@ export default async function CreateSalesOrderPage({
                   p.product.productType === "FINISHED_GOOD" ||
                   p.product.productType === "SCRAP" ||
                   p.product.productType === "PACKAGING" ||
-                  p.product.productType === "SERVICE",
+                  p.product.productType === "SERVICE" ||
+                  p.product.productType === "RAW_MATERIAL",
               )
               .map((p) => ({
                 ...p,
