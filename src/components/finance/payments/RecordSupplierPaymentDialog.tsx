@@ -81,6 +81,14 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
             return;
         }
 
+        // Show confirmation for partial payments
+        if (parsedAmount < remainingBalance) {
+            const confirmed = window.confirm(
+                `Pembayaran ${formatRupiah(parsedAmount)} adalah pembayaran sebagian dari sisa tagihan ${formatRupiah(remainingBalance)}.\n\nSisa yang belum dibayar: ${formatRupiah(remainingBalance - parsedAmount)}\n\nLanjutkan?`
+            );
+            if (!confirmed) return;
+        }
+
         setLoading(true);
 
         try {

@@ -60,12 +60,42 @@ export function RecordCustomerPaymentDialog({ open, onOpenChange, invoices }: Re
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Client-side validation
+        if (!selectedInvoiceId) {
+            toast({ title: 'Error', description: 'Pilih invoice terlebih dahulu', variant: 'destructive' });
+            return;
+        }
+
+        const paymentAmount = parseFloat(amount);
+        if (isNaN(paymentAmount) || paymentAmount <= 0) {
+            toast({ title: 'Error', description: 'Masukkan jumlah pembayaran yang valid', variant: 'destructive' });
+            return;
+        }
+
+        if (paymentAmount > remainingBalance) {
+            toast({
+                title: 'Error',
+                description: `Pembayaran ${formatRupiah(paymentAmount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}`,
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        // Show confirmation for large payments or partial payments
+        if (paymentAmount < remainingBalance) {
+            const confirmed = window.confirm(
+                `Pembayaran ${formatRupiah(paymentAmount)} adalah pembayaran sebagian dari sisa tagihan ${formatRupiah(remainingBalance)}.\n\nSisa yang belum dibayar: ${formatRupiah(remainingBalance - paymentAmount)}\n\nLanjutkan?`
+            );
+            if (!confirmed) return;
+        }
+
         setLoading(true);
 
         try {
             const result = await recordCustomerPayment({
                 invoiceId: selectedInvoiceId,
-                amount: parseFloat(amount),
+                amount: paymentAmount,
                 paymentDate: new Date(paymentDate),
                 method,
                 notes

@@ -17,6 +17,7 @@ import {
 } from "@/lib/errors/errors";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { logActivity } from "@/lib/tools/audit";
+import { formatRupiah } from "@/lib/utils/utils";
 import { AutoJournalService } from "@/services/finance/auto-journal-service";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
 
@@ -55,10 +56,56 @@ export const recordCustomerPayment = withTenant(
         const currentPaid = Number(invoice.paidAmount);
         const remainingBalance = totalAmount - currentPaid;
 
+        // Validate: invoice not already fully paid
+        if (remainingBalance <= 0) {
+          throw new BusinessRuleError(
+            `Invoice ${invoice.invoiceNumber} sudah lunas. Tidak bisa menambah pembayaran.`,
+          );
+        }
+
+        // Validate: payment amount does not exceed remaining balance
         if (data.amount > remainingBalance) {
           throw new BusinessRuleError(
-            "Payment amount exceeds remaining balance",
+            `Pembayaran ${formatRupiah(data.amount)} melebihi sisa tagihan ${formatRupiah(remainingBalance)}. Sisa yang bisa dibayar: ${formatRupiah(remainingBalance)}`,
           );
+        }
+
+        // Validate: check for existing payments to prevent duplicates
+        const existingPayments = await prisma.payment.findMany({
+          where: { invoiceId: data.invoiceId },
+          orderBy: { paymentDate: 'desc' },
+        });
+
+        if (existingPayments.length > 0) {
+          const totalExistingPayments = existingPayments.reduce(
+            (sum, p) => sum + Number(p.amount),
+            0,
+          );
+          logger.warn("Invoice already has payment records", {
+            invoiceId: data.invoiceId,
+            existingPayments: existingPayments.length,
+            totalExistingPayments,
+            newPaymentAmount: data.amount,
+            module: "FinancePaymentActions",
+          });
+        }
+
+        // Validate: check for existing journal entries for this invoice
+        const existingJournals = await prisma.journalEntry.findMany({
+          where: {
+            referenceId: data.invoiceId,
+            referenceType: "SALES_INVOICE",
+            status: "POSTED",
+          },
+        });
+
+        if (existingJournals.length > 0) {
+          logger.warn("Invoice already has journal entries", {
+            invoiceId: data.invoiceId,
+            journalCount: existingJournals.length,
+            journalNumbers: existingJournals.map(j => j.entryNumber),
+            module: "FinancePaymentActions",
+          });
         }
 
         const newPaidAmount = currentPaid + data.amount;
@@ -162,6 +209,44 @@ export const recordSupplierPayment = withTenant(
           throw new BusinessRuleError(
             "Payment date falls in a closed fiscal period",
           );
+        }
+
+        // Validate: check for existing payments to prevent duplicates
+        const existingPayments = await prisma.payment.findMany({
+          where: { purchaseInvoiceId: data.invoiceId },
+          orderBy: { paymentDate: 'desc' },
+        });
+
+        if (existingPayments.length > 0) {
+          const totalExistingPayments = existingPayments.reduce(
+            (sum, p) => sum + Number(p.amount),
+            0,
+          );
+          logger.warn("Purchase invoice already has payment records", {
+            invoiceId: data.invoiceId,
+            existingPayments: existingPayments.length,
+            totalExistingPayments,
+            newPaymentAmount: data.amount,
+            module: "FinancePaymentActions",
+          });
+        }
+
+        // Validate: check for existing journal entries for this invoice
+        const existingJournals = await prisma.journalEntry.findMany({
+          where: {
+            referenceId: data.invoiceId,
+            referenceType: "PURCHASE_INVOICE",
+            status: "POSTED",
+          },
+        });
+
+        if (existingJournals.length > 0) {
+          logger.warn("Purchase invoice already has journal entries", {
+            invoiceId: data.invoiceId,
+            journalCount: existingJournals.length,
+            journalNumbers: existingJournals.map(j => j.entryNumber),
+            module: "FinancePaymentActions",
+          });
         }
 
         const updated = await PurchaseService.recordPayment(
