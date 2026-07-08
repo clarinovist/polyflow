@@ -169,11 +169,11 @@ export function SalesOrderForm({
   });
 
   // Filter locations for stock-based sales fulfillment
-  // Uses locationPurpose for proper categorization (FINISHED_GOOD, PACKING, GENERAL_PURPOSE)
+  // Uses locationPurpose for proper categorization (FINISHED_GOOD, PACKING, GENERAL_PURPOSE, RAW_MATERIAL, SCRAP)
   // Previously filtered by slug keywords which broke tenants with simpler warehouse names.
   const stockFulfillmentLocations = locations.filter(
     (l) => l.locationType !== "CUSTOMER_OWNED" &&
-      ["FINISHED_GOOD", "PACKING", "GENERAL_PURPOSE"].includes(l.locationPurpose),
+      ["FINISHED_GOOD", "PACKING", "GENERAL_PURPOSE", "RAW_MATERIAL", "SCRAP"].includes(l.locationPurpose),
   );
 
   const maklonProductionLocations = locations.filter(

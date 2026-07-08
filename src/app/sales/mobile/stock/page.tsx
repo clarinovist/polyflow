@@ -37,7 +37,7 @@ export default async function SalesMobileStockPage() {
     .filter(
       (l) =>
         l.locationType !== "CUSTOMER_OWNED" &&
-        ["FINISHED_GOOD", "PACKING", "GENERAL_PURPOSE"].includes(l.locationPurpose)
+        ["FINISHED_GOOD", "PACKING", "GENERAL_PURPOSE", "RAW_MATERIAL", "SCRAP"].includes(l.locationPurpose)
     )
     .map((l) => ({ id: l.id, name: l.name }));
 
