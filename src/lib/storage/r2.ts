@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { extractSubdomain } from "@/lib/core/tenant";
 
 // Reuse existing S3-compatible env vars (already configured for Cloudflare R2)
-const r2Client = new S3Client({
+export const r2Client = new S3Client({
   region: process.env.S3_REGION || "auto",
   endpoint: process.env.S3_ENDPOINT,
   credentials: {
@@ -13,7 +13,7 @@ const r2Client = new S3Client({
   },
 });
 
-const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
+export const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
 const PUBLIC_URL = process.env.S3_PUBLIC_URL || "";
 
 /**
@@ -71,7 +71,7 @@ export async function uploadToR2(
     }),
   );
 
-  return `${PUBLIC_URL}/${key}`;
+  return `/api/images/${key}`;
 }
 
 /**
