@@ -1644,14 +1644,32 @@ model PurchaseReturnItem {
 // PLATFORM AND MULTI-TENANT EXTENSIONS
 // ==========================================
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  subdomain String       @unique // e.g., 'pt-abc'
-  dbUrl     String // PostgreSQL connection string
-  status    TenantStatus @default(ACTIVE)
-  plan      String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  name        String
+  subdomain   String       @unique // e.g., 'pt-abc'
+  dbUrl       String // PostgreSQL connection string
+  status      TenantStatus @default(ACTIVE)
+  plan        String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  accountRoles TenantAccountRole[]
+}
+
+model TenantAccountRole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  role        String   // AccountRole value, app-validated whitelist
+  accountId   String   // Account.id in tenant DB — no FK (cross-DB)
+  accountCode String?  // Denormalized snapshot for admin UI when Account is deleted
+  accountName String?  // Denormalized snapshot for admin UI when Account is deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, role])
+  @@index([tenantId])
 }
 
 enum TenantStatus {

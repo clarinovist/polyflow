@@ -97,19 +97,21 @@ describe('resolveTenantContext', () => {
         };
 
         mockPrisma.tenant.findUnique.mockResolvedValue({
+            id: 'tenant-123',
             subdomain: 'valid-tenant',
-            dbUrl: 'postgresql://user:pass@localhost:5432/tenant_db'
+            dbUrl: 'postgresql://user:***@localhost:5432/tenant_db'
         });
 
         const result = await resolveTenantContext(headers);
         expect(mockPrisma.tenant.findUnique).toHaveBeenCalledWith({
             where: { subdomain: 'valid-tenant' }
         });
-        expect(mockGetTenantDb).toHaveBeenCalledWith('postgresql://user:pass@localhost:5432/tenant_db');
+        expect(mockGetTenantDb).toHaveBeenCalledWith('postgresql://user:***@localhost:5432/tenant_db');
         expect(result).toEqual({
             type: 'RESOLVED',
             subdomain: 'valid-tenant',
-            tenantDb: { isMockTenantDb: true, url: 'postgresql://user:pass@localhost:5432/tenant_db' }
+            tenantId: 'tenant-123',
+            tenantDb: { isMockTenantDb: true, url: 'postgresql://user:***@localhost:5432/tenant_db' }
         });
     });
 });

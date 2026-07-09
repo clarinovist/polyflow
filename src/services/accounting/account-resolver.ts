@@ -275,35 +275,78 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
   ],
 };
 
+/** Return all defined AccountRole values. */
+export function getAllAccountRoles(): AccountRole[] {
+  return Object.keys(ACCOUNT_ROLE_PATTERNS) as AccountRole[];
+}
+
+/**
+ * Resolve account by Phase 1 patterns (code → Melindo code → name).
+ * Extracted so seed + tests can call directly without DB mapping dependency.
+ */
+export async function resolveByPatterns(
+  role: AccountRole,
+  db?: { account: { findUnique: Function; findFirst: Function } },
+): Promise<ResolvedAccount> {
+  const { prisma: proxyPrisma } = await import("@/lib/core/prisma");
+  const target = db ?? proxyPrisma;
+
+  const patterns = ACCOUNT_ROLE_PATTERNS[role];
+  if (!patterns) throw new Error(`Unknown account role: ${role}`);
+
+  for (const pattern of patterns) {
+    let account = null;
+    if (pattern.code) {
+      account = await target.account.findUnique({ where: { code: pattern.code } });
+    } else if (pattern.nameContains) {
+      account = await target.account.findFirst({
+        where: { name: { contains: pattern.nameContains, mode: "insensitive" } },
+      });
+    }
+    if (account) {
+      return { id: account.id, code: account.code, name: account.name };
+    }
+  }
+
+  const searchedCodes = patterns.filter((p) => p.code).map((p) => p.code).join(", ");
+  const searchedNames = patterns.filter((p) => p.nameContains).map((p) => p.nameContains).join(", ");
+  throw new Error(
+    `Account not found for role "${role}". Searched codes: ${searchedCodes}. Searched names: ${searchedNames}.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tenant-scoped cache (unchanged keying: PrismaClient instance + role)
+// ---------------------------------------------------------------------------
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface CacheEntry {
-  value: { id: string; code: string; name: string };
+  value: ResolvedAccount;
   timestamp: number;
 }
 
-// Tenant-scoped cache: outer key is the PrismaClient instance (one per tenant),
-// inner key is the role name. This prevents cross-tenant cache contamination
-// when tenantId is not explicitly passed to resolveAccount().
 const tenantCache = new Map<object, Map<string, CacheEntry>>();
 
-export type ResolvedAccount = { id: string; code: string; name: string };
-
 /**
- * Resolve an account by role. Tries exact code match first, then name pattern.
- * Cache is tenant-scoped via the active PrismaClient instance from AsyncLocalStorage —
- * each tenant gets its own PrismaClient, so different tenants never share cache entries.
+ * Resolve an account by role.
+ *
+ * Resolution order:
+ *   1. Tenant-scoped cache (5 min TTL)
+ *   2. DB mapping: TenantAccountRole in MAIN DB → Account in tenant DB
+ *   3. Phase 1 patterns (code → Melindo code → name)
+ *   4. Throw with actionable message
  */
 export async function resolveAccount(
   role: AccountRole,
-  _tenantId?: string,
+  explicitTenantId?: string,
 ): Promise<ResolvedAccount> {
-  const { tenantContext } = await import("@/lib/core/prisma");
+  const { tenantContext, getTenantIdFromContext, getMainPrisma } = await import("@/lib/core/prisma");
   const tenantDb = tenantContext.getStore();
-  // Fall back to main prisma if no tenant context (e.g. main DB queries)
-  const { getMainPrisma } = await import("@/lib/core/prisma");
+  const tenantId = explicitTenantId ?? getTenantIdFromContext();
   const cacheTarget = tenantDb ?? getMainPrisma();
 
+  // --- Cache check ---
   let roleMap = tenantCache.get(cacheTarget);
   if (!roleMap) {
     roleMap = new Map();
@@ -314,48 +357,63 @@ export async function resolveAccount(
     return cached.value;
   }
 
-  const patterns = ACCOUNT_ROLE_PATTERNS[role];
-  if (!patterns) throw new Error(`Unknown account role: ${role}`);
-
-  for (const pattern of patterns) {
-    let account = null;
-    if (pattern.code) {
-      account = await prisma.account.findUnique({
-        where: { code: pattern.code },
+  // --- Step 1: DB mapping (Phase 2) ---
+  if (tenantId) {
+    try {
+      const mainPrisma = getMainPrisma();
+      const mapping = await mainPrisma.tenantAccountRole.findUnique({
+        where: { tenantId_role: { tenantId, role } },
       });
-    } else if (pattern.nameContains) {
-      account = await prisma.account.findFirst({
-        where: {
-          name: { contains: pattern.nameContains, mode: "insensitive" },
-        },
+      if (mapping) {
+        // Look up the actual Account in the tenant DB
+        const account = tenantDb
+          ? await tenantDb.account.findUnique({ where: { id: mapping.accountId } })
+          : null;
+        if (account && account.isActive !== false) {
+          const result: ResolvedAccount = { id: account.id, code: account.code, name: account.name };
+          roleMap.set(role, { value: result, timestamp: Date.now() });
+          return result;
+        }
+        // Orphan mapping — account deleted or inactive; fall through to patterns
+        if (mapping && !account) {
+          const { logger } = await import("@/lib/config/logger");
+          logger.warn("TenantAccountRole orphan mapping; falling back to patterns", {
+            module: "account-resolver",
+            role,
+            tenantId,
+            accountId: mapping.accountId,
+          });
+        }
+      }
+    } catch (err) {
+      // DB lookup failed — fall through to patterns (graceful degradation)
+      const { logger } = await import("@/lib/config/logger");
+      logger.warn("TenantAccountRole DB lookup failed; falling back to patterns", {
+        module: "account-resolver",
+        role,
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
       });
-    }
-    if (account) {
-      const result: ResolvedAccount = {
-        id: account.id,
-        code: account.code,
-        name: account.name,
-      };
-      roleMap.set(role, { value: result, timestamp: Date.now() });
-      return result;
     }
   }
 
-  const searchedCodes = patterns
-    .filter((p) => p.code)
-    .map((p) => p.code)
-    .join(", ");
-  const searchedNames = patterns
-    .filter((p) => p.nameContains)
-    .map((p) => p.nameContains)
-    .join(", ");
-  throw new Error(
-    `Account not found for role "${role}". Searched codes: ${searchedCodes}. Searched names: ${searchedNames}.`,
-  );
+  // --- Step 2: Pattern fallback (Phase 1) ---
+  // Don't pass tenantDb — let resolveByPatterns use the proxy (routes via tenantContext)
+  try {
+    const result = await resolveByPatterns(role);
+    roleMap.set(role, { value: result, timestamp: Date.now() });
+    return result;
+  } catch (originalError) {
+    // Improve error message with Phase 2 context
+    const msg = originalError instanceof Error ? originalError.message : String(originalError);
+    throw new Error(
+      `${msg}\nHint: seed TenantAccountRole for tenant "${tenantId ?? 'unknown'}" ` +
+      `or configure at /finance/coa/roles.`,
+    );
+  }
 }
 
 export function clearAccountCache(): void {
-  // Clear all tenant caches
   for (const roleMap of tenantCache.values()) {
     roleMap.clear();
   }

@@ -58,7 +58,10 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
 
                             if (tenant?.dbUrl) {
                                 const tenantDb = getTenantDb(tenant.dbUrl);
-                                user = await tenantContext.run(tenantDb, () => getUser(email));
+                                const { tenantIdContext } = await import('@/lib/core/prisma');
+                                user = await tenantContext.run(tenantDb, () =>
+                                    tenantIdContext.run(tenant.id, () => getUser(email))
+                                );
                             } else {
                                 throw new Error('TenantNotFound');
                             }

@@ -1,11 +1,11 @@
-import { getTenantDb, tenantContext } from '@/lib/core/prisma';
+import { getTenantDb, tenantContext, tenantIdContext } from '@/lib/core/prisma';
 import { PrismaClient } from '@prisma/client';
 import { headers } from 'next/headers';
 
 export type TenantResolutionResult =
     | { type: 'NONE' }
     | { type: 'NOT_FOUND'; subdomain: string }
-    | { type: 'RESOLVED'; tenantDb: PrismaClient; subdomain: string };
+    | { type: 'RESOLVED'; tenantDb: PrismaClient; tenantId: string; subdomain: string };
 
 /**
  * Robust utility to extract tenant subdomain from a host string.
@@ -57,6 +57,7 @@ export async function resolveTenantContext(
     }
 
     let targetDbUrl: string | null = null;
+    let resolvedTenantId: string | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
             // CRITICAL: Always use mainPrisma for tenant lookup.
@@ -74,7 +75,10 @@ export async function resolveTenantContext(
                 where: { subdomain }
             });
             targetDbUrl = tenant?.dbUrl || null;
-            if (targetDbUrl) break;
+            if (targetDbUrl) {
+                resolvedTenantId = tenant?.id ?? null;
+                break;
+            }
             // Tenant not found — might be stale cache, retry once
             if (attempt < 3) {
                 console.warn(`[resolveTenantContext] Tenant "${subdomain}" not found on attempt ${attempt}, retrying... (activeTenantContext=${!!activeTenantDb}, tenantResult=${JSON.stringify(tenant)})`);
@@ -94,7 +98,7 @@ export async function resolveTenantContext(
     }
 
     const tenantDb = getTenantDb(targetDbUrl);
-    return { type: 'RESOLVED', tenantDb, subdomain };
+    return { type: 'RESOLVED', tenantDb, tenantId: resolvedTenantId!, subdomain };
 }
 
 /**
@@ -116,9 +120,9 @@ export function withTenant<T extends (...args: any[]) => Promise<any>>(action: T
         }
 
         // Run the action inside the AsyncLocalStorage context
-        return tenantContext.run(result.tenantDb, () => {
-            return action(...args);
-        });
+        return tenantContext.run(result.tenantDb, () =>
+            tenantIdContext.run(result.tenantId, () => action(...args))
+        );
     }) as T;
 }
 
@@ -156,8 +160,8 @@ export function withTenantRoute(
             );
         }
 
-        return tenantContext.run(result.tenantDb, () => {
-            return handler(req, ...args);
-        });
+        return tenantContext.run(result.tenantDb, () =>
+            tenantIdContext.run(result.tenantId, () => handler(req, ...args))
+        );
     };
 }

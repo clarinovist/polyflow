@@ -225,10 +225,11 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
 
             const passwordHash = await bcrypt.hash(newPassword, 10);
 
-            const { getTenantDb, tenantContext } = await import('@/lib/core/prisma');
+            const { getTenantDb, tenantContext, tenantIdContext } = await import('@/lib/core/prisma');
             const tenantDb = getTenantDb(tenant.dbUrl);
 
-            const result = await tenantContext.run(tenantDb, async () => {
+            const result = await tenantContext.run(tenantDb, () =>
+                tenantIdContext.run(tenant.id, async () => {
                 const adminUser = await getTenantDb(tenant.dbUrl).user.findFirst({
                     where: { role: Role.ADMIN },
                     orderBy: { createdAt: 'asc' }
@@ -244,7 +245,8 @@ export async function resetTenantAdminPassword(tenantId: string, formData: FormD
                 });
 
                 return null;
-            });
+                })
+            );
 
             return result;
         } catch (e: unknown) {

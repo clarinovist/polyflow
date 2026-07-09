@@ -29,6 +29,25 @@ export const tenantContext: AsyncLocalStorage<PrismaClient> =
     globalForTenantContext.__polyflowTenantContext ??
     (globalForTenantContext.__polyflowTenantContext = new AsyncLocalStorage<PrismaClient>());
 
+// Parallel store for tenant ID — does NOT replace tenantContext.
+// Kept separate to avoid breaking the prisma Proxy and all existing callers.
+const globalForTenantIdContext = globalThis as unknown as {
+    __polyflowTenantIdContext?: AsyncLocalStorage<string>;
+};
+export const tenantIdContext: AsyncLocalStorage<string> =
+    globalForTenantIdContext.__polyflowTenantIdContext ??
+    (globalForTenantIdContext.__polyflowTenantIdContext = new AsyncLocalStorage<string>());
+
+/** Get the current tenant ID from async context (undefined outside tenant scope). */
+export function getTenantIdFromContext(): string | undefined {
+    return tenantIdContext.getStore();
+}
+
+/** Get the current tenant PrismaClient from async context (backward-compatible helper). */
+export function getTenantDbFromContext(): PrismaClient | undefined {
+    return tenantContext.getStore();
+}
+
 // Tenant Connection Factory — MUST be global singleton
 const globalForTenantClients = globalThis as unknown as {
     __polyflowTenantClients?: Map<string, PrismaClient>;

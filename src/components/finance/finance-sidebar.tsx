@@ -199,6 +199,11 @@ const financeLinks = [
         label: financeSidebarLabels.chartOfAccounts,
       },
       {
+        href: "/finance/coa/roles",
+        icon: Settings2,
+        label: "Role Mapping",
+      },
+      {
         href: "/finance/periods",
         icon: Calendar,
         label: financeSidebarLabels.fiscalPeriods,

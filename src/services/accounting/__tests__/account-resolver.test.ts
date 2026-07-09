@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Use vi.hoisted so these are available in the hoisted vi.mock factory
-const { mockGetStore, mockGetMainPrisma } = vi.hoisted(() => ({
+const { mockGetStore, mockGetMainPrisma, mockGetTenantIdFromContext } = vi.hoisted(() => ({
     mockGetStore: vi.fn(),
     mockGetMainPrisma: vi.fn(),
+    mockGetTenantIdFromContext: vi.fn(),
 }));
 
 vi.mock('@/lib/core/prisma', () => ({
@@ -17,13 +18,20 @@ vi.mock('@/lib/core/prisma', () => ({
         getStore: mockGetStore,
     },
     getMainPrisma: mockGetMainPrisma,
+    getTenantIdFromContext: mockGetTenantIdFromContext,
 }));
 
 import { prisma } from '@/lib/core/prisma';
 import { resolveAccount, clearAccountCache } from '../account-resolver';
 
-// Shared mock tenant DB instance
-const mockTenantDb = { _isMock: true };
+// Shared mock tenant DB instance (must have account methods for resolveByPatterns)
+const mockTenantDb = {
+    _isMock: true,
+    account: {
+        findUnique: vi.fn(),
+        findFirst: vi.fn(),
+    },
+};
 
 describe('account-resolver', () => {
     beforeEach(() => {
@@ -32,6 +40,8 @@ describe('account-resolver', () => {
         // Default: tenant context returns a mock PrismaClient
         mockGetStore.mockReturnValue(mockTenantDb);
         mockGetMainPrisma.mockReturnValue({ _isMain: true });
+        // Default: no tenant ID in context (tests use patterns only)
+        mockGetTenantIdFromContext.mockReturnValue(undefined);
     });
 
     describe('resolveAccount', () => {
@@ -180,6 +190,60 @@ describe('account-resolver', () => {
             const result = await resolveAccount('other-payables');
 
             expect(result).toEqual({ id: 'acc-melindo-hutang', code: '2-390', name: 'Hutang ke Nugroho' });
+        });
+
+        it('prefers TenantAccountRole DB mapping over patterns when tenantId is set', async () => {
+            mockGetTenantIdFromContext.mockReturnValue('tenant-melindo');
+            const findUniqueMain = vi.fn().mockResolvedValue({
+                accountId: 'acc-db-mapped',
+                role: 'accounts-receivable',
+                tenantId: 'tenant-melindo',
+            });
+            mockGetMainPrisma.mockReturnValue({
+                tenantAccountRole: { findUnique: findUniqueMain },
+            });
+            mockTenantDb.account.findUnique.mockResolvedValue({
+                id: 'acc-db-mapped',
+                code: '1-115b',
+                name: 'Piutang Dagang Rafia',
+                isActive: true,
+            });
+
+            const result = await resolveAccount('accounts-receivable');
+
+            expect(result).toEqual({
+                id: 'acc-db-mapped',
+                code: '1-115b',
+                name: 'Piutang Dagang Rafia',
+            });
+            expect(findUniqueMain).toHaveBeenCalledWith({
+                where: { tenantId_role: { tenantId: 'tenant-melindo', role: 'accounts-receivable' } },
+            });
+            // Pattern path should not be needed
+            expect(prisma.account.findUnique).not.toHaveBeenCalled();
+        });
+
+        it('falls back to patterns when DB mapping points to missing account (orphan)', async () => {
+            mockGetTenantIdFromContext.mockReturnValue('tenant-melindo');
+            mockGetMainPrisma.mockReturnValue({
+                tenantAccountRole: {
+                    findUnique: vi.fn().mockResolvedValue({
+                        accountId: 'deleted-acc',
+                        role: 'accounts-receivable',
+                    }),
+                },
+            });
+            mockTenantDb.account.findUnique.mockResolvedValue(null);
+            // Pattern fallback uses prisma proxy mock
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-pattern',
+                code: '11210',
+                name: 'Accounts Receivable',
+            } as never);
+
+            const result = await resolveAccount('accounts-receivable');
+
+            expect(result.id).toBe('acc-pattern');
         });
     });
 });
