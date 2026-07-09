@@ -73,8 +73,8 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
   ],
   // === Cash / Bank ===
   "petty-cash": [
-    { code: "11110" },
     { code: "1-112" },
+    { code: "11110" },
     { nameContains: "Kas Kecil" },
     { nameContains: "Petty Cash" },
   ],
@@ -114,12 +114,15 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Sales Revenue" },
   ],
   "sales-return": [
+    { code: "4-302" },
     { code: "41900" },
     { nameContains: "Retur Penjualan" },
     { nameContains: "Sales Return" },
   ],
   // === COGS ===
   cogs: [
+    { code: "5-001" },
+    { code: "5-011b" },
     { code: "51100" },
     { code: "50000" },
     { nameContains: "Harga Pokok" },
@@ -127,32 +130,42 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "COGS" },
   ],
   // === Inventory ===
+  // Melindo operational codes first (1-xxx); Kiyowo 5-digit after (avoids ghost hits on hybrid COA).
   inventory: [
+    { code: "1-130" },
     { code: "11300" },
+    { nameContains: "Persediaan Bahan Baku" },
     { nameContains: "Persediaan" },
     { nameContains: "Inventory" },
   ],
   wip: [
+    { code: "1-132" },
     { code: "11320" },
     { nameContains: "Work in Progress" },
     { nameContains: "Dalam Proses" },
   ],
   "finished-goods": [
+    { code: "1-128" },
     { code: "11330" },
     { nameContains: "Barang Jadi" },
     { nameContains: "Finished Goods" },
   ],
   packaging: [
+    { code: "1-131" },
     { code: "11340" },
     { nameContains: "Packing" },
     { nameContains: "Packaging" },
+    { nameContains: "Bahan Kemasan" },
   ],
   scrap: [
+    { code: "1-127" },
     { code: "11350" },
     { nameContains: "Scrap" },
     { nameContains: "Afval" },
+    { nameContains: "Affal" },
   ],
   "raw-material": [
+    { code: "1-130" },
     { code: "11310" },
     { nameContains: "Bahan Baku" },
     { nameContains: "Raw Material" },
@@ -184,9 +197,11 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
   ],
   // === Overhead / Accrual ===
   "manufacturing-overhead": [
-    { code: "51100" },
+    { code: "5-023" },
+    { code: "53000" },
     { nameContains: "Manufacturing Overhead" },
     { nameContains: "Overhead Pabrik" },
+    { nameContains: "Overhead" },
   ],
   "accrued-liabilities": [
     { code: "21200" },
