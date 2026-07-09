@@ -73,6 +73,30 @@ export const createVehicleTariff = withTenant(
         throw new BusinessRuleError("Tanggal berlaku sampai harus setelah tanggal berlaku dari.");
       }
 
+      // Check for overlapping tariff on same vehicle
+      const newValidFrom = result.data.validFrom;
+      const newValidUntil = result.data.validUntil;
+      const overlapping = await prisma.vehicleTariff.findFirst({
+        where: {
+          vehicleId: result.data.vehicleId,
+          id: { not: undefined }, // exclude self on update
+          AND: [
+            { validFrom: { lte: newValidUntil || new Date('2099-12-31') } },
+            {
+              OR: [
+                { validUntil: null }, // open-ended tariff
+                { validUntil: { gte: newValidFrom } },
+              ],
+            },
+          ],
+        },
+      });
+      if (overlapping) {
+        throw new BusinessRuleError(
+          `Sudah ada tarif aktif untuk kendaraan ini pada periode yang berlaku (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}). Tidak boleh ada tarif yang tumpang tindih.`
+        );
+      }
+
       const tariff = await prisma.vehicleTariff.create({
         data: {
           vehicleId: result.data.vehicleId,
@@ -111,6 +135,30 @@ export const updateVehicleTariff = withTenant(
 
       if (result.data.validUntil && result.data.validUntil <= result.data.validFrom) {
         throw new BusinessRuleError("Tanggal berlaku sampai harus setelah tanggal berlaku dari.");
+      }
+
+      // Check for overlapping tariff on same vehicle (exclude self)
+      const newValidFrom = result.data.validFrom;
+      const newValidUntil = result.data.validUntil;
+      const overlapping = await prisma.vehicleTariff.findFirst({
+        where: {
+          vehicleId: result.data.vehicleId,
+          id: { not: id }, // exclude self
+          AND: [
+            { validFrom: { lte: newValidUntil || new Date('2099-12-31') } },
+            {
+              OR: [
+                { validUntil: null },
+                { validUntil: { gte: newValidFrom } },
+              ],
+            },
+          ],
+        },
+      });
+      if (overlapping) {
+        throw new BusinessRuleError(
+          `Sudah ada tarif aktif untuk kendaraan ini pada periode yang berlaku (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}). Tidak boleh ada tarif yang tumpang tindih.`
+        );
       }
 
       const tariff = await prisma.vehicleTariff.update({
