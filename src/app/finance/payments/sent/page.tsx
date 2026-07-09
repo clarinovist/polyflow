@@ -2,7 +2,6 @@ import { getSentPayments } from '@/actions/finance/finance';
 import { SentPaymentsClient } from '@/components/finance/payments/SentPaymentsClient';
 import { getPurchaseInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
-import { PurchaseInvoiceStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,12 +22,12 @@ export default async function SentPaymentsPage({ searchParams }: { searchParams:
         throw new Error(payments.error);
     }
 
-    // Fetch unpaid purchase invoices for payment recording
+    // Fetch purchase invoices with outstanding balance (Outstanding > 0)
     const unpaidInvoicesRes = await getPurchaseInvoices();
     const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const unpaidInvoices = (allInvoices as any[]).filter((inv: any) =>
-        [PurchaseInvoiceStatus.UNPAID, PurchaseInvoiceStatus.PARTIAL, PurchaseInvoiceStatus.OVERDUE].includes(inv.status)
+        Number(inv.totalAmount) - Number(inv.paidAmount) > 0
     );
 
     return (

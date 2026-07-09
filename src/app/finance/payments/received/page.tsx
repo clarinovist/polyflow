@@ -2,7 +2,6 @@ import { getReceivedPayments } from '@/actions/finance/finance';
 import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
 import { getSalesInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
-import { InvoiceStatus } from '@prisma/client';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -35,13 +34,13 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
         throw new Error(payments.error);
     }
 
-    // Fetch unpaid invoices for payment recording
+    // Fetch invoices with outstanding balance (Outstanding > 0)
     const unpaidInvoicesRes = await getSalesInvoices();
     const allInvoices = unpaidInvoicesRes.success && unpaidInvoicesRes.data ? unpaidInvoicesRes.data : [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const unpaidInvoices = (allInvoices as any[]).filter((inv: any) => {
-        const matchesStatus = [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE].includes(inv.status);
-        if (!matchesStatus) return false;
+        const hasOutstanding = Number(inv.totalAmount) - Number(inv.paidAmount) > 0;
+        if (!hasOutstanding) return false;
         if (demand === 'customer') {
             return inv.salesOrder?.customerId != null;
         }

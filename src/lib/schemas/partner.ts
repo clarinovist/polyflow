@@ -32,7 +32,7 @@ export const createCustomerSchema = z.object({
   // Location fields
   latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
-  photoUrl: z.string().url().optional().nullable(),
+  photoUrl: z.string().optional().nullable(),
   province: z.string().optional(),
   city: z.string().optional(),
   district: z.string().optional(),

@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { buildCustomerPhotoKey } from "@/lib/storage/s3";
 import { requireAuth } from "@/lib/tools/auth-checks";
-
-const s3Client = new S3Client({
-  region: process.env.S3_REGION || "id-cgk-1",
-  endpoint: process.env.S3_ENDPOINT || "https://id-cgk-1.linodeobjects.com",
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || "",
-  },
-});
-
-const BUCKET = process.env.S3_BUCKET || "polyflow-uploads";
-const PUBLIC_URL =
-  process.env.S3_PUBLIC_URL || `https://id-cgk-1.linodeobjects.com/${BUCKET}`;
+import {
+  getTenantPrefix,
+  buildCustomerPhotoKey,
+  uploadToR2,
+} from "@/lib/storage/r2";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -39,30 +29,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "File too large. Maximum size is 5MB." }, { status: 400 });
     }
 
+    const tenant = await getTenantPrefix();
     const key = customerId
-      ? buildCustomerPhotoKey(customerId, file.name)
-      : `uploads/${Date.now()}.${file.name.split(".").pop()}`;
+      ? buildCustomerPhotoKey(tenant, customerId, file.name)
+      : `${tenant}/uploads/${Date.now()}.${file.name.split(".").pop()}`;
 
-    // Server-side upload to S3 with public-read ACL
     const buffer = Buffer.from(await file.arrayBuffer());
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-        ACL: "public-read",
-      }),
-    );
+    const publicUrl = await uploadToR2(key, buffer, file.type);
 
-    const publicUrl = `${PUBLIC_URL}/${key}`;
-    return NextResponse.json({ url: publicUrl, key });
+    return NextResponse.json({ success: true, url: publicUrl, key });
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
