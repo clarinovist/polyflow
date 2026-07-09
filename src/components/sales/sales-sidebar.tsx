@@ -11,6 +11,7 @@ import {
     Smartphone,
     CalendarDays,
     Car,
+    BarChart3,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -50,6 +51,12 @@ const salesLinks = [
             { href: '/sales/delivery-schedules', icon: CalendarDays, label: salesSidebarLabels.deliverySchedules },
             { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
             { href: '/sales/vehicles', icon: Car, label: salesSidebarLabels.vehicles },
+        ],
+    },
+    {
+        heading: 'Laporan',
+        items: [
+            { href: '/sales/reports/shipping-cost', icon: BarChart3, label: 'Biaya Pengiriman' },
         ],
     },
     {

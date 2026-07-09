@@ -100,6 +100,7 @@ export const salesSidebarLabels = {
   deliveryTracking: "Surat Jalan",
   deliverySchedules: "Jadwal Kirim",
   vehicles: "Armada",
+  shippingCostReport: "Biaya Pengiriman",
   salesReturns: "Retur Penjualan",
   customerManagement: "Customer",
 } as const;
