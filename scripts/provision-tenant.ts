@@ -54,33 +54,9 @@ async function provisionTenant() {
         console.log(`\n✅ Successfully provisioned tenant:`);
         console.table(newTenant);
 
-        // Optional: Run Tenant Seeding
-        // console.log(`\n🌱 Seeding initial data...`);
-        // await execPromise(`DATABASE_URL="${dbUrl}" npx tsx prisma/seed.ts`);
-
-        // Best-effort: seed role→account mappings if COA already exists on tenant DB.
-        // Safe when COA is empty (roles land in failed[]); re-run seed script later after COA seed.
-        try {
-            console.log(`\n🔗 Seeding TenantAccountRole mappings (create-only)...`);
-            const { getTenantDb } = await import('../src/lib/core/prisma');
-            const { seedTenantAccountRoles } = await import('../src/services/accounting/coa-seed-service');
-            const tenantDb = getTenantDb(dbUrl);
-            const seedResult = await seedTenantAccountRoles({
-                tenantId: newTenant.id,
-                tenantDb,
-                force: false,
-            });
-            console.log(
-                `  Created: ${seedResult.created}, skipped: ${seedResult.skipped}, failed: ${seedResult.failed.length}`,
-            );
-            if (seedResult.failed.length > 0) {
-                console.log(
-                    `  (Failed roles usually mean COA not seeded yet — run scripts/seed-tenant-account-roles.ts after COA seed.)`,
-                );
-            }
-        } catch (seedErr) {
-            console.warn(`\n⚠️  Role mapping seed skipped:`, seedErr);
-        }
+        console.log(`\n📌 Next step: seed COA + role mappings for this tenant:`);
+        console.log(`   1. Seed COA: DATABASE_URL="${dbUrl}" npx tsx prisma/seed.ts`);
+        console.log(`   2. Seed roles: npx tsx scripts/seed-tenant-account-roles.ts`);
 
     } catch (error) {
         console.error("\n❌ Provisioning failed:", error);
