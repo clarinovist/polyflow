@@ -11,12 +11,26 @@ vi.mock("@/lib/core/prisma", () => ({
       findFirst: vi.fn(),
     },
   },
+  // resolveAccount dynamically imports these for tenant-scoped caching
+  tenantContext: {
+    getStore: vi.fn().mockReturnValue(undefined),
+  },
+  getMainPrisma: vi.fn().mockReturnValue({ _isMain: true }),
 }));
 
 vi.mock("../../accounting/accounting-service", () => ({
   AccountingService: {
     createJournalEntry: vi.fn(),
   },
+}));
+
+// Mock account resolution so payment-handler tests stay focused on journal refs
+vi.mock("../../accounting/account-resolver", () => ({
+  resolveAccount: vi.fn().mockImplementation(async (role: string) => ({
+    id: `acc-${role}`,
+    code: "00000",
+    name: role,
+  })),
 }));
 
 import { prisma } from "@/lib/core/prisma";
@@ -26,15 +40,6 @@ import { AutoJournalService } from "../auto-journal-service";
 describe("AutoJournalService payment journals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-     vi.mocked(prisma.account.findUnique).mockImplementation((async ({
-      where,
-    }: any) => ({
-      id: `acc-${where.code}`,
-      code: where.code,
-    })) as never);
-
-    vi.mocked(prisma.account.findFirst).mockResolvedValue(null as never);
   });
 
   it("uses sales payment id as journal referenceId", async () => {

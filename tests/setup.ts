@@ -3,8 +3,17 @@ import { vi } from 'vitest';
 // Global mocks for essential application services and database
 vi.mock('@/lib/core/prisma', async () => {
     const { createMockPrisma } = await import('./helpers/createMockPrisma');
+    const mockPrisma = createMockPrisma();
     return {
-        prisma: createMockPrisma()
+        prisma: mockPrisma,
+        // Used by account-resolver for tenant-scoped cache keys
+        tenantContext: {
+            getStore: vi.fn().mockReturnValue(undefined),
+            run: vi.fn((_store: unknown, fn: () => unknown) => fn()),
+        },
+        getMainPrisma: vi.fn().mockReturnValue(mockPrisma),
+        getTenantDb: vi.fn().mockReturnValue(mockPrisma),
+        disconnectAllTenants: vi.fn(),
     };
 });
 
