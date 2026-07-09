@@ -174,20 +174,34 @@ interface CacheEntry {
   timestamp: number;
 }
 
-const cache = new Map<string, CacheEntry>();
+// Tenant-scoped cache: outer key is the PrismaClient instance (one per tenant),
+// inner key is the role name. This prevents cross-tenant cache contamination
+// when tenantId is not explicitly passed to resolveAccount().
+const tenantCache = new Map<object, Map<string, CacheEntry>>();
 
 export type ResolvedAccount = { id: string; code: string; name: string };
 
 /**
  * Resolve an account by role. Tries exact code match first, then name pattern.
- * Cache is tenant-scoped via tenantId prefix to prevent cross-tenant leakage.
+ * Cache is tenant-scoped via the active PrismaClient instance from AsyncLocalStorage —
+ * each tenant gets its own PrismaClient, so different tenants never share cache entries.
  */
 export async function resolveAccount(
   role: AccountRole,
-  tenantId?: string,
+  _tenantId?: string,
 ): Promise<ResolvedAccount> {
-  const cacheKey = tenantId ? `${tenantId}:${role}` : role;
-  const cached = cache.get(cacheKey);
+  const { tenantContext } = await import("@/lib/core/prisma");
+  const tenantDb = tenantContext.getStore();
+  // Fall back to main prisma if no tenant context (e.g. main DB queries)
+  const { getMainPrisma } = await import("@/lib/core/prisma");
+  const cacheTarget = tenantDb ?? getMainPrisma();
+
+  let roleMap = tenantCache.get(cacheTarget);
+  if (!roleMap) {
+    roleMap = new Map();
+    tenantCache.set(cacheTarget, roleMap);
+  }
+  const cached = roleMap.get(role);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.value;
   }
@@ -214,7 +228,7 @@ export async function resolveAccount(
         code: account.code,
         name: account.name,
       };
-      cache.set(cacheKey, { value: result, timestamp: Date.now() });
+      roleMap.set(role, { value: result, timestamp: Date.now() });
       return result;
     }
   }
@@ -233,5 +247,8 @@ export async function resolveAccount(
 }
 
 export function clearAccountCache(): void {
-  cache.clear();
+  // Clear all tenant caches
+  for (const roleMap of tenantCache.values()) {
+    roleMap.clear();
+  }
 }

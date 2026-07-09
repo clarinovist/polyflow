@@ -83,14 +83,12 @@ export function PeriodManagementClient({
 
   const handleGenerate = async () => {
     startTransition(async () => {
-      try {
-        await generatePeriodsForYear(parseInt(year));
+      const result = await generatePeriodsForYear(parseInt(year));
+      if (result?.success) {
         toast.success(`Periode untuk tahun ${year} berhasil digenerate.`);
         router.refresh();
-      } catch {
-        const message =
-          "Gagal membuat periode. Silakan coba lagi.";
-        toast.error(message);
+      } else {
+        toast.error(result?.error || "Gagal membuat periode. Silakan coba lagi.");
       }
     });
   };
@@ -116,17 +114,16 @@ export function PeriodManagementClient({
     if (!selectedPeriod) return;
 
     startTransition(async () => {
-      try {
-        await closePeriod(selectedPeriod.id);
+      const result = await closePeriod(selectedPeriod.id);
+      if (result?.success) {
         toast.success(
           `Periode fiskal ${selectedPeriod.name} berhasil ditutup dengan jurnal penutup.`,
         );
         setIsConfirmOpen(false);
         router.refresh();
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : "Gagal menutup periode";
-        toast.error(message);
+      } else {
+        const msg = result?.error || "Gagal menutup periode";
+        toast.error(msg);
       }
     });
   };
@@ -138,12 +135,12 @@ export function PeriodManagementClient({
     if (currentStatus === "OPEN") return; // Handled by handleCloseClick
 
     startTransition(async () => {
-      try {
-        await reopenPeriod(id);
+      const result = await reopenPeriod(id);
+      if (result?.success) {
         toast.success("Periode fiskal berhasil dibuka kembali.");
         router.refresh();
-      } catch (_error) {
-        toast.error("Gagal memperbarui status");
+      } else {
+        toast.error(result?.error || "Gagal membuka kembali periode");
       }
     });
   };

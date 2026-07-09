@@ -1,21 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Use vi.hoisted so these are available in the hoisted vi.mock factory
+const { mockGetStore, mockGetMainPrisma } = vi.hoisted(() => ({
+    mockGetStore: vi.fn(),
+    mockGetMainPrisma: vi.fn(),
+}));
+
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         account: {
             findUnique: vi.fn(),
             findFirst: vi.fn(),
         },
-    }
+    },
+    tenantContext: {
+        getStore: mockGetStore,
+    },
+    getMainPrisma: mockGetMainPrisma,
 }));
 
 import { prisma } from '@/lib/core/prisma';
 import { resolveAccount, clearAccountCache } from '../account-resolver';
 
+// Shared mock tenant DB instance
+const mockTenantDb = { _isMock: true };
+
 describe('account-resolver', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         clearAccountCache();
+        // Default: tenant context returns a mock PrismaClient
+        mockGetStore.mockReturnValue(mockTenantDb);
+        mockGetMainPrisma.mockReturnValue({ _isMain: true });
     });
 
     describe('resolveAccount', () => {
@@ -95,6 +111,36 @@ describe('account-resolver', () => {
 
             // After clear, cache miss → DB hit again
             expect(prisma.account.findUnique).toHaveBeenCalledTimes(2);
+        });
+
+        it('does not share cache between different tenant contexts', async () => {
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-kiyowo-33000',
+                code: '33000',
+                name: 'Current Year Earnings',
+            } as never);
+
+            // Simulate Kiyowo tenant context
+            const kiyowoDb = { _kiyowo: true };
+            mockGetStore.mockReturnValue(kiyowoDb);
+            await resolveAccount('current-year-earnings');
+
+            // Simulate Melindo tenant context with different DB
+            const melindoDb = { _melindo: true };
+            mockGetStore.mockReturnValue(melindoDb);
+            vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
+            vi.mocked(prisma.account.findFirst).mockResolvedValue({
+                id: 'acc-melindo-3-201b',
+                code: '3-201b',
+                name: 'Laba Tahun Berjalan',
+            } as never);
+
+            const result = await resolveAccount('current-year-earnings');
+
+            // Melindo should get its own account, not Kiyowo's
+            expect(result).toEqual({ id: 'acc-melindo-3-201b', code: '3-201b', name: 'Laba Tahun Berjalan' });
+            // DB was queried again (not cached from Kiyowo)
+            expect(prisma.account.findFirst).toHaveBeenCalled();
         });
     });
 });
