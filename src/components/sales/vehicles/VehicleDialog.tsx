@@ -63,7 +63,9 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
   const router = useRouter();
 
   const form = useForm<CreateVehicleValues>({
-    resolver: zodResolver(createVehicleSchema),
+    // cast: z.coerce makes input type diverge from output (Zod 4 + RHF)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createVehicleSchema) as any,
     defaultValues: {
       plateNumber: initialData?.plateNumber || '',
       name: initialData?.name || '',

@@ -70,7 +70,9 @@ export function VehicleTariffDialog({ mode, vehicleId, initialData, trigger, ope
   };
 
   const form = useForm<CreateVehicleTariffValues>({
-    resolver: zodResolver(createVehicleTariffSchema),
+    // cast: z.coerce makes input type diverge from output (Zod 4 + RHF)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createVehicleTariffSchema) as any,
     defaultValues: getDefaultValues(),
   });
 

@@ -137,7 +137,8 @@ export const createVehicleSchema = z.object({
   ownershipType: z.enum(["FACTORY", "PRIVATE"]),
   ownerName: z.string().optional(),
   driverName: z.string().optional(),
-  capacityKg: z.number().min(0).optional().nullable(),
+  // coerce: HTML number inputs and server-action payloads often arrive as strings
+  capacityKg: z.coerce.number().min(0).optional().nullable(),
   status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
   notes: z.string().optional(),
 });
@@ -151,12 +152,13 @@ export const updateVehicleSchema = createVehicleSchema;
 export const createVehicleTariffSchema = z.object({
   vehicleId: z.string().min(1, "Kendaraan harus dipilih"),
   rateType: z.enum(["PER_KG", "FLAT_RATE"]),
-  costRate: z.number().min(0, "Biaya operasional tidak boleh negatif"),
-  chargeRate: z.number().min(0, "Biaya ke customer tidak boleh negatif"),
+  costRate: z.coerce.number().min(0, "Biaya operasional tidak boleh negatif"),
+  chargeRate: z.coerce.number().min(0, "Biaya ke customer tidak boleh negatif"),
   routeName: z.string().optional().nullable(),
-  minKg: z.number().min(0).optional().nullable(),
-  validFrom: z.date(),
-  validUntil: z.date().optional().nullable(),
+  minKg: z.coerce.number().min(0).optional().nullable(),
+  // coerce.date: Dates become ISO strings when passed through server actions
+  validFrom: z.coerce.date(),
+  validUntil: z.coerce.date().optional().nullable(),
   notes: z.string().optional(),
 });
 
