@@ -164,6 +164,10 @@ export function VehicleTariffDialog({ mode, vehicleId, initialData, trigger, ope
                         type="number"
                         {...field}
                         value={field.value ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === '' ? null : Number(val));
+                        }}
                         placeholder="Rp 0"
                         min={0}
                       />
@@ -184,6 +188,10 @@ export function VehicleTariffDialog({ mode, vehicleId, initialData, trigger, ope
                         type="number"
                         {...field}
                         value={field.value ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === '' ? null : Number(val));
+                        }}
                         placeholder="Rp 0"
                         min={0}
                       />
@@ -219,6 +227,10 @@ export function VehicleTariffDialog({ mode, vehicleId, initialData, trigger, ope
                       type="number"
                       {...field}
                       value={field.value ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === '' ? null : Number(val));
+                      }}
                       placeholder="Opsional"
                       min={0}
                     />

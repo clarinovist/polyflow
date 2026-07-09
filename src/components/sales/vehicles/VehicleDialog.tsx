@@ -247,6 +247,10 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
                       type="number"
                       {...field}
                       value={field.value ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === '' ? null : Number(val));
+                      }}
                       placeholder="Contoh: 2000"
                       min={0}
                     />
