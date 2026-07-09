@@ -245,5 +245,40 @@ describe('account-resolver', () => {
 
             expect(result.id).toBe('acc-pattern');
         });
+
+        it('resolves bank-charges by Kiyowo code (91200)', async () => {
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-bank-charges',
+                code: '91200',
+                name: 'Bank Charges',
+            } as never);
+
+            const result = await resolveAccount('bank-charges');
+            expect(result).toEqual({ id: 'acc-bank-charges', code: '91200', name: 'Bank Charges' });
+        });
+
+        it('resolves interest-income by Melindo code (7-100)', async () => {
+            vi.mocked(prisma.account.findUnique)
+                .mockResolvedValueOnce(null) // 81200 not found
+                .mockResolvedValueOnce({
+                    id: 'acc-melindo-bunga',
+                    code: '7-100',
+                    name: 'Pendapatan Bunga Bank',
+                } as never);
+
+            const result = await resolveAccount('interest-income');
+            expect(result).toEqual({ id: 'acc-melindo-bunga', code: '7-100', name: 'Pendapatan Bunga Bank' });
+        });
+
+        it('resolves suspense-clearing by Melindo code (1-199)', async () => {
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-melindo-sementara',
+                code: '1-199',
+                name: 'Rekening Sementara',
+            } as never);
+
+            const result = await resolveAccount('suspense-clearing');
+            expect(result).toEqual({ id: 'acc-melindo-sementara', code: '1-199', name: 'Rekening Sementara' });
+        });
     });
 });

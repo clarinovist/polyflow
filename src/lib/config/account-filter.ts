@@ -63,6 +63,7 @@ export function filterAccountsForRole<
 type RolePickerKind =
     | 'cash-bank'
     | 'expense'
+    | 'revenue'
     | 'equity'
     | 'fixed-asset'
     | 'ar'
@@ -71,7 +72,7 @@ type RolePickerKind =
     | 'liability';
 
 function rolePickerKind(role: string): RolePickerKind | null {
-    if (role === 'petty-cash' || role.startsWith('bank-')) return 'cash-bank';
+    if (role === 'petty-cash' || role.startsWith('bank-') && role !== 'bank-charges' && role !== 'bank-loans') return 'cash-bank';
     if (role === 'accounts-receivable') return 'ar';
     if (role === 'accounts-payable') return 'ap';
     if (
@@ -81,10 +82,13 @@ function rolePickerKind(role: string): RolePickerKind | null {
         role === 'misc-operating-expense' ||
         role === 'cogs' ||
         role === 'adjustment-loss' ||
-        role === 'manufacturing-overhead'
+        role === 'manufacturing-overhead' ||
+        role === 'bank-charges' ||
+        role === 'accrued-liabilities'
     ) {
         return 'expense';
     }
+    if (role === 'interest-income' || role === 'adjustment-gain') return 'revenue';
     if (
         role === 'current-year-earnings' ||
         role === 'retained-earnings' ||
@@ -125,6 +129,8 @@ function matchesRolePickerKind(
             return acc.isCashAccount === true;
         case 'expense':
             return acc.type === 'EXPENSE';
+        case 'revenue':
+            return acc.type === 'REVENUE';
         case 'equity':
             return acc.type === 'EQUITY';
         case 'fixed-asset':

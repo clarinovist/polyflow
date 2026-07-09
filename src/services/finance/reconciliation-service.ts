@@ -8,6 +8,7 @@ import {
   ReconciliationStatus,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { resolveAccount, type AccountRole } from "@/services/accounting/account-resolver";
 
 // ==========================================
 // Types
@@ -479,7 +480,10 @@ export class ReconciliationService {
   }
 
   /**
-   * Create journal entries for book-side adjustments
+   * Create journal entries for book-side adjustments.
+   * Bank side = always reconciliation.accountId.
+   * Offset side = resolveAccount(role).
+   * Throws on missing account (no silent skip).
    */
   static async createAdjustmentJournals(
     reconciliationId: string,
@@ -504,21 +508,19 @@ export class ReconciliationService {
       const amount = adj.amount.toNumber();
       if (amount === 0) continue;
 
-      const isPositive = amount > 0;
       const absAmount = Math.abs(amount);
 
-      // Get account IDs for the journal
-      const { debitAccountCode, creditAccountCode } =
-        getAdjustmentAccountCodes(adj.type);
+      // Resolve offset account by role
+      const offsetRole = ADJUSTMENT_OFFSET_ROLE[adj.type] ?? "suspense-clearing";
+      const offset = await resolveAccount(offsetRole);
 
-      const debitAccount = await prisma.account.findUnique({
-        where: { code: debitAccountCode },
-      });
-      const creditAccount = await prisma.account.findUnique({
-        where: { code: creditAccountCode },
-      });
+      // Bank increases when: INTEREST_INCOME, COLLECTION, CORRECTION_ADD
+      // or OTHER with positive amount
+      const bankIncreases = ADJUSTMENT_BANK_INCREASES[adj.type] ?? amount > 0;
 
-      if (!debitAccount || !creditAccount) continue;
+      // Build journal lines: bank ↔ offset
+      const drAccountId = bankIncreases ? reconciliation.accountId : offset.id;
+      const crAccountId = bankIncreases ? offset.id : reconciliation.accountId;
 
       // Get next entry number
       const lastEntry = await prisma.journalEntry.findFirst({
@@ -543,19 +545,15 @@ export class ReconciliationService {
           lines: {
             create: [
               {
-                accountId: isPositive
-                  ? reconciliation.accountId
-                  : creditAccount.id,
-                debit: isPositive ? absAmount : 0,
-                credit: isPositive ? 0 : absAmount,
+                accountId: drAccountId,
+                debit: absAmount,
+                credit: 0,
                 description: adj.description,
               },
               {
-                accountId: isPositive
-                  ? debitAccount.id
-                  : reconciliation.accountId,
-                debit: isPositive ? 0 : absAmount,
-                credit: isPositive ? absAmount : 0,
+                accountId: crAccountId,
+                debit: 0,
+                credit: absAmount,
                 description: adj.description,
               },
             ],
@@ -660,30 +658,30 @@ export class ReconciliationService {
 }
 
 // ==========================================
-// Helper Functions
+// Adjustment Journal Resolution (Phase 2.1)
 // ==========================================
 
-function getAdjustmentAccountCodes(type: AdjustmentType): {
-  debitAccountCode: string;
-  creditAccountCode: string;
-} {
-  switch (type) {
-    case AdjustmentType.BANK_FEE:
-      return { debitAccountCode: "5-501", creditAccountCode: "1-114" };
-    case AdjustmentType.INTEREST_INCOME:
-      return { debitAccountCode: "1-114", creditAccountCode: "4-401" };
-    case AdjustmentType.NSF_CHECK:
-      return { debitAccountCode: "2-110b", creditAccountCode: "1-114" };
-    case AdjustmentType.COLLECTION:
-      return { debitAccountCode: "1-114", creditAccountCode: "1-115b" };
-    case AdjustmentType.CORRECTION_ADD:
-      return { debitAccountCode: "1-114", creditAccountCode: "3-201b" };
-    case AdjustmentType.CORRECTION_SUBTRACT:
-      return { debitAccountCode: "3-201b", creditAccountCode: "1-114" };
-    default:
-      return { debitAccountCode: "1-199", creditAccountCode: "1-114" };
-  }
-}
+/** Map AdjustmentType → AccountRole for the offset (non-bank) side */
+const ADJUSTMENT_OFFSET_ROLE: Partial<Record<AdjustmentType, AccountRole>> = {
+  [AdjustmentType.BANK_FEE]: "bank-charges",
+  [AdjustmentType.INTEREST_INCOME]: "interest-income",
+  [AdjustmentType.NSF_CHECK]: "accounts-receivable",
+  [AdjustmentType.COLLECTION]: "accounts-receivable",
+  [AdjustmentType.CORRECTION_ADD]: "current-year-earnings",
+  [AdjustmentType.CORRECTION_SUBTRACT]: "current-year-earnings",
+  [AdjustmentType.OTHER]: "suspense-clearing",
+};
+
+/** Map AdjustmentType → bankIncreases boolean. null = use amount sign. */
+const ADJUSTMENT_BANK_INCREASES: Partial<Record<AdjustmentType, boolean>> = {
+  [AdjustmentType.BANK_FEE]: false,
+  [AdjustmentType.INTEREST_INCOME]: true,
+  [AdjustmentType.NSF_CHECK]: false,
+  [AdjustmentType.COLLECTION]: true,
+  [AdjustmentType.CORRECTION_ADD]: true,
+  [AdjustmentType.CORRECTION_SUBTRACT]: false,
+  // OTHER: null → falls back to amount > 0
+};
 
 function generateNextEntryNumber(lastEntryNumber: string): string {
   const match = lastEntryNumber.match(/(\d+)$/);

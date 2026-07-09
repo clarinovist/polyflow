@@ -42,7 +42,11 @@ export type AccountRole =
   | "bank-loans"
   | "other-payables"
   | "fixed-asset-machinery"
-  | "fixed-asset-vehicles";
+  | "fixed-asset-vehicles"
+  // Phase 2.1: Bank reconciliation roles
+  | "bank-charges"
+  | "interest-income"
+  | "suspense-clearing";
 
 interface AccountPattern {
   code?: string;
@@ -270,6 +274,29 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { code: "1-214" },
     { nameContains: "Vehicles" },
     { nameContains: "Kendaraan" },
+  ],
+  // === Phase 2.1: Bank reconciliation ===
+  "bank-charges": [
+    { code: "91200" },
+    { code: "8-200" },
+    { nameContains: "Bank Charges" },
+    { nameContains: "Biaya Admin Bank" },
+    { nameContains: "Biaya Bank" },
+    { nameContains: "Administrasi Bank" },
+  ],
+  "interest-income": [
+    { code: "81200" },
+    { code: "7-100" },
+    { nameContains: "Interest Income" },
+    { nameContains: "Pendapatan Bunga Bank" },
+    { nameContains: "Pendapatan Bunga" },
+    { nameContains: "Bunga Bank" },
+  ],
+  "suspense-clearing": [
+    { code: "1-199" },
+    { nameContains: "Rekening Sementara" },
+    { nameContains: "Suspense" },
+    { nameContains: "Clearing" },
   ],
 };
 
