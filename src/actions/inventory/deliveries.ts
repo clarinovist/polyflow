@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, RateType } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { createManualDeliveryOrderSchema } from '@/lib/schemas/sales';
@@ -88,6 +88,12 @@ async function createManualDeliveryOrder(data: {
   carrier?: string;
   trackingNumber?: string;
   notes?: string;
+  vehicleId?: string;
+  appliedRateType?: string;
+  appliedCostRate?: number;
+  appliedChargeRate?: number;
+  totalCost?: number;
+  totalCharge?: number;
 }) {
   return safeAction(async () => {
     const session = await requireAuth();
@@ -128,6 +134,12 @@ async function createManualDeliveryOrder(data: {
         carrier: validatedData.carrier,
         notes: validatedData.notes,
         createdById: session.user.id,
+        vehicleId: validatedData.vehicleId || null,
+        appliedRateType: validatedData.appliedRateType as RateType || null,
+        appliedCostRate: validatedData.appliedCostRate ?? null,
+        appliedChargeRate: validatedData.appliedChargeRate ?? null,
+        totalCost: validatedData.totalCost ?? null,
+        totalCharge: validatedData.totalCharge ?? null,
         items: {
           create: salesOrder.items.map((item) => ({
             productVariantId: item.productVariantId,

@@ -56,6 +56,7 @@ model User {
   voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
   lockedPeriods                            PeriodLock[]
   salesVisits                              SalesVisit[]           @relation("SalesVisitCreator")
+  schedulesCreated                         DeliverySchedule[]     @relation("ScheduleCreator")
 }
 
 model Employee {
@@ -1044,13 +1045,22 @@ model DeliveryOrder {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   notes            String?
+  vehicleId           String?
+  appliedRateType     RateType?
+  appliedCostRate     Decimal?  @db.Decimal(15, 2)
+  appliedChargeRate   Decimal?  @db.Decimal(15, 2)
+  totalCost           Decimal?  @db.Decimal(15, 2)
+  totalCharge         Decimal?  @db.Decimal(15, 2)
   createdBy        User?               @relation("DeliveryCreator", fields: [createdById], references: [id])
   salesOrder       SalesOrder          @relation(fields: [salesOrderId], references: [id])
   sourceLocation   Location            @relation(fields: [sourceLocationId], references: [id])
+  vehicle          Vehicle?            @relation(fields: [vehicleId], references: [id])
   items            DeliveryOrderItem[]
   salesReturns     SalesReturn[]
+  scheduleOrders   DeliveryScheduleOrder[]
 
   @@index([salesOrderId])
+  @@index([vehicleId])
 }
 
 model DeliveryOrderItem {
@@ -1066,6 +1076,86 @@ model DeliveryOrderItem {
   updatedAt        DateTime       @updatedAt
   deliveryOrder    DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model Vehicle {
+  id              String          @id @default(uuid())
+  plateNumber     String          @unique
+  name            String
+  vehicleType     VehicleType     @default(OTHER)
+  ownershipType   OwnershipType   @default(PRIVATE)
+  ownerName       String?
+  driverName      String?
+  capacityKg      Decimal?        @db.Decimal(10, 2)
+  status          VehicleStatus   @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tariffs         VehicleTariff[]
+  deliveryOrders  DeliveryOrder[]
+  schedules       DeliveryScheduleVehicle[]
+}
+
+model VehicleTariff {
+  id              String    @id @default(uuid())
+  vehicleId       String
+  rateType        RateType  @default(PER_KG)
+  costRate        Decimal   @db.Decimal(15, 2)
+  chargeRate      Decimal   @db.Decimal(15, 2)
+  routeName       String?
+  minKg           Decimal?  @db.Decimal(10, 2)
+  validFrom       DateTime  @default(now())
+  validUntil      DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  vehicle         Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+}
+
+model DeliverySchedule {
+  id              String                @id @default(uuid())
+  scheduleNumber  String                @unique
+  weekStart       DateTime
+  weekEnd         DateTime
+  status          ScheduleStatus        @default(DRAFT)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  createdBy       User?                 @relation("ScheduleCreator", fields: [createdById], references: [id])
+  vehicles        DeliveryScheduleVehicle[]
+}
+
+model DeliveryScheduleVehicle {
+  id              String              @id @default(uuid())
+  scheduleId      String
+  vehicleId       String
+  departureDate   DateTime?
+  notes           String?
+  createdAt       DateTime            @default(now())
+
+  schedule        DeliverySchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle             @relation(fields: [vehicleId], references: [id])
+  orders          DeliveryScheduleOrder[]
+
+  @@unique([scheduleId, vehicleId])
+}
+
+model DeliveryScheduleOrder {
+  id                  String                    @id @default(uuid())
+  scheduleVehicleId   String
+  deliveryOrderId     String
+  createdAt           DateTime                  @default(now())
+
+  scheduleVehicle     DeliveryScheduleVehicle   @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
+  deliveryOrder       DeliveryOrder             @relation(fields: [deliveryOrderId], references: [id])
+
+  @@unique([scheduleVehicleId, deliveryOrderId])
 }
 
 model PurchaseRequest {
@@ -1128,6 +1218,38 @@ enum DeliveryStatus {
   DELIVERED
   RETURNED
   CANCELLED
+}
+
+enum VehicleType {
+  MOBIL_BOX
+  L300
+  COLD_CONTAINER
+  TRONTON
+  MOTOR
+  OTHER
+}
+
+enum OwnershipType {
+  FACTORY
+  PRIVATE
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum RateType {
+  PER_KG
+  FLAT_RATE
+}
+
+enum ScheduleStatus {
+  DRAFT
+  CONFIRMED
+  IN_TRANSIT
+  COMPLETED
 }
 
 enum Role {

@@ -98,6 +98,8 @@ export const salesSidebarLabels = {
   mtsUnpaid: "MTS Belum Lunas",
   salesInvoices: "Invoice Penjualan",
   deliveryTracking: "Surat Jalan",
+  deliverySchedules: "Jadwal Kirim",
+  vehicles: "Armada",
   salesReturns: "Retur Penjualan",
   customerManagement: "Customer",
 } as const;

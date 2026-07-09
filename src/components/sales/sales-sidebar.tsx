@@ -9,6 +9,8 @@ import {
     RotateCcw,
     CircleDollarSign,
     Smartphone,
+    CalendarDays,
+    Car,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -40,6 +42,14 @@ const salesLinks = [
             { href: '/sales/invoices', icon: FileText, label: salesSidebarLabels.salesInvoices },
             { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
             { href: '/sales/returns', icon: RotateCcw, label: salesSidebarLabels.salesReturns },
+        ],
+    },
+    {
+        heading: 'Pengiriman',
+        items: [
+            { href: '/sales/delivery-schedules', icon: CalendarDays, label: salesSidebarLabels.deliverySchedules },
+            { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
+            { href: '/sales/vehicles', icon: Car, label: salesSidebarLabels.vehicles },
         ],
     },
     {

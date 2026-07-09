@@ -117,4 +117,41 @@ export const salesLabels = {
   inactive: "Non-aktif",
   noCustomersFound: "Tidak ada pelanggan ditemukan.",
   startByCreating: "Mulai dengan membuat pelanggan baru.",
+
+  // Fleet / Armada
+  fleet: "Armada",
+  fleetDesc: "Kelola kendaraan pengiriman dan tarif.",
+  vehicles: "Daftar Kendaraan",
+  vehiclesDesc: "Kelola data armada pengiriman.",
+  newVehicle: "Kendaraan Baru",
+  plateNumber: "No. Polisi",
+  vehicleName: "Nama Kendaraan",
+  vehicleType: "Tipe Kendaraan",
+  ownershipType: "Kepemilikan",
+  factoryOwned: "Milik Pabrik",
+  privateOwned: "Milik Perorangan",
+  driverName: "Nama Sopir",
+  capacity: "Kapasitas (Kg)",
+
+  // Tariff
+  tariff: "Tarif",
+  tariffs: "Tarif Pengiriman",
+  newTariff: "Tarif Baru",
+  rateType: "Tipe Tarif",
+  perKg: "Per Kilogram",
+  flatRate: "Flat Rate (Per Trip)",
+  costRate: "Biaya Operasional",
+  chargeRate: "Biaya ke Customer",
+  route: "Rute",
+  validFrom: "Berlaku Dari",
+
+  // Delivery Schedule
+  deliverySchedule: "Jadwal Kirim",
+  deliverySchedules: "Jadwal Kirim",
+  deliverySchedulesDesc: "Atur jadwal pengiriman mingguan per armada.",
+  newSchedule: "Jadwal Baru",
+  weekStart: "Minggu Mulai",
+  weekEnd: "Minggu Selesai",
+  departureDate: "Tanggal Berangkat",
+  scheduleStatus: "Status Jadwal",
 } as const;

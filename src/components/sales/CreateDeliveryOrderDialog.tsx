@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,11 +21,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Truck } from 'lucide-react';
+import { Plus, Truck, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { createManualDeliveryOrder } from '@/actions/inventory/deliveries';
 import { getSalesOrders } from '@/actions/sales/sales';
 import { getLocations } from '@/actions/inventory/inventory';
+import { getVehicles } from '@/actions/sales/vehicles';
+import { getActiveTariff as fetchActiveTariff } from '@/actions/sales/vehicle-tariffs';
 import { useRouter } from 'next/navigation';
 
 interface SalesOrder {
@@ -39,41 +41,85 @@ interface Location {
   name: string;
 }
 
+interface Vehicle {
+  id: string;
+  plateNumber: string;
+  name: string;
+  ownershipType: string;
+  driverName?: string | null;
+}
+
+interface ActiveTariff {
+  rateType: string;
+  costRate: { toNumber: () => number };
+  chargeRate: { toNumber: () => number };
+  routeName?: string | null;
+  minKg?: { toNumber: () => number } | null;
+}
+
 export function CreateDeliveryOrderDialog() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedSalesOrderId, setSelectedSalesOrderId] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
+  // Tariff fields
+  const [tariffRateType, setTariffRateType] = useState('');
+  const [overrideCostRate, setOverrideCostRate] = useState('');
+  const [overrideChargeRate, setOverrideChargeRate] = useState('');
   const router = useRouter();
 
+  const loadData = useCallback(async () => {
+    const [ordersRes, locationsRes, vehiclesRes] = await Promise.all([
+      getSalesOrders(false, undefined, 'customer'),
+      getLocations(),
+      getVehicles({ status: 'ACTIVE' }),
+    ]);
+    if (ordersRes.success && ordersRes.data) setSalesOrders(ordersRes.data as SalesOrder[]);
+    if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data as Location[]);
+    if (vehiclesRes.success && vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
+  }, []);
+
   useEffect(() => {
-    if (open) {
-      // Load sales orders and locations in parallel
-      Promise.all([
-        getSalesOrders(false, undefined, 'customer'),
-        getLocations(),
-      ]).then(([ordersRes, locationsRes]) => {
-        if (ordersRes.success && ordersRes.data) {
-          setSalesOrders(ordersRes.data as SalesOrder[]);
-        }
-        if (locationsRes.success && locationsRes.data) {
-          setLocations(locationsRes.data as Location[]);
-        }
-      });
+    if (open) loadData();
+  }, [open, loadData]);
+
+  const handleVehicleChange = async (vehicleId: string) => {
+    setSelectedVehicleId(vehicleId);
+    if (!vehicleId) {
+      setTariffRateType('');
+      setOverrideCostRate('');
+      setOverrideChargeRate('');
+      return;
     }
-  }, [open]);
+    // Load active tariff for this vehicle
+    const tariffRes = await fetchActiveTariff(vehicleId);
+    if (tariffRes.success && tariffRes.data) {
+      const t = tariffRes.data as ActiveTariff;
+      setTariffRateType(t.rateType);
+      setOverrideCostRate(String(Number(t.costRate)));
+      setOverrideChargeRate(String(Number(t.chargeRate)));
+    } else {
+      setTariffRateType('');
+    }
+  };
 
   const resetForm = () => {
     setSelectedSalesOrderId('');
     setSelectedLocationId('');
+    setSelectedVehicleId('');
     setCarrier('');
     setTrackingNumber('');
     setNotes('');
+    setTariffRateType('');
+    setOverrideCostRate('');
+    setOverrideChargeRate('');
   };
 
   const handleSubmit = async () => {
@@ -94,6 +140,12 @@ export function CreateDeliveryOrderDialog() {
         carrier: carrier || undefined,
         trackingNumber: trackingNumber || undefined,
         notes: notes || undefined,
+        vehicleId: selectedVehicleId || undefined,
+        appliedRateType: tariffRateType || undefined,
+        appliedCostRate: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
+        appliedChargeRate: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
+        totalCost: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
+        totalCharge: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
       });
 
       if (!result.success) {
@@ -120,7 +172,7 @@ export function CreateDeliveryOrderDialog() {
           Buat Surat Jalan Manual
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-purple-600" />
@@ -132,7 +184,7 @@ export function CreateDeliveryOrderDialog() {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label>Sales Order</Label>
+            <Label>Sales Order *</Label>
             <Select value={selectedSalesOrderId} onValueChange={setSelectedSalesOrderId}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Sales Order..." />
@@ -148,7 +200,7 @@ export function CreateDeliveryOrderDialog() {
           </div>
 
           <div className="space-y-2">
-            <Label>Lokasi Gudang</Label>
+            <Label>Lokasi Gudang *</Label>
             <Select value={selectedLocationId} onValueChange={setSelectedLocationId}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih gudang asal..." />
@@ -162,6 +214,56 @@ export function CreateDeliveryOrderDialog() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Car className="h-4 w-4" />
+              Armada / Kendaraan
+            </Label>
+            <Select value={selectedVehicleId} onValueChange={handleVehicleChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih kendaraan (opsional)..." />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.plateNumber} — {v.name}
+                    {v.driverName ? ` (${v.driverName})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {tariffRateType && (
+            <div className="p-3 bg-muted/50 rounded-lg border space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">
+                Tarif: {tariffRateType === 'PER_KG' ? 'Per Kg' : 'Flat Rate'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Biaya Operasional (override)</Label>
+                  <Input
+                    type="number"
+                    value={overrideCostRate}
+                    onChange={(e) => setOverrideCostRate(e.target.value)}
+                    placeholder="Rp"
+                    min={0}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Biaya Customer (override)</Label>
+                  <Input
+                    type="number"
+                    value={overrideChargeRate}
+                    onChange={(e) => setOverrideChargeRate(e.target.value)}
+                    placeholder="Rp"
+                    min={0}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

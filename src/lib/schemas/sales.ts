@@ -112,6 +112,12 @@ export const createManualDeliveryOrderSchema = z.object({
   carrier: z.string().optional().transform(sanitizeHtml),
   trackingNumber: z.string().optional().transform(sanitizeHtml),
   notes: z.string().optional().transform(sanitizeHtml),
+  vehicleId: z.string().optional(),
+  appliedRateType: z.enum(["PER_KG", "FLAT_RATE"]).optional(),
+  appliedCostRate: z.coerce.number().min(0).optional(),
+  appliedChargeRate: z.coerce.number().min(0).optional(),
+  totalCost: z.coerce.number().min(0).optional(),
+  totalCharge: z.coerce.number().min(0).optional(),
 });
 
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
@@ -119,3 +125,42 @@ export type CreateSalesOrderValues = z.infer<typeof createSalesOrderSchema>;
 export type ShipSalesOrderValues = z.infer<typeof shipSalesOrderSchema>;
 export type UpdateSalesOrderValues = z.infer<typeof updateSalesOrderSchema>;
 export type CreateManualDeliveryOrderValues = z.infer<typeof createManualDeliveryOrderSchema>;
+
+// ==========================================
+// VEHICLE / ARMADA SCHEMAS
+// ==========================================
+
+export const createVehicleSchema = z.object({
+  plateNumber: z.string().min(1, "No. polisi harus diisi"),
+  name: z.string().min(1, "Nama kendaraan harus diisi"),
+  vehicleType: z.enum(["MOBIL_BOX", "L300", "COLD_CONTAINER", "TRONTON", "MOTOR", "OTHER"]),
+  ownershipType: z.enum(["FACTORY", "PRIVATE"]),
+  ownerName: z.string().optional(),
+  driverName: z.string().optional(),
+  capacityKg: z.number().min(0).optional().nullable(),
+  status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
+  notes: z.string().optional(),
+});
+
+export const updateVehicleSchema = createVehicleSchema;
+
+// ==========================================
+// VEHICLE TARIFF SCHEMAS
+// ==========================================
+
+export const createVehicleTariffSchema = z.object({
+  vehicleId: z.string().min(1, "Kendaraan harus dipilih"),
+  rateType: z.enum(["PER_KG", "FLAT_RATE"]),
+  costRate: z.number().min(0, "Biaya operasional tidak boleh negatif"),
+  chargeRate: z.number().min(0, "Biaya ke customer tidak boleh negatif"),
+  routeName: z.string().optional().nullable(),
+  minKg: z.number().min(0).optional().nullable(),
+  validFrom: z.date(),
+  validUntil: z.date().optional().nullable(),
+  notes: z.string().optional(),
+});
+
+export const updateVehicleTariffSchema = createVehicleTariffSchema;
+
+export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
+export type CreateVehicleTariffValues = z.infer<typeof createVehicleTariffSchema>;
