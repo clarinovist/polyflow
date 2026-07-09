@@ -80,7 +80,7 @@ export function RoleMappingClient() {
                 getChartOfAccounts(),
             ]);
             if (mappingsRes.success && mappingsRes.data) {
-                setMappings(mappingsRes.data);
+                setMappings(mappingsRes.data as RoleMapping[]);
             }
             if (accountsRes.success && accountsRes.data) {
                 setAccounts(accountsRes.data.filter((a: Account) => a.isActive));

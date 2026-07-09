@@ -93,10 +93,20 @@ export async function seedTenantAccountRoles(opts: SeedOptions): Promise<SeedRes
     return result;
 }
 
+type RoleMappingResult = {
+    role: string;
+    accountId: string | null;
+    accountCode: string | null;
+    accountName: string | null;
+    liveCode: string | null;
+    liveName: string | null;
+    status: string;
+};
+
 /**
  * Get all role mappings for a tenant, including live account status.
  */
-export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient) {
+export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient): Promise<RoleMappingResult[]> {
     const mainPrisma = getMainPrisma();
     const mappings = await mainPrisma.tenantAccountRole.findMany({
         where: { tenantId },
@@ -107,7 +117,7 @@ export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient) 
     const mappedRoles = new Set(mappings.map(m => m.role));
 
     // Check which mapped accounts still exist and are active
-    const results = await Promise.all(
+    const results: RoleMappingResult[] = await Promise.all(
         mappings.map(async (m) => {
             const account = await tenantDb.account.findUnique({ where: { id: m.accountId } });
             const status = !account ? 'ORPHAN' : account.isActive === false ? 'INACTIVE' : 'OK';
@@ -128,9 +138,9 @@ export async function getRoleMappings(tenantId: string, tenantDb: PrismaClient) 
         if (!mappedRoles.has(role)) {
             results.push({
                 role,
-                accountId: null,
-                accountCode: null,
-                accountName: null,
+                accountId: null as string | null,
+                accountCode: null as string | null,
+                accountName: null as string | null,
                 liveCode: null,
                 liveName: null,
                 status: 'MISSING',

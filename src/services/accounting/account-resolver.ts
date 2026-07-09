@@ -6,8 +6,6 @@
  * (Melindo "Piutang Dagang" format). Results are cached with TTL.
  */
 
-import { prisma } from "@/lib/core/prisma";
-
 export type AccountRole =
   | "accounts-receivable"
   | "accounts-payable"
@@ -275,6 +273,8 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
   ],
 };
 
+export type ResolvedAccount = { id: string; code: string; name: string };
+
 /** Return all defined AccountRole values. */
 export function getAllAccountRoles(): AccountRole[] {
   return Object.keys(ACCOUNT_ROLE_PATTERNS) as AccountRole[];
@@ -284,9 +284,12 @@ export function getAllAccountRoles(): AccountRole[] {
  * Resolve account by Phase 1 patterns (code → Melindo code → name).
  * Extracted so seed + tests can call directly without DB mapping dependency.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PatternDb = { account: { findUnique: (args: any) => Promise<any>; findFirst: (args: any) => Promise<any> } };
+
 export async function resolveByPatterns(
   role: AccountRole,
-  db?: { account: { findUnique: Function; findFirst: Function } },
+  db?: PatternDb,
 ): Promise<ResolvedAccount> {
   const { prisma: proxyPrisma } = await import("@/lib/core/prisma");
   const target = db ?? proxyPrisma;
