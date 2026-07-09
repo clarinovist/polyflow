@@ -6,8 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { toast } from 'sonner';
+import { PaymentBanksSettings } from '@/components/settings/PaymentBanksSettings';
 
-export function GeneralSettings({ tenantName, userName, userEmail }: { tenantName?: string, userName?: string, userEmail?: string }) {
+export function GeneralSettings({
+    tenantName,
+    userName,
+    userEmail,
+    canEditPaymentBanks = false,
+}: {
+    tenantName?: string;
+    userName?: string;
+    userEmail?: string;
+    canEditPaymentBanks?: boolean;
+}) {
     return (
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
             <Card className="col-span-1 lg:col-span-2">
@@ -31,6 +42,8 @@ export function GeneralSettings({ tenantName, userName, userEmail }: { tenantNam
                     </div>
                 </CardContent>
             </Card>
+
+            <PaymentBanksSettings canEdit={canEditPaymentBanks} />
 
             <Card>
                 <CardHeader>

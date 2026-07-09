@@ -64,12 +64,28 @@ describe("auto-journal-shared", () => {
       expect(getPaymentAccountRole("cash")).toBe("petty-cash");
     });
 
-    it("returns bank-bca for bank transfer", () => {
+    it("returns bank-bca for legacy bank transfer", () => {
       expect(getPaymentAccountRole("Bank Transfer")).toBe("bank-bca");
     });
 
-    it("returns bank-bca for check", () => {
+    it("returns bank-bca for Transfer BCA", () => {
+      expect(getPaymentAccountRole("Transfer BCA")).toBe("bank-bca");
+    });
+
+    it("returns bank-mandiri for Transfer Mandiri", () => {
+      expect(getPaymentAccountRole("Transfer Mandiri")).toBe("bank-mandiri");
+    });
+
+    it("returns bank-bca for check without destination bank", () => {
       expect(getPaymentAccountRole("check")).toBe("bank-bca");
+    });
+
+    it("returns bank-mandiri for check clearing to Mandiri", () => {
+      expect(getPaymentAccountRole("Check", "MANDIRI")).toBe("bank-mandiri");
+    });
+
+    it("returns bank-bca for check clearing to BCA", () => {
+      expect(getPaymentAccountRole("Check", "BCA")).toBe("bank-bca");
     });
 
     it("returns bank-bca for credit card", () => {

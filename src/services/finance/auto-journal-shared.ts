@@ -19,17 +19,35 @@ export async function getAccountByRole(role: AccountRole) {
 }
 
 /**
- * Map payment method string to an AccountRole.
- * Returns the bank/cash account role for the given payment method.
+ * Map payment method (+ optional destination bank) to an AccountRole.
+ * destinationBank is used for Check/Giro clearing allocation (BCA | MANDIRI).
  */
-export function getPaymentAccountRole(method: string): AccountRole {
-    switch (method.toLowerCase()) {
-        case 'cash':
-            return 'petty-cash';
-        case 'check':
-        case 'bank transfer':
-        case 'credit card':
-        default:
-            return 'bank-bca';
+export function getPaymentAccountRole(
+    method: string,
+    destinationBank?: string | null,
+): AccountRole {
+    const normalized = method.toLowerCase().trim();
+    const bank = (destinationBank || '').toUpperCase().trim();
+
+    if (normalized === 'cash') {
+        return 'petty-cash';
     }
+
+    if (normalized === 'transfer mandiri' || bank === 'MANDIRI') {
+        return 'bank-mandiri';
+    }
+
+    if (
+        normalized === 'transfer bca' ||
+        normalized === 'bank transfer' ||
+        normalized === 'credit card' ||
+        normalized === 'check' ||
+        bank === 'BCA'
+    ) {
+        return 'bank-bca';
+    }
+
+    // Unknown method: prefer destination bank, else default BCA
+    if (bank === 'MANDIRI') return 'bank-mandiri';
+    return 'bank-bca';
 }

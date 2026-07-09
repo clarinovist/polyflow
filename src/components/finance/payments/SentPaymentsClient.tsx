@@ -6,6 +6,8 @@ import { RecordSupplierPaymentDialog } from '@/components/finance/payments/Recor
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
+import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
+
 interface Payment {
     id: string;
     referenceNumber: string;
@@ -13,6 +15,8 @@ interface Payment {
     entityName: string;
     amount: number;
     method: string;
+    instrumentNumber?: string | null;
+    destinationBank?: string | null;
     status: string;
 }
 
@@ -29,11 +33,12 @@ interface PurchaseInvoice {
 interface SentPaymentsClientProps {
     payments: Payment[];
     unpaidInvoices: PurchaseInvoice[];
+    paymentBanks?: TenantPaymentBanks;
 }
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export function SentPaymentsClient({ payments, unpaidInvoices }: SentPaymentsClientProps) {
+export function SentPaymentsClient({ payments, unpaidInvoices, paymentBanks = {} }: SentPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
 
     return (
@@ -63,6 +68,7 @@ export function SentPaymentsClient({ payments, unpaidInvoices }: SentPaymentsCli
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 invoices={unpaidInvoices}
+                paymentBanks={paymentBanks}
             />
         </div>
     );

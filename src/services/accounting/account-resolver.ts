@@ -13,6 +13,7 @@ export type AccountRole =
   | "accounts-payable"
   | "petty-cash"
   | "bank-bca"
+  | "bank-mandiri"
   | "vat-output"
   | "vat-input"
   | "income-tax"
@@ -59,7 +60,12 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
   "bank-bca": [
     { code: "11120" },
     { nameContains: "Bank BCA" },
+    { nameContains: "BCA" },
+  ],
+  "bank-mandiri": [
+    { code: "11130" },
     { nameContains: "Bank Mandiri" },
+    { nameContains: "Mandiri" },
   ],
   "vat-output": [
     { code: "21310" },

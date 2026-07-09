@@ -20,6 +20,7 @@ import { logActivity } from "@/lib/tools/audit";
 import { formatRupiah } from "@/lib/utils/utils";
 import { AutoJournalService } from "@/services/finance/auto-journal-service";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
+import { normalizePaymentMethodFields } from "@/lib/finance/payment-methods";
 
 export const recordCustomerPayment = withTenant(
   async function recordCustomerPayment(data: {
@@ -28,11 +29,28 @@ export const recordCustomerPayment = withTenant(
     paymentDate: Date | string;
     method: string;
     notes?: string;
+    referenceNumber?: string;
+    destinationBank?: string;
   }) {
     return safeAction(async () => {
       const session = await requireAuth();
 
       try {
+        let paymentFields;
+        try {
+          paymentFields = normalizePaymentMethodFields({
+            method: data.method,
+            referenceNumber: data.referenceNumber,
+            destinationBank: data.destinationBank,
+          });
+        } catch (validationError) {
+          throw new BusinessRuleError(
+            validationError instanceof Error
+              ? validationError.message
+              : "Data metode pembayaran tidak valid.",
+          );
+        }
+
         const invoice = await prisma.invoice.findUnique({
           where: { id: data.invoiceId },
         });
@@ -123,8 +141,10 @@ export const recordCustomerPayment = withTenant(
               paymentNumber,
               paymentDate: new Date(data.paymentDate),
               amount: data.amount,
-              method: data.method,
+              method: paymentFields.method,
               notes: data.notes,
+              referenceNumber: paymentFields.referenceNumber,
+              destinationBank: paymentFields.destinationBank,
               invoiceId: data.invoiceId,
             },
           });
@@ -147,7 +167,7 @@ export const recordCustomerPayment = withTenant(
           await AutoJournalService.handleSalesPayment(
             payment.id,
             data.amount,
-            data.method,
+            paymentFields.method,
           );
         } catch (journalError) {
           logger.error("Auto-journal failed after payment recorded", {
@@ -195,11 +215,28 @@ export const recordSupplierPayment = withTenant(
     paymentDate: Date | string;
     method: string;
     notes?: string;
+    referenceNumber?: string;
+    destinationBank?: string;
   }) {
     return safeAction(async () => {
       const session = await requireAuth();
 
       try {
+        let paymentFields;
+        try {
+          paymentFields = normalizePaymentMethodFields({
+            method: data.method,
+            referenceNumber: data.referenceNumber,
+            destinationBank: data.destinationBank,
+          });
+        } catch (validationError) {
+          throw new BusinessRuleError(
+            validationError instanceof Error
+              ? validationError.message
+              : "Data metode pembayaran tidak valid.",
+          );
+        }
+
         // Validate payment date falls in an open fiscal period
         const { isPeriodOpen } =
           await import("@/services/accounting/periods-service");
@@ -255,8 +292,10 @@ export const recordSupplierPayment = withTenant(
           session.user.id,
           {
             paymentDate: new Date(data.paymentDate),
-            method: data.method,
+            method: paymentFields.method,
             notes: data.notes,
+            referenceNumber: paymentFields.referenceNumber,
+            destinationBank: paymentFields.destinationBank,
           },
         );
 
@@ -264,7 +303,7 @@ export const recordSupplierPayment = withTenant(
           await AutoJournalService.handlePurchasePayment(
             updated.paymentId,
             data.amount,
-            data.method,
+            paymentFields.method,
           );
         } catch (journalError) {
           logger.error("Auto-journal failed after purchase payment recorded", {

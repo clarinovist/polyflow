@@ -6,13 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { recordSupplierPayment } from '@/actions/finance/finance';
 import { formatRupiah, cn } from '@/lib/utils/utils';
 import { Loader2, ChevronsUpDown, Check, Receipt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+    DEFAULT_PAYMENT_METHOD,
+    type PaymentBankKey,
+    type PaymentMethod,
+    type TenantPaymentBanks,
+} from '@/lib/finance/payment-methods';
+import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
 
 interface PurchaseInvoice {
     id: string;
@@ -28,15 +34,18 @@ interface RecordSupplierPaymentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     invoices: PurchaseInvoice[];
+    paymentBanks?: TenantPaymentBanks;
 }
 
-export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: RecordSupplierPaymentDialogProps) {
+export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paymentBanks = {} }: RecordSupplierPaymentDialogProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
     const [amount, setAmount] = useState('');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-    const [method, setMethod] = useState('Bank Transfer');
+    const [method, setMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
+    const [referenceNumber, setReferenceNumber] = useState('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
     const [notes, setNotes] = useState('');
     const [invoiceSearchOpen, setInvoiceSearchOpen] = useState(false);
 
@@ -51,7 +60,9 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
             setSelectedInvoiceId('');
             setAmount('');
             setPaymentDate(new Date().toISOString().split('T')[0]);
-            setMethod('Bank Transfer');
+            setMethod(DEFAULT_PAYMENT_METHOD);
+            setReferenceNumber('');
+            setDestinationBank('');
             setNotes('');
             setInvoiceSearchOpen(false);
         }
@@ -89,6 +100,25 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
             if (!confirmed) return;
         }
 
+        if (method === 'Check') {
+            if (!referenceNumber.trim()) {
+                toast({
+                    title: 'Error',
+                    description: 'Nomor Cek / Giro wajib diisi.',
+                    variant: 'destructive'
+                });
+                return;
+            }
+            if (!destinationBank) {
+                toast({
+                    title: 'Error',
+                    description: 'Pilih bank tujuan clearing.',
+                    variant: 'destructive'
+                });
+                return;
+            }
+        }
+
         setLoading(true);
 
         try {
@@ -97,7 +127,9 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                 amount: parsedAmount,
                 paymentDate: new Date(paymentDate),
                 method,
-                notes
+                notes,
+                referenceNumber: method === 'Check' ? referenceNumber.trim() : undefined,
+                destinationBank: method === 'Check' ? destinationBank : undefined,
             });
 
             if (result.success) {
@@ -284,19 +316,16 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices }: Re
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="method">Metode Pembayaran</Label>
-                        <Select value={method} onValueChange={setMethod} required>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Bank Transfer">Transfer Bank</SelectItem>
-                                <SelectItem value="Cash">Tunai</SelectItem>
-                                <SelectItem value="Check">Cek</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <PaymentMethodFields
+                        method={method}
+                        onMethodChange={setMethod}
+                        referenceNumber={referenceNumber}
+                        onReferenceNumberChange={setReferenceNumber}
+                        destinationBank={destinationBank}
+                        onDestinationBankChange={setDestinationBank}
+                        paymentBanks={paymentBanks}
+                        methodId="supplier-method"
+                    />
 
                     <div className="space-y-2">
                         <Label htmlFor="notes">Catatan (Opsional)</Label>

@@ -50,7 +50,13 @@ export async function recordPayment(
   id: string,
   amount: number,
   userId: string,
-  options?: { paymentDate?: Date; method?: string; notes?: string },
+  options?: {
+    paymentDate?: Date;
+    method?: string;
+    notes?: string;
+    referenceNumber?: string | null;
+    destinationBank?: string | null;
+  },
 ) {
   return await prisma.$transaction(async (tx) => {
     const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
@@ -71,6 +77,15 @@ export async function recordPayment(
     }
 
     const { getNextSequence } = await import("@/lib/utils/sequence");
+    const { normalizePaymentMethodFields } = await import(
+      "@/lib/finance/payment-methods"
+    );
+
+    const paymentFields = normalizePaymentMethodFields({
+      method: options?.method || "Transfer BCA",
+      referenceNumber: options?.referenceNumber,
+      destinationBank: options?.destinationBank,
+    });
 
     const newPaidAmount = invoice.paidAmount.toNumber() + amount;
     let status: PurchaseInvoiceStatus = PurchaseInvoiceStatus.PARTIAL;
@@ -87,8 +102,10 @@ export async function recordPayment(
         paymentNumber,
         amount,
         paymentDate: options?.paymentDate || new Date(),
-        method: options?.method || "Bank Transfer",
+        method: paymentFields.method,
         notes: options?.notes,
+        referenceNumber: paymentFields.referenceNumber,
+        destinationBank: paymentFields.destinationBank,
       },
     });
 

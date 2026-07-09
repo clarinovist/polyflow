@@ -145,14 +145,20 @@ export const recordPurchasePayment = withTenant(
   async function recordPurchasePayment(
     id: string,
     amount: number,
-    options?: { paymentDate?: Date | string; method?: string; notes?: string },
+    options?: {
+      paymentDate?: Date | string;
+      method?: string;
+      notes?: string;
+      referenceNumber?: string;
+      destinationBank?: string;
+    },
   ) {
     return safeAction(async () => {
       const session = await requireAuth();
       const paymentDate = options?.paymentDate
         ? new Date(options.paymentDate)
         : new Date();
-      const method = options?.method || "Bank Transfer";
+      const method = options?.method || "Transfer BCA";
 
       try {
         const updated = await PurchaseService.recordPayment(
@@ -163,6 +169,8 @@ export const recordPurchasePayment = withTenant(
             paymentDate,
             method,
             notes: options?.notes,
+            referenceNumber: options?.referenceNumber,
+            destinationBank: options?.destinationBank,
           },
         );
 

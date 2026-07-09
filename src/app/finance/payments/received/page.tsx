@@ -2,6 +2,8 @@ import { getReceivedPayments } from '@/actions/finance/finance';
 import { ReceivedPaymentsClient } from '@/components/finance/payments/ReceivedPaymentsClient';
 import { getSalesInvoices } from '@/actions/finance/invoices';
 import { serializeData } from '@/lib/utils/utils';
+import { getPaymentBanksSetting } from '@/services/settings/app-settings-service';
+import { withTenantPage } from '@/lib/core/tenant';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -9,6 +11,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export const dynamic = 'force-dynamic';
 
 import { parseISO } from 'date-fns';
+
+const loadPaymentBanks = withTenantPage(async () => getPaymentBanksSetting());
 
 export default async function ReceivedPaymentsPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal' }> }) {
     const params = await searchParams;
@@ -47,6 +51,13 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
         return inv.salesOrder?.customerId == null;
     });
 
+    let paymentBanks = {};
+    try {
+        paymentBanks = await loadPaymentBanks();
+    } catch {
+        paymentBanks = {};
+    }
+
     return (
         <div className="p-6">
             <div className="mb-6">
@@ -76,6 +87,7 @@ export default async function ReceivedPaymentsPage({ searchParams }: { searchPar
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 unpaidInvoices={serializeData(unpaidInvoices) as any}
                 demandType={demand}
+                paymentBanks={paymentBanks}
             />
         </div>
     );

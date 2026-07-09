@@ -64,6 +64,8 @@ async function getReceivedPayments(dateRange?: { startDate?: Date, endDate?: Dat
                     : 'Legacy Internal Stock Build'),
             amount: Number(payment.amount),
             method: payment.method,
+            instrumentNumber: payment.referenceNumber,
+            destinationBank: payment.destinationBank,
             status: 'COMPLETED'
         })));
     });
@@ -108,6 +110,8 @@ async function getSentPayments(dateRange?: { startDate?: Date, endDate?: Date })
             entityName: payment.purchaseInvoice?.purchaseOrder.supplier.name || 'Unknown Supplier',
             amount: Number(payment.amount),
             method: payment.method,
+            instrumentNumber: payment.referenceNumber,
+            destinationBank: payment.destinationBank,
             status: 'COMPLETED'
         })));
     });

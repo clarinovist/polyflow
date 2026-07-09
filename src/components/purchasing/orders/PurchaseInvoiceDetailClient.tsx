@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupiah } from '@/lib/utils/utils';
 import { format } from 'date-fns';
@@ -16,6 +15,14 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { recordPurchasePayment } from '@/actions/purchasing/purchasing';
 import { getStatusLabel, purchasingLabels, formLabels, actionLabels } from '@/lib/labels';
+import {
+    DEFAULT_PAYMENT_METHOD,
+    getPaymentMethodLabel,
+    type PaymentBankKey,
+    type PaymentMethod,
+    type TenantPaymentBanks,
+} from '@/lib/finance/payment-methods';
+import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
 
 interface PurchaseInvoiceDetailProps {
     invoice: {
@@ -38,25 +45,23 @@ interface PurchaseInvoiceDetailProps {
             paymentDate: string | Date;
             method?: string | null;
             notes?: string | null;
+            referenceNumber?: string | null;
+            destinationBank?: string | null;
         }[];
     };
 }
 
-const PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Check', 'Credit Card'] as const;
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-    'Bank Transfer': 'Transfer Bank',
-    'Cash': 'Tunai',
-    'Check': 'Cek',
-    'Credit Card': 'Kartu Kredit',
-};
-
-export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailProps) {
+export function PurchaseInvoiceDetailClient({
+    invoice,
+    paymentBanks = {},
+}: PurchaseInvoiceDetailProps & { paymentBanks?: TenantPaymentBanks }) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-    const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]>('Bank Transfer');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
+    const [referenceNumber, setReferenceNumber] = useState('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
     const [paymentNotes, setPaymentNotes] = useState('');
 
     const remainingAmount = invoice.totalAmount - invoice.paidAmount;
@@ -80,9 +85,32 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
     const resetPaymentForm = () => {
         setPaymentAmount('');
         setPaymentDate(new Date().toISOString().split('T')[0]);
-        setPaymentMethod('Bank Transfer');
+        setPaymentMethod(DEFAULT_PAYMENT_METHOD);
+        setReferenceNumber('');
+        setDestinationBank('');
         setPaymentNotes('');
     };
+
+    const validateCheckFields = () => {
+        if (paymentMethod !== 'Check') return true;
+        if (!referenceNumber.trim()) {
+            toast.error('Nomor Cek / Giro wajib diisi.');
+            return false;
+        }
+        if (!destinationBank) {
+            toast.error('Pilih bank tujuan clearing.');
+            return false;
+        }
+        return true;
+    };
+
+    const paymentOptions = () => ({
+        paymentDate,
+        method: paymentMethod,
+        notes: paymentNotes.trim() || undefined,
+        referenceNumber: paymentMethod === 'Check' ? referenceNumber.trim() : undefined,
+        destinationBank: paymentMethod === 'Check' ? destinationBank : undefined,
+    });
 
     const handlePayment = async () => {
         const amount = parseFloat(paymentAmount);
@@ -96,13 +124,11 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
             return;
         }
 
+        if (!validateCheckFields()) return;
+
         setIsLoading(true);
         try {
-            const result = await recordPurchasePayment(invoice.id, amount, {
-                paymentDate,
-                method: paymentMethod,
-                notes: paymentNotes.trim() || undefined,
-            });
+            const result = await recordPurchasePayment(invoice.id, amount, paymentOptions());
 
             if (!result.success) {
                 toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
@@ -120,13 +146,11 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
     };
 
     const handlePayFull = async () => {
+        if (!validateCheckFields()) return;
+
         setIsLoading(true);
         try {
-            const result = await recordPurchasePayment(invoice.id, remainingAmount, {
-                paymentDate,
-                method: paymentMethod,
-                notes: paymentNotes.trim() || undefined,
-            });
+            const result = await recordPurchasePayment(invoice.id, remainingAmount, paymentOptions());
 
             if (!result.success) {
                 toast.error(result.error || 'Gagal mencatat pembayaran. Silakan coba lagi.');
@@ -243,20 +267,17 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 className="h-11"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="purchase-payment-method">Metode Pembayaran</Label>
-                                            <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as (typeof PAYMENT_METHODS)[number])}>
-                                                <SelectTrigger id="purchase-payment-method" className="h-11">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {PAYMENT_METHODS.map((method) => (
-                                                        <SelectItem key={method} value={method}>
-                                                            {PAYMENT_METHOD_LABELS[method] ?? method}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <PaymentMethodFields
+                                                method={paymentMethod}
+                                                onMethodChange={setPaymentMethod}
+                                                referenceNumber={referenceNumber}
+                                                onReferenceNumberChange={setReferenceNumber}
+                                                destinationBank={destinationBank}
+                                                onDestinationBankChange={setDestinationBank}
+                                                paymentBanks={paymentBanks}
+                                                methodId="purchase-payment-method"
+                                            />
                                         </div>
                                         <div className="space-y-2 md:col-span-2">
                                             <Label htmlFor="purchase-payment-notes">Catatan</Label>
@@ -332,7 +353,11 @@ export function PurchaseInvoiceDetailClient({ invoice }: PurchaseInvoiceDetailPr
                                                 </span>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <User className="h-3 w-3" />
-                                                    <span>{PAYMENT_METHOD_LABELS[payment.method || ''] ?? payment.method ?? 'Metode tidak diketahui'}</span>
+                                                    <span>
+                                                        {getPaymentMethodLabel(payment.method || '')}
+                                                        {payment.referenceNumber ? ` · No: ${payment.referenceNumber}` : ''}
+                                                        {payment.destinationBank ? ` · ${payment.destinationBank}` : ''}
+                                                    </span>
                                                     {payment.notes && (
                                                         <span className="truncate max-w-[220px]">• {payment.notes}</span>
                                                     )}

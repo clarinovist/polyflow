@@ -31,6 +31,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import { getPaymentMethodLabel } from "@/lib/finance/payment-methods";
+
 interface Payment {
   id: string;
   referenceNumber: string;
@@ -38,6 +40,8 @@ interface Payment {
   entityName: string;
   amount: number;
   method: string;
+  instrumentNumber?: string | null;
+  destinationBank?: string | null;
   status: string;
 }
 
@@ -126,7 +130,24 @@ export function SharedPaymentTable({
       {
         accessorKey: "method",
         header: "Method",
-        size: 120,
+        size: 160,
+        cell: ({ row }) => {
+          const p = row.original;
+          const label = getPaymentMethodLabel(p.method);
+          const details: string[] = [];
+          if (p.instrumentNumber) details.push(`No: ${p.instrumentNumber}`);
+          if (p.destinationBank) details.push(p.destinationBank);
+          return (
+            <div className="flex flex-col">
+              <span className="text-sm">{label}</span>
+              {details.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {details.join(" · ")}
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "amount",

@@ -1491,13 +1491,26 @@ model SystemSequence {
   updatedAt DateTime @updatedAt
 }
 
+/// Tenant-scoped key/value settings (isolated per tenant database).
+/// Example keys: payment.banks
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
 model Payment {
   id            String   @id @default(uuid())
   paymentNumber String   @unique
   paymentDate   DateTime
   amount        Decimal  @db.Decimal(15, 2)
-  method        String // Bank Transfer, Cash, Check, Credit Card
+  method        String // Transfer BCA, Transfer Mandiri, Cash, Check (+ legacy: Bank Transfer, Credit Card)
   notes         String?  @db.Text
+  /// Nomor Cek/Giro (or other instrument reference). Not the paymentNumber.
+  referenceNumber String?
+  /// Company bank destination for GL/clearing: BCA | MANDIRI
+  destinationBank String?
 
   // Relations - either invoiceId OR purchaseInvoiceId should be set
   invoiceId String?

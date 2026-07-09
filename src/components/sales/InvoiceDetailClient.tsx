@@ -33,6 +33,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+    DEFAULT_PAYMENT_METHOD,
+    type PaymentBankKey,
+    type PaymentMethod,
+    type TenantPaymentBanks,
+} from '@/lib/finance/payment-methods';
+import { PaymentMethodFields } from '@/components/finance/payments/PaymentMethodFields';
 
 // Explicit type definition to avoid nested Prisma generic complexity
 interface SerializedInvoice {
@@ -75,13 +82,17 @@ interface SerializedInvoice {
 
 interface InvoiceDetailClientProps {
     invoice: SerializedInvoice;
+    paymentBanks?: TenantPaymentBanks;
 }
 
-export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
+export function InvoiceDetailClient({ invoice, paymentBanks = {} }: InvoiceDetailClientProps) {
     const router = useRouter();
     const [isUpdating, setIsUpdating] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState<number>(Number(invoice.totalAmount) - Number(invoice.paidAmount));
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(DEFAULT_PAYMENT_METHOD);
+    const [referenceNumber, setReferenceNumber] = useState('');
+    const [destinationBank, setDestinationBank] = useState<PaymentBankKey | ''>('');
 
     const getStatusColor = (status: InvoiceStatus) => {
         switch (status) {
@@ -96,19 +107,35 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
     };
 
     const handlePayment = async () => {
+        if (paymentMethod === 'Check') {
+            if (!referenceNumber.trim()) {
+                toast.error('Nomor Cek / Giro wajib diisi.');
+                return;
+            }
+            if (!destinationBank) {
+                toast.error('Pilih bank tujuan clearing.');
+                return;
+            }
+        }
+
         setIsUpdating(true);
         try {
             const result = await recordCustomerPayment({
                 invoiceId: invoice.id,
                 amount: paymentAmount,
                 paymentDate: new Date(),
-                method: 'Bank Transfer',
-                notes: 'Recorded from sales invoice detail'
+                method: paymentMethod,
+                notes: 'Recorded from sales invoice detail',
+                referenceNumber: paymentMethod === 'Check' ? referenceNumber.trim() : undefined,
+                destinationBank: paymentMethod === 'Check' ? destinationBank : undefined,
             });
 
             if (result.success) {
                 toast.success('Pembayaran berhasil dicatat');
                 setIsPaymentDialogOpen(false);
+                setPaymentMethod(DEFAULT_PAYMENT_METHOD);
+                setReferenceNumber('');
+                setDestinationBank('');
                 router.refresh();
             } else {
                 toast.error(result.error || 'Gagal memperbarui invoice. Silakan coba lagi.');
@@ -210,6 +237,16 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
                                             {formatRupiah(remainingAmount)}
                                         </div>
                                     </div>
+                                    <PaymentMethodFields
+                                        method={paymentMethod}
+                                        onMethodChange={setPaymentMethod}
+                                        referenceNumber={referenceNumber}
+                                        onReferenceNumberChange={setReferenceNumber}
+                                        destinationBank={destinationBank}
+                                        onDestinationBankChange={setDestinationBank}
+                                        paymentBanks={paymentBanks}
+                                        methodId="sales-invoice-method"
+                                    />
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>{actionLabels.cancel}</Button>

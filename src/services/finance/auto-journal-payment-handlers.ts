@@ -22,12 +22,15 @@ export async function handleSalesPayment(paymentId: string, amount: number, meth
         return;
     }
 
-    const paymentAcc = await getAccountByRole(getPaymentAccountRole(method));
+    const paymentMethod = payment.method || method;
+    const paymentAcc = await getAccountByRole(
+        getPaymentAccountRole(paymentMethod, payment.destinationBank),
+    );
     const arAcc = await getAccountByRole('accounts-receivable');
 
     await AccountingService.createJournalEntry({
         entryDate: payment.paymentDate,
-        description: `Payment Receipt (${method}) for ${invoice.invoiceNumber}`,
+        description: `Payment Receipt (${paymentMethod}) for ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
         referenceType: ReferenceType.SALES_PAYMENT,
         referenceId: payment.id,
@@ -57,12 +60,15 @@ export async function handlePurchasePayment(paymentId: string, amount: number, m
         return;
     }
 
-    const paymentAcc = await getAccountByRole(getPaymentAccountRole(method));
+    const paymentMethod = payment.method || method;
+    const paymentAcc = await getAccountByRole(
+        getPaymentAccountRole(paymentMethod, payment.destinationBank),
+    );
     const apAcc = await getAccountByRole('accounts-payable');
 
     await AccountingService.createJournalEntry({
         entryDate: payment.paymentDate,
-        description: `Payment (${method}) for Purchase Invoice ${invoice.invoiceNumber}`,
+        description: `Payment (${paymentMethod}) for Purchase Invoice ${invoice.invoiceNumber}`,
         reference: payment.paymentNumber || `PAY-${invoice.invoiceNumber}`,
         referenceType: ReferenceType.PURCHASE_PAYMENT,
         referenceId: payment.id,

@@ -6,6 +6,8 @@ import { RecordCustomerPaymentDialog } from '@/components/finance/payments/Recor
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
+import type { TenantPaymentBanks } from '@/lib/finance/payment-methods';
+
 interface Payment {
     id: string;
     referenceNumber: string;
@@ -13,6 +15,8 @@ interface Payment {
     entityName: string;
     amount: number;
     method: string;
+    instrumentNumber?: string | null;
+    destinationBank?: string | null;
     status: string;
 }
 
@@ -31,11 +35,12 @@ interface ReceivedPaymentsClientProps {
     payments: Payment[];
     unpaidInvoices: Invoice[];
     demandType: 'customer' | 'legacy-internal';
+    paymentBanks?: TenantPaymentBanks;
 }
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 
-export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }: ReceivedPaymentsClientProps) {
+export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType, paymentBanks = {} }: ReceivedPaymentsClientProps) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const canRecordPayment = unpaidInvoices.length > 0;
 
@@ -73,6 +78,7 @@ export function ReceivedPaymentsClient({ payments, unpaidInvoices, demandType }:
                     open={dialogOpen}
                     onOpenChange={setDialogOpen}
                     invoices={unpaidInvoices}
+                    paymentBanks={paymentBanks}
                 />
             )}
         </div>

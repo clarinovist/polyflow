@@ -30,6 +30,8 @@ interface TabItem {
 
 export function SettingsTabs({ currentUserRole, tenantName, currentUserName, currentUserEmail }: Omit<SettingsTabsProps, 'shifts'>) {
     const isAdmin = currentUserRole === 'ADMIN';
+    const canEditPaymentBanks =
+        currentUserRole === 'ADMIN' || currentUserRole === 'FINANCE';
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -56,7 +58,12 @@ export function SettingsTabs({ currentUserRole, tenantName, currentUserName, cur
         switch (activeTab) {
             case 'general':
                 return (
-                    <GeneralSettings tenantName={tenantName} userName={currentUserName} userEmail={currentUserEmail} />
+                    <GeneralSettings
+                        tenantName={tenantName}
+                        userName={currentUserName}
+                        userEmail={currentUserEmail}
+                        canEditPaymentBanks={canEditPaymentBanks}
+                    />
                 );
             case 'users':
                 return isAdmin ? (

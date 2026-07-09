@@ -140,7 +140,8 @@ describe('Purchasing invoices service', () => {
                 purchaseInvoiceId: 'pinv-1',
                 paymentNumber: 'PAY-OUT-002',
                 amount: 50000,
-                method: 'Bank Transfer',
+                method: 'Transfer BCA',
+                destinationBank: 'BCA',
             })
         });
     });

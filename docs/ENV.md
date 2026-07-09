@@ -46,8 +46,11 @@ Used for print templates (invoices, delivery orders, etc.):
 | `COMPANY_EMAIL`         | Contact email                                | `jaya.melindo@gmail.com`                             |
 | `COMPANY_SIGNER_NAME`   | Authorized signer                            | `Nugroho Pramono`                                    |
 | `COMPANY_FOOTER_NOTE`   | Print footer text                            | `BARANG YANG SUDAH DITERIMA TIDAK BISA DIKEMBALIKAN` |
-| `BANK_ACCOUNTS_NON_PPN` | Bank accounts (JSON array) for non-PPN sales | `[{"holder":"...","bank":"...","account":"..."}]`    |
-| `BANK_ACCOUNTS_PPN`     | Bank accounts (JSON array) for PPN sales     | `[{"holder":"...","bank":"...","account":"..."}]`    |
+| `BANK_ACCOUNTS_NON_PPN` | Bank accounts (JSON array) for non-PPN sales (print templates) | `[{"holder":"...","bank":"...","account":"..."}]`    |
+| `BANK_ACCOUNTS_PPN`     | Bank accounts (JSON array) for PPN sales (print templates)     | `[{"holder":"...","bank":"...","account":"..."}]`    |
+
+Payment method labels (Transfer BCA/Mandiri + Cek/Giro clearing) use **in-app Settings**
+stored per tenant in `AppSetting` (`payment.banks`), not env vars.
 
 ## Backup Script (Optional)
 

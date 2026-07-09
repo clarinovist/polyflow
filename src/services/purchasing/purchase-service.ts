@@ -52,7 +52,18 @@ export class PurchaseService {
         return createInvoice(data);
     }
 
-    static async recordPayment(id: string, amount: number, userId: string, options?: { paymentDate?: Date; method?: string; notes?: string }) {
+    static async recordPayment(
+        id: string,
+        amount: number,
+        userId: string,
+        options?: {
+            paymentDate?: Date;
+            method?: string;
+            notes?: string;
+            referenceNumber?: string | null;
+            destinationBank?: string | null;
+        },
+    ) {
         return recordPayment(id, amount, userId, options);
     }
 
