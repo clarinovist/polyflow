@@ -1,15 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockGetStore, mockGetMainPrisma, mockResolveAccount } = vi.hoisted(() => ({
+  mockGetStore: vi.fn(),
+  mockGetMainPrisma: vi.fn(),
+  mockResolveAccount: vi.fn(),
+}));
+
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
     account: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     journalLine: { groupBy: vi.fn(), findMany: vi.fn(), aggregate: vi.fn() },
     journalEntry: { findMany: vi.fn(), findFirst: vi.fn() },
   },
+  tenantContext: { getStore: mockGetStore },
+  getMainPrisma: mockGetMainPrisma,
 }));
 
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+vi.mock("../account-resolver", () => ({
+  resolveAccount: mockResolveAccount,
 }));
 
 vi.mock("../journals-service", () => ({
@@ -1187,7 +1199,7 @@ describe("reports-service", () => {
       );
     });
 
-    it("throws when earnings account 31112 not found", async () => {
+    it("throws when earnings account not found via resolveAccount", async () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.account.findMany).mockResolvedValue([
         {
@@ -1198,11 +1210,13 @@ describe("reports-service", () => {
           journalLines: [{ credit: 5000000, debit: 0 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
+      vi.mocked(mockResolveAccount).mockRejectedValue(
+        new Error('Account not found for role "current-year-earnings"')
+      );
 
       await expect(
         closePeriod(new Date("2026-06-30"), "user1"),
-      ).rejects.toThrow("Account 31112 (Laba Berjalan) not found.");
+      ).rejects.toThrow('Account not found for role "current-year-earnings"');
     });
 
     it("creates closing entry for profit scenario (netIncome >= 0)", async () => {
@@ -1223,10 +1237,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 0, debit: 3000000 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1273,10 +1292,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 0, debit: 5000000 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1318,10 +1342,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 0, debit: 3000000 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1363,10 +1392,15 @@ describe("reports-service", () => {
           ],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1395,10 +1429,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 1000000, debit: 0 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1424,10 +1463,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 1000000, debit: 0 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1451,10 +1495,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 1000000, debit: 0 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({
@@ -1484,10 +1533,15 @@ describe("reports-service", () => {
           journalLines: [{ credit: 1000000, debit: 0 }],
         },
       ] as never);
-      vi.mocked(prisma.account.findFirst).mockResolvedValue({
+      vi.mocked(mockResolveAccount).mockResolvedValue({
         id: "earn1",
-        code: "31112",
-        name: "Laba Berjalan",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
+      } as never);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "earn1",
+        code: "33000",
+        name: "Laba Tahun Berjalan",
         type: "EQUITY",
       } as never);
       vi.mocked(createJournalEntry).mockResolvedValue({

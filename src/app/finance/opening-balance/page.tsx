@@ -4,15 +4,18 @@ import { getSuppliers } from '@/actions/purchasing/supplier';
 import { OpeningBalanceSpreadsheet } from '@/components/finance/OpeningBalanceSpreadsheet';
 import { getAccountsForOpeningBalance } from '@/actions/finance/opening-balance';
 import { Separator } from '@/components/ui/separator';
+import { resolveAccount } from '@/services/accounting/account-resolver';
 
 export default async function OpeningBalancePage() {
     await requireAuth();
 
     // Fetch data in parallel
-    const [accountsRes, customersRes, suppliersRes] = await Promise.all([
+    const [accountsRes, customersRes, suppliersRes, arResolved, apResolved] = await Promise.all([
         getAccountsForOpeningBalance(),
         getCustomers(),
-        getSuppliers()
+        getSuppliers(),
+        resolveAccount('accounts-receivable').catch(() => null),
+        resolveAccount('accounts-payable').catch(() => null),
     ]);
 
     // Serialize Decimal objects if any (though these simple selects might not need it, it's safer)
@@ -33,6 +36,8 @@ export default async function OpeningBalancePage() {
                 accounts={accounts}
                 customers={customers}
                 suppliers={suppliers}
+                arAccountId={arResolved?.id}
+                apAccountId={apResolved?.id}
             />
 
             <Separator className="my-12" />

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { transactionWizardSchema, TransactionWizardValues } from '@/lib/schemas/transaction-wizard';
 import { createWizardTransaction } from '@/actions/core/transaction-wizard';
 import { TRANSACTION_TYPES, TransactionTypeConfig } from '@/lib/config/transaction-types';
+import { filterAccountsByKind } from '@/lib/config/account-filter';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,9 @@ interface Account {
     id: string;
     code: string;
     name: string;
+    type?: string;
+    category?: string;
+    isCashAccount?: boolean;
 }
 
 interface Invoice {
@@ -417,9 +421,7 @@ export default function TransactionWizardForm({
                                                         </FormLabel>
                                                         <FormControl>
                                                             <AccountCombobox
-                                                                accounts={accounts.filter(acc =>
-                                                                    selectedType.accountPickerFilter?.some(code => acc.code.startsWith(code))
-                                                                )}
+                                                                accounts={filterAccountsByKind(accounts, selectedType.accountPickerFilter)}
                                                                 value={field.value || ''}
                                                                 onValueChange={field.onChange}
                                                             />
@@ -439,8 +441,10 @@ export default function TransactionWizardForm({
                                                         <FormLabel>{selectedType.category === 'FINANCING' ? 'Bayar Pakai Saldo Mana?' : 'Bayar Pakai Apa?'}</FormLabel>
                                                         <FormControl>
                                                             <AccountCombobox
-                                                                accounts={accounts.filter(acc =>
-                                                                    (selectedType.paymentPickerFilter || ['111', '211', '212', '221']).some(code => acc.code.startsWith(code))
+                                                                accounts={filterAccountsByKind(
+                                                                    accounts,
+                                                                    // Default cash-bank when filter omitted (expense QE types)
+                                                                    selectedType.paymentPickerFilter ?? { kind: 'cash-bank' }
                                                                 )}
                                                                 value={field.value || ''}
                                                                 onValueChange={field.onChange}
@@ -494,7 +498,7 @@ export default function TransactionWizardForm({
                                                                 <FormLabel>Depreciation Expense Account</FormLabel>
                                                                 <FormControl>
                                                                     <AccountCombobox
-                                                                        accounts={accounts.filter(acc => acc.code.startsWith('6'))}
+                                                                        accounts={accounts.filter(acc => acc.type === 'EXPENSE')}
                                                                         value={field.value || ''}
                                                                         onValueChange={field.onChange}
                                                                         placeholder="Pilih Akun Beban Penyusutan"
@@ -512,7 +516,7 @@ export default function TransactionWizardForm({
                                                                 <FormLabel>Accumulated Depreciation Account</FormLabel>
                                                                 <FormControl>
                                                                     <AccountCombobox
-                                                                        accounts={accounts.filter(acc => acc.code.startsWith('12') && acc.code.endsWith('9'))}
+                                                                        accounts={accounts.filter(acc => acc.type === 'ASSET' && acc.category === 'FIXED_ASSET' && acc.name?.toLowerCase().includes('accumulated'))}
                                                                         value={field.value || ''}
                                                                         onValueChange={field.onChange}
                                                                         placeholder="Pilih Akun Akumulasi Penyusutan"

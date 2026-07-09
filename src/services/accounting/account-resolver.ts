@@ -33,40 +33,62 @@ export type AccountRole =
   | "manufacturing-overhead"
   | "accrued-liabilities"
   | "opening-balance-equity"
-  | "shipping-expense";
+  | "shipping-expense"
+  // New roles for transaction types (Phase 1)
+  | "inventory-consumables"
+  | "factory-electricity"
+  | "factory-maintenance"
+  | "factory-rent"
+  | "office-salaries"
+  | "misc-operating-expense"
+  | "bank-loans"
+  | "other-payables"
+  | "fixed-asset-machinery"
+  | "fixed-asset-vehicles";
 
 interface AccountPattern {
   code?: string;
   nameContains?: string;
 }
 
-// Priority: first match wins. Include both Kiyowo (5-digit) and name-based patterns.
+// Priority: first match wins.
+// Pattern order: Kiyowo code → Melindo code → name spesifik → name generik.
 const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
+  // === AR/AP ===
   "accounts-receivable": [
     { code: "11210" },
+    { code: "1-115b" },
+    { code: "1-115" },
     { nameContains: "Piutang Dagang" },
     { nameContains: "Accounts Receivable" },
   ],
   "accounts-payable": [
     { code: "21110" },
+    { code: "2-110b" },
+    { code: "2-110" },
     { nameContains: "Hutang Dagang" },
     { nameContains: "Trade Payable" },
   ],
+  // === Cash / Bank ===
   "petty-cash": [
-    { nameContains: "Kas Kecil" },
     { code: "11110" },
+    { code: "1-112" },
+    { nameContains: "Kas Kecil" },
     { nameContains: "Petty Cash" },
   ],
   "bank-bca": [
     { code: "11120" },
+    { code: "1-114" },
     { nameContains: "Bank BCA" },
     { nameContains: "BCA" },
   ],
   "bank-mandiri": [
     { code: "11130" },
+    { code: "1-113" },
     { nameContains: "Bank Mandiri" },
     { nameContains: "Mandiri" },
   ],
+  // === Tax ===
   "vat-output": [
     { code: "21310" },
     { nameContains: "PPN Keluaran" },
@@ -83,6 +105,7 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Income Tax Payable" },
     { nameContains: "Hutang Pajak" },
   ],
+  // === Revenue ===
   "sales-revenue": [
     { code: "41100" },
     { nameContains: "Penjualan" },
@@ -93,6 +116,7 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Retur Penjualan" },
     { nameContains: "Sales Return" },
   ],
+  // === COGS ===
   cogs: [
     { code: "51100" },
     { code: "50000" },
@@ -100,6 +124,7 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Cost of Goods Sold" },
     { nameContains: "COGS" },
   ],
+  // === Inventory ===
   inventory: [
     { code: "11300" },
     { nameContains: "Persediaan" },
@@ -130,9 +155,13 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Bahan Baku" },
     { nameContains: "Raw Material" },
   ],
+  // === Equity ===
   "current-year-earnings": [
     { code: "33000" },
+    { code: "3-201b" },
+    { code: "3-201" },
     { nameContains: "Laba Tahun Berjalan" },
+    { nameContains: "Laba Berjalan" },
     { nameContains: "Current Year Earnings" },
   ],
   "retained-earnings": [
@@ -140,6 +169,7 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Laba Ditahan" },
     { nameContains: "Retained Earnings" },
   ],
+  // === Adjustment ===
   "adjustment-gain": [
     { code: "81100" },
     { nameContains: "Selisih Lebih" },
@@ -150,6 +180,7 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Selisih Kurang" },
     { nameContains: "Adjustment Loss" },
   ],
+  // === Overhead / Accrual ===
   "manufacturing-overhead": [
     { code: "51100" },
     { nameContains: "Manufacturing Overhead" },
@@ -165,11 +196,82 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Saldo Awal" },
     { nameContains: "Opening Balance" },
   ],
+  // === Shipping ===
   "shipping-expense": [
     { code: "61100" },
     { nameContains: "Shipping & Delivery" },
     { nameContains: "Biaya Pengiriman" },
     { nameContains: "Ongkos Kirim" },
+  ],
+  // === NEW: Transaction type roles (Phase 1) ===
+  "inventory-consumables": [
+    { code: "11360" },
+    { code: "1-134" },
+    { nameContains: "Inventory - Consumables" },
+    { nameContains: "Consumable" },
+    { nameContains: "Persediaan Alat Tulis" },
+  ],
+  "factory-electricity": [
+    { code: "53200" },
+    { code: "5-031" },
+    { nameContains: "Factory Electricity" },
+    { nameContains: "Pemakaian Listrik" },
+    { nameContains: "Listrik Produksi" },
+  ],
+  "factory-maintenance": [
+    { code: "53300" },
+    { code: "5-033" },
+    { nameContains: "Factory Maintenance" },
+    { nameContains: "Maintenance Mesin Produksi" },
+    { nameContains: "Maintenance Mesin" },
+  ],
+  "factory-rent": [
+    { code: "53410" },
+    { code: "5-023" },
+    { nameContains: "Factory Rent" },
+    { nameContains: "Overhead Sewa Gudang" },
+    { nameContains: "Sewa Gudang" },
+  ],
+  "office-salaries": [
+    { code: "62100" },
+    { nameContains: "Office Salaries" },
+    { nameContains: "Gaji Rafia" },
+    { nameContains: "Beban Gaji" },
+    { nameContains: "Gaji" }, // last resort
+  ],
+  "misc-operating-expense": [
+    { code: "62400" },
+    { nameContains: "Professional Fees" },
+    { nameContains: "Biaya Usaha Lainnya" },
+    { nameContains: "Operating Expense" },
+  ],
+  "bank-loans": [
+    { code: "22100" },
+    { code: "2-210" },
+    { nameContains: "Bank Loans" },
+    { nameContains: "Hutang Jangka Panjang" },
+    { nameContains: "Pinjaman Bank" },
+  ],
+  "other-payables": [
+    { code: "21120" },
+    { code: "2-390" },
+    { nameContains: "Other Payables" },
+    { nameContains: "Hutang ke Nugroho" },
+    { nameContains: "Hutang Owner" },
+  ],
+  "fixed-asset-machinery": [
+    { code: "12100" },
+    { code: "1-213b" },
+    { code: "1-213" },
+    { nameContains: "Machinery & Equipment" },
+    { nameContains: "Mesin Rafia" },
+    { nameContains: "Mesin" },
+  ],
+  "fixed-asset-vehicles": [
+    { code: "12300" },
+    { code: "1-214" },
+    { nameContains: "Vehicles" },
+    { nameContains: "Kendaraan" },
   ],
 };
 

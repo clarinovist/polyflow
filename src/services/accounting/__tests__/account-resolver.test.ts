@@ -142,5 +142,44 @@ describe('account-resolver', () => {
             // DB was queried again (not cached from Kiyowo)
             expect(prisma.account.findFirst).toHaveBeenCalled();
         });
+
+        it('resolves Melindo AR by exact code (1-115b)', async () => {
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-melindo-ar',
+                code: '1-115b',
+                name: 'Piutang Dagang Rafia',
+            } as never);
+
+            const result = await resolveAccount('accounts-receivable');
+
+            expect(result).toEqual({ id: 'acc-melindo-ar', code: '1-115b', name: 'Piutang Dagang Rafia' });
+            expect(prisma.account.findUnique).toHaveBeenCalledWith({ where: { code: '11210' } });
+        });
+
+        it('resolves new role factory-electricity by code', async () => {
+            vi.mocked(prisma.account.findUnique).mockResolvedValue({
+                id: 'acc-electricity',
+                code: '53200',
+                name: 'Factory Electricity',
+            } as never);
+
+            const result = await resolveAccount('factory-electricity');
+
+            expect(result).toEqual({ id: 'acc-electricity', code: '53200', name: 'Factory Electricity' });
+        });
+
+        it('resolves new role other-payables by Melindo code (2-390)', async () => {
+            vi.mocked(prisma.account.findUnique)
+                .mockResolvedValueOnce(null) // 21120 not found
+                .mockResolvedValueOnce({
+                    id: 'acc-melindo-hutang',
+                    code: '2-390',
+                    name: 'Hutang ke Nugroho',
+                } as never);
+
+            const result = await resolveAccount('other-payables');
+
+            expect(result).toEqual({ id: 'acc-melindo-hutang', code: '2-390', name: 'Hutang ke Nugroho' });
+        });
     });
 });

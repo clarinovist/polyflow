@@ -101,7 +101,7 @@ export class AccountingService {
 
     /**
      * Period-End Closing Entry
-     * Zeros out Revenue & Expense accounts, posts net income to Laba Berjalan (31112).
+     * Zeros out Revenue & Expense accounts, posts net income to current-year-earnings (tenant-aware).
      */
     static async closePeriod(periodEndDate: Date, userId: string) {
         return closePeriod(periodEndDate, userId);

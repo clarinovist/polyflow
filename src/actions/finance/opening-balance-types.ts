@@ -1,10 +1,14 @@
 /**
- * Kiyowo default account codes. For new code, use resolveAccount() from
- * '@/services/accounting/account-resolver' for tenant compatibility.
+ * Opening balance constants — role-based.
+ *
+ * For new code, use resolveAccount() from '@/services/accounting/account-resolver'
+ * for tenant compatibility. These role names are semantic, not tenant-specific codes.
  */
-export const OPENING_BALANCE_ACCOUNT_CODE = '30000';
-export const AR_ACCOUNT_CODE = '11210';
-export const AP_ACCOUNT_CODE = '21110';
+import type { AccountRole } from '@/services/accounting/account-resolver';
+
+export const OPENING_BALANCE_ROLE: AccountRole = 'opening-balance-equity';
+export const AR_ROLE: AccountRole = 'accounts-receivable';
+export const AP_ROLE: AccountRole = 'accounts-payable';
 
 export interface CreateOpeningBalanceInput {
     type: 'AR' | 'AP';

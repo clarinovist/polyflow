@@ -10,7 +10,6 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 
 import {
     CreateOpeningBalanceInput,
-    OPENING_BALANCE_ACCOUNT_CODE,
     UnifiedMakeOpeningBalanceInput,
 } from './opening-balance-types';
 import {
@@ -26,10 +25,11 @@ export const getAccountsForOpeningBalance = withTenant(
 async function getAccountsForOpeningBalance() {
     return safeAction(async () => {
         await requireAuth();
+        // Resolve the opening balance equity account to exclude it
+        const { resolveAccount } = await import('@/services/accounting/account-resolver');
+        const equityResolved = await resolveAccount('opening-balance-equity').catch(() => null);
         const accounts = await prisma.account.findMany({
-            where: {
-                code: { not: OPENING_BALANCE_ACCOUNT_CODE }
-            },
+            where: equityResolved ? { id: { not: equityResolved.id } } : {},
             orderBy: [{ type: 'asc' }, { code: 'asc' }],
             select: { id: true, code: true, name: true, type: true, category: true }
         });

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
+import { resolveAccount } from './account-resolver';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
@@ -319,7 +320,7 @@ export async function getBalanceSheet(asOfDate: Date) {
 /**
  * Period-End Closing Entry
  * Zeros out all Revenue & Expense accounts for the period,
- * posting net income to Laba Berjalan (31112).
+ * posting net income to current-year-earnings (tenant-aware via resolveAccount).
  * Idempotent: skips if closing entry already exists for the period.
  */
 export async function closePeriod(periodEndDate: Date, userId: string) {
@@ -395,13 +396,12 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         throw new Error(`No revenue or expense balances found for period ${periodRef}. Nothing to close.`);
     }
 
-    // Net income → Laba Berjalan (31112)
+    // Net income → Laba Berjalan (resolved by role, tenant-aware)
     const netIncome = totalRevenue - totalExpense;
-    const earningsAccount = await prisma.account.findFirst({
-        where: { code: '31112' }
-    });
+    const earningsResolved = await resolveAccount('current-year-earnings');
+    const earningsAccount = await prisma.account.findUnique({ where: { id: earningsResolved.id } });
     if (!earningsAccount) {
-        throw new Error('Account 31112 (Laba Berjalan) not found.');
+        throw new Error(`Account for role "current-year-earnings" (code: ${earningsResolved.code}) not found.`);
     }
 
     if (netIncome >= 0) {

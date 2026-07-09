@@ -48,6 +48,8 @@ interface OpeningBalanceSpreadsheetProps {
     accounts: Account[];
     customers: { id: string; name: string }[];
     suppliers: { id: string; name: string }[];
+    arAccountId?: string;  // Server-resolved AR account ID (tenant-aware)
+    apAccountId?: string;  // Server-resolved AP account ID (tenant-aware)
 }
 
 interface GeneralLine {
@@ -56,11 +58,7 @@ interface GeneralLine {
     credit: number;
 }
 
-// AR/AP Code Constants
-const AR_ACCOUNT_CODE = '11210';
-const AP_ACCOUNT_CODE = '21110';
-
-export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: OpeningBalanceSpreadsheetProps) {
+export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers, arAccountId, apAccountId }: OpeningBalanceSpreadsheetProps) {
     const [date, setDate] = React.useState<Date>(new Date());
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -179,8 +177,8 @@ export function OpeningBalanceSpreadsheet({ accounts, customers, suppliers }: Op
     }, [accounts]);
 
     const renderAccountRow = (account: Account) => {
-        const isAR = account.code === AR_ACCOUNT_CODE;
-        const isAP = account.code === AP_ACCOUNT_CODE;
+        const isAR = arAccountId ? account.id === arAccountId : false;
+        const isAP = apAccountId ? account.id === apAccountId : false;
 
         if (isAR) {
             return (

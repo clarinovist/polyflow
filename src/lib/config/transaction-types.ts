@@ -1,6 +1,22 @@
 import { ShoppingCart, Zap, CreditCard, Building2, Truck, Wallet, Calculator, Landmark, HandCoins, ArrowDownCircle, ArrowUpCircle, LucideIcon } from 'lucide-react';
+import type { AccountRole } from '@/services/accounting/account-resolver';
 
 export type TransactionCategory = 'EXPENSE' | 'SALES' | 'PAYROLL' | 'FINANCING' | 'PAYMENT' | 'ASSET';
+
+/**
+ * Semantic filter for account picker in the wizard UI.
+ * Client filters by type/category/isCashAccount — never by code prefix (Kiyowo-only).
+ */
+export type AccountPickerFilterKind =
+  | 'cash-bank'         // isCashAccount = true
+  | 'expense'           // type = EXPENSE
+  | 'fixed-asset'       // type = ASSET, category = FIXED_ASSET
+  | 'liability-or-cash' // type = LIABILITY OR isCashAccount
+  | 'expense-or-asset'; // type = EXPENSE OR (ASSET + not current)
+
+export interface AccountPickerFilter {
+  kind: AccountPickerFilterKind;
+}
 
 export interface TransactionTypeConfig {
     id: string;
@@ -8,13 +24,13 @@ export interface TransactionTypeConfig {
     description: string;
     icon: LucideIcon;
     category: TransactionCategory;
-    debitAccountCode: string; // From existing COA
-    creditAccountCode: string; // From existing COA
+    debitAccountRole: AccountRole;   // Semantic role, resolved at runtime per tenant
+    creditAccountRole: AccountRole;  // Semantic role, resolved at runtime per tenant
     defaultDescription: string;
-    showAccountPicker?: boolean; // For "Other" categories
-    accountPickerFilter?: string[]; // Account codes to filter to
-    showPaymentPicker?: boolean; // To select Cash vs Bank or Payable/Debt
-    paymentPickerFilter?: string[]; // Filter for payment accounts (default: ['111', '211', '212', '221'])
+    showAccountPicker?: boolean;     // For "Other" categories
+    accountPickerFilter?: AccountPickerFilter;
+    showPaymentPicker?: boolean;     // To select Cash vs Bank or Payable/Debt
+    paymentPickerFilter?: AccountPickerFilter;
     requiresInvoice?: 'SALES' | 'PURCHASE';
     blockedInQuickEntryReason?: string;
 }
@@ -27,10 +43,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembelian oli mesin, kebersihan, atau suku cadang kecil',
         icon: ShoppingCart,
         category: 'EXPENSE',
-        debitAccountCode: '11360', // Inventory - Consumables
-        creditAccountCode: '21110', // AP Accrual
+        debitAccountRole: 'inventory-consumables',
+        creditAccountRole: 'accounts-payable',
         defaultDescription: 'Pembelian Consumable/Spares',
         showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
         blockedInQuickEntryReason: 'Gunakan modul Inventory/Purchasing agar mutasi persediaan dan jurnal kontrol tetap konsisten.'
     },
     {
@@ -39,10 +56,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran tagihan PLN pabrik/kantor',
         icon: Zap,
         category: 'EXPENSE',
-        debitAccountCode: '53200', // Factory Electricity (PLN)
-        creditAccountCode: '11120', // Bank BCA
+        debitAccountRole: 'factory-electricity',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Bayar Listrik PLN',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'expense-maintenance',
@@ -50,10 +68,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Biaya servis mesin atau perbaikan fasilitas',
         icon: Building2,
         category: 'EXPENSE',
-        debitAccountCode: '53300', // Machine Maintenance
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'factory-maintenance',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Biaya Maintenance Mesin',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'expense-rent',
@@ -61,10 +80,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Sewa gedung, gudang, atau mesin',
         icon: Wallet,
         category: 'EXPENSE',
-        debitAccountCode: '53410', // Factory Rent
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'factory-rent',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Sewa Gedung/Fasilitas',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'expense-salary',
@@ -72,10 +92,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran gaji operator atau staff',
         icon: Calculator,
         category: 'EXPENSE',
-        debitAccountCode: '62100', // Office Salaries
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'office-salaries',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Pembayaran Gaji',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'expense-transport',
@@ -83,10 +104,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Ongkos kirim ke customer atau dari supplier',
         icon: Truck,
         category: 'EXPENSE',
-        debitAccountCode: '61100', // Logistics & Delivery
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'shipping-expense',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Biaya Logistik & Pengiriman',
-        showPaymentPicker: true
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     {
         id: 'expense-other',
@@ -94,12 +116,13 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Biaya operasional lainnya yang tidak terdaftar',
         icon: CreditCard,
         category: 'EXPENSE',
-        debitAccountCode: '62400', // Default to Prof Fees or misc
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'misc-operating-expense',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Pengeluaran Operasional',
         showAccountPicker: true,
-        accountPickerFilter: ['6'], // Show all expense accounts
-        showPaymentPicker: true
+        accountPickerFilter: { kind: 'expense' },
+        showPaymentPicker: true,
+        paymentPickerFilter: { kind: 'cash-bank' },
     },
     // Financing
     {
@@ -108,11 +131,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pencairan dana pinjaman dari Bank',
         icon: Landmark,
         category: 'FINANCING',
-        debitAccountCode: '11130', // Bank Mandiri (Default Target)
-        creditAccountCode: '22100', // Bank Loans
+        debitAccountRole: 'bank-mandiri',
+        creditAccountRole: 'bank-loans',
         defaultDescription: 'Pencairan Pinjaman Bank',
         showAccountPicker: true,
-        accountPickerFilter: ['111'] // Pick which Bank/Cash receives the money
+        accountPickerFilter: { kind: 'cash-bank' }
     },
     {
         id: 'loan-owner-receive',
@@ -120,11 +143,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pencairan dana talangan dari Owner/Pribadi',
         icon: HandCoins,
         category: 'FINANCING',
-        debitAccountCode: '11110', // Petty Cash (Default Target)
-        creditAccountCode: '21120', // Other Payables (Hutang Owner)
+        debitAccountRole: 'petty-cash',
+        creditAccountRole: 'other-payables',
         defaultDescription: 'Pinjaman Dana dari Owner',
         showAccountPicker: true,
-        accountPickerFilter: ['111'] // Pick which Bank/Cash receives the money
+        accountPickerFilter: { kind: 'cash-bank' }
     },
     {
         id: 'loan-bank-repay',
@@ -132,11 +155,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran angsuran pokok pinjaman bank',
         icon: Wallet,
         category: 'PAYMENT',
-        debitAccountCode: '22100', // Bank Loans
-        creditAccountCode: '11130', // Bank Mandiri
+        debitAccountRole: 'bank-loans',
+        creditAccountRole: 'bank-mandiri',
         defaultDescription: 'Pembayaran Cicilan Bank',
         showPaymentPicker: true,
-        paymentPickerFilter: ['111'] // Pick which Bank/Cash is used to pay
+        paymentPickerFilter: { kind: 'cash-bank' }
     },
     {
         id: 'loan-owner-repay',
@@ -144,11 +167,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembayaran kembali dana talangan ke Owner/Pribadi',
         icon: Wallet,
         category: 'PAYMENT',
-        debitAccountCode: '21120', // Other Payables (Hutang ke Owner)
-        creditAccountCode: '11110', // Petty Cash
+        debitAccountRole: 'other-payables',
+        creditAccountRole: 'petty-cash',
         defaultDescription: 'Pembayaran Hutang ke Owner',
         showPaymentPicker: true,
-        paymentPickerFilter: ['111'] // Pick which Bank/Cash is used to pay
+        paymentPickerFilter: { kind: 'cash-bank' }
     },
     // Payments (AR/AP)
     {
@@ -157,11 +180,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Mencatat pembayaran piutang dari invoice customer',
         icon: ArrowDownCircle,
         category: 'PAYMENT',
-        debitAccountCode: '11120', // Bank BCA (Default Target)
-        creditAccountCode: '11210', // Accounts Receivable
+        debitAccountRole: 'bank-bca',
+        creditAccountRole: 'accounts-receivable',
         defaultDescription: 'Pelunasan Invoice Customer',
         showPaymentPicker: true,
-        paymentPickerFilter: ['111'], // Pick which Bank/Cash receives the money
+        paymentPickerFilter: { kind: 'cash-bank' },
         requiresInvoice: 'SALES'
     },
     {
@@ -170,11 +193,11 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Mencatat pembayaran hutang atas invoice supplier',
         icon: ArrowUpCircle,
         category: 'PAYMENT',
-        debitAccountCode: '21110', // Accounts Payable
-        creditAccountCode: '11120', // Bank
+        debitAccountRole: 'accounts-payable',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Pembayaran Invoice Supplier',
         showPaymentPicker: true,
-        paymentPickerFilter: ['111'], // Pick which Bank/Cash is used for payment
+        paymentPickerFilter: { kind: 'cash-bank' },
         requiresInvoice: 'PURCHASE'
     },
     // Assets (CAPEX)
@@ -184,13 +207,13 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembelian aset mesin produksi atau peralatan pabrik',
         icon: Building2,
         category: 'ASSET',
-        debitAccountCode: '12100', // Machinery & Equipment
-        creditAccountCode: '11120', // Bank BCA
+        debitAccountRole: 'fixed-asset-machinery',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Pembelian Aset Mesin',
         showAccountPicker: true,
-        accountPickerFilter: ['12'], // Only Asset accounts
+        accountPickerFilter: { kind: 'fixed-asset' },
         showPaymentPicker: true,
-        paymentPickerFilter: ['111', '211', '212', '221'] // Cash, Bank, or Payable
+        paymentPickerFilter: { kind: 'liability-or-cash' }
     },
     {
         id: 'purchase-vehicle',
@@ -198,12 +221,12 @@ export const TRANSACTION_TYPES: TransactionTypeConfig[] = [
         description: 'Pembelian aset kendaraan operasional',
         icon: Truck,
         category: 'ASSET',
-        debitAccountCode: '12300', // Vehicles
-        creditAccountCode: '11120', // Bank BCA
+        debitAccountRole: 'fixed-asset-vehicles',
+        creditAccountRole: 'bank-bca',
         defaultDescription: 'Pembelian Aset Kendaraan',
         showAccountPicker: true,
-        accountPickerFilter: ['12'], // Only Asset accounts
+        accountPickerFilter: { kind: 'fixed-asset' },
         showPaymentPicker: true,
-        paymentPickerFilter: ['111', '211', '212', '221']
+        paymentPickerFilter: { kind: 'liability-or-cash' }
     }
 ];

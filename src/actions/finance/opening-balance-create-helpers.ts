@@ -14,12 +14,13 @@ import {
 import { prisma } from '@/lib/core/prisma';
 import { BusinessRuleError } from '@/lib/errors/errors';
 import { AccountingService } from '@/services/accounting/accounting-service';
+import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
 
 import {
-    AP_ACCOUNT_CODE,
-    AR_ACCOUNT_CODE,
+    AP_ROLE,
+    AR_ROLE,
     CreateOpeningBalanceInput,
-    OPENING_BALANCE_ACCOUNT_CODE,
+    OPENING_BALANCE_ROLE,
     UnifiedMakeOpeningBalanceInput,
 } from './opening-balance-types';
 
@@ -48,13 +49,19 @@ export async function assertNoDuplicateOpeningBalanceEntries(data: UnifiedMakeOp
 }
 
 export async function ensureOpeningBalanceEquityAccount(db: Prisma.TransactionClient | typeof prisma) {
-    const existingAccount = await db.account.findUnique({ where: { code: OPENING_BALANCE_ACCOUNT_CODE } });
-    if (existingAccount) return existingAccount;
+    // Resolve by role (tenant-aware) — find or create
+    const resolved = await resolveAccount(OPENING_BALANCE_ROLE).catch(() => null);
+    if (resolved) {
+        const existingAccount = await db.account.findUnique({ where: { id: resolved.id } });
+        if (existingAccount) return existingAccount;
+    }
 
+    // Account not found by role patterns — create with a generic code
+    const code = '30000';
     if ('$transaction' in db) {
         return db.account.create({
             data: {
-                code: OPENING_BALANCE_ACCOUNT_CODE,
+                code,
                 name: 'Opening Balance Equity',
                 type: AccountType.EQUITY,
                 category: AccountCategory.CAPITAL,
@@ -64,10 +71,10 @@ export async function ensureOpeningBalanceEquityAccount(db: Prisma.TransactionCl
     }
 
     return db.account.upsert({
-        where: { code: OPENING_BALANCE_ACCOUNT_CODE },
+        where: { code },
         update: {},
         create: {
-            code: OPENING_BALANCE_ACCOUNT_CODE,
+            code,
             name: 'Opening Balance Equity',
             type: AccountType.EQUITY,
             category: AccountCategory.CAPITAL,
@@ -80,9 +87,10 @@ export async function getSubLedgerAccountOrThrow(
     db: Prisma.TransactionClient | typeof prisma,
     type: 'AR' | 'AP'
 ) {
-    const code = type === 'AR' ? AR_ACCOUNT_CODE : AP_ACCOUNT_CODE;
-    const account = await db.account.findUnique({ where: { code } });
-    if (!account) throw new Error(`${type} Account ${code} not found.`);
+    const role: AccountRole = type === 'AR' ? AR_ROLE : AP_ROLE;
+    const resolved = await resolveAccount(role);
+    const account = await db.account.findUnique({ where: { id: resolved.id } });
+    if (!account) throw new Error(`${type} Account (role: ${role}) not found.`);
     return account;
 }
 
