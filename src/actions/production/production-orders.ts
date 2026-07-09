@@ -159,7 +159,6 @@ export const getProductionOrders = withTenant(
     machineId?: string;
     productTypes?: ProductType[];
     bomCategories?: BomCategory[];
-    demandType?: "customer" | "internal";
   }) {
     const where: Prisma.ProductionOrderWhereInput = {};
     const bomWhere: Prisma.BomWhereInput = {};
@@ -184,16 +183,6 @@ export const getProductionOrders = withTenant(
       bomWhere.category = {
         in: filters.bomCategories,
       };
-    }
-
-    if (filters?.demandType === "customer") {
-      where.OR = [
-        { salesOrderId: { not: null } },
-        { isMaklon: true, maklonCustomerId: { not: null } },
-      ];
-    } else if (filters?.demandType === "internal") {
-      where.salesOrderId = null;
-      where.isMaklon = false;
     }
 
     if (Object.keys(bomWhere).length > 0) {

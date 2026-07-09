@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -78,11 +79,12 @@ export function PhotoGalleryDialog({ executions, orderNumber }: PhotoGalleryDial
               >
                 {/* Photo */}
                 <div className="aspect-square">
-                  <img
+                  <Image
                     src={exec.photoUrl!}
                     alt={`Output ${index + 1}`}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    loading="lazy"
+                    fill
+                    unoptimized
+                    className="object-cover transition-transform group-hover:scale-105"
                   />
                 </div>
 
@@ -196,9 +198,12 @@ function LightboxPreview({
         className="max-w-4xl max-h-[80vh] relative"
         onClick={(e) => e.stopPropagation()}
       >
-        <img
+        <Image
           src={current.photoUrl!}
           alt={`Output ${currentIndex + 1}`}
+          width={1200}
+          height={800}
+          unoptimized
           className="max-w-full max-h-[80vh] object-contain"
         />
 

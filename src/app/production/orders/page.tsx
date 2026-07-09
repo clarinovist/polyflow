@@ -14,8 +14,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BomCategory } from '@prisma/client';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 
-export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string, demand?: 'customer' | 'internal' }> }) {
-    const { category, demand = 'customer' } = await searchParams;
+export default async function ProductionOrdersPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+    const { category } = await searchParams;
 
     let bomCategories: BomCategory[] | undefined;
 
@@ -27,21 +27,11 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
         bomCategories = ['PACKING'];
     }
 
-    const orders = await getProductionOrders({ bomCategories, demandType: demand });
+    const orders = await getProductionOrders({ bomCategories });
     const stats = await getProductionOrderStats();
 
     const buildCategoryHref = (nextCategory?: string) => {
-        const query = new URLSearchParams();
-        if (nextCategory) query.set('category', nextCategory);
-        if (demand) query.set('demand', demand);
-        return query.toString() ? `/production/orders?${query.toString()}` : '/production/orders';
-    };
-
-    const buildDemandHref = (nextDemand: 'customer' | 'internal') => {
-        const query = new URLSearchParams();
-        if (category) query.set('category', category);
-        query.set('demand', nextDemand);
-        return `/production/orders?${query.toString()}`;
+        return nextCategory ? `/production/orders?category=${nextCategory}` : '/production/orders';
     };
 
     return (
@@ -52,20 +42,12 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                     <h1 className="text-3xl font-bold text-foreground">{planningLabels.createWorkOrder}</h1>
                     <p className="text-muted-foreground mt-2">{planningLabels.planNewJob}</p>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                    <Link href="/production/orders/create" className="w-full sm:w-auto">
-                        <Button variant="outline" className="w-full sm:w-auto gap-2">
-                            <Plus className="h-4 w-4" />
-                            {planningLabels.createOrder}
-                        </Button>
-                    </Link>
-                    <Link href="/production/orders/create?intent=internal" className="w-full sm:w-auto">
-                        <Button className="w-full sm:w-auto gap-2">
-                            <Plus className="h-4 w-4" />
-                            {planningLabels.internalReplenishment}
-                        </Button>
-                    </Link>
-                </div>
+                <Link href="/production/orders/create" className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto gap-2">
+                        <Plus className="h-4 w-4" />
+                        {planningLabels.createWorkOrder}
+                    </Button>
+                </Link>
             </div>
 
             {/* Stats Cards */}
@@ -126,20 +108,9 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                     </TabsList>
                 </Tabs>
 
-                <Tabs defaultValue={demand} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 lg:w-[360px]">
-                        <TabsTrigger value="customer" asChild>
-                            <Link href={buildDemandHref('customer')}>{planningLabels.customerDemand}</Link>
-                        </TabsTrigger>
-                        <TabsTrigger value="internal" asChild>
-                            <Link href={buildDemandHref('internal')}>{planningLabels.internalStockBuild}</Link>
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
-
                 <Card className="border shadow-sm">
                     <CardHeader className="pb-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                             <CardTitle>{planningLabels.allOrders}</CardTitle>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <div className="relative w-full sm:w-auto">
@@ -208,10 +179,9 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                                     <span className="text-xs text-muted-foreground">{order.salesOrder.orderNumber} • {order.salesOrder.orderType.replace(/_/g, ' ')}</span>
                                                                 </>
                                                             ) : (
-                                                                <>
-                                                                    <span className="text-sm font-medium">{planningLabels.internalStockBuildLabel}</span>
-                                                                    <span className="text-xs text-muted-foreground">{planningLabels.noLinkedDemand}</span>
-                                                                </>
+                                                                <Badge variant="secondary" className="text-xs font-normal w-fit">
+                                                                    {planningLabels.internalStockBuildLabel}
+                                                                </Badge>
                                                             )}
                                                         </div>
                                                     </TableCell>
@@ -248,7 +218,7 @@ export default async function ProductionOrdersPage({ searchParams }: { searchPar
                                                         </Link>
                                                     </TableCell>
                                                 </TableRow>
-                                            )
+                                            );
                                         })
                                     )}
                                 </TableBody>

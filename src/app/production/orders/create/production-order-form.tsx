@@ -80,13 +80,6 @@ export interface ProductionOrderFormProps {
   }[];
   customers?: { id: string; name: string }[];
   salesOrderId?: string;
-  creationIntent?: "internal";
-  linkedSalesOrder?: {
-    id: string;
-    orderNumber: string;
-    orderType: string;
-    customerName: string | null;
-  };
 }
 
 interface MaterialRequirement {
@@ -121,8 +114,6 @@ export function ProductionOrderForm({
   locations,
   customers = [],
   salesOrderId,
-  creationIntent,
-  linkedSalesOrder,
 }: ProductionOrderFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -511,36 +502,6 @@ export function ProductionOrderForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {linkedSalesOrder && (
-          <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20">
-            <AlertCircle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-            <AlertTitle>Linked customer demand</AlertTitle>
-            <AlertDescription>
-              This work order is being created for Sales Order{" "}
-              {linkedSalesOrder.orderNumber}
-              {linkedSalesOrder.customerName
-                ? ` from ${linkedSalesOrder.customerName}`
-                : ""}
-              . The link will be kept for demand traceability.
-              {linkedSalesOrder.orderType === "MAKLON_JASA"
-                ? " For Maklon Jasa, customer-owned materials are consumed during production execution rather than shipped from the sales order."
-                : ""}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {!linkedSalesOrder && creationIntent === "internal" && (
-          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/20">
-            <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            <AlertTitle>Internal replenishment</AlertTitle>
-            <AlertDescription>
-              Use this flow when production is planned to refill stock without a
-              customer Sales Order. The resulting work order will be treated as
-              internal stock build.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Specifications & Logistics */}
           <div className="lg:col-span-2 space-y-6">

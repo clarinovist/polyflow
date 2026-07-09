@@ -112,23 +112,14 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-amber-900 dark:text-amber-300">
-                    No linked Sales Order
-                  </div>
-                  <div className="text-xs text-amber-700 dark:text-amber-400">
-                    This work order is treated as internal replenishment or
-                    planning demand.
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-amber-200 bg-white text-amber-700 dark:border-amber-800/50 dark:bg-zinc-900 dark:text-amber-400"
-                >
-                  Internal Demand
+            <div className="flex items-center justify-between rounded-lg border border-muted bg-muted/30 p-4">
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="text-xs font-normal">
+                  Stock Internal
                 </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Production planned without linked Sales Order
+                </span>
               </div>
             </div>
           )}

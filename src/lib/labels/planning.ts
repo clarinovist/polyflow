@@ -37,15 +37,12 @@ export const planningLabels = {
   // Production Orders
   createWorkOrder: 'Buat SPK',
   planNewJob: 'Rencanakan SPK baru',
-  createOrder: 'Buat Pesanan',
-  internalReplenishment: 'Stok Internal',
+  createOrder: 'Buat SPK',
   totalOrders: 'Total Pesanan',
   inProgress: 'Sedang Diproses',
   readyToRelease: 'Siap Dirilis',
   lateOverdue: 'Terlambat',
   all: 'Semua',
-  customerDemand: 'Pesanan Customer',
-  internalStockBuild: 'Stok Internal',
   allOrders: 'Semua Pesanan',
   searchOrders: 'Cari pesanan...',
   orderNumber: 'No. Pesanan',
@@ -57,8 +54,8 @@ export const planningLabels = {
   planned: 'Rencana',
   startDate: 'Tanggal Mulai',
   actions: 'Aksi',
-  internalStockBuildLabel: 'Stok internal',
-  noLinkedDemand: 'Tidak ada permintaan penjualan',
+  internalStockBuildLabel: 'Stock Internal',
+  noLinkedDemand: 'Stock Internal',
 
   // Purchase Orders
   purchaseOrdersDesc: 'Kelola procurement dan pesanan supplier.',
