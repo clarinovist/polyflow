@@ -4,14 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle, Upload } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
 import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { updateDeliveryStatus } from '@/actions/inventory/deliveries';
+import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
 import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
 import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
@@ -27,6 +28,11 @@ interface DeliveryOrderDetailProps {
 export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetailProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+    const [uploadingVehicle, setUploadingVehicle] = useState(false);
+    const [uploadingPOD, setUploadingPOD] = useState(false);
+    const [receivedByName, setReceivedByName] = useState('');
+    const vehicleInputRef = useRef<HTMLInputElement>(null);
+    const podInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
     const handleStatusChange = async (newStatus: string) => {
@@ -47,6 +53,51 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     };
 
     const nextStep = NEXT_STEP_LABELS[order.status];
+
+    const VEHICLE_PHOTO_STATUSES = ['PENDING', 'LOADING', 'SHIPPED'];
+    const POD_PHOTO_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED'];
+    const canUploadVehicle = VEHICLE_PHOTO_STATUSES.includes(order.status);
+    const canUploadPOD = POD_PHOTO_STATUSES.includes(order.status);
+
+    const handlePhotoUpload = async (file: File, photoType: 'vehicle' | 'proof_of_delivery') => {
+        const setUploading = photoType === 'vehicle' ? setUploadingVehicle : setUploadingPOD;
+        setUploading(true);
+        try {
+            // 1. Upload to R2
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('deliveryOrderId', order.id);
+            formData.append('photoType', photoType);
+
+            const uploadRes = await fetch('/api/upload/delivery-photo', { method: 'POST', body: formData });
+            const uploadData = await uploadRes.json();
+
+            if (!uploadData.success) {
+                toast.error(uploadData.error || 'Gagal upload foto.');
+                return;
+            }
+
+            // 2. Attach metadata
+            const attachRes = await attachDeliveryPhoto({
+                deliveryOrderId: order.id,
+                photoType,
+                publicUrl: uploadData.url,
+                receivedBy: photoType === 'proof_of_delivery' ? receivedByName : undefined,
+            });
+
+            if (attachRes.success) {
+                toast.success(photoType === 'vehicle' ? 'Foto truk berhasil diupload' : 'Bukti terima berhasil diupload');
+                if (photoType === 'proof_of_delivery') setReceivedByName('');
+                router.refresh();
+            } else {
+                toast.error(attachRes.error || 'Gagal menyimpan foto.');
+            }
+        } catch {
+            toast.error('Gagal upload foto.');
+        } finally {
+            setUploading(false);
+        }
+    };
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
@@ -273,27 +324,58 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
             </div>
 
                 {/* Photos Section */}
-                {(order.vehiclePhotoUrl || order.proofOfDeliveryUrl) && (
-                    <Card className="md:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Camera className="h-5 w-5" />
-                                Foto Pengiriman
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {order.vehiclePhotoUrl && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase">Foto Truk Saat Muat</label>
-                                        <div className="border rounded-lg overflow-hidden">
-                                            <img src={order.vehiclePhotoUrl} alt="Foto Truk" className="w-full h-48 object-cover" />
-                                        </div>
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Camera className="h-5 w-5" />
+                            Foto Pengiriman
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Vehicle Photo */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase">Foto Truk Saat Muat</label>
+                                {order.vehiclePhotoUrl ? (
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <img src={order.vehiclePhotoUrl} alt="Foto Truk" className="w-full h-48 object-cover" />
+                                    </div>
+                                ) : (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                        Belum ada foto truk
                                     </div>
                                 )}
-                                {order.proofOfDeliveryUrl && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium text-muted-foreground uppercase">Bukti Terima</label>
+                                {canUploadVehicle && (
+                                    <>
+                                        <input
+                                            ref={vehicleInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handlePhotoUpload(file, 'vehicle');
+                                            }}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => vehicleInputRef.current?.click()}
+                                            disabled={uploadingVehicle}
+                                        >
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            {uploadingVehicle ? 'Mengupload...' : order.vehiclePhotoUrl ? 'Ganti Foto Truk' : 'Upload Foto Truk'}
+                                        </Button>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Proof of Delivery */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase">Bukti Terima</label>
+                                {order.proofOfDeliveryUrl ? (
+                                    <>
                                         <div className="border rounded-lg overflow-hidden">
                                             <img src={order.proofOfDeliveryUrl} alt="Bukti Terima" className="w-full h-48 object-cover" />
                                         </div>
@@ -303,12 +385,50 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         {order.proofOfDeliveryAt && (
                                             <p className="text-xs text-muted-foreground">Pada: {format(new Date(order.proofOfDeliveryAt), 'PPpp')}</p>
                                         )}
+                                    </>
+                                ) : (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                                        Belum ada bukti terima
                                     </div>
                                 )}
+                                {canUploadPOD && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">Nama Penerima *</label>
+                                            <input
+                                                type="text"
+                                                value={receivedByName}
+                                                onChange={(e) => setReceivedByName(e.target.value)}
+                                                placeholder="Nama penerima"
+                                                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                                            />
+                                        </div>
+                                        <input
+                                            ref={podInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handlePhotoUpload(file, 'proof_of_delivery');
+                                            }}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => podInputRef.current?.click()}
+                                            disabled={uploadingPOD || !receivedByName.trim()}
+                                        >
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            {uploadingPOD ? 'Mengupload...' : 'Upload Bukti Terima'}
+                                        </Button>
+                                    </>
+                                )}
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
+                        </div>
+                    </CardContent>
+                </Card>
 
             <PrintPreviewModal
                 open={showPreview}
