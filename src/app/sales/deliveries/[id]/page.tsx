@@ -1,5 +1,5 @@
 import { getDeliveryOrderById } from '@/actions/inventory/deliveries';
-import { DeliveryOrderDetail } from '@/components/sales/DeliveryOrderDetail';
+import { DeliveryOrderDetail, type DeliveryOrderDetailData } from '@/components/sales/DeliveryOrderDetail';
 import { notFound } from 'next/navigation';
 import { serializeData } from '@/lib/utils/utils';
 import { getCompanyConfigAsync } from '@/lib/config/company';
@@ -23,7 +23,7 @@ export default async function DeliveryOrderPage({ params }: DeliveryOrderPagePro
 
     return (
         <div className="p-6">
-            <DeliveryOrderDetail order={serializedOrder} companyConfig={companyConfig} />
+            <DeliveryOrderDetail order={serializedOrder as unknown as DeliveryOrderDetailData} companyConfig={companyConfig} />
         </div>
     );
 }

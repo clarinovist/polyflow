@@ -63,7 +63,7 @@ describe('findActiveShift', () => {
       }),
     );
     // Verify operatorId is NOT in the fallback query
-    const secondCallArgs = vi.mocked(prisma.productionShift.findFirst).mock.calls[1][0];
+    const secondCallArgs = vi.mocked(prisma.productionShift.findFirst).mock.calls[1]![0]!;
     expect(secondCallArgs.where).not.toHaveProperty('operatorId');
   });
 

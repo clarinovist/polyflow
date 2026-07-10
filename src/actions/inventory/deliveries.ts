@@ -5,9 +5,11 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, RateType, DeliveryStatus } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { createManualDeliveryOrderSchema } from '@/lib/schemas/sales';
+import { createManualDeliveryOrderSchema, updateDeliveryPricingSchema } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
 import { canTransition } from '@/lib/sales/delivery-status';
+import { computeDeliveryTotals } from '@/lib/sales/delivery-pricing';
+import { getActiveTariff } from '@/actions/sales/vehicle-tariffs';
 import { revalidatePath } from 'next/cache';
 
 export const getDeliveryOrders = withTenant(
@@ -95,6 +97,7 @@ async function createManualDeliveryOrder(data: {
   appliedRateType?: string;
   appliedCostRate?: number;
   appliedChargeRate?: number;
+  appliedRouteName?: string;
   totalCost?: number;
   totalCharge?: number;
   estimatedWeightKg?: number;
@@ -143,6 +146,7 @@ async function createManualDeliveryOrder(data: {
         appliedRateType: validatedData.appliedRateType as RateType || null,
         appliedCostRate: validatedData.appliedCostRate ?? null,
         appliedChargeRate: validatedData.appliedChargeRate ?? null,
+        appliedRouteName: validatedData.appliedRouteName || null,
         totalCost: validatedData.totalCost ?? null,
         totalCharge: validatedData.totalCharge ?? null,
         estimatedWeightKg: validatedData.estimatedWeightKg ?? null,
@@ -166,6 +170,16 @@ async function createManualDeliveryOrder(data: {
       entityId: deliveryOrder.id,
       details: `Manual Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber}`,
     });
+
+    // Sync SO shipping cost from DO charges
+    try {
+      const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+      await syncSalesOrderShippingFromDeliveries(validatedData.salesOrderId, {
+        userId: session.user.id,
+      });
+    } catch (err) {
+      console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
+    }
 
     return deliveryOrder;
   });
@@ -207,6 +221,18 @@ async function updateDeliveryStatus(
       await SalesService.deliverOrder(doRecord.salesOrderId, session.user.id);
     }
 
+    // Sync SO shipping cost when DO status changes (CANCELLED/RETURNED affect sum)
+    if (newStatus === 'CANCELLED' || newStatus === 'RETURNED') {
+      try {
+        const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+        await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
+          userId: session.user.id,
+        });
+      } catch (err) {
+        console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
+      }
+    }
+
     await logActivity({
       userId: session.user.id,
       action: 'UPDATE_DELIVERY_STATUS',
@@ -220,5 +246,131 @@ async function updateDeliveryStatus(
     revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
 
     return { success: true };
+  });
+});
+
+/**
+ * Update delivery order pricing (vehicle, route, rates, weight, totals).
+ * Auto-resolves tariff if vehicle changed and rates are empty.
+ * Recomputes totals from rates when recomputeFromRates=true (default).
+ * Calls syncSalesOrderShippingFromDeliveries after update.
+ */
+export const updateDeliveryPricing = withTenant(
+async function updateDeliveryPricing(data: {
+  deliveryOrderId: string;
+  vehicleId?: string | null;
+  appliedRouteName?: string | null;
+  appliedRateType?: string | null;
+  appliedCostRate?: number | null;
+  appliedChargeRate?: number | null;
+  estimatedWeightKg?: number | null;
+  totalCost?: number | null;
+  totalCharge?: number | null;
+  recomputeFromRates?: boolean;
+}) {
+  return safeAction(async () => {
+    const session = await requireAuth();
+    const validated = updateDeliveryPricingSchema.parse(data);
+
+    // Load DO
+    const doRecord = await prisma.deliveryOrder.findUnique({
+      where: { id: validated.deliveryOrderId },
+      select: {
+        id: true, status: true, salesOrderId: true, orderNumber: true,
+        vehicleId: true, appliedRouteName: true,
+        appliedRateType: true, appliedCostRate: true, appliedChargeRate: true,
+        estimatedWeightKg: true, totalCost: true, totalCharge: true,
+      },
+    });
+    if (!doRecord) throw new Error("Delivery Order tidak ditemukan.");
+    if (doRecord.status === 'CANCELLED') {
+      throw new Error("Tidak bisa edit pricing DO yang sudah dibatalkan.");
+    }
+
+    // Resolve fields — use provided values or keep existing
+    const vehicleId = validated.vehicleId !== undefined ? validated.vehicleId : doRecord.vehicleId;
+    const routeName = validated.appliedRouteName !== undefined ? validated.appliedRouteName : doRecord.appliedRouteName;
+    const weightKg = validated.estimatedWeightKg !== undefined
+      ? (validated.estimatedWeightKg != null ? Number(validated.estimatedWeightKg) : null)
+      : (doRecord.estimatedWeightKg ? Number(doRecord.estimatedWeightKg) : null);
+
+    let rateType = validated.appliedRateType ?? doRecord.appliedRateType;
+    let costRate = validated.appliedCostRate ?? (doRecord.appliedCostRate ? Number(doRecord.appliedCostRate) : null);
+    let chargeRate = validated.appliedChargeRate ?? (doRecord.appliedChargeRate ? Number(doRecord.appliedChargeRate) : null);
+    let totalCost = validated.totalCost ?? (doRecord.totalCost ? Number(doRecord.totalCost) : null);
+    let totalCharge = validated.totalCharge ?? (doRecord.totalCharge ? Number(doRecord.totalCharge) : null);
+
+    // If vehicle changed and rates are empty → auto-resolve tariff
+    if (vehicleId && (!rateType || costRate == null || chargeRate == null)) {
+      const tariffResult = await getActiveTariff(vehicleId, routeName);
+      const tariff = tariffResult?.success ? tariffResult.data : null;
+      if (tariff) {
+        rateType = tariff.rateType;
+        costRate = Number(tariff.costRate);
+        chargeRate = Number(tariff.chargeRate);
+      }
+    }
+
+    // Recompute totals from rates if requested and rates are available
+    if (validated.recomputeFromRates && rateType && costRate != null && chargeRate != null) {
+      const computed = computeDeliveryTotals({
+        rateType: rateType as 'PER_KG' | 'FLAT_RATE',
+        costRate,
+        chargeRate,
+        weightKg,
+        minKg: null, // minKg from tariff not stored on DO; use 0
+      });
+      totalCost = computed.totalCost;
+      totalCharge = computed.totalCharge;
+    }
+
+    // Update DO
+    const updated = await prisma.deliveryOrder.update({
+      where: { id: validated.deliveryOrderId },
+      data: {
+        ...(vehicleId !== undefined && { vehicleId: vehicleId || null }),
+        ...(routeName !== undefined && { appliedRouteName: routeName || null }),
+        ...(rateType && { appliedRateType: rateType as RateType }),
+        ...(costRate != null && { appliedCostRate: costRate }),
+        ...(chargeRate != null && { appliedChargeRate: chargeRate }),
+        ...(weightKg != null && { estimatedWeightKg: weightKg }),
+        ...(totalCost != null && { totalCost }),
+        ...(totalCharge != null && { totalCharge }),
+      },
+    });
+
+    await logActivity({
+      userId: session.user.id,
+      action: 'UPDATE_DELIVERY_PRICING',
+      entityType: 'DeliveryOrder',
+      entityId: validated.deliveryOrderId,
+      details: `DO ${doRecord.orderNumber}: pricing updated (charge=${totalCharge ?? 'n/a'})`,
+    });
+
+    // Sync SO shipping (Phase 3 service — stub for now)
+    let shippingSync: { synced: boolean; reason: string; shippingCost: number } = {
+      synced: false,
+      reason: 'NOT_IMPLEMENTED',
+      shippingCost: 0,
+    };
+    try {
+      const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+      const result = await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
+        userId: session.user.id,
+      });
+      shippingSync = {
+        synced: result.synced,
+        reason: result.reason,
+        shippingCost: result.shippingCost,
+      };
+    } catch (err) {
+      console.warn("[delivery-shipping-sync] sync failed (non-blocking):", err);
+    }
+
+    revalidatePath('/sales/deliveries');
+    revalidatePath(`/sales/deliveries/${validated.deliveryOrderId}`);
+    revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+
+    return { deliveryOrder: updated, shippingSync };
   });
 });

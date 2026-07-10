@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { createVehicleTariffSchema, CreateVehicleTariffValues } from '@/lib/schemas/sales';
+import { routesMatch, normalizeRouteKey } from '@/lib/sales/delivery-pricing';
 import { RateType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -23,25 +24,70 @@ export const getTariffsByVehicle = withTenant(
 );
 
 /**
- * Get the currently valid tariff for a vehicle.
- * Used when assigning DO to a vehicle to auto-fill tariff.
+ * Get the currently valid tariff for a vehicle, optionally filtered by route.
+ *
+ * Resolution priority:
+ * 1. Exact match routeName (normalized, case-insensitive) + valid dates
+ * 2. Fallback: routeName null/empty ("Semua Rute") + valid dates
+ * 3. null (no tariff found)
  */
 export const getActiveTariff = withTenant(
-  async function getActiveTariff(vehicleId: string) {
+  async function getActiveTariff(vehicleId: string, routeName?: string | null) {
     return safeAction(async () => {
       const now = new Date();
-      const tariff = await prisma.vehicleTariff.findFirst({
-        where: {
-          vehicleId,
-          validFrom: { lte: now },
-          OR: [
-            { validUntil: null },
-            { validUntil: { gte: now } },
-          ],
-        },
+      const dateFilter = {
+        validFrom: { lte: now },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } },
+        ],
+      };
+
+      // 1) Try exact route match
+      const requestedKey = normalizeRouteKey(routeName);
+      if (requestedKey != null) {
+        const candidates = await prisma.vehicleTariff.findMany({
+          where: { vehicleId, ...dateFilter },
+          orderBy: { validFrom: 'desc' },
+        });
+        const exactMatch = candidates.find(
+          (t) => normalizeRouteKey(t.routeName) === requestedKey,
+        );
+        if (exactMatch) return exactMatch;
+      }
+
+      // 2) Fallback: "Semua Rute" (routeName null/empty)
+      const candidates = await prisma.vehicleTariff.findMany({
+        where: { vehicleId, ...dateFilter },
         orderBy: { validFrom: 'desc' },
       });
-      return tariff || null;
+      const allRoutesMatch = candidates.find(
+        (t) => normalizeRouteKey(t.routeName) === null,
+      );
+      if (allRoutesMatch) return allRoutesMatch;
+
+      // 3) No tariff found
+      return null;
+    });
+  }
+);
+
+/**
+ * List distinct route names for a vehicle's tariffs (non-null only).
+ * Used to populate route selector in UI.
+ */
+export const listVehicleRouteOptions = withTenant(
+  async function listVehicleRouteOptions(vehicleId: string) {
+    return safeAction(async () => {
+      const tariffs = await prisma.vehicleTariff.findMany({
+        where: { vehicleId, routeName: { not: null } },
+        select: { routeName: true },
+        distinct: ['routeName'],
+        orderBy: { routeName: 'asc' },
+      });
+      return tariffs
+        .map((t) => t.routeName)
+        .filter((r): r is string => r != null && r.trim().length > 0);
     });
   }
 );
@@ -73,27 +119,31 @@ export const createVehicleTariff = withTenant(
         throw new BusinessRuleError("Tanggal berlaku sampai harus setelah tanggal berlaku dari.");
       }
 
-      // Check for overlapping tariff on same vehicle
+      // Check for overlapping tariff on same vehicle AND same route
+      // Multi-route (different routeName) overlapping dates is allowed.
       const newValidFrom = result.data.validFrom;
       const newValidUntil = result.data.validUntil;
-      const overlapping = await prisma.vehicleTariff.findFirst({
+      const candidates = await prisma.vehicleTariff.findMany({
         where: {
           vehicleId: result.data.vehicleId,
-          id: { not: undefined }, // exclude self on update
           AND: [
             { validFrom: { lte: newValidUntil || new Date('2099-12-31') } },
             {
               OR: [
-                { validUntil: null }, // open-ended tariff
+                { validUntil: null },
                 { validUntil: { gte: newValidFrom } },
               ],
             },
           ],
         },
       });
+      const overlapping = candidates.find((t) =>
+        routesMatch(t.routeName, result.data.routeName),
+      );
       if (overlapping) {
+        const routeLabel = overlapping.routeName || 'Semua Rute';
         throw new BusinessRuleError(
-          `Sudah ada tarif aktif untuk kendaraan ini pada periode yang berlaku (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}). Tidak boleh ada tarif yang tumpang tindih.`
+          `Sudah ada tarif untuk rute "${routeLabel}" pada periode yang tumpang tindih (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}).`,
         );
       }
 
@@ -137,13 +187,13 @@ export const updateVehicleTariff = withTenant(
         throw new BusinessRuleError("Tanggal berlaku sampai harus setelah tanggal berlaku dari.");
       }
 
-      // Check for overlapping tariff on same vehicle (exclude self)
+      // Check for overlapping tariff on same vehicle AND same route (exclude self)
       const newValidFrom = result.data.validFrom;
       const newValidUntil = result.data.validUntil;
-      const overlapping = await prisma.vehicleTariff.findFirst({
+      const candidates = await prisma.vehicleTariff.findMany({
         where: {
           vehicleId: result.data.vehicleId,
-          id: { not: id }, // exclude self
+          id: { not: id },
           AND: [
             { validFrom: { lte: newValidUntil || new Date('2099-12-31') } },
             {
@@ -155,9 +205,13 @@ export const updateVehicleTariff = withTenant(
           ],
         },
       });
+      const overlapping = candidates.find((t) =>
+        routesMatch(t.routeName, result.data.routeName),
+      );
       if (overlapping) {
+        const routeLabel = overlapping.routeName || 'Semua Rute';
         throw new BusinessRuleError(
-          `Sudah ada tarif aktif untuk kendaraan ini pada periode yang berlaku (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}). Tidak boleh ada tarif yang tumpang tindih.`
+          `Sudah ada tarif untuk rute "${routeLabel}" pada periode yang tumpang tindih (sejak ${overlapping.validFrom.toLocaleDateString('id-ID')}).`,
         );
       }
 

@@ -83,3 +83,6 @@ export const NEXT_STEP_LABELS: Record<string, { to: string; label: string } | nu
   RETURNED: null,
   CANCELLED: null,
 };
+
+/** Re-export billing helper so consumers import from delivery-status, not delivery-pricing. */
+export { isBillableDeliveryStatus } from '@/lib/sales/delivery-pricing';

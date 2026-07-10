@@ -145,6 +145,18 @@ export const salesLabels = {
   route: "Rute",
   validFrom: "Berlaku Dari",
 
+  // Delivery Pricing
+  appliedRoute: "Rute",
+  totalOpsCost: "Biaya Operasional",
+  totalCustomerCharge: "Charge Customer",
+  shippingFromFleet: "Ongkir dari armada",
+  allRoutes: "Semua Rute",
+  fleetPricing: "Armada & Tarif",
+  editPricing: "Edit Tarif & Berat",
+  estimateWeight: "Estimasi Berat",
+  costPerRate: "Biaya Ops / Rate",
+  chargePerRate: "Charge Customer / Rate",
+
   // Delivery Schedule
   deliverySchedule: "Jadwal Kirim",
   deliverySchedules: "Jadwal Kirim",

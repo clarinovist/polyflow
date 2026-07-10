@@ -116,10 +116,28 @@ export const createManualDeliveryOrderSchema = z.object({
   appliedRateType: z.enum(["PER_KG", "FLAT_RATE"]).optional(),
   appliedCostRate: z.coerce.number().min(0).optional(),
   appliedChargeRate: z.coerce.number().min(0).optional(),
+  appliedRouteName: z.string().optional().nullable(),
   totalCost: z.coerce.number().min(0).optional(),
   totalCharge: z.coerce.number().min(0).optional(),
   estimatedWeightKg: z.coerce.number().min(0).optional(),
   destinationAddress: z.string().optional().transform(sanitizeHtml),
+});
+
+// ==========================================
+// DELIVERY PRICING UPDATE SCHEMA
+// ==========================================
+
+export const updateDeliveryPricingSchema = z.object({
+  deliveryOrderId: z.string().min(1),
+  vehicleId: z.string().optional().nullable(),
+  appliedRouteName: z.string().optional().nullable(),
+  appliedRateType: z.enum(['PER_KG', 'FLAT_RATE']).optional().nullable(),
+  appliedCostRate: z.coerce.number().min(0).optional().nullable(),
+  appliedChargeRate: z.coerce.number().min(0).optional().nullable(),
+  estimatedWeightKg: z.coerce.number().min(0).optional().nullable(),
+  totalCost: z.coerce.number().min(0).optional().nullable(),
+  totalCharge: z.coerce.number().min(0).optional().nullable(),
+  recomputeFromRates: z.boolean().optional().default(true),
 });
 
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
@@ -168,3 +186,4 @@ export const updateVehicleTariffSchema = createVehicleTariffSchema;
 
 export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 export type CreateVehicleTariffValues = z.infer<typeof createVehicleTariffSchema>;
+export type UpdateDeliveryPricingValues = z.infer<typeof updateDeliveryPricingSchema>;

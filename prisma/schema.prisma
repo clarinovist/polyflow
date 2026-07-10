@@ -1056,6 +1056,7 @@ model DeliveryOrder {
   totalCost           Decimal?  @db.Decimal(15, 2)
   totalCharge         Decimal?  @db.Decimal(15, 2)
   estimatedWeightKg   Decimal?  @db.Decimal(10, 2)
+  appliedRouteName    String?
   destinationAddress  String?
   vehiclePhotoUrl     String?
   proofOfDeliveryUrl  String?

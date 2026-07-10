@@ -4,6 +4,7 @@ import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { computeDeliveryTotals } from '@/lib/sales/delivery-pricing';
 import { ScheduleStatus, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -244,7 +245,7 @@ export const removeVehicleFromSchedule = withTenant(
 export const assignOrderToSchedule = withTenant(
   async function assignOrderToSchedule(scheduleVehicleId: string, deliveryOrderId: string) {
     return safeAction(async () => {
-      await requireAuth();
+      const session = await requireAuth();
 
       const sv = await prisma.deliveryScheduleVehicle.findUnique({
         where: { id: scheduleVehicleId },
@@ -271,9 +272,12 @@ export const assignOrderToSchedule = withTenant(
         throw new BusinessRuleError(`Jadwal "${sv.schedule.scheduleNumber}" sudah dikonfirmasi. Tidak bisa menambah DO.`);
       }
 
-      // Auto-apply tariff from VehicleTariff
+      // Auto-apply tariff from VehicleTariff (route-aware)
       const now = new Date();
-      const tariff = await prisma.vehicleTariff.findFirst({
+      const routeKey = doRecord.appliedRouteName?.trim() || null;
+
+      // Fetch all valid tariffs for this vehicle
+      const candidates = await prisma.vehicleTariff.findMany({
         where: {
           vehicleId: sv.vehicleId,
           validFrom: { lte: now },
@@ -285,6 +289,20 @@ export const assignOrderToSchedule = withTenant(
         orderBy: { validFrom: 'desc' },
       });
 
+      // Priority: exact route match → "Semua Rute" (null) → null
+      let tariff = null;
+      if (routeKey) {
+        tariff = candidates.find(
+          (t) => t.routeName?.trim().toLowerCase() === routeKey.toLowerCase(),
+        );
+      }
+      if (!tariff) {
+        tariff = candidates.find((t) => !t.routeName || t.routeName.trim() === '');
+      }
+      if (!tariff) {
+        tariff = candidates[0] ?? null;
+      }
+
       const assigned = await prisma.deliveryScheduleOrder.create({
         data: {
           scheduleVehicleId,
@@ -292,8 +310,19 @@ export const assignOrderToSchedule = withTenant(
         },
       });
 
-      // Update DO with vehicle + tariff snapshot
+      // Update DO with vehicle + tariff snapshot + computed totals
       if (tariff) {
+        const weight = doRecord.estimatedWeightKg
+          ? Number(doRecord.estimatedWeightKg)
+          : null;
+        const { totalCost, totalCharge } = computeDeliveryTotals({
+          rateType: tariff.rateType as 'PER_KG' | 'FLAT_RATE',
+          costRate: Number(tariff.costRate),
+          chargeRate: Number(tariff.chargeRate),
+          weightKg: weight,
+          minKg: tariff.minKg != null ? Number(tariff.minKg) : null,
+        });
+
         await prisma.deliveryOrder.update({
           where: { id: deliveryOrderId },
           data: {
@@ -301,14 +330,26 @@ export const assignOrderToSchedule = withTenant(
             appliedRateType: tariff.rateType,
             appliedCostRate: tariff.costRate,
             appliedChargeRate: tariff.chargeRate,
+            appliedRouteName: tariff.routeName ?? doRecord.appliedRouteName ?? null,
+            totalCost,
+            totalCharge,
           },
         });
       } else {
-        // Just assign vehicle, no tariff
         await prisma.deliveryOrder.update({
           where: { id: deliveryOrderId },
           data: { vehicleId: sv.vehicleId },
         });
+      }
+
+      // Sync SO shipping cost from DO charges
+      try {
+        const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+        await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
+          userId: session.user.id,
+        });
+      } catch (err) {
+        console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
       }
 
       revalidatePath(`/sales/delivery-schedules/${sv.scheduleId}`);

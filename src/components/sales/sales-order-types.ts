@@ -184,6 +184,12 @@ export type SerializedSalesOrder = Omit<
   })[];
   productionOrders: SerializedProductionOrder[];
   movements: SerializedStockMovement[];
+  deliveryOrders?: Array<{
+    id: string;
+    status: string;
+    totalCharge: number | null;
+    orderNumber?: string;
+  }>;
   createdBy: { name: string } | null;
 };
 

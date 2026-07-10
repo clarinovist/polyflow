@@ -18,7 +18,7 @@ type DeliveryItem = {
   };
 };
 
-interface SuratJalanPrintData {
+export interface SuratJalanPrintData {
   orderNumber: string;
   deliveryDate: Date;
   status?: string;

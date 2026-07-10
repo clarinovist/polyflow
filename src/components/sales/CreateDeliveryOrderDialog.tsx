@@ -27,7 +27,7 @@ import { createManualDeliveryOrder } from '@/actions/inventory/deliveries';
 import { getSalesOrders } from '@/actions/sales/sales';
 import { getLocations } from '@/actions/inventory/inventory';
 import { getVehicles } from '@/actions/sales/vehicles';
-import { getActiveTariff as fetchActiveTariff } from '@/actions/sales/vehicle-tariffs';
+import { getActiveTariff as fetchActiveTariff, listVehicleRouteOptions as fetchRouteOptions } from '@/actions/sales/vehicle-tariffs';
 import { useRouter } from 'next/navigation';
 
 interface SalesOrder {
@@ -76,6 +76,9 @@ export function CreateDeliveryOrderDialog() {
   const [notes, setNotes] = useState('');
   const [estimatedWeightKg, setEstimatedWeightKg] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
+  // Route fields
+  const [selectedRouteName, setSelectedRouteName] = useState('');
+  const [routeOptions, setRouteOptions] = useState<string[]>([]);
   // Tariff fields
   const [tariffRateType, setTariffRateType] = useState('');
   const [overrideCostRate, setOverrideCostRate] = useState('');
@@ -128,14 +131,25 @@ export function CreateDeliveryOrderDialog() {
 
   const handleVehicleChange = async (vehicleId: string) => {
     setSelectedVehicleId(vehicleId);
+    setSelectedRouteName('');
     if (!vehicleId) {
       setTariffRateType('');
       setOverrideCostRate('');
       setOverrideChargeRate('');
+      setRouteOptions([]);
       return;
     }
-    // Load active tariff for this vehicle
-    const tariffRes = await fetchActiveTariff(vehicleId);
+    // Load route options for this vehicle
+    const routesRes = await fetchRouteOptions(vehicleId);
+    const routes = (routesRes.success && routesRes.data) ? routesRes.data as string[] : [];
+    setRouteOptions(routes);
+
+    // Load active tariff (default: Semua Rute)
+    await loadTariffForRoute(vehicleId, '');
+  };
+
+  const loadTariffForRoute = async (vehicleId: string, routeName: string) => {
+    const tariffRes = await fetchActiveTariff(vehicleId, routeName || undefined);
     if (tariffRes.success && tariffRes.data) {
       const t = tariffRes.data as ActiveTariff;
       setTariffRateType(t.rateType);
@@ -143,6 +157,16 @@ export function CreateDeliveryOrderDialog() {
       setOverrideChargeRate(String(Number(t.chargeRate)));
     } else {
       setTariffRateType('');
+      setOverrideCostRate('');
+      setOverrideChargeRate('');
+    }
+  };
+
+  const handleRouteChange = async (routeName: string) => {
+    const resolved = routeName === '__all__' ? '' : routeName;
+    setSelectedRouteName(resolved);
+    if (selectedVehicleId) {
+      await loadTariffForRoute(selectedVehicleId, resolved);
     }
   };
 
@@ -158,6 +182,8 @@ export function CreateDeliveryOrderDialog() {
     setOverrideChargeRate('');
     setEstimatedWeightKg('');
     setDestinationAddress('');
+    setSelectedRouteName('');
+    setRouteOptions([]);
   };
 
   const handleSubmit = async () => {
@@ -182,6 +208,7 @@ export function CreateDeliveryOrderDialog() {
         appliedRateType: tariffRateType || undefined,
         appliedCostRate: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
         appliedChargeRate: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
+        appliedRouteName: selectedRouteName || undefined,
         totalCost: suggestedCost ?? (overrideCostRate ? parseFloat(overrideCostRate) : undefined),
         totalCharge: suggestedCharge ?? (overrideChargeRate ? parseFloat(overrideChargeRate) : undefined),
         estimatedWeightKg: estimatedWeightKg ? parseFloat(estimatedWeightKg) : undefined,
@@ -274,6 +301,28 @@ export function CreateDeliveryOrderDialog() {
               </SelectContent>
             </Select>
           </div>
+
+          {selectedVehicleId && (
+            <div className="space-y-2">
+              <Label>Rute Pengiriman</Label>
+              <Select value={selectedRouteName} onValueChange={handleRouteChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Semua Rute" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Semua Rute</SelectItem>
+                  {routeOptions.map((route) => (
+                    <SelectItem key={route} value={route}>
+                      {route}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Tarif boleh berbeda per rute. Kosongkan untuk &quot;Semua Rute&quot;.
+              </p>
+            </div>
+          )}
 
           {tariffRateType && (
             <div className="p-3 bg-muted/50 rounded-lg border space-y-3">
