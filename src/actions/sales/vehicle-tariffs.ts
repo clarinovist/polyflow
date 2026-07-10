@@ -5,7 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction, BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { createVehicleTariffSchema, CreateVehicleTariffValues } from '@/lib/schemas/sales';
-import { routesMatch } from '@/lib/sales/delivery-pricing';
+import { routesMatch, normalizeRouteKey } from '@/lib/sales/delivery-pricing';
 import { RateType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -24,25 +24,70 @@ export const getTariffsByVehicle = withTenant(
 );
 
 /**
- * Get the currently valid tariff for a vehicle.
- * Used when assigning DO to a vehicle to auto-fill tariff.
+ * Get the currently valid tariff for a vehicle, optionally filtered by route.
+ *
+ * Resolution priority:
+ * 1. Exact match routeName (normalized, case-insensitive) + valid dates
+ * 2. Fallback: routeName null/empty ("Semua Rute") + valid dates
+ * 3. null (no tariff found)
  */
 export const getActiveTariff = withTenant(
-  async function getActiveTariff(vehicleId: string) {
+  async function getActiveTariff(vehicleId: string, routeName?: string | null) {
     return safeAction(async () => {
       const now = new Date();
-      const tariff = await prisma.vehicleTariff.findFirst({
-        where: {
-          vehicleId,
-          validFrom: { lte: now },
-          OR: [
-            { validUntil: null },
-            { validUntil: { gte: now } },
-          ],
-        },
+      const dateFilter = {
+        validFrom: { lte: now },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gte: now } },
+        ],
+      };
+
+      // 1) Try exact route match
+      const requestedKey = normalizeRouteKey(routeName);
+      if (requestedKey != null) {
+        const candidates = await prisma.vehicleTariff.findMany({
+          where: { vehicleId, ...dateFilter },
+          orderBy: { validFrom: 'desc' },
+        });
+        const exactMatch = candidates.find(
+          (t) => normalizeRouteKey(t.routeName) === requestedKey,
+        );
+        if (exactMatch) return exactMatch;
+      }
+
+      // 2) Fallback: "Semua Rute" (routeName null/empty)
+      const candidates = await prisma.vehicleTariff.findMany({
+        where: { vehicleId, ...dateFilter },
         orderBy: { validFrom: 'desc' },
       });
-      return tariff || null;
+      const allRoutesMatch = candidates.find(
+        (t) => normalizeRouteKey(t.routeName) === null,
+      );
+      if (allRoutesMatch) return allRoutesMatch;
+
+      // 3) No tariff found
+      return null;
+    });
+  }
+);
+
+/**
+ * List distinct route names for a vehicle's tariffs (non-null only).
+ * Used to populate route selector in UI.
+ */
+export const listVehicleRouteOptions = withTenant(
+  async function listVehicleRouteOptions(vehicleId: string) {
+    return safeAction(async () => {
+      const tariffs = await prisma.vehicleTariff.findMany({
+        where: { vehicleId, routeName: { not: null } },
+        select: { routeName: true },
+        distinct: ['routeName'],
+        orderBy: { routeName: 'asc' },
+      });
+      return tariffs
+        .map((t) => t.routeName)
+        .filter((r): r is string => r != null && r.trim().length > 0);
     });
   }
 );
