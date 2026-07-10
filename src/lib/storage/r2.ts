@@ -106,6 +106,21 @@ export function buildCustomerPhotoKey(
  * Build R2 key for database backups.
  * Format: {tenant}/backups/{database}/{date}.sql.gz
  */
+/**
+ * Build R2 key for delivery photos.
+ * Format: {tenant}/delivery/{deliveryOrderId}/{photoType}/{timestamp}.{ext}
+ * photoType: 'vehicle' | 'proof_of_delivery'
+ */
+export function buildDeliveryPhotoKey(
+  tenant: string,
+  deliveryOrderId: string,
+  photoType: string,
+  filename: string,
+): string {
+  const ext = filename.split(".").pop() || "jpg";
+  const timestamp = Date.now();
+  return `${tenant}/delivery/${deliveryOrderId}/${photoType}/${timestamp}.${ext}`;
+}
 export function buildBackupKey(
   tenant: string,
   database: string,
