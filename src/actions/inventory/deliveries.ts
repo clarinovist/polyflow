@@ -63,6 +63,7 @@ async function getDeliveryOrderById(id: string) {
                     },
                 },
                 sourceLocation: true,
+                vehicle: true,
                 items: {
                     include: {
                         productVariant: {
