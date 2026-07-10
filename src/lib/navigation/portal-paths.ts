@@ -7,6 +7,8 @@ export const MASTER_PATHS = {
   products: '/dashboard/products',
   machines: '/dashboard/machines',
   employees: '/dashboard/employees',
+  maklonReceipts: '/dashboard/maklon/receipts',
+  maklonReturns: '/dashboard/maklon/returns',
 } as const;
 
 /**
@@ -19,6 +21,10 @@ export const PORTAL_ALIASES = {
   production: {
     boms: '/production/boms',
   },
+  warehouse: {
+    maklonReceipts: '/warehouse/maklon/receipts',
+    maklonReturns: '/warehouse/maklon/returns',
+  },
 } as const;
 
 /**
@@ -26,9 +32,9 @@ export const PORTAL_ALIASES = {
  */
 export function getPortalAlias(
   portal: keyof typeof PORTAL_ALIASES,
-  entity: keyof typeof MASTER_PATHS,
+  entity: string,
 ): string | undefined {
-  const aliases = PORTAL_ALIASES[portal];
+  const aliases = PORTAL_ALIASES[portal] as Record<string, string> | undefined;
   if (!aliases) return undefined;
-  return (aliases as Record<string, string>)[entity];
+  return aliases[entity];
 }

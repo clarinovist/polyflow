@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +11,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useMaklonBasePath } from '@/components/production/maklon/useMaklonBasePath';
 
 type ReceiptItem = {
     id: string;
@@ -38,13 +41,14 @@ interface MaklonReceiptDetailProps {
 }
 
 export function MaklonReceiptDetail({ receipt }: MaklonReceiptDetailProps) {
+    const basePath = useMaklonBasePath();
     const totalItems = receipt.items.length;
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             {/* Back Link */}
             <Link
-                href="/dashboard/maklon/receipts"
+                href={`${basePath}/receipts`}
                 className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-fit"
             >
                 <ArrowLeft className="h-4 w-4" />

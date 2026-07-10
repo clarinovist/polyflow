@@ -28,6 +28,7 @@ export async function createMaklonReturnAction(data: {
         });
 
         revalidatePath('/dashboard/maklon/returns');
+        revalidatePath('/warehouse/maklon/returns');
         revalidatePath('/dashboard/inventory');
         return { success: true, data: serializeData(ret) };
     } catch {

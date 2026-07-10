@@ -89,7 +89,7 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
             const res = await createMaklonReturnAction(data);
             if (res.success) {
                 toast.success('Return Maklon berhasil dibuat.');
-                router.push('/dashboard/maklon/returns');
+                router.push(`${basePath}/returns`);
             } else {
                 throw new Error(res.error);
             }

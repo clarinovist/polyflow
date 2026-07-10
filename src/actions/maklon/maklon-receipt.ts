@@ -28,6 +28,7 @@ export async function createMaklonReceiptAction(data: {
         });
 
         revalidatePath('/dashboard/maklon/receipts');
+        revalidatePath('/warehouse/maklon/receipts');
         revalidatePath('/dashboard/inventory');
         return { success: true, data: receipt };
     } catch {
