@@ -69,6 +69,8 @@ export function CreateDeliveryOrderDialog() {
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [estimatedWeightKg, setEstimatedWeightKg] = useState('');
+  const [destinationAddress, setDestinationAddress] = useState('');
   // Tariff fields
   const [tariffRateType, setTariffRateType] = useState('');
   const [overrideCostRate, setOverrideCostRate] = useState('');
@@ -120,6 +122,8 @@ export function CreateDeliveryOrderDialog() {
     setTariffRateType('');
     setOverrideCostRate('');
     setOverrideChargeRate('');
+    setEstimatedWeightKg('');
+    setDestinationAddress('');
   };
 
   const handleSubmit = async () => {
@@ -146,6 +150,8 @@ export function CreateDeliveryOrderDialog() {
         appliedChargeRate: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
         totalCost: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
         totalCharge: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
+        estimatedWeightKg: estimatedWeightKg ? parseFloat(estimatedWeightKg) : undefined,
+        destinationAddress: destinationAddress || undefined,
       });
 
       if (!result.success) {
@@ -282,9 +288,30 @@ export function CreateDeliveryOrderDialog() {
                 placeholder="Opsional"
               />
             </div>
-          </div>
+            </div>
 
-          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Estimasi Berat (Kg)</Label>
+              <Input
+                type="number"
+                value={estimatedWeightKg}
+                onChange={(e) => setEstimatedWeightKg(e.target.value)}
+                placeholder="Opsional"
+                min={0}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Alamat Tujuan</Label>
+              <Input
+                value={destinationAddress}
+                onChange={(e) => setDestinationAddress(e.target.value)}
+                placeholder="Opsional (default: alamat customer)"
+              />
+            </div>
+            </div>
+
+            <div className="space-y-2">
             <Label>Catatan</Label>
             <Textarea
               value={notes}

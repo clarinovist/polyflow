@@ -55,6 +55,7 @@ export default async function CustomerDetailPage(props: {
     city: customer.city,
     district: customer.district,
     village: customer.village,
+    defaultVehicleId: customer.defaultVehicleId,
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
   } satisfies SerializedCustomer;

@@ -94,6 +94,8 @@ async function createManualDeliveryOrder(data: {
   appliedChargeRate?: number;
   totalCost?: number;
   totalCharge?: number;
+  estimatedWeightKg?: number;
+  destinationAddress?: string;
 }) {
   return safeAction(async () => {
     const session = await requireAuth();
@@ -140,6 +142,8 @@ async function createManualDeliveryOrder(data: {
         appliedChargeRate: validatedData.appliedChargeRate ?? null,
         totalCost: validatedData.totalCost ?? null,
         totalCharge: validatedData.totalCharge ?? null,
+        estimatedWeightKg: validatedData.estimatedWeightKg ?? null,
+        destinationAddress: validatedData.destinationAddress || null,
         items: {
           create: salesOrder.items.map((item) => ({
             productVariantId: item.productVariantId,

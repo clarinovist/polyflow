@@ -118,6 +118,8 @@ export const createManualDeliveryOrderSchema = z.object({
   appliedChargeRate: z.coerce.number().min(0).optional(),
   totalCost: z.coerce.number().min(0).optional(),
   totalCharge: z.coerce.number().min(0).optional(),
+  estimatedWeightKg: z.coerce.number().min(0).optional(),
+  destinationAddress: z.string().optional().transform(sanitizeHtml),
 });
 
 export type SalesOrderItemValues = z.infer<typeof salesOrderItemSchema>;
