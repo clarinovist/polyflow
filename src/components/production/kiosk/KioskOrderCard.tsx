@@ -72,7 +72,7 @@ export function KioskOrderCard({ order, operatorId }: KioskOrderCardProps) {
         if (!activeExecution) {
             setIsLoading(true);
             try {
-                // Determine shift automatically or prompt? For now simplified.
+                // Shift is auto-detected server-side based on operator + current time
                 const result = await startExecution({
                     productionOrderId: order.id,
                     machineId: order.machine?.id,

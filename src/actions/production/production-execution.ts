@@ -22,6 +22,7 @@ import {
 import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
+import { findActiveShift } from "@/services/production/shift-service";
 
 export const startExecution = withTenant(async function startExecution(
   data: StartExecutionValues,
@@ -43,7 +44,19 @@ export const startExecution = withTenant(async function startExecution(
         }
       }
 
-      const execution = await ProductionService.startExecution(result.data);
+      // Auto-detect active shift if not explicitly provided
+      let shiftId = result.data.shiftId;
+      if (!shiftId && result.data.operatorId) {
+        shiftId = await findActiveShift({
+          productionOrderId: result.data.productionOrderId,
+          operatorId: result.data.operatorId,
+        }) ?? undefined;
+      }
+
+      const execution = await ProductionService.startExecution({
+        ...result.data,
+        shiftId,
+      });
 
       revalidatePath("/production");
       revalidatePath("/production/kiosk");
