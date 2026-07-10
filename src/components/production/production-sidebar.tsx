@@ -13,6 +13,7 @@ import {
   BarChart3,
   Calendar,
   TrendingUp,
+  Files,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -46,6 +47,11 @@ const productionLinks = [
         href: "/production/orders",
         icon: Factory,
         label: productionSidebarLabels.workOrders,
+      },
+      {
+        href: "/dashboard/boms",
+        icon: Files,
+        label: productionSidebarLabels.bom,
       },
       {
         href: "/production/requests",

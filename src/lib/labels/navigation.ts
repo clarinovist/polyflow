@@ -25,6 +25,7 @@ export const productionSidebarLabels = {
   overview: "Overview",
   // Production Planning
   workOrders: "SPK Produksi",
+  bom: "BOM / Formula",
   incomingRequests: "Permintaan Masuk",
   productionSchedule: "Jadwal Produksi",
   materialRequirements: "Kebutuhan Material",
