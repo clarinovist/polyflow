@@ -187,6 +187,7 @@ async function createBom(data: CreateBomValues) {
             });
 
             revalidatePath('/dashboard/boms');
+            revalidatePath('/production/boms');
             return serializeData(bom);
         } catch (error) {
             logger.error("Failed to create BOM", { error, module: 'BomActions' });
@@ -317,6 +318,7 @@ async function updateBom(id: string, data: CreateBomValues) {
             });
 
             revalidatePath('/dashboard/boms');
+            revalidatePath('/production/boms');
             return serializeData(result);
         } catch (error) {
             logger.error("Failed to update BOM", { error, module: 'BomActions' });
@@ -387,7 +389,9 @@ async function recalculateBomCostChain(id: string) {
         });
 
         revalidatePath('/dashboard/boms');
+        revalidatePath('/production/boms');
         revalidatePath(`/dashboard/boms/${id}`);
+        revalidatePath(`/production/boms/${id}`);
 
         return serializeData({
             bomId: id,
@@ -414,6 +418,7 @@ async function deleteBom(id: string) {
             });
 
             revalidatePath('/dashboard/boms');
+            revalidatePath('/production/boms');
             return null;
         } catch (error) {
             logger.error("Failed to delete BOM", { error, module: 'BomActions' });

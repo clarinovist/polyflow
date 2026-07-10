@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BOMActions } from './BOMActions';
 import { calculateBomItemCost } from '@/lib/utils/current-cost';
 import { productionComponentLabels } from '@/lib/labels';
+import { useBomBasePath } from './useBomBasePath';
 
 interface BOMListProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +41,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('ALL');
     const [costSort, setCostSort] = useState<'none' | 'asc' | 'desc'>('none');
+    const basePath = useBomBasePath();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getUnitCost = (bom: any) => {
@@ -84,7 +86,7 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Link href="/dashboard/boms/create">
+                <Link href={`${basePath}/create`}>
                     <Button className="w-full md:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         New BOM

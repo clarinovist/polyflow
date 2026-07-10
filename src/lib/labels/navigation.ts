@@ -9,7 +9,7 @@ export const mainNavLabels = {
   // Master data
   productCatalog: "Katalog Produk",
   boms: "BOM / Formula",
-  machines: "Mesin",
+  machines: "Mesin (Master)",
   employees: "Karyawan",
 
   // Maklon
@@ -45,7 +45,7 @@ export const productionSidebarLabels = {
 export const warehouseSidebarLabels = {
   jobQueue: "Antrian Tugas",
   incomingReceipts: "Penerimaan Barang",
-  outgoingOrders: "Barang Keluar",
+  outgoingOrders: "Antrian Kirim (SO)",
   stockOpname: "Stock Opname",
   stockOverview: "Ikhtisar Stok",
   stockTransfer: "Transfer Stok",

@@ -24,8 +24,8 @@ export default async function WarehouseOutgoingPage({ searchParams }: { searchPa
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Barang Keluar</h1>
-                    <p className="text-muted-foreground">Kelola pengiriman ke customer.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Antrian Kirim (SO)</h1>
+                    <p className="text-muted-foreground">Sales Order yang siap/perlu diproses gudang. Surat Jalan (DO) dikelola di Sales.</p>
                 </div>
                 <div>
                     <UrlTransactionDateFilter defaultPreset="this_month" />

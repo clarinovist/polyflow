@@ -41,7 +41,6 @@ const salesLinks = [
             { href: '/sales/orders', icon: ShoppingCart, label: salesSidebarLabels.salesOrders },
             { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: salesSidebarLabels.mtsUnpaid },
             { href: '/sales/invoices', icon: FileText, label: salesSidebarLabels.salesInvoices },
-            { href: '/sales/deliveries', icon: Truck, label: salesSidebarLabels.deliveryTracking },
             { href: '/sales/returns', icon: RotateCcw, label: salesSidebarLabels.salesReturns },
         ],
     },

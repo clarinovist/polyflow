@@ -49,7 +49,7 @@ const productionLinks = [
         label: productionSidebarLabels.workOrders,
       },
       {
-        href: "/dashboard/boms",
+        href: "/production/boms",
         icon: Files,
         label: productionSidebarLabels.bom,
       },

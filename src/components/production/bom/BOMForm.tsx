@@ -38,6 +38,7 @@ import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
 import { createBom, updateBom } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
+import { useBomBasePath } from './useBomBasePath';
 import { ProductCombobox } from '@/components/products/product-combobox';
 import {
     getCurrentUnitCost,
@@ -99,6 +100,7 @@ export function BOMForm({
 }: BOMFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const basePath = useBomBasePath();
 
     const form = useForm<CreateBomValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -206,7 +208,7 @@ export function BOMForm({
 
             if (res.success) {
                 toast.success(bom ? 'BOM berhasil diperbarui.' : 'BOM berhasil dibuat.');
-                router.push('/dashboard/boms');
+                router.push(basePath);
                 router.refresh();
             } else {
                 toast.error(res.error || 'Gagal menyimpan BOM');

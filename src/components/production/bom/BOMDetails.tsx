@@ -33,6 +33,7 @@ import {
 import { recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
+import { useBomBasePath } from './useBomBasePath';
 
 interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,6 +78,7 @@ const formatCurrency = (amount: number) => {
 export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     const router = useRouter();
     const [isRecalculating, setIsRecalculating] = React.useState(false);
+    const basePath = useBomBasePath();
     const ingredientDiagnostics = bom.items.map((item: { productVariant: { costDiagnostics?: CostDiagnosticsView } & VariantCostLike }) => {
         return resolveIngredientDiagnostics(item.productVariant);
     });
@@ -136,7 +138,7 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                         <RefreshCw className="h-4 w-4 mr-2" />
                         {isRecalculating ? 'Recalculating...' : 'Recalculate Cost Chain'}
                     </Button>
-                    <Link href={`/dashboard/boms/${bom.id}/edit`}>
+                    <Link href={`${basePath}/${bom.id}/edit`}>
                         <Button>
                             <Edit2 className="h-4 w-4 mr-2" />
                             Edit Recipe

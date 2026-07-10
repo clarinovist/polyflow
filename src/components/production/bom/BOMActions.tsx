@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { deleteBom, recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useBomBasePath } from './useBomBasePath';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,6 +34,7 @@ export function BOMActions({ id, name }: BOMActionsProps) {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isRecalculating, setIsRecalculating] = useState(false);
+    const basePath = useBomBasePath();
 
     async function handleDelete() {
         setIsDeleting(true);
@@ -81,13 +83,13 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                    <Link href={`/dashboard/boms/${id}/edit`}>
+                    <Link href={`${basePath}/${id}/edit`}>
                         <DropdownMenuItem>
                             <Pencil className="mr-2 h-4 w-4" />
                             Ubah Formula
                         </DropdownMenuItem>
                     </Link>
-                    <Link href={`/dashboard/boms/${id}`}>
+                    <Link href={`${basePath}/${id}`}>
                         <DropdownMenuItem>
                             <Eye className="mr-2 h-4 w-4" />
                             Lihat Detail

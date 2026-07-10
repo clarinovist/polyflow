@@ -9,7 +9,7 @@ export const warehouseLabels = {
   stockOpname: 'Stock Opname',
   goodsReceipt: 'Penerimaan Barang',
   incoming: 'Barang Masuk',
-  outgoing: 'Barang Keluar',
+  outgoing: 'Antrian Kirim (SO)',
   sourceLocation: 'Lokasi Asal',
   destinationLocation: 'Lokasi Tujuan',
   availableStock: 'Stok Tersedia',
