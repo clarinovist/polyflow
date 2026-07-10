@@ -166,6 +166,8 @@ export function ShippingCostReportClient() {
         d.vehicle?.plateNumber || '-',
         d.vehicle?.ownershipType === 'FACTORY' ? 'Pabrik' : 'Perorangan',
         d.salesOrder?.customer?.name || '-',
+        d.destinationAddress || '-',
+        d.estimatedWeightKg != null ? String(d.estimatedWeightKg) : '-',
         String(d.totalCost),
         String(d.totalCharge),
         String(d.totalCharge - d.totalCost),

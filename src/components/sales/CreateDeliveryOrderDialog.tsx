@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -76,13 +76,24 @@ export function CreateDeliveryOrderDialog() {
   const [notes, setNotes] = useState('');
   const [estimatedWeightKg, setEstimatedWeightKg] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
-  const [suggestedCharge, setSuggestedCharge] = useState<number | null>(null);
-  const [suggestedCost, setSuggestedCost] = useState<number | null>(null);
   // Tariff fields
   const [tariffRateType, setTariffRateType] = useState('');
   const [overrideCostRate, setOverrideCostRate] = useState('');
   const [overrideChargeRate, setOverrideChargeRate] = useState('');
   const router = useRouter();
+
+  // PER_KG calculation: weight × rate = total
+  const { suggestedCharge, suggestedCost } = useMemo(() => {
+    if (tariffRateType !== 'PER_KG') return { suggestedCharge: null, suggestedCost: null };
+    const weight = parseFloat(estimatedWeightKg);
+    const chargeRate = parseFloat(overrideChargeRate);
+    const costRate = parseFloat(overrideCostRate);
+    if (!weight || weight <= 0) return { suggestedCharge: null, suggestedCost: null };
+    return {
+      suggestedCharge: chargeRate > 0 ? weight * chargeRate : null,
+      suggestedCost: costRate > 0 ? weight * costRate : null,
+    };
+  }, [tariffRateType, estimatedWeightKg, overrideChargeRate, overrideCostRate]);
 
   const loadData = useCallback(async () => {
     const [ordersRes, locationsRes, vehiclesRes] = await Promise.all([
@@ -147,8 +158,6 @@ export function CreateDeliveryOrderDialog() {
     setOverrideChargeRate('');
     setEstimatedWeightKg('');
     setDestinationAddress('');
-    setSuggestedCharge(null);
-    setSuggestedCost(null);
   };
 
   const handleSubmit = async () => {
