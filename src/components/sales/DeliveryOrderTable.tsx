@@ -11,6 +11,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
+import { getDeliveryStatusLabel } from "@/lib/sales/delivery-status";
 
 interface DeliveryOrderTableProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,14 +24,17 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       PENDING: "bg-yellow-100 text-yellow-800",
+      LOADING: "bg-orange-100 text-orange-800",
       SHIPPED: "bg-blue-100 text-blue-800",
+      IN_TRANSIT: "bg-indigo-100 text-indigo-800",
+      ARRIVED: "bg-teal-100 text-teal-800",
       DELIVERED: "bg-green-100 text-green-800",
       RETURNED: "bg-red-100 text-red-800",
       CANCELLED: "bg-gray-100 text-gray-800",
     };
     return (
       <Badge variant="secondary" className={styles[status] || styles.PENDING}>
-        {getStatusLabel(status, "sales")}
+        {getDeliveryStatusLabel(status)}
       </Badge>
     );
   };
