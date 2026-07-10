@@ -586,6 +586,7 @@ export function SalesOrderDetailClient({
                           Ongkos Kirim
                           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {Array.isArray((order as any).deliveryOrders) &&
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             (order as any).deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status)) && (
                             <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">(dari armada)</span>
                           )}

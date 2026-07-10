@@ -103,6 +103,7 @@ interface DeliveryRow {
   totalCost: number;
   totalCharge: number;
   appliedRateType: string | null;
+  appliedRouteName: string | null;
   estimatedWeightKg: number | null;
   destinationAddress: string | null;
   status: string;
@@ -161,7 +162,7 @@ export function ShippingCostReportClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [startDate, endDate, filterVehicle, filterOwnership]);
+  }, [startDate, endDate, filterVehicle, filterOwnership, filterRoute]);
 
   useEffect(() => {
     loadReport();
@@ -176,7 +177,7 @@ export function ShippingCostReportClient() {
         new Date(d.deliveryDate).toLocaleDateString('id-ID'),
         d.vehicle?.plateNumber || '-',
         d.vehicle?.ownershipType === 'FACTORY' ? 'Pabrik' : 'Perorangan',
-        (d as any).appliedRouteName || 'Semua Rute',
+        d.appliedRouteName || 'Semua Rute',
         d.salesOrder?.customer?.name || '-',
         d.destinationAddress || '-',
         d.estimatedWeightKg != null ? String(d.estimatedWeightKg) : '-',
@@ -498,7 +499,7 @@ export function ShippingCostReportClient() {
                         <TableCell>{new Date(d.deliveryDate).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>{d.vehicle?.plateNumber || '-'}</TableCell>
                         <TableCell>{d.salesOrder?.customer?.name || '-'}</TableCell>
-                        <TableCell>{(d as any).appliedRouteName || 'Semua Rute'}</TableCell>
+                        <TableCell>{d.appliedRouteName || 'Semua Rute'}</TableCell>
                         <TableCell className="max-w-[180px] truncate" title={d.destinationAddress || ''}>{d.destinationAddress || '-'}</TableCell>
                         <TableCell className="text-right">{d.estimatedWeightKg ?? '-'}</TableCell>
                         <TableCell className="text-right text-red-600">{formatRupiah(d.totalCost)}</TableCell>

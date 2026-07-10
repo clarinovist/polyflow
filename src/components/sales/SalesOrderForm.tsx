@@ -356,6 +356,7 @@ export function SalesOrderForm({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deliveryOrders = (initialData as any)?.deliveryOrders as any[] | undefined;
   const isShippingFromFleet = mode === 'edit' && Array.isArray(deliveryOrders) &&
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status));
 
   // Adjust discount percents when subtotal changes for NOMINAL discounts

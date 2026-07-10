@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/core/prisma';
+import { Prisma } from '@prisma/client';
 import { isBillableDeliveryStatus, sumBillableCharges } from '@/lib/sales/delivery-pricing';
 import { logActivity } from '@/lib/tools/audit';
 
@@ -31,7 +32,7 @@ export type ShippingSyncResult = {
  */
 export async function syncSalesOrderShippingFromDeliveries(
   salesOrderId: string,
-  opts?: { tx?: any; userId?: string | null },
+  opts?: { tx?: Prisma.TransactionClient; userId?: string | null },
 ): Promise<ShippingSyncResult> {
   const db = opts?.tx ?? prisma;
 
@@ -57,12 +58,12 @@ export async function syncSalesOrderShippingFromDeliveries(
     select: { status: true, totalCharge: true },
   });
 
-  const billableDeliveries = dos.map((d: any) => ({
+  const billableDeliveries = dos.map((d) => ({
     status: d.status,
     totalCharge: d.totalCharge != null ? Number(d.totalCharge) : null,
   }));
   const shippingCost = sumBillableCharges(billableDeliveries);
-  const billableCount = billableDeliveries.filter((d: any) => isBillableDeliveryStatus(d.status)).length;
+  const billableCount = billableDeliveries.filter((d) => isBillableDeliveryStatus(d.status)).length;
 
   const oldShipping = so.shippingCost != null ? Number(so.shippingCost) : 0;
   const goodsSubtotal = Number(so.totalAmount) - oldShipping;
@@ -74,7 +75,7 @@ export async function syncSalesOrderShippingFromDeliveries(
     select: { id: true, status: true },
   });
 
-  const hasLocked = invoices.some((i: any) =>
+  const hasLocked = invoices.some((i) =>
     (LOCKED_INVOICE_STATUSES as readonly string[]).includes(i.status),
   );
   if (hasLocked) {
@@ -100,7 +101,7 @@ export async function syncSalesOrderShippingFromDeliveries(
 
   // Update DRAFT invoices
   let invoiceUpdated = false;
-  for (const inv of invoices.filter((i: any) => i.status === 'DRAFT')) {
+  for (const inv of invoices.filter((i) => i.status === 'DRAFT')) {
     await db.invoice.update({
       where: { id: inv.id },
       data: { totalAmount },
