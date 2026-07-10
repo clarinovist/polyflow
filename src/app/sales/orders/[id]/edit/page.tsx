@@ -45,6 +45,12 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         shippingCost: (order as any).shippingCost ? Number((order as any).shippingCost) : 0,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        deliveryOrders: ((order as any).deliveryOrders || []).map((d: any) => ({
+            id: d.id,
+            status: d.status,
+            totalCharge: d.totalCharge != null ? Number(d.totalCharge) : null,
+        })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         items: items.map((item: any) => ({
             id: item.id,
             productVariantId: item.productVariantId,

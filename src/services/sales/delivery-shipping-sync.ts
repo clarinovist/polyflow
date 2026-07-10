@@ -1,6 +1,6 @@
 /**
  * Sync Sales Order shipping cost from Delivery Order charges.
- * Placeholder — full implementation in Phase 3.1.
+ * Computes Σ totalCharge of billable DOs → SO.shippingCost + totalAmount.
  */
 
 import { prisma } from '@/lib/core/prisma';

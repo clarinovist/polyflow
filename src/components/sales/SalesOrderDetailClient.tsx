@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ProductionStatusCard } from "./ProductionStatusCard";
 import { ShipmentDialog } from "./ShipmentDialog";
+import { isBillableDeliveryStatus } from "@/lib/sales/delivery-status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -585,7 +586,7 @@ export function SalesOrderDetailClient({
                           Ongkos Kirim
                           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {Array.isArray((order as any).deliveryOrders) &&
-                            (order as any).deliveryOrders.some((d: any) => d.totalCharge != null && d.status !== 'CANCELLED') && (
+                            (order as any).deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status)) && (
                             <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">(dari armada)</span>
                           )}
                         </td>

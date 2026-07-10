@@ -9,6 +9,7 @@ import {
   updateSalesOrderSchema,
 } from "@/lib/schemas/sales";
 import { createSalesOrder, updateSalesOrder } from "@/actions/sales/sales";
+import { isBillableDeliveryStatus } from "@/lib/sales/delivery-status";
 import { Input } from "@/components/ui/input";
 
 import { Button } from "@/components/ui/button";
@@ -355,7 +356,7 @@ export function SalesOrderForm({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deliveryOrders = (initialData as any)?.deliveryOrders as any[] | undefined;
   const isShippingFromFleet = mode === 'edit' && Array.isArray(deliveryOrders) &&
-    deliveryOrders.some((d: any) => d.totalCharge != null && d.status !== 'CANCELLED');
+    deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status));
 
   // Adjust discount percents when subtotal changes for NOMINAL discounts
   useEffect(() => {
