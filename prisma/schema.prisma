@@ -229,6 +229,7 @@ model ProductVariant {
   reorderQuantity      Decimal?                   @db.Decimal(15, 4)
   costingMethod        CostingMethod              @default(WEIGHTED_AVERAGE)
   standardCost         Decimal?                   @db.Decimal(15, 4)
+  revenueAccountId     String?                    // Phase 2.3: per-variant revenue GL override
   Batch                Batch[]
   productionBoms       Bom[]                      @relation("ProductBom")
   ingredientInBoms     BomItem[]                  @relation("Ingredient")
