@@ -353,11 +353,11 @@ export function SalesOrderForm({
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
 
   // Check if shipping cost is driven by fleet delivery orders
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deliveryOrders = (initialData as any)?.deliveryOrders as any[] | undefined;
+  const deliveryOrders = (initialData as Record<string, unknown>)?.deliveryOrders as
+    | Array<{ id: string; status: string; totalCharge: number | null }>
+    | undefined;
   const isShippingFromFleet = mode === 'edit' && Array.isArray(deliveryOrders) &&
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status));
+    deliveryOrders.some((d) => d.totalCharge != null && isBillableDeliveryStatus(d.status));
 
   // Adjust discount percents when subtotal changes for NOMINAL discounts
   useEffect(() => {

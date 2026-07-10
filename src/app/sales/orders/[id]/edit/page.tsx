@@ -32,8 +32,8 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
     }
 
     // Transform order items to match form values (convert Decimals to numbers)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = (order as any).items || [];
+    const orderData = order as Record<string, unknown>;
+    const items = (orderData.items as Array<Record<string, unknown>>) || [];
     const initialData = {
         id: order.id,
         customerId: order.customerId || undefined,
@@ -42,18 +42,15 @@ export default async function EditSalesOrderPage({ params }: PageProps) {
         expectedDate: order.expectedDate || undefined,
         orderType: order.orderType,
         notes: order.notes || '',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        shippingCost: (order as any).shippingCost ? Number((order as any).shippingCost) : 0,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        deliveryOrders: ((order as any).deliveryOrders || []).map((d: any) => ({
-            id: d.id,
-            status: d.status,
+        shippingCost: orderData.shippingCost ? Number(orderData.shippingCost) : 0,
+        deliveryOrders: ((orderData.deliveryOrders as Array<Record<string, unknown>>) || []).map((d) => ({
+            id: String(d.id),
+            status: String(d.status),
             totalCharge: d.totalCharge != null ? Number(d.totalCharge) : null,
         })),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: items.map((item: any) => ({
-            id: item.id,
-            productVariantId: item.productVariantId,
+        items: items.map((item) => ({
+            id: String(item.id),
+            productVariantId: String(item.productVariantId),
             quantity: item.enteredQuantity ? Number(item.enteredQuantity) : Number(item.quantity),
             unitPrice: item.enteredUnitPrice ? Number(item.enteredUnitPrice) : Number(item.unitPrice),
             enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : undefined,

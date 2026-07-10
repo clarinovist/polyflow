@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle, Upload, XCircle, RotateCcw } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
-import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
+import { SuratJalanDotMatrixPrint, type SuratJalanPrintData } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
 import Image from 'next/image';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
@@ -32,9 +32,61 @@ import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
 
 
+interface DeliveryOrderVehicle {
+    plateNumber: string;
+    name: string;
+    ownershipType: string;
+    driverName?: string | null;
+}
+
+interface DeliveryOrderItemData {
+    id: string;
+    productVariant?: {
+        name?: string;
+        skuCode?: string;
+        product?: { name?: string };
+        [key: string]: unknown;
+    } | null;
+    [key: string]: unknown;
+}
+
+export interface DeliveryOrderDetailData {
+    id: string;
+    orderNumber: string;
+    salesOrderId: string;
+    status: string;
+    deliveryDate: string | Date;
+    carrier?: string | null;
+    trackingNumber?: string | null;
+    notes?: string | null;
+    destinationAddress?: string | null;
+    vehiclePhotoUrl?: string | null;
+    proofOfDeliveryUrl?: string | null;
+    proofOfDeliveryAt?: string | Date | null;
+    receivedBy?: string | null;
+    estimatedWeightKg?: number | null;
+    appliedRateType?: string | null;
+    appliedRouteName?: string | null;
+    appliedCostRate?: number | null;
+    appliedChargeRate?: number | null;
+    totalCost?: number | null;
+    totalCharge?: number | null;
+    vehicle?: DeliveryOrderVehicle | null;
+    salesOrder?: {
+        orderNumber?: string;
+        customer?: {
+            name?: string;
+            shippingAddress?: string | null;
+            billingAddress?: string | null;
+        } | null;
+    } | null;
+    sourceLocation?: { name?: string } | null;
+    createdBy?: { name?: string } | null;
+    items: DeliveryOrderItemData[];
+}
+
 interface DeliveryOrderDetailProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    order: any;
+    order: DeliveryOrderDetailData;
     companyConfig?: CompanyConfig;
 }
 
@@ -260,8 +312,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                        {order.items.map((item: any) => (
+                                        {order.items.map((item) => (
                                             <tr key={item.id} className="hover:bg-muted/50">
                                                 <td className="p-4">
                                                     <div className="font-medium">{item.productVariant?.product?.name}</div>
@@ -271,7 +322,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                                 </td>
                                                 <td className="p-4 text-right font-mono text-xs">{item.productVariant?.skuCode}</td>
                                                 <td className="p-4 text-right font-medium">
-                                                    {getEnteredQuantityDisplay({ ...item, ...item.productVariant })}
+                                                    {getEnteredQuantityDisplay({ ...item, ...item.productVariant } as unknown as import('@/lib/utils/production-units').EnteredQuantitySnapshot)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -594,7 +645,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 title={`Surat Jalan ${order.orderNumber}`}
                 landscape={true}
             >
-                <SuratJalanDotMatrixPrint order={order} showButton={false} previewMode={true} companyConfig={companyConfig} />
+                <SuratJalanDotMatrixPrint order={order as unknown as SuratJalanPrintData} showButton={false} previewMode={true} companyConfig={companyConfig} />
             </PrintPreviewModal>
         </div>
     );

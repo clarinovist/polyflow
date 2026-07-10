@@ -216,8 +216,7 @@ export function SalesOrderDetailClient({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" asChild>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Link href={basePath as any}>
+            <Link href={basePath}>
               <ArrowLeft className="mr-2 h-4 w-4" /> {actionLabels.back}
             </Link>
           </Button>
@@ -242,8 +241,7 @@ export function SalesOrderDetailClient({
               order.status === "IN_PRODUCTION" ||
               order.status === "READY_TO_SHIP") && (
               <Button variant="outline" asChild>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                <Link href={`${basePath}/${order.id}/edit` as any}>
+                <Link href={`${basePath}/${order.id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" /> {actionLabels.edit}
                 </Link>
               </Button>
@@ -584,10 +582,8 @@ export function SalesOrderDetailClient({
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Ongkos Kirim
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                          {Array.isArray((order as any).deliveryOrders) &&
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (order as any).deliveryOrders.some((d: any) => d.totalCharge != null && isBillableDeliveryStatus(d.status)) && (
+                          {Array.isArray(order.deliveryOrders) &&
+                            order.deliveryOrders.some((d) => d.totalCharge != null && isBillableDeliveryStatus(d.status)) && (
                             <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">(dari armada)</span>
                           )}
                         </td>
