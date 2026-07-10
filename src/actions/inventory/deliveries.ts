@@ -96,6 +96,7 @@ async function createManualDeliveryOrder(data: {
   appliedRateType?: string;
   appliedCostRate?: number;
   appliedChargeRate?: number;
+  appliedRouteName?: string;
   totalCost?: number;
   totalCharge?: number;
   estimatedWeightKg?: number;
@@ -144,6 +145,7 @@ async function createManualDeliveryOrder(data: {
         appliedRateType: validatedData.appliedRateType as RateType || null,
         appliedCostRate: validatedData.appliedCostRate ?? null,
         appliedChargeRate: validatedData.appliedChargeRate ?? null,
+        appliedRouteName: validatedData.appliedRouteName || null,
         totalCost: validatedData.totalCost ?? null,
         totalCharge: validatedData.totalCharge ?? null,
         estimatedWeightKg: validatedData.estimatedWeightKg ?? null,
