@@ -186,6 +186,15 @@ export async function deliverOrder(orderId: string, userId: string) {
             data: { status: SalesOrderStatus.DELIVERED }
         });
 
+        // Keep related Delivery Orders in sync (was previously only updating SalesOrder)
+        const openDeliveryOrders = await tx.deliveryOrder.updateMany({
+            where: {
+                salesOrderId: orderId,
+                status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] },
+            },
+            data: { status: 'DELIVERED' },
+        });
+
         // Catch-all cleanup when delivered (in case it wasn't shipped but directly delivered somehow)
         await tx.stockReservation.updateMany({
             where: {
@@ -203,7 +212,10 @@ export async function deliverOrder(orderId: string, userId: string) {
             entityId: orderId,
             details: order.orderType === 'MAKLON_JASA'
                 ? `Sales Order ${order.orderNumber} marked as Service Delivered`
-                : `Sales Order ${order.orderNumber} marked as Delivered`,
+                : `Sales Order ${order.orderNumber} marked as Delivered` +
+                  (openDeliveryOrders.count > 0
+                      ? ` (${openDeliveryOrders.count} delivery order(s) set to DELIVERED)`
+                      : ''),
             tx
         });
     });
