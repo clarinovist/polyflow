@@ -4,7 +4,8 @@ import { DeliveryOrderTable } from '@/components/sales/DeliveryOrderTable';
 import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
 import { serializeData } from '@/lib/utils/utils';
 import { salesLabels } from '@/lib/labels';
-import { Package } from 'lucide-react';
+import { Package, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
@@ -33,6 +34,14 @@ export default async function SalesDeliveriesPage({ searchParams }: { searchPara
                     <CreateDeliveryOrderDialog />
                 </div>
             </div>
+
+            <Alert className="bg-background border-blue-500/20 text-blue-600 dark:text-blue-400">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                    Ini adalah dokumen <strong>Surat Jalan (Delivery Order)</strong> — bukti pengiriman resmi ke customer.
+                    Antrian Sales Order untuk diproses gudang ada di modul <strong>Gudang → Antrian Kirim (SO)</strong>.
+                </AlertDescription>
+            </Alert>
 
             <Card>
                 <CardHeader>

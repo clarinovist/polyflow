@@ -81,9 +81,9 @@ export const salesLabels = {
 
   // Deliveries
   deliveryOrders: "Surat Jalan",
-  deliveryOrdersDesc: "Kelola pengiriman keluar dan status pengiriman.",
+  deliveryOrdersDesc: "Dokumen pengiriman (DO) resmi. Antrian gudang ada di modul Gudang.",
   allDeliveries: "Semua Pengiriman",
-  allDeliveriesDesc: "Daftar semua surat jalan dan status saat ini.",
+  allDeliveriesDesc: "Daftar semua Surat Jalan (DO) dan status pengiriman fisik.",
 
   // Invoices
   salesInvoices: "Invoice Penjualan",
