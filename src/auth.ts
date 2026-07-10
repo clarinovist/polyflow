@@ -48,6 +48,8 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     }
 
                     let user;
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    let tenantDbRef: any = null;
 
                     if (subdomain) {
                         try {
@@ -57,9 +59,9 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             });
 
                             if (tenant?.dbUrl) {
-                                const tenantDb = getTenantDb(tenant.dbUrl);
+                                tenantDbRef = getTenantDb(tenant.dbUrl);
                                 const { tenantIdContext } = await import('@/lib/core/prisma');
-                                user = await tenantContext.run(tenantDb, () =>
+                                user = await tenantContext.run(tenantDbRef, () =>
                                     tenantIdContext.run(tenant.id, () => getUser(email))
                                 );
                             } else {
@@ -99,8 +101,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                         // Load role permissions for this user
                         let allowedResources: string[] = [];
                         try {
-                            const { tenantContext: permTxCtx } = await import('@/lib/core/prisma');
-                            const permDb = permTxCtx.getStore() || prisma;
+                            const permDb = tenantDbRef || prisma;
                             const perms = await permDb.rolePermission.findMany({
                                 where: { role: user.role, canAccess: true },
                                 select: { resource: true },
