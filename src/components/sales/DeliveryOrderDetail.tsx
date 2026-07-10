@@ -19,6 +19,7 @@ import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, P
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
+import Image from 'next/image';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
@@ -394,8 +395,15 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground uppercase">Foto Truk Saat Muat</label>
                                 {order.vehiclePhotoUrl ? (
-                                    <div className="border rounded-lg overflow-hidden">
-                                        <img src={order.vehiclePhotoUrl} alt="Foto Truk" className="w-full h-48 object-cover" />
+                                    <div className="relative border rounded-lg overflow-hidden h-48">
+                                        <Image
+                                            src={order.vehiclePhotoUrl}
+                                            alt="Foto Truk"
+                                            fill
+                                            unoptimized
+                                            className="object-cover"
+                                            sizes="(max-width: 768px) 100vw, 50vw"
+                                        />
                                     </div>
                                 ) : (
                                     <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
@@ -433,8 +441,15 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                 <label className="text-xs font-medium text-muted-foreground uppercase">Bukti Terima</label>
                                 {order.proofOfDeliveryUrl ? (
                                     <>
-                                        <div className="border rounded-lg overflow-hidden">
-                                            <img src={order.proofOfDeliveryUrl} alt="Bukti Terima" className="w-full h-48 object-cover" />
+                                        <div className="relative border rounded-lg overflow-hidden h-48">
+                                            <Image
+                                                src={order.proofOfDeliveryUrl}
+                                                alt="Bukti Terima"
+                                                fill
+                                                unoptimized
+                                                className="object-cover"
+                                                sizes="(max-width: 768px) 100vw, 50vw"
+                                            />
                                         </div>
                                         {order.receivedBy && (
                                             <p className="text-sm text-muted-foreground">Diterima oleh: <span className="font-medium">{order.receivedBy}</span></p>
