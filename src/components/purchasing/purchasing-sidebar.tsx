@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Truck,
   BarChart3,
+  Package,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -59,6 +60,16 @@ const purchasingLinks = [
         href: "/purchasing/suppliers",
         icon: Truck,
         label: purchasingSidebarLabels.supplierManagement,
+      },
+    ],
+  },
+  {
+    heading: "Maklon",
+    items: [
+      {
+        href: "/dashboard/maklon/receipts",
+        icon: Package,
+        label: "Monitor Penerimaan Maklon",
       },
     ],
   },

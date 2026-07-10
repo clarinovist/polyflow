@@ -11,6 +11,8 @@ import {
     Clock,
     History,
     BarChart3,
+    Package,
+    RotateCcw,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -33,6 +35,13 @@ const warehouseLinks = [
             { href: '/warehouse/incoming', icon: PackageSearch, label: warehouseSidebarLabels.incomingReceipts },
             { href: '/warehouse/outgoing', icon: ChevronRight, label: warehouseSidebarLabels.outgoingOrders },
             { href: '/warehouse/opname', icon: ClipboardCheck, label: warehouseSidebarLabels.stockOpname },
+        ],
+    },
+    {
+        heading: 'Maklon',
+        items: [
+            { href: '/dashboard/maklon/receipts', icon: Package, label: 'Penerimaan Maklon' },
+            { href: '/dashboard/maklon/returns', icon: RotateCcw, label: 'Retur Maklon' },
         ],
     },
     {
