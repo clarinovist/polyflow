@@ -1,10 +1,21 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle, Upload } from 'lucide-react';
+import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle, Upload, XCircle, RotateCcw } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
@@ -148,6 +159,54 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                             >
                                 <Check className="mr-1 h-3.5 w-3.5" /> {nextStep.label}
                             </Button>
+                        )}
+                        {/* Secondary: Cancel */}
+                        {['PENDING', 'LOADING'].includes(order.status) && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50">
+                                        <XCircle className="mr-1 h-3.5 w-3.5" /> Batalkan
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Batalkan Delivery Order?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            DO {order.orderNumber} akan dibatalkan. Tindakan ini tidak dapat diurungkan.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleStatusChange('CANCELLED')} className="bg-red-600 hover:bg-red-700">
+                                            Ya, Batalkan
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                        {/* Secondary: Return */}
+                        {['SHIPPED', 'IN_TRANSIT', 'ARRIVED'].includes(order.status) && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-orange-600 border-orange-200 hover:bg-orange-50">
+                                        <RotateCcw className="mr-1 h-3.5 w-3.5" /> Retur
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Tandai sebagai Retur?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            DO {order.orderNumber} akan ditandai RETURNED. Pastikan barang sudah kembali.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleStatusChange('RETURNED')} className="bg-orange-600 hover:bg-orange-700">
+                                            Ya, Tandai Retur
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                         <span className="text-muted-foreground text-sm">
                             Terkait dengan <Link href={`/sales/orders/${order.salesOrderId}`} className="text-blue-600 dark:text-blue-400 hover:underline">{order.salesOrder?.orderNumber}</Link>

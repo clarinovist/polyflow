@@ -22,6 +22,7 @@ interface SuratJalanPrintData {
   orderNumber: string;
   deliveryDate: Date;
   status?: string;
+  destinationAddress?: string | null;
   salesOrder?: {
     orderNumber?: string;
     customer?: {
@@ -125,7 +126,7 @@ export function SuratJalanDotMatrixPrint({
             <div className="info-row">
               <span className="info-label">ALAMAT :</span>
               <span className="info-value">
-                {customer?.shippingAddress || customer?.billingAddress || "-"}
+                {order.destinationAddress || customer?.shippingAddress || customer?.billingAddress || "-"}
               </span>
             </div>
             <div className="info-row">
