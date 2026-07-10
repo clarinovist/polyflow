@@ -583,6 +583,11 @@ export function SalesOrderDetailClient({
                           className="p-2 text-right text-sm text-muted-foreground"
                         >
                           Ongkos Kirim
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {Array.isArray((order as any).deliveryOrders) &&
+                            (order as any).deliveryOrders.some((d: any) => d.totalCharge != null && d.status !== 'CANCELLED') && (
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400">(dari armada)</span>
+                          )}
                         </td>
                         <td className="p-2 text-right text-sm">
                           {formatRupiah(Number(order.shippingCost))}

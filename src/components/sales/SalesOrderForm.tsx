@@ -351,6 +351,12 @@ export function SalesOrderForm({
   const watchShippingCost =
     useWatch({ control: form.control, name: "shippingCost" }) || 0;
 
+  // Check if shipping cost is driven by fleet delivery orders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deliveryOrders = (initialData as any)?.deliveryOrders as any[] | undefined;
+  const isShippingFromFleet = mode === 'edit' && Array.isArray(deliveryOrders) &&
+    deliveryOrders.some((d: any) => d.totalCharge != null && d.status !== 'CANCELLED');
+
   // Adjust discount percents when subtotal changes for NOMINAL discounts
   useEffect(() => {
     if (!watchItems) return;
@@ -1580,15 +1586,24 @@ export function SalesOrderForm({
                 <span className="text-muted-foreground">
                   Ongkos Kirim
                 </span>
-                <Input
-                  type="number"
-                  min={0}
-                  {...form.register("shippingCost", {
-                    valueAsNumber: true,
-                  })}
-                  className="w-32 text-right h-9"
-                  placeholder="0"
-                />
+                {isShippingFromFleet ? (
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      {formatRupiah(watchShippingCost)}
+                    </span>
+                    <p className="text-[10px] text-muted-foreground">Dari surat jalan</p>
+                  </div>
+                ) : (
+                  <Input
+                    type="number"
+                    min={0}
+                    {...form.register("shippingCost", {
+                      valueAsNumber: true,
+                    })}
+                    className="w-32 text-right h-9"
+                    placeholder="0"
+                  />
+                )}
               </div>
               <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
                 <span>Total Keseluruhan</span>
@@ -1902,15 +1917,24 @@ export function SalesOrderForm({
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Ongkos Kirim</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    {...form.register("shippingCost", {
-                      valueAsNumber: true,
-                    })}
-                    className="w-28 text-right h-11"
-                    placeholder="0"
-                  />
+                  {isShippingFromFleet ? (
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        {formatRupiah(watchShippingCost)}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">Dari surat jalan</p>
+                    </div>
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      {...form.register("shippingCost", {
+                        valueAsNumber: true,
+                      })}
+                      className="w-28 text-right h-11"
+                      placeholder="0"
+                    />
+                  )}
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t font-bold text-lg">
                   <span>Total</span>
