@@ -170,6 +170,16 @@ async function createManualDeliveryOrder(data: {
       details: `Manual Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber}`,
     });
 
+    // Sync SO shipping cost from DO charges
+    try {
+      const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+      await syncSalesOrderShippingFromDeliveries(validatedData.salesOrderId, {
+        userId: session.user.id,
+      });
+    } catch {
+      // Non-blocking — sync service may not be available yet
+    }
+
     return deliveryOrder;
   });
 }
@@ -208,6 +218,18 @@ async function updateDeliveryStatus(
     if (newStatus === 'DELIVERED') {
       const { SalesService } = await import('@/services/sales/sales-service');
       await SalesService.deliverOrder(doRecord.salesOrderId, session.user.id);
+    }
+
+    // Sync SO shipping cost when DO status changes (CANCELLED/RETURNED affect sum)
+    if (newStatus === 'CANCELLED' || newStatus === 'RETURNED') {
+      try {
+        const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+        await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
+          userId: session.user.id,
+        });
+      } catch {
+        // Non-blocking
+      }
     }
 
     await logActivity({

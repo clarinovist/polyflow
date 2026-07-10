@@ -245,7 +245,7 @@ export const removeVehicleFromSchedule = withTenant(
 export const assignOrderToSchedule = withTenant(
   async function assignOrderToSchedule(scheduleVehicleId: string, deliveryOrderId: string) {
     return safeAction(async () => {
-      await requireAuth();
+      const session = await requireAuth();
 
       const sv = await prisma.deliveryScheduleVehicle.findUnique({
         where: { id: scheduleVehicleId },
@@ -340,6 +340,16 @@ export const assignOrderToSchedule = withTenant(
           where: { id: deliveryOrderId },
           data: { vehicleId: sv.vehicleId },
         });
+      }
+
+      // Sync SO shipping cost from DO charges
+      try {
+        const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+        await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
+          userId: session.user.id,
+        });
+      } catch {
+        // Non-blocking
       }
 
       revalidatePath(`/sales/delivery-schedules/${sv.scheduleId}`);
