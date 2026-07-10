@@ -160,7 +160,7 @@ export const deleteVehicle = withTenant(
       const activeDOCount = await prisma.deliveryOrder.count({
         where: {
           vehicleId: id,
-          status: { in: ['PENDING', 'SHIPPED'] },
+          status: { in: ['PENDING', 'LOADING', 'SHIPPED', 'IN_TRANSIT', 'ARRIVED'] },
         },
       });
       if (activeDOCount > 0) {
