@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer } from 'lucide-react';
+import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, Printer, Package, Camera, Scale, CheckCircle } from 'lucide-react';
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
@@ -47,7 +47,10 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+            LOADING: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400',
             SHIPPED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+            IN_TRANSIT: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+            ARRIVED: 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
             DELIVERED: 'bg-green-100 text-green-800 dark:bg-emerald-900/20 dark:text-emerald-400',
             RETURNED: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
             CANCELLED: 'bg-gray-100 text-gray-800 dark:bg-zinc-800 dark:text-zinc-400',
@@ -61,8 +64,11 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
 
     const statusSteps = [
         { status: 'PENDING', icon: Clock, label: 'Pesanan Terkonfirmasi' },
+        { status: 'LOADING', icon: Package, label: 'Sedang Dimuat' },
         { status: 'SHIPPED', icon: Truck, label: 'Dikirim' },
-        { status: 'DELIVERED', icon: CheckCircle2, label: 'Terkirim' },
+        { status: 'IN_TRANSIT', icon: MapPin, label: 'Dalam Perjalanan' },
+        { status: 'ARRIVED', icon: CheckCircle, label: 'Sampai Tujuan' },
+        { status: 'DELIVERED', icon: CheckCircle2, label: 'Diterima' },
     ];
 
     const currentStatusIndex = statusSteps.findIndex(s => s.status === order.status);
@@ -79,7 +85,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                     <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
                     <div className="flex items-center gap-3 mt-1">
                         {getStatusBadge(order.status)}
-                        {order.status === 'SHIPPED' && (
+                        {(order.status === 'SHIPPED' || order.status === 'ARRIVED') && (
                             <Button
                                 size="sm"
                                 className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
@@ -104,7 +110,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
             </div>
 
             {/* Tracking Banner */}
-            {order.status === 'SHIPPED' && (
+            {(order.status === 'SHIPPED' || order.status === 'ARRIVED') && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-lg flex items-start gap-4">
                     <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                         <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -227,6 +233,24 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                 </label>
                                 <p className="font-medium text-sm">{order.createdBy?.name || 'Sistem'}</p>
                             </div>
+
+                            {order.destinationAddress && (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                                        <MapPin className="h-3 w-3" /> Alamat Tujuan
+                                    </label>
+                                    <p className="font-medium text-sm">{order.destinationAddress}</p>
+                                </div>
+                            )}
+
+                            {order.estimatedWeightKg && (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                                        <Scale className="h-3 w-3" /> Estimasi Berat
+                                    </label>
+                                    <p className="font-medium text-sm">{Number(order.estimatedWeightKg)} Kg</p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -244,6 +268,44 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                     )}
                 </div>
             </div>
+
+                {/* Photos Section */}
+                {(order.vehiclePhotoUrl || order.proofOfDeliveryUrl) && (
+                    <Card className="md:col-span-2">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Camera className="h-5 w-5" />
+                                Foto Pengiriman
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {order.vehiclePhotoUrl && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase">Foto Truk Saat Muat</label>
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <img src={order.vehiclePhotoUrl} alt="Foto Truk" className="w-full h-48 object-cover" />
+                                        </div>
+                                    </div>
+                                )}
+                                {order.proofOfDeliveryUrl && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-medium text-muted-foreground uppercase">Bukti Terima</label>
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <img src={order.proofOfDeliveryUrl} alt="Bukti Terima" className="w-full h-48 object-cover" />
+                                        </div>
+                                        {order.receivedBy && (
+                                            <p className="text-sm text-muted-foreground">Diterima oleh: <span className="font-medium">{order.receivedBy}</span></p>
+                                        )}
+                                        {order.proofOfDeliveryAt && (
+                                            <p className="text-xs text-muted-foreground">Pada: {format(new Date(order.proofOfDeliveryAt), 'PPpp')}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
             <PrintPreviewModal
                 open={showPreview}
