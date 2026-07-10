@@ -26,7 +26,7 @@ const PATH_LABELS: Record<string, string> = {
   // Dashboard children
   products: "Katalog Produk",
   boms: "BOM / Formula",
-  machines: "Mesin",
+  machines: "Mesin (Master)",
   employees: "Karyawan",
   maklon: "Maklon",
   receipts: "Penerimaan",

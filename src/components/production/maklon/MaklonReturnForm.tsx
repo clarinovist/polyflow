@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { createMaklonReturnAction } from '@/actions/maklon/maklon-return';
 import Link from 'next/link';
 import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
+import { useMaklonBasePath } from './useMaklonBasePath';
 
 const maklonReturnLocationPriority = [
     MAKLON_STAGE_SLUGS.PACKING,
@@ -38,6 +39,7 @@ type FormProps = {
 
 export function MaklonReturnForm({ customers, locations, products, initialData }: FormProps) {
     const router = useRouter();
+    const basePath = useMaklonBasePath();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const orderedLocations = useMemo(() => {
         return [...locations].sort((left, right) => {
@@ -103,7 +105,7 @@ export function MaklonReturnForm({ customers, locations, products, initialData }
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="flex items-center justify-between">
                     <Button type="button" variant="ghost" asChild>
-                        <Link href="/dashboard/maklon/returns">
+                        <Link href={`${basePath}/returns`}>
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Kembali ke Daftar Retur
                         </Link>

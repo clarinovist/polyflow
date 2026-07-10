@@ -40,8 +40,8 @@ const warehouseLinks = [
     {
         heading: 'Maklon',
         items: [
-            { href: '/dashboard/maklon/receipts', icon: Package, label: 'Penerimaan Maklon' },
-            { href: '/dashboard/maklon/returns', icon: RotateCcw, label: 'Retur Maklon' },
+            { href: '/warehouse/maklon/receipts', icon: Package, label: 'Penerimaan Maklon' },
+            { href: '/warehouse/maklon/returns', icon: RotateCcw, label: 'Retur Maklon' },
         ],
     },
     {

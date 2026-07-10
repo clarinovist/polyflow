@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { MaklonMaterialReturnStatus } from '@prisma/client';
 import { MAKLON_STAGE_SLUGS } from '@/lib/constants/locations';
+import { useMaklonBasePath } from './useMaklonBasePath';
 
 type MaklonReturnLocation = {
     id: string;
@@ -60,6 +61,7 @@ function getMaklonReturnLocationLabel(location?: MaklonReturnLocation | null) {
 }
 
 export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
+    const basePath = useMaklonBasePath();
     const getStatusColor = (status: MaklonMaterialReturnStatus) => {
         switch (status) {
             case 'DRAFT': return 'bg-muted text-muted-foreground border-border';
@@ -75,7 +77,7 @@ export function MaklonReturnDetailClient({ ret }: { ret: MaklonReturnDetail }) {
             <div className="flex items-center justify-between">
                 <div>
                     <Button variant="ghost" asChild className="mb-2 -ml-4">
-                        <Link href="/dashboard/maklon/returns">
+                        <Link href={`${basePath}/returns`}>
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Kembali ke Retur Maklon
                         </Link>
