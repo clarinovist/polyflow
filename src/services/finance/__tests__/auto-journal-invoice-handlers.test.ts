@@ -194,7 +194,8 @@ describe('handleSalesInvoiceCreated', () => {
             ]) as never,
         );
 
-        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }) => {
+        // @ts-expect-error Prisma mock return type mismatch
+        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: Record<string, unknown>) => {
             const map: Record<string, { id: string; code: string; name: string; isActive: boolean }> = {
                 'acc-4-102': {
                     id: 'acc-4-102',
@@ -262,7 +263,8 @@ describe('handleSalesInvoiceCreated', () => {
             ]) as never,
         );
 
-        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }) => {
+        // @ts-expect-error Prisma mock return type mismatch
+        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: Record<string, unknown>) => {
             if ((where as { id: string }).id === 'acc-4-102') {
                 return {
                     id: 'acc-4-102',
@@ -325,7 +327,8 @@ describe('handleSalesInvoiceCreated', () => {
             ]) as never,
         );
 
-        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }) => {
+        // @ts-expect-error Prisma mock return type mismatch
+        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: Record<string, unknown>) => {
             if ((where as { id: string }).id === 'acc-custom') {
                 return {
                     id: 'acc-custom',
@@ -365,7 +368,8 @@ describe('handleSalesInvoiceCreated', () => {
             ]) as never,
         );
 
-        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }) => {
+        // @ts-expect-error Prisma mock return type mismatch
+        vi.mocked(prisma.account.findUnique).mockImplementation(async ({ where }: Record<string, unknown>) => {
             const w = where as { code?: string; id?: string };
             if (w.code === '4-102') {
                 return {

@@ -64,8 +64,8 @@ describe('ReconciliationService.createAdjustmentJournals', () => {
         expect(result.created).toBe(1);
         expect(mockResolveAccount).toHaveBeenCalledWith('bank-charges');
 
-        const journalCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
-        const lines = journalCall.data.lines.create;
+        const journalCall = vi.mocked(prisma.journalEntry.create).mock.calls[0]![0]!;
+        const lines = journalCall.data.lines!.create as Array<Record<string, unknown>>;
 
         // bankIncreases = false → Dr offset, Cr bank
         expect(lines[0].accountId).toBe('acc-bank-charges');
@@ -100,8 +100,8 @@ describe('ReconciliationService.createAdjustmentJournals', () => {
         expect(result.created).toBe(1);
         expect(mockResolveAccount).toHaveBeenCalledWith('interest-income');
 
-        const journalCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
-        const lines = journalCall.data.lines.create;
+        const journalCall = vi.mocked(prisma.journalEntry.create).mock.calls[0]![0]!;
+        const lines = journalCall.data.lines!.create as Array<Record<string, unknown>>;
 
         // bankIncreases = true → Dr bank, Cr offset
         expect(lines[0].accountId).toBe('bank-account-id');
@@ -134,7 +134,7 @@ describe('ReconciliationService.createAdjustmentJournals', () => {
         expect(result.created).toBe(1);
         expect(mockResolveAccount).toHaveBeenCalledWith('accounts-receivable');
 
-        const lines = vi.mocked(prisma.journalEntry.create).mock.calls[0][0].data.lines.create;
+        const lines = vi.mocked(prisma.journalEntry.create).mock.calls[0]![0]!.data.lines!.create as Array<Record<string, unknown>>;
         expect(lines[0].accountId).toBe('bank-account-id');
         expect(lines[1].accountId).toBe('acc-ar');
     });
@@ -177,9 +177,9 @@ describe('ReconciliationService.createAdjustmentJournals', () => {
 
         await ReconciliationService.createAdjustmentJournals('recon-1', 'user-1');
 
-        const lines = vi.mocked(prisma.journalEntry.create).mock.calls[0][0].data.lines.create;
+        const lines = vi.mocked(prisma.journalEntry.create).mock.calls[0]![0]!.data.lines!.create as Array<Record<string, unknown>>;
         // Bank leg should be reconciliation.accountId, NOT hardcoded 1-114 or 1-113
-        const bankLine = lines.find((l: { accountId: string }) => l.accountId === 'bank-account-id');
+        const bankLine = (lines as Array<{ accountId: string }>).find((l) => l.accountId === 'bank-account-id');
         expect(bankLine).toBeDefined();
     });
 
