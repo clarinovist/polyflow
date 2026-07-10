@@ -139,6 +139,8 @@ model Customer {
   city            String?
   district        String?
   village         String?
+  defaultVehicleId String?
+  defaultVehicle   Vehicle?  @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   salesOrders     SalesOrder[]
@@ -1053,6 +1055,12 @@ model DeliveryOrder {
   appliedChargeRate   Decimal?  @db.Decimal(15, 2)
   totalCost           Decimal?  @db.Decimal(15, 2)
   totalCharge         Decimal?  @db.Decimal(15, 2)
+  estimatedWeightKg   Decimal?  @db.Decimal(10, 2)
+  destinationAddress  String?
+  vehiclePhotoUrl     String?
+  proofOfDeliveryUrl  String?
+  proofOfDeliveryAt   DateTime?
+  receivedBy          String?
   createdBy        User?               @relation("DeliveryCreator", fields: [createdById], references: [id])
   salesOrder       SalesOrder          @relation(fields: [salesOrderId], references: [id])
   sourceLocation   Location            @relation(fields: [sourceLocationId], references: [id])
@@ -1097,6 +1105,7 @@ model Vehicle {
   tariffs         VehicleTariff[]
   deliveryOrders  DeliveryOrder[]
   schedules       DeliveryScheduleVehicle[]
+  customerDefaults Customer[]           @relation("CustomerDefaultVehicle")
 }
 
 model VehicleTariff {
@@ -1216,7 +1225,10 @@ enum IssueStatus {
 
 enum DeliveryStatus {
   PENDING
+  LOADING
   SHIPPED
+  IN_TRANSIT
+  ARRIVED
   DELIVERED
   RETURNED
   CANCELLED
