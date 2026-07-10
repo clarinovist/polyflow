@@ -177,8 +177,8 @@ async function createManualDeliveryOrder(data: {
       await syncSalesOrderShippingFromDeliveries(validatedData.salesOrderId, {
         userId: session.user.id,
       });
-    } catch {
-      // Non-blocking — sync service may not be available yet
+    } catch (err) {
+      console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
     }
 
     return deliveryOrder;
@@ -228,8 +228,8 @@ async function updateDeliveryStatus(
         await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
           userId: session.user.id,
         });
-      } catch {
-        // Non-blocking
+      } catch (err) {
+        console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
       }
     }
 
@@ -363,8 +363,8 @@ async function updateDeliveryPricing(data: {
         reason: result.reason,
         shippingCost: result.shippingCost,
       };
-    } catch {
-      // Service not yet implemented — non-blocking
+    } catch (err) {
+      console.warn("[delivery-shipping-sync] sync failed (non-blocking):", err);
     }
 
     revalidatePath('/sales/deliveries');

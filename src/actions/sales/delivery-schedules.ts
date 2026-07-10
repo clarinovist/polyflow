@@ -348,8 +348,8 @@ export const assignOrderToSchedule = withTenant(
         await syncSalesOrderShippingFromDeliveries(doRecord.salesOrderId, {
           userId: session.user.id,
         });
-      } catch {
-        // Non-blocking
+      } catch (err) {
+        console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
       }
 
       revalidatePath(`/sales/delivery-schedules/${sv.scheduleId}`);
