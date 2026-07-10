@@ -94,6 +94,9 @@ interface DeliveryRow {
   totalCost: number;
   totalCharge: number;
   appliedRateType: string | null;
+  estimatedWeightKg: number | null;
+  destinationAddress: string | null;
+  status: string;
   vehicle: { plateNumber: string; name: string; ownershipType: string } | null;
   salesOrder: { orderNumber: string; customer: { name: string } | null } | null;
 }
@@ -156,7 +159,7 @@ export function ShippingCostReportClient() {
   const handleExportCSV = () => {
     if (!report) return;
     const rows = [
-      ['No. DO', 'Tanggal', 'Armada', 'Tipe', 'Customer', 'Biaya Oper.', 'Biaya Customer', 'Margin'],
+      ['No. DO', 'Tanggal', 'Armada', 'Tipe', 'Customer', 'Alamat Tujuan', 'Berat (Kg)', 'Biaya Oper.', 'Biaya Customer', 'Margin'],
       ...report.deliveries.map((d) => [
         d.orderNumber,
         new Date(d.deliveryDate).toLocaleDateString('id-ID'),
@@ -416,6 +419,8 @@ export function ShippingCostReportClient() {
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Armada</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Alamat Tujuan</TableHead>
+                      <TableHead className="text-right">Berat (Kg)</TableHead>
                       <TableHead className="text-right">Biaya Oper.</TableHead>
                       <TableHead className="text-right">Charge</TableHead>
                       <TableHead className="text-right">Margin</TableHead>
@@ -428,6 +433,8 @@ export function ShippingCostReportClient() {
                         <TableCell>{new Date(d.deliveryDate).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>{d.vehicle?.plateNumber || '-'}</TableCell>
                         <TableCell>{d.salesOrder?.customer?.name || '-'}</TableCell>
+                        <TableCell className="max-w-[180px] truncate" title={d.destinationAddress || ''}>{d.destinationAddress || '-'}</TableCell>
+                        <TableCell className="text-right">{d.estimatedWeightKg ?? '-'}</TableCell>
                         <TableCell className="text-right text-red-600">{formatRupiah(d.totalCost)}</TableCell>
                         <TableCell className="text-right text-green-600">{formatRupiah(d.totalCharge)}</TableCell>
                         <TableCell className={`text-right font-medium ${(d.totalCharge - d.totalCost) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
