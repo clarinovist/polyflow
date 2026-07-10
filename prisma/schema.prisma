@@ -230,6 +230,7 @@ model ProductVariant {
   costingMethod        CostingMethod              @default(WEIGHTED_AVERAGE)
   standardCost         Decimal?                   @db.Decimal(15, 4)
   revenueAccountId     String?                    // Phase 2.3: per-variant revenue GL override
+  returnAccountId      String?                    // Phase 2.3c: per-variant return GL override
   Batch                Batch[]
   productionBoms       Bom[]                      @relation("ProductBom")
   ingredientInBoms     BomItem[]                  @relation("Ingredient")
@@ -1655,6 +1656,7 @@ model Tenant {
   updatedAt   DateTime     @updatedAt
 
   accountRoles TenantAccountRole[]
+  revenueRules TenantRevenueRule[]
 }
 
 model TenantAccountRole {
@@ -1671,6 +1673,24 @@ model TenantAccountRole {
 
   @@unique([tenantId, role])
   @@index([tenantId])
+}
+
+model TenantRevenueRule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  priority    Int      @default(100) // lower = higher priority
+  matchType   String   // PRODUCT_NAME | VARIANT_NAME_CONTAINS | SKU_PREFIX
+  matchValue  String   // e.g. "Super", "Sedotan", "RAF-"
+  accountId   String   // Account.id in tenant DB (no FK)
+  accountCode String?  // snapshot
+  accountName String?  // snapshot
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, priority])
 }
 
 enum TenantStatus {
