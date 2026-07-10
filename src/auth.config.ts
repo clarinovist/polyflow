@@ -100,7 +100,7 @@ export const authConfig = {
                     if (isLoggedIn) {
                         if (pathname === '/logout') return true;
 
-                        const user = auth.user as { role?: string; isSuperAdmin?: boolean };
+                        const user = auth.user as { role?: string; isSuperAdmin?: boolean; allowedResources?: string[] };
                         const role = user?.role?.toUpperCase();
 
                         // Mobile Sales Redirect logic
@@ -117,7 +117,7 @@ export const authConfig = {
                         }
 
                         if (workspace) {
-                            if (!canAccessWorkspace(user, workspace)) {
+                            if (!canAccessWorkspace(user, workspace, pathname)) {
                                 const redirectUrl = getDefaultRedirectForUser(user);
                                 return Response.redirect(new URL(redirectUrl, nextUrl));
                             }
@@ -176,11 +176,12 @@ export const authConfig = {
         },
         jwt({ token, user }) {
             if (user) {
-                const u = user as { id?: string; role?: string; rememberMe?: boolean; isSuperAdmin?: boolean };
+                const u = user as { id?: string; role?: string; rememberMe?: boolean; isSuperAdmin?: boolean; allowedResources?: string[] };
                 token.role = u.role;
                 token.id = u.id;
                 token.rememberMe = u.rememberMe;
                 token.isSuperAdmin = u.isSuperAdmin;
+                token.allowedResources = u.allowedResources;
                 token.lastActive = Math.floor(Date.now() / 1000);
             }
 
@@ -202,6 +203,7 @@ export const authConfig = {
                 (session.user as { role?: unknown }).role = token.role;
                 (session.user as { id?: unknown }).id = token.id;
                 (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
+                (session.user as { allowedResources?: unknown }).allowedResources = token.allowedResources;
             }
             return session;
         },

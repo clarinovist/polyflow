@@ -96,6 +96,20 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             throw new Error('RoleMismatch');
                         }
 
+                        // Load role permissions for this user
+                        let allowedResources: string[] = [];
+                        try {
+                            const { tenantContext: permTxCtx } = await import('@/lib/core/prisma');
+                            const permDb = permTxCtx.getStore() || prisma;
+                            const perms = await permDb.rolePermission.findMany({
+                                where: { role: user.role, canAccess: true },
+                                select: { resource: true },
+                            });
+                            allowedResources = perms.map((p: { resource: string }) => p.resource);
+                        } catch {
+                            // Non-fatal: user just won't have DB-based permissions
+                        }
+
                         return {
                             id: user.id,
                             name: user.name,
@@ -103,6 +117,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                             role: user.role,
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
+                            allowedResources,
                         };
                     }
                 }

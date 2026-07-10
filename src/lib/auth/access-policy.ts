@@ -57,8 +57,9 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
  * Checks if a user has permission to access a workspace.
  */
 export function canAccessWorkspace(
-  user: { role?: string; isSuperAdmin?: boolean } | null | undefined,
+  user: { role?: string; isSuperAdmin?: boolean; allowedResources?: string[] } | null | undefined,
   workspace: WorkspaceKey,
+  pathname?: string,
 ): boolean {
   if (!user) return false;
 
@@ -87,7 +88,10 @@ export function canAccessWorkspace(
 
   // 5. Production is strictly isolated to production workspace
   if (role === "PRODUCTION") {
-    return workspace === "production";
+    if (workspace === "production") return true;
+    // Check DB-based permissions for cross-workspace access (e.g. /dashboard/boms)
+    if (pathname && user.allowedResources?.includes(pathname)) return true;
+    return false;
   }
 
   // 6. Other roles check policy mapping
