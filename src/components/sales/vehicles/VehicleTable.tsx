@@ -55,9 +55,9 @@ interface VehicleRow {
   ownershipType: string;
   ownerName: string | null;
   driverName: string | null;
-  capacityKg: { toNumber: () => number } | null;
+  capacityKg: number | null;
   status: string;
-  tariffs: Array<{ chargeRate: { toNumber: () => number }; rateType: string }>;
+  tariffs: Array<{ chargeRate: number; rateType: string }>;
   _count: { deliveryOrders: number };
 }
 
@@ -151,7 +151,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                     </TableCell>
                     <TableCell>{v.driverName || '-'}</TableCell>
                     <TableCell className="text-right">
-                      {v.capacityKg ? `${v.capacityKg.toNumber()} Kg` : '-'}
+                      {v.capacityKg ? `${v.capacityKg} Kg` : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge className={STATUS_STYLES[v.status] || ''}>
@@ -241,7 +241,7 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                 {v.capacityKg && (
                   <div>
                     <span className="text-muted-foreground">Kapasitas: </span>
-                    {v.capacityKg.toNumber()} Kg
+                    {v.capacityKg} Kg
                   </div>
                 )}
               </div>

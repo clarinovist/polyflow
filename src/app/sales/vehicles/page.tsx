@@ -1,12 +1,13 @@
 import { getVehicles } from "@/actions/sales/vehicles";
 import { VehicleTable } from "@/components/sales/vehicles/VehicleTable";
 import { salesLabels } from "@/lib/labels";
+import { serializeData } from "@/lib/utils/utils";
 import { Car } from "lucide-react";
 
 export default async function VehiclesPage() {
   const vehiclesRes = await getVehicles();
   const vehicles =
-    vehiclesRes.success && vehiclesRes.data ? vehiclesRes.data : [];
+    vehiclesRes.success && vehiclesRes.data ? serializeData(vehiclesRes.data) : [];
 
   return (
     <div className="p-6 space-y-6">
