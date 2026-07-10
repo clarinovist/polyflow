@@ -162,7 +162,7 @@ export type StopExecutionValues = z.infer<typeof stopExecutionSchema>;
 
 export const logRunningOutputSchema = z.object({
     executionId: z.string().min(1, "Execution ID is required"),
-    quantityProduced: z.coerce.number().positive("Quantity must be positive"),
+    quantityProduced: z.coerce.number().nonnegative("Quantity must be zero or positive"),
     enteredQuantity: z.coerce.number().positive("Entered quantity must be positive").optional(),
     enteredUnit: z.nativeEnum(Unit).optional(),
     baseQuantityProduced: z.coerce.number().positive("Base quantity must be positive").optional(),

@@ -45,6 +45,7 @@ export function KioskLogOutputDialog({
     const [notes, setNotes] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [showScrapWarning, setShowScrapWarning] = useState(false);
+    const [showScrapOnlyWarning, setShowScrapOnlyWarning] = useState(false);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [loggedOutputs, setLoggedOutputs] = useState<Array<{
@@ -124,6 +125,7 @@ export function KioskLogOutputDialog({
                 setScrapDaun('');
                 setNotes('');
                 setShowScrapWarning(false);
+                setShowScrapOnlyWarning(false);
                 setPhotoFile(null);
 
                 // DON'T close dialog — allow multiple logs
@@ -143,15 +145,28 @@ export function KioskLogOutputDialog({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const qtyNum = parseFloat(quantity);
-        if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
-            toast.error("Masukkan jumlah hasil yang valid");
+        const qtyNum = parseFloat(quantity) || 0;
+        const scrapNum = (parseFloat(scrapProngkol) || 0) + (parseFloat(scrapDaun) || 0);
+
+        // Reject negative values
+        if (qtyNum < 0) {
+            toast.error("Jumlah hasil tidak boleh negatif");
             return;
         }
 
-        const scrapNum = (parseFloat(scrapProngkol) || 0) + (parseFloat(scrapDaun) || 0);
+        // If qty=0 and no scrap, require at least one
+        if (qtyNum === 0 && scrapNum === 0) {
+            toast.error("Masukkan jumlah hasil atau scrap");
+            return;
+        }
 
-        // Soft warning if scrap is 0
+        // If qty=0 and scrap > 0, show scrap-only confirmation
+        if (qtyNum === 0 && scrapNum > 0 && !showScrapOnlyWarning) {
+            setShowScrapOnlyWarning(true);
+            return;
+        }
+
+        // If scrap=0, show scrap warning (existing behavior)
         if (scrapNum === 0 && !showScrapWarning) {
             setShowScrapWarning(true);
             return;
@@ -163,6 +178,7 @@ export function KioskLogOutputDialog({
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             setShowScrapWarning(false);
+            setShowScrapOnlyWarning(false);
             setLoggedOutputs([]); // Reset history when closing
         }
         onOpenChange(open);
@@ -190,7 +206,10 @@ export function KioskLogOutputDialog({
                                 placeholder="0.00"
                                 className="h-16 text-2xl font-bold bg-emerald-500/10 border-emerald-500/30 focus:border-emerald-500 focus:ring-emerald-500"
                                 value={quantity}
-                                onChange={(e) => setQuantity(e.target.value)}
+                                onChange={(e) => {
+                                    setQuantity(e.target.value);
+                                    if (showScrapOnlyWarning) setShowScrapOnlyWarning(false);
+                                }}
                                 autoFocus
                             />
                         </div>
@@ -210,6 +229,7 @@ export function KioskLogOutputDialog({
                                     onChange={(e) => {
                                         setScrapProngkol(e.target.value);
                                         if (showScrapWarning) setShowScrapWarning(false);
+                                        if (showScrapOnlyWarning) setShowScrapOnlyWarning(false);
                                     }}
                                 />
                             </div>
@@ -228,6 +248,7 @@ export function KioskLogOutputDialog({
                                     onChange={(e) => {
                                         setScrapDaun(e.target.value);
                                         if (showScrapWarning) setShowScrapWarning(false);
+                                        if (showScrapOnlyWarning) setShowScrapOnlyWarning(false);
                                     }}
                                 />
                             </div>
@@ -271,6 +292,47 @@ export function KioskLogOutputDialog({
                                 >
                                     {isLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                                     Ya, Tidak Ada Scrap
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Scrap-Only Confirmation Banner */}
+                    {showScrapOnlyWarning && (
+                        <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="font-semibold text-blue-800">Catat Scrap Saja?</p>
+                                    <p className="text-sm text-blue-700 mt-1">
+                                        Hasil bagus bernilai 0. Anda akan mencatat hanya scrap/affal tanpa produk bagus.
+                                        Pastikan ini memang yang diinginkan.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-blue-400 text-blue-700 hover:bg-blue-100"
+                                    onClick={() => {
+                                        setShowScrapOnlyWarning(false);
+                                        // Focus on quantity input
+                                        document.getElementById('log-quantity')?.focus();
+                                    }}
+                                >
+                                    Isi Hasil Bagus
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                    onClick={() => submitOutput()}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                                    Ya, Catat Scrap Saja
                                 </Button>
                             </div>
                         </div>
