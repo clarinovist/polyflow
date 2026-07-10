@@ -74,7 +74,7 @@ export function KioskLogOutputDialog({
         return data.publicUrl || null;
     };
     const submitOutput = async () => {
-        const qtyNum = parseFloat(quantity);
+        const qtyNum = parseFloat(quantity) || 0;
         const baseQty = unitMeta.hasAlternateUnit
             ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
             : qtyNum;
