@@ -26,6 +26,7 @@ interface ExecutionData {
   status: string;
   operator: { name: string } | null;
   machine: { code: string } | null;
+  shift: { shiftName: string } | null;
 }
 
 interface GroupData {

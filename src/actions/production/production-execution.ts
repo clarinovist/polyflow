@@ -230,6 +230,7 @@ export const getProductionHistory = withTenant(
           },
           operator: true,
           machine: true,
+          shift: true,
         },
         orderBy: { endTime: "desc" },
         take: 200, // More records since we now have multiple per SPK

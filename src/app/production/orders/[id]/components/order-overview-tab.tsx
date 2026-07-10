@@ -257,7 +257,7 @@ export function OrderOverviewTab({ order, formData }: OrderOverviewTabProps) {
                             )}
                           </div>
                         </td>
-                        <td className="p-3">{exec.shift?.name || "-"}</td>
+                        <td className="p-3">{exec.shift?.shiftName || "-"}</td>
                         <td className="p-3">{exec.operator?.name || "-"}</td>
                         <td className="p-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                           {exec.status === "VOIDED"
