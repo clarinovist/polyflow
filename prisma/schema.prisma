@@ -90,6 +90,7 @@ model ProductionShift {
   operator          Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
    productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   helpers           Employee[]      @relation("ShiftHelpers")
+  executions        ProductionExecution[]
 }
 
 // ==========================================
@@ -630,7 +631,7 @@ model ProductionExecution {
   operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
   helpers           Employee[]      @relation("ExecutionHelpers")
   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  shift             WorkShift?      @relation(fields: [shiftId], references: [id])
+  shift             ProductionShift?  @relation(fields: [shiftId], references: [id])
   scrapRecords      ScrapRecord[]
 
   @@index([productionOrderId])
@@ -645,7 +646,6 @@ model WorkShift {
   status               WorkShiftStatus       @default(ACTIVE)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-  productionExecutions ProductionExecution[]
 }
 
 model JobRole {
