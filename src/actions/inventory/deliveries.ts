@@ -2,11 +2,13 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { Prisma, RateType } from '@prisma/client';
+import { Prisma, RateType, DeliveryStatus } from '@prisma/client';
 import { safeAction } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { createManualDeliveryOrderSchema } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
+import { canTransition } from '@/lib/sales/delivery-status';
+import { revalidatePath } from 'next/cache';
 
 export const getDeliveryOrders = withTenant(
 async function getDeliveryOrders(dateRange?: { startDate?: Date, endDate?: Date }) {
@@ -168,3 +170,54 @@ async function createManualDeliveryOrder(data: {
   });
 }
 );
+
+/**
+ * Update delivery order status with transition validation.
+ * When target = DELIVERED, also calls deliverOrder to sync SalesOrder.
+ */
+export const updateDeliveryStatus = withTenant(
+async function updateDeliveryStatus(
+  deliveryOrderId: string,
+  newStatus: string,
+) {
+  return safeAction(async () => {
+    const session = await requireAuth();
+
+    const doRecord = await prisma.deliveryOrder.findUnique({
+      where: { id: deliveryOrderId },
+      select: { id: true, status: true, salesOrderId: true, orderNumber: true },
+    });
+    if (!doRecord) throw new Error("Delivery Order tidak ditemukan.");
+
+    if (!canTransition(doRecord.status, newStatus)) {
+      throw new Error(
+        `Tidak bisa ubah status dari ${doRecord.status} ke ${newStatus}.`,
+      );
+    }
+
+    await prisma.deliveryOrder.update({
+      where: { id: deliveryOrderId },
+      data: { status: newStatus as DeliveryStatus },
+    });
+
+    // If target is DELIVERED, also sync the SalesOrder
+    if (newStatus === 'DELIVERED') {
+      const { SalesService } = await import('@/services/sales/sales-service');
+      await SalesService.deliverOrder(doRecord.salesOrderId, session.user.id);
+    }
+
+    await logActivity({
+      userId: session.user.id,
+      action: 'UPDATE_DELIVERY_STATUS',
+      entityType: 'DeliveryOrder',
+      entityId: deliveryOrderId,
+      details: `DO ${doRecord.orderNumber}: ${doRecord.status} -> ${newStatus}`,
+    });
+
+    revalidatePath('/sales/deliveries');
+    revalidatePath(`/sales/deliveries/${deliveryOrderId}`);
+    revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
+
+    return { success: true };
+  });
+});
