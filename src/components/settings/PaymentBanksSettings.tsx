@@ -124,7 +124,7 @@ export function PaymentBanksSettings({ canEdit }: PaymentBanksSettingsProps) {
                     id="bca-holder"
                     value={bcaHolder}
                     onChange={(e) => setBcaHolder(e.target.value)}
-                    placeholder="Contoh: MELINDO JAYA"
+                    placeholder="Nama pemilik rekening"
                     disabled={!canEdit || saving}
                   />
                 </div>
@@ -134,7 +134,7 @@ export function PaymentBanksSettings({ canEdit }: PaymentBanksSettingsProps) {
                     id="bca-account"
                     value={bcaAccount}
                     onChange={(e) => setBcaAccount(e.target.value)}
-                    placeholder="Contoh: 3270448789"
+                    placeholder="Nomor rekening"
                     disabled={!canEdit || saving}
                     inputMode="numeric"
                   />
@@ -149,7 +149,7 @@ export function PaymentBanksSettings({ canEdit }: PaymentBanksSettingsProps) {
                     id="mandiri-holder"
                     value={mandiriHolder}
                     onChange={(e) => setMandiriHolder(e.target.value)}
-                    placeholder="Contoh: MELINDO JAYA"
+                    placeholder="Nama pemilik rekening"
                     disabled={!canEdit || saving}
                   />
                 </div>
@@ -159,7 +159,7 @@ export function PaymentBanksSettings({ canEdit }: PaymentBanksSettingsProps) {
                     id="mandiri-account"
                     value={mandiriAccount}
                     onChange={(e) => setMandiriAccount(e.target.value)}
-                    placeholder="Contoh: 1380044458789"
+                    placeholder="Nomor rekening"
                     disabled={!canEdit || saving}
                     inputMode="numeric"
                   />
