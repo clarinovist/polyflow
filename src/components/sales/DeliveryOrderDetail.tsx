@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { deliverSalesOrder } from '@/actions/sales/sales';
+import { updateDeliveryStatus } from '@/actions/inventory/deliveries';
+import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
 import { toast } from 'sonner';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { type CompanyConfig } from '@/lib/config/company';
@@ -28,22 +29,24 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const [showPreview, setShowPreview] = useState(false);
     const router = useRouter();
 
-    const handleDeliver = async () => {
+    const handleStatusChange = async (newStatus: string) => {
         setIsLoading(true);
         try {
-            const result = await deliverSalesOrder(order.salesOrderId);
+            const result = await updateDeliveryStatus(order.id, newStatus);
             if (result.success) {
-                toast.success('Pesanan berhasil ditandai sebagai terkirim');
+                toast.success(`Status berhasil diubah ke ${getDeliveryStatusLabel(newStatus)}`);
                 router.refresh();
             } else {
-                toast.error(result.error || 'Gagal memperbarui status. Silakan coba lagi.');
+                toast.error(result.error || 'Gagal memperbarui status.');
             }
         } catch (_error) {
-            toast.error('Gagal memproses surat jalan. Silakan coba lagi.');
+            toast.error('Gagal memproses perubahan status.');
         } finally {
             setIsLoading(false);
         }
     };
+
+    const nextStep = NEXT_STEP_LABELS[order.status];
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
@@ -57,7 +60,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
         };
         return (
             <Badge variant="secondary" className={styles[status] || styles.PENDING}>
-                {status}
+                {getDeliveryStatusLabel(status)}
             </Badge>
         );
     };
@@ -85,14 +88,14 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                     <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
                     <div className="flex items-center gap-3 mt-1">
                         {getStatusBadge(order.status)}
-                        {(order.status === 'SHIPPED' || order.status === 'ARRIVED') && (
+                        {nextStep && (
                             <Button
                                 size="sm"
                                 className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
-                                onClick={handleDeliver}
+                                onClick={() => handleStatusChange(nextStep.to)}
                                 disabled={isLoading}
                             >
-                                <Check className="mr-1 h-3.5 w-3.5" /> Tandai Terkirim
+                                <Check className="mr-1 h-3.5 w-3.5" /> {nextStep.label}
                             </Button>
                         )}
                         <span className="text-muted-foreground text-sm">
