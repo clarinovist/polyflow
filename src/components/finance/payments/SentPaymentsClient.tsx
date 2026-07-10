@@ -25,9 +25,9 @@ interface PurchaseInvoice {
     invoiceNumber: string;
     totalAmount: number;
     paidAmount: number;
-    purchaseOrder: {
-        supplier: { name: string };
-    };
+    purchaseOrder?: {
+        supplier?: { name: string } | null;
+    } | null;
 }
 
 interface SentPaymentsClientProps {

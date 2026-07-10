@@ -74,6 +74,23 @@ export const getPurchaseInvoices = withTenant(
   },
 );
 
+/**
+ * Outstanding AP invoices for "Catat Pembayaran Supplier" dropdown.
+ * Returns every non-cancelled purchase invoice with remaining balance > 0
+ * (UNPAID, PARTIAL, OVERDUE, and DRAFT-with-balance). Already serialized.
+ */
+export const getOutstandingPurchaseInvoices = withTenant(
+  async function getOutstandingPurchaseInvoices() {
+    return safeAction(async () => {
+      const { getOutstandingPurchaseInvoices: fetchOutstanding } =
+        await import("@/services/purchasing/invoices-service");
+      const { serializeData } = await import("@/lib/utils/utils");
+      const invoices = await fetchOutstanding();
+      return serializeData(invoices);
+    });
+  },
+);
+
 export const getInvoiceStats = withTenant(async function getInvoiceStats() {
   return safeAction(async () => {
     // 1. Unpaid Amount

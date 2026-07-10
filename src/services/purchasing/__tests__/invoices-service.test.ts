@@ -40,7 +40,7 @@ vi.mock('@/lib/utils/sequence', () => ({
 
 import { prisma } from '@/lib/core/prisma';
 import { getNextSequence } from '@/lib/utils/sequence';
-import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment } from '../invoices-service';
+import { createInvoice, getPurchaseInvoiceById, getPurchaseInvoices, getOutstandingPurchaseInvoices, generateBillNumber, createDraftBillFromPo, recordPayment } from '../invoices-service';
 import { PurchaseInvoiceStatus } from '@prisma/client';
 
 // Mock auto-journal
@@ -273,6 +273,107 @@ describe('getPurchaseInvoices', () => {
             include: expect.any(Object),
             orderBy: { createdAt: 'desc' },
         });
+    });
+});
+
+describe('getOutstandingPurchaseInvoices', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('includes UNPAID, PARTIAL, OVERDUE, and DRAFT with remaining balance', async () => {
+        const mockInvoices = [
+            {
+                id: 'unpaid',
+                invoiceNumber: 'BILL-1',
+                totalAmount: 100_000,
+                paidAmount: 0,
+                status: 'UNPAID',
+                invoiceDate: new Date('2026-07-01'),
+                purchaseOrder: { orderNumber: 'PO-1', supplier: { name: 'Fadila' } },
+            },
+            {
+                id: 'partial',
+                invoiceNumber: 'BILL-2',
+                totalAmount: 200_000,
+                paidAmount: 50_000,
+                status: 'PARTIAL',
+                invoiceDate: new Date('2026-07-02'),
+                purchaseOrder: { orderNumber: 'PO-2', supplier: { name: 'Fadila' } },
+            },
+            {
+                id: 'overdue',
+                invoiceNumber: 'BILL-3',
+                totalAmount: 80_000,
+                paidAmount: 0,
+                status: 'OVERDUE',
+                invoiceDate: new Date('2026-06-01'),
+                purchaseOrder: { orderNumber: 'PO-3', supplier: { name: 'Intera' } },
+            },
+            {
+                id: 'draft-open',
+                invoiceNumber: 'BILL-4',
+                totalAmount: 30_000,
+                paidAmount: 0,
+                status: 'DRAFT',
+                invoiceDate: new Date('2026-07-03'),
+                purchaseOrder: { orderNumber: 'PO-4', supplier: { name: 'Solo' } },
+            },
+            {
+                id: 'paid',
+                invoiceNumber: 'BILL-5',
+                totalAmount: 10_000,
+                paidAmount: 10_000,
+                status: 'PAID',
+                invoiceDate: new Date('2026-05-01'),
+                purchaseOrder: { orderNumber: 'PO-5', supplier: { name: 'Fadila' } },
+            },
+            {
+                id: 'unpaid-but-settled',
+                invoiceNumber: 'BILL-6',
+                totalAmount: 15_000,
+                paidAmount: 15_000,
+                status: 'UNPAID',
+                invoiceDate: new Date('2026-05-02'),
+                purchaseOrder: { orderNumber: 'PO-6', supplier: { name: 'Fadila' } },
+            },
+            {
+                id: 'decimal-partial',
+                invoiceNumber: 'BILL-7',
+                totalAmount: { toNumber: () => 4_786_248 },
+                paidAmount: { toNumber: () => 1_000_000 },
+                status: 'PARTIAL',
+                invoiceDate: new Date('2026-07-04'),
+                purchaseOrder: { orderNumber: 'PO-7', supplier: { name: 'Melindo' } },
+            },
+        ];
+
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue(mockInvoices as any);
+
+        const result = await getOutstandingPurchaseInvoices();
+
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { status: { not: 'CANCELLED' } },
+            }),
+        );
+
+        const ids = result.map((inv) => inv.id);
+        expect(ids).toEqual(['unpaid', 'partial', 'overdue', 'draft-open', 'decimal-partial']);
+        expect(ids).not.toContain('paid');
+        expect(ids).not.toContain('unpaid-but-settled');
+    });
+
+    it('excludes CANCELLED at the query layer', async () => {
+        vi.mocked(prisma.purchaseInvoice.findMany).mockResolvedValue([]);
+
+        await getOutstandingPurchaseInvoices();
+
+        expect(prisma.purchaseInvoice.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { status: { not: PurchaseInvoiceStatus.CANCELLED } },
+            }),
+        );
     });
 });
 

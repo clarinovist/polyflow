@@ -198,6 +198,46 @@ export async function getPurchaseInvoices(dateRange?: {
   });
 }
 
+/**
+ * Purchase invoices eligible for supplier payment recording.
+ *
+ * Source of truth: outstanding balance (totalAmount - paidAmount) > 0.
+ * Includes UNPAID, PARTIAL, OVERDUE, and any non-cancelled invoice that still
+ * has a remaining balance (e.g. DRAFT bills that were never flipped to UNPAID).
+ * Excludes CANCELLED. Fully settled invoices (outstanding = 0) are excluded
+ * regardless of status.
+ */
+export async function getOutstandingPurchaseInvoices() {
+  const { toDecimalNumber } = await import("@/lib/utils/utils");
+
+  const invoices = await prisma.purchaseInvoice.findMany({
+    where: {
+      status: { not: PurchaseInvoiceStatus.CANCELLED },
+    },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      totalAmount: true,
+      paidAmount: true,
+      status: true,
+      invoiceDate: true,
+      purchaseOrder: {
+        select: {
+          orderNumber: true,
+          supplier: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
+  });
+
+  return invoices.filter((inv) => {
+    const outstanding =
+      toDecimalNumber(inv.totalAmount) - toDecimalNumber(inv.paidAmount);
+    return outstanding > 0;
+  });
+}
+
 export async function generateBillNumber(): Promise<string> {
   const dateStr = new Date().getFullYear().toString();
   const prefix = `BILL - ${dateStr} -`;

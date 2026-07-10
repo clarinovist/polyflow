@@ -20,6 +20,7 @@ import {
     recordPayment,
     getPurchaseInvoiceById,
     getPurchaseInvoices,
+    getOutstandingPurchaseInvoices,
     generateBillNumber,
     createDraftBillFromPo
 } from './invoices-service';
@@ -89,6 +90,10 @@ export class PurchaseService {
 
     static async getPurchaseInvoices(dateRange?: { startDate?: Date, endDate?: Date }) {
         return getPurchaseInvoices(dateRange);
+    }
+
+    static async getOutstandingPurchaseInvoices() {
+        return getOutstandingPurchaseInvoices();
     }
 
     static async generateBillNumber(): Promise<string> {

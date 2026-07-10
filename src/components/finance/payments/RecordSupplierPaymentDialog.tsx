@@ -25,9 +25,9 @@ interface PurchaseInvoice {
     invoiceNumber: string;
     totalAmount: number;
     paidAmount: number;
-    purchaseOrder: {
-        supplier: { name: string };
-    };
+    purchaseOrder?: {
+        supplier?: { name: string } | null;
+    } | null;
 }
 
 interface RecordSupplierPaymentDialogProps {
@@ -185,7 +185,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                         <span className="flex items-center gap-2 truncate min-w-0">
                                             <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
                                             <span className="truncate flex-1 text-left">
-                                                {selectedInvoice.invoiceNumber} — {selectedInvoice.purchaseOrder.supplier.name}
+                                                {selectedInvoice.invoiceNumber} — {selectedInvoice.purchaseOrder?.supplier?.name ?? '—'}
                                             </span>
                                             <span className="text-xs text-muted-foreground shrink-0 font-mono">
                                                 {formatRupiah(Number(selectedInvoice.totalAmount) - Number(selectedInvoice.paidAmount))}
@@ -203,27 +203,26 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                             >
                                 <Command
                                     filter={(val, search) => {
-                                        const inv = invoices.find(i => i.id === val);
-                                        if (!inv) return 0;
-                                        const q = search.toLowerCase();
-                                        return inv.invoiceNumber.toLowerCase().includes(q) ||
-                                            inv.purchaseOrder.supplier.name.toLowerCase().includes(q)
-                                            ? 1
-                                            : 0;
+                                        // value embeds invoice number + supplier + id so search never depends on id lookup
+                                        if (!search.trim()) return 1;
+                                        return val.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
                                     }}
                                 >
                                     <CommandInput placeholder="Cari no invoice atau supplier..." />
-                                    <CommandList>
+                                    <CommandList className="max-h-[320px]">
                                         <CommandEmpty>Tidak ada invoice ditemukan.</CommandEmpty>
                                         <CommandGroup>
                                             {invoices.map((inv) => {
                                                 const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
+                                                const supplierName = inv.purchaseOrder?.supplier?.name ?? '—';
+                                                // Include searchable text in value; keep id at end for uniqueness
+                                                const searchValue = `${inv.invoiceNumber} ${supplierName} ${inv.id}`;
                                                 return (
                                                     <CommandItem
                                                         key={inv.id}
-                                                        value={inv.id}
-                                                        onSelect={(currentValue) => {
-                                                            setSelectedInvoiceId(currentValue === selectedInvoiceId ? '' : currentValue);
+                                                        value={searchValue}
+                                                        onSelect={() => {
+                                                            setSelectedInvoiceId((prev) => (prev === inv.id ? '' : inv.id));
                                                             setInvoiceSearchOpen(false);
                                                         }}
                                                         className="flex items-center gap-2"
@@ -239,7 +238,7 @@ export function RecordSupplierPaymentDialog({ open, onOpenChange, invoices, paym
                                                                 {inv.invoiceNumber}
                                                             </span>
                                                             <span className="text-xs text-muted-foreground">
-                                                                {inv.purchaseOrder.supplier.name}
+                                                                {supplierName}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs font-mono text-muted-foreground shrink-0">
