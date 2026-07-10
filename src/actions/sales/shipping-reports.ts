@@ -11,6 +11,7 @@ interface ShippingReportFilters {
   vehicleId?: string;
   ownershipType?: string;
   rateType?: string;
+  routeName?: string;
 }
 
 interface ShippingReportSummary {
@@ -23,6 +24,15 @@ interface ShippingReportSummary {
   byVehicle: VehicleSummary[];
   byMonth: MonthlySummary[];
   byOwnership: OwnershipSummary[];
+  byRoute: RouteSummary[];
+}
+
+interface RouteSummary {
+  route: string;
+  totalDeliveries: number;
+  totalCost: number;
+  totalCharge: number;
+  totalMargin: number;
 }
 
 interface VehicleSummary {
@@ -85,6 +95,10 @@ export const getShippingCostReport = withTenant(
         }
       }
 
+      if (filters.routeName) {
+        where.appliedRouteName = { contains: filters.routeName, mode: 'insensitive' };
+      }
+
       const deliveries = await prisma.deliveryOrder.findMany({
         where,
         include: {
@@ -111,6 +125,7 @@ export const getShippingCostReport = withTenant(
       const byVehicleMap = new Map<string, VehicleSummary>();
       const byMonthMap = new Map<string, MonthlySummary>();
       const byOwnershipMap = new Map<string, OwnershipSummary>();
+      const byRouteMap = new Map<string, RouteSummary>();
 
       let totalCost = 0;
       let totalCharge = 0;
@@ -180,6 +195,23 @@ export const getShippingCostReport = withTenant(
         os.totalCost += cost;
         os.totalCharge += charge;
         os.totalMargin += charge - cost;
+
+        // By route
+        const routeKey = d.appliedRouteName?.trim() || 'Semua Rute';
+        if (!byRouteMap.has(routeKey)) {
+          byRouteMap.set(routeKey, {
+            route: routeKey,
+            totalDeliveries: 0,
+            totalCost: 0,
+            totalCharge: 0,
+            totalMargin: 0,
+          });
+        }
+        const rs = byRouteMap.get(routeKey)!;
+        rs.totalDeliveries++;
+        rs.totalCost += cost;
+        rs.totalCharge += charge;
+        rs.totalMargin += charge - cost;
       }
 
       // Calculate averages
@@ -190,6 +222,7 @@ export const getShippingCostReport = withTenant(
 
       const byMonth = Array.from(byMonthMap.values()).sort((a, b) => a.month.localeCompare(b.month));
       const byOwnership = Array.from(byOwnershipMap.values());
+      const byRoute = Array.from(byRouteMap.values()).sort((a, b) => b.totalCharge - a.totalCharge);
 
       const summary: ShippingReportSummary = {
         totalDeliveries: deliveries.length,
@@ -201,6 +234,7 @@ export const getShippingCostReport = withTenant(
         byVehicle,
         byMonth,
         byOwnership,
+        byRoute,
       };
 
       return {
@@ -212,6 +246,7 @@ export const getShippingCostReport = withTenant(
           totalCost: d.totalCost ? Number(d.totalCost) : 0,
           totalCharge: d.totalCharge ? Number(d.totalCharge) : 0,
           appliedRateType: d.appliedRateType,
+          appliedRouteName: d.appliedRouteName || null,
           estimatedWeightKg: d.estimatedWeightKg ? Number(d.estimatedWeightKg) : null,
           destinationAddress: d.destinationAddress,
           status: d.status,

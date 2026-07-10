@@ -85,6 +85,15 @@ interface ReportSummary {
   byVehicle: VehicleSummary[];
   byMonth: MonthlySummary[];
   byOwnership: OwnershipSummary[];
+  byRoute: RouteSummary[];
+}
+
+interface RouteSummary {
+  route: string;
+  totalDeliveries: number;
+  totalCost: number;
+  totalCharge: number;
+  totalMargin: number;
 }
 
 interface DeliveryRow {
@@ -119,7 +128,8 @@ export function ShippingCostReportClient() {
   const [endDate, setEndDate] = useState('');
   const [filterVehicle, setFilterVehicle] = useState('ALL');
   const [filterOwnership, setFilterOwnership] = useState('ALL');
-  const [activeTab, setActiveTab] = useState<'summary' | 'byVehicle' | 'byMonth' | 'detail'>('summary');
+  const [filterRoute, setFilterRoute] = useState('');
+  const [activeTab, setActiveTab] = useState<'summary' | 'byVehicle' | 'byMonth' | 'byRoute' | 'detail'>('summary');
 
   const loadVehicles = useCallback(async () => {
     const res = await getVehicles({ status: 'ACTIVE' });
@@ -140,6 +150,7 @@ export function ShippingCostReportClient() {
       if (endDate) filters.endDate = new Date(endDate + 'T23:59:59');
       if (filterVehicle !== 'ALL') filters.vehicleId = filterVehicle;
       if (filterOwnership !== 'ALL') filters.ownershipType = filterOwnership;
+      if (filterRoute.trim()) filters.routeName = filterRoute.trim();
 
       const res = await getShippingCostReport(filters as unknown as Parameters<typeof getShippingCostReport>[0]);
       if (res.success && res.data) {
@@ -159,12 +170,13 @@ export function ShippingCostReportClient() {
   const handleExportCSV = () => {
     if (!report) return;
     const rows = [
-      ['No. DO', 'Tanggal', 'Armada', 'Tipe', 'Customer', 'Alamat Tujuan', 'Berat (Kg)', 'Biaya Oper.', 'Biaya Customer', 'Margin'],
+      ['No. DO', 'Tanggal', 'Armada', 'Tipe', 'Rute', 'Customer', 'Alamat Tujuan', 'Berat (Kg)', 'Biaya Oper.', 'Biaya Customer', 'Margin'],
       ...report.deliveries.map((d) => [
         d.orderNumber,
         new Date(d.deliveryDate).toLocaleDateString('id-ID'),
         d.vehicle?.plateNumber || '-',
         d.vehicle?.ownershipType === 'FACTORY' ? 'Pabrik' : 'Perorangan',
+        (d as any).appliedRouteName || 'Semua Rute',
         d.salesOrder?.customer?.name || '-',
         d.destinationAddress || '-',
         d.estimatedWeightKg != null ? String(d.estimatedWeightKg) : '-',
@@ -193,7 +205,7 @@ export function ShippingCostReportClient() {
           <CardTitle className="text-base">Filter</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Dari Tanggal</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -228,6 +240,15 @@ export function ShippingCostReportClient() {
                   <SelectItem value="PRIVATE">Perorangan</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Rute</Label>
+              <Input
+                type="text"
+                value={filterRoute}
+                onChange={(e) => setFilterRoute(e.target.value)}
+                placeholder="Cari rute..."
+              />
             </div>
             <div className="flex items-end">
               <Button variant="outline" onClick={handleExportCSV} disabled={!report} className="w-full">
@@ -294,6 +315,7 @@ export function ShippingCostReportClient() {
         {[
           { key: 'summary' as const, label: 'Ringkasan per Armada' },
           { key: 'byMonth' as const, label: 'Per Bulan' },
+          { key: 'byRoute' as const, label: 'Per Rute' },
           { key: 'detail' as const, label: 'Detail' },
         ].map((tab) => (
           <Button
@@ -404,6 +426,46 @@ export function ShippingCostReportClient() {
         </Card>
       )}
 
+      {!isLoading && report && activeTab === 'byRoute' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ringkasan Per Rute</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {summary && summary.byRoute.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Belum ada data.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rute</TableHead>
+                      <TableHead className="text-center"># Kirim</TableHead>
+                      <TableHead className="text-right">Biaya Oper.</TableHead>
+                      <TableHead className="text-right">Charge</TableHead>
+                      <TableHead className="text-right">Margin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summary?.byRoute.map((r) => (
+                      <TableRow key={r.route}>
+                        <TableCell className="font-medium">{r.route}</TableCell>
+                        <TableCell className="text-center">{r.totalDeliveries}</TableCell>
+                        <TableCell className="text-right text-red-600">{formatRupiah(r.totalCost)}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatRupiah(r.totalCharge)}</TableCell>
+                        <TableCell className={`text-right font-medium ${r.totalMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatRupiah(r.totalMargin)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {!isLoading && report && activeTab === 'detail' && (
         <Card>
           <CardHeader>
@@ -421,6 +483,7 @@ export function ShippingCostReportClient() {
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Armada</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Rute</TableHead>
                       <TableHead>Alamat Tujuan</TableHead>
                       <TableHead className="text-right">Berat (Kg)</TableHead>
                       <TableHead className="text-right">Biaya Oper.</TableHead>
@@ -435,6 +498,7 @@ export function ShippingCostReportClient() {
                         <TableCell>{new Date(d.deliveryDate).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>{d.vehicle?.plateNumber || '-'}</TableCell>
                         <TableCell>{d.salesOrder?.customer?.name || '-'}</TableCell>
+                        <TableCell>{(d as any).appliedRouteName || 'Semua Rute'}</TableCell>
                         <TableCell className="max-w-[180px] truncate" title={d.destinationAddress || ''}>{d.destinationAddress || '-'}</TableCell>
                         <TableCell className="text-right">{d.estimatedWeightKg ?? '-'}</TableCell>
                         <TableCell className="text-right text-red-600">{formatRupiah(d.totalCost)}</TableCell>
