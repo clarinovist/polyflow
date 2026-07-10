@@ -222,8 +222,8 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                 </div>
             </div>
 
-            {/* Tracking Banner */}
-            {(order.status === 'SHIPPED' || order.status === 'ARRIVED') && (
+            {/* Tracking Banner — only while en route (not yet arrived) */}
+            {(order.status === 'SHIPPED' || order.status === 'IN_TRANSIT') && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-lg flex items-start gap-4">
                     <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                         <Truck className="h-5 w-5 text-blue-600 dark:text-blue-400" />

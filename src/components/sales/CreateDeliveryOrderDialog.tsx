@@ -345,6 +345,29 @@ export function CreateDeliveryOrderDialog() {
             </div>
             </div>
 
+            {tariffRateType === 'PER_KG' && (suggestedCharge != null || suggestedCost != null) && (
+              <div className="text-xs rounded-md border bg-muted/40 px-3 py-2 space-y-0.5 text-muted-foreground">
+                {suggestedCost != null && (
+                  <p>
+                    Est. biaya oper.:{' '}
+                    <span className="font-medium text-foreground">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(suggestedCost)}
+                    </span>
+                    {' '}({estimatedWeightKg} kg × Rp {Number(overrideCostRate).toLocaleString('id-ID')})
+                  </p>
+                )}
+                {suggestedCharge != null && (
+                  <p>
+                    Est. charge customer:{' '}
+                    <span className="font-medium text-foreground">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(suggestedCharge)}
+                    </span>
+                    {' '}({estimatedWeightKg} kg × Rp {Number(overrideChargeRate).toLocaleString('id-ID')})
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
             <Label>Catatan</Label>
             <Textarea

@@ -10,7 +10,7 @@ import { Eye, Truck, ChevronRight } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { salesLabels, formLabels, getStatusLabel } from "@/lib/labels";
+import { salesLabels, formLabels } from "@/lib/labels";
 import { getDeliveryStatusLabel } from "@/lib/sales/delivery-status";
 
 interface DeliveryOrderTableProps {
@@ -116,17 +116,6 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
     [],
   );
 
-  const getStatusBadgeStyle = (status: string) => {
-    const styles: Record<string, string> = {
-      PENDING: "bg-yellow-100 text-yellow-800",
-      SHIPPED: "bg-blue-100 text-blue-800",
-      DELIVERED: "bg-green-100 text-green-800",
-      RETURNED: "bg-red-100 text-red-800",
-      CANCELLED: "bg-gray-100 text-gray-800",
-    };
-    return styles[status] || styles.PENDING;
-  };
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderMobileView = (orders: any[]) => (
     <>
@@ -156,12 +145,7 @@ export function DeliveryOrderTable({ initialData }: DeliveryOrderTableProps) {
                     </p>
                   </div>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] px-1.5 h-5 ${getStatusBadgeStyle(order.status)}`}
-                >
-                  {getStatusLabel(order.status, "sales")}
-                </Badge>
+                {getStatusBadge(order.status)}
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-1">
