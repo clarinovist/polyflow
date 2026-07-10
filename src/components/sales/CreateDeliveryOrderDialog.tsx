@@ -33,7 +33,12 @@ import { useRouter } from 'next/navigation';
 interface SalesOrder {
   id: string;
   orderNumber: string;
-  customer?: { name: string } | null;
+  customer?: {
+    name: string;
+    shippingAddress?: string | null;
+    billingAddress?: string | null;
+    defaultVehicleId?: string | null;
+  } | null;
 }
 
 interface Location {
@@ -71,6 +76,8 @@ export function CreateDeliveryOrderDialog() {
   const [notes, setNotes] = useState('');
   const [estimatedWeightKg, setEstimatedWeightKg] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
+  const [suggestedCharge, setSuggestedCharge] = useState<number | null>(null);
+  const [suggestedCost, setSuggestedCost] = useState<number | null>(null);
   // Tariff fields
   const [tariffRateType, setTariffRateType] = useState('');
   const [overrideCostRate, setOverrideCostRate] = useState('');
@@ -91,6 +98,22 @@ export function CreateDeliveryOrderDialog() {
   useEffect(() => {
     if (open) loadData();
   }, [open, loadData]);
+
+  const handleSalesOrderChange = (soId: string) => {
+    setSelectedSalesOrderId(soId);
+    const so = salesOrders.find(o => o.id === soId);
+    if (so?.customer) {
+      // Default destination from customer
+      if (!destinationAddress) {
+        setDestinationAddress(so.customer.shippingAddress || so.customer.billingAddress || '');
+      }
+      // Auto-select default vehicle
+      if (so.customer.defaultVehicleId && !selectedVehicleId) {
+        const v = vehicles.find(v => v.id === so.customer!.defaultVehicleId);
+        if (v) handleVehicleChange(so.customer.defaultVehicleId!);
+      }
+    }
+  };
 
   const handleVehicleChange = async (vehicleId: string) => {
     setSelectedVehicleId(vehicleId);
@@ -124,6 +147,8 @@ export function CreateDeliveryOrderDialog() {
     setOverrideChargeRate('');
     setEstimatedWeightKg('');
     setDestinationAddress('');
+    setSuggestedCharge(null);
+    setSuggestedCost(null);
   };
 
   const handleSubmit = async () => {
@@ -148,8 +173,8 @@ export function CreateDeliveryOrderDialog() {
         appliedRateType: tariffRateType || undefined,
         appliedCostRate: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
         appliedChargeRate: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
-        totalCost: overrideCostRate ? parseFloat(overrideCostRate) : undefined,
-        totalCharge: overrideChargeRate ? parseFloat(overrideChargeRate) : undefined,
+        totalCost: suggestedCost ?? (overrideCostRate ? parseFloat(overrideCostRate) : undefined),
+        totalCharge: suggestedCharge ?? (overrideChargeRate ? parseFloat(overrideChargeRate) : undefined),
         estimatedWeightKg: estimatedWeightKg ? parseFloat(estimatedWeightKg) : undefined,
         destinationAddress: destinationAddress || undefined,
       });
@@ -191,7 +216,7 @@ export function CreateDeliveryOrderDialog() {
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label>Sales Order *</Label>
-            <Select value={selectedSalesOrderId} onValueChange={setSelectedSalesOrderId}>
+            <Select value={selectedSalesOrderId} onValueChange={handleSalesOrderChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Sales Order..." />
               </SelectTrigger>

@@ -288,14 +288,12 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                 <p className="font-medium text-sm">{order.createdBy?.name || 'Sistem'}</p>
                             </div>
 
-                            {order.destinationAddress && (
-                                <div className="space-y-2">
-                                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                                        <MapPin className="h-3 w-3" /> Alamat Tujuan
-                                    </label>
-                                    <p className="font-medium text-sm">{order.destinationAddress}</p>
-                                </div>
-                            )}
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" /> Alamat Tujuan
+                                </label>
+                                <p className="font-medium text-sm">{order.destinationAddress || order.salesOrder?.customer?.shippingAddress || order.salesOrder?.customer?.billingAddress || '—'}</p>
+                            </div>
 
                             {order.estimatedWeightKg && (
                                 <div className="space-y-2">
