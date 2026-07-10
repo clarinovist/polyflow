@@ -8,7 +8,7 @@ import { ArrowLeft, Truck, User, Calendar, MapPin, CheckCircle2, Clock, Check, P
 import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
 import { SuratJalanDotMatrixPrint } from '@/components/sales/SuratJalanDotMatrixPrint';
 import Link from 'next/link';
-import { salesLabels, formLabels, actionLabels, getStatusLabel } from '@/lib/labels';
+import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
 import { updateDeliveryStatus } from '@/actions/inventory/deliveries';
@@ -242,7 +242,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                                     )}
                                                 </div>
                                                 <div className="text-slate-500 dark:text-slate-400">
-                                                    {isCompleted ? `Status tercapai: ${getStatusLabel(step.status, 'sales')}` : 'Menunggu...'}
+                                                    {isCompleted ? `Status tercapai: ${getDeliveryStatusLabel(step.status)}` : 'Menunggu...'}
                                                 </div>
                                             </div>
                                         </div>
