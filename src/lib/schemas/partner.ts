@@ -37,6 +37,7 @@ export const createCustomerSchema = z.object({
   city: z.string().optional(),
   district: z.string().optional(),
   village: z.string().optional(),
+  defaultVehicleId: z.string().optional().nullable(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial().extend({

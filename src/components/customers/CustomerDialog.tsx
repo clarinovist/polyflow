@@ -28,6 +28,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getVehicles } from "@/actions/sales/vehicles";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, MapPin, Navigation } from "lucide-react";
@@ -64,6 +72,7 @@ export function CustomerDialog({
   const open = externalOpen ?? internalOpen;
   const setOpen = externalOnOpenChange ?? setInternalOpen;
   const [isLocating, setIsLocating] = useState(false);
+  const [vehicles, setVehicles] = useState<{id: string; plateNumber: string; name: string}[]>([]);
   const router = useRouter();
 
   const reverseGeocode = async (lat: number, lng: number) => {
@@ -114,6 +123,13 @@ export function CustomerDialog({
     );
   };
 
+  // Load vehicles when dialog opens
+  useState(() => {
+    getVehicles({ status: 'ACTIVE' }).then((res) => {
+      if (res.success && res.data) setVehicles(res.data as {id: string; plateNumber: string; name: string}[]);
+    });
+  });
+
   const form = useForm<CreateCustomerValues | UpdateCustomerValues>({
     resolver: zodResolver(
       mode === "create" ? createCustomerSchema : updateCustomerSchema,
@@ -149,6 +165,7 @@ export function CustomerDialog({
             city: initialData.city || "",
             district: initialData.district || "",
             village: initialData.village || "",
+            defaultVehicleId: initialData.defaultVehicleId || null,
           }
         : {
             name: "",
@@ -169,6 +186,7 @@ export function CustomerDialog({
             city: "",
             district: "",
             village: "",
+            defaultVehicleId: null,
           },
   });
 
@@ -429,6 +447,36 @@ export function CustomerDialog({
                     </FormItem>
                   )}
                 />
+                {/* Default Vehicle */}
+                <FormField
+                  control={form.control}
+                  name="defaultVehicleId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kendaraan Default</FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(val === "__none" ? null : val)}
+                        value={field.value || "__none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih kendaraan (opsional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none">Tidak ada</SelectItem>
+                          {vehicles.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.plateNumber} — {v.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="village"
