@@ -37,10 +37,17 @@ export async function createClosingJournalEntry(
 
     totalNetIncome += isRevenue ? b.netBalance : -b.netBalance;
 
+    // Determine closing direction based on account type AND balance sign:
+    // - Revenue with positive balance (credit-normal): debit to close ✓
+    // - Revenue with negative balance (debit abnormal): credit to close
+    // - Expense with positive balance (debit-normal): credit to close ✓
+    // - Expense with negative balance (credit abnormal): debit to close
+    const needsDebit = isRevenue === (b.netBalance > 0);
+
     return {
       accountId: b.id,
-      debit: isRevenue ? amount : 0,
-      credit: isRevenue ? 0 : amount,
+      debit: needsDebit ? amount : 0,
+      credit: needsDebit ? 0 : amount,
       description: `Closing Entry for ${period.name}`,
     };
   });
