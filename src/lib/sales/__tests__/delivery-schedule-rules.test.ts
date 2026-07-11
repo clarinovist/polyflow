@@ -51,8 +51,8 @@ describe('delivery-schedule-rules', () => {
     it('ACTIVE → CLOSED allowed', () => {
       expect(canTransitionSchedule('ACTIVE', 'CLOSED')).toBe(true);
     });
-    it('CLOSED → ACTIVE blocked (phase 2)', () => {
-      expect(canTransitionSchedule('CLOSED', 'ACTIVE')).toBe(false);
+    it('CLOSED → ACTIVE allowed (reopen)', () => {
+      expect(canTransitionSchedule('CLOSED', 'ACTIVE')).toBe(true);
     });
     it('DRAFT → CLOSED blocked', () => {
       expect(canTransitionSchedule('DRAFT', 'CLOSED')).toBe(false);

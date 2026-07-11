@@ -33,6 +33,7 @@ import {
   generateDeliveryOrdersForTrip,
   removeOrderFromSchedule,
   listSchedulableSalesOrders,
+  deleteDeliverySchedule,
 } from '@/actions/sales/delivery-schedules';
 import { getVehicles } from '@/actions/sales/vehicles';
 
@@ -244,6 +245,24 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     } catch { toast.error('Gagal update status.'); } finally { setIsActionLoading(false); }
   };
 
+  const handleDeleteSchedule = async () => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus jadwal pengiriman ini? Semua data trip dan rencana kirim di dalamnya akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.')) return;
+    setIsActionLoading(true);
+    try {
+      const result = await deleteDeliverySchedule(schedule.id);
+      if (!result.success) {
+        toast.error(result.error || 'Gagal menghapus jadwal.');
+        return;
+      }
+      toast.success('Jadwal pengiriman berhasil dihapus.');
+      router.push('/sales/delivery-schedules');
+    } catch {
+      toast.error('Gagal menghapus jadwal.');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   const handleAddSO = async () => {
     if (!selectedSOId) { toast.error('Pilih Sales Order.'); return; }
     if (!selectedTripId) { toast.error('Pilih Trip / Hari Kirim.'); return; }
@@ -345,6 +364,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
 
   const totalPlannedKg = allStops.reduce((s, o) => s + (o.plannedWeightKg || 0), 0);
   const unlinkedCount = allStops.filter(o => !o.deliveryOrder).length;
+  const canDelete = allStops.length === unlinkedCount;
 
   const availableVehicles = vehicles;
 
@@ -366,6 +386,11 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
           </h1>
           <p className="text-muted-foreground">{formatDate(schedule.weekStart)} — {formatDate(schedule.weekEnd)}</p>
         </div>
+        {canDelete && (
+          <Button variant="destructive" onClick={handleDeleteSchedule} disabled={isActionLoading}>
+            <Trash2 className="h-4 w-4 mr-2" /> Hapus Jadwal
+          </Button>
+        )}
         {isDRAFT && (
           <Button onClick={() => handleStatusChange('ACTIVE')} disabled={isActionLoading}>
             <CheckCircle className="h-4 w-4 mr-2" /> Aktifkan
@@ -374,6 +399,11 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         {isEditable && !isDRAFT && (
           <Button onClick={() => handleStatusChange('CLOSED')} disabled={isActionLoading}>
             <CheckCircle className="h-4 w-4 mr-2" /> Tutup Minggu
+          </Button>
+        )}
+        {schedule.status === 'CLOSED' && (
+          <Button onClick={() => handleStatusChange('ACTIVE')} disabled={isActionLoading}>
+            <CheckCircle className="h-4 w-4 mr-2" /> Buka Kembali
           </Button>
         )}
       </div>

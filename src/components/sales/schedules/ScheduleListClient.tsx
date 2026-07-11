@@ -24,6 +24,14 @@ import {
 import { CalendarDays, Plus, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { createDeliverySchedule } from '@/actions/sales/delivery-schedules';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-yellow-100 text-yellow-800',
@@ -67,6 +75,8 @@ interface ScheduleListClientProps {
 export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
   const router = useRouter();
 
   const filtered = filterStatus === 'ALL'
@@ -75,15 +85,24 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
       ? schedules.filter((s) => ['ACTIVE', 'CONFIRMED', 'IN_TRANSIT'].includes(s.status))
       : schedules.filter((s) => s.status === filterStatus);
 
-  const handleCreate = async () => {
+  const handleCreate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedDate) {
+      toast.error('Silakan pilih tanggal terlebih dahulu.');
+      return;
+    }
     setIsCreating(true);
     try {
-      const result = await createDeliverySchedule();
+      const result = await createDeliverySchedule({
+        weekStart: new Date(selectedDate),
+      });
       if (!result.success) {
         toast.error(result.error || 'Gagal membuat jadwal.');
         return;
       }
       toast.success('Jadwal baru berhasil dibuat.');
+      setShowCreateModal(false);
+      setSelectedDate('');
       router.refresh();
     } catch {
       toast.error('Gagal membuat jadwal. Silakan coba lagi.');
@@ -121,9 +140,9 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                 <SelectItem value="CLOSED">Selesai</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={handleCreate} disabled={isCreating}>
+            <Button onClick={() => setShowCreateModal(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              {isCreating ? 'Membuat...' : 'Jadwal Baru'}
+              Jadwal Baru
             </Button>
           </div>
         </CardHeader>
@@ -207,7 +226,7 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
               <SelectItem value="CLOSED">Selesai</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleCreate} disabled={isCreating}>
+          <Button size="sm" onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-1" /> Baru
           </Button>
         </div>
@@ -241,6 +260,40 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
           })
         )}
       </div>
+
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleCreate} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Buat Jadwal Baru</DialogTitle>
+              <DialogDescription>
+                Pilih tanggal untuk minggu jadwal yang ingin dibuat.
+                Sistem akan otomatis menentukan awal (Senin) dan akhir (Minggu) minggu dari tanggal tersebut.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-4">
+              <label className="text-sm font-medium text-foreground">
+                Pilih Tanggal:
+              </label>
+              <input
+                type="date"
+                required
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                Batal
+              </Button>
+              <Button type="submit" disabled={isCreating || !selectedDate}>
+                {isCreating ? 'Membuat...' : 'Buat Jadwal'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

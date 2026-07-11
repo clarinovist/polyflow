@@ -1217,3 +1217,46 @@ export const generateDeliveryOrdersForTrip = withTenant(
     });
   }
 );
+
+/**
+ * Delete a delivery schedule.
+ * Allowed only if there are no generated/linked Surat Jalans.
+ */
+export const deleteDeliverySchedule = withTenant(
+  async function deleteDeliverySchedule(id: string) {
+    return safeAction(async () => {
+      await requireAuth();
+
+      const schedule = await prisma.deliverySchedule.findUnique({
+        where: { id },
+        include: {
+          trips: {
+            include: {
+              orders: true,
+            },
+          },
+        },
+      });
+      if (!schedule) throw new NotFoundError("Jadwal Kirim", id);
+
+      // Check if there are any generated/linked Surat Jalans
+      const hasGeneratedSJ = schedule.trips.some(trip =>
+        trip.orders.some(order => order.deliveryOrderId !== null)
+      );
+      if (hasGeneratedSJ) {
+        throw new BusinessRuleError(
+          "Tidak dapat menghapus jadwal karena sudah ada Surat Jalan yang dibuat/dihubungkan. Batalkan atau hapus Surat Jalan terlebih dahulu."
+        );
+      }
+
+      // Safe to delete, Cascade onDelete handles the child records
+      await prisma.deliverySchedule.delete({
+        where: { id },
+      });
+
+      revalidatePath('/sales/delivery-schedules');
+      return { success: true };
+    });
+  }
+);
+

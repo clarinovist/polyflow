@@ -37,7 +37,7 @@ export function normalizeScheduleStatus(status: ScheduleStatus): 'DRAFT' | 'ACTI
 const SCHEDULE_TRANSITIONS: Record<string, string[]> = {
   DRAFT: ['ACTIVE'],
   ACTIVE: ['CLOSED'],
-  CLOSED: [], // reopen → ACTIVE is phase 2
+  CLOSED: ['ACTIVE'], // reopen -> ACTIVE
 };
 
 /**
