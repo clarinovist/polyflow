@@ -415,25 +415,28 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         <CardContent>
           {/* Add SO form */}
           {showAddSO && (
-            <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
+            <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-4">
+              {/* Row 1: Sales Order */}
+              <div className="space-y-1.5 w-full">
+                <label className="text-sm font-medium text-muted-foreground">Sales Order</label>
+                <Select value={selectedSOId} onValueChange={setSelectedSOId}>
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue placeholder="Pilih SO (sisa qty > 0)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schedulableSOs.map(so => (
+                      <SelectItem key={so.id} value={so.id}>
+                        {so.orderNumber} — {so.customer?.name || 'N/A'}
+                        {so.alreadyPlanned ? ' ⚠️ sudah dijadwalkan' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Row 2: Trip / Hari Kirim, Berat Rencana, Buttons */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <div className="space-y-1.5 md:col-span-5">
-                  <label className="text-sm font-medium text-muted-foreground">Sales Order</label>
-                  <Select value={selectedSOId} onValueChange={setSelectedSOId}>
-                    <SelectTrigger className="w-full h-10">
-                      <SelectValue placeholder="Pilih SO (sisa qty > 0)..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schedulableSOs.map(so => (
-                        <SelectItem key={so.id} value={so.id}>
-                          {so.orderNumber} — {so.customer?.name || 'N/A'}
-                          {so.alreadyPlanned ? ' ⚠️ sudah dijadwalkan' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5 md:col-span-3">
+                <div className="space-y-1.5 md:col-span-6">
                   <label className="text-sm font-medium text-muted-foreground">Trip / Hari Kirim</label>
                   <Select value={selectedTripId} onValueChange={setSelectedTripId}>
                     <SelectTrigger className="w-full h-10">
@@ -451,7 +454,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5 md:col-span-2">
+                <div className="space-y-1.5 md:col-span-3">
                   <label className="text-sm font-medium text-muted-foreground">Berat Rencana (kg, opsional)</label>
                   <input
                     type="number"
@@ -461,7 +464,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
-                <div className="flex gap-2 md:col-span-2 h-10 items-center justify-end">
+                <div className="flex gap-2 md:col-span-3 h-10 items-center justify-end">
                   <Button
                     onClick={handleAddSO}
                     disabled={isActionLoading || !selectedSOId || !selectedTripId}
