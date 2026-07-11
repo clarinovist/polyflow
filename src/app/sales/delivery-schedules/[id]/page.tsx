@@ -32,6 +32,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
       orders: sv.orders.map((so: any) => ({
         ...so,
         createdAt: so.createdAt.toISOString(),
+        plannedWeightKg: so.plannedWeightKg ? Number(so.plannedWeightKg) : null,
         // Legacy path: stop has deliveryOrder
         ...(so.deliveryOrder ? {
           deliveryOrder: {

@@ -71,7 +71,9 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
 
   const filtered = filterStatus === 'ALL'
     ? schedules
-    : schedules.filter((s) => s.status === filterStatus);
+    : filterStatus === 'ACTIVE'
+      ? schedules.filter((s) => ['ACTIVE', 'CONFIRMED', 'IN_TRANSIT'].includes(s.status))
+      : schedules.filter((s) => s.status === filterStatus);
 
   const handleCreate = async () => {
     setIsCreating(true);

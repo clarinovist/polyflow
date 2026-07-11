@@ -89,11 +89,6 @@ function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 }
 
-function getWeekDayNames(weekStart: string): string[] {
-  const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-  return days;
-}
-
 function isSameDay(date1: string | null, date2: Date): boolean {
   if (!date1) return false;
   const d1 = new Date(date1);
@@ -309,7 +304,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const unlinkedStops = trips.reduce((sum, t) => sum + t.orders.filter(o => o.status === 'PLANNED').length, 0);
   const totalCharge = trips.reduce((sum, t) => sum + t.orders.reduce((s, o) => s + (o.deliveryOrder?.totalCharge || 0), 0), 0);
 
-  const availableVehicles = vehicles.filter(v => !trips.some(t => t.vehicleId === v.id && t.status !== 'CANCELLED'));
+  // All active vehicles — backend handles duplicate vehicle+date check
+  const availableVehicles = vehicles;
 
   // ============================================
   // Render
@@ -361,8 +357,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         </CardContent></Card>
       </div>
 
-      {/* Create Trip (only in DRAFT) */}
-      {isDRAFT && (
+      {/* Create Trip (DRAFT + ACTIVE) */}
+      {(isDRAFT || schedule.status === 'ACTIVE' || schedule.status === 'CONFIRMED' || schedule.status === 'IN_TRANSIT') && (
         <Card>
           <CardHeader><CardTitle className="text-base flex items-center gap-2">
             <Truck className="h-4 w-4" /> Tambah Trip Baru
@@ -470,7 +466,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                       <Button size="sm" variant="outline" onClick={() => { setSelectedTripId(trip.id); setIsAssignSOOpen(true); }}>
                         <Plus className="h-3 w-3 mr-1" /> Tambah dari SO
                       </Button>
-                      {unlinked === 0 && stopCount > 0 && (
+                      {unlinked > 0 && (
                         <Button size="sm" variant="outline" onClick={() => handleGenerateDO(trip.id)} disabled={isActionLoading}>
                           <FileText className="h-3 w-3 mr-1" /> Buat Semua SJ
                         </Button>
@@ -511,9 +507,16 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                             <TableCell><Badge className={STOP_STATUS_STYLES[stop.status]}>{STOP_STATUS_LABELS[stop.status]}</Badge></TableCell>
                             {isEditable && (
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="sm" onClick={() => handleRemoveStop(stop.id)} disabled={isActionLoading}>
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
+                                <div className="flex gap-1 justify-end">
+                                  {!stop.deliveryOrder && stop.salesOrder && (
+                                    <Button variant="ghost" size="sm" onClick={() => handleGenerateDO(trip.id)} disabled={isActionLoading} title="Buat SJ">
+                                      <FileText className="h-3 w-3 text-blue-500" />
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="sm" onClick={() => handleRemoveStop(stop.id)} disabled={isActionLoading}>
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             )}
                           </TableRow>
@@ -579,12 +582,6 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         </Card>
       )}
 
-      {/* Create Trip button for non-DRAFT */}
-      {!isDRAFT && trips.length > 0 && (
-        <div className="flex justify-center">
-          <p className="text-sm text-muted-foreground">Trip baru hanya bisa ditambahkan saat status Draft.</p>
-        </div>
-      )}
     </div>
   );
 }
