@@ -320,7 +320,7 @@ describe("createDeliveryOrderFromSalesOrder", () => {
     });
 
     const createCall = vi.mocked(prisma.deliveryOrder.create).mock.calls[0][0];
-    const items = createCall.data.items.create;
+    const items = (createCall?.data?.items as any)?.create;
     expect(items).toHaveLength(2);
     expect(items.every((i: { productVariantId: string }) => i.productVariantId !== "pv-svc")).toBe(true);
   });
@@ -348,7 +348,7 @@ describe("createDeliveryOrderFromSalesOrder", () => {
     });
 
     const createCall = vi.mocked(prisma.deliveryOrder.create).mock.calls[0][0];
-    const items = createCall.data.items.create as Array<{ productVariantId: string; quantity: number }>;
+    const items = (createCall?.data?.items as any)?.create as Array<{ productVariantId: string; quantity: number }>;
     expect(items).toHaveLength(1);
     expect(items[0].productVariantId).toBe("pv-1");
     expect(items[0].quantity).toBe(70);
@@ -367,7 +367,7 @@ describe("commitDeliveryShipment", () => {
     const doRecord = makeDeliveryOrder({ status: DeliveryStatus.PENDING });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
     vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
-    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(undefined);
+    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(0);
     vi.mocked(InventoryCoreService.deductStock).mockResolvedValue(undefined);
     vi.mocked(prisma.stockMovement.create).mockResolvedValue({ id: "mv-1" } as never);
     vi.mocked(AccountingService.recordInventoryMovement).mockResolvedValue(undefined);
@@ -404,7 +404,7 @@ describe("commitDeliveryShipment", () => {
     const doRecord = makeDeliveryOrder({ status: DeliveryStatus.LOADING });
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
     vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
-    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(undefined);
+    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(0);
     vi.mocked(InventoryCoreService.deductStock).mockResolvedValue(undefined);
     vi.mocked(prisma.stockMovement.create).mockResolvedValue({ id: "mv-1" } as never);
     vi.mocked(AccountingService.recordInventoryMovement).mockResolvedValue(undefined);
@@ -474,7 +474,7 @@ describe("commitDeliveryShipment", () => {
       ] as never)
       .mockResolvedValueOnce([]);
     vi.mocked(prisma.stockReservation.update).mockResolvedValue({} as never);
-    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(undefined);
+    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(0);
     vi.mocked(InventoryCoreService.deductStock).mockResolvedValue(undefined);
     vi.mocked(prisma.stockMovement.create).mockResolvedValue({ id: "mv-1" } as never);
     vi.mocked(AccountingService.recordInventoryMovement).mockResolvedValue(undefined);
@@ -517,7 +517,7 @@ describe("commitDeliveryShipment", () => {
 
     vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue(doRecord as never);
     vi.mocked(prisma.stockReservation.findMany).mockResolvedValue([]);
-    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(undefined);
+    vi.mocked(InventoryCoreService.validateAndLockStock).mockResolvedValue(0);
     vi.mocked(InventoryCoreService.deductStock).mockResolvedValue(undefined);
     vi.mocked(prisma.stockMovement.create).mockResolvedValue({ id: "mv-1" } as never);
     vi.mocked(AccountingService.recordInventoryMovement).mockResolvedValue(undefined);

@@ -99,6 +99,11 @@ export const getDeliverySchedule = withTenant(
                   salesOrder: {
                     include: {
                       customer: { select: { id: true, name: true } },
+                      items: {
+                        include: {
+                          productVariant: { select: { id: true, name: true, skuCode: true, primaryUnit: true } },
+                        },
+                      },
                     },
                   },
                   deliveryOrder: {
@@ -106,6 +111,11 @@ export const getDeliverySchedule = withTenant(
                       salesOrder: {
                         include: {
                           customer: { select: { id: true, name: true } },
+                          items: {
+                            include: {
+                              productVariant: { select: { id: true, name: true, skuCode: true, primaryUnit: true } },
+                            },
+                          },
                         },
                       },
                     },
@@ -585,8 +595,19 @@ export const listSchedulableSalesOrders = withTenant(
           customer: { select: { id: true, name: true } },
           items: {
             select: {
+              id: true,
               quantity: true,
               deliveredQty: true,
+              enteredQuantity: true,
+              enteredUnit: true,
+              productVariant: {
+                select: {
+                  id: true,
+                  name: true,
+                  skuCode: true,
+                  primaryUnit: true,
+                },
+              },
             },
           },
           scheduleStops: {
@@ -628,6 +649,14 @@ export const listSchedulableSalesOrders = withTenant(
             alreadyPlanned,
             multiStop,
             plannedCount: relevantStops.length,
+            items: so.items.map((item) => ({
+              id: item.id,
+              quantity: Number(item.quantity),
+              deliveredQty: Number(item.deliveredQty),
+              enteredQuantity: item.enteredQuantity ? Number(item.enteredQuantity) : null,
+              enteredUnit: item.enteredUnit,
+              productVariant: item.productVariant,
+            })),
           };
         })
     });

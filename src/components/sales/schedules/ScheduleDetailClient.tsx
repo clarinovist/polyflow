@@ -82,6 +82,14 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function formatDateWithDay(dateStr: string | null | Date): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const dayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+  const formattedDate = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${dayName}, ${formattedDate}`;
+}
+
 // ============================================
 // Interfaces
 // ============================================
@@ -95,6 +103,20 @@ interface Vehicle {
   status: string;
 }
 
+interface StopItem {
+  id: string;
+  quantity: number;
+  deliveredQty: number;
+  enteredQuantity: number | null;
+  enteredUnit: string | null;
+  productVariant: {
+    id: string;
+    name: string;
+    skuCode: string;
+    primaryUnit: string;
+  };
+}
+
 interface Stop {
   id: string;
   status: string;
@@ -106,11 +128,18 @@ interface Stop {
     orderNumber: string;
     totalCharge: number | null;
     status: string;
+    salesOrder?: {
+      id: string;
+      orderNumber: string;
+      customer?: { id: string; name: string } | null;
+      items: StopItem[];
+    } | null;
   } | null;
   salesOrder?: {
     id: string;
     orderNumber: string;
     customer?: { id: string; name: string } | null;
+    items: StopItem[];
   } | null;
 }
 
@@ -141,6 +170,7 @@ interface SchedulableSO {
   customer: { id: string; name: string } | null;
   remainingQty: number;
   alreadyPlanned: boolean;
+  items: StopItem[];
 }
 
 // ============================================
@@ -151,6 +181,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [schedulableSOs, setSchedulableSOs] = useState<SchedulableSO[]>([]);
   const [selectedSOId, setSelectedSOId] = useState('');
+  const [selectedTripId, setSelectedTripId] = useState('');
   const [plannedWeight, setPlannedWeight] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [showAddSO, setShowAddSO] = useState(false);
@@ -171,6 +202,21 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   }, [schedule]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (selectedSOId) {
+      const so = schedulableSOs.find(s => s.id === selectedSOId);
+      if (so) {
+        const totalRemaining = so.items.reduce((sum, item) => {
+          const rem = Number(item.quantity) - Number(item.deliveredQty);
+          return sum + (rem > 0 ? rem : 0);
+        }, 0);
+        setPlannedWeight(totalRemaining > 0 ? Math.round(totalRemaining).toString() : '');
+      }
+    } else {
+      setPlannedWeight('');
+    }
+  }, [selectedSOId, schedulableSOs]);
 
   // ============================================
   // All stops flattened from trips
@@ -200,23 +246,16 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
 
   const handleAddSO = async () => {
     if (!selectedSOId) { toast.error('Pilih Sales Order.'); return; }
+    if (!selectedTripId) { toast.error('Pilih Trip / Hari Kirim.'); return; }
     setIsActionLoading(true);
     try {
-      // Add SO as a stop on first trip, or create a standalone stop
-      const firstTrip = trips.find(t => t.status === 'PLANNED' || t.status === 'CONFIRMED');
-      if (firstTrip) {
-        const result = await assignSalesOrderToTrip(firstTrip.id, {
-          salesOrderId: selectedSOId,
-          plannedWeightKg: plannedWeight ? parseFloat(plannedWeight) : undefined,
-        });
-        if (!result.success) { toast.error(result.error || 'Gagal menambah SO.'); return; }
-      } else {
-        // No trip yet — need to create one first or assign to a trip
-        toast.error('Buat trip terlebih dahulu sebelum menambah SO.');
-        return;
-      }
+      const result = await assignSalesOrderToTrip(selectedTripId, {
+        salesOrderId: selectedSOId,
+        plannedWeightKg: plannedWeight ? parseFloat(plannedWeight) : undefined,
+      });
+      if (!result.success) { toast.error(result.error || 'Gagal menambah SO.'); return; }
       toast.success('SO berhasil ditambahkan.');
-      setShowAddSO(false); setSelectedSOId(''); setPlannedWeight('');
+      setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); setPlannedWeight('');
       router.refresh();
     } catch { toast.error('Gagal menambah SO.'); } finally { setIsActionLoading(false); }
   };
@@ -376,8 +415,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
         <CardContent>
           {/* Add SO form */}
           {showAddSO && (
-            <div className="mb-4 p-4 border rounded-lg bg-muted/30">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Sales Order</label>
                   <Select value={selectedSOId} onValueChange={setSelectedSOId}>
@@ -393,18 +432,58 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                   </Select>
                 </div>
                 <div className="space-y-1">
+                  <label className="text-sm font-medium">Trip / Hari Kirim</label>
+                  <Select value={selectedTripId} onValueChange={setSelectedTripId}>
+                    <SelectTrigger><SelectValue placeholder="Pilih trip & hari..." /></SelectTrigger>
+                    <SelectContent>
+                      {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.vehicle.plateNumber} — {formatDateWithDay(t.departureDate)}
+                        </SelectItem>
+                      ))}
+                      {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').length === 0 && (
+                        <SelectItem value="_empty" disabled>Buat trip terlebih dahulu...</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
                   <label className="text-sm font-medium">Berat Rencana (kg, opsional)</label>
                   <input type="number" value={plannedWeight} onChange={e => setPlannedWeight(e.target.value)}
                     placeholder="Contoh: 1200" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={handleAddSO} disabled={isActionLoading || !selectedSOId}>
+                  <Button onClick={handleAddSO} disabled={isActionLoading || !selectedSOId || !selectedTripId}>
                     <Plus className="h-3 w-3 mr-1" /> Tambah
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowAddSO(false); setSelectedSOId(''); }}>Batal</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); }}>Batal</Button>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              {selectedSOId && (() => {
+                const so = schedulableSOs.find(s => s.id === selectedSOId);
+                if (!so) return null;
+                return (
+                  <div className="p-3 bg-muted/50 rounded-md border border-border/50 text-xs">
+                    <p className="font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5" /> Detail Barang & Sisa Qty di SO:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {so.items.map((item) => {
+                        const rem = Number(item.quantity) - Number(item.deliveredQty);
+                        return (
+                          <div key={item.id} className="flex justify-between border-b border-border/30 pb-1">
+                            <span className="font-medium text-foreground">{item.productVariant.name}</span>
+                            <span className="text-muted-foreground">
+                              {rem.toLocaleString('id-ID')} / {Number(item.quantity).toLocaleString('id-ID')} {item.productVariant.primaryUnit}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+              <p className="text-xs text-muted-foreground">
                 SO yang ditambahkan akan masuk rencana minggu ini. Selanjutnya tentukan truk & tanggal di section Trip.
               </p>
             </div>
@@ -433,8 +512,26 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 {allStops.map((stop, idx) => (
                   <TableRow key={stop.id}>
                     <TableCell>{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{stop.salesOrder?.orderNumber || '-'}</TableCell>
-                    <TableCell>{stop.salesOrder?.customer?.name || '-'}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{stop.salesOrder?.orderNumber || stop.deliveryOrder?.orderNumber || '-'}</div>
+                      {(() => {
+                        const items = stop.salesOrder?.items || stop.deliveryOrder?.salesOrder?.items;
+                        if (!items || items.length === 0) return null;
+                        return (
+                          <div className="text-[10px] text-muted-foreground font-normal mt-1 leading-tight space-y-0.5 max-w-[200px]">
+                            {items.map((item) => {
+                              const rem = Number(item.quantity) - Number(item.deliveredQty);
+                              return (
+                                <div key={item.id} className="truncate" title={`${item.productVariant.name} (${rem.toLocaleString('id-ID')} ${item.productVariant.primaryUnit} sisa)`}>
+                                  • {item.productVariant.name} ({rem.toLocaleString('id-ID')} {item.productVariant.primaryUnit} sisa)
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>{stop.salesOrder?.customer?.name || stop.deliveryOrder?.salesOrder?.customer?.name || '-'}</TableCell>
                     <TableCell className="text-right">{stop.plannedWeightKg ? `${stop.plannedWeightKg.toLocaleString('id-ID')} kg` : '-'}</TableCell>
                     <TableCell>
                       {stop.deliveryOrder ? (
@@ -445,9 +542,11 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     </TableCell>
                     <TableCell>
                       {stop.tripId ? (
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-xs">{stop.tripPlate}</Badge>
-                          {stop.tripDate && <span className="text-xs text-muted-foreground">{formatDate(stop.tripDate)}</span>}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-xs">{stop.tripPlate}</Badge>
+                          </div>
+                          {stop.tripDate && <span className="text-[10px] text-muted-foreground">{formatDateWithDay(stop.tripDate)}</span>}
                         </div>
                       ) : (
                         <div className="flex items-center gap-1">
@@ -457,7 +556,9 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                               <SelectTrigger className="h-6 w-24 text-xs"><SelectValue placeholder="Atur" /></SelectTrigger>
                               <SelectContent>
                                 {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
-                                  <SelectItem key={t.id} value={t.id}>{t.vehicle.plateNumber}</SelectItem>
+                                  <SelectItem key={t.id} value={t.id}>
+                                    {t.vehicle.plateNumber} ({formatDateWithDay(t.departureDate)})
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -552,7 +653,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                         <span className="text-muted-foreground">— {trip.vehicle.name}</span>
                         {trip.vehicle.driverName && <Badge variant="outline">{trip.vehicle.driverName}</Badge>}
                         <Badge className={TRIP_STATUS_STYLES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
-                        {trip.departureDate && <span className="text-sm text-muted-foreground">📅 {formatDate(trip.departureDate)}</span>}
+                        {trip.departureDate && <span className="text-sm text-muted-foreground">📅 {formatDateWithDay(trip.departureDate)}</span>}
                         {trip.routeName && <span className="text-sm text-muted-foreground">🗺 {trip.routeName}</span>}
                       </div>
                       <div className="flex gap-1 items-center">
