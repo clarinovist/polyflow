@@ -219,6 +219,67 @@ export const reverseJournal = withTenant(async function reverseJournal(
   });
 });
 
+export const updateManualJournal = withTenant(
+  async function updateManualJournal(
+    id: string,
+    data: ManualJournalValues,
+    post: boolean = false,
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Validate Input
+      const validation = manualJournalSchema.safeParse(data);
+      if (!validation.success) {
+        throw new ValidationError(validation.error.issues[0].message);
+      }
+
+      try {
+        const result = await AccountingService.updateDraftJournal(
+          id,
+          {
+            entryDate: data.entryDate,
+            description: data.description,
+            reference: data.reference ?? "",
+            lines: data.lines.map((l) => ({
+              accountId: l.accountId,
+              debit: l.debit,
+              credit: l.credit,
+              description: l.description || data.description,
+            })),
+          },
+          session.user.id,
+        );
+
+        if (post && result?.id) {
+          await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        await logActivity({
+          userId: session.user.id,
+          action: post ? "UPDATE_AND_POST_JOURNAL" : "UPDATE_DRAFT_JOURNAL",
+          entityType: "JournalEntry",
+          entityId: id,
+          details: `Updated draft journal ${result?.entryNumber}`,
+        });
+
+        revalidatePath("/finance/journals");
+        revalidatePath(`/finance/journals/${id}`);
+        revalidatePath("/finance/reports/balance-sheet");
+        revalidatePath("/finance/reports/trial-balance");
+
+        return {
+          message: `Journal entry updated ${post ? "and posted " : ""}successfully`,
+        };
+      } catch (error) {
+        throw new BusinessRuleError(
+          error instanceof Error ? error.message : "Failed to update journal",
+        );
+      }
+    });
+  },
+);
+
 export const closePeriod = withTenant(async function closePeriod(
   periodEndDate: Date,
 ) {

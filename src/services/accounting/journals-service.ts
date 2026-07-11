@@ -16,6 +16,7 @@ export {
   voidJournal,
   reverseJournal,
   createBulkJournalEntries,
+  updateDraftJournal,
 } from "./journal-posting";
 
 export { getJournals, getJournalById } from "./journal-queries";

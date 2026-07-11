@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { manualJournalSchema, ManualJournalValues } from '@/lib/schemas/journal';
-import { createManualJournal } from '@/actions/finance/journal';
+import { createManualJournal, updateManualJournal } from '@/actions/finance/journal';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,14 +28,26 @@ interface Account {
     name: string;
 }
 
-export default function ManualJournalForm({ accounts }: { accounts: Account[] }) {
+interface ManualJournalFormProps {
+    accounts: Account[];
+    mode?: 'create' | 'edit';
+    journalId?: string;
+    defaultValues?: ManualJournalValues;
+}
+
+export default function ManualJournalForm({
+    accounts,
+    mode = 'create',
+    journalId,
+    defaultValues,
+}: ManualJournalFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const form = useForm<ManualJournalValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(manualJournalSchema) as any,
-        defaultValues: {
+        defaultValues: defaultValues || {
             entryDate: new Date(),
             description: '',
             reference: '',
@@ -86,16 +98,30 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
     async function onSubmit(data: ManualJournalValues, post: boolean) {
         setLoading(true);
         try {
-            const result = await createManualJournal(data, post);
+            let result;
+            if (mode === 'edit' && journalId) {
+                result = await updateManualJournal(journalId, data, post);
+            } else {
+                result = await createManualJournal(data, post);
+            }
+
             if (result.success) {
-                toast.success(post ? 'Jurnal Entri berhasil dibuat dan diposting.' : 'Jurnal Entri disimpan sebagai DRAFT.');
-                router.push('/finance/journals');
+                const action = mode === 'edit' ? 'diperbarui' : 'dibuat';
+                toast.success(post
+                    ? `Jurnal Entri berhasil ${action} dan diposting.`
+                    : `Jurnal Entri berhasil ${action} (DRAFT).`
+                );
+                if (mode === 'edit' && journalId) {
+                    router.push(`/finance/journals/${journalId}`);
+                } else {
+                    router.push('/finance/journals');
+                }
                 router.refresh();
             } else {
-                toast.error(result.error || 'Gagal membuat jurnal');
+                toast.error(result.error || 'Gagal memproses jurnal');
             }
         } catch (_error) {
-            toast.error('Gagal membuat jurnal. Periksa koneksi Anda dan coba lagi.');
+            toast.error('Gagal memproses jurnal. Periksa koneksi Anda dan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -107,7 +133,6 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
     return (
         <Form {...form}>
             <form onSubmit={handleSaveDraft} className="space-y-6">
-
                 {/* Header Section */}
                 <div className="grid gap-4 md:grid-cols-3">
                     <FormField
@@ -346,6 +371,16 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                 </Card>
 
                 <div className="flex justify-end gap-3">
+                    {mode === 'edit' && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={loading}
+                            onClick={() => router.back()}
+                        >
+                            Batal
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         variant="outline"
@@ -353,7 +388,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                         onClick={handleSaveDraft}
                     >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save as Draft
+                        {mode === 'edit' ? 'Simpan Draft' : 'Save as Draft'}
                     </Button>
                     <Button
                         type="button"
@@ -361,7 +396,7 @@ export default function ManualJournalForm({ accounts }: { accounts: Account[] })
                         onClick={handleSavePost}
                     >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save & Post
+                        {mode === 'edit' ? 'Simpan & Post' : 'Save & Post'}
                     </Button>
                 </div>
             </form>

@@ -6,6 +6,7 @@ import {
     voidJournal,
     reverseJournal,
     createBulkJournalEntries,
+    updateDraftJournal,
     getJournals,
     getJournalById,
     createYearEndClosingEntry
@@ -52,6 +53,18 @@ export class AccountingService {
 
     static async createBulkJournalEntries(data: CreateJournalEntryInput[]) {
         return createBulkJournalEntries(data);
+    }
+
+    /**
+     * Update a DRAFT journal entry (header + lines replace atomically)
+     */
+    static async updateDraftJournal(id: string, input: {
+        entryDate: Date;
+        description: string;
+        reference?: string;
+        lines: { accountId: string; debit: number; credit: number; description?: string }[];
+    }, userId?: string) {
+        return updateDraftJournal(id, input, userId);
     }
 
     static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
