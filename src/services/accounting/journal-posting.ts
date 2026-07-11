@@ -383,11 +383,13 @@ export async function createBulkJournalEntries(
 async function generateEntryNumber(
   date: Date,
   tx?: Prisma.TransactionClient,
+  _retryCount = 0,
 ): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = (tx || prisma) as any;
   const year = date.getFullYear();
   const key = `JOURNAL_ENTRY_${year}`;
+  const MAX_RETRIES = 5;
 
   const fastForwardSequence = async (targetValue: number) => {
     console.warn(
@@ -435,19 +437,26 @@ async function generateEntryNumber(
     return candidate;
   } catch (error) {
     if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
+      error instanceof Prisma.PrismaClientKnownRequestError
     ) {
-      const maxNum = await findMaxEntryNumber();
-      const startValue = maxNum + 1;
+      if (error.code === "P2002" && _retryCount < MAX_RETRIES) {
+        // Unique constraint hit — race condition, retry with fresh sequence
+        console.warn(`[JournalService] entryNumber collision, retrying (${_retryCount + 1}/${MAX_RETRIES})`);
+        return generateEntryNumber(date, tx, _retryCount + 1);
+      }
+      if (error.code === "P2025") {
+        // Sequence not found — upsert and retry
+        const maxNum = await findMaxEntryNumber();
+        const startValue = maxNum + 1;
 
-      const sequence = await db.systemSequence.upsert({
-        where: { key },
-        update: { value: { increment: 1 } },
-        create: { key, value: BigInt(startValue + 1) },
-      });
-      const currentVal = Number(sequence.value) - 1;
-      return `JE - ${year} -${currentVal.toString().padStart(5, "0")}`;
+        const sequence = await db.systemSequence.upsert({
+          where: { key },
+          update: { value: { increment: 1 } },
+          create: { key, value: BigInt(startValue + 1) },
+        });
+        const currentVal = Number(sequence.value) - 1;
+        return `JE - ${year} -${currentVal.toString().padStart(5, "0")}`;
+      }
     }
     throw error;
   }
