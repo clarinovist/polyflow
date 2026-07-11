@@ -18,9 +18,10 @@ import {
   isDOAlreadyAssigned,
   validateStopHasSource,
 } from '@/lib/sales/delivery-schedule-rules';
-import { ScheduleStatus, TripStatus, Prisma } from '@prisma/client';
+import { ScheduleStatus, TripStatus, RateType, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { createScheduleTripSchema, assignSalesOrderToTripSchema } from '@/lib/schemas/sales';
+import { logActivity } from '@/lib/tools/audit';
 
 // ============================================
 // Helpers
@@ -912,6 +913,356 @@ export const removeOrderFromSchedule = withTenant(
         revalidatePath(`/sales/delivery-schedules/${sv.scheduleId}`);
       }
       return { success: true };
+    });
+  }
+);
+
+// ============================================
+// Generate / Link Surat Jalan (Phase 3)
+// ============================================
+
+/**
+ * Generate DO number: DO-YYYY-NNNN
+ */
+async function generateDeliveryOrderNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const lastDo = await prisma.deliveryOrder.findFirst({
+    where: { orderNumber: { startsWith: `DO-${year}-` } },
+    orderBy: { createdAt: 'desc' },
+    select: { orderNumber: true },
+  });
+
+  let nextNum = 1;
+  if (lastDo?.orderNumber) {
+    const parts = lastDo.orderNumber.split('-');
+    if (parts.length === 3) {
+      nextNum = parseInt(parts[2], 10) + 1;
+    }
+  }
+  return `DO-${year}-${nextNum.toString().padStart(4, '0')}`;
+}
+
+/**
+ * Generate a Delivery Order from a planned stop.
+ * R-D2: Reuses create DO logic — items from SO full remaining.
+ * R-D3: Fills vehicleId, destinationAddress, estimatedWeightKg, appliedRouteName from trip.
+ * R-D4: After create, applies tariff snapshot + shipping sync.
+ */
+export const generateDeliveryOrderFromStop = withTenant(
+  async function generateDeliveryOrderFromStop(
+    stopId: string,
+    options?: { sourceLocationId?: string }
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Load stop with full context
+      const stop = await prisma.deliveryScheduleOrder.findUnique({
+        where: { id: stopId },
+        include: {
+          salesOrder: { include: { items: true, customer: true } },
+          deliveryOrder: true,
+          scheduleVehicle: {
+            include: { vehicle: true, schedule: true },
+          },
+        },
+      });
+      if (!stop) throw new NotFoundError("Stop", stopId);
+      if (stop.status === 'CANCELLED') {
+        throw new BusinessRuleError('Stop sudah dibatalkan.');
+      }
+      if (stop.deliveryOrderId) {
+        throw new BusinessRuleError('Stop sudah memiliki Surat Jalan.');
+      }
+      if (!stop.salesOrderId || !stop.salesOrder) {
+        throw new BusinessRuleError('Stop tidak memiliki Sales Order. Link DO manual atau assign SO terlebih dahulu.');
+      }
+
+      const so = stop.salesOrder;
+      const trip = stop.scheduleVehicle;
+
+      // sourceLocationId: from options → SO → throw
+      const sourceLocationId = options?.sourceLocationId || so.sourceLocationId;
+      if (!sourceLocationId) {
+        throw new BusinessRuleError(
+          'Lokasi sumber (sourceLocationId) tidak ditemukan. Pilih lokasi gudang.'
+        );
+      }
+
+      // Generate DO number
+      const doNumber = await generateDeliveryOrderNumber();
+
+      // Create DO with items from SO (full remaining — partial line qty = Phase 6)
+      const deliveryOrder = await prisma.deliveryOrder.create({
+        data: {
+          orderNumber: doNumber,
+          salesOrderId: stop.salesOrderId,
+          sourceLocationId,
+          status: 'PENDING',
+          deliveryDate: new Date(),
+          createdById: session.user.id,
+          vehicleId: trip.vehicleId,
+          estimatedWeightKg: stop.plannedWeightKg ?? null,
+          appliedRouteName: trip.routeName ?? null,
+          destinationAddress: so.customer?.address || null,
+          items: {
+            create: so.items.map((item) => ({
+              productVariantId: item.productVariantId,
+              quantity: item.quantity,
+              enteredQuantity: item.enteredQuantity,
+              enteredUnit: item.enteredUnit,
+              conversionFactorSnapshot: item.conversionFactorSnapshot,
+            })),
+          },
+        },
+      });
+
+      // Apply tariff snapshot (same logic as assignOrderToSchedule)
+      const now = new Date();
+      const routeKey = trip.routeName?.trim() || null;
+
+      const candidates = await prisma.vehicleTariff.findMany({
+        where: {
+          vehicleId: trip.vehicleId,
+          validFrom: { lte: now },
+          OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+        },
+        orderBy: { validFrom: 'desc' },
+      });
+
+      let tariff = null;
+      if (routeKey) {
+        tariff = candidates.find((t) => t.routeName?.trim().toLowerCase() === routeKey.toLowerCase());
+      }
+      if (!tariff) tariff = candidates.find((t) => !t.routeName || t.routeName.trim() === '');
+      if (!tariff) tariff = candidates[0] ?? null;
+
+      if (tariff) {
+        const weight = stop.plannedWeightKg ? Number(stop.plannedWeightKg) : null;
+        const { totalCost, totalCharge } = computeDeliveryTotals({
+          rateType: tariff.rateType as 'PER_KG' | 'FLAT_RATE',
+          costRate: Number(tariff.costRate),
+          chargeRate: Number(tariff.chargeRate),
+          weightKg: weight,
+          minKg: tariff.minKg != null ? Number(tariff.minKg) : null,
+        });
+
+        await prisma.deliveryOrder.update({
+          where: { id: deliveryOrder.id },
+          data: {
+            appliedRateType: tariff.rateType as RateType,
+            appliedCostRate: tariff.costRate,
+            appliedChargeRate: tariff.chargeRate,
+            appliedRouteName: tariff.routeName ?? trip.routeName ?? null,
+            totalCost,
+            totalCharge,
+          },
+        });
+      }
+
+      // Update stop: link DO + status = GENERATED
+      await prisma.deliveryScheduleOrder.update({
+        where: { id: stopId },
+        data: {
+          deliveryOrderId: deliveryOrder.id,
+          status: 'GENERATED',
+        },
+      });
+
+      // Sync SO shipping cost from DO charges
+      try {
+        const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+        await syncSalesOrderShippingFromDeliveries(stop.salesOrderId, {
+          userId: session.user.id,
+        });
+      } catch (err) {
+        console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
+      }
+
+      await logActivity({
+        userId: session.user.id,
+        action: 'GENERATE_DELIVERY_ORDER',
+        entityType: 'DeliveryOrder',
+        entityId: deliveryOrder.id,
+        details: `DO ${doNumber} generated from schedule stop for SO ${so.orderNumber}`,
+      });
+
+      revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+      return deliveryOrder;
+    });
+  }
+);
+
+/**
+ * Generate Delivery Orders for all eligible stops in a trip.
+ * R-D5: Atomic per-stop best-effort with partial failure report.
+ */
+export const generateDeliveryOrdersForTrip = withTenant(
+  async function generateDeliveryOrdersForTrip(
+    tripId: string,
+    options?: { sourceLocationId?: string }
+  ) {
+    return safeAction(async () => {
+      await requireAuth();
+
+      const trip = await prisma.deliveryScheduleVehicle.findUnique({
+        where: { id: tripId },
+        include: { schedule: true },
+      });
+      if (!trip) throw new NotFoundError("Trip", tripId);
+
+      // Get all stops that need DO generation
+      const stops = await prisma.deliveryScheduleOrder.findMany({
+        where: {
+          scheduleVehicleId: tripId,
+          status: 'PLANNED',
+          salesOrderId: { not: null },
+        },
+        orderBy: { sequence: 'asc' },
+      });
+
+      if (stops.length === 0) {
+        throw new BusinessRuleError('Tidak ada stop yang perlu Surat Jalan dibuat.');
+      }
+
+      const results: { ok: string[]; failed: { stopId: string; error: string }[] } = {
+        ok: [],
+        failed: [],
+      };
+
+      for (const stop of stops) {
+        try {
+          const session = await requireAuth();
+
+          const fullStop = await prisma.deliveryScheduleOrder.findUnique({
+            where: { id: stop.id },
+            include: {
+              salesOrder: { include: { items: true, customer: true } },
+              deliveryOrder: true,
+              scheduleVehicle: { include: { vehicle: true, schedule: true } },
+            },
+          });
+
+          if (!fullStop || !fullStop.salesOrderId || !fullStop.salesOrder) {
+            results.failed.push({ stopId: stop.id, error: 'Stop tidak memiliki Sales Order.' });
+            continue;
+          }
+
+          if (fullStop.deliveryOrderId) {
+            results.failed.push({ stopId: stop.id, error: 'Stop sudah memiliki Surat Jalan.' });
+            continue;
+          }
+
+          const so = fullStop.salesOrder;
+          const sv = fullStop.scheduleVehicle;
+          const sourceLocationId = options?.sourceLocationId || so.sourceLocationId;
+
+          if (!sourceLocationId) {
+            results.failed.push({ stopId: stop.id, error: 'Lokasi sumber tidak ditemukan.' });
+            continue;
+          }
+
+          const doNumber = await generateDeliveryOrderNumber();
+
+          const deliveryOrder = await prisma.deliveryOrder.create({
+            data: {
+              orderNumber: doNumber,
+              salesOrderId: fullStop.salesOrderId,
+              sourceLocationId,
+              status: 'PENDING',
+              deliveryDate: new Date(),
+              createdById: session.user.id,
+              vehicleId: sv.vehicleId,
+              estimatedWeightKg: fullStop.plannedWeightKg ?? null,
+              appliedRouteName: sv.routeName ?? null,
+              destinationAddress: so.customer?.address || null,
+              items: {
+                create: so.items.map((item) => ({
+                  productVariantId: item.productVariantId,
+                  quantity: item.quantity,
+                  enteredQuantity: item.enteredQuantity,
+                  enteredUnit: item.enteredUnit,
+                  conversionFactorSnapshot: item.conversionFactorSnapshot,
+                })),
+              },
+            },
+          });
+
+          // Tariff snapshot
+          const now = new Date();
+          const routeKey = sv.routeName?.trim() || null;
+          const candidates = await prisma.vehicleTariff.findMany({
+            where: {
+              vehicleId: sv.vehicleId,
+              validFrom: { lte: now },
+              OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+            },
+            orderBy: { validFrom: 'desc' },
+          });
+
+          let tariff = null;
+          if (routeKey) {
+            tariff = candidates.find((t) => t.routeName?.trim().toLowerCase() === routeKey.toLowerCase());
+          }
+          if (!tariff) tariff = candidates.find((t) => !t.routeName || t.routeName.trim() === '');
+          if (!tariff) tariff = candidates[0] ?? null;
+
+          if (tariff) {
+            const weight = fullStop.plannedWeightKg ? Number(fullStop.plannedWeightKg) : null;
+            const { totalCost, totalCharge } = computeDeliveryTotals({
+              rateType: tariff.rateType as 'PER_KG' | 'FLAT_RATE',
+              costRate: Number(tariff.costRate),
+              chargeRate: Number(tariff.chargeRate),
+              weightKg: weight,
+              minKg: tariff.minKg != null ? Number(tariff.minKg) : null,
+            });
+
+            await prisma.deliveryOrder.update({
+              where: { id: deliveryOrder.id },
+              data: {
+                appliedRateType: tariff.rateType as RateType,
+                appliedCostRate: tariff.costRate,
+                appliedChargeRate: tariff.chargeRate,
+                appliedRouteName: tariff.routeName ?? sv.routeName ?? null,
+                totalCost,
+                totalCharge,
+              },
+            });
+          }
+
+          // Update stop
+          await prisma.deliveryScheduleOrder.update({
+            where: { id: stop.id },
+            data: { deliveryOrderId: deliveryOrder.id, status: 'GENERATED' },
+          });
+
+          // Sync SO shipping
+          try {
+            const { syncSalesOrderShippingFromDeliveries } = await import('@/services/sales/delivery-shipping-sync');
+            await syncSalesOrderShippingFromDeliveries(fullStop.salesOrderId, { userId: session.user.id });
+          } catch (err) {
+            console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
+          }
+
+          await logActivity({
+            userId: session.user.id,
+            action: 'GENERATE_DELIVERY_ORDER',
+            entityType: 'DeliveryOrder',
+            entityId: deliveryOrder.id,
+            details: `DO ${doNumber} generated from trip bulk for SO ${so.orderNumber}`,
+          });
+
+          results.ok.push(stop.id);
+        } catch (err) {
+          results.failed.push({
+            stopId: stop.id,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
+      }
+
+      revalidatePath(`/sales/delivery-schedules/${trip.scheduleId}`);
+      return results;
     });
   }
 );
