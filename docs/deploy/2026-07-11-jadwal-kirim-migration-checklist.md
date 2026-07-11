@@ -30,7 +30,22 @@ docker exec polyflow-db psql -U polyflow -d polyflow -c "SELECT enum_range(NULL:
 # Harus return: {DRAFT,CONFIRMED,IN_TRANSIT,COMPLETED,ACTIVE,CLOSED}
 ```
 
-## Step 2: Prisma Migrate Deploy
+## Step 2: Drop Unique Indexes (if prisma migrate deploy skipped them)
+
+Prisma `@@unique` generates UNIQUE INDEX (not CONSTRAINT). Migration SQL uses
+`DROP CONSTRAINT IF EXISTS` which silently skips these. Manual drop required:
+
+```bash
+# Kiyowo
+docker exec polyflow-db psql -U polyflow -d polyflow -c 'DROP INDEX IF EXISTS "DeliveryScheduleVehicle_scheduleId_vehicleId_key";'
+docker exec polyflow-db psql -U polyflow -d polyflow -c 'DROP INDEX IF EXISTS "DeliveryScheduleOrder_scheduleVehicleId_deliveryOrderId_key";'
+
+# Melindo
+docker exec polyflow-db psql -U polyflow -d melindo_rafia -c 'DROP INDEX IF EXISTS "DeliveryScheduleVehicle_scheduleId_vehicleId_key";'
+docker exec polyflow-db psql -U polyflow -d melindo_rafia -c 'DROP INDEX IF EXISTS "DeliveryScheduleOrder_scheduleVehicleId_deliveryOrderId_key";'
+```
+
+## Step 3: Prisma Migrate Deploy
 
 ```bash
 docker exec polyflow-app npx prisma@5.22.0 migrate deploy

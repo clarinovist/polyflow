@@ -41,7 +41,8 @@ FROM "DeliverySchedule" ds
 WHERE dsv."scheduleId" = ds.id;
 
 -- Drop old unique constraint, add new indexes
-ALTER TABLE "DeliveryScheduleVehicle" DROP CONSTRAINT IF EXISTS "DeliveryScheduleVehicle_scheduleId_vehicleId_key";
+-- Drop old unique constraint/index (Prisma @@unique = UNIQUE INDEX, not CONSTRAINT)
+DROP INDEX IF EXISTS "DeliveryScheduleVehicle_scheduleId_vehicleId_key";
 CREATE INDEX IF NOT EXISTS "DeliveryScheduleVehicle_scheduleId_idx" ON "DeliveryScheduleVehicle"("scheduleId");
 CREATE INDEX IF NOT EXISTS "DeliveryScheduleVehicle_vehicleId_departureDate_idx" ON "DeliveryScheduleVehicle"("vehicleId", "departureDate");
 CREATE INDEX IF NOT EXISTS "DeliveryScheduleVehicle_status_idx" ON "DeliveryScheduleVehicle"("status");
@@ -69,7 +70,8 @@ WHERE dso."deliveryOrderId" = d.id
   AND dso."salesOrderId" IS NULL;
 
 -- Drop old unique constraint
-ALTER TABLE "DeliveryScheduleOrder" DROP CONSTRAINT IF EXISTS "DeliveryScheduleOrder_scheduleVehicleId_deliveryOrderId_key";
+-- Drop old unique constraint/index (Prisma @@unique = UNIQUE INDEX, not CONSTRAINT)
+DROP INDEX IF EXISTS "DeliveryScheduleOrder_scheduleVehicleId_deliveryOrderId_key";
 
 -- Make deliveryOrderId nullable
 ALTER TABLE "DeliveryScheduleOrder" ALTER COLUMN "deliveryOrderId" DROP NOT NULL;
