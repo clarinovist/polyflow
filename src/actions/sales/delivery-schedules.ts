@@ -1004,7 +1004,7 @@ export const generateDeliveryOrderFromStop = withTenant(
           vehicleId: trip.vehicleId,
           estimatedWeightKg: stop.plannedWeightKg ?? null,
           appliedRouteName: trip.routeName ?? null,
-          destinationAddress: so.customer?.address || null,
+          destinationAddress: so.customer?.billingAddress || null,
           items: {
             create: so.items.map((item) => ({
               productVariantId: item.productVariantId,
@@ -1175,7 +1175,7 @@ export const generateDeliveryOrdersForTrip = withTenant(
               vehicleId: sv.vehicleId,
               estimatedWeightKg: fullStop.plannedWeightKg ?? null,
               appliedRouteName: sv.routeName ?? null,
-              destinationAddress: so.customer?.address || null,
+              destinationAddress: so.customer?.billingAddress || null,
               items: {
                 create: so.items.map((item) => ({
                   productVariantId: item.productVariantId,

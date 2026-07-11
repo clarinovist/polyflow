@@ -27,29 +27,26 @@ import { createDeliverySchedule } from '@/actions/sales/delivery-schedules';
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-yellow-100 text-yellow-800',
+  ACTIVE: 'bg-blue-100 text-blue-800',
+  CLOSED: 'bg-green-100 text-green-800',
   CONFIRMED: 'bg-blue-100 text-blue-800',
-  IN_TRANSIT: 'bg-purple-100 text-purple-800',
+  IN_TRANSIT: 'bg-blue-100 text-blue-800',
   COMPLETED: 'bg-green-100 text-green-800',
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Draft',
-  CONFIRMED: 'Dikonfirmasi',
-  IN_TRANSIT: 'Dalam Perjalanan',
-  COMPLETED: 'Selesai',
+  DRAFT: 'Draft', ACTIVE: 'Aktif', CLOSED: 'Selesai',
+  CONFIRMED: 'Aktif', IN_TRANSIT: 'Aktif', COMPLETED: 'Selesai',
 };
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 interface ScheduleVehicle {
   vehicle: { id: string; plateNumber: string; name: string };
-  orders: { id: string }[];
+  orders: { id: string; status: string; deliveryOrderId: string | null }[];
+  status: string;
 }
 
 interface ScheduleRow {
@@ -93,6 +90,13 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
     }
   };
 
+  const getAggregates = (s: ScheduleRow) => {
+    const tripCount = s.vehicles.length;
+    const stopCount = s.vehicles.reduce((sum, sv) => sum + sv.orders.length, 0);
+    const unlinked = s.vehicles.reduce((sum, sv) => sum + sv.orders.filter(o => !o.deliveryOrderId).length, 0);
+    return { tripCount, stopCount, unlinked };
+  };
+
   return (
     <>
       {/* Desktop */}
@@ -111,9 +115,8 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
               <SelectContent>
                 <SelectItem value="ALL">Semua Status</SelectItem>
                 <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="CONFIRMED">Dikonfirmasi</SelectItem>
-                <SelectItem value="IN_TRANSIT">Dalam Perjalanan</SelectItem>
-                <SelectItem value="COMPLETED">Selesai</SelectItem>
+                <SelectItem value="ACTIVE">Aktif</SelectItem>
+                <SelectItem value="CLOSED">Selesai</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleCreate} disabled={isCreating}>
@@ -134,15 +137,16 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                   <TableHead>No. Jadwal</TableHead>
                   <TableHead>Periode</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-center"># Armada</TableHead>
-                  <TableHead className="text-center"># DO</TableHead>
+                  <TableHead className="text-center">Trip</TableHead>
+                  <TableHead className="text-center">Stop</TableHead>
+                  <TableHead className="text-center">Tanpa SJ</TableHead>
                   <TableHead>Dibuat Oleh</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((s) => {
-                  const totalDO = s.vehicles.reduce((sum, sv) => sum + sv.orders.length, 0);
+                  const { tripCount, stopCount, unlinked } = getAggregates(s);
                   return (
                     <TableRow key={s.id}>
                       <TableCell>
@@ -161,8 +165,15 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                           {STATUS_LABELS[s.status] || s.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">{s.vehicles.length}</TableCell>
-                      <TableCell className="text-center">{totalDO}</TableCell>
+                      <TableCell className="text-center">{tripCount}</TableCell>
+                      <TableCell className="text-center">{stopCount}</TableCell>
+                      <TableCell className="text-center">
+                        {unlinked > 0 ? (
+                          <span className="text-orange-600 font-medium">{unlinked}</span>
+                        ) : (
+                          <span className="text-green-600">0</span>
+                        )}
+                      </TableCell>
                       <TableCell>{s.createdBy?.name || '-'}</TableCell>
                       <TableCell className="text-right">
                         <Link href={`/sales/delivery-schedules/${s.id}`}>
@@ -190,9 +201,8 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
             <SelectContent>
               <SelectItem value="ALL">Semua</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="CONFIRMED">Dikonfirmasi</SelectItem>
-              <SelectItem value="IN_TRANSIT">Perjalanan</SelectItem>
-              <SelectItem value="COMPLETED">Selesai</SelectItem>
+              <SelectItem value="ACTIVE">Aktif</SelectItem>
+              <SelectItem value="CLOSED">Selesai</SelectItem>
             </SelectContent>
           </Select>
           <Button size="sm" onClick={handleCreate} disabled={isCreating}>
@@ -203,7 +213,7 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
           <div className="text-center py-8 text-muted-foreground">Belum ada jadwal.</div>
         ) : (
           filtered.map((s) => {
-            const totalDO = s.vehicles.reduce((sum, sv) => sum + sv.orders.length, 0);
+            const { tripCount, stopCount, unlinked } = getAggregates(s);
             return (
               <Link key={s.id} href={`/sales/delivery-schedules/${s.id}`}>
                 <Card className="p-4 hover:bg-muted/50 transition-colors">
@@ -219,8 +229,9 @@ export function ScheduleListClient({ schedules }: ScheduleListClientProps) {
                     </Badge>
                   </div>
                   <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
-                    <span>{s.vehicles.length} armada</span>
-                    <span>{totalDO} surat jalan</span>
+                    <span>{tripCount} trip</span>
+                    <span>{stopCount} stop</span>
+                    {unlinked > 0 && <span className="text-orange-600">{unlinked} tanpa SJ</span>}
                   </div>
                 </Card>
               </Link>
