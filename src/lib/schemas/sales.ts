@@ -187,3 +187,39 @@ export const updateVehicleTariffSchema = createVehicleTariffSchema;
 export type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 export type CreateVehicleTariffValues = z.infer<typeof createVehicleTariffSchema>;
 export type UpdateDeliveryPricingValues = z.infer<typeof updateDeliveryPricingSchema>;
+
+// ==========================================
+// DELIVERY SCHEDULE / TRIP / STOP SCHEMAS
+// ==========================================
+
+export const createScheduleTripSchema = z.object({
+  vehicleId: z.string().min(1, "Kendaraan harus dipilih"),
+  departureDate: z.coerce.date(),
+  routeName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const updateScheduleTripSchema = z.object({
+  departureDate: z.coerce.date().optional(),
+  routeName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  sequence: z.coerce.number().int().min(0).optional(),
+});
+
+export const updateTripStatusSchema = z.object({
+  status: z.enum(["PLANNED", "CONFIRMED", "DEPARTED", "COMPLETED", "CANCELLED"]),
+});
+
+export const assignSalesOrderToTripSchema = z.object({
+  salesOrderId: z.string().min(1, "Sales Order harus dipilih"),
+  plannedWeightKg: z.coerce.number().min(0).optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const linkDeliveryOrderSchema = z.object({
+  deliveryOrderId: z.string().min(1, "Surat Jalan harus dipilih"),
+});
+
+export type CreateScheduleTripValues = z.infer<typeof createScheduleTripSchema>;
+export type UpdateScheduleTripValues = z.infer<typeof updateScheduleTripSchema>;
+export type AssignSalesOrderToTripValues = z.infer<typeof assignSalesOrderToTripSchema>;

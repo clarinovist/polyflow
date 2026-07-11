@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Car, Trash2, CheckCircle, PlayCircle, Package } from 'lucide-react';
+import { ArrowLeft, Car, Trash2, CheckCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   updateDeliverySchedule,
@@ -35,15 +35,21 @@ import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 
 const STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-yellow-100 text-yellow-800',
+  ACTIVE: 'bg-blue-100 text-blue-800',
+  CLOSED: 'bg-green-100 text-green-800',
+  // Legacy display mapping
   CONFIRMED: 'bg-blue-100 text-blue-800',
-  IN_TRANSIT: 'bg-purple-100 text-purple-800',
+  IN_TRANSIT: 'bg-blue-100 text-blue-800',
   COMPLETED: 'bg-green-100 text-green-800',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Draft',
-  CONFIRMED: 'Dikonfirmasi',
-  IN_TRANSIT: 'Dalam Perjalanan',
+  ACTIVE: 'Aktif',
+  CLOSED: 'Selesai',
+  // Legacy
+  CONFIRMED: 'Aktif',
+  IN_TRANSIT: 'Aktif',
   COMPLETED: 'Selesai',
 };
 
@@ -91,7 +97,12 @@ interface ScheduleVehicle {
   vehicle: { id: string; plateNumber: string; name: string; driverName: string | null; ownershipType: string };
   orders: {
     id: string;
-    deliveryOrder: DeliveryOrder;
+    deliveryOrder: DeliveryOrder | null;
+    salesOrder?: {
+      id: string;
+      orderNumber: string;
+      customer?: { name: string } | null;
+    } | null;
   }[];
 }
 
@@ -130,7 +141,7 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
     if (dosRes.success && dosRes.data) {
       // Filter: only PENDING/SHIPPED DOs not already in this schedule
       const assignedDOIds = new Set(
-        schedule.vehicles.flatMap((sv) => sv.orders.map((o) => o.deliveryOrder.id))
+        schedule.vehicles.flatMap((sv) => sv.orders.map((o) => o.deliveryOrder?.id).filter(Boolean))
       );
       /* eslint-disable @typescript-eslint/no-explicit-any */
       const allDOs: any[] = (dosRes.data || []) as any[];
@@ -244,9 +255,10 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
   };
 
   const isDRAFT = schedule.status === 'DRAFT';
+  const isEditable = schedule.status === 'DRAFT' || schedule.status === 'ACTIVE' || schedule.status === 'CONFIRMED' || schedule.status === 'IN_TRANSIT';
   const totalDO = schedule.vehicles.reduce((sum, sv) => sum + sv.orders.length, 0);
   const totalCharge = schedule.vehicles.reduce(
-    (sum, sv) => sum + sv.orders.reduce((s, o) => s + (o.deliveryOrder.totalCharge || 0), 0),
+    (sum, sv) => sum + sv.orders.reduce((s, o) => s + (o.deliveryOrder?.totalCharge || 0), 0),
     0
   );
 
@@ -272,19 +284,14 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
         </div>
         {isDRAFT && (
           <div className="flex gap-2">
-            <Button onClick={() => handleStatusChange('CONFIRMED')} disabled={isActionLoading}>
-              <CheckCircle className="h-4 w-4 mr-2" /> Konfirmasi
+            <Button onClick={() => handleStatusChange('ACTIVE')} disabled={isActionLoading}>
+              <CheckCircle className="h-4 w-4 mr-2" /> Aktifkan
             </Button>
           </div>
         )}
-        {schedule.status === 'CONFIRMED' && (
-          <Button onClick={() => handleStatusChange('IN_TRANSIT')} disabled={isActionLoading}>
-            <PlayCircle className="h-4 w-4 mr-2" /> Mulai Kirim
-          </Button>
-        )}
-        {schedule.status === 'IN_TRANSIT' && (
-          <Button onClick={() => handleStatusChange('COMPLETED')} disabled={isActionLoading}>
-            <CheckCircle className="h-4 w-4 mr-2" /> Selesai
+        {(schedule.status === 'ACTIVE' || schedule.status === 'CONFIRMED' || schedule.status === 'IN_TRANSIT') && (
+          <Button onClick={() => handleStatusChange('CLOSED')} disabled={isActionLoading}>
+            <CheckCircle className="h-4 w-4 mr-2" /> Tutup Minggu
           </Button>
         )}
       </div>
@@ -318,7 +325,7 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
       </div>
 
       {/* Assign DO section (only in DRAFT) */}
-      {isDRAFT && pendingDOs.length > 0 && (
+      {isEditable && pendingDOs.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -371,7 +378,7 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Car className="h-5 w-5" /> Armada Ditugaskan
           </h2>
-          {isDRAFT && (
+          {isEditable && (
             <div className="flex items-center gap-2">
               <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
                 <SelectTrigger className="w-[250px]">
@@ -415,7 +422,7 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
                     {sv.vehicle.ownershipType === 'FACTORY' ? 'Pabrik' : 'Perorangan'}
                   </Badge>
                 </CardTitle>
-                {isDRAFT && (
+                {isEditable && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -439,28 +446,32 @@ export function ScheduleDetailClient({ schedule }: ScheduleDetailClientProps) {
                         <TableHead>Customer</TableHead>
                         <TableHead>Tanggal</TableHead>
                         <TableHead className="text-right">Biaya Kirim</TableHead>
-                        {isDRAFT && <TableHead className="text-right">Aksi</TableHead>}
+                        {isEditable && <TableHead className="text-right">Aksi</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {sv.orders.map((so) => (
                         <TableRow key={so.id}>
                           <TableCell>
-                            <Link
-                              href={`/sales/deliveries`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {so.deliveryOrder.orderNumber}
-                            </Link>
+                            {so.deliveryOrder ? (
+                              <Link
+                                href={`/sales/deliveries`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {so.deliveryOrder.orderNumber}
+                              </Link>
+                            ) : (
+                              <span className="text-orange-600 text-sm italic">Belum SJ</span>
+                            )}
                           </TableCell>
-                          <TableCell>{so.deliveryOrder.salesOrder?.customer?.name || '-'}</TableCell>
-                          <TableCell>{formatDate(so.deliveryOrder.deliveryDate)}</TableCell>
+                          <TableCell>{so.deliveryOrder?.salesOrder?.customer?.name || so.salesOrder?.customer?.name || '-'}</TableCell>
+                          <TableCell>{so.deliveryOrder ? formatDate(so.deliveryOrder.deliveryDate) : '-'}</TableCell>
                           <TableCell className="text-right">
-                            {so.deliveryOrder.totalCharge != null
+                            {so.deliveryOrder?.totalCharge != null
                               ? formatRupiah(so.deliveryOrder.totalCharge)
                               : '-'}
                           </TableCell>
-                          {isDRAFT && (
+                          {isEditable && (
                             <TableCell className="text-right">
                               <Button
                                 variant="ghost"
