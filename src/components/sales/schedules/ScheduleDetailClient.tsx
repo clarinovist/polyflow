@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Car, Trash2, CheckCircle, Plus, Truck, FileText } from 'lucide-react';
+import { ArrowLeft, Car, Trash2, CheckCircle, Plus, Truck, FileText, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ScheduleStatus, TripStatus } from '@prisma/client';
 import {
@@ -30,7 +30,6 @@ import {
   updateTripStatus,
   removeVehicleFromSchedule,
   assignSalesOrderToTrip,
-  generateDeliveryOrderFromStop,
   generateDeliveryOrdersForTrip,
   removeOrderFromSchedule,
   listSchedulableSalesOrders,
@@ -67,11 +66,11 @@ const TRIP_STATUS_STYLES: Record<string, string> = {
 };
 
 const STOP_STATUS_LABELS: Record<string, string> = {
-  PLANNED: 'Belum SJ', LINKED: 'Ada SJ', GENERATED: 'Ada SJ', CANCELLED: 'Batal',
+  PLANNED: 'Belum diatur', LINKED: 'Terjadwal', GENERATED: 'Sudah SJ', CANCELLED: 'Batal',
 };
 
 const STOP_STATUS_STYLES: Record<string, string> = {
-  PLANNED: 'bg-orange-100 text-orange-700', LINKED: 'bg-green-100 text-green-700',
+  PLANNED: 'bg-gray-100 text-gray-700', LINKED: 'bg-blue-100 text-blue-700',
   GENERATED: 'bg-green-100 text-green-700', CANCELLED: 'bg-red-100 text-red-700',
 };
 
@@ -83,12 +82,6 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatRupiah(amount: number): string {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-}
-
-
-
 // ============================================
 // Interfaces
 // ============================================
@@ -97,9 +90,8 @@ interface Vehicle {
   id: string;
   plateNumber: string;
   name: string;
-  ownershipType: string;
-  driverName?: string | null;
   capacityKg?: number | null;
+  driverName?: string | null;
   status: string;
 }
 
@@ -112,15 +104,13 @@ interface Stop {
   deliveryOrder: {
     id: string;
     orderNumber: string;
-    deliveryDate: string;
     totalCharge: number | null;
     status: string;
-    salesOrder?: { orderNumber: string; customer?: { name: string } | null } | null;
   } | null;
   salesOrder?: {
     id: string;
     orderNumber: string;
-    customer?: { name: string; address?: string | null } | null;
+    customer?: { id: string; name: string } | null;
   } | null;
 }
 
@@ -130,8 +120,7 @@ interface Trip {
   departureDate: string | null;
   routeName: string | null;
   status: string;
-  notes: string | null;
-  vehicle: { id: string; plateNumber: string; name: string; driverName: string | null; ownershipType: string; capacityKg?: number | null };
+  vehicle: { id: string; plateNumber: string; name: string; driverName: string | null; capacityKg?: number | null };
   orders: Stop[];
 }
 
@@ -150,10 +139,8 @@ interface SchedulableSO {
   id: string;
   orderNumber: string;
   customer: { id: string; name: string } | null;
-  expectedDate: string | null;
   remainingQty: number;
   alreadyPlanned: boolean;
-  multiStop: boolean;
 }
 
 // ============================================
@@ -163,13 +150,15 @@ interface SchedulableSO {
 export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [schedulableSOs, setSchedulableSOs] = useState<SchedulableSO[]>([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const [departureDate, setDepartureDate] = useState('');
-  const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isAssignSOOpen, setIsAssignSOOpen] = useState(false);
-  const [selectedTripId, setSelectedTripId] = useState('');
   const [selectedSOId, setSelectedSOId] = useState('');
   const [plannedWeight, setPlannedWeight] = useState('');
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [showAddSO, setShowAddSO] = useState(false);
+  const [showCreateTrip, setShowCreateTrip] = useState(false);
+  const [newTripVehicleId, setNewTripVehicleId] = useState('');
+  const [newTripDate, setNewTripDate] = useState('');
+  const [assignTripStopId, setAssignTripStopId] = useState('');
+  const [assignTripId, setAssignTripId] = useState('');
   const router = useRouter();
 
   const loadData = useCallback(async () => {
@@ -184,6 +173,18 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ============================================
+  // All stops flattened from trips
+  // ============================================
+
+  const allStops: (Stop & { tripId?: string; tripPlate?: string; tripDate?: string | null })[] = [];
+  const trips = schedule.vehicles;
+  trips.forEach(t => {
+    t.orders.forEach(o => {
+      allStops.push({ ...o, tripId: t.id, tripPlate: t.vehicle.plateNumber, tripDate: t.departureDate });
+    });
+  });
+
+  // ============================================
   // Handlers
   // ============================================
 
@@ -192,21 +193,63 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     try {
       const result = await updateDeliverySchedule(schedule.id, { status: newStatus as ScheduleStatus });
       if (!result.success) { toast.error(result.error || 'Gagal update status.'); return; }
-      toast.success(`Status jadwal diubah ke "${STATUS_LABELS[newStatus] || newStatus}".`);
+      toast.success(`Status diubah ke "${STATUS_LABELS[newStatus]}".`);
       router.refresh();
     } catch { toast.error('Gagal update status.'); } finally { setIsActionLoading(false); }
   };
 
-  const handleCreateTrip = async () => {
-    if (!selectedVehicleId || !departureDate) { toast.error('Pilih kendaraan dan tanggal berangkat.'); return; }
+  const handleAddSO = async () => {
+    if (!selectedSOId) { toast.error('Pilih Sales Order.'); return; }
     setIsActionLoading(true);
     try {
-      const result = await createScheduleTrip(schedule.id, { vehicleId: selectedVehicleId, departureDate: new Date(departureDate) });
+      // Add SO as a stop on first trip, or create a standalone stop
+      const firstTrip = trips.find(t => t.status === 'PLANNED' || t.status === 'CONFIRMED');
+      if (firstTrip) {
+        const result = await assignSalesOrderToTrip(firstTrip.id, {
+          salesOrderId: selectedSOId,
+          plannedWeightKg: plannedWeight ? parseFloat(plannedWeight) : undefined,
+        });
+        if (!result.success) { toast.error(result.error || 'Gagal menambah SO.'); return; }
+      } else {
+        // No trip yet — need to create one first or assign to a trip
+        toast.error('Buat trip terlebih dahulu sebelum menambah SO.');
+        return;
+      }
+      toast.success('SO berhasil ditambahkan.');
+      setShowAddSO(false); setSelectedSOId(''); setPlannedWeight('');
+      router.refresh();
+    } catch { toast.error('Gagal menambah SO.'); } finally { setIsActionLoading(false); }
+  };
+
+  const handleCreateTrip = async () => {
+    if (!newTripVehicleId || !newTripDate) { toast.error('Pilih kendaraan dan tanggal.'); return; }
+    setIsActionLoading(true);
+    try {
+      const result = await createScheduleTrip(schedule.id, {
+        vehicleId: newTripVehicleId,
+        departureDate: new Date(newTripDate),
+      });
       if (!result.success) { toast.error(result.error || 'Gagal membuat trip.'); return; }
       toast.success('Trip berhasil dibuat.');
-      setSelectedVehicleId(''); setDepartureDate('');
+      setShowCreateTrip(false); setNewTripVehicleId(''); setNewTripDate('');
       router.refresh();
     } catch { toast.error('Gagal membuat trip.'); } finally { setIsActionLoading(false); }
+  };
+
+  const handleAssignToTrip = async (stopId: string, tripId: string) => {
+    setIsActionLoading(true);
+    try {
+      const stop = allStops.find(s => s.id === stopId);
+      if (!stop?.salesOrder) { toast.error('Stop tidak punya SO.'); return; }
+      const result = await assignSalesOrderToTrip(tripId, {
+        salesOrderId: stop.salesOrder.id,
+        plannedWeightKg: stop.plannedWeightKg ?? undefined,
+      });
+      if (!result.success) { toast.error(result.error || 'Gagal assign ke trip.'); return; }
+      toast.success('Berhasil dipindahkan ke trip.');
+      setAssignTripStopId(''); setAssignTripId('');
+      router.refresh();
+    } catch { toast.error('Gagal assign ke trip.'); } finally { setIsActionLoading(false); }
   };
 
   const handleTripStatus = async (tripId: string, newStatus: string) => {
@@ -220,28 +263,13 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   };
 
   const handleRemoveTrip = async (tripId: string, plate: string) => {
-    if (!window.confirm(`Yakin hapus trip "${plate}"? Semua stop akan dihapus.`)) return;
+    if (!window.confirm(`Yakin hapus trip "${plate}"? Stop akan dikembalikan ke "Belum diatur".`)) return;
     setIsActionLoading(true);
     try {
       const result = await removeVehicleFromSchedule(tripId);
       if (!result.success) { toast.error(result.error || 'Gagal menghapus trip.'); return; }
       toast.success('Trip berhasil dihapus.'); router.refresh();
     } catch { toast.error('Gagal menghapus trip.'); } finally { setIsActionLoading(false); }
-  };
-
-  const handleAssignSO = async () => {
-    if (!selectedTripId || !selectedSOId) { toast.error('Pilih trip dan Sales Order.'); return; }
-    setIsActionLoading(true);
-    try {
-      const result = await assignSalesOrderToTrip(selectedTripId, {
-        salesOrderId: selectedSOId,
-        plannedWeightKg: plannedWeight ? parseFloat(plannedWeight) : undefined,
-      });
-      if (!result.success) { toast.error(result.error || 'Gagal assign SO.'); return; }
-      toast.success('SO berhasil ditambahkan ke trip.');
-      setIsAssignSOOpen(false); setSelectedTripId(''); setSelectedSOId(''); setPlannedWeight('');
-      router.refresh();
-    } catch { toast.error('Gagal assign SO.'); } finally { setIsActionLoading(false); }
   };
 
   const handleGenerateDO = async (tripId: string) => {
@@ -260,37 +288,25 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   };
 
   const handleRemoveStop = async (stopId: string) => {
-    if (!window.confirm('Yakin menghapus stop ini?')) return;
+    if (!window.confirm('Yakin menghapus SO dari rencana?')) return;
     setIsActionLoading(true);
     try {
       const result = await removeOrderFromSchedule(stopId);
-      if (!result.success) { toast.error(result.error || 'Gagal menghapus stop.'); return; }
-      toast.success('Stop berhasil dihapus.'); router.refresh();
-    } catch { toast.error('Gagal menghapus stop.'); } finally { setIsActionLoading(false); }
-  };
-
-  const handleGenerateSingleDO = async (stopId: string) => {
-    setIsActionLoading(true);
-    try {
-      const result = await generateDeliveryOrderFromStop(stopId);
-      if (!result.success) { toast.error(result.error || 'Gagal generate SJ.'); return; }
-      toast.success('Surat Jalan berhasil dibuat.'); router.refresh();
-    } catch { toast.error('Gagal generate SJ.'); } finally { setIsActionLoading(false); }
+      if (!result.success) { toast.error(result.error || 'Gagal menghapus.'); return; }
+      toast.success('Berhasil dihapus.'); router.refresh();
+    } catch { toast.error('Gagal menghapus.'); } finally { setIsActionLoading(false); }
   };
 
   // ============================================
-  // Derived data
+  // Derived
   // ============================================
 
   const isDRAFT = schedule.status === 'DRAFT';
   const isEditable = ['DRAFT', 'ACTIVE', 'CONFIRMED', 'IN_TRANSIT'].includes(schedule.status);
 
-  const trips = schedule.vehicles;
-  const totalStops = trips.reduce((sum, t) => sum + t.orders.length, 0);
-  const unlinkedStops = trips.reduce((sum, t) => sum + t.orders.filter(o => o.status === 'PLANNED').length, 0);
-  const totalCharge = trips.reduce((sum, t) => sum + t.orders.reduce((s, o) => s + (o.deliveryOrder?.totalCharge || 0), 0), 0);
+  const totalPlannedKg = allStops.reduce((s, o) => s + (o.plannedWeightKg || 0), 0);
+  const unlinkedCount = allStops.filter(o => !o.deliveryOrder).length;
 
-  // All active vehicles — backend handles duplicate vehicle+date check
   const availableVehicles = vehicles;
 
   // ============================================
@@ -326,247 +342,281 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">SO Dijadwalkan</p>
+          <p className="text-2xl font-bold">{allStops.length}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">Total Berat Rencana</p>
+          <p className="text-2xl font-bold">{totalPlannedKg.toLocaleString('id-ID')} kg</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">Belum ada SJ</p>
+          <p className={`text-2xl font-bold ${unlinkedCount > 0 ? 'text-orange-600' : ''}`}>{unlinkedCount}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">Trip</p>
           <p className="text-2xl font-bold">{trips.length}</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Total Stop</p>
-          <p className="text-2xl font-bold">{totalStops}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Belum SJ</p>
-          <p className={`text-2xl font-bold ${unlinkedStops > 0 ? 'text-orange-600' : ''}`}>{unlinkedStops}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground">Total Biaya Kirim</p>
-          <p className="text-2xl font-bold">{formatRupiah(totalCharge)}</p>
-        </CardContent></Card>
       </div>
 
-      {/* Create Trip (DRAFT + ACTIVE) */}
-      {(isDRAFT || schedule.status === 'ACTIVE' || schedule.status === 'CONFIRMED' || schedule.status === 'IN_TRANSIT') && (
-        <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2">
-            <Truck className="h-4 w-4" /> Tambah Trip Baru
-          </CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Kendaraan</label>
-                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                  <SelectTrigger><SelectValue placeholder="Pilih kendaraan..." /></SelectTrigger>
-                  <SelectContent>
-                    {availableVehicles.map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.plateNumber} — {v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      {/* ============================================ */}
+      {/* SECTION 1: RENCANA KIRIM — SO yang mau dikirim */}
+      {/* ============================================ */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Package className="h-4 w-4" /> Rencana Kirim Minggu Ini
+          </CardTitle>
+          {isEditable && (
+            <Button size="sm" onClick={() => setShowAddSO(!showAddSO)}>
+              <Plus className="h-3 w-3 mr-1" /> Tambah SO
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {/* Add SO form */}
+          {showAddSO && (
+            <div className="mb-4 p-4 border rounded-lg bg-muted/30">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Sales Order</label>
+                  <Select value={selectedSOId} onValueChange={setSelectedSOId}>
+                    <SelectTrigger><SelectValue placeholder="Pilih SO (sisa qty > 0)..." /></SelectTrigger>
+                    <SelectContent>
+                      {schedulableSOs.map(so => (
+                        <SelectItem key={so.id} value={so.id}>
+                          {so.orderNumber} — {so.customer?.name || 'N/A'}
+                          {so.alreadyPlanned ? ' ⚠️ sudah dijadwalkan' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Berat Rencana (kg, opsional)</label>
+                  <input type="number" value={plannedWeight} onChange={e => setPlannedWeight(e.target.value)}
+                    placeholder="Contoh: 1200" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddSO} disabled={isActionLoading || !selectedSOId}>
+                    <Plus className="h-3 w-3 mr-1" /> Tambah
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowAddSO(false); setSelectedSOId(''); }}>Batal</Button>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Tanggal Berangkat</label>
-                <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)}
-                  min={schedule.weekStart.split('T')[0]} max={schedule.weekEnd.split('T')[0]}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
-              <Button onClick={handleCreateTrip} disabled={isActionLoading || !selectedVehicleId || !departureDate}>
-                <Truck className="h-4 w-4 mr-2" /> Tambah Trip
-              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                SO yang ditambahkan akan masuk rencana minggu ini. Selanjutnya tentukan truk & tanggal di section Trip.
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
 
-      {/* Trip Cards */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Car className="h-5 w-5" /> Trip
-        </h2>
+          {/* Stops table */}
+          {allStops.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Belum ada SO yang dijadwalkan. Klik Tambah SO untuk memulai.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>No. SO</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="text-right">Berat Rencana</TableHead>
+                  <TableHead>Surat Jalan</TableHead>
+                  <TableHead>Trip</TableHead>
+                  <TableHead>Status</TableHead>
+                  {isEditable && <TableHead className="text-right">Aksi</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allStops.map((stop, idx) => (
+                  <TableRow key={stop.id}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell className="font-medium">{stop.salesOrder?.orderNumber || '-'}</TableCell>
+                    <TableCell>{stop.salesOrder?.customer?.name || '-'}</TableCell>
+                    <TableCell className="text-right">{stop.plannedWeightKg ? `${stop.plannedWeightKg.toLocaleString('id-ID')} kg` : '-'}</TableCell>
+                    <TableCell>
+                      {stop.deliveryOrder ? (
+                        <Link href="/sales/deliveries" className="text-blue-600 hover:underline text-sm">{stop.deliveryOrder.orderNumber}</Link>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {stop.tripId ? (
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">{stop.tripPlate}</Badge>
+                          {stop.tripDate && <span className="text-xs text-muted-foreground">{formatDate(stop.tripDate)}</span>}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-orange-600 italic">Belum diatur</span>
+                          {isEditable && trips.length > 0 && (
+                            <Select value={assignTripStopId === stop.id ? assignTripId : ''} onValueChange={(v) => { setAssignTripStopId(stop.id); setAssignTripId(v); handleAssignToTrip(stop.id, v); }}>
+                              <SelectTrigger className="h-6 w-24 text-xs"><SelectValue placeholder="Atur" /></SelectTrigger>
+                              <SelectContent>
+                                {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
+                                  <SelectItem key={t.id} value={t.id}>{t.vehicle.plateNumber}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell><Badge className={STOP_STATUS_STYLES[stop.status]}>{STOP_STATUS_LABELS[stop.status]}</Badge></TableCell>
+                    {isEditable && (
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveStop(stop.id)} disabled={isActionLoading}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
-        {trips.length === 0 ? (
-          <Card><CardContent className="py-8 text-center text-muted-foreground">
-            Belum ada trip. Tambah armada untuk mulai mengatur jadwal.
-          </CardContent></Card>
-        ) : (
-          trips.map(trip => {
-            const plannedKg = trip.orders.reduce((s, o) => s + (o.plannedWeightKg || 0), 0);
-            const capacityKg = trip.vehicle.capacityKg ? Number(trip.vehicle.capacityKg) : null;
-            const utilizationPct = capacityKg ? Math.round((plannedKg / capacityKg) * 100) : 0;
-            const unlinked = trip.orders.filter(o => o.status === 'PLANNED').length;
+          <p className="text-xs text-muted-foreground mt-3">
+            Estimasi plan &mdash; tagihan ongkir dari Surat Jalan, bukan dari rencana ini.
+          </p>
+        </CardContent>
+      </Card>
 
-            return (
-              <Card key={trip.id}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Car className="h-4 w-4" />
-                    {trip.vehicle.plateNumber}
-                    <span className="text-muted-foreground font-normal">— {trip.vehicle.name}</span>
-                    {trip.vehicle.driverName && <Badge variant="outline">{trip.vehicle.driverName}</Badge>}
-                    <Badge className={TRIP_STATUS_STYLES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
-                    {trip.departureDate && (
-                      <span className="text-sm text-muted-foreground">📅 {formatDate(trip.departureDate)}</span>
+      {/* ============================================ */}
+      {/* SECTION 2: TRIP — Armada + Jadwal Kirim */}
+      {/* ============================================ */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Truck className="h-4 w-4" /> Trip / Armada
+          </CardTitle>
+          {isEditable && (
+            <Button size="sm" onClick={() => setShowCreateTrip(!showCreateTrip)}>
+              <Plus className="h-3 w-3 mr-1" /> Tambah Trip
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {/* Create trip form */}
+          {showCreateTrip && (
+            <div className="mb-4 p-4 border rounded-lg bg-muted/30">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Kendaraan</label>
+                  <Select value={newTripVehicleId} onValueChange={setNewTripVehicleId}>
+                    <SelectTrigger><SelectValue placeholder="Pilih kendaraan..." /></SelectTrigger>
+                    <SelectContent>
+                      {availableVehicles.map(v => (
+                        <SelectItem key={v.id} value={v.id}>{v.plateNumber} — {v.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Tanggal Berangkat</label>
+                  <input type="date" value={newTripDate} onChange={e => setNewTripDate(e.target.value)}
+                    min={schedule.weekStart.split('T')[0]} max={schedule.weekEnd.split('T')[0]}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleCreateTrip} disabled={isActionLoading || !newTripVehicleId || !newTripDate}>
+                    <Truck className="h-3 w-3 mr-1" /> Buat Trip
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowCreateTrip(false); setNewTripVehicleId(''); }}>Batal</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {trips.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Belum ada trip. Buat trip untuk menentukan armada & tanggal kirim.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {trips.map(trip => {
+                const plannedKg = trip.orders.reduce((s, o) => s + (o.plannedWeightKg || 0), 0);
+                const capacityKg = trip.vehicle.capacityKg ? Number(trip.vehicle.capacityKg) : null;
+                const utilizationPct = capacityKg ? Math.round((plannedKg / capacityKg) * 100) : 0;
+                const unlinkedInTrip = trip.orders.filter(o => !o.deliveryOrder).length;
+
+                return (
+                  <div key={trip.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Car className="h-4 w-4" />
+                        <span className="font-medium">{trip.vehicle.plateNumber}</span>
+                        <span className="text-muted-foreground">— {trip.vehicle.name}</span>
+                        {trip.vehicle.driverName && <Badge variant="outline">{trip.vehicle.driverName}</Badge>}
+                        <Badge className={TRIP_STATUS_STYLES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
+                        {trip.departureDate && <span className="text-sm text-muted-foreground">📅 {formatDate(trip.departureDate)}</span>}
+                        {trip.routeName && <span className="text-sm text-muted-foreground">🗺 {trip.routeName}</span>}
+                      </div>
+                      <div className="flex gap-1 items-center">
+                        {trip.status === 'PLANNED' && (
+                          <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'CONFIRMED')} disabled={isActionLoading}>Konfirmasi</Button>
+                        )}
+                        {trip.status === 'CONFIRMED' && unlinkedInTrip === 0 && (
+                          <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'DEPARTED')} disabled={isActionLoading}>Berangkat</Button>
+                        )}
+                        {trip.status === 'CONFIRMED' && (
+                          <Button size="sm" variant="ghost" onClick={() => handleTripStatus(trip.id, 'PLANNED')} disabled={isActionLoading}>Batal</Button>
+                        )}
+                        {trip.status === 'DEPARTED' && (
+                          <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'COMPLETED')} disabled={isActionLoading}>Selesai</Button>
+                        )}
+                        {isDRAFT && (trip.status === 'PLANNED' || trip.status === 'CANCELLED') && (
+                          <Button size="sm" variant="ghost" onClick={() => handleRemoveTrip(trip.id, trip.vehicle.plateNumber)} disabled={isActionLoading}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Capacity bar */}
+                    {capacityKg && (
+                      <div className="mb-2">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>Kapasitas: {plannedKg.toLocaleString('id-ID')} / {capacityKg.toLocaleString('id-ID')} kg</span>
+                          <span>{utilizationPct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div className={`h-1.5 rounded-full ${utilizationPct > 100 ? 'bg-red-500' : utilizationPct > 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                            style={{ width: `${Math.min(utilizationPct, 100)}%` }} />
+                        </div>
+                      </div>
                     )}
-                    {trip.routeName && <span className="text-sm text-muted-foreground">🗺 {trip.routeName}</span>}
-                  </CardTitle>
-                  <div className="flex gap-1">
-                    {/* Status actions */}
-                    {trip.status === 'PLANNED' && (
-                      <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'CONFIRMED')} disabled={isActionLoading}>Konfirmasi</Button>
-                    )}
-                    {trip.status === 'CONFIRMED' && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'DEPARTED')} disabled={isActionLoading || unlinked > 0}>Berangkat</Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleTripStatus(trip.id, 'PLANNED')} disabled={isActionLoading}>Batal Konfirmasi</Button>
-                      </>
-                    )}
-                    {trip.status === 'DEPARTED' && (
-                      <Button size="sm" variant="outline" onClick={() => handleTripStatus(trip.id, 'COMPLETED')} disabled={isActionLoading}>Selesai</Button>
-                    )}
-                    {isDRAFT && (trip.status === 'PLANNED' || trip.status === 'CANCELLED') && (
-                      <Button size="sm" variant="ghost" onClick={() => handleRemoveTrip(trip.id, trip.vehicle.plateNumber)} disabled={isActionLoading}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
+
+                    {/* Stops in this trip */}
+                    {trip.orders.length > 0 ? (
+                      <div className="text-sm space-y-1">
+                        {trip.orders.map(o => (
+                          <div key={o.id} className="flex items-center justify-between text-muted-foreground">
+                            <span>{o.salesOrder?.orderNumber || o.deliveryOrder?.orderNumber || '-'}</span>
+                            <span>{o.plannedWeightKg ? `${o.plannedWeightKg.toLocaleString('id-ID')} kg` : ''}</span>
+                          </div>
+                        ))}
+                        {unlinkedInTrip > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            <Button size="sm" variant="outline" onClick={() => handleGenerateDO(trip.id)} disabled={isActionLoading}>
+                              <FileText className="h-3 w-3 mr-1" /> Buat Semua SJ ({unlinkedInTrip})
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Trip kosong — assign SO dari section atas.</p>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Capacity bar */}
-                  {capacityKg && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Kapasitas: {plannedKg.toLocaleString('id-ID')} / {capacityKg.toLocaleString('id-ID')} kg</span>
-                        <span>{utilizationPct}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${utilizationPct > 100 ? 'bg-red-500' : utilizationPct > 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
-                          style={{ width: `${Math.min(utilizationPct, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  {isEditable && trip.status !== 'DEPARTED' && trip.status !== 'COMPLETED' && trip.status !== 'CANCELLED' && (
-                    <div className="flex gap-2 mb-3">
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedTripId(trip.id); setIsAssignSOOpen(true); }}>
-                        <Plus className="h-3 w-3 mr-1" /> Tambah dari SO
-                      </Button>
-                      {unlinked > 0 && (
-                        <Button size="sm" variant="outline" onClick={() => handleGenerateDO(trip.id)} disabled={isActionLoading}>
-                          <FileText className="h-3 w-3 mr-1" /> Buat Semua SJ
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Stops table */}
-                  {trip.orders.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">Belum ada stop. Tambah dari SO atau Surat Jalan.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>#</TableHead>
-                          <TableHead>SO</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead className="text-right">Berat Rencana</TableHead>
-                          <TableHead>SJ</TableHead>
-                          <TableHead>Status</TableHead>
-                          {isEditable && <TableHead className="text-right">Aksi</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {trip.orders.map((stop, idx) => (
-                          <TableRow key={stop.id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell>{stop.salesOrder?.orderNumber || stop.deliveryOrder?.salesOrder?.orderNumber || '-'}</TableCell>
-                            <TableCell>{stop.salesOrder?.customer?.name || stop.deliveryOrder?.salesOrder?.customer?.name || '-'}</TableCell>
-                            <TableCell className="text-right">{stop.plannedWeightKg ? `${stop.plannedWeightKg.toLocaleString('id-ID')} kg` : '-'}</TableCell>
-                            <TableCell>
-                              {stop.deliveryOrder ? (
-                                <Link href="/sales/deliveries" className="text-blue-600 hover:underline text-sm">{stop.deliveryOrder.orderNumber}</Link>
-                              ) : (
-                                <span className="text-orange-600 text-sm italic">Belum SJ</span>
-                              )}
-                            </TableCell>
-                            <TableCell><Badge className={STOP_STATUS_STYLES[stop.status]}>{STOP_STATUS_LABELS[stop.status]}</Badge></TableCell>
-                            {isEditable && (
-                              <TableCell className="text-right">
-                                <div className="flex gap-1 justify-end">
-                                  {!stop.deliveryOrder && stop.salesOrder && (
-                                    <Button variant="ghost" size="sm" onClick={() => handleGenerateSingleDO(stop.id)} disabled={isActionLoading} title="Buat SJ untuk stop ini">
-                                      <FileText className="h-3 w-3 text-blue-500" />
-                                    </Button>
-                                  )}
-                                  <Button variant="ghost" size="sm" onClick={() => handleRemoveStop(stop.id)} disabled={isActionLoading}>
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      {/* ============================================ */}
-      {/* Assign SO Dialog (simple inline) */}
-      {/* ============================================ */}
-      {isAssignSOOpen && (
-        <Card className="border-blue-200">
-          <CardHeader><CardTitle className="text-base">Tambah Sales Order ke Trip</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Trip</label>
-                <Select value={selectedTripId} onValueChange={setSelectedTripId}>
-                  <SelectTrigger><SelectValue placeholder="Pilih trip..." /></SelectTrigger>
-                  <SelectContent>
-                    {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.vehicle.plateNumber} — {t.departureDate ? formatDate(t.departureDate) : 'Tanpa tanggal'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Sales Order (sisa undelivered)</label>
-                <Select value={selectedSOId} onValueChange={setSelectedSOId}>
-                  <SelectTrigger><SelectValue placeholder="Pilih SO..." /></SelectTrigger>
-                  <SelectContent>
-                    {schedulableSOs.map(so => (
-                      <SelectItem key={so.id} value={so.id}>
-                        {so.orderNumber} — {so.customer?.name || 'N/A'}
-                        {so.alreadyPlanned ? ' (sudah dijadwalkan)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Berat Rencana (kg, opsional)</label>
-                <input type="number" value={plannedWeight} onChange={e => setPlannedWeight(e.target.value)}
-                  placeholder="Contoh: 1200" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+                );
+              })}
             </div>
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handleAssignSO} disabled={isActionLoading || !selectedTripId || !selectedSOId}>
-                <Plus className="h-4 w-4 mr-1" /> Tambahkan
-              </Button>
-              <Button variant="ghost" onClick={() => { setIsAssignSOOpen(false); setSelectedTripId(''); setSelectedSOId(''); }}>Batal</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
