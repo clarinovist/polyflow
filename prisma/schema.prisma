@@ -1089,7 +1089,6 @@ model DeliveryOrderItem {
   deliveryOrder    DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
   productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
 }
-
 model Vehicle {
   id              String          @id @default(uuid())
   plateNumber     String          @unique
@@ -1101,9 +1100,11 @@ model Vehicle {
   capacityKg      Decimal?        @db.Decimal(10, 2)
   status          VehicleStatus   @default(ACTIVE)
   notes           String?
+  photoUrl        String?
+  kirNumber       String?
+  kirExpireDate   DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-
   tariffs         VehicleTariff[]
   deliveryOrders  DeliveryOrder[]
   schedules       DeliveryScheduleVehicle[]

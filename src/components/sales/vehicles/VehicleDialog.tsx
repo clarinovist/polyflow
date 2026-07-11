@@ -76,6 +76,9 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
       capacityKg: initialData?.capacityKg ? Number(initialData.capacityKg) : undefined,
       status: (initialData?.status as VehicleStatus) || 'ACTIVE',
       notes: initialData?.notes || '',
+      photoUrl: initialData?.photoUrl || '',
+      kirNumber: initialData?.kirNumber || '',
+      kirExpireDate: initialData?.kirExpireDate ? new Date(initialData.kirExpireDate) : null,
     },
   });
 
@@ -256,6 +259,58 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
                       placeholder="Contoh: 2000"
                       min={0}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="kirNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor KIR</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} placeholder="Contoh: KIR-12345" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="kirExpireDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Masa Berlaku KIR</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        value={field.value ? (field.value instanceof Date ? field.value.toISOString().split('T')[0] : String(field.value).substring(0, 10)) : ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === '' ? null : new Date(val));
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="photoUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL Foto Kendaraan</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} placeholder="https://example.com/truck.jpg" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

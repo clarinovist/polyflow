@@ -161,6 +161,9 @@ export const createVehicleSchema = z.object({
   capacityKg: z.coerce.number().min(0).optional().nullable(),
   status: z.enum(["ACTIVE", "INACTIVE", "MAINTENANCE"]),
   notes: z.string().optional(),
+  photoUrl: z.string().optional().nullable(),
+  kirNumber: z.string().optional().nullable(),
+  kirExpireDate: z.coerce.date().optional().nullable(),
 });
 
 export const updateVehicleSchema = createVehicleSchema;

@@ -47,6 +47,24 @@ const STATUS_STYLES: Record<string, string> = {
   MAINTENANCE: 'bg-yellow-100 text-yellow-800',
 };
 
+function getKirAlert(kirExpireDateStr: string | null) {
+  if (!kirExpireDateStr) return null;
+  const expireDate = new Date(kirExpireDateStr);
+  const now = new Date();
+  expireDate.setHours(0,0,0,0);
+  now.setHours(0,0,0,0);
+  
+  const diffTime = expireDate.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { label: 'KIR Expired', style: 'bg-red-100 text-red-800 border-red-200' };
+  } else if (diffDays <= 30) {
+    return { label: 'KIR Expiring', style: 'bg-yellow-100 text-yellow-800 border-yellow-200 animate-pulse' };
+  }
+  return null;
+}
+
 interface VehicleRow {
   id: string;
   plateNumber: string;
@@ -57,6 +75,9 @@ interface VehicleRow {
   driverName: string | null;
   capacityKg: number | null;
   status: string;
+  photoUrl: string | null;
+  kirNumber: string | null;
+  kirExpireDate: string | null;
   tariffs: Array<{ chargeRate: number; rateType: string }>;
   _count: { deliveryOrders: number };
 }
@@ -135,12 +156,19 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
                 {filtered.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell>
-                      <Link
-                        href={`/sales/vehicles/${v.id}`}
-                        className="font-medium text-blue-600 hover:underline"
-                      >
-                        {v.plateNumber}
-                      </Link>
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href={`/sales/vehicles/${v.id}`}
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {v.plateNumber}
+                        </Link>
+                        {getKirAlert(v.kirExpireDate) && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border w-max font-medium ${getKirAlert(v.kirExpireDate)!.style}`}>
+                            {getKirAlert(v.kirExpireDate)!.label}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{v.name}</TableCell>
                     <TableCell>{VEHICLE_TYPE_LABELS[v.vehicleType] || v.vehicleType}</TableCell>
@@ -213,12 +241,19 @@ export function VehicleTable({ vehicles }: VehicleTableProps) {
             <Card key={v.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <Link
-                    href={`/sales/vehicles/${v.id}`}
-                    className="font-bold text-blue-600 hover:underline"
-                  >
-                    {v.plateNumber}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/sales/vehicles/${v.id}`}
+                      className="font-bold text-blue-600 hover:underline"
+                    >
+                      {v.plateNumber}
+                    </Link>
+                    {getKirAlert(v.kirExpireDate) && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${getKirAlert(v.kirExpireDate)!.style}`}>
+                        {getKirAlert(v.kirExpireDate)!.label}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">{v.name}</p>
                 </div>
                 <Badge className={STATUS_STYLES[v.status] || ''}>{v.status}</Badge>

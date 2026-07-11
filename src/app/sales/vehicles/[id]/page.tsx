@@ -9,11 +9,11 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
   if (!result.success || !result.data) {
     redirect("/sales/vehicles");
   }
-
   // Serialize Decimal and Date fields for client component
   const vehicle = {
     ...result.data,
     capacityKg: result.data.capacityKg ? Number(result.data.capacityKg) : null,
+    kirExpireDate: result.data.kirExpireDate?.toISOString() || null,
     tariffs: result.data.tariffs.map((t: { id: string; rateType: string; costRate: unknown; chargeRate: unknown; minKg: unknown; validFrom: Date; validUntil: Date | null; routeName: string | null; notes: string | null }) => ({
       id: t.id,
       rateType: t.rateType,

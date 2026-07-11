@@ -86,6 +86,9 @@ export const createVehicle = withTenant(
           capacityKg: result.data.capacityKg ?? null,
           status: result.data.status as VehicleStatus,
           notes: result.data.notes || null,
+          photoUrl: result.data.photoUrl || null,
+          kirNumber: result.data.kirNumber || null,
+          kirExpireDate: result.data.kirExpireDate || null,
         },
       });
 
@@ -135,6 +138,9 @@ export const updateVehicle = withTenant(
           capacityKg: result.data.capacityKg ?? null,
           status: result.data.status as VehicleStatus,
           notes: result.data.notes || null,
+          photoUrl: result.data.photoUrl || null,
+          kirNumber: result.data.kirNumber || null,
+          kirExpireDate: result.data.kirExpireDate || null,
         },
       });
 
