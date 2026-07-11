@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Truck, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import { createManualDeliveryOrder } from '@/actions/inventory/deliveries';
-import { getSalesOrders } from '@/actions/sales/sales';
+import { getSalesOrders, getSalesOrderById } from '@/actions/sales/sales';
 import { getLocations } from '@/actions/inventory/inventory';
 import { getVehicles } from '@/actions/sales/vehicles';
 import { getActiveTariff as fetchActiveTariff, listVehicleRouteOptions as fetchRouteOptions } from '@/actions/sales/vehicle-tariffs';
@@ -40,6 +40,18 @@ interface SalesOrder {
     billingAddress?: string | null;
     defaultVehicleId?: string | null;
   } | null;
+  items?: Array<{
+    id: string;
+    quantity: string | number;
+    enteredQuantity?: string | number | null;
+    enteredUnit?: string | null;
+    productVariant?: {
+      name: string;
+      primaryUnit: string;
+      salesUnit?: string | null;
+      product?: { name: string } | null;
+    } | null;
+  }>;
 }
 
 interface Location {
@@ -87,6 +99,8 @@ export function CreateDeliveryOrderDialog({
   const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [estimatedWeightKg, setEstimatedWeightKg] = useState('');
+  const [selectedSoDetail, setSelectedSoDetail] = useState<SalesOrder | null>(null);
+  const [isLoadingSoDetail, setIsLoadingSoDetail] = useState(false);
   const [destinationAddress, setDestinationAddress] = useState('');
   // Route fields
   const [selectedRouteName, setSelectedRouteName] = useState('');
@@ -125,19 +139,39 @@ export function CreateDeliveryOrderDialog({
     if (open) loadData();
   }, [open, loadData]);
 
-  const handleSalesOrderChange = (soId: string) => {
+  const handleSalesOrderChange = async (soId: string) => {
     setSelectedSalesOrderId(soId);
-    const so = salesOrders.find(o => o.id === soId);
-    if (so?.customer) {
-      // Default destination from customer
-      if (!destinationAddress) {
-        setDestinationAddress(so.customer.shippingAddress || so.customer.billingAddress || '');
+    setSelectedSoDetail(null);
+    if (!soId) return;
+
+    // Fetch full SO detail to get items + quantities
+    setIsLoadingSoDetail(true);
+    try {
+      const res = await getSalesOrderById(soId);
+      if (res.success && res.data) {
+        const so = res.data as SalesOrder;
+        setSelectedSoDetail(so);
+
+        // Auto-fill destination address from customer (always override on SO change)
+        const addr = so.customer?.shippingAddress || so.customer?.billingAddress || '';
+        setDestinationAddress(addr);
+
+        // Auto-calculate estimated weight = sum of item quantities
+        if (so.items && so.items.length > 0) {
+          const totalQty = so.items.reduce((sum, item) => {
+            const qty = parseFloat(String(item.enteredQuantity ?? item.quantity ?? 0));
+            return sum + (isNaN(qty) ? 0 : qty);
+          }, 0);
+          if (totalQty > 0) setEstimatedWeightKg(String(totalQty));
+        }
+
+        // Auto-select default vehicle from customer
+        if (so.customer?.defaultVehicleId && !selectedVehicleId) {
+          handleVehicleChange(so.customer.defaultVehicleId);
+        }
       }
-      // Auto-select default vehicle
-      if (so.customer.defaultVehicleId && !selectedVehicleId) {
-        const v = vehicles.find(v => v.id === so.customer!.defaultVehicleId);
-        if (v) handleVehicleChange(so.customer.defaultVehicleId!);
-      }
+    } finally {
+      setIsLoadingSoDetail(false);
     }
   };
 
@@ -184,6 +218,7 @@ export function CreateDeliveryOrderDialog({
 
   const resetForm = () => {
     setSelectedSalesOrderId(defaultSalesOrderId || '');
+    setSelectedSoDetail(null);
     setSelectedLocationId('');
     setSelectedVehicleId('');
     setCarrier('');
@@ -279,6 +314,43 @@ export function CreateDeliveryOrderDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* SO Items Summary Card */}
+          {isLoadingSoDetail && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="h-3 w-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+              Memuat detail SO...
+            </div>
+          )}
+          {!isLoadingSoDetail && selectedSoDetail?.items && selectedSoDetail.items.length > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item dalam SO</p>
+              <div className="space-y-1">
+                {selectedSoDetail.items.map((item) => {
+                  const qty = parseFloat(String(item.enteredQuantity ?? item.quantity ?? 0));
+                  const unit = item.enteredUnit || item.productVariant?.salesUnit || item.productVariant?.primaryUnit || '';
+                  const productName = item.productVariant?.product?.name || item.productVariant?.name || '';
+                  return (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-foreground">{productName}</span>
+                      <span className="font-medium text-foreground tabular-nums">
+                        {isNaN(qty) ? '-' : qty.toLocaleString('id-ID')} {unit}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="border-t pt-1 flex justify-between text-sm font-semibold">
+                <span>Total estimasi berat</span>
+                <span className="tabular-nums">
+                  {selectedSoDetail.items.reduce((sum, item) => {
+                    const qty = parseFloat(String(item.enteredQuantity ?? item.quantity ?? 0));
+                    return sum + (isNaN(qty) ? 0 : qty);
+                  }, 0).toLocaleString('id-ID')} kg
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Lokasi Gudang *</Label>
