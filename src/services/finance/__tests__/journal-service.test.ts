@@ -249,8 +249,8 @@ describe("JournalsService", () => {
       expect(prisma.account.findMany).not.toHaveBeenCalled();
     });
 
-    it("retries on P2002 entryNumber collision and succeeds", async () => {
-      // Arrange
+    it("resyncs sequence when behind and claims next free entryNumber", async () => {
+      // Arrange — first claim hits an existing number; resync floors then increments
       const input = makeValidEntry();
       const year = input.entryDate.getFullYear();
 
@@ -258,8 +258,8 @@ describe("JournalsService", () => {
       vi.mocked(prisma.journalEntry.findUnique).mockImplementation(
         (async (args: Record<string, unknown>) => {
           const where = args.where as Record<string, unknown> | undefined;
-          if (where && typeof where === 'object' && "entryNumber" in where) {
-            // First call: collision exists; subsequent: no collision
+          if (where && typeof where === "object" && "entryNumber" in where) {
+            // First call: candidate already exists; after resync: free
             return findUniqueCallCount++ === 0
               ? ({ id: "existing" } as never)
               : null;
@@ -268,12 +268,11 @@ describe("JournalsService", () => {
         }) as any,
       );
 
-      vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue({
-        entryNumber: `JE - ${year} -00005`,
-      } as never);
+      vi.mocked(prisma.$queryRaw).mockResolvedValue([{ max_num: 5 }] as never);
       vi.mocked(prisma.systemSequence.update)
-        .mockResolvedValueOnce({ value: BigInt(2) } as never) // first attempt
-        .mockResolvedValueOnce({ value: BigInt(7) } as never); // fast-forward
+        .mockResolvedValueOnce({ value: BigInt(2) } as never) // initial claim (uses 1)
+        .mockResolvedValueOnce({ value: BigInt(6) } as never) // floor to max+1
+        .mockResolvedValueOnce({ value: BigInt(7) } as never); // claim increment (uses 6)
       vi.mocked(prisma.journalEntry.create).mockResolvedValue({
         id: "je-new",
         ...input,
@@ -286,7 +285,15 @@ describe("JournalsService", () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(prisma.journalEntry.create).toHaveBeenCalled();
+      expect(prisma.journalEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entryNumber: `JE - ${year} -00006`,
+          }),
+        }),
+      );
+      // Must floor then claim — never return max+1 without advancing sequence
+      expect(prisma.systemSequence.update).toHaveBeenCalledTimes(3);
     });
 
     it("throws non-P2002 errors immediately without retry", async () => {

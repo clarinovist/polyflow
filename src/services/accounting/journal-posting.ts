@@ -380,6 +380,17 @@ export async function createBulkJournalEntries(
   return results;
 }
 
+/**
+ * Allocate the next journal entry number for a calendar year.
+ *
+ * SystemSequence.value is the next number to assign. Allocation always
+ * increments first, then uses value-1. When the sequence has drifted behind
+ * real JournalEntry rows (imports/repairs), we floor the sequence to max+1
+ * and increment again so the claimed number is consumed — never returned
+ * without advancing past it. Returning max+1 without a claim caused the
+ * next journal in the same transaction (e.g. multi-material backflush) to
+ * re-allocate the same entryNumber and hit P2002.
+ */
 async function generateEntryNumber(
   date: Date,
   tx?: Prisma.TransactionClient,
@@ -391,71 +402,108 @@ async function generateEntryNumber(
   const key = `JOURNAL_ENTRY_${year}`;
   const MAX_RETRIES = 5;
 
-  const fastForwardSequence = async (targetValue: number) => {
-    console.warn(
-      `[JournalService] Fast-forwarding sequence ${key} to ${targetValue + 1} (was behind actual entries)`,
-    );
-    await db.systemSequence.update({
-      where: { key },
-      data: { value: BigInt(targetValue + 1) },
-    });
-    return targetValue + 1;
-  };
+  const formatEntryNumber = (n: number) =>
+    `JE - ${year} -${n.toString().padStart(5, "0")}`;
 
   const findMaxEntryNumber = async (): Promise<number> => {
-    // Use raw SQL to extract numeric suffix and order numerically
-    // String ordering fails: "JE - 2026 -00033" > "JE - 2026 -00104" because "3" > "1"
-    const result = await (tx || prisma).$queryRaw<{max_num: number}[]>`
-      SELECT MAX(CAST(SPLIT_PART("entryNumber", '-', 3) AS INTEGER)) as max_num
+    // Numeric suffix only — string order is wrong ("00033" > "00104").
+    // Do not filter by entryDate: entryNumber is globally unique, so max
+    // must include every JE - {year} -* row regardless of date.
+    const result = await (tx || prisma).$queryRaw<
+      { max_num: number | bigint | null }[]
+    >`
+      SELECT MAX(CAST(TRIM(SPLIT_PART("entryNumber", '-', 3)) AS INTEGER)) as max_num
       FROM "JournalEntry"
-      WHERE "entryNumber" LIKE ${`JE - ${year}%`}
-        AND "entryDate" >= ${new Date(year, 0, 1)}
-        AND "entryDate" < ${new Date(year + 1, 0, 1)}
+      WHERE "entryNumber" LIKE ${`JE - ${year} -%`}
     `;
-    return result[0]?.max_num ?? 0;
+    const raw = result[0]?.max_num;
+    return raw == null ? 0 : Number(raw);
   };
 
-  try {
+  const claimNext = async (): Promise<number> => {
     const sequence = await db.systemSequence.update({
       where: { key },
       data: { value: { increment: 1 } },
     });
-    const currentVal = Number(sequence.value) - 1;
-    const candidate = `JE - ${year} -${currentVal.toString().padStart(5, "0")}`;
+    return Number(sequence.value) - 1;
+  };
+
+  /** Floor sequence to at least nextFree, then claim via increment. */
+  const resyncAndClaim = async (maxNum: number): Promise<number> => {
+    const nextFree = maxNum + 1;
+    console.warn(
+      `[JournalService] Fast-forwarding sequence ${key} to ${nextFree} (was behind actual entries)`,
+    );
+    // value = next free candidate (not yet claimed)
+    await db.systemSequence.update({
+      where: { key },
+      data: { value: BigInt(nextFree) },
+    });
+    // increment claims nextFree; value becomes nextFree+1
+    return claimNext();
+  };
+
+  try {
+    let currentVal = await claimNext();
+    let candidate = formatEntryNumber(currentVal);
 
     const existing = await (tx || prisma).journalEntry.findUnique({
       where: { entryNumber: candidate },
       select: { id: true },
     });
 
-    if (existing) {
-      const maxNum = await findMaxEntryNumber();
-      const nextVal = await fastForwardSequence(maxNum);
-      return `JE - ${year} -${nextVal.toString().padStart(5, "0")}`;
+    if (!existing) {
+      return candidate;
     }
 
-    return candidate;
+    // Sequence behind real data — resync and claim a free number.
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const maxNum = await findMaxEntryNumber();
+      currentVal = await resyncAndClaim(maxNum);
+      candidate = formatEntryNumber(currentVal);
+
+      const stillTaken = await (tx || prisma).journalEntry.findUnique({
+        where: { entryNumber: candidate },
+        select: { id: true },
+      });
+      if (!stillTaken) {
+        return candidate;
+      }
+
+      // Rare race / same-tx sibling: bump floor past this candidate and retry.
+      console.warn(
+        `[JournalService] entryNumber ${candidate} still taken after resync, retrying (${attempt + 1}/${MAX_RETRIES})`,
+      );
+      await db.systemSequence.update({
+        where: { key },
+        data: { value: BigInt(currentVal + 1) },
+      });
+    }
+
+    throw new Error(
+      `Failed to allocate unique journal entryNumber after ${MAX_RETRIES} attempts (year ${year})`,
+    );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError
-    ) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002" && _retryCount < MAX_RETRIES) {
-        // Unique constraint hit — race condition, retry with fresh sequence
-        console.warn(`[JournalService] entryNumber collision, retrying (${_retryCount + 1}/${MAX_RETRIES})`);
+        console.warn(
+          `[JournalService] entryNumber collision, retrying (${_retryCount + 1}/${MAX_RETRIES})`,
+        );
         return generateEntryNumber(date, tx, _retryCount + 1);
       }
       if (error.code === "P2025") {
-        // Sequence not found — upsert and retry
+        // Sequence row missing — create from max and claim.
         const maxNum = await findMaxEntryNumber();
         const startValue = maxNum + 1;
-
         const sequence = await db.systemSequence.upsert({
           where: { key },
           update: { value: { increment: 1 } },
+          // create with startValue+1 so value-1 after "virtual claim" semantics
+          // matches startValue when we use the upserted value-1 path below
           create: { key, value: BigInt(startValue + 1) },
         });
         const currentVal = Number(sequence.value) - 1;
-        return `JE - ${year} -${currentVal.toString().padStart(5, "0")}`;
+        return formatEntryNumber(currentVal);
       }
     }
     throw error;
