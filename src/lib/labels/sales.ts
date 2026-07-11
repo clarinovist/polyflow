@@ -166,4 +166,20 @@ export const salesLabels = {
   weekEnd: "Minggu Selesai",
   departureDate: "Tanggal Berangkat",
   scheduleStatus: "Status Jadwal",
+
+  // DO-Stock Decouple (MTO Hot-Loading)
+  sjDraft: "Surat Jalan (Draft/Muat)",
+  sjShipped: "Dikirim (Stok Terpotong)",
+  sjPendingHint: "Dokumen pengiriman — stok belum dipotong",
+  sjShippedHint: "Stok sudah dipotong dari gudang",
+  buatSuratJalan: "Buat Surat Jalan",
+  tandaiDikirim: "Tandai Dikirim",
+  tandaiDikirimConfirm: "Ini akan memotong stok dari gudang. Pastikan produksi sudah diinput.",
+  stockNotReady: "Stok FG belum lengkap",
+  stockReady: "Stok FG siap",
+  openDoExists: "Sudah ada Surat Jalan aktif",
+  selectDoToShip: "Pilih DO mana yang akan dikirim",
+  createAndShip: "Buat SJ + Kirim Sekaligus",
+  commitExistingDo: "Kirim DO yang sudah ada",
+  stokBelumCukup: "Stok belum cukup",
 } as const;

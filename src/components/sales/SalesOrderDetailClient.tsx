@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ProductionStatusCard } from "./ProductionStatusCard";
 import { ShipmentDialog } from "./ShipmentDialog";
+import { CreateDeliveryOrderDialog } from "./CreateDeliveryOrderDialog";
 import { isBillableDeliveryStatus } from "@/lib/sales/delivery-status";
 import {
   AlertDialog,
@@ -296,6 +297,13 @@ export function SalesOrderDetailClient({
                 ? "Produksi Selesai / Siap Tutup Jasa"
                 : "Produksi Selesai"}
             </Button>
+          )}
+
+          {/* Buat Surat Jalan — MTO hot-loading: create DO without blocking on stock */}
+          {(order.status === "CONFIRMED" ||
+            order.status === "IN_PRODUCTION" ||
+            order.status === "READY_TO_SHIP") && !isMaklonOrder && (
+            <CreateDeliveryOrderDialog defaultSalesOrderId={order.id} />
           )}
 
           {(order.status === "CONFIRMED" ||

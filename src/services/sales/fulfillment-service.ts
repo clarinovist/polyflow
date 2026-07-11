@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
-import { SalesOrderStatus, MovementType, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
+import { SalesOrderStatus, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
-import { AccountingService } from '@/services/accounting/accounting-service';
-import { InventoryCoreService } from '@/services/inventory/core-service';
 import { InvoiceService } from '@/services/finance/invoice-service';
 
 export async function markReadyToShip(id: string, userId: string) {
@@ -29,151 +27,95 @@ export async function markReadyToShip(id: string, userId: string) {
     });
 }
 
-export async function shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string, carrier?: string }) {
+/**
+ * Ship a Sales Order.
+ *
+ * Thin orchestrator:
+ *   1. Find open DO (PENDING/LOADING) for this SO
+ *   2. If 1 exists → commitDeliveryShipment(thatDoId)
+ *   3. If none → create DO PENDING (full residual) then commit
+ *   4. If >1 open DO → error (user must pick from detail DO)
+ *
+ * Maintains backward compat: existing UI calling shipSalesOrder still works.
+ */
+export async function shipOrder(id: string, userId: string, trackingInfo?: { trackingNumber?: string; carrier?: string }) {
+    const { createDeliveryOrderFromSalesOrder, commitDeliveryShipment } = await import('./delivery-fulfillment-service');
+
     const order = await prisma.salesOrder.findUnique({
         where: { id },
         include: { items: { include: { productVariant: { include: { product: true } } } } }
     });
 
     if (!order) throw new Error("Order not found");
-    if (order.status !== SalesOrderStatus.CONFIRMED && order.status !== SalesOrderStatus.READY_TO_SHIP) {
-        throw new Error("Order must be CONFIRMED or READY_TO_SHIP to be shipped");
+    if (order.status !== SalesOrderStatus.CONFIRMED && order.status !== SalesOrderStatus.IN_PRODUCTION && order.status !== SalesOrderStatus.READY_TO_SHIP) {
+        throw new Error("Order must be CONFIRMED, IN_PRODUCTION, or READY_TO_SHIP to be shipped");
     }
     if (!order.sourceLocationId) throw new Error("Source location is missing");
 
-    const isMaklonOrder = order.orderType === 'MAKLON_JASA';
+    const isMaklonServiceOnly =
+        order.orderType === 'MAKLON_JASA' &&
+        order.items.every(
+            (item) => item.productVariant.product.productType === ProductType.SERVICE
+        );
 
-    await prisma.$transaction(async (tx) => {
-        const physicalItems = [];
-
-        for (const item of order.items) {
-            if (item.productVariant.product.productType === ProductType.SERVICE) {
-                // Maklon Jasa service items don't have physical inventory
-                continue;
-            }
-            physicalItems.push(item);
-
-            const qty = item.quantity.toNumber();
-            const locationId = order.sourceLocationId!;
-
-            const reservations = await tx.stockReservation.findMany({
-                where: {
-                    referenceId: order.id,
-                    reservedFor: ReservationType.SALES_ORDER,
-                    productVariantId: item.productVariantId,
-                    status: ReservationStatus.ACTIVE
-                },
-                orderBy: { createdAt: 'asc' }
-            });
-
-            let needed = qty;
-            for (const res of reservations) {
-                if (needed <= 0) break;
-                const resQty = res.quantity.toNumber();
-                const consume = Math.min(resQty, needed);
-
-                if (consume >= resQty) {
-                    await tx.stockReservation.update({ where: { id: res.id }, data: { status: ReservationStatus.FULFILLED } });
-                } else {
-                    await tx.stockReservation.update({ where: { id: res.id }, data: { quantity: { decrement: consume } } });
-                }
-
-                // Avoid floating point precision issues
-                needed = Math.round((needed - consume) * 10000) / 10000;
-            }
-
-            await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, qty);
-            await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, qty);
-
-            await tx.stockMovement.create({
-                data: {
-                    type: MovementType.OUT,
-                    productVariantId: item.productVariantId,
-                    fromLocationId: locationId,
-                    quantity: qty,
-                    salesOrderId: order.id,
-                    createdById: userId,
-                    reference: isMaklonOrder ? `Service closure shipment for ${order.orderNumber}` : `Shipment for ${order.orderNumber}`,
-                    createdAt: new Date()
-                }
-            }).then((movement) => AccountingService.recordInventoryMovement(movement, tx));
-        }
-
-        const lastDo = await tx.deliveryOrder.findFirst({
-            orderBy: { createdAt: 'desc' }
-        });
-
-        const year = new Date().getFullYear();
-        let nextDoNumber = 1;
-        if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
-            const parts = lastDo.orderNumber.split('-');
-            if (parts.length === 3) {
-                nextDoNumber = parseInt(parts[2]) + 1;
-            }
-        }
-        const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
-
-        // Create DO using only physical items (skip service items)
-        if (physicalItems.length > 0) {
-            await tx.deliveryOrder.create({
-                data: {
-                    orderNumber: doNumber,
-                    salesOrderId: order.id,
-                    sourceLocationId: order.sourceLocationId!,
-                    status: 'SHIPPED',
-                    deliveryDate: new Date(),
-                    trackingNumber: trackingInfo?.trackingNumber,
-                    carrier: trackingInfo?.carrier,
-                    createdById: userId,
-                    items: {
-                        create: physicalItems.map(item => ({
-                            productVariantId: item.productVariantId,
-                            quantity: item.quantity,
-                            enteredQuantity: item.enteredQuantity,
-                            enteredUnit: item.enteredUnit,
-                            conversionFactorSnapshot: item.conversionFactorSnapshot,
-                            notes: item.id
-                        }))
-                    }
-                }
-            });
-        }
-
-        for (const item of physicalItems) {
-            await tx.salesOrderItem.update({
-                where: { id: item.id },
-                data: { deliveredQty: { increment: item.quantity } }
-            });
-        }
-
-        await tx.salesOrder.update({
+    // Maklon jasa-only: no physical DO / stock — close SO + draft invoice (legacy behavior)
+    if (isMaklonServiceOnly) {
+        await prisma.salesOrder.update({
             where: { id },
-            data: { status: SalesOrderStatus.SHIPPED }
+            data: { status: SalesOrderStatus.SHIPPED },
         });
-
-        await InvoiceService.createDraftInvoiceFromOrder(id, userId);
-
-        // Catch-all: ensure any remaining ACTIVE reservations for this SO are marked as FULFILLED
-        await tx.stockReservation.updateMany({
+        await prisma.stockReservation.updateMany({
             where: {
-                referenceId: order.id,
+                referenceId: id,
                 reservedFor: ReservationType.SALES_ORDER,
-                status: ReservationStatus.ACTIVE
+                status: ReservationStatus.ACTIVE,
             },
-            data: { status: ReservationStatus.FULFILLED }
+            data: { status: ReservationStatus.FULFILLED },
         });
-
+        await InvoiceService.createDraftInvoiceFromOrder(id, userId);
         await logActivity({
             userId,
             action: 'SHIP_SALES',
             entityType: 'SalesOrder',
             entityId: id,
-            details: isMaklonOrder
-                ? `Sales Order ${order.orderNumber} closed as Maklon service order. Delivery Order ${physicalItems.length > 0 ? doNumber : 'not created; service-only flow'}`
-                : `Sales Order ${order.orderNumber} shipped. Created Delivery Order ${physicalItems.length > 0 ? doNumber : 'N/A'}`,
-            tx
+            details: `Sales Order ${order.orderNumber} closed as Maklon service order (no physical DO)`,
         });
+        return { doNumber: null, created: false, serviceOnly: true };
+    }
+
+    // Check for existing open DOs
+    const openDos = await prisma.deliveryOrder.findMany({
+        where: {
+            salesOrderId: id,
+            status: { in: ['PENDING', 'LOADING'] },
+        },
+        select: { id: true, orderNumber: true },
     });
+
+    if (openDos.length > 1) {
+        throw new Error(
+            `Ada ${openDos.length} Surat Jalan aktif untuk SO ini: ${openDos.map(d => d.orderNumber).join(', ')}. ` +
+            `Gunakan halaman detail DO untuk memilih DO yang akan dikirim.`
+        );
+    }
+
+    if (openDos.length === 1) {
+        // Commit existing DO
+        await commitDeliveryShipment(openDos[0].id, userId, trackingInfo);
+        return { doNumber: openDos[0].orderNumber, created: false };
+    }
+
+    // No open DO → create one then commit
+    const doRecord = await createDeliveryOrderFromSalesOrder({
+        salesOrderId: id,
+        sourceLocationId: order.sourceLocationId,
+        userId,
+        carrier: trackingInfo?.carrier,
+        trackingNumber: trackingInfo?.trackingNumber,
+    });
+
+    await commitDeliveryShipment(doRecord.id, userId, trackingInfo);
+    return { doNumber: doRecord.orderNumber, created: true };
 }
 
 export async function deliverOrder(orderId: string, userId: string) {

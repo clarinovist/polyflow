@@ -62,13 +62,13 @@ interface ActiveTariff {
   minKg?: { toNumber: () => number } | null;
 }
 
-export function CreateDeliveryOrderDialog() {
+export function CreateDeliveryOrderDialog({ defaultSalesOrderId }: { defaultSalesOrderId?: string }) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [selectedSalesOrderId, setSelectedSalesOrderId] = useState('');
+  const [selectedSalesOrderId, setSelectedSalesOrderId] = useState(defaultSalesOrderId || '');
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [carrier, setCarrier] = useState('');
@@ -171,7 +171,7 @@ export function CreateDeliveryOrderDialog() {
   };
 
   const resetForm = () => {
-    setSelectedSalesOrderId('');
+    setSelectedSalesOrderId(defaultSalesOrderId || '');
     setSelectedLocationId('');
     setSelectedVehicleId('');
     setCarrier('');

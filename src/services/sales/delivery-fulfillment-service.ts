@@ -126,24 +126,22 @@ export async function createDeliveryOrderFromSalesOrder(
     );
   }
 
-  // 3. Check residual qty per physical line
-  const physicalItems = salesOrder.items.filter(
-    (item) => item.productVariant.product.productType !== ProductType.SERVICE
-  );
+  // 3. Physical lines with residual qty only (D7, D12)
+  const residualLines = salesOrder.items
+    .filter(
+      (item) => item.productVariant.product.productType !== ProductType.SERVICE
+    )
+    .map((item) => {
+      const qty = item.quantity.toNumber();
+      const delivered = item.deliveredQty.toNumber();
+      const residual = Math.round((qty - delivered) * 10000) / 10000;
+      return { item, residual };
+    })
+    .filter(({ residual }) => residual > 0);
 
-  if (physicalItems.length === 0) {
-    throw new Error("Tidak ada item fisik (semua item adalah SERVICE).");
-  }
-
-  const hasResidual = physicalItems.some((item) => {
-    const qty = item.quantity.toNumber();
-    const delivered = item.deliveredQty.toNumber();
-    return qty - delivered > 0;
-  });
-
-  if (!hasResidual) {
+  if (residualLines.length === 0) {
     throw new Error(
-      "Semua item sudah terkirim sepenuhnya (residual = 0). Tidak perlu SJ baru."
+      "Tidak ada item fisik tersisa untuk dikirim (semua SERVICE atau residual = 0)."
     );
   }
 
@@ -178,7 +176,7 @@ export async function createDeliveryOrderFromSalesOrder(
   }
   const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, "0")}`;
 
-  // 6. Create DO with physical items only
+  // 6. Create DO with residual physical quantities only
   const deliveryOrder = await prisma.deliveryOrder.create({
     data: {
       orderNumber: doNumber,
@@ -191,7 +189,7 @@ export async function createDeliveryOrderFromSalesOrder(
       notes,
       createdById: userId,
       vehicleId: vehicleId || null,
-      appliedRateType: appliedRateType as never || null,
+      appliedRateType: (appliedRateType as never) || null,
       appliedCostRate: appliedCostRate ?? null,
       appliedChargeRate: appliedChargeRate ?? null,
       appliedRouteName: appliedRouteName || null,
@@ -200,13 +198,22 @@ export async function createDeliveryOrderFromSalesOrder(
       estimatedWeightKg: estimatedWeightKg ?? null,
       destinationAddress: destinationAddress || null,
       items: {
-        create: physicalItems.map((item) => ({
-          productVariantId: item.productVariantId,
-          quantity: item.quantity,
-          enteredQuantity: item.enteredQuantity,
-          enteredUnit: item.enteredUnit,
-          conversionFactorSnapshot: item.conversionFactorSnapshot,
-        })),
+        create: residualLines.map(({ item, residual }) => {
+          const factor = item.conversionFactorSnapshot
+            ? item.conversionFactorSnapshot.toNumber()
+            : null;
+          const enteredQty =
+            factor && factor > 0
+              ? Math.round((residual / factor) * 10000) / 10000
+              : residual;
+          return {
+            productVariantId: item.productVariantId,
+            quantity: residual,
+            enteredQuantity: enteredQty,
+            enteredUnit: item.enteredUnit,
+            conversionFactorSnapshot: item.conversionFactorSnapshot,
+          };
+        }),
       },
     },
   });
@@ -311,7 +318,7 @@ export async function commitDeliveryShipment(
     }
 
     // 5. Per physical line: consume reservations + validate + deduct stock
-    for (const { doItem, soItem } of stockLines) {
+    for (const { doItem, soItem: _soItem } of stockLines) {
       const locationId = doRecord.sourceLocationId;
       const needed = doItem.quantity.toNumber();
       const pvId = doItem.productVariantId;

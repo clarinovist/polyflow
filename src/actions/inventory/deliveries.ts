@@ -107,68 +107,26 @@ async function createManualDeliveryOrder(data: {
     const session = await requireAuth();
     const validatedData = createManualDeliveryOrderSchema.parse(data);
 
-    // Verify sales order exists
-    const salesOrder = await prisma.salesOrder.findUnique({
-      where: { id: validatedData.salesOrderId },
-      include: { items: true },
-    });
-
-    if (!salesOrder) throw new Error("Sales Order not found");
-
-    // Generate DO number
-    const lastDo = await prisma.deliveryOrder.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const year = new Date().getFullYear();
-    let nextDoNumber = 1;
-    if (lastDo?.orderNumber?.startsWith(`DO-${year}-`)) {
-      const parts = lastDo.orderNumber.split('-');
-      if (parts.length === 3) {
-        nextDoNumber = parseInt(parts[2]) + 1;
-      }
-    }
-    const doNumber = `DO-${year}-${nextDoNumber.toString().padStart(4, '0')}`;
-
-    // Create DO with items from SO
-    const deliveryOrder = await prisma.deliveryOrder.create({
-      data: {
-        orderNumber: doNumber,
-        salesOrderId: validatedData.salesOrderId,
-        sourceLocationId: validatedData.sourceLocationId,
-        status: 'PENDING',
-        deliveryDate: new Date(),
-        trackingNumber: validatedData.trackingNumber,
-        carrier: validatedData.carrier,
-        notes: validatedData.notes,
-        createdById: session.user.id,
-        vehicleId: validatedData.vehicleId || null,
-        appliedRateType: validatedData.appliedRateType as RateType || null,
-        appliedCostRate: validatedData.appliedCostRate ?? null,
-        appliedChargeRate: validatedData.appliedChargeRate ?? null,
-        appliedRouteName: validatedData.appliedRouteName || null,
-        totalCost: validatedData.totalCost ?? null,
-        totalCharge: validatedData.totalCharge ?? null,
-        estimatedWeightKg: validatedData.estimatedWeightKg ?? null,
-        destinationAddress: validatedData.destinationAddress || null,
-        items: {
-          create: salesOrder.items.map((item) => ({
-            productVariantId: item.productVariantId,
-            quantity: item.quantity,
-            enteredQuantity: item.enteredQuantity,
-            enteredUnit: item.enteredUnit,
-            conversionFactorSnapshot: item.conversionFactorSnapshot,
-          })),
-        },
-      },
-    });
-
-    await logActivity({
+    // Single source of truth: hardened create (D1/D6/D7/D12) — no stock deduct
+    const { createDeliveryOrderFromSalesOrder } = await import(
+      '@/services/sales/delivery-fulfillment-service'
+    );
+    const deliveryOrder = await createDeliveryOrderFromSalesOrder({
+      salesOrderId: validatedData.salesOrderId,
+      sourceLocationId: validatedData.sourceLocationId,
       userId: session.user.id,
-      action: 'CREATE_DELIVERY_ORDER',
-      entityType: 'DeliveryOrder',
-      entityId: deliveryOrder.id,
-      details: `Manual Delivery Order ${doNumber} created for SO ${salesOrder.orderNumber}`,
+      carrier: validatedData.carrier,
+      trackingNumber: validatedData.trackingNumber,
+      notes: validatedData.notes,
+      vehicleId: validatedData.vehicleId,
+      appliedRateType: validatedData.appliedRateType,
+      appliedCostRate: validatedData.appliedCostRate,
+      appliedChargeRate: validatedData.appliedChargeRate,
+      appliedRouteName: validatedData.appliedRouteName ?? undefined,
+      totalCost: validatedData.totalCost,
+      totalCharge: validatedData.totalCharge,
+      estimatedWeightKg: validatedData.estimatedWeightKg,
+      destinationAddress: validatedData.destinationAddress,
     });
 
     // Sync SO shipping cost from DO charges
@@ -180,6 +138,9 @@ async function createManualDeliveryOrder(data: {
     } catch (err) {
       console.warn('[delivery-shipping-sync] sync failed (non-blocking):', err);
     }
+
+    revalidatePath('/sales/deliveries');
+    revalidatePath(`/sales/orders/${validatedData.salesOrderId}`);
 
     return deliveryOrder;
   });
@@ -210,10 +171,17 @@ async function updateDeliveryStatus(
       );
     }
 
-    await prisma.deliveryOrder.update({
-      where: { id: deliveryOrderId },
-      data: { status: newStatus as DeliveryStatus },
-    });
+    // When transitioning to SHIPPED → commit stock (all-in-one)
+    if (newStatus === 'SHIPPED') {
+      const { commitDeliveryShipment } = await import('@/services/sales/delivery-fulfillment-service');
+      await commitDeliveryShipment(deliveryOrderId, session.user.id);
+    } else {
+      // For all other transitions, just update status
+      await prisma.deliveryOrder.update({
+        where: { id: deliveryOrderId },
+        data: { status: newStatus as DeliveryStatus },
+      });
+    }
 
     // If target is DELIVERED, also sync the SalesOrder
     if (newStatus === 'DELIVERED') {
@@ -372,5 +340,21 @@ async function updateDeliveryPricing(data: {
     revalidatePath(`/sales/orders/${doRecord.salesOrderId}`);
 
     return { deliveryOrder: updated, shippingSync };
+  });
+});
+
+/**
+ * Server action: fetch stock readiness for a Delivery Order.
+ * Used by DeliveryOrderDetail (client component) to show soft warning banner.
+ * Client must never import the Prisma service directly.
+ */
+export const fetchDeliveryStockReadiness = withTenant(
+async function fetchDeliveryStockReadiness(deliveryOrderId: string) {
+  return safeAction(async () => {
+    await requireAuth();
+    const { getDeliveryStockReadiness } = await import(
+      '@/services/sales/delivery-fulfillment-service'
+    );
+    return getDeliveryStockReadiness(deliveryOrderId);
   });
 });

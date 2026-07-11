@@ -22,8 +22,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { salesLabels, formLabels, actionLabels } from '@/lib/labels';
 import { useRouter } from 'next/navigation';
-import { useState, useRef } from 'react';
-import { updateDeliveryStatus } from '@/actions/inventory/deliveries';
+import { useState, useRef, useEffect } from 'react';
+import { updateDeliveryStatus, fetchDeliveryStockReadiness } from '@/actions/inventory/deliveries';
+import { StockReadinessBanner, type StockReadinessLine } from '@/components/sales/StockReadinessBanner';
 import { attachDeliveryPhoto } from '@/actions/sales/delivery-photos';
 import { NEXT_STEP_LABELS, getDeliveryStatusLabel } from '@/lib/sales/delivery-status';
 import { EditDeliveryPricingDialog } from '@/components/sales/EditDeliveryPricingDialog';
@@ -96,9 +97,21 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
     const [uploadingVehicle, setUploadingVehicle] = useState(false);
     const [uploadingPOD, setUploadingPOD] = useState(false);
     const [receivedByName, setReceivedByName] = useState('');
+    const [stockReadiness, setStockReadiness] = useState<StockReadinessLine[] | null>(null);
     const vehicleInputRef = useRef<HTMLInputElement>(null);
     const podInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
+
+    // Load stock readiness when DO is PENDING or LOADING (via server action — no Prisma on client)
+    useEffect(() => {
+        if (order.status === 'PENDING' || order.status === 'LOADING') {
+            fetchDeliveryStockReadiness(order.id)
+                .then((res) => {
+                    if (res.success && res.data) setStockReadiness(res.data);
+                })
+                .catch(() => {});
+        }
+    }, [order.id, order.status]);
 
     const handleStatusChange = async (newStatus: string) => {
         setIsLoading(true);
@@ -204,7 +217,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                     <h1 className="text-3xl font-bold tracking-tight">{salesLabels.deliveryOrder} {order.orderNumber}</h1>
                     <div className="flex items-center gap-3 mt-1">
                         {getStatusBadge(order.status)}
-                        {nextStep && (
+                        {nextStep && nextStep.to !== 'SHIPPED' && (
                             <Button
                                 size="sm"
                                 className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
@@ -213,6 +226,38 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                             >
                                 <Check className="mr-1 h-3.5 w-3.5" /> {nextStep.label}
                             </Button>
+                        )}
+                        {/* Tandai Dikirim — confirm dialog with stock warning */}
+                        {nextStep && nextStep.to === 'SHIPPED' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
+                                        disabled={isLoading}
+                                    >
+                                        <Check className="mr-1 h-3.5 w-3.5" /> Tandai Dikirim
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Tandai Dikirim?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Ini akan memotong stok dari gudang dan membuat invoice draft.
+                                            Pastikan produksi sudah diinput ke sistem.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => handleStatusChange('SHIPPED')}
+                                            className="bg-green-600 hover:bg-green-700"
+                                        >
+                                            Ya, Tandai Dikirim
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                         {/* Secondary: Cancel */}
                         {['PENDING', 'LOADING'].includes(order.status) && (
@@ -275,6 +320,11 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                     </div>
                 </div>
             </div>
+
+            {/* Stock Readiness Banner — soft warning for PENDING/LOADING DOs */}
+            {stockReadiness && stockReadiness.length > 0 && (
+                <StockReadinessBanner lines={stockReadiness} />
+            )}
 
             {/* Tracking Banner — only while en route (not yet arrived) */}
             {(order.status === 'SHIPPED' || order.status === 'IN_TRANSIT') && (

@@ -11,9 +11,7 @@ import {
   ProductType,
   DeliveryStatus,
   ReservationStatus,
-  MovementType,
 } from "@prisma/client";
-import { logActivity } from "@/lib/tools/audit";
 import { InventoryCoreService } from "@/services/inventory/core-service";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { InvoiceService } from "@/services/finance/invoice-service";
@@ -325,6 +323,35 @@ describe("createDeliveryOrderFromSalesOrder", () => {
     const items = createCall.data.items.create;
     expect(items).toHaveLength(2);
     expect(items.every((i: { productVariantId: string }) => i.productVariantId !== "pv-svc")).toBe(true);
+  });
+
+  it("writes residual qty on DO lines (qty - deliveredQty), not full SO qty", async () => {
+    const so = makeSalesOrder();
+    so.items[0].quantity = { toNumber: () => 100 } as never;
+    so.items[0].deliveredQty = { toNumber: () => 30 } as never;
+    so.items[0].conversionFactorSnapshot = { toNumber: () => 1 } as never;
+    so.items[1].quantity = { toNumber: () => 50 } as never;
+    so.items[1].deliveredQty = { toNumber: () => 50 } as never; // fully delivered — skipped
+
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
+    vi.mocked(prisma.deliveryOrder.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.deliveryOrder.create).mockResolvedValue({
+      id: "do-new",
+      status: DeliveryStatus.PENDING,
+    } as never);
+
+    await createDeliveryOrderFromSalesOrder({
+      salesOrderId: "so-1",
+      sourceLocationId: "loc-1",
+      userId: "user-1",
+    });
+
+    const createCall = vi.mocked(prisma.deliveryOrder.create).mock.calls[0][0];
+    const items = createCall.data.items.create as Array<{ productVariantId: string; quantity: number }>;
+    expect(items).toHaveLength(1);
+    expect(items[0].productVariantId).toBe("pv-1");
+    expect(items[0].quantity).toBe(70);
   });
 });
 
