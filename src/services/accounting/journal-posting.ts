@@ -399,7 +399,7 @@ async function generateEntryNumber(
       where: { key },
       data: { value: BigInt(targetValue + 1) },
     });
-    return targetValue;
+    return targetValue + 1;
   };
 
   const findMaxEntryNumber = async (): Promise<number> => {
