@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Car } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { salesLabels } from '@/lib/labels';
+import { FileUpload } from '@/components/ui/file-upload';
 
 interface VehicleDialogProps {
   mode: 'create' | 'edit';
@@ -308,9 +309,12 @@ export function VehicleDialog({ mode, initialData, trigger, open: externalOpen, 
               name="photoUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL Foto Kendaraan</FormLabel>
+                  <FormLabel>Foto Kendaraan</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder="https://example.com/truck.jpg" />
+                    <FileUpload
+                      value={field.value || undefined}
+                      onChange={(url) => field.onChange(url || '')}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
