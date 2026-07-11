@@ -11,6 +11,7 @@ import {
   Package,
   XCircle,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -27,6 +28,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getMobileStatusColor, getMobileStatusLabel } from "../../lib/status-helpers";
 import { ReturnReason, ItemCondition } from "@prisma/client";
+import { CreateDeliveryOrderDialog } from "@/components/sales/CreateDeliveryOrderDialog";
+import { salesLabels } from "@/lib/labels";
+import Link from "next/link";
 
 type OrderItem = {
   id: string;
@@ -234,6 +238,14 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
   };
 
   const subtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0);
+  const openDeliveryOrders = order.deliveryOrders.filter(
+    (d) => d.status === "PENDING" || d.status === "LOADING",
+  );
+  const primaryOpenDo = openDeliveryOrders.length === 1 ? openDeliveryOrders[0] : null;
+  const canCreateSj =
+    order.status === "CONFIRMED" ||
+    order.status === "IN_PRODUCTION" ||
+    order.status === "READY_TO_SHIP";
 
   return (
     <div className="p-4 space-y-4 pb-28">
@@ -343,12 +355,25 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
           <div className="space-y-3">
             {order.deliveryOrders.map((doItem) => (
               <div key={doItem.id} className="p-3 bg-card border rounded-xl space-y-2.5 text-xs shadow-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-primary">{doItem.orderNumber}</span>
+                <div className="flex justify-between items-center gap-2">
+                  <Link
+                    href={`/sales/deliveries/${doItem.id}`}
+                    className="font-bold text-primary underline-offset-2 hover:underline"
+                  >
+                    {doItem.orderNumber}
+                  </Link>
                   <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full capitalize font-semibold border-primary/20 text-primary bg-primary/5">
                     {doItem.status.toLowerCase()}
                   </Badge>
                 </div>
+                {(doItem.status === "PENDING" || doItem.status === "LOADING") && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {salesLabels.sjPendingHint}.{" "}
+                    <Link href={`/sales/deliveries/${doItem.id}`} className="font-semibold underline">
+                      {salesLabels.tandaiDikirim}
+                    </Link>
+                  </p>
+                )}
                 {(doItem.carrier || doItem.trackingNumber) && (
                   <div className="p-2 bg-muted/30 rounded-lg space-y-1">
                     {doItem.carrier && (
@@ -425,7 +450,7 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
       {/* Sticky Action Bar */}
       {order.status !== "CANCELLED" && (
         <div className="fixed bottom-16 left-0 right-0 p-4 bg-background border-t z-40 shadow-lg">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {order.status === "DRAFT" && (
               <>
                 <Button
@@ -461,8 +486,36 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
                 </Button>
               </>
             )}
-            {(order.status === "CONFIRMED" ||
-              order.status === "READY_TO_SHIP") && (
+            {/* MTO hot-loading: Buat SJ without stock (when no open DO) */}
+            {canCreateSj && openDeliveryOrders.length === 0 && (
+              <CreateDeliveryOrderDialog
+                defaultSalesOrderId={order.id}
+                triggerLabel={salesLabels.buatSuratJalan}
+                triggerVariant="outline"
+                triggerClassName="flex-1 rounded-xl h-11 text-sm font-semibold"
+              />
+            )}
+
+            {/* Open SJ exists → go to DO detail for Tandai Dikirim (stock commit + confirm) */}
+            {primaryOpenDo && (
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-11 text-sm font-semibold"
+                asChild
+              >
+                <Link href={`/sales/deliveries/${primaryOpenDo.id}`}>
+                  <FileText className="h-4.5 w-4.5 mr-1.5" />
+                  {salesLabels.tandaiDikirim}
+                </Link>
+              </Button>
+            )}
+            {openDeliveryOrders.length > 1 && (
+              <p className="w-full text-center text-[11px] text-amber-700 dark:text-amber-400">
+                {salesLabels.selectDoToShip}
+              </p>
+            )}
+
+            {(order.status === "CONFIRMED" || order.status === "READY_TO_SHIP") &&
+              openDeliveryOrders.length === 0 && (
               <>
                 <Button
                   variant="outline"
@@ -484,7 +537,7 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl h-11 text-sm font-semibold"
                   disabled={isLoading}
                   onClick={() =>
-                    handleAction("Kirim", () =>
+                    handleAction(salesLabels.createAndShip, () =>
                       shipSalesOrder({ id: order.id }).then((r) => ({
                         success: r.success ?? false,
                         error: "error" in r ? r.error : undefined,
@@ -493,11 +546,12 @@ export function OrderDetailClient({ order, locations }: OrderDetailClientProps) 
                   }
                 >
                   <Truck className="h-4.5 w-4.5 mr-1.5" />
-                  Kirim
+                  {salesLabels.createAndShip}
                 </Button>
               </>
             )}
-            {order.status === "IN_PRODUCTION" && (
+
+            {order.status === "IN_PRODUCTION" && openDeliveryOrders.length === 0 && (
               <Button
                 className="flex-1 rounded-xl h-11 text-sm font-semibold"
                 disabled={isLoading}

@@ -74,6 +74,12 @@ export function SalesOrderDetailClient({
   const isLegacyInternalOrder = !order.customerId;
   const isMaklonOrder = order.orderType === "MAKLON_JASA";
   const customerLabel = order.customer?.name || "Legacy Internal Stock Build";
+  const openDeliveryOrders = (order.deliveryOrders ?? []).filter((d) =>
+    d.status === "PENDING" || d.status === "LOADING",
+  );
+  const primaryOpenDo = openDeliveryOrders.length === 1
+    ? openDeliveryOrders[0]
+    : null;
 
   // MRP Simulation State
 
@@ -307,14 +313,24 @@ export function SalesOrderDetailClient({
           )}
 
           {(order.status === "CONFIRMED" ||
-            order.status === "READY_TO_SHIP") && (
+            order.status === "READY_TO_SHIP" ||
+            (order.status === "IN_PRODUCTION" && !!primaryOpenDo)) && (
             <Button
               onClick={() => setIsShipDialogOpen(true)}
-              disabled={isLoading}
+              disabled={isLoading || openDeliveryOrders.length > 1}
               className="bg-purple-600 hover:bg-purple-700 text-white"
+              title={
+                openDeliveryOrders.length > 1
+                  ? salesLabels.selectDoToShip
+                  : undefined
+              }
             >
               <Truck className="mr-2 h-4 w-4" />{" "}
-              {isMaklonOrder ? "Tutup Order Jasa" : "Kirim Order"}
+              {isMaklonOrder
+                ? "Tutup Order Jasa"
+                : primaryOpenDo
+                  ? `${salesLabels.commitExistingDo} (${primaryOpenDo.orderNumber ?? "SJ"})`
+                  : salesLabels.createAndShip}
             </Button>
           )}
 
@@ -729,6 +745,15 @@ export function SalesOrderDetailClient({
         isMaklon={isMaklonOrder}
         isOpen={isShipDialogOpen}
         onClose={() => setIsShipDialogOpen(false)}
+        openDeliveryOrder={
+          primaryOpenDo
+            ? {
+                id: primaryOpenDo.id,
+                orderNumber: primaryOpenDo.orderNumber ?? primaryOpenDo.id.slice(0, 8),
+                status: primaryOpenDo.status,
+              }
+            : null
+        }
       />
     </div>
   );

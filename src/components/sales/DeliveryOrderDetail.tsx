@@ -236,15 +236,14 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                         className="h-7 bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-2 text-xs"
                                         disabled={isLoading}
                                     >
-                                        <Check className="mr-1 h-3.5 w-3.5" /> Tandai Dikirim
+                                        <Check className="mr-1 h-3.5 w-3.5" /> {salesLabels.tandaiDikirim}
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Tandai Dikirim?</AlertDialogTitle>
+                                        <AlertDialogTitle>{salesLabels.tandaiDikirim}?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Ini akan memotong stok dari gudang dan membuat invoice draft.
-                                            Pastikan produksi sudah diinput ke sistem.
+                                            {salesLabels.tandaiDikirimConfirm} Invoice draft akan dibuat otomatis.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -253,7 +252,7 @@ export function DeliveryOrderDetail({ order, companyConfig }: DeliveryOrderDetai
                                             onClick={() => handleStatusChange('SHIPPED')}
                                             className="bg-green-600 hover:bg-green-700"
                                         >
-                                            Ya, Tandai Dikirim
+                                            Ya, {salesLabels.tandaiDikirim}
                                         </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>

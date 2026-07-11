@@ -453,14 +453,15 @@ Fondasi sudah ~70% ada (manual DO, status machine, print, draft invoice, shippin
 
 | Phase | Status | Catatan |
 |-------|--------|---------|
-| Phase 0 — copy / SOP | 🟡 Partial | Labels + StockReadinessBanner; SOP internal 1-pager belum |
+| Phase 0 — copy / SOP | ✅ Done | Labels + StockReadinessBanner + `docs/SOP_MTO_HOT_LOADING_SURAT_JALAN.md` |
 | Phase 1 — service + commit | ✅ Done | `delivery-fulfillment-service` + tests + SHIPPED commit + `shipOrder` orchestrator |
-| Phase 2 — UX | 🟡 Partial | Buat SJ CTA, readiness banner (server action), confirm Tandai Dikirim; ShipmentDialog messaging / mobile CTA belum |
+| Phase 2 — UX | ✅ Done | Buat SJ CTA desktop/mobile, readiness banner, confirm ship, ShipmentDialog open-DO messaging |
 | Phase 3 — safety | ✅ Done | Create path via service (D1/D6/D7/D12), residual qty, maklon service-only, one open DO |
-| Phase 4 — deferred | — | Out of MVP |
+| Phase 4 — deferred | — | Out of MVP (partial multi-DO qty, invoice lines, dll.) |
 
 **Verification (2026-07-11):**
 
 1. First review **FAIL** — create dialog bypassed hardened service; client imported Prisma readiness; DO used full SO qty.
 2. Fixes applied — wire `createManualDeliveryOrder` → service; `fetchDeliveryStockReadiness` server action; residual DO lines; maklon service-only ship.
 3. Re-verify **PASS** — 22 delivery-fulfillment + 3 fulfillment tests green.
+4. Phase 0/2 closed — SOP, ShipmentDialog, mobile CTA, labels.

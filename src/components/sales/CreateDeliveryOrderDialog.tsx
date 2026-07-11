@@ -29,6 +29,7 @@ import { getLocations } from '@/actions/inventory/inventory';
 import { getVehicles } from '@/actions/sales/vehicles';
 import { getActiveTariff as fetchActiveTariff, listVehicleRouteOptions as fetchRouteOptions } from '@/actions/sales/vehicle-tariffs';
 import { useRouter } from 'next/navigation';
+import { salesLabels } from '@/lib/labels';
 
 interface SalesOrder {
   id: string;
@@ -62,7 +63,18 @@ interface ActiveTariff {
   minKg?: { toNumber: () => number } | null;
 }
 
-export function CreateDeliveryOrderDialog({ defaultSalesOrderId }: { defaultSalesOrderId?: string }) {
+export function CreateDeliveryOrderDialog({
+  defaultSalesOrderId,
+  triggerLabel,
+  triggerVariant = 'default',
+  triggerClassName,
+}: {
+  defaultSalesOrderId?: string;
+  /** Override trigger button label (default: Buat Surat Jalan Manual) */
+  triggerLabel?: string;
+  triggerVariant?: 'default' | 'outline' | 'secondary' | 'ghost';
+  triggerClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -231,22 +243,24 @@ export function CreateDeliveryOrderDialog({ defaultSalesOrderId }: { defaultSale
     }
   };
 
+  const buttonLabel = triggerLabel ?? (defaultSalesOrderId ? salesLabels.buatSuratJalan : 'Buat Surat Jalan Manual');
+
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
-        <Button className="shadow-sm">
+        <Button variant={triggerVariant} className={triggerClassName ?? 'shadow-sm'}>
           <Plus className="mr-2 h-4 w-4" />
-          Buat Surat Jalan Manual
+          {buttonLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5 text-purple-600" />
-            Buat Surat Jalan Manual
+            {salesLabels.buatSuratJalan}
           </DialogTitle>
           <DialogDescription>
-            Buat Surat Jalan (Delivery Order) manual dari Sales Order yang sudah ada.
+            {salesLabels.sjPendingHint}. Boleh dibuat saat stok FG belum lengkap; stok baru dipotong saat Tandai Dikirim.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -437,7 +451,7 @@ export function CreateDeliveryOrderDialog({ defaultSalesOrderId }: { defaultSale
                 <span className="h-3 w-3 border-2 border-background/30 border-t-background rounded-full animate-spin mr-2" />
                 Membuat...
               </>
-            ) : 'Buat Surat Jalan'}
+            ) : salesLabels.buatSuratJalan}
           </Button>
         </DialogFooter>
       </DialogContent>
