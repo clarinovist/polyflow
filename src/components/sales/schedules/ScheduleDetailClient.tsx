@@ -21,23 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Car, Trash2, CheckCircle, Package, Plus, Truck, FileText } from 'lucide-react';
+import { ArrowLeft, Car, Trash2, CheckCircle, Plus, Truck, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import type { ScheduleStatus, TripStatus } from '@prisma/client';
 import {
   updateDeliverySchedule,
   createScheduleTrip,
   updateTripStatus,
   removeVehicleFromSchedule,
   assignSalesOrderToTrip,
-  assignOrderToSchedule,
-  linkDeliveryOrderToStop,
   generateDeliveryOrderFromStop,
   generateDeliveryOrdersForTrip,
   removeOrderFromSchedule,
   listSchedulableSalesOrders,
 } from '@/actions/sales/delivery-schedules';
 import { getVehicles } from '@/actions/sales/vehicles';
-import { getDeliveryOrders } from '@/actions/inventory/deliveries';
 
 // ============================================
 // Status styling + labels
@@ -89,11 +87,7 @@ function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 }
 
-function isSameDay(date1: string | null, date2: Date): boolean {
-  if (!date1) return false;
-  const d1 = new Date(date1);
-  return d1.toDateString() === date2.toDateString();
-}
+
 
 // ============================================
 // Interfaces
@@ -173,7 +167,6 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const [departureDate, setDepartureDate] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isAssignSOOpen, setIsAssignSOOpen] = useState(false);
-  const [isGenerateDOOpen, setIsGenerateDOOpen] = useState(false);
   const [selectedTripId, setSelectedTripId] = useState('');
   const [selectedSOId, setSelectedSOId] = useState('');
   const [plannedWeight, setPlannedWeight] = useState('');
@@ -197,7 +190,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const handleStatusChange = async (newStatus: string) => {
     setIsActionLoading(true);
     try {
-      const result = await updateDeliverySchedule(schedule.id, { status: newStatus as any });
+      const result = await updateDeliverySchedule(schedule.id, { status: newStatus as ScheduleStatus });
       if (!result.success) { toast.error(result.error || 'Gagal update status.'); return; }
       toast.success(`Status jadwal diubah ke "${STATUS_LABELS[newStatus] || newStatus}".`);
       router.refresh();
@@ -219,7 +212,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const handleTripStatus = async (tripId: string, newStatus: string) => {
     setIsActionLoading(true);
     try {
-      const result = await updateTripStatus(tripId, newStatus as any);
+      const result = await updateTripStatus(tripId, newStatus as TripStatus);
       if (!result.success) { toast.error(result.error || 'Gagal update status trip.'); return; }
       toast.success(`Trip diubah ke "${TRIP_STATUS_LABELS[newStatus]}".`);
       router.refresh();
@@ -262,17 +255,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
       } else {
         toast.warning(`${data.ok.length} SJ dibuat, ${data.failed.length} gagal.`);
       }
-      setIsGenerateDOOpen(false); router.refresh();
+      router.refresh();
     } catch { toast.error('Gagal generate SJ.'); } finally { setIsActionLoading(false); }
-  };
-
-  const handleLinkDO = async (stopId: string, deliveryOrderId: string) => {
-    setIsActionLoading(true);
-    try {
-      const result = await linkDeliveryOrderToStop(stopId, deliveryOrderId);
-      if (!result.success) { toast.error(result.error || 'Gagal link SJ.'); return; }
-      toast.success('SJ berhasil dilink.'); router.refresh();
-    } catch { toast.error('Gagal link SJ.'); } finally { setIsActionLoading(false); }
   };
 
   const handleRemoveStop = async (stopId: string) => {
@@ -285,19 +269,21 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     } catch { toast.error('Gagal menghapus stop.'); } finally { setIsActionLoading(false); }
   };
 
+  const handleGenerateSingleDO = async (stopId: string) => {
+    setIsActionLoading(true);
+    try {
+      const result = await generateDeliveryOrderFromStop(stopId);
+      if (!result.success) { toast.error(result.error || 'Gagal generate SJ.'); return; }
+      toast.success('Surat Jalan berhasil dibuat.'); router.refresh();
+    } catch { toast.error('Gagal generate SJ.'); } finally { setIsActionLoading(false); }
+  };
+
   // ============================================
   // Derived data
   // ============================================
 
   const isDRAFT = schedule.status === 'DRAFT';
   const isEditable = ['DRAFT', 'ACTIVE', 'CONFIRMED', 'IN_TRANSIT'].includes(schedule.status);
-
-  const weekStart = new Date(schedule.weekStart);
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + i);
-    return date;
-  });
 
   const trips = schedule.vehicles;
   const totalStops = trips.reduce((sum, t) => sum + t.orders.length, 0);
@@ -405,7 +391,6 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
             const plannedKg = trip.orders.reduce((s, o) => s + (o.plannedWeightKg || 0), 0);
             const capacityKg = trip.vehicle.capacityKg ? Number(trip.vehicle.capacityKg) : null;
             const utilizationPct = capacityKg ? Math.round((plannedKg / capacityKg) * 100) : 0;
-            const stopCount = trip.orders.length;
             const unlinked = trip.orders.filter(o => o.status === 'PLANNED').length;
 
             return (
@@ -509,7 +494,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                               <TableCell className="text-right">
                                 <div className="flex gap-1 justify-end">
                                   {!stop.deliveryOrder && stop.salesOrder && (
-                                    <Button variant="ghost" size="sm" onClick={() => handleGenerateDO(trip.id)} disabled={isActionLoading} title="Buat SJ">
+                                    <Button variant="ghost" size="sm" onClick={() => handleGenerateSingleDO(stop.id)} disabled={isActionLoading} title="Buat SJ untuk stop ini">
                                       <FileText className="h-3 w-3 text-blue-500" />
                                     </Button>
                                   )}

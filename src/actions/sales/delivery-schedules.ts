@@ -975,7 +975,7 @@ export const generateDeliveryOrderFromStop = withTenant(
         vehicleId: trip.vehicleId,
         appliedRouteName: trip.routeName || undefined,
         estimatedWeightKg: stop.plannedWeightKg ? Number(stop.plannedWeightKg) : undefined,
-        destinationAddress: so?.customer?.billingAddress || undefined,
+        destinationAddress: so?.customer?.shippingAddress || so?.customer?.billingAddress || undefined,
       });
 
       // Apply tariff snapshot (same logic as assignOrderToSchedule)
@@ -1116,7 +1116,7 @@ export const generateDeliveryOrdersForTrip = withTenant(
             vehicleId: sv.vehicleId,
             appliedRouteName: sv.routeName || undefined,
             estimatedWeightKg: fullStop.plannedWeightKg ? Number(fullStop.plannedWeightKg) : undefined,
-            destinationAddress: so?.customer?.billingAddress || undefined,
+            destinationAddress: so?.customer?.shippingAddress || so?.customer?.billingAddress || undefined,
           });
 
           // Tariff snapshot
