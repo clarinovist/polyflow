@@ -630,7 +630,6 @@ export const listSchedulableSalesOrders = withTenant(
             plannedCount: relevantStops.length,
           };
         })
-        .filter((so) => so.remainingQty > 0); // Q1: only SO with outstanding qty
     });
   }
 );
