@@ -227,6 +227,102 @@
 
 ---
 
+## F. Jadwal Kirim (Planning-First)
+
+### TC-JK-001: Buat Jadwal Minggu Baru
+| **ID** | TC-JK-001 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. `/sales/delivery-schedules` → klik "Jadwal Baru"
+2. Pilih minggu yang belum punya jadwal
+
+**Diharapkan:** Jadwal DRAFT dibuat dengan nomor JADWAL-YYYY-WXX otomatis
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-JK-002: Tambah Trip dengan Armada & Tanggal
+| **ID** | TC-JK-002 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka jadwal DRAFT
+2. Pilih kendaraan + tanggal berangkat (dalam rentang minggu)
+3. Klik "Tambah Trip"
+
+**Diharapkan:** Trip baru muncul dengan status "Direncanakan", badge PLANNED
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-JK-003: Multi-Trip Armada Sama Tanggal Beda
+| **ID** | TC-JK-003 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Tambah trip armada B 1234 tanggal Senin
+2. Tambah trip armada B 1234 tanggal Kamis
+
+**Diharapkan:** Keduanya berhasil. Jika tanggal sama → error "sudah dijadwalkan"
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-JK-004: Assign SO ke Trip tanpa SJ
+| **ID** | TC-JK-004 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Buka trip PLANNED/CONFIRMED
+2. Klik "Tambah dari SO"
+3. Pilih SO outstanding (sisa qty > 0)
+
+**Diharapkan:** Stop "Belum SJ" muncul di trip, status PLANNED
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-JK-005: Generate Surat Jalan dari Trip
+| **ID** | TC-JK-005 | **Prioritas** | 🔴 P1 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Trip punya stop PLANNED dengan SO
+2. Klik "Buat Semua SJ" atau icon SJ per stop
+3. Cek `/sales/deliveries`
+
+**Diharapkan:**
+- DO baru muncul dengan status PENDING
+- Stop status → GENERATED
+- Vehicle & pricing terisi dari trip/tariff
+- SO.shippingCost ter-sync
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
+### TC-JK-006: Status Header DRAFT → Aktif → Selesai
+| **ID** | TC-JK-006 | **Prioritas** | 🟡 P2 |
+|--------|-----------|---------------|--------|
+
+**Langkah:**
+1. Jadwal DRAFT → klik "Aktifkan"
+2. Semua trip COMPLETED → klik "Tutup Minggu"
+
+**Diharapkan:**
+- DRAFT → ACTIVE: berhasil
+- ACTIVE → CLOSED: berhasil jika semua trip terminal
+- Jika ada trip belum selesai → error "belum selesai"
+
+**Hasil:** ☐ Lulus / ☐ Gagal / ☐ Sebagian | **Catatan:** ___
+
+---
+
 ## Ringkasan Hasil
 
 | Bagian | TC | Lulus | Gagal | Sebagian |
@@ -234,8 +330,9 @@
 | Quotation | 4 | | | |
 | Sales Order | 3 | | | |
 | Delivery | 2 | | | |
+| Jadwal Kirim | 6 | | | |
 | Invoice & Payment | 3 | | | |
 | Return & Lainnya | 3 | | | |
-| **TOTAL** | **15** | | | |
+| **TOTAL** | **21** | | | |
 
 **Tanda Tangan Tester:** _________________________ **Tanggal:** ____/____/________
