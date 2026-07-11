@@ -416,11 +416,13 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
           {/* Add SO form */}
           {showAddSO && (
             <div className="mb-4 p-4 border rounded-lg bg-muted/30 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Sales Order</label>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="space-y-1.5 md:col-span-5">
+                  <label className="text-sm font-medium text-muted-foreground">Sales Order</label>
                   <Select value={selectedSOId} onValueChange={setSelectedSOId}>
-                    <SelectTrigger><SelectValue placeholder="Pilih SO (sisa qty > 0)..." /></SelectTrigger>
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder="Pilih SO (sisa qty > 0)..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {schedulableSOs.map(so => (
                         <SelectItem key={so.id} value={so.id}>
@@ -431,10 +433,12 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Trip / Hari Kirim</label>
+                <div className="space-y-1.5 md:col-span-3">
+                  <label className="text-sm font-medium text-muted-foreground">Trip / Hari Kirim</label>
                   <Select value={selectedTripId} onValueChange={setSelectedTripId}>
-                    <SelectTrigger><SelectValue placeholder="Pilih trip & hari..." /></SelectTrigger>
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder="Pilih trip & hari..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
                         <SelectItem key={t.id} value={t.id}>
@@ -447,16 +451,31 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Berat Rencana (kg, opsional)</label>
-                  <input type="number" value={plannedWeight} onChange={e => setPlannedWeight(e.target.value)}
-                    placeholder="Contoh: 1200" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-sm font-medium text-muted-foreground">Berat Rencana (kg, opsional)</label>
+                  <input
+                    type="number"
+                    value={plannedWeight}
+                    onChange={e => setPlannedWeight(e.target.value)}
+                    placeholder="Contoh: 1200"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddSO} disabled={isActionLoading || !selectedSOId || !selectedTripId}>
-                    <Plus className="h-3 w-3 mr-1" /> Tambah
+                <div className="flex gap-2 md:col-span-2 h-10 items-center justify-end">
+                  <Button
+                    onClick={handleAddSO}
+                    disabled={isActionLoading || !selectedSOId || !selectedTripId}
+                    className="h-10 px-4"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Tambah
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); }}>Batal</Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => { setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); }}
+                    className="h-10 px-4"
+                  >
+                    Batal
+                  </Button>
                 </div>
               </div>
               {selectedSOId && (() => {
@@ -553,7 +572,7 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                           <span className="text-xs text-orange-600 italic">Belum diatur</span>
                           {isEditable && trips.length > 0 && (
                             <Select value={assignTripStopId === stop.id ? assignTripId : ''} onValueChange={(v) => { setAssignTripStopId(stop.id); setAssignTripId(v); handleAssignToTrip(stop.id, v); }}>
-                              <SelectTrigger className="h-6 w-24 text-xs"><SelectValue placeholder="Atur" /></SelectTrigger>
+                              <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue placeholder="Atur Trip..." /></SelectTrigger>
                               <SelectContent>
                                 {trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED').map(t => (
                                   <SelectItem key={t.id} value={t.id}>
@@ -621,6 +640,11 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                   <input type="date" value={newTripDate} onChange={e => setNewTripDate(e.target.value)}
                     min={schedule.weekStart.split('T')[0]} max={schedule.weekEnd.split('T')[0]}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  {newTripDate && (
+                    <span className="text-xs text-muted-foreground block mt-1">
+                      📅 {formatDateWithDay(newTripDate)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleCreateTrip} disabled={isActionLoading || !newTripVehicleId || !newTripDate}>
