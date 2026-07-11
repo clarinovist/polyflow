@@ -701,6 +701,7 @@ model SalesOrder {
   shippingCost     Decimal?          @db.Decimal(15, 2)
   quotationId      String?
   deliveryOrders   DeliveryOrder[]
+  scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
   productionOrders ProductionOrder[] @relation("SalesProduction")
   purchaseRequests PurchaseRequest[]
@@ -1140,34 +1141,51 @@ model DeliverySchedule {
   updatedAt       DateTime              @updatedAt
 
   createdBy       User?                 @relation("ScheduleCreator", fields: [createdById], references: [id])
-  vehicles        DeliveryScheduleVehicle[]
+  trips           DeliveryScheduleVehicle[]
 }
 
 model DeliveryScheduleVehicle {
   id              String              @id @default(uuid())
   scheduleId      String
   vehicleId       String
-  departureDate   DateTime?
+  departureDate   DateTime?           // required in UI for CONFIRMED+; nullable for backfill
+  routeName       String?             // optional trip-level route hint
+  status          TripStatus          @default(PLANNED)
+  sequence        Int                 @default(0)
   notes           String?
   createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   schedule        DeliverySchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   vehicle         Vehicle             @relation(fields: [vehicleId], references: [id])
   orders          DeliveryScheduleOrder[]
 
-  @@unique([scheduleId, vehicleId])
+  // Multi-trip allowed: same vehicle + same schedule OK if departureDate differs
+  @@index([scheduleId])
+  @@index([vehicleId, departureDate])
+  @@index([status])
 }
 
 model DeliveryScheduleOrder {
   id                  String                    @id @default(uuid())
   scheduleVehicleId   String
-  deliveryOrderId     String
+  salesOrderId        String?                   // plan source — nullable for legacy rows
+  deliveryOrderId     String?                   // CHANGED: was required → nullable until SJ created
+  plannedWeightKg     Decimal?                  @db.Decimal(10, 2)
+  sequence            Int                       @default(0)
+  status              ScheduleStopStatus        @default(PLANNED)
+  notes               String?
   createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   scheduleVehicle     DeliveryScheduleVehicle   @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
-  deliveryOrder       DeliveryOrder             @relation(fields: [deliveryOrderId], references: [id])
+  salesOrder          SalesOrder?               @relation(fields: [salesOrderId], references: [id])
+  deliveryOrder       DeliveryOrder?            @relation(fields: [deliveryOrderId], references: [id])
 
-  @@unique([scheduleVehicleId, deliveryOrderId])
+  @@index([scheduleVehicleId])
+  @@index([salesOrderId])
+  @@index([deliveryOrderId])
+  @@index([status])
 }
 
 model PurchaseRequest {
@@ -1262,9 +1280,26 @@ enum RateType {
 
 enum ScheduleStatus {
   DRAFT
+  CONFIRMED   // legacy
+  IN_TRANSIT  // legacy
+  COMPLETED   // legacy
+  ACTIVE      // new — week is live, trips can run
+  CLOSED      // new — week archived
+}
+
+enum TripStatus {
+  PLANNED
   CONFIRMED
-  IN_TRANSIT
+  DEPARTED
   COMPLETED
+  CANCELLED
+}
+
+enum ScheduleStopStatus {
+  PLANNED
+  LINKED
+  GENERATED
+  CANCELLED
 }
 
 enum Role {

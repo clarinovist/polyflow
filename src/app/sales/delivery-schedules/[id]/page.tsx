@@ -18,30 +18,46 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
     weekEnd: result.data.weekEnd.toISOString(),
     createdAt: result.data.createdAt.toISOString(),
     updatedAt: result.data.updatedAt.toISOString(),
-    vehicles: result.data.vehicles.map((sv: { id: string; vehicleId: string; departureDate: Date | null; notes: string | null; createdAt: Date; vehicle: any; orders: Array<{ id: string; createdAt: Date; deliveryOrder: any }> }) => ({
+    // Bridge: schema renamed vehicles→trips, but component still expects `vehicles`
+    vehicles: result.data.trips.map((sv: any) => ({
       id: sv.id,
       vehicleId: sv.vehicleId,
       departureDate: sv.departureDate?.toISOString() || null,
+      routeName: sv.routeName,
+      status: sv.status,
+      sequence: sv.sequence,
       notes: sv.notes,
       createdAt: sv.createdAt.toISOString(),
       vehicle: sv.vehicle,
-      orders: sv.orders.map((so: { id: string; createdAt: Date; deliveryOrder: any }) => ({
+      orders: sv.orders.map((so: any) => ({
         ...so,
         createdAt: so.createdAt.toISOString(),
-        deliveryOrder: {
-          ...so.deliveryOrder,
-          deliveryDate: so.deliveryOrder.deliveryDate.toISOString(),
-          createdAt: so.deliveryOrder.createdAt.toISOString(),
-          updatedAt: so.deliveryOrder.updatedAt.toISOString(),
-          totalCharge: so.deliveryOrder.totalCharge ? Number(so.deliveryOrder.totalCharge) : null,
-          totalCost: so.deliveryOrder.totalCost ? Number(so.deliveryOrder.totalCost) : null,
-          salesOrder: so.deliveryOrder.salesOrder ? {
-            ...so.deliveryOrder.salesOrder,
-            orderDate: so.deliveryOrder.salesOrder.orderDate.toISOString(),
-            totalAmount: so.deliveryOrder.salesOrder.totalAmount ? Number(so.deliveryOrder.salesOrder.totalAmount) : null,
-            customer: so.deliveryOrder.salesOrder.customer,
-          } : null,
-        },
+        // Legacy path: stop has deliveryOrder
+        ...(so.deliveryOrder ? {
+          deliveryOrder: {
+            ...so.deliveryOrder,
+            deliveryDate: so.deliveryOrder.deliveryDate?.toISOString() || null,
+            createdAt: so.deliveryOrder.createdAt.toISOString(),
+            updatedAt: so.deliveryOrder.updatedAt.toISOString(),
+            totalCharge: so.deliveryOrder.totalCharge ? Number(so.deliveryOrder.totalCharge) : null,
+            totalCost: so.deliveryOrder.totalCost ? Number(so.deliveryOrder.totalCost) : null,
+            salesOrder: so.deliveryOrder.salesOrder ? {
+              ...so.deliveryOrder.salesOrder,
+              orderDate: so.deliveryOrder.salesOrder.orderDate.toISOString(),
+              totalAmount: so.deliveryOrder.salesOrder.totalAmount ? Number(so.deliveryOrder.salesOrder.totalAmount) : null,
+              customer: so.deliveryOrder.salesOrder.customer,
+            } : null,
+          },
+        } : {}),
+        // New path: stop has salesOrder directly
+        ...(so.salesOrder ? {
+          salesOrder: {
+            ...so.salesOrder,
+            orderDate: so.salesOrder.orderDate?.toISOString() || null,
+            totalAmount: so.salesOrder.totalAmount ? Number(so.salesOrder.totalAmount) : null,
+            customer: so.salesOrder.customer,
+          },
+        } : {}),
       })),
     })),
     createdBy: result.data.createdBy,

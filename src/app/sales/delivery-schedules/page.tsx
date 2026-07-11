@@ -15,7 +15,8 @@ export default async function DeliverySchedulesPage() {
     weekEnd: s.weekEnd?.toISOString?.() || s.weekEnd,
     createdAt: s.createdAt?.toISOString?.() || s.createdAt,
     updatedAt: s.updatedAt?.toISOString?.() || s.updatedAt,
-    vehicles: (s.vehicles || []).map((sv: any) => ({
+    // Bridge: schema renamed vehicles→trips, component still expects `vehicles`
+    vehicles: (s.trips || []).map((sv: any) => ({
       id: sv.id,
       vehicleId: sv.vehicleId,
       vehicle: sv.vehicle,

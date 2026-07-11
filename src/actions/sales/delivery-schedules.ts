@@ -53,10 +53,10 @@ export const getDeliverySchedules = withTenant(
       return prisma.deliverySchedule.findMany({
         where,
         include: {
-          vehicles: {
+          trips: {
             include: {
-              vehicle: { select: { id: true, plateNumber: true, name: true, driverName: true } },
-              orders: { select: { id: true } },
+              vehicle: { select: { id: true, plateNumber: true, name: true, driverName: true, capacityKg: true } },
+              orders: { select: { id: true, status: true } },
             },
           },
           createdBy: { select: { name: true } },
@@ -76,11 +76,16 @@ export const getDeliverySchedule = withTenant(
       const schedule = await prisma.deliverySchedule.findUnique({
         where: { id },
         include: {
-          vehicles: {
+          trips: {
             include: {
               vehicle: true,
               orders: {
                 include: {
+                  salesOrder: {
+                    include: {
+                      customer: { select: { id: true, name: true } },
+                    },
+                  },
                   deliveryOrder: {
                     include: {
                       salesOrder: {
@@ -93,6 +98,7 @@ export const getDeliverySchedule = withTenant(
                 },
               },
             },
+            orderBy: { sequence: 'asc' },
           },
           createdBy: { select: { name: true } },
         },
@@ -188,9 +194,12 @@ export const assignVehicleToSchedule = withTenant(
         throw new BusinessRuleError(`Kendaraan "${vehicle.plateNumber}" tidak aktif.`);
       }
 
-      // Check duplicate assignment
-      const existing = await prisma.deliveryScheduleVehicle.findUnique({
-        where: { scheduleId_vehicleId: { scheduleId, vehicleId } },
+      // Check duplicate assignment: same vehicle + same date blocked per schedule
+      const existing = await prisma.deliveryScheduleVehicle.findFirst({
+        where: {
+          scheduleId,
+          vehicleId,
+        },
       });
       if (existing) {
         throw new BusinessRuleError(`Kendaraan "${vehicle.plateNumber}" sudah ditugaskan ke jadwal ini.`);
@@ -260,8 +269,12 @@ export const assignOrderToSchedule = withTenant(
       if (!doRecord) throw new NotFoundError("Surat Jalan", deliveryOrderId);
 
       // Check not already assigned to this schedule
-      const existingOrder = await prisma.deliveryScheduleOrder.findUnique({
-        where: { scheduleVehicleId_deliveryOrderId: { scheduleVehicleId, deliveryOrderId } },
+      const existingOrder = await prisma.deliveryScheduleOrder.findFirst({
+        where: {
+          scheduleVehicleId,
+          deliveryOrderId,
+          status: { not: 'CANCELLED' },
+        },
       });
       if (existingOrder) {
         throw new BusinessRuleError(`Surat Jalan "${doRecord.orderNumber}" sudah dijadwalkan ke armada ini.`);
