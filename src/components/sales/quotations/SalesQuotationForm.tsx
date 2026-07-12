@@ -79,12 +79,15 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
     const [openCustomer, setOpenCustomer] = useState(false);
     const previousCustomerIdRef = useRef<string | undefined>(initialData?.customerId);
 
-    // Unified type to satisfy react-hook-form's need for a consistent generic standard
     type SalesQuotationFormValues = {
         id?: string;
         customerId?: string;
         quotationDate: Date;
-        validUntil?: Date | null; // Allow null for UI but schema might expect optional/date
+        validUntil?: Date | null;
+        subject?: string;
+        paymentTerms?: string;
+        shippingTerms?: string;
+        termsConditions?: string;
         notes?: string;
         items: {
             id?: string;
@@ -110,6 +113,10 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
         } : {
             customerId: '',
             quotationDate: new Date(),
+            subject: 'Penawaran Harga Produk Plastik',
+            paymentTerms: 'CBD (Cash Before Delivery)',
+            shippingTerms: 'Franco Karanganyar',
+            termsConditions: '1. Harga Franco pabrik.\n2. Waktu pengiriman maksimal 7 hari kerja setelah PO diterima.\n3. Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.',
             notes: '',
             items: [{ productVariantId: '', quantity: 1, unitPrice: 0, discountPercent: 0, taxPercent: 0 }],
         }
@@ -159,7 +166,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
 
         if (!previousCustomerId || previousCustomerId === selectedCustomerId) return;
 
-        const items = form.getValues('items');
+        const items = form.getValues('items') as SalesQuotationFormValues['items'];
         if (!items.some((item) => item.productVariantId)) return;
 
         const shouldUpdate = window.confirm('Customer berubah. Update harga item sesuai harga customer baru?');
@@ -176,7 +183,7 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
         });
     }, [selectedCustomerId, form, products, getCustomerBasePrice]);
 
-    const totals = watchItems?.reduce((acc, item) => {
+    const totals = (watchItems as SalesQuotationFormValues['items'])?.reduce((acc: { gross: number; discount: number; tax: number; net: number }, item) => {
         const qty = item.quantity || 0;
         const price = item.unitPrice || 0;
         const subtotal = qty * price;
@@ -408,15 +415,100 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
                         )}
                     />
 
+                    {/* Subject / Hal */}
+                    <FormField
+                        control={form.control}
+                        name="subject"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Hal / Perihal Surat</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Contoh: Penawaran Harga Produk Plastik" {...field} value={field.value || ''} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Syarat Pembayaran */}
+                    <FormField
+                        control={form.control}
+                        name="paymentTerms"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Syarat Pembayaran (Payment Terms)</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih syarat pembayaran" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="CBD (Cash Before Delivery)">CBD (Cash Before Delivery)</SelectItem>
+                                        <SelectItem value="COD (Cash On Delivery)">COD (Cash On Delivery)</SelectItem>
+                                        <SelectItem value="Tempo 14 Hari">Tempo 14 Hari</SelectItem>
+                                        <SelectItem value="Tempo 30 Hari">Tempo 30 Hari</SelectItem>
+                                        <SelectItem value="Tempo 45 Hari">Tempo 45 Hari</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Syarat Pengiriman */}
+                    <FormField
+                        control={form.control}
+                        name="shippingTerms"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Syarat Pengiriman</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih syarat pengiriman" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Franco Karanganyar">Franco Karanganyar (Gratis Ongkir Solo Raya)</SelectItem>
+                                        <SelectItem value="Loco Gudang Penjual">Loco Gudang Penjual (Ongkir ditanggung Pembeli)</SelectItem>
+                                        <SelectItem value="Sesuai Kesepakatan">Sesuai Kesepakatan</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Syarat & Ketentuan Lainnya */}
+                    <FormField
+                        control={form.control}
+                        name="termsConditions"
+                        render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                                <FormLabel>Syarat & Ketentuan Tambahan (Tampil di Surat)</FormLabel>
+                                <FormControl>
+                                    <textarea
+                                        placeholder="Tuliskan syarat & ketentuan tambahan penawaran..."
+                                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        {...field}
+                                        value={field.value || ''}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
                     {/* Notes */}
                     <FormField
                         control={form.control}
                         name="notes"
                         render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{formLabels.notes}</FormLabel>
+                            <FormItem className="md:col-span-2">
+                                <FormLabel>{formLabels.notes} (Internal)</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Catatan opsional..." {...field} value={field.value || ''} />
+                                    <Input placeholder="Catatan internal opsional..." {...field} value={field.value || ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

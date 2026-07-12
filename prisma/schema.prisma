@@ -730,6 +730,10 @@ model SalesQuotation {
   createdById     String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+  subject         String?
+  paymentTerms    String?
+  shippingTerms   String?
+  termsConditions String?
   salesOrders     SalesOrder[]
   createdBy       User?                @relation("QuotationCreator", fields: [createdById], references: [id])
   customer        Customer?            @relation(fields: [customerId], references: [id])

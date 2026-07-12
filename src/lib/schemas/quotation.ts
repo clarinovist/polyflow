@@ -15,10 +15,14 @@ export const salesQuotationItemSchema = z.object({
 });
 
 export const createSalesQuotationSchema = z.object({
-    customerId: z.string().optional(), // Can be optional if new customer not yet in system? Usually required. Let's make it optional for now, similar to orders? No, orders have customerId optional? Let's check sales schema.
+    customerId: z.string().optional(),
     quotationDate: z.coerce.date(),
-    validUntil: z.coerce.date().optional(),
-    notes: z.string().optional(),
+    validUntil: z.coerce.date().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    subject: z.string().optional().nullable(),
+    paymentTerms: z.string().optional().nullable(),
+    shippingTerms: z.string().optional().nullable(),
+    termsConditions: z.string().optional().nullable(),
     items: z.array(salesQuotationItemSchema).min(1, "At least one item is required"),
 });
 

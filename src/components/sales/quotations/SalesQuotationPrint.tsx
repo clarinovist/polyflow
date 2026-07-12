@@ -29,6 +29,10 @@ export interface QuotationPrintData {
   quotationDate: Date | string;
   validUntil?: Date | string | null;
   notes?: string | null;
+  subject?: string | null;
+  paymentTerms?: string | null;
+  shippingTerms?: string | null;
+  termsConditions?: string | null;
   totalAmount?: unknown;
   discountAmount?: unknown;
   taxAmount?: unknown;
@@ -55,10 +59,8 @@ export function SalesQuotationPrint({
   const customer = quotation.customer;
   const items = quotation.items ?? [];
 
-
-
   return (
-    <div className="p-8 text-black bg-white font-mono">
+    <div className="p-8 text-black bg-white font-sans max-w-4xl mx-auto" style={{ fontSize: "13px", lineHeight: "1.6" }}>
       {/* Styles for printing */}
       <style>{`
         @media print {
@@ -72,56 +74,72 @@ export function SalesQuotationPrint({
         }
       `}</style>
 
-      {/* Header Info */}
-      <div className="flex justify-between items-start border-b-2 pb-6 mb-6">
-        <div>
-          <h1 className="text-xl font-bold uppercase">{COMPANY.name}</h1>
-          <p className="text-xs whitespace-pre-line leading-relaxed mt-1">{COMPANY.address}</p>
-          <p className="text-xs mt-1">Telp: {COMPANY.phone} | Email: {COMPANY.email}</p>
+      {/* Header Kop Surat */}
+      <div className="flex items-start gap-4 border-b-2 border-black pb-4 mb-6">
+        <div className="flex-1">
+          <h1 className="text-xl font-bold uppercase tracking-wider text-gray-800">{COMPANY.name}</h1>
+          <p className="text-xs text-gray-600 whitespace-pre-line leading-relaxed mt-1">{COMPANY.address}</p>
+          <p className="text-xs text-gray-600 mt-1">Telp: {COMPANY.phone} | Email: {COMPANY.email}</p>
         </div>
         <div className="text-right">
-          <h2 className="text-2xl font-bold uppercase tracking-wider text-gray-700">PENAWARAN PENJUALAN</h2>
-          <p className="text-sm font-semibold mt-1">No: {quotation.quotationNumber}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Tanggal: {format(new Date(quotation.quotationDate), "dd MMMM yyyy", { locale: idLocale })}
-          </p>
-          {quotation.validUntil && (
-            <p className="text-xs text-red-600 font-semibold mt-1">
-              Berlaku S/D: {format(new Date(quotation.validUntil), "dd MMMM yyyy", { locale: idLocale })}
-            </p>
-          )}
+          <div className="text-xs text-gray-500 font-semibold uppercase">Surat Penawaran Harga</div>
+          <div className="text-xs text-gray-500 font-mono mt-1">
+            Karanganyar, {format(new Date(quotation.quotationDate), "dd MMMM yyyy", { locale: idLocale })}
+          </div>
         </div>
       </div>
 
-      {/* Customer Info */}
-      <div className="grid grid-cols-2 gap-8 mb-6 text-sm">
-        <div className="border p-4 rounded-lg bg-gray-50/50">
-          <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Kepada Yth:</p>
-          <p className="font-bold text-base text-gray-900">{customer?.name || "Prospect Customer"}</p>
-          <p className="text-xs text-gray-600 mt-1">{customer?.billingAddress || customer?.shippingAddress || "-"}</p>
+      {/* Letter Meta (Nomor, Hal, Lampiran) & Customer Destination */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div>
+          <table className="w-full text-xs border-none self-start">
+            <tbody>
+              <tr>
+                <td className="w-16 font-semibold py-1">Nomor</td>
+                <td className="w-4 py-1">:</td>
+                <td className="font-mono py-1">{quotation.quotationNumber}</td>
+              </tr>
+              <tr>
+                <td className="font-semibold py-1">Hal</td>
+                <td className="py-1">:</td>
+                <td className="py-1">{quotation.subject || "Penawaran Harga Produk Plastik"}</td>
+              </tr>
+              <tr>
+                <td className="font-semibold py-1">Lampiran</td>
+                <td className="py-1">:</td>
+                <td className="py-1">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="pl-4 border-l border-gray-200">
+          <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Kepada Yth.</p>
+          <p className="font-bold text-gray-800">{customer?.name || "Prospect Customer"}</p>
+          <p className="text-xs text-gray-600 whitespace-pre-line mt-1">
+            {customer?.shippingAddress || customer?.billingAddress || "Gudang Pembeli"}
+          </p>
           {customer?.phone && <p className="text-xs text-gray-600 mt-1">Telp: {customer.phone}</p>}
         </div>
-        <div className="border p-4 rounded-lg bg-gray-50/50 flex flex-col justify-between">
-          <div>
-            <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Keterangan / Catatan:</p>
-            <p className="text-xs text-gray-700">{quotation.notes || "Tidak ada catatan."}</p>
-          </div>
-          <div className="text-xs text-gray-500 text-right mt-2">
-            Syarat Pembayaran: Mengikuti kesepakatan order
-          </div>
-        </div>
+      </div>
+
+      {/* Opening Letter Text */}
+      <div className="mb-6 text-justify">
+        <p className="mb-3">Dengan hormat,</p>
+        <p>
+          Sehubungan dengan adanya permintaan penawaran harga produk dari pihak Bapak/Ibu, bersama surat ini kami mengajukan penawaran harga terbaik untuk produk-produk berkualitas kami dengan rincian harga sebagai berikut:
+        </p>
       </div>
 
       {/* Items Table */}
-      <table className="w-full text-sm border-collapse mb-8">
+      <table className="w-full text-xs border-collapse mb-6">
         <thead>
-          <tr className="border-y-2 border-black bg-gray-100 font-semibold">
+          <tr className="border-y-2 border-black bg-gray-50 font-semibold">
             <th className="py-2 text-left px-2">Nama Produk / Varian</th>
-            <th className="py-2 text-right px-2 w-[120px]">Qty</th>
-            <th className="py-2 text-right px-2 w-[160px]">Harga Satuan</th>
-            <th className="py-2 text-right px-2 w-[100px]">Diskon</th>
-            <th className="py-2 text-right px-2 w-[100px]">Pajak</th>
-            <th className="py-2 text-right px-2 w-[180px]">Subtotal</th>
+            <th className="py-2 text-right px-2 w-[120px]">Kuantitas</th>
+            <th className="py-2 text-right px-2 w-[140px]">Harga Satuan</th>
+            <th className="py-2 text-right px-2 w-[80px]">Diskon</th>
+            <th className="py-2 text-right px-2 w-[80px]">Pajak</th>
+            <th className="py-2 text-right px-2 w-[150px]">Total Penawaran</th>
           </tr>
         </thead>
         <tbody>
@@ -129,26 +147,26 @@ export function SalesQuotationPrint({
             const qtyDisp = getEnteredQuantityDisplay({ ...item, ...item.productVariant });
             const priceDisp = getEnteredUnitPriceDisplay({ ...item, ...item.productVariant });
             return (
-              <tr key={item.id || index} className="border-b border-gray-200 hover:bg-gray-50/30">
-                <td className="py-2.5 px-2">
+              <tr key={item.id || index} className="border-b border-gray-200 hover:bg-gray-50/10">
+                <td className="py-2 px-2">
                   <div className="font-semibold text-gray-800">
                     {item.productVariant?.product?.name || item.productVariant?.name || "Produk"}
                   </div>
                   {item.productVariant?.name && (
-                    <div className="text-xs text-gray-500">{item.productVariant.name}</div>
+                    <div className="text-[10px] text-gray-500">{item.productVariant.name}</div>
                   )}
                 </td>
-                <td className="py-2.5 text-right px-2 font-mono">{qtyDisp}</td>
-                <td className="py-2.5 text-right px-2 font-mono">
+                <td className="py-2 text-right px-2 font-mono">{qtyDisp}</td>
+                <td className="py-2 text-right px-2 font-mono">
                   {formatRupiah(priceDisp.price)}/{priceDisp.unit}
                 </td>
-                <td className="py-2.5 text-right px-2 text-red-600 font-mono">
+                <td className="py-2 text-right px-2 text-red-600 font-mono">
                   {Number(item.discountPercent) > 0 ? `${Number(item.discountPercent)}%` : "-"}
                 </td>
-                <td className="py-2.5 text-right px-2 font-mono">
+                <td className="py-2 text-right px-2 font-mono">
                   {Number(item.taxPercent) > 0 ? `${Number(item.taxPercent)}%` : "-"}
                 </td>
-                <td className="py-2.5 text-right px-2 font-semibold font-mono">
+                <td className="py-2 text-right px-2 font-semibold font-mono">
                   {formatRupiah(Number(item.subtotal))}
                 </td>
               </tr>
@@ -157,36 +175,35 @@ export function SalesQuotationPrint({
         </tbody>
       </table>
 
-      {/* Summary Section */}
-      <div className="flex justify-between items-start text-sm">
-        <div className="w-[50%]">
-          <div className="border p-4 rounded-lg bg-gray-50 text-xs">
-            <p className="font-bold text-gray-700 mb-2 uppercase">Metode Pembayaran Transfer:</p>
-            {Number(quotation.taxAmount) > 0 ? (
-              <div>
-                <p className="font-semibold text-purple-800">Rekening PPN:</p>
-                {COMPANY.bankAccountsPPN.map((acc, i) => (
-                  <p key={i} className="mt-0.5">
-                    {acc.bank} — <strong>{acc.account}</strong> a.n. {acc.holder}
-                  </p>
-                ))}
+      {/* Summary and Terms */}
+      <div className="grid grid-cols-2 gap-8 items-start mb-6">
+        {/* Terms & Conditions Column */}
+        <div className="text-xs space-y-2">
+          <p className="font-semibold text-gray-700 uppercase tracking-wider">Syarat & Ketentuan Penawaran:</p>
+          <div className="border rounded-md p-3 bg-gray-50/50 space-y-1.5 leading-relaxed text-gray-600">
+            {quotation.paymentTerms && (
+              <p>• <strong>Syarat Pembayaran:</strong> {quotation.paymentTerms}</p>
+            )}
+            {quotation.shippingTerms && (
+              <p>• <strong>Metode Pengiriman:</strong> {quotation.shippingTerms}</p>
+            )}
+            {quotation.validUntil && (
+              <p>• <strong>Masa Berlaku Penawaran:</strong> S/D {format(new Date(quotation.validUntil), "dd MMMM yyyy", { locale: idLocale })}</p>
+            )}
+            {quotation.termsConditions ? (
+              <div className="mt-2 pt-2 border-t border-gray-200 whitespace-pre-line text-[11px]">
+                {quotation.termsConditions}
               </div>
             ) : (
-              <div className="space-y-1">
-                <p className="font-semibold text-blue-800">Rekening Non-PPN:</p>
-                {COMPANY.bankAccountsNonPPN.map((acc, i) => (
-                  <p key={i}>
-                    {acc.bank} — <strong>{acc.account}</strong> a.n. {acc.holder}
-                  </p>
-                ))}
-              </div>
+              <p className="text-[10px] text-gray-400">Harga franco pabrik dan dapat dinegosiasikan sebelum pemesanan.</p>
             )}
           </div>
         </div>
 
-        <div className="w-[45%] text-right font-mono space-y-1.5 border-t-2 pt-2 border-black">
+        {/* Totals Column */}
+        <div className="font-mono text-xs space-y-1.5 border-t pt-2 border-gray-300">
           <div className="flex justify-between">
-            <span className="text-gray-500">Subtotal:</span>
+            <span className="text-gray-500 font-sans">Subtotal Penawaran:</span>
             <span className="font-semibold">
               {formatRupiah(
                 (Number(quotation.totalAmount) || 0) +
@@ -197,35 +214,37 @@ export function SalesQuotationPrint({
           </div>
           {Number(quotation.discountAmount) > 0 && (
             <div className="flex justify-between text-red-600">
-              <span>Diskon:</span>
+              <span className="font-sans">Diskon Penawaran:</span>
               <span>-{formatRupiah(Number(quotation.discountAmount))}</span>
             </div>
           )}
           {Number(quotation.taxAmount) > 0 && (
             <div className="flex justify-between">
-              <span>Pajak (PPN):</span>
+              <span className="font-sans">Pajak (PPN 11%):</span>
               <span>{formatRupiah(Number(quotation.taxAmount))}</span>
             </div>
           )}
-          <div className="flex justify-between text-base border-t pt-1.5 font-bold border-gray-300">
-            <span>TOTAL KESELURUHAN:</span>
+          <div className="flex justify-between text-sm border-t-2 pt-1.5 font-bold border-black">
+            <span className="font-sans">TOTAL PENAWARAN:</span>
             <span>{formatRupiah(Number(quotation.totalAmount || 0))}</span>
           </div>
         </div>
       </div>
 
-      {/* Signature Section */}
-      <div className="grid grid-cols-2 gap-8 text-center text-sm mt-12 pt-6 border-t border-dashed border-gray-200">
-        <div>
-          <p className="text-gray-500 mb-16">Disetujui Oleh,</p>
-          <div className="w-40 border-b border-black mx-auto"></div>
-          <p className="mt-1 font-semibold">Pelanggan</p>
-        </div>
-        <div>
+      {/* Closing Letter Text */}
+      <div className="mb-8 text-justify">
+        <p>
+          Demikian surat penawaran harga ini kami sampaikan. Besar harapan kami untuk dapat menerima kabar baik serta menjalin kerja sama kemitraan yang saling menguntungkan dengan pihak Bapak/Ibu di masa mendatang. Atas perhatian dan kerjasamanya, kami ucapkan terima kasih.
+        </p>
+      </div>
+
+      {/* Signatures */}
+      <div className="flex justify-end text-center text-xs mt-8">
+        <div className="w-56">
           <p className="text-gray-500 mb-16">Hormat Kami,</p>
           <div className="w-40 border-b border-black mx-auto"></div>
           <p className="mt-1 font-semibold">{COMPANY.signerName}</p>
-          <p className="text-xs text-gray-400">{COMPANY.name}</p>
+          <p className="text-[10px] text-gray-400">{COMPANY.name}</p>
         </div>
       </div>
     </div>
