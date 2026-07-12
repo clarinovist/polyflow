@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/select"
 import { Label } from '@/components/ui/label';
 import { getEnteredQuantityDisplay, getEnteredUnitPriceDisplay } from '@/lib/utils/production-units';
+import { PrintPreviewModal } from '@/components/ui/print-preview-modal';
+import { SalesQuotationPrint } from './SalesQuotationPrint';
 
 // Type definition for serialized props (handling Dates/Decimals as needed or assuming standard object)
 // Since we use prisma objects directly in server component, and if serializeData is used, Decimals might be numbers/strings.
@@ -56,6 +58,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
     const [isConverting, setIsConverting] = useState(false);
     const [selectedLocationId, setSelectedLocationId] = useState<string>('');
     const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
+    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
     // All locations are valid for quotation-to-order conversion
     const validLocations = locations;
@@ -110,7 +113,7 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                             <Pencil className="h-4 w-4" /> Edit
                         </Button>
                     )}
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2" onClick={() => setIsPrintModalOpen(true)}>
                         <Printer className="h-4 w-4" /> Cetak / PDF
                     </Button>
                     {quotation.status !== 'CONVERTED' && quotation.status !== 'REJECTED' && quotation.status !== 'EXPIRED' && (
@@ -330,6 +333,15 @@ export function SalesQuotationDetailClient({ quotation, locations }: SalesQuotat
                     )}
                 </div>
             </div>
+
+            {/* Print Preview Modal */}
+            <PrintPreviewModal
+                open={isPrintModalOpen}
+                onOpenChange={setIsPrintModalOpen}
+                title={`Cetak Penawaran Penjualan - ${quotation.quotationNumber}`}
+            >
+                <SalesQuotationPrint quotation={quotation as unknown as import('./SalesQuotationPrint').QuotationPrintData} />
+            </PrintPreviewModal>
         </div>
     );
 }
