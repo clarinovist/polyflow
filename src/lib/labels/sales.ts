@@ -87,7 +87,7 @@ export const salesLabels = {
   emptyOrdersUnpaid: "Tidak ada tagihan yang belum lunas.",
   emptyOrdersReady: "Tidak ada pesanan yang siap dikirim.",
   emptyOrdersFromStockUnpaid: "Tidak ada tagihan dari stok yang belum lunas.",
-  emptyOrdersArchive: "Tidak ada pesanan tanpa customer di periode ini.",
+  emptyOrdersArchive: "Tidak ada pesanan tanpa customer.",
 
   // Sales Quotations
   salesQuotations: "Penawaran Penjualan",

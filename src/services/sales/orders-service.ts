@@ -97,6 +97,11 @@ export async function getOrders(filters?: {
       some: {
         status: InvoiceStatus.PAID,
       },
+      none: {
+        status: {
+          in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE],
+        },
+      },
     };
   } else if (filters?.paymentState === "no_invoice") {
     where.invoices = { none: {} };

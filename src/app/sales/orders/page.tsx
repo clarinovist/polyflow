@@ -38,11 +38,11 @@ function parseStatusFilter(status: string): SalesOrderStatus[] | undefined {
     return valid.length > 0 ? valid : undefined;
 }
 
-/** Preserve date + view params across quick-view hrefs */
+/** Preserve date params across quick-view hrefs, but clear conflicting orthogonal filters */
 function buildViewHref(
     nextView: QuickView,
-    params: { startDate?: string; endDate?: string },
-    currentFilters: { status?: string; fulfill?: string; payment?: string }
+    dateParams: { startDate?: string; endDate?: string },
+    currentFilters: { status?: string; fulfill?: string; payment?: string },
 ) {
     const query = new URLSearchParams();
     if (nextView === 'archive') {
@@ -50,16 +50,27 @@ function buildViewHref(
     } else if (nextView === 'from-stock-unpaid') {
         query.set('view', 'mts-unpaid');
     } else if (nextView === 'all') {
-        // default
+        // default — no extra params, clear all filters
     } else {
         query.set('view', nextView);
     }
-    // Preserve filters
-    if (currentFilters.status) query.set('status', currentFilters.status);
-    if (currentFilters.fulfill) query.set('fulfill', currentFilters.fulfill);
-    if (currentFilters.payment) query.set('payment', currentFilters.payment);
-    if (params.startDate) query.set('startDate', params.startDate);
-    if (params.endDate) query.set('endDate', params.endDate);
+    // Only preserve orthogonal filters that don't conflict with the chip
+    if (nextView === 'all') {
+        // Clear all filters when going to "Semua"
+    } else if (nextView === 'from-stock-unpaid') {
+        // from-stock-unpaid forces stock + outstanding; clear fulfill & payment
+        if (currentFilters.status) query.set('status', currentFilters.status);
+    } else if (nextView === 'unpaid') {
+        // unpaid forces payment=outstanding; clear payment, keep fulfill & status
+        if (currentFilters.fulfill) query.set('fulfill', currentFilters.fulfill);
+        if (currentFilters.status) query.set('status', currentFilters.status);
+    } else if (nextView === 'ready') {
+        // ready forces status=READY_TO_SHIP; clear status, keep fulfill & payment
+        if (currentFilters.fulfill) query.set('fulfill', currentFilters.fulfill);
+        if (currentFilters.payment) query.set('payment', currentFilters.payment);
+    }
+    if (dateParams.startDate) query.set('startDate', dateParams.startDate);
+    if (dateParams.endDate) query.set('endDate', dateParams.endDate);
     return `/sales/orders?${query.toString()}`;
 }
 
@@ -89,7 +100,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    // Build href for each quick view (preserves current filters)
+    // Build href for each quick view (preserves non-conflicting filters)
     const href = (v: QuickView) => buildViewHref(v, { startDate: params?.startDate, endDate: params?.endDate }, currentFilters);
 
     // Resolve filter values for backend
@@ -105,6 +116,13 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         return extra;
     };
 
+    // Archive: default all-time (no date range) unless user explicitly sets dates
+    const archiveCheckStart = params?.startDate ? parseISO(params.startDate) : undefined;
+    const archiveCheckEnd = params?.endDate ? parseISO(params.endDate) : undefined;
+    const archiveDateRange = archiveCheckStart && archiveCheckEnd
+        ? { startDate: archiveCheckStart, endDate: archiveCheckEnd }
+        : undefined;
+
     // Fetch data based on active view + orthogonal filters
     const isArchive = activeView === 'archive';
     const ordersRes = activeView === 'from-stock-unpaid'
@@ -115,11 +133,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             paymentState: currentFilters.payment ? currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice' : 'outstanding',
         })
         : isArchive
-        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'legacy-internal')
+        ? await getSalesOrders(true, archiveDateRange, 'legacy-internal')
         : activeView === 'unpaid'
         ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
             ...buildExtraFilters(),
             paymentState: currentFilters.payment ? currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice' : 'outstanding',
+        })
+        : activeView === 'ready'
+        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
+            ...buildExtraFilters(),
+            statusFilter: statusList ?? [SalesOrderStatus.READY_TO_SHIP],
         })
         : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', buildExtraFilters());
 
@@ -158,13 +181,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     if (isArchive) {
         return (
             <div className="flex flex-col space-y-6 p-6">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href={href('all')}>
-                            <ArrowLeft className="mr-1 h-4 w-4" />
-                            Kembali
-                        </Link>
-                    </Button>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="sm" asChild>
+                            <Link href={href('all')}>
+                                <ArrowLeft className="mr-1 h-4 w-4" />
+                                Kembali
+                            </Link>
+                        </Button>
+                    </div>
+                    <UrlTransactionDateFilter defaultPreset="all" />
                 </div>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -208,8 +234,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
+            {/* Summary Cards — global counts */}
+            <div>
+                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Ringkasan global</p>
+                <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
@@ -246,6 +274,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                         <div className="text-2xl font-bold">{stats.cancelledCount}</div>
                     </CardContent>
                 </Card>
+            </div>
             </div>
 
             <Card>

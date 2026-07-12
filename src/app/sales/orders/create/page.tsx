@@ -27,16 +27,21 @@ export default async function CreateSalesOrderPage({
 }: CreateSalesOrderPageProps) {
   const params = await searchParams;
 
-  // If no intent param, show intent picker (client component)
   const intent = params.intent;
-  if (!intent) {
+  const hasReorder = !!params.reorder;
+
+  // If neither intent nor reorder, show intent picker
+  if (!intent && !hasReorder) {
     return <SalesOrderIntentPicker />;
   }
 
-  // Map intent to orderType
-  const lockedOrderType = intentToOrderType(intent);
-  if (!lockedOrderType) {
-    // Invalid intent — show picker again
+  // Map intent to orderType (only when intent is a valid string)
+  const lockedOrderType = intent && intentToOrderType(intent)
+    ? intentToOrderType(intent)
+    : undefined;
+
+  // If intent is set but invalid and no reorder, show picker
+  if (intent && !lockedOrderType && !hasReorder) {
     return <SalesOrderIntentPicker />;
   }
 
@@ -93,7 +98,7 @@ export default async function CreateSalesOrderPage({
           <CardTitle>
             {reorderData
               ? "Pesan Ulang dari Order Sebelumnya"
-              : `Pesanan Baru — ${intentLabels[intent] || intent}`}
+              : `Pesanan Baru — ${intent ? (intentLabels[intent] || intent) : "Pesanan Baru"}`}
           </CardTitle>
         </CardHeader>
         <CardContent>

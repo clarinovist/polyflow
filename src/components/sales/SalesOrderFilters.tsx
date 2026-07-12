@@ -33,76 +33,74 @@ const PAYMENT_OPTIONS = [
   { value: "no_invoice", label: "Belum invoice" },
 ];
 
-export function SalesOrderFilters() {
+function FilterSelect({
+  label,
+  paramKey,
+  currentValue,
+  options,
+}: {
+  label: string;
+  paramKey: string;
+  currentValue: string;
+  options: { value: string; label: string }[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentStatus = searchParams.get("status") || "";
-  const currentFulfill = searchParams.get("fulfill") || "";
-  const currentPayment = searchParams.get("payment") || "";
-
-  const updateFilter = useCallback(
-    (key: string, value: string) => {
+  const handleChange = useCallback(
+    (value: string) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (value) {
-        params.set(key, value);
+      // "__all__" means clear the filter
+      if (value === "__all__" || value === currentValue) {
+        params.delete(paramKey);
       } else {
-        params.delete(key);
+        params.set(paramKey, value);
       }
       router.push(`/sales/orders?${params.toString()}`, { scroll: false });
     },
-    [router, searchParams]
+    [router, searchParams, paramKey, currentValue]
   );
 
   return (
+    <Select value={currentValue || "__all__"} onValueChange={handleChange}>
+      <SelectTrigger className="w-[160px] h-8 text-xs">
+        <SelectValue placeholder={label} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__all__">Semua</SelectItem>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+export function SalesOrderFilters() {
+  const searchParams = useSearchParams();
+
+  return (
     <div className="flex flex-wrap gap-2 items-center">
-      <Select
-        value={currentStatus}
-        onValueChange={(v) => updateFilter("status", v === currentStatus ? "" : v)}
-      >
-        <SelectTrigger className="w-[160px] h-8 text-xs">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={currentFulfill}
-        onValueChange={(v) => updateFilter("fulfill", v === currentFulfill ? "" : v)}
-      >
-        <SelectTrigger className="w-[160px] h-8 text-xs">
-          <SelectValue placeholder="Cara penuhi" />
-        </SelectTrigger>
-        <SelectContent>
-          {FULFILL_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={currentPayment}
-        onValueChange={(v) => updateFilter("payment", v === currentPayment ? "" : v)}
-      >
-        <SelectTrigger className="w-[160px] h-8 text-xs">
-          <SelectValue placeholder="Pembayaran" />
-        </SelectTrigger>
-        <SelectContent>
-          {PAYMENT_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterSelect
+        label="Status"
+        paramKey="status"
+        currentValue={searchParams.get("status") || ""}
+        options={STATUS_OPTIONS}
+      />
+      <FilterSelect
+        label="Cara penuhi"
+        paramKey="fulfill"
+        currentValue={searchParams.get("fulfill") || ""}
+        options={FULFILL_OPTIONS}
+      />
+      <FilterSelect
+        label="Pembayaran"
+        paramKey="payment"
+        currentValue={searchParams.get("payment") || ""}
+        options={PAYMENT_OPTIONS}
+      />
     </div>
   );
 }
