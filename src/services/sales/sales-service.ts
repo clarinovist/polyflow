@@ -1,4 +1,5 @@
 import { CreateSalesOrderValues, UpdateSalesOrderValues } from '@/lib/schemas/sales';
+import { SalesOrderStatus } from '@prisma/client';
 import {
     getOrders,
     getOrderById,
@@ -22,7 +23,8 @@ export class SalesService {
         endDate?: Date,
         demandType?: 'customer' | 'legacy-internal',
         orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA',
-        paymentState?: 'outstanding'
+        paymentState?: 'outstanding',
+        statusFilter?: SalesOrderStatus[]
     }) {
         return getOrders(filters);
     }

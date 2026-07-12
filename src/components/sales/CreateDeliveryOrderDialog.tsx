@@ -126,7 +126,9 @@ export function CreateDeliveryOrderDialog({
 
   const loadData = useCallback(async () => {
     const [ordersRes, locationsRes, vehiclesRes] = await Promise.all([
-      getSalesOrders(false, undefined, 'customer'),
+      getSalesOrders(false, undefined, 'customer', {
+        statusFilter: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'],
+      }),
       getLocations(),
       getVehicles({ status: 'ACTIVE' }),
     ]);

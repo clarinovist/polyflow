@@ -51,6 +51,7 @@ export async function getOrders(filters?: {
   demandType?: "customer" | "legacy-internal";
   orderType?: "MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA";
   paymentState?: "outstanding";
+  statusFilter?: SalesOrderStatus[];
 }) {
   const where: Prisma.SalesOrderWhereInput = {};
   if (filters?.customerId) where.customerId = filters.customerId;
@@ -84,6 +85,10 @@ export async function getOrders(filters?: {
         },
       },
     };
+  }
+
+  if (filters?.statusFilter && filters.statusFilter.length > 0) {
+    where.status = { in: filters.statusFilter };
   }
 
   const include: Prisma.SalesOrderInclude = {

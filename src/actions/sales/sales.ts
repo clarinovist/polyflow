@@ -10,6 +10,7 @@ import {
   UpdateSalesOrderValues,
 } from "@/lib/schemas/sales";
 import { SalesService } from "@/services/sales/sales-service";
+import { SalesOrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { safeAction } from "@/lib/errors/errors";
@@ -22,6 +23,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
   extraFilters?: {
     orderType?: "MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA";
     paymentState?: "outstanding";
+    statusFilter?: SalesOrderStatus[];
   },
 ) {
   return safeAction(async () => {
@@ -33,6 +35,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
       demandType,
       orderType: extraFilters?.orderType,
       paymentState: extraFilters?.paymentState,
+      statusFilter: extraFilters?.statusFilter,
     });
     return serializeData(orders);
   });
