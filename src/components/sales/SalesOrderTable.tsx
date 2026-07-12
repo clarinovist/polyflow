@@ -76,11 +76,11 @@ export function SalesOrderTable({
   const getOrderTypeLabel = (order: SerializedSalesOrder) => {
     switch (order.orderType) {
       case "MAKE_TO_STOCK":
-        return "MTS";
+        return salesLabels.fulfillFromStock;
       case "MAKE_TO_ORDER":
-        return "MTO";
+        return salesLabels.fulfillProduce;
       case "MAKLON_JASA":
-        return "Maklon Jasa";
+        return salesLabels.fulfillMaklon;
       default:
         return formLabels.unknown;
     }

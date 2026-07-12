@@ -66,6 +66,6 @@ export const formLabels = {
   customerInfo: 'Informasi Customer',
   invoiceItems: 'Item Invoice',
   unknown: 'Tidak Diketahui',
-  legacyInternalOrder: 'Pesanan Internal (Legacy)',
-  legacyInternalOrderHint: 'Pesanan internal legacy, tidak bisa dibuat invoice baru',
+  legacyInternalOrder: 'Pesanan tanpa customer (arsip)',
+  legacyInternalOrderHint: 'Data lama — tidak bisa buat invoice baru. Gunakan Production Order untuk stok internal.',
 } as const;

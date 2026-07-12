@@ -62,16 +62,27 @@ export const salesLabels = {
 
   // Sales Orders
   salesOrders: "Sales Orders",
-  salesOrdersDesc: "Kelola pesanan customer, produksi, dan layanan maklon.",
+  salesOrdersDesc: "Pesanan ke customer — dari stok, produksi, atau maklon.",
   newSalesOrder: "Pesanan Baru",
   totalOrders: "Total Pesanan",
   activePending: "Aktif / Tertunda",
   completed: "Selesai",
   cancelled: "Dibatalkan",
   allOrders: "Semua Pesanan",
-  customerDemand: "Pesanan Customer",
-  legacyInternal: "Legacy Internal",
-  mtsBelumLunas: "MTS Belum Lunas",
+  // Quick views (replaces tabs)
+  quickViewAll: "Semua",
+  quickViewUnpaid: "Belum lunas",
+  quickViewReady: "Siap kirim",
+  quickViewFromStockUnpaid: "Belum lunas (dari stok)",
+  // Fulfillment type labels (human-readable)
+  fulfillFromStock: "Dari stok",
+  fulfillProduce: "Produksi dulu",
+  fulfillMaklon: "Maklon (jasa)",
+  // Archive
+  archiveLink: "Lihat arsip tanpa customer",
+  archiveTitle: "Arsip · tanpa customer",
+  archiveHint: "Data lama internal stock build via SO. Bukan alur baru.",
+  archiveHintDetail: "Tidak bisa invoice baru. Stok internal → Production Order.",
 
   // Sales Quotations
   salesQuotations: "Penawaran Penjualan",

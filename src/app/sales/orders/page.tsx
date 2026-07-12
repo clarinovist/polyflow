@@ -1,54 +1,71 @@
 import { getSalesOrders, getSalesOrderStats } from '@/actions/sales/sales';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ShoppingCart, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
 import { serializeData } from '@/lib/utils/utils';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SalesOrderType } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
 
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 
-export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal', view?: 'mts-unpaid' }> }) {
+type QuickView = 'all' | 'unpaid' | 'ready' | 'from-stock-unpaid' | 'archive';
+
+export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: 'customer' | 'legacy-internal', view?: string }> }) {
     const params = await searchParams;
     const now = new Date();
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
-    const demand = params?.demand || 'customer';
-    const view = params?.view;
-    const activeTab = view === 'mts-unpaid' ? 'mts-unpaid' : demand;
+
+    // Resolve quick view from URL (backward compat: demand=legacy-internal → archive)
+    const viewParam = params?.view;
+    const demandParam = params?.demand;
+    const activeView: QuickView =
+        viewParam === 'mts-unpaid' ? 'from-stock-unpaid' :
+        viewParam === 'archive' || demandParam === 'legacy-internal' ? 'archive' :
+        viewParam === 'unpaid' ? 'unpaid' :
+        viewParam === 'ready' ? 'ready' :
+        'all';
 
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    const buildDemandHref = (nextDemand: 'customer' | 'legacy-internal') => {
+    // Build href for each quick view
+    const buildViewHref = (nextView: QuickView) => {
         const query = new URLSearchParams();
-        query.set('demand', nextDemand);
+        if (nextView === 'archive') {
+            query.set('demand', 'legacy-internal');
+        } else if (nextView === 'from-stock-unpaid') {
+            query.set('view', 'mts-unpaid');
+        } else if (nextView === 'all') {
+            // default — no extra params
+        } else {
+            query.set('view', nextView);
+        }
         if (params?.startDate) query.set('startDate', params.startDate);
         if (params?.endDate) query.set('endDate', params.endDate);
         return `/sales/orders?${query.toString()}`;
     };
 
-    const buildViewHref = (nextView: 'mts-unpaid') => {
-        const query = new URLSearchParams();
-        query.set('view', nextView);
-        if (params?.startDate) query.set('startDate', params.startDate);
-        if (params?.endDate) query.set('endDate', params.endDate);
-        return `/sales/orders?${query.toString()}`;
-    };
-
-    // Pass date filter to fetch function
-    const ordersRes = view === 'mts-unpaid'
+    // Fetch data based on active view
+    const isArchive = activeView === 'archive';
+    const ordersRes = activeView === 'from-stock-unpaid'
         ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, undefined, {
             orderType: SalesOrderType.MAKE_TO_STOCK,
             paymentState: 'outstanding'
         })
-        : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, demand);
+        : isArchive
+        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'legacy-internal')
+        : activeView === 'unpaid'
+        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
+            paymentState: 'outstanding'
+        })
+        : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer');
+
     const statsRes = await getSalesOrderStats();
-    
+
     const orders = ordersRes.success && ordersRes.data ? ordersRes.data : [];
     const stats = statsRes.success && statsRes.data ? statsRes.data : {
         totalOrders: 0,
@@ -60,6 +77,50 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     // Serialize all Prisma objects for Client Components
     const serializedOrders = serializeData(orders);
 
+    // Quick view chips config
+    const quickViews: { key: QuickView; label: string; href: string }[] = [
+        { key: 'all', label: salesLabels.quickViewAll, href: buildViewHref('all') },
+        { key: 'unpaid', label: salesLabels.quickViewUnpaid, href: buildViewHref('unpaid') },
+        { key: 'ready', label: salesLabels.quickViewReady, href: buildViewHref('ready') },
+        { key: 'from-stock-unpaid', label: salesLabels.quickViewFromStockUnpaid, href: buildViewHref('from-stock-unpaid') },
+    ];
+
+    // Archive mode: show different layout
+    if (isArchive) {
+        return (
+            <div className="flex flex-col space-y-6 p-6">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href={buildViewHref('all')}>
+                            <ArrowLeft className="mr-1 h-4 w-4" />
+                            Kembali
+                        </Link>
+                    </Button>
+                </div>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                        <Archive className="h-7 w-7 text-muted-foreground" />
+                        {salesLabels.archiveTitle}
+                    </h1>
+                    <p className="text-muted-foreground mt-1">{salesLabels.archiveHint}</p>
+                </div>
+
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <p className="font-medium">{salesLabels.archiveHint}</p>
+                    <p className="mt-1 text-amber-700">{salesLabels.archiveHintDetail}</p>
+                </div>
+
+                <Card>
+                    <CardContent className="pt-6">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    // Default / quick-view mode
     return (
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
@@ -78,7 +139,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </div>
             </div>
 
-            {/* Summary Cards */}
+            {/* Summary Cards — scoped to displayed data */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -120,21 +181,24 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
 
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         <CardTitle>{salesLabels.allOrders}</CardTitle>
-                        <Tabs value={activeTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-3 md:w-[640px]">
-                                <TabsTrigger value="customer" asChild>
-                                    <Link href={buildDemandHref('customer')}>{salesLabels.customerDemand}</Link>
-                                </TabsTrigger>
-                                <TabsTrigger value="legacy-internal" asChild>
-                                    <Link href={buildDemandHref('legacy-internal')}>{salesLabels.legacyInternal}</Link>
-                                </TabsTrigger>
-                                <TabsTrigger value="mts-unpaid" asChild>
-                                    <Link href={buildViewHref('mts-unpaid')}>{salesLabels.mtsBelumLunas}</Link>
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
+                        {/* Quick view chips */}
+                        <div className="flex flex-wrap gap-2">
+                            {quickViews.map((qv) => (
+                                <Link
+                                    key={qv.key}
+                                    href={qv.href}
+                                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        activeView === qv.key
+                                            ? 'border-primary bg-primary text-primary-foreground'
+                                            : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {qv.label}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -142,6 +206,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
                 </CardContent>
             </Card>
+
+            {/* Archive link */}
+            <div className="text-center">
+                <Link
+                    href={buildViewHref('archive')}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    {salesLabels.archiveLink}
+                </Link>
+            </div>
         </div>
     );
 }
