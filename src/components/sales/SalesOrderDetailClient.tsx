@@ -198,10 +198,7 @@ export function SalesOrderDetailClient({
           <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
           <AlertTitle>{formLabels.legacyInternalOrder}</AlertTitle>
           <AlertDescription>
-            This Sales Order has no customer and is treated as a legacy internal
-            stock build. New invoicing is blocked. Use Production Order for
-            internal replenishment, or assign a customer before continuing with
-            customer billing.
+            {formLabels.legacyInternalOrderHint}
           </AlertDescription>
         </Alert>
       )}
@@ -209,7 +206,7 @@ export function SalesOrderDetailClient({
       {isMaklonOrder && (
         <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20">
           <AlertTriangle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
-          <AlertTitle>Maklon Jasa flow</AlertTitle>
+          <AlertTitle>Alur Maklon Jasa</AlertTitle>
           <AlertDescription>
             Order ini menagihkan jasa, bukan mengirim stok fisik dari sales
             order. Bahan titipan customer dikonsumsi saat production execution

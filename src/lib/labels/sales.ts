@@ -83,6 +83,11 @@ export const salesLabels = {
   archiveTitle: "Arsip · tanpa customer",
   archiveHint: "Data lama internal stock build via SO. Bukan alur baru.",
   archiveHintDetail: "Tidak bisa invoice baru. Stok internal → Production Order.",
+  // Empty states per quick view
+  emptyOrdersUnpaid: "Tidak ada tagihan yang belum lunas.",
+  emptyOrdersReady: "Tidak ada pesanan yang siap dikirim.",
+  emptyOrdersFromStockUnpaid: "Tidak ada tagihan dari stok yang belum lunas.",
+  emptyOrdersArchive: "Tidak ada pesanan tanpa customer di periode ini.",
 
   // Sales Quotations
   salesQuotations: "Penawaran Penjualan",

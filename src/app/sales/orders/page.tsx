@@ -135,6 +135,17 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
 
     const serializedOrders = serializeData(orders);
 
+    // Context-aware empty message per quick view
+    const emptyMessage = isArchive
+        ? salesLabels.emptyOrdersArchive
+        : activeView === 'unpaid'
+        ? salesLabels.emptyOrdersUnpaid
+        : activeView === 'ready'
+        ? salesLabels.emptyOrdersReady
+        : activeView === 'from-stock-unpaid'
+        ? salesLabels.emptyOrdersFromStockUnpaid
+        : salesLabels.emptyOrders;
+
     // Quick view chips config
     const quickViews: { key: QuickView; label: string; href: string }[] = [
         { key: 'all', label: salesLabels.quickViewAll, href: href('all') },
@@ -171,7 +182,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 <Card>
                     <CardContent className="pt-6">
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
+                        <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" emptyMessage={emptyMessage} />
                     </CardContent>
                 </Card>
             </div>
@@ -265,7 +276,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </CardHeader>
                 <CardContent>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" />
+                    <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" emptyMessage={emptyMessage} />
                 </CardContent>
             </Card>
 

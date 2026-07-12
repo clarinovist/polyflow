@@ -59,11 +59,13 @@ type SerializedSalesOrder = Omit<SalesOrder, "totalAmount"> & {
 interface SalesOrderTableProps {
   initialData: SerializedSalesOrder[];
   basePath?: string;
+  emptyMessage?: string;
 }
 
 export function SalesOrderTable({
   initialData,
   basePath = "/sales/orders",
+  emptyMessage,
 }: SalesOrderTableProps) {
   const router = useRouter();
 
@@ -309,9 +311,9 @@ export function SalesOrderTable({
   const renderMobileView = (orders: SerializedSalesOrder[]) => (
     <>
       {orders.length === 0 ? (
-        <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
-          {salesLabels.emptyOrders}
-        </div>
+      <div className="text-center p-4 text-muted-foreground border rounded-lg border-dashed">
+      {emptyMessage || salesLabels.emptyOrders}
+      </div>
       ) : (
         orders.map((order) => {
           const paymentSummary = getPaymentSummary(order);
@@ -424,7 +426,7 @@ export function SalesOrderTable({
       <DataTable
         columns={columns}
         data={initialData}
-        emptyMessage={salesLabels.emptyOrders}
+        emptyMessage={emptyMessage || salesLabels.emptyOrders}
         minWidth={1000}
         renderMobileView={renderMobileView}
       />
