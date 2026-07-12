@@ -23,6 +23,7 @@ import { logActivity } from "@/lib/tools/audit";
 import { InventoryCoreService } from "@/services/inventory/core-service";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { InvoiceService } from "@/services/finance/invoice-service";
+import { BusinessRuleError, NotFoundError, ConflictError } from "@/lib/errors/errors";
 
 // =============================================================================
 // Types
@@ -116,11 +117,11 @@ export async function createDeliveryOrderFromSalesOrder(
     },
   });
 
-  if (!salesOrder) throw new Error("Sales Order not found");
+  if (!salesOrder) throw new NotFoundError("Sales Order", salesOrderId);
 
   // 2. Guard SO status (D1)
   if (!ALLOWED_SO_STATUSES_FOR_DO.includes(salesOrder.status)) {
-    throw new Error(
+    throw new BusinessRuleError(
       `Tidak bisa membuat SJ dari SO status ${salesOrder.status}. ` +
       `Hanya boleh dari: CONFIRMED, IN_PRODUCTION, READY_TO_SHIP.`
     );
@@ -140,7 +141,7 @@ export async function createDeliveryOrderFromSalesOrder(
     .filter(({ residual }) => residual > 0);
 
   if (residualLines.length === 0) {
-    throw new Error(
+    throw new BusinessRuleError(
       "Tidak ada item fisik tersisa untuk dikirim (semua SERVICE atau residual = 0)."
     );
   }
@@ -155,7 +156,7 @@ export async function createDeliveryOrderFromSalesOrder(
   });
 
   if (openDos.length > 0) {
-    throw new Error(
+    throw new ConflictError(
       `Sudah ada Surat Jalan aktif (${openDos[0].orderNumber} status ${openDos[0].status}). ` +
       `Selesaikan atau batalkan SJ yang ada sebelum membuat baru.`
     );
@@ -267,11 +268,11 @@ export async function commitDeliveryShipment(
       },
     });
 
-    if (!doRecord) throw new Error("Delivery Order tidak ditemukan.");
+    if (!doRecord) throw new NotFoundError("Delivery Order", deliveryOrderId);
 
     // 2. Guard DO status — only PENDING or LOADING can be committed
     if (!COMMITTABLE_DO_STATUSES.includes(doRecord.status as DeliveryStatus)) {
-      throw new Error(
+      throw new BusinessRuleError(
         `Tidak bisa commit DO status ${doRecord.status}. ` +
         `Hanya DO PENDING atau LOADING yang bisa di-commit ke SHIPPED.`
       );
@@ -279,7 +280,7 @@ export async function commitDeliveryShipment(
 
     // 3. Guard SO status — not CANCELLED
     if (doRecord.salesOrder.status === SalesOrderStatus.CANCELLED) {
-      throw new Error("SO sudah dibatalkan — tidak bisa commit pengiriman.");
+      throw new BusinessRuleError("SO sudah dibatalkan — tidak bisa commit pengiriman.");
     }
 
     // 4. Collect physical items for stock posting
@@ -304,7 +305,7 @@ export async function commitDeliveryShipment(
       const delivered = soItem.deliveredQty.toNumber();
       const totalQty = soItem.quantity.toNumber();
       if (delivered + needed > totalQty) {
-        throw new Error(
+        throw new BusinessRuleError(
           `Residual tidak cukup untuk ${soItem.productVariant.product.name}: ` +
           `delivered(${delivered}) + needed(${needed}) > total(${totalQty})`
         );
@@ -314,7 +315,7 @@ export async function commitDeliveryShipment(
     }
 
     if (stockLines.length === 0) {
-      throw new Error("Tidak ada item fisik yang bisa di-commit.");
+      throw new BusinessRuleError("Tidak ada item fisik yang bisa di-commit.");
     }
 
     // 5. Per physical line: consume reservations + validate + deduct stock
