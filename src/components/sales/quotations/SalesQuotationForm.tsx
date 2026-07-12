@@ -110,6 +110,11 @@ export function SalesQuotationForm({ customers, products, mode, initialData }: S
             ...initialData,
             validUntil: initialData.validUntil ? new Date(initialData.validUntil) : undefined, // Ensure date object
             quotationDate: new Date(initialData.quotationDate),
+            subject: initialData.subject ?? undefined,
+            paymentTerms: initialData.paymentTerms ?? undefined,
+            shippingTerms: initialData.shippingTerms ?? undefined,
+            termsConditions: initialData.termsConditions ?? undefined,
+            notes: initialData.notes ?? undefined,
         } : {
             customerId: '',
             quotationDate: new Date(),
