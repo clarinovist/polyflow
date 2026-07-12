@@ -61,9 +61,13 @@ export function SalesOrderIntentPicker() {
       <div className="mt-8 rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
         <p>
           Butuh build stok internal tanpa customer?{" "}
-          <span className="text-foreground">
-            Buat Production Order di Planning (bukan Sales Order)
-          </span>
+          <Link
+            href="/production/orders/create"
+            className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+          >
+            Buat Production Order
+          </Link>{" "}
+          di modul Production (bukan Sales Order).
         </p>
       </div>
     </div>

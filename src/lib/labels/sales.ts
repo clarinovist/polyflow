@@ -69,6 +69,7 @@ export const salesLabels = {
   completed: "Selesai",
   cancelled: "Dibatalkan",
   allOrders: "Semua Pesanan",
+  displayedCount: "Ditampilkan",
   // Quick views (replaces tabs)
   quickViewAll: "Semua",
   quickViewUnpaid: "Belum lunas",

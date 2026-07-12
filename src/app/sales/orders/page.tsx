@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
+import { SalesOrderFilters, type SalesOrderFilterLocks } from '@/components/sales/SalesOrderFilters';
 import { serializeData } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
@@ -74,6 +74,31 @@ function buildViewHref(
     return `/sales/orders?${query.toString()}`;
 }
 
+/** Filters locked by the active quick-view chip (cannot be overridden in UI). */
+function locksForView(view: QuickView): SalesOrderFilterLocks | undefined {
+    switch (view) {
+        case 'from-stock-unpaid':
+            return {
+                fulfill: true,
+                payment: true,
+                fulfillDisplay: salesLabels.fulfillFromStock,
+                paymentDisplay: 'Belum lunas',
+            };
+        case 'unpaid':
+            return {
+                payment: true,
+                paymentDisplay: 'Belum lunas',
+            };
+        case 'ready':
+            return {
+                status: true,
+                statusDisplay: 'Siap kirim',
+            };
+        default:
+            return undefined;
+    }
+}
+
 export default async function SalesPage({ searchParams }: { searchParams: Promise<{ startDate?: string, endDate?: string, demand?: string, view?: string, status?: string, fulfill?: string, payment?: string }> }) {
     const params = await searchParams;
     const now = new Date();
@@ -107,7 +132,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     const fulfillTypes = fulfillToOrderTypes(currentFilters.fulfill);
     const statusList = parseStatusFilter(currentFilters.status);
 
-    // Build extra filters for the fetch
+    // Build extra filters for the fetch (orthogonal only — chip-forced fields applied below)
     const buildExtraFilters = () => {
         const extra: Parameters<typeof getSalesOrders>[3] = {};
         if (fulfillTypes) extra.orderTypes = fulfillTypes;
@@ -124,25 +149,32 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         : undefined;
 
     // Fetch data based on active view + orthogonal filters
+    // Harding: customer demand on commercial chips; chip-forced dimensions cannot be overridden
     const isArchive = activeView === 'archive';
     const ordersRes = activeView === 'from-stock-unpaid'
-        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, undefined, {
-            ...buildExtraFilters(),
-            // from-stock-unpaid always adds MAKE_TO_STOCK + outstanding
-            orderTypes: fulfillTypes ?? [SalesOrderType.MAKE_TO_STOCK],
-            paymentState: currentFilters.payment ? currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice' : 'outstanding',
+        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
+            statusFilter: statusList,
+            // Force chip semantics (ignore URL fulfill/payment)
+            orderTypes: [SalesOrderType.MAKE_TO_STOCK],
+            paymentState: 'outstanding',
         })
         : isArchive
         ? await getSalesOrders(true, archiveDateRange, 'legacy-internal')
         : activeView === 'unpaid'
         ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
-            ...buildExtraFilters(),
-            paymentState: currentFilters.payment ? currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice' : 'outstanding',
+            orderTypes: fulfillTypes,
+            statusFilter: statusList,
+            // Force outstanding (ignore URL payment)
+            paymentState: 'outstanding',
         })
         : activeView === 'ready'
         ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
-            ...buildExtraFilters(),
-            statusFilter: statusList ?? [SalesOrderStatus.READY_TO_SHIP],
+            orderTypes: fulfillTypes,
+            paymentState: currentFilters.payment
+                ? (currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice')
+                : undefined,
+            // Force READY_TO_SHIP (ignore URL status)
+            statusFilter: [SalesOrderStatus.READY_TO_SHIP],
         })
         : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', buildExtraFilters());
 
@@ -157,6 +189,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     };
 
     const serializedOrders = serializeData(orders);
+    const displayedCount = Array.isArray(orders) ? orders.length : 0;
+    const filterLocks = locksForView(activeView);
 
     // Context-aware empty message per quick view
     const emptyMessage = isArchive
@@ -206,7 +240,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </div>
 
                 <Card>
-                    <CardContent className="pt-6">
+                    <CardHeader className="pb-2">
+                        <p className="text-sm text-muted-foreground">
+                            {salesLabels.displayedCount}: <span className="font-semibold text-foreground">{displayedCount}</span>
+                        </p>
+                    </CardHeader>
+                    <CardContent>
                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <SalesOrderTable initialData={serializedOrders as any} basePath="/sales/orders" emptyMessage={emptyMessage} />
                     </CardContent>
@@ -234,9 +273,15 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </div>
             </div>
 
-            {/* Summary Cards — global counts */}
+            {/* Summary Cards — global counts + list scope */}
             <div>
-                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Ringkasan global</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Ringkasan global</p>
+                    <p className="text-xs text-muted-foreground">
+                        {salesLabels.displayedCount}: <span className="font-semibold text-foreground">{displayedCount}</span>
+                        <span className="text-muted-foreground"> (filter aktif)</span>
+                    </p>
+                </div>
                 <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -280,7 +325,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <Card>
                 <CardHeader>
                     <div className="flex flex-col gap-3">
-                        <CardTitle>{salesLabels.allOrders}</CardTitle>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <CardTitle>{salesLabels.allOrders}</CardTitle>
+                            <span className="text-sm text-muted-foreground">
+                                {salesLabels.displayedCount}: <span className="font-medium text-foreground">{displayedCount}</span>
+                            </span>
+                        </div>
                         {/* Quick view chips */}
                         <div className="flex flex-wrap gap-2">
                             {quickViews.map((qv) => (
@@ -297,9 +347,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                                 </Link>
                             ))}
                         </div>
-                        {/* Orthogonal filters */}
+                        {/* Orthogonal filters (chip-locked dimensions shown as read-only) */}
                         <Suspense>
-                            <SalesOrderFilters />
+                            <SalesOrderFilters locks={filterLocks} />
                         </Suspense>
                     </div>
                 </CardHeader>

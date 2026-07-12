@@ -93,11 +93,11 @@ export function SalesOrderTable({
       return getLocalizedStatusLabel(order.status, "sales");
     switch (order.status) {
       case "READY_TO_SHIP":
-        return "Siap Service Closure";
+        return "Siap penutupan jasa";
       case "SHIPPED":
-        return "Service Closed";
+        return "Jasa ditutup";
       case "DELIVERED":
-        return "Service Delivered";
+        return "Jasa selesai";
       default:
         return getLocalizedStatusLabel(order.status, "sales");
     }

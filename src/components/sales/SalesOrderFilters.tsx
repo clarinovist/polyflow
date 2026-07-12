@@ -38,17 +38,22 @@ function FilterSelect({
   paramKey,
   currentValue,
   options,
+  locked,
+  lockedDisplay,
 }: {
   label: string;
   paramKey: string;
   currentValue: string;
   options: { value: string; label: string }[];
+  locked?: boolean;
+  lockedDisplay?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const handleChange = useCallback(
     (value: string) => {
+      if (locked) return;
       const params = new URLSearchParams(searchParams.toString());
       // "__all__" means clear the filter
       if (value === "__all__" || value === currentValue) {
@@ -58,8 +63,21 @@ function FilterSelect({
       }
       router.push(`/sales/orders?${params.toString()}`, { scroll: false });
     },
-    [router, searchParams, paramKey, currentValue]
+    [router, searchParams, paramKey, currentValue, locked]
   );
+
+  if (locked) {
+    return (
+      <div
+        className="inline-flex h-8 w-[160px] items-center rounded-md border border-dashed border-border bg-muted/40 px-3 text-xs text-muted-foreground"
+        title={`Dikunci oleh quick view: ${lockedDisplay || label}`}
+      >
+        <span className="truncate">
+          {label}: <span className="font-medium text-foreground">{lockedDisplay || "—"}</span>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <Select value={currentValue || "__all__"} onValueChange={handleChange}>
@@ -78,7 +96,16 @@ function FilterSelect({
   );
 }
 
-export function SalesOrderFilters() {
+export type SalesOrderFilterLocks = {
+  status?: boolean;
+  fulfill?: boolean;
+  payment?: boolean;
+  statusDisplay?: string;
+  fulfillDisplay?: string;
+  paymentDisplay?: string;
+};
+
+export function SalesOrderFilters({ locks }: { locks?: SalesOrderFilterLocks }) {
   const searchParams = useSearchParams();
 
   return (
@@ -88,18 +115,24 @@ export function SalesOrderFilters() {
         paramKey="status"
         currentValue={searchParams.get("status") || ""}
         options={STATUS_OPTIONS}
+        locked={locks?.status}
+        lockedDisplay={locks?.statusDisplay}
       />
       <FilterSelect
         label="Cara penuhi"
         paramKey="fulfill"
         currentValue={searchParams.get("fulfill") || ""}
         options={FULFILL_OPTIONS}
+        locked={locks?.fulfill}
+        lockedDisplay={locks?.fulfillDisplay}
       />
       <FilterSelect
         label="Pembayaran"
         paramKey="payment"
         currentValue={searchParams.get("payment") || ""}
         options={PAYMENT_OPTIONS}
+        locked={locks?.payment}
+        lockedDisplay={locks?.paymentDisplay}
       />
     </div>
   );

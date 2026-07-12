@@ -93,13 +93,20 @@ export async function getOrders(filters?: {
       },
     };
   } else if (filters?.paymentState === "paid") {
+    // Fully paid: at least one PAID invoice, and no open/draft invoices.
+    // CANCELLED invoices are ignored (allowed alongside PAID).
     where.invoices = {
       some: {
         status: InvoiceStatus.PAID,
       },
       none: {
         status: {
-          in: [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE],
+          in: [
+            InvoiceStatus.UNPAID,
+            InvoiceStatus.PARTIAL,
+            InvoiceStatus.OVERDUE,
+            InvoiceStatus.DRAFT,
+          ],
         },
       },
     };
