@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, ShoppingCart, Clock, CheckCircle, XCircle, Archive, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { SalesOrderTable } from '@/components/sales/SalesOrderTable';
-import { SalesOrderFilters, type SalesOrderFilterLocks } from '@/components/sales/SalesOrderFilters';
+import { SalesOrderFilters } from '@/components/sales/SalesOrderFilters';
 import { serializeData } from '@/lib/utils/utils';
 import { SalesOrderType, SalesOrderStatus } from '@prisma/client';
 import { salesLabels } from '@/lib/labels';
@@ -12,8 +12,7 @@ import { salesLabels } from '@/lib/labels';
 import { UrlTransactionDateFilter } from '@/components/common/url-transaction-date-filter';
 import { parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { Suspense } from 'react';
-
-type QuickView = 'all' | 'unpaid' | 'ready' | 'from-stock-unpaid' | 'archive';
+import { redirect } from 'next/navigation';
 
 /** Map fulfill query param to SalesOrderType[] */
 function fulfillToOrderTypes(fulfill: string): SalesOrderType[] | undefined {
@@ -38,64 +37,24 @@ function parseStatusFilter(status: string): SalesOrderStatus[] | undefined {
     return valid.length > 0 ? valid : undefined;
 }
 
-/** Preserve date params across quick-view hrefs, but clear conflicting orthogonal filters */
-function buildViewHref(
-    nextView: QuickView,
-    dateParams: { startDate?: string; endDate?: string },
-    currentFilters: { status?: string; fulfill?: string; payment?: string },
-) {
-    const query = new URLSearchParams();
-    if (nextView === 'archive') {
-        query.set('demand', 'legacy-internal');
-    } else if (nextView === 'from-stock-unpaid') {
-        query.set('view', 'mts-unpaid');
-    } else if (nextView === 'all') {
-        // default — no extra params, clear all filters
-    } else {
-        query.set('view', nextView);
-    }
-    // Only preserve orthogonal filters that don't conflict with the chip
-    if (nextView === 'all') {
-        // Clear all filters when going to "Semua"
-    } else if (nextView === 'from-stock-unpaid') {
-        // from-stock-unpaid forces stock + outstanding; clear fulfill & payment
-        if (currentFilters.status) query.set('status', currentFilters.status);
-    } else if (nextView === 'unpaid') {
-        // unpaid forces payment=outstanding; clear payment, keep fulfill & status
-        if (currentFilters.fulfill) query.set('fulfill', currentFilters.fulfill);
-        if (currentFilters.status) query.set('status', currentFilters.status);
-    } else if (nextView === 'ready') {
-        // ready forces status=READY_TO_SHIP; clear status, keep fulfill & payment
-        if (currentFilters.fulfill) query.set('fulfill', currentFilters.fulfill);
-        if (currentFilters.payment) query.set('payment', currentFilters.payment);
-    }
-    if (dateParams.startDate) query.set('startDate', dateParams.startDate);
-    if (dateParams.endDate) query.set('endDate', dateParams.endDate);
-    return `/sales/orders?${query.toString()}`;
-}
-
-/** Filters locked by the active quick-view chip (cannot be overridden in UI). */
-function locksForView(view: QuickView): SalesOrderFilterLocks | undefined {
+/**
+ * Legacy quick-view URLs → filter query params (no chips UI).
+ * Keeps old bookmarks/sidebar links working without a separate "mode".
+ */
+function legacyViewToFilters(view: string | undefined): {
+    status?: string;
+    fulfill?: string;
+    payment?: string;
+} | null {
     switch (view) {
-        case 'from-stock-unpaid':
-            return {
-                fulfill: true,
-                payment: true,
-                fulfillDisplay: salesLabels.fulfillFromStock,
-                paymentDisplay: 'Belum lunas',
-            };
+        case 'mts-unpaid':
+            return { fulfill: 'stock', payment: 'outstanding' };
         case 'unpaid':
-            return {
-                payment: true,
-                paymentDisplay: 'Belum lunas',
-            };
+            return { payment: 'outstanding' };
         case 'ready':
-            return {
-                status: true,
-                statusDisplay: 'Siap kirim',
-            };
+            return { status: SalesOrderStatus.READY_TO_SHIP };
         default:
-            return undefined;
+            return null;
     }
 }
 
@@ -105,17 +64,26 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     const defaultStart = startOfMonth(now);
     const defaultEnd = endOfMonth(now);
 
-    // Resolve quick view from URL (backward compat)
-    const viewParam = params?.view;
     const demandParam = params?.demand;
-    const activeView: QuickView =
-        viewParam === 'mts-unpaid' ? 'from-stock-unpaid' :
-        viewParam === 'archive' || demandParam === 'legacy-internal' ? 'archive' :
-        viewParam === 'unpaid' ? 'unpaid' :
-        viewParam === 'ready' ? 'ready' :
-        'all';
+    const isArchive = demandParam === 'legacy-internal' || params?.view === 'archive';
 
-    // Parse orthogonal filters
+    // Redirect legacy chip URLs to plain filter params (one-time clean URL)
+    if (!isArchive && params?.view) {
+        const mapped = legacyViewToFilters(params.view);
+        if (mapped) {
+            const q = new URLSearchParams();
+            const status = params.status || mapped.status;
+            const fulfill = params.fulfill || mapped.fulfill;
+            const payment = params.payment || mapped.payment;
+            if (status) q.set('status', status);
+            if (fulfill) q.set('fulfill', fulfill);
+            if (payment) q.set('payment', payment);
+            if (params.startDate) q.set('startDate', params.startDate);
+            if (params.endDate) q.set('endDate', params.endDate);
+            redirect(`/sales/orders${q.toString() ? `?${q.toString()}` : ''}`);
+        }
+    }
+
     const currentFilters = {
         status: params?.status || '',
         fulfill: params?.fulfill || '',
@@ -125,58 +93,28 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
     const checkStart = params?.startDate ? parseISO(params.startDate) : defaultStart;
     const checkEnd = params?.endDate ? parseISO(params.endDate) : defaultEnd;
 
-    // Build href for each quick view (preserves non-conflicting filters)
-    const href = (v: QuickView) => buildViewHref(v, { startDate: params?.startDate, endDate: params?.endDate }, currentFilters);
-
-    // Resolve filter values for backend
     const fulfillTypes = fulfillToOrderTypes(currentFilters.fulfill);
     const statusList = parseStatusFilter(currentFilters.status);
 
-    // Build extra filters for the fetch (orthogonal only — chip-forced fields applied below)
-    const buildExtraFilters = () => {
-        const extra: Parameters<typeof getSalesOrders>[3] = {};
-        if (fulfillTypes) extra.orderTypes = fulfillTypes;
-        if (statusList) extra.statusFilter = statusList;
-        if (currentFilters.payment) extra.paymentState = currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice';
-        return extra;
-    };
+    const extraFilters: Parameters<typeof getSalesOrders>[3] = {};
+    if (fulfillTypes) extraFilters.orderTypes = fulfillTypes;
+    if (statusList) extraFilters.statusFilter = statusList;
+    if (currentFilters.payment) {
+        extraFilters.paymentState = currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice';
+    }
 
-    // Archive: default all-time (no date range) unless user explicitly sets dates
+    // Archive: default all-time unless user sets dates
     const archiveCheckStart = params?.startDate ? parseISO(params.startDate) : undefined;
     const archiveCheckEnd = params?.endDate ? parseISO(params.endDate) : undefined;
     const archiveDateRange = archiveCheckStart && archiveCheckEnd
         ? { startDate: archiveCheckStart, endDate: archiveCheckEnd }
         : undefined;
 
-    // Fetch data based on active view + orthogonal filters
-    // Harding: customer demand on commercial chips; chip-forced dimensions cannot be overridden
-    const isArchive = activeView === 'archive';
-    const ordersRes = activeView === 'from-stock-unpaid'
-        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
-            statusFilter: statusList,
-            // Force chip semantics (ignore URL fulfill/payment)
-            orderTypes: [SalesOrderType.MAKE_TO_STOCK],
-            paymentState: 'outstanding',
-        })
-        : isArchive
+    const dateRange = { startDate: checkStart, endDate: checkEnd };
+
+    const ordersRes = isArchive
         ? await getSalesOrders(true, archiveDateRange, 'legacy-internal')
-        : activeView === 'unpaid'
-        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
-            orderTypes: fulfillTypes,
-            statusFilter: statusList,
-            // Force outstanding (ignore URL payment)
-            paymentState: 'outstanding',
-        })
-        : activeView === 'ready'
-        ? await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', {
-            orderTypes: fulfillTypes,
-            paymentState: currentFilters.payment
-                ? (currentFilters.payment as 'outstanding' | 'paid' | 'no_invoice')
-                : undefined,
-            // Force READY_TO_SHIP (ignore URL status)
-            statusFilter: [SalesOrderStatus.READY_TO_SHIP],
-        })
-        : await getSalesOrders(true, { startDate: checkStart, endDate: checkEnd }, 'customer', buildExtraFilters());
+        : await getSalesOrders(true, dateRange, 'customer', extraFilters);
 
     const statsRes = await getSalesOrderStats();
 
@@ -190,26 +128,23 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
 
     const serializedOrders = serializeData(orders);
     const displayedCount = Array.isArray(orders) ? orders.length : 0;
-    const filterLocks = locksForView(activeView);
+    const emptyMessage = isArchive ? salesLabels.emptyOrdersArchive : salesLabels.emptyOrders;
 
-    // Context-aware empty message per quick view
-    const emptyMessage = isArchive
-        ? salesLabels.emptyOrdersArchive
-        : activeView === 'unpaid'
-        ? salesLabels.emptyOrdersUnpaid
-        : activeView === 'ready'
-        ? salesLabels.emptyOrdersReady
-        : activeView === 'from-stock-unpaid'
-        ? salesLabels.emptyOrdersFromStockUnpaid
-        : salesLabels.emptyOrders;
+    const archiveHref = (() => {
+        const q = new URLSearchParams();
+        q.set('demand', 'legacy-internal');
+        if (params?.startDate) q.set('startDate', params.startDate);
+        if (params?.endDate) q.set('endDate', params.endDate);
+        return `/sales/orders?${q.toString()}`;
+    })();
 
-    // Quick view chips config
-    const quickViews: { key: QuickView; label: string; href: string }[] = [
-        { key: 'all', label: salesLabels.quickViewAll, href: href('all') },
-        { key: 'unpaid', label: salesLabels.quickViewUnpaid, href: href('unpaid') },
-        { key: 'ready', label: salesLabels.quickViewReady, href: href('ready') },
-        { key: 'from-stock-unpaid', label: salesLabels.quickViewFromStockUnpaid, href: href('from-stock-unpaid') },
-    ];
+    const mainListHref = (() => {
+        const q = new URLSearchParams();
+        if (params?.startDate) q.set('startDate', params.startDate);
+        if (params?.endDate) q.set('endDate', params.endDate);
+        const s = q.toString();
+        return s ? `/sales/orders?${s}` : '/sales/orders';
+    })();
 
     // Archive mode
     if (isArchive) {
@@ -218,7 +153,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Button variant="ghost" size="sm" asChild>
-                            <Link href={href('all')}>
+                            <Link href={mainListHref}>
                                 <ArrowLeft className="mr-1 h-4 w-4" />
                                 Kembali
                             </Link>
@@ -254,7 +189,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
         );
     }
 
-    // Default / quick-view mode
+    // Single list + dropdown filters only
     return (
         <div className="flex flex-col space-y-6 p-6">
             <div className="flex items-center justify-between">
@@ -283,43 +218,43 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                     </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
-                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalOrders}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
-                        <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.activeCount}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.completedCount}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
-                        <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.cancelledCount}</div>
-                    </CardContent>
-                </Card>
-            </div>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">{salesLabels.totalOrders}</CardTitle>
+                            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">{salesLabels.activePending}</CardTitle>
+                            <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.activeCount}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">{salesLabels.completed}</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.completedCount}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">{salesLabels.cancelled}</CardTitle>
+                            <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.cancelledCount}</div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
 
             <Card>
@@ -331,25 +266,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                                 {salesLabels.displayedCount}: <span className="font-medium text-foreground">{displayedCount}</span>
                             </span>
                         </div>
-                        {/* Quick view chips */}
-                        <div className="flex flex-wrap gap-2">
-                            {quickViews.map((qv) => (
-                                <Link
-                                    key={qv.key}
-                                    href={qv.href}
-                                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                                        activeView === qv.key
-                                            ? 'border-primary bg-primary text-primary-foreground'
-                                            : 'border-border bg-background text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {qv.label}
-                                </Link>
-                            ))}
-                        </div>
-                        {/* Orthogonal filters (chip-locked dimensions shown as read-only) */}
                         <Suspense>
-                            <SalesOrderFilters locks={filterLocks} />
+                            <SalesOrderFilters />
                         </Suspense>
                     </div>
                 </CardHeader>
@@ -359,10 +277,9 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </CardContent>
             </Card>
 
-            {/* Archive link */}
             <div className="text-center">
                 <Link
-                    href={href('archive')}
+                    href={archiveHref}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                     {salesLabels.archiveLink}

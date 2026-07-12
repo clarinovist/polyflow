@@ -80,7 +80,6 @@ const salesNavItems: NavItem[] = [
   { id: 'sales-mobile', label: 'Tampilan Mobile', href: '/sales/mobile', workspace: 'sales', section: 'ringkasan', owner: 'sales' },
   { id: 'sales-quotations', label: 'Penawaran', href: '/sales/quotations', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-orders', label: 'Sales Order', href: '/sales/orders', workspace: 'sales', section: 'transaksi', owner: 'sales' },
-  { id: 'sales-mts-unpaid', label: 'Belum lunas (dari stok)', href: '/sales/orders?view=mts-unpaid', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-invoices', label: 'Invoice Penjualan', href: '/sales/invoices', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-returns', label: 'Retur Penjualan', href: '/sales/returns', workspace: 'sales', section: 'transaksi', owner: 'sales' },
   { id: 'sales-delivery-schedules', label: 'Jadwal Kirim', href: '/sales/delivery-schedules', workspace: 'sales', section: 'pengiriman', owner: 'sales' },

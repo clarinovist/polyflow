@@ -96,7 +96,6 @@ export const salesSidebarLabels = {
   salesDashboard: "Dashboard Penjualan",
   quotations: "Penawaran",
   salesOrders: "Sales Order",
-  mtsUnpaid: "Belum lunas (dari stok)",
   salesInvoices: "Invoice Penjualan",
   deliveryTracking: "Surat Jalan",
   deliverySchedules: "Jadwal Kirim",

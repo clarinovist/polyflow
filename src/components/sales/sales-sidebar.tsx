@@ -7,7 +7,6 @@ import {
     Truck,
     Users2,
     RotateCcw,
-    CircleDollarSign,
     Smartphone,
     CalendarDays,
     Car,
@@ -39,7 +38,6 @@ const salesLinks = [
         items: [
             { href: '/sales/quotations', icon: FileText, label: salesSidebarLabels.quotations },
             { href: '/sales/orders', icon: ShoppingCart, label: salesSidebarLabels.salesOrders },
-            { href: '/sales/orders?view=mts-unpaid', icon: CircleDollarSign, label: salesSidebarLabels.mtsUnpaid },
             { href: '/sales/invoices', icon: FileText, label: salesSidebarLabels.salesInvoices },
             { href: '/sales/returns', icon: RotateCcw, label: salesSidebarLabels.salesReturns },
         ],

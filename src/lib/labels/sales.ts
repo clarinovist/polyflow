@@ -70,11 +70,6 @@ export const salesLabels = {
   cancelled: "Dibatalkan",
   allOrders: "Semua Pesanan",
   displayedCount: "Ditampilkan",
-  // Quick views (replaces tabs)
-  quickViewAll: "Semua",
-  quickViewUnpaid: "Belum lunas",
-  quickViewReady: "Siap kirim",
-  quickViewFromStockUnpaid: "Belum lunas (dari stok)",
   // Fulfillment type labels (human-readable)
   fulfillFromStock: "Dari stok",
   fulfillProduce: "Produksi dulu",
@@ -84,10 +79,6 @@ export const salesLabels = {
   archiveTitle: "Arsip · tanpa customer",
   archiveHint: "Data lama internal stock build via SO. Bukan alur baru.",
   archiveHintDetail: "Tidak bisa invoice baru. Stok internal → Production Order.",
-  // Empty states per quick view
-  emptyOrdersUnpaid: "Tidak ada tagihan yang belum lunas.",
-  emptyOrdersReady: "Tidak ada pesanan yang siap dikirim.",
-  emptyOrdersFromStockUnpaid: "Tidak ada tagihan dari stok yang belum lunas.",
   emptyOrdersArchive: "Tidak ada pesanan tanpa customer.",
 
   // Sales Quotations
