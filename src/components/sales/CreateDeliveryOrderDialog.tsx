@@ -31,6 +31,20 @@ import { getActiveTariff as fetchActiveTariff, listVehicleRouteOptions as fetchR
 import { useRouter } from 'next/navigation';
 import { salesLabels } from '@/lib/labels';
 
+interface SalesOrderItem {
+  id: string;
+  quantity: string | number;
+  deliveredQty: string | number;
+  enteredQuantity?: string | number | null;
+  enteredUnit?: string | null;
+  productVariant?: {
+    name: string;
+    primaryUnit: string;
+    salesUnit?: string | null;
+    product?: { name: string; productType?: string } | null;
+  } | null;
+}
+
 interface SalesOrder {
   id: string;
   orderNumber: string;
@@ -40,18 +54,7 @@ interface SalesOrder {
     billingAddress?: string | null;
     defaultVehicleId?: string | null;
   } | null;
-  items?: Array<{
-    id: string;
-    quantity: string | number;
-    enteredQuantity?: string | number | null;
-    enteredUnit?: string | null;
-    productVariant?: {
-      name: string;
-      primaryUnit: string;
-      salesUnit?: string | null;
-      product?: { name: string } | null;
-    } | null;
-  }>;
+  items?: SalesOrderItem[];
 }
 
 interface Location {
@@ -126,13 +129,26 @@ export function CreateDeliveryOrderDialog({
 
   const loadData = useCallback(async () => {
     const [ordersRes, locationsRes, vehiclesRes] = await Promise.all([
-      getSalesOrders(false, undefined, 'customer', {
+      getSalesOrders(true, undefined, 'customer', {
         statusFilter: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'],
       }),
       getLocations(),
       getVehicles({ status: 'ACTIVE' }),
     ]);
-    if (ordersRes.success && ordersRes.data) setSalesOrders(ordersRes.data as SalesOrder[]);
+    if (ordersRes.success && ordersRes.data) {
+      // Filter: only show SOs that have at least one non-SERVICE item with residual > 0
+      const allOrders = ordersRes.data as SalesOrder[];
+      const eligibleOrders = allOrders.filter((so) => {
+        if (!so.items || so.items.length === 0) return false;
+        return so.items.some((item) => {
+          if (item.productVariant?.product?.productType === 'SERVICE') return false;
+          const qty = parseFloat(String(item.quantity ?? 0));
+          const delivered = parseFloat(String(item.deliveredQty ?? 0));
+          return qty - delivered > 0;
+        });
+      });
+      setSalesOrders(eligibleOrders);
+    }
     if (locationsRes.success && locationsRes.data) setLocations(locationsRes.data as Location[]);
     if (vehiclesRes.success && vehiclesRes.data) setVehicles(vehiclesRes.data as Vehicle[]);
   }, []);
