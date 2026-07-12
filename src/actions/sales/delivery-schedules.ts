@@ -564,6 +564,93 @@ export const assignSalesOrderToTrip = withTenant(
 );
 
 /**
+ * Unified action: tambah SO ke jadwal dengan manajemen trip otomatis.
+ * - existingTripId diisi  → SO masuk ke trip itu langsung
+ * - existingTripId kosong → buat trip baru, lalu assign SO
+ */
+export const scheduleSOWithTrip = withTenant(
+  async function scheduleSOWithTrip(
+    scheduleId: string,
+    data: {
+      salesOrderId: string;
+      vehicleId: string;
+      departureDate: Date;
+      plannedWeightKg?: number;
+      existingTripId?: string;
+    }
+  ) {
+    return safeAction(async () => {
+      await requireAuth();
+
+      const schedule = await prisma.deliverySchedule.findUnique({ where: { id: scheduleId } });
+      if (!schedule) throw new NotFoundError('Jadwal Kirim', scheduleId);
+
+      const so = await prisma.salesOrder.findUnique({ where: { id: data.salesOrderId } });
+      if (!so) throw new NotFoundError('Sales Order', data.salesOrderId);
+      if (!isSOSchedulable(so.status))
+        throw new BusinessRuleError(`SO "${so.orderNumber}" tidak bisa dijadwalkan.`);
+
+      let tripId: string;
+
+      if (data.existingTripId) {
+        // Re-use existing trip — validasi kepemilikan & status
+        const trip = await prisma.deliveryScheduleVehicle.findUnique({
+          where: { id: data.existingTripId },
+        });
+        if (!trip) throw new NotFoundError('Trip', data.existingTripId);
+        if (trip.scheduleId !== scheduleId)
+          throw new BusinessRuleError('Trip tidak ditemukan dalam jadwal ini.');
+        if (trip.status !== 'PLANNED' && trip.status !== 'CONFIRMED')
+          throw new BusinessRuleError(`Trip dengan status "${trip.status}" tidak bisa menerima stop baru.`);
+        tripId = trip.id;
+      } else {
+        // Buat trip baru
+        const vehicle = await prisma.vehicle.findUnique({ where: { id: data.vehicleId } });
+        if (!vehicle) throw new NotFoundError('Kendaraan', data.vehicleId);
+        if (vehicle.status !== 'ACTIVE')
+          throw new BusinessRuleError(`Kendaraan "${vehicle.plateNumber}" tidak aktif.`);
+
+        const weekCheck = validateDepartureInWeek(data.departureDate, schedule.weekStart, schedule.weekEnd);
+        if (!weekCheck.ok) throw new BusinessRuleError(weekCheck.error!);
+
+        const maxSeq = await prisma.deliveryScheduleVehicle.aggregate({
+          where: { scheduleId },
+          _max: { sequence: true },
+        });
+        const newTrip = await prisma.deliveryScheduleVehicle.create({
+          data: {
+            scheduleId,
+            vehicleId: data.vehicleId,
+            departureDate: data.departureDate,
+            sequence: (maxSeq._max.sequence ?? -1) + 1,
+            status: 'PLANNED',
+          },
+        });
+        tripId = newTrip.id;
+      }
+
+      // Assign SO sebagai stop
+      const maxStopSeq = await prisma.deliveryScheduleOrder.aggregate({
+        where: { scheduleVehicleId: tripId },
+        _max: { sequence: true },
+      });
+      const stop = await prisma.deliveryScheduleOrder.create({
+        data: {
+          scheduleVehicleId: tripId,
+          salesOrderId: data.salesOrderId,
+          plannedWeightKg: data.plannedWeightKg ?? null,
+          sequence: (maxStopSeq._max.sequence ?? -1) + 1,
+          status: 'PLANNED',
+        },
+      });
+
+      revalidatePath(`/sales/delivery-schedules/${scheduleId}`);
+      return { tripId, stop };
+    });
+  }
+);
+
+/**
  * List schedulable Sales Orders for the SO picker dialog.
  * Returns SO with remaining qty signal + already-planned-this-week flag.
  */

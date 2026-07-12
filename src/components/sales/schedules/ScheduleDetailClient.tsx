@@ -26,7 +26,6 @@ import { toast } from 'sonner';
 import type { ScheduleStatus, TripStatus } from '@prisma/client';
 import {
   updateDeliverySchedule,
-  createScheduleTrip,
   updateTripStatus,
   removeVehicleFromSchedule,
   assignSalesOrderToTrip,
@@ -34,6 +33,7 @@ import {
   removeOrderFromSchedule,
   listSchedulableSalesOrders,
   deleteDeliverySchedule,
+  scheduleSOWithTrip,
 } from '@/actions/sales/delivery-schedules';
 import { getVehicles } from '@/actions/sales/vehicles';
 
@@ -182,16 +182,14 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [schedulableSOs, setSchedulableSOs] = useState<SchedulableSO[]>([]);
   const [selectedSOId, setSelectedSOId] = useState('');
-  const [selectedTripId, setSelectedTripId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [tripChoice, setTripChoice] = useState('');
   const [plannedWeight, setPlannedWeight] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [showAddSO, setShowAddSO] = useState(false);
-  const [showCreateTrip, setShowCreateTrip] = useState(false);
-  const [newTripVehicleId, setNewTripVehicleId] = useState('');
-  const [newTripDate, setNewTripDate] = useState('');
   const [assignTripStopId, setAssignTripStopId] = useState('');
   const [assignTripId, setAssignTripId] = useState('');
-  const [showInlineCreateTrip, setShowInlineCreateTrip] = useState(false);
   const router = useRouter();
 
   const loadData = useCallback(async () => {
@@ -224,12 +222,24 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
     }
   }, [selectedSOId, schedulableSOs]);
 
-  // ============================================
-  // All stops flattened from trips
-  // ============================================
+  const trips = schedule.vehicles;
+
+  // Automatically set tripChoice when matching trips change
+  useEffect(() => {
+    const matchingTrips = trips.filter(t =>
+      t.vehicleId === selectedVehicleId &&
+      t.departureDate != null &&
+      new Date(t.departureDate).toISOString().startsWith(selectedDate) &&
+      (t.status === 'PLANNED' || t.status === 'CONFIRMED')
+    );
+    if (matchingTrips.length === 1) {
+      setTripChoice(matchingTrips[0].id);
+    } else {
+      setTripChoice('');
+    }
+  }, [selectedVehicleId, selectedDate, trips]);
 
   const allStops: (Stop & { tripId?: string; tripPlate?: string; tripDate?: string | null })[] = [];
-  const trips = schedule.vehicles;
   trips.forEach(t => {
     t.orders.forEach(o => {
       allStops.push({ ...o, tripId: t.id, tripPlate: t.vehicle.plateNumber, tripDate: t.departureDate });
@@ -269,35 +279,39 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
   };
 
   const handleAddSO = async () => {
-    if (!selectedSOId) { toast.error('Pilih Sales Order.'); return; }
-    if (!selectedTripId) { toast.error('Pilih Trip / Hari Kirim.'); return; }
+    if (!selectedSOId || !selectedVehicleId || !selectedDate) {
+      toast.error('Lengkapi SO, hari kirim, dan armada.');
+      return;
+    }
     setIsActionLoading(true);
     try {
-      const result = await assignSalesOrderToTrip(selectedTripId, {
+      const existingTripId =
+        tripChoice !== '' && tripChoice !== 'new' ? tripChoice : undefined;
+
+      const result = await scheduleSOWithTrip(schedule.id, {
         salesOrderId: selectedSOId,
+        vehicleId: selectedVehicleId,
+        departureDate: new Date(selectedDate),
         plannedWeightKg: plannedWeight ? parseFloat(plannedWeight) : undefined,
+        existingTripId,
       });
-      if (!result.success) { toast.error(result.error || 'Gagal menambah SO.'); return; }
+      if (!result.success) { toast.error(result.error || 'Gagal.'); return; }
       toast.success('SO berhasil ditambahkan.');
-      setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); setPlannedWeight('');
+      resetAddSO();
       router.refresh();
     } catch { toast.error('Gagal menambah SO.'); } finally { setIsActionLoading(false); }
   };
 
-  const handleCreateTrip = async () => {
-    if (!newTripVehicleId || !newTripDate) { toast.error('Pilih kendaraan dan tanggal.'); return; }
-    setIsActionLoading(true);
-    try {
-      const result = await createScheduleTrip(schedule.id, {
-        vehicleId: newTripVehicleId,
-        departureDate: new Date(newTripDate),
-      });
-      if (!result.success) { toast.error(result.error || 'Gagal membuat trip.'); return; }
-      toast.success('Trip berhasil dibuat.');
-      setShowCreateTrip(false); setNewTripVehicleId(''); setNewTripDate('');
-      router.refresh();
-    } catch { toast.error('Gagal membuat trip.'); } finally { setIsActionLoading(false); }
+  const resetAddSO = () => {
+    setSelectedSOId('');
+    setSelectedVehicleId('');
+    setSelectedDate('');
+    setTripChoice('');
+    setPlannedWeight('');
+    setShowAddSO(false);
   };
+
+
 
   const handleAssignToTrip = async (stopId: string, tripId: string) => {
     setIsActionLoading(true);
@@ -469,119 +483,133 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
                 </Select>
               </div>
 
-              {/* Trip / Hari Kirim + inline create trip */}
-              {(() => {
-                const availableTrips = trips.filter(t => t.status === 'PLANNED' || t.status === 'CONFIRMED');
-                const hasTrips = availableTrips.length > 0;
+              {/* Hari Kirim & Armada */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">Hari / Tanggal Kirim</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    min={schedule.weekStart.split('T')[0]}
+                    max={schedule.weekEnd.split('T')[0]}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  {selectedDate && (
+                    <span className="text-xs text-muted-foreground block">
+                      📅 {formatDateWithDay(selectedDate)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">Armada / Kendaraan</label>
+                  <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder="Pilih kendaraan..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableVehicles.map(v => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.plateNumber} — {v.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Smart Trip Selector */}
+              {selectedVehicleId && selectedDate && (() => {
+                const matchingTrips = trips.filter(t =>
+                  t.vehicleId === selectedVehicleId &&
+                  t.departureDate != null &&
+                  new Date(t.departureDate).toISOString().startsWith(selectedDate) &&
+                  (t.status === 'PLANNED' || t.status === 'CONFIRMED')
+                );
+
+                if (matchingTrips.length === 0) {
+                  return (
+                    <div className="p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 text-xs text-green-700 dark:text-green-400">
+                      ✨ Belum ada trip untuk armada ini di hari tersebut. Trip baru akan dibuat otomatis.
+                    </div>
+                  );
+                }
+
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                    <div className="space-y-1.5 md:col-span-6">
-                      <label className="text-sm font-medium text-muted-foreground">Trip / Hari Kirim</label>
-                      {hasTrips ? (
-                        <Select value={selectedTripId} onValueChange={setSelectedTripId}>
-                          <SelectTrigger className="w-full h-10">
-                            <SelectValue placeholder="Pilih trip & hari..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTrips.map(t => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.vehicle.plateNumber} — {formatDateWithDay(t.departureDate)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                            <Truck className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span>Belum ada trip. Buat trip terlebih dahulu untuk menentukan armada & tanggal kirim.</span>
-                          </div>
-                          {!showInlineCreateTrip ? (
-                            <button
-                              type="button"
-                              onClick={() => setShowInlineCreateTrip(true)}
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              + Buat trip sekarang
-                            </button>
-                          ) : (
-                            <div className="border rounded-lg bg-muted/40 p-3 space-y-2">
-                              <p className="text-xs font-semibold text-muted-foreground">Buat Trip Baru</p>
-                              <Select value={newTripVehicleId} onValueChange={setNewTripVehicleId}>
-                                <SelectTrigger className="h-9 text-sm">
-                                  <SelectValue placeholder="Pilih kendaraan..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableVehicles.map(v => (
-                                    <SelectItem key={v.id} value={v.id}>
-                                      {v.plateNumber} — {v.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <input
-                                type="date"
-                                value={newTripDate}
-                                onChange={e => setNewTripDate(e.target.value)}
-                                min={schedule.weekStart.split('T')[0]}
-                                max={schedule.weekEnd.split('T')[0]}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                              />
-                              {newTripDate && (
-                                <span className="text-xs text-muted-foreground">📅 {formatDateWithDay(newTripDate)}</span>
-                              )}
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={async () => { await handleCreateTrip(); setShowInlineCreateTrip(false); }}
-                                  disabled={isActionLoading || !newTripVehicleId || !newTripDate}
-                                >
-                                  <Truck className="h-3 w-3 mr-1" /> Buat Trip
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => { setShowInlineCreateTrip(false); setNewTripVehicleId(''); setNewTripDate(''); }}>Batal</Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-1.5 md:col-span-3">
-                      <label className="text-sm font-medium text-muted-foreground">Berat Rencana (kg, opsional)</label>
-                      <input
-                        type="number"
-                        value={plannedWeight}
-                        onChange={e => setPlannedWeight(e.target.value)}
-                        placeholder="Contoh: 1200"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                      {selectedSOId && (() => {
-                        const so = schedulableSOs.find(s => s.id === selectedSOId);
-                        const nonKgItems = so?.items.filter(i => i.productVariant.primaryUnit.toUpperCase() !== 'KG') ?? [];
-                        if (nonKgItems.length > 0) {
-                          return <p className="text-xs text-amber-600">⚠ Item non-KG tidak dihitung otomatis ({nonKgItems.map(i => i.productVariant.primaryUnit).join(', ')})</p>;
-                        }
-                        return <p className="text-xs text-muted-foreground">Auto-diisi dari sisa qty KG di SO. Bisa diubah.</p>;
-                      })()}
-                    </div>
-                    <div className="flex gap-2 md:col-span-3 h-10 items-center justify-end">
-                      <Button
-                        onClick={handleAddSO}
-                        disabled={isActionLoading || !selectedSOId || !selectedTripId}
-                        className="h-10 px-4"
-                      >
-                        <Plus className="h-4 w-4 mr-1" /> Tambah
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => { setShowAddSO(false); setSelectedSOId(''); setSelectedTripId(''); setShowInlineCreateTrip(false); }}
-                        className="h-10 px-4"
-                      >
-                        Batal
-                      </Button>
+                  <div className="space-y-2 p-3 border rounded-lg bg-muted/40">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Opsi Trip Ditemukan</label>
+                    <div className="space-y-2">
+                      {matchingTrips.map((t, idx) => {
+                        const stopCount = t.orders.length;
+                        return (
+                          <label key={t.id} className="flex items-center gap-2 text-sm font-normal cursor-pointer">
+                            <input
+                              type="radio"
+                              name="tripChoice"
+                              value={t.id}
+                              checked={tripChoice === t.id}
+                              onChange={() => setTripChoice(t.id)}
+                              className="h-4 w-4"
+                            />
+                            <span>Gabung ke <strong>Trip #{idx + 1}</strong> ({stopCount} SO terdaftar)</span>
+                          </label>
+                        );
+                      })}
+                      <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tripChoice"
+                          value="new"
+                          checked={tripChoice === 'new'}
+                          onChange={() => setTripChoice('new')}
+                          className="h-4 w-4"
+                        />
+                        <span>Buat trip baru (truk jalan 2x hari ini)</span>
+                      </label>
                     </div>
                   </div>
                 );
               })()}
+
+              {/* Weight & Action Buttons */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="space-y-1.5 md:col-span-6">
+                  <label className="text-sm font-medium text-muted-foreground">Berat Rencana (kg, opsional)</label>
+                  <input
+                    type="number"
+                    value={plannedWeight}
+                    onChange={e => setPlannedWeight(e.target.value)}
+                    placeholder="Contoh: 1200"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  {selectedSOId && (() => {
+                    const so = schedulableSOs.find(s => s.id === selectedSOId);
+                    const nonKgItems = so?.items.filter(i => i.productVariant.primaryUnit.toUpperCase() !== 'KG') ?? [];
+                    if (nonKgItems.length > 0) {
+                      return <p className="text-xs text-amber-600">⚠ Item non-KG tidak dihitung otomatis ({nonKgItems.map(i => i.productVariant.primaryUnit).join(', ')})</p>;
+                    }
+                    return <p className="text-xs text-muted-foreground">Auto-diisi dari sisa qty KG di SO. Bisa diubah.</p>;
+                  })()}
+                </div>
+
+                <div className="flex gap-2 md:col-span-6 h-10 items-center justify-end">
+                  <Button
+                    onClick={handleAddSO}
+                    disabled={isActionLoading || !selectedSOId || !selectedVehicleId || !selectedDate}
+                    className="h-10 px-4"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Tambah ke Rencana
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={resetAddSO}
+                    className="h-10 px-4"
+                  >
+                    Batal
+                  </Button>
+                </div>
+              </div>
               {selectedSOId && (() => {
                 const so = schedulableSOs.find(s => s.id === selectedSOId);
                 if (!so) return null;
@@ -717,49 +745,8 @@ export function ScheduleDetailClient({ schedule }: { schedule: Schedule }) {
           <CardTitle className="text-base flex items-center gap-2">
             <Truck className="h-4 w-4" /> Trip / Armada
           </CardTitle>
-          {isEditable && (
-            <Button size="sm" onClick={() => setShowCreateTrip(!showCreateTrip)}>
-              <Plus className="h-3 w-3 mr-1" /> Tambah Trip
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
-          {/* Create trip form */}
-          {showCreateTrip && (
-            <div className="mb-4 p-4 border rounded-lg bg-muted/30">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Kendaraan</label>
-                  <Select value={newTripVehicleId} onValueChange={setNewTripVehicleId}>
-                    <SelectTrigger><SelectValue placeholder="Pilih kendaraan..." /></SelectTrigger>
-                    <SelectContent>
-                      {availableVehicles.map(v => (
-                        <SelectItem key={v.id} value={v.id}>{v.plateNumber} — {v.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Tanggal Berangkat</label>
-                  <input type="date" value={newTripDate} onChange={e => setNewTripDate(e.target.value)}
-                    min={schedule.weekStart.split('T')[0]} max={schedule.weekEnd.split('T')[0]}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-                  {newTripDate && (
-                    <span className="text-xs text-muted-foreground block mt-1">
-                      📅 {formatDateWithDay(newTripDate)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateTrip} disabled={isActionLoading || !newTripVehicleId || !newTripDate}>
-                    <Truck className="h-3 w-3 mr-1" /> Buat Trip
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowCreateTrip(false); setNewTripVehicleId(''); }}>Batal</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {trips.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Belum ada trip. Buat trip untuk menentukan armada & tanggal kirim.
