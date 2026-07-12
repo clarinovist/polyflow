@@ -23,7 +23,8 @@ export class SalesService {
         endDate?: Date,
         demandType?: 'customer' | 'legacy-internal',
         orderType?: 'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA',
-        paymentState?: 'outstanding',
+        orderTypes?: Array<'MAKE_TO_STOCK' | 'MAKE_TO_ORDER' | 'MAKLON_JASA'>,
+        paymentState?: 'outstanding' | 'paid' | 'no_invoice',
         statusFilter?: SalesOrderStatus[]
     }) {
         return getOrders(filters);

@@ -49,14 +49,20 @@ export async function getOrders(filters?: {
   startDate?: Date;
   endDate?: Date;
   demandType?: "customer" | "legacy-internal";
+  /** Single order type (legacy) */
   orderType?: "MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA";
-  paymentState?: "outstanding";
+  /** Multiple order types (orthogonal filter) */
+  orderTypes?: Array<"MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA">;
+  paymentState?: "outstanding" | "paid" | "no_invoice";
   statusFilter?: SalesOrderStatus[];
 }) {
   const where: Prisma.SalesOrderWhereInput = {};
   if (filters?.customerId) where.customerId = filters.customerId;
 
-  if (filters?.orderType) {
+  // Order type filter — support single (legacy) or multi (new)
+  if (filters?.orderTypes && filters.orderTypes.length > 0) {
+    where.orderType = { in: filters.orderTypes };
+  } else if (filters?.orderType) {
     where.orderType = filters.orderType;
   }
 
@@ -73,6 +79,7 @@ export async function getOrders(filters?: {
     };
   }
 
+  // Payment state filter
   if (filters?.paymentState === "outstanding") {
     where.invoices = {
       some: {
@@ -85,6 +92,14 @@ export async function getOrders(filters?: {
         },
       },
     };
+  } else if (filters?.paymentState === "paid") {
+    where.invoices = {
+      some: {
+        status: InvoiceStatus.PAID,
+      },
+    };
+  } else if (filters?.paymentState === "no_invoice") {
+    where.invoices = { none: {} };
   }
 
   if (filters?.statusFilter && filters.statusFilter.length > 0) {

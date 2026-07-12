@@ -22,7 +22,8 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
   demandType?: "customer" | "legacy-internal",
   extraFilters?: {
     orderType?: "MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA";
-    paymentState?: "outstanding";
+    orderTypes?: Array<"MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA">;
+    paymentState?: "outstanding" | "paid" | "no_invoice";
     statusFilter?: SalesOrderStatus[];
   },
 ) {
@@ -34,6 +35,7 @@ export const getSalesOrders = withTenant(async function getSalesOrders(
       endDate: dateRange?.endDate,
       demandType,
       orderType: extraFilters?.orderType,
+      orderTypes: extraFilters?.orderTypes,
       paymentState: extraFilters?.paymentState,
       statusFilter: extraFilters?.statusFilter,
     });
