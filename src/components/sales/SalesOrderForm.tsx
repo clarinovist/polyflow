@@ -92,6 +92,7 @@ export function SalesOrderForm({
   locations,
   products,
   mode,
+  lockedOrderType,
   initialData,
   reorderData,
 }: SalesOrderFormProps) {
@@ -220,8 +221,9 @@ export function SalesOrderForm({
       ? {
           ...initialData,
           orderType:
+            lockedOrderType ||
             ((initialData as Record<string, unknown>)
-              .orderType as SalesOrderType) || "MAKE_TO_STOCK", // Ensure orderType exists for form state
+              .orderType as SalesOrderType) || "MAKE_TO_STOCK",
         }
       : reorderData
         ? {
@@ -229,6 +231,7 @@ export function SalesOrderForm({
             sourceLocationId: reorderData.sourceLocationId,
             orderDate: new Date(),
             orderType:
+              lockedOrderType ||
               (reorderData.orderType as SalesOrderType) || "MAKE_TO_STOCK",
             notes: reorderData.notes || "",
             shippingCost: reorderData.shippingCost || 0,
@@ -258,7 +261,7 @@ export function SalesOrderForm({
                 ppnMode: 'EXCLUDE' as 'INCLUDE' | 'EXCLUDE',
               },
             ],
-            orderType: "MAKE_TO_STOCK" as SalesOrderType,
+            orderType: (lockedOrderType || "MAKE_TO_STOCK") as SalesOrderType,
           },
   });
 
@@ -884,29 +887,32 @@ export function SalesOrderForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-1.5">
                   {salesLabels.orderType}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        aria-label="Penjelasan tipe pesanan"
-                        className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
-                        tabIndex={0}
-                      >
-                        <Info className="h-3.5 w-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-left leading-relaxed">
-                      <p>MTS: dipenuhi dari stok tersedia.</p>
-                      <p>MTO: produksi berdasarkan pesanan.</p>
-                      <p>
-                        Maklon Jasa: jasa berbasis bahan titipan customer;
-                        konsumsi bahan lewat Production Execution.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {!lockedOrderType && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          aria-label="Penjelasan tipe pesanan"
+                          className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                          tabIndex={0}
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-left leading-relaxed">
+                        <p>{salesLabels.fulfillFromStock}: dipenuhi dari stok tersedia.</p>
+                        <p>{salesLabels.fulfillProduce}: produksi berdasarkan pesanan.</p>
+                        <p>
+                          {salesLabels.fulfillMaklon}: jasa berbasis bahan titipan customer;
+                          konsumsi bahan lewat Production Execution.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value || "MAKE_TO_STOCK"}
+                  defaultValue={field.value || lockedOrderType || "MAKE_TO_STOCK"}
+                  disabled={!!lockedOrderType}
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -915,16 +921,18 @@ export function SalesOrderForm({
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="MAKE_TO_STOCK">
-                      Make to Stock (MTS)
+                      {salesLabels.fulfillFromStock}
                     </SelectItem>
                     <SelectItem value="MAKE_TO_ORDER">
-                      Make to Order (MTO)
+                      {salesLabels.fulfillProduce}
                     </SelectItem>
-                    <SelectItem value="MAKLON_JASA">Maklon Jasa</SelectItem>
+                    <SelectItem value="MAKLON_JASA">
+                      {salesLabels.fulfillMaklon}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  Pilih alur pemenuhan order.
+                  {lockedOrderType ? "Tipe pesanan dipilih dari intent sebelumnya." : "Pilih alur pemenuhan order."}
                 </FormDescription>
                 <FormMessage />
               </FormItem>

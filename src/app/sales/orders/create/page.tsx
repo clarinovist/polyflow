@@ -3,17 +3,43 @@ import { getLocations } from "@/actions/inventory/inventory";
 import { getProductVariants } from "@/actions/inventory/inventory";
 import { getSalesOrderById } from "@/actions/sales/sales";
 import { SalesOrderForm } from "@/components/sales/SalesOrderForm";
+import { SalesOrderIntentPicker } from "@/components/sales/SalesOrderIntentPicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SalesOrderFormProps } from "@/components/sales/sales-order-types";
+import type { SalesOrderType } from "@prisma/client";
+
+/** Map intent query param to SalesOrderType */
+function intentToOrderType(intent: string): SalesOrderType | undefined {
+  switch (intent) {
+    case "stock": return "MAKE_TO_STOCK";
+    case "produce": return "MAKE_TO_ORDER";
+    case "maklon": return "MAKLON_JASA";
+    default: return undefined;
+  }
+}
 
 interface CreateSalesOrderPageProps {
-  searchParams: Promise<{ reorder?: string }>;
+  searchParams: Promise<{ reorder?: string; intent?: string }>;
 }
 
 export default async function CreateSalesOrderPage({
   searchParams,
 }: CreateSalesOrderPageProps) {
   const params = await searchParams;
+
+  // If no intent param, show intent picker (client component)
+  const intent = params.intent;
+  if (!intent) {
+    return <SalesOrderIntentPicker />;
+  }
+
+  // Map intent to orderType
+  const lockedOrderType = intentToOrderType(intent);
+  if (!lockedOrderType) {
+    // Invalid intent — show picker again
+    return <SalesOrderIntentPicker />;
+  }
+
   const [customersRes, locationsRes, productsRes] = await Promise.all([
     getCustomers(),
     getLocations(),
@@ -53,6 +79,13 @@ export default async function CreateSalesOrderPage({
     }
   }
 
+  // Map intent to label for the page title
+  const intentLabels: Record<string, string> = {
+    stock: "Kirim dari Stok",
+    produce: "Produksi Dulu",
+    maklon: "Maklon Jasa",
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <Card>
@@ -60,7 +93,7 @@ export default async function CreateSalesOrderPage({
           <CardTitle>
             {reorderData
               ? "Pesan Ulang dari Order Sebelumnya"
-              : "Buat Sales Order Baru"}
+              : `Pesanan Baru — ${intentLabels[intent] || intent}`}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -107,6 +140,7 @@ export default async function CreateSalesOrderPage({
                   })) || [],
               }))}
             mode="create"
+            lockedOrderType={lockedOrderType}
             reorderData={reorderData || undefined}
           />
         </CardContent>

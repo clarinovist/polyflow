@@ -55,6 +55,8 @@ export interface SalesOrderFormProps {
   locations: Location[];
   products: SerializedProductVariant[];
   mode: "create" | "edit";
+  /** Lock orderType to a specific value (from intent picker). Disables the select. */
+  lockedOrderType?: "MAKE_TO_STOCK" | "MAKE_TO_ORDER" | "MAKLON_JASA";
   initialData?: { id: string } & Record<string, unknown>;
   reorderData?: {
     customerId: string;
