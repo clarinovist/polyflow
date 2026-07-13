@@ -2,6 +2,11 @@ import { prisma } from "@/lib/core/prisma";
 import { Prisma } from '@prisma/client';
 import { CreateSalesQuotationValues, UpdateSalesQuotationValues } from "@/lib/schemas/quotation";
 import { SalesQuotationStatus, SalesOrderStatus, SalesOrderType, Unit } from "@prisma/client";
+import {
+    BusinessRuleError,
+    NotFoundError,
+    ValidationError,
+} from "@/lib/errors/errors";
 
 type QuotationLineInput = {
     productVariantId: string;
@@ -32,7 +37,7 @@ function decimalToNumber(value: unknown, fallback = 1) {
 function assertNearlyEqual(clientValue: number | undefined, serverValue: number, label: string) {
     if (clientValue === undefined) return;
     if (Math.abs(Number(clientValue) - serverValue) > 0.0001) {
-        throw new Error(`${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`);
+        throw new ValidationError(`${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`);
     }
 }
 
@@ -45,7 +50,7 @@ function normalizeQuotationLineItem(item: QuotationLineInput, variant: { primary
     ].filter(Boolean).length;
 
     if (payloadCount > 0 && payloadCount < 4) {
-        throw new Error('Incomplete quotation conversion payload. Send enteredQuantity, enteredUnit, enteredUnitPrice, and conversionFactorSnapshot together.');
+        throw new ValidationError('Incomplete quotation conversion payload. Send enteredQuantity, enteredUnit, enteredUnitPrice, and conversionFactorSnapshot together.');
     }
 
     if (payloadCount === 0) {
@@ -65,12 +70,12 @@ function normalizeQuotationLineItem(item: QuotationLineInput, variant: { primary
     let factor = 1;
     if (item.enteredUnit !== variant.primaryUnit) {
         if (!variant.salesUnit || item.enteredUnit !== variant.salesUnit) {
-            throw new Error(`Unit ${item.enteredUnit} is not valid for this product variant`);
+            throw new ValidationError(`Unit ${item.enteredUnit} is not valid for this product variant`);
         }
         factor = decimalToNumber(variant.conversionFactor, 1);
     }
     if (!Number.isFinite(factor) || factor <= 0) {
-        throw new Error(`Invalid conversion factor for quotation unit ${item.enteredUnit}`);
+        throw new ValidationError(`Invalid conversion factor for quotation unit ${item.enteredUnit}`);
     }
 
     const enteredQuantity = Number(item.enteredQuantity);
@@ -162,7 +167,7 @@ export class QuotationService {
         });
 
         if (!customerExists) {
-            throw new Error(`Customer with ID ${data.customerId} not found`);
+            throw new NotFoundError("Customer", data.customerId);
         }
 
         const quotationNumber = await this.generateQuotationNumber();
@@ -177,7 +182,7 @@ export class QuotationService {
                 where: { id: item.productVariantId },
                 select: { id: true, primaryUnit: true, salesUnit: true, conversionFactor: true }
             });
-            if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+            if (!variant) throw new NotFoundError("Product Variant", item.productVariantId);
 
             const normalized = normalizeQuotationLineItem(item, variant);
             const rawSubtotal = normalized.quantity * normalized.unitPrice;
@@ -235,10 +240,14 @@ export class QuotationService {
 
     static async updateQuotation(data: UpdateSalesQuotationValues) {
         const existing = await prisma.salesQuotation.findUnique({ where: { id: data.id } });
-        if (!existing) throw new Error("Quotation not found");
+        if (!existing) throw new NotFoundError("Sales Quotation", data.id);
 
         if (existing.status === 'CONVERTED' || existing.status === 'EXPIRED') {
-            throw new Error(`Cannot update quotation in ${existing.status} status`);
+            throw new BusinessRuleError(
+                `Cannot update quotation in ${existing.status} status`,
+                { status: existing.status, quotationId: data.id },
+                "INVALID_QUOTATION_STATUS",
+            );
         }
 
         // Calculate totals
@@ -251,7 +260,7 @@ export class QuotationService {
                 where: { id: item.productVariantId },
                 select: { id: true, primaryUnit: true, salesUnit: true, conversionFactor: true }
             });
-            if (!variant) throw new Error(`Product variant ${item.productVariantId} not found`);
+            if (!variant) throw new NotFoundError("Product Variant", item.productVariantId);
 
             const normalized = normalizeQuotationLineItem(item, variant);
             const rawSubtotal = normalized.quantity * normalized.unitPrice;
@@ -314,8 +323,12 @@ export class QuotationService {
 
     static async deleteQuotation(id: string) {
         const existing = await prisma.salesQuotation.findUnique({ where: { id } });
-        if (!existing) throw new Error("Quotation not found");
-        if (existing.status === 'CONVERTED') throw new Error("Cannot delete converted quotation");
+        if (!existing) throw new NotFoundError("Sales Quotation", id);
+        if (existing.status === 'CONVERTED') throw new BusinessRuleError(
+            "Cannot delete converted quotation",
+            { status: existing.status, quotationId: id },
+            "INVALID_QUOTATION_STATUS",
+        );
 
         return await prisma.salesQuotation.delete({
             where: { id }
@@ -324,11 +337,23 @@ export class QuotationService {
 
     static async convertToOrder(quotationId: string, userId: string, sourceLocationId: string) {
         const quotation = await this.getQuotationById(quotationId);
-        if (!quotation) throw new Error("Quotation not found");
+        if (!quotation) throw new NotFoundError("Sales Quotation", quotationId);
 
-        if (quotation.status === 'CONVERTED') throw new Error("Quotation already converted");
-        if (quotation.status === 'EXPIRED') throw new Error("Quotation expired");
-        if (quotation.status === 'REJECTED') throw new Error("Quotation was rejected");
+        if (quotation.status === 'CONVERTED') throw new BusinessRuleError(
+            "Quotation already converted",
+            { status: quotation.status, quotationId },
+            "INVALID_QUOTATION_STATUS",
+        );
+        if (quotation.status === 'EXPIRED') throw new BusinessRuleError(
+            "Quotation expired",
+            { status: quotation.status, quotationId },
+            "INVALID_QUOTATION_STATUS",
+        );
+        if (quotation.status === 'REJECTED') throw new BusinessRuleError(
+            "Quotation was rejected",
+            { status: quotation.status, quotationId },
+            "INVALID_QUOTATION_STATUS",
+        );
 
         // Generate Order Number
         // We reuse logic from SalesService, but we need to import SalesService or duplicate logic?

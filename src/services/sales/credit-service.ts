@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { formatRupiah } from '@/lib/utils/utils';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 export async function checkCreditLimit(customerId: string, newAmount: number) {
     const customer = await prisma.customer.findUnique({
@@ -32,7 +33,11 @@ export async function checkCreditLimit(customerId: string, newAmount: number) {
         const newExposure = currentExposure + newAmount;
 
         if (newExposure > customer.creditLimit.toNumber()) {
-            throw new Error(`Credit Limit Exceeded. Limit: ${formatRupiah(customer.creditLimit.toNumber())}, Exposure: ${formatRupiah(currentExposure)}, New: ${formatRupiah(newAmount)}`);
+            throw new BusinessRuleError(
+                `Credit Limit Exceeded. Limit: ${formatRupiah(customer.creditLimit.toNumber())}, Exposure: ${formatRupiah(currentExposure)}, New: ${formatRupiah(newAmount)}`,
+                { creditLimit: customer.creditLimit.toNumber(), currentExposure, newAmount },
+                "CREDIT_LIMIT_EXCEEDED",
+            );
         }
     }
 }

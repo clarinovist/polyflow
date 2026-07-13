@@ -2,13 +2,18 @@ import { prisma } from '@/lib/core/prisma';
 import { SalesOrderStatus, ReservationStatus, ReservationType, ProductType } from '@prisma/client';
 import { logActivity } from '@/lib/tools/audit';
 import { InvoiceService } from '@/services/finance/invoice-service';
+import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 
 export async function markReadyToShip(id: string, userId: string) {
     const order = await prisma.salesOrder.findUnique({ where: { id } });
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new NotFoundError("Sales Order", id);
 
     if (order.status !== SalesOrderStatus.IN_PRODUCTION && order.status !== SalesOrderStatus.CONFIRMED) {
-        throw new Error(`Order must be IN_PRODUCTION or CONFIRMED. Got: ${order.status}`);
+        throw new BusinessRuleError(
+            `Order must be IN_PRODUCTION or CONFIRMED. Got: ${order.status}`,
+            { status: order.status, orderId: id },
+            "INVALID_ORDER_STATUS",
+        );
     }
 
     await prisma.salesOrder.update({
@@ -46,11 +51,18 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
         include: { items: { include: { productVariant: { include: { product: true } } } } }
     });
 
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new NotFoundError("Sales Order", id);
     if (order.status !== SalesOrderStatus.CONFIRMED && order.status !== SalesOrderStatus.IN_PRODUCTION && order.status !== SalesOrderStatus.READY_TO_SHIP) {
-        throw new Error("Order must be CONFIRMED, IN_PRODUCTION, or READY_TO_SHIP to be shipped");
+        throw new BusinessRuleError(
+            "Order must be CONFIRMED, IN_PRODUCTION, or READY_TO_SHIP to be shipped",
+            { status: order.status, orderId: id },
+            "INVALID_ORDER_STATUS",
+        );
     }
-    if (!order.sourceLocationId) throw new Error("Source location is missing");
+    if (!order.sourceLocationId) throw new BusinessRuleError(
+        "Source location is required before shipping. Please edit the order and select a warehouse.",
+        { orderId: id },
+    );
 
     const isMaklonServiceOnly =
         order.orderType === 'MAKLON_JASA' &&
@@ -93,9 +105,9 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
     });
 
     if (openDos.length > 1) {
-        throw new Error(
-            `Ada ${openDos.length} Surat Jalan aktif untuk SO ini: ${openDos.map(d => d.orderNumber).join(', ')}. ` +
-            `Gunakan halaman detail DO untuk memilih DO yang akan dikirim.`
+        throw new BusinessRuleError(
+            `Ada ${openDos.length} Surat Jalan aktif untuk SO ini: ${openDos.map(d => d.orderNumber).join(', ')}. Gunakan halaman detail DO untuk memilih DO yang akan dikirim.`,
+            { openDOs: openDos.map(d => d.orderNumber), salesOrderId: id },
         );
     }
 
@@ -121,7 +133,7 @@ export async function shipOrder(id: string, userId: string, trackingInfo?: { tra
 export async function deliverOrder(orderId: string, userId: string) {
     await prisma.$transaction(async (tx) => {
         const order = await tx.salesOrder.findUnique({ where: { id: orderId } });
-        if (!order) throw new Error("Order not found");
+        if (!order) throw new NotFoundError("Sales Order", orderId);
 
         await tx.salesOrder.update({
             where: { id: orderId },

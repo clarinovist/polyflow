@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/core/prisma";
 import { SalesOrderType, ProductType, Unit } from "@prisma/client";
 import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
+import {
+  BusinessRuleError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors/errors";
 
 type SalesLineInput = {
   productVariantId: string;
@@ -61,7 +66,7 @@ function assertNearlyEqual(
 ) {
   if (clientValue === undefined) return;
   if (Math.abs(Number(clientValue) - serverValue) > 0.0001) {
-    throw new Error(
+    throw new ValidationError(
       `${label} mismatch. Client sent ${clientValue}, server calculated ${serverValue}.`,
     );
   }
@@ -83,7 +88,7 @@ function resolveSalesEnteredUnitFactor(
   ].filter(Boolean).length;
 
   if (payloadCount > 0 && payloadCount < 4) {
-    throw new Error(
+    throw new ValidationError(
       "Incomplete sales conversion payload. Send enteredQuantity, enteredUnit, enteredUnitPrice, and conversionFactorSnapshot together.",
     );
   }
@@ -96,14 +101,14 @@ function resolveSalesEnteredUnitFactor(
   if (variant.salesUnit && enteredUnit === variant.salesUnit) {
     const factor = decimalToNumber(variant.conversionFactor, 1);
     if (!Number.isFinite(factor) || factor <= 0) {
-      throw new Error(
+      throw new ValidationError(
         `Invalid conversion factor for sales unit ${enteredUnit}`,
       );
     }
     return factor;
   }
 
-  throw new Error(`Unit ${enteredUnit} is not valid for this product variant`);
+  throw new ValidationError(`Unit ${enteredUnit} is not valid for this product variant`);
 }
 
 function normalizeSalesLineItem(
@@ -185,17 +190,19 @@ export async function processOrderItems(
       });
 
       if (!variant)
-        throw new Error(`Product variant ${item.productVariantId} not found`);
+        throw new NotFoundError("Product Variant", item.productVariantId);
 
       const isService = variant.product.productType === ProductType.SERVICE;
       if (isService && orderType !== SalesOrderType.MAKLON_JASA) {
-        throw new Error(
+        throw new BusinessRuleError(
           `Service item '${variant.name}' is only allowed for Maklon Jasa orders`,
+          { productVariantId: item.productVariantId, orderType },
         );
       }
       if (!isService && orderType === SalesOrderType.MAKLON_JASA) {
-        throw new Error(
+        throw new BusinessRuleError(
           `Physical item '${variant.name}' is not allowed for Maklon Jasa orders. Use a Service item instead.`,
+          { productVariantId: item.productVariantId, orderType },
         );
       }
 

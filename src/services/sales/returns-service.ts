@@ -5,6 +5,11 @@ import { format } from "date-fns";
 import { logActivity } from "@/lib/tools/audit";
 import { AutoJournalService } from "../finance/auto-journal-service";
 import { logger } from "@/lib/config/logger";
+import {
+  BusinessRuleError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors/errors";
 
 export class SalesReturnService {
 
@@ -77,11 +82,15 @@ export class SalesReturnService {
   }
 
   static async updateReturn(data: UpdateSalesReturnValues, userId: string) {
-    if (!data.id) throw new Error("Return ID is required");
+    if (!data.id) throw new ValidationError("Return ID is required");
     
     const existing = await prisma.salesReturn.findUnique({ where: { id: data.id } });
-    if (!existing) throw new Error("Sales Return not found");
-    if (existing.status !== 'DRAFT') throw new Error("Can only update DRAFT returns");
+    if (!existing) throw new NotFoundError("Sales Return", data.id);
+    if (existing.status !== 'DRAFT') throw new BusinessRuleError(
+      "Can only update DRAFT returns",
+      { status: existing.status, returnId: data.id },
+      "INVALID_RETURN_STATUS",
+    );
 
     let totalAmount = existing.totalAmount ? Number(existing.totalAmount) : 0;
     
@@ -128,8 +137,12 @@ export class SalesReturnService {
 
   static async confirmReturn(id: string, userId: string) {
     const existing = await prisma.salesReturn.findUnique({ where: { id } });
-    if (!existing) throw new Error("Return not found");
-    if (existing.status !== 'DRAFT') throw new Error("Only DRAFT returns can be confirmed");
+    if (!existing) throw new NotFoundError("Sales Return", id);
+    if (existing.status !== 'DRAFT') throw new BusinessRuleError(
+      "Only DRAFT returns can be confirmed",
+      { status: existing.status, returnId: id },
+      "INVALID_RETURN_STATUS",
+    );
 
     const updated = await prisma.salesReturn.update({
       where: { id },
@@ -153,8 +166,12 @@ export class SalesReturnService {
       include: { items: true, salesOrder: true }
     });
 
-    if (!salesReturn) throw new Error("Return not found");
-    if (salesReturn.status !== 'CONFIRMED') throw new Error("Only CONFIRMED returns can be received");
+    if (!salesReturn) throw new NotFoundError("Sales Return", id);
+    if (salesReturn.status !== 'CONFIRMED') throw new BusinessRuleError(
+      "Only CONFIRMED returns can be received",
+      { status: salesReturn.status, returnId: id },
+      "INVALID_RETURN_STATUS",
+    );
 
     // Process receiving in transaction
     await prisma.$transaction(async (tx) => {
@@ -225,9 +242,13 @@ export class SalesReturnService {
 
   static async completeReturn(id: string, userId: string) {
     const existing = await prisma.salesReturn.findUnique({ where: { id } });
-    if (!existing) throw new Error("Return not found");
+    if (!existing) throw new NotFoundError("Sales Return", id);
     // Usually completed after received
-    if (existing.status !== 'RECEIVED') throw new Error("Only RECEIVED returns can be completed");
+    if (existing.status !== 'RECEIVED') throw new BusinessRuleError(
+      "Only RECEIVED returns can be completed",
+      { status: existing.status, returnId: id },
+      "INVALID_RETURN_STATUS",
+    );
 
     const updated = await prisma.salesReturn.update({
       where: { id },
@@ -247,9 +268,13 @@ export class SalesReturnService {
 
   static async cancelReturn(id: string, userId: string) {
     const existing = await prisma.salesReturn.findUnique({ where: { id } });
-    if (!existing) throw new Error("Return not found");
+    if (!existing) throw new NotFoundError("Sales Return", id);
     if (existing.status === 'RECEIVED' || existing.status === 'COMPLETED') {
-      throw new Error("Cannot cancel returns that are already processing or completed");
+      throw new BusinessRuleError(
+        "Cannot cancel returns that are already processing or completed",
+        { status: existing.status, returnId: id },
+        "INVALID_RETURN_STATUS",
+      );
     }
 
     const updated = await prisma.salesReturn.update({

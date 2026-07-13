@@ -143,7 +143,7 @@ describe('SalesReturnService', () => {
       // Act & Assert
       await expect(
         SalesReturnService.confirmReturn('return-999', 'user-1')
-      ).rejects.toThrow('Return not found');
+      ).rejects.toThrow('Sales Return');
     });
 
     it('should throw error when return is not DRAFT', async () => {

@@ -90,7 +90,7 @@ describe("deliverOrder", () => {
   it("throws when SalesOrder is not found", async () => {
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
 
-    await expect(deliverOrder("missing", "user-1")).rejects.toThrow("Order not found");
+    await expect(deliverOrder("missing", "user-1")).rejects.toThrow("Sales Order");
     expect(prisma.salesOrder.update).not.toHaveBeenCalled();
     expect(prisma.deliveryOrder.updateMany).not.toHaveBeenCalled();
   });

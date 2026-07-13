@@ -3,7 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, RateType, DeliveryStatus } from '@prisma/client';
-import { safeAction } from '@/lib/errors/errors';
+import { safeAction, NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { createManualDeliveryOrderSchema, updateDeliveryPricingSchema } from '@/lib/schemas/sales';
 import { logActivity } from '@/lib/tools/audit';
@@ -163,11 +163,13 @@ async function updateDeliveryStatus(
       where: { id: deliveryOrderId },
       select: { id: true, status: true, salesOrderId: true, orderNumber: true },
     });
-    if (!doRecord) throw new Error("Delivery Order tidak ditemukan.");
+    if (!doRecord) throw new NotFoundError("Delivery Order", deliveryOrderId);
 
     if (!canTransition(doRecord.status, newStatus)) {
-      throw new Error(
-        `Tidak bisa ubah status dari ${doRecord.status} ke ${newStatus}.`,
+      throw new BusinessRuleError(
+        `Cannot change status from ${doRecord.status} to ${newStatus}.`,
+        { from: doRecord.status, to: newStatus, deliveryOrderId },
+        "INVALID_DELIVERY_STATUS",
       );
     }
 
@@ -250,9 +252,13 @@ async function updateDeliveryPricing(data: {
         estimatedWeightKg: true, totalCost: true, totalCharge: true,
       },
     });
-    if (!doRecord) throw new Error("Delivery Order tidak ditemukan.");
+    if (!doRecord) throw new NotFoundError("Delivery Order", validated.deliveryOrderId);
     if (doRecord.status === 'CANCELLED') {
-      throw new Error("Tidak bisa edit pricing DO yang sudah dibatalkan.");
+      throw new BusinessRuleError(
+        "Cannot edit pricing for a cancelled Delivery Order.",
+        { status: doRecord.status, deliveryOrderId: validated.deliveryOrderId },
+        "INVALID_DELIVERY_STATUS",
+      );
     }
 
     // Resolve fields — use provided values or keep existing

@@ -305,7 +305,7 @@ describe("QuotationService", () => {
 
       // Act & Assert
       await expect(QuotationService.deleteQuotation("sq-999")).rejects.toThrow(
-        "Quotation not found",
+        "Sales Quotation",
       );
     });
 
@@ -357,7 +357,7 @@ describe("QuotationService", () => {
           validUntil: new Date(),
           items: [],
         }),
-      ).rejects.toThrow("Quotation not found");
+      ).rejects.toThrow("Sales Quotation");
     });
 
     it("should throw error when quotation is converted", async () => {
@@ -536,7 +536,7 @@ describe("QuotationService", () => {
             },
           ],
         }),
-      ).rejects.toThrow("Product variant pv-999 not found");
+      ).rejects.toThrow("Product Variant 'pv-999' not found");
     });
 
     it("should allow updating status manually during update", async () => {
@@ -729,7 +729,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Customer with ID cust-999 not found");
+      ).rejects.toThrow("Customer 'cust-999' not found");
     });
 
     it("should throw error when product variant not found", async () => {
@@ -759,7 +759,7 @@ describe("QuotationService", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Product variant pv-999 not found");
+      ).rejects.toThrow("Product Variant 'pv-999' not found");
     });
 
     it("should calculate totals with discount and tax", async () => {
@@ -1725,7 +1725,7 @@ describe("QuotationService", () => {
       // Act & Assert
       await expect(
         QuotationService.convertToOrder("sq-999", "user-1", "loc-1"),
-      ).rejects.toThrow("Quotation not found");
+      ).rejects.toThrow("Sales Quotation");
     });
 
     it("should throw error when quotation already converted", async () => {

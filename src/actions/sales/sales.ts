@@ -13,7 +13,7 @@ import { SalesService } from "@/services/sales/sales-service";
 import { SalesOrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/tools/auth-checks";
-import { safeAction } from "@/lib/errors/errors";
+import { safeAction, NotFoundError } from "@/lib/errors/errors";
 import { serializeData } from "@/lib/utils/utils";
 
 export const getSalesOrders = withTenant(async function getSalesOrders(
@@ -203,7 +203,7 @@ export const checkSalesOrderFulfillment = withTenant(
         },
       });
 
-      if (!order) throw new Error("Sales Order not found");
+      if (!order) throw new NotFoundError("Sales Order", "—");
 
       const productVariantIds = order.items.map(
         (item) => item.productVariantId,

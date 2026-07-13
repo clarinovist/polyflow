@@ -11,6 +11,7 @@ import {
   Unit,
 } from "@prisma/client";
 import { logger } from "@/lib/config/logger";
+import { BusinessRuleError } from "@/lib/errors/errors";
 
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
@@ -191,6 +192,24 @@ describe("confirmOrder", () => {
         "user-1",
       ),
     ).rejects.toThrow("Maklon Jasa orders must use a customer-owned warehouse");
+  });
+
+  it("surfaces missing default BOM as BusinessRuleError (so UI gets the real message)", async () => {
+    // No inventory / reservations → full shortage for the order qty
+    vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.bom.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.productVariant.findMany).mockResolvedValue([
+      { name: "Rafia Hitam KW 0,95 (10)" },
+    ] as never);
+
+    await expect(confirmOrder("so-1", "user-1")).rejects.toSatisfy(
+      (err: unknown) =>
+        err instanceof BusinessRuleError &&
+        err.code === "MISSING_DEFAULT_BOM" &&
+        err.message.includes("Default BOM not found") &&
+        err.message.includes("Rafia Hitam KW 0,95 (10)"),
+    );
   });
 
   it("should catch and log an error if ProductionService.createOrderFromSales throws synchronously", async () => {

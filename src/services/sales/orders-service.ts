@@ -18,6 +18,10 @@ import { ProductionService } from "@/services/production/production-service";
 import { checkCreditLimit } from "./credit-service";
 import { logger } from "@/lib/config/logger";
 import { processOrderItems } from "./order-item-processor";
+import {
+  BusinessRuleError,
+  NotFoundError,
+} from "@/lib/errors/errors";
 
 async function validateMaklonSourceLocation(
   sourceLocationId: string,
@@ -33,12 +37,14 @@ async function validateMaklonSourceLocation(
   });
 
   if (!sourceLocation) {
-    throw new Error("Selected source location was not found");
+    throw new NotFoundError("Location", sourceLocationId);
   }
 
   if (sourceLocation.locationType !== "CUSTOMER_OWNED") {
-    throw new Error(
+    throw new BusinessRuleError(
       `Maklon Jasa orders must use a customer-owned warehouse. '${sourceLocation.name}' is not a customer-owned location.`,
+      { locationId: sourceLocationId, locationName: sourceLocation.name, requiredType: "CUSTOMER_OWNED" },
+      "CUSTOMER_OWNED_LOCATION_REQUIRED",
     );
   }
 }
@@ -290,7 +296,7 @@ export async function updateOrder(
   });
 
   if (!currentOrder) {
-    throw new Error("Order not found");
+    throw new NotFoundError("Sales Order", data.id);
   }
 
   const status = currentOrder.status;
@@ -303,7 +309,11 @@ export async function updateOrder(
     status === SalesOrderStatus.DELIVERED ||
     status === SalesOrderStatus.CANCELLED
   ) {
-    throw new Error(`Tidak bisa mengedit Sales Order dengan status ${status}.`);
+    throw new BusinessRuleError(
+      `Cannot edit Sales Order with status ${status}.`,
+      { status, orderId: data.id },
+      "INVALID_ORDER_STATUS",
+    );
   }
 
   const hasInvoices = currentOrder.invoices.length > 0;
@@ -324,8 +334,9 @@ export async function updateOrder(
 
       // If item has been delivered, quantity cannot be reduced below deliveredQty
       if (deliveredQty > 0 && submittedItem.quantity < deliveredQty) {
-        throw new Error(
-          `Qty tidak bisa kurang dari ${deliveredQty} (sudah dikirim).`,
+        throw new BusinessRuleError(
+          `Qty cannot be less than ${deliveredQty} (already delivered).`,
+          { deliveredQty, submittedQty: submittedItem.quantity },
         );
       }
 
@@ -334,8 +345,9 @@ export async function updateOrder(
         hasInvoices &&
         submittedItem.unitPrice !== Number(existingItem.unitPrice)
       ) {
-        throw new Error(
-          `Harga satuan tidak bisa diubah karena sudah ada invoice terkait.`,
+        throw new BusinessRuleError(
+          "Unit price cannot be changed because invoices already exist for this order.",
+          { orderId: data.id },
         );
       }
     }
@@ -438,16 +450,20 @@ export async function confirmOrder(id: string, userId: string) {
     },
   });
 
-  if (!order) throw new Error("Order not found");
-  if (order.status !== SalesOrderStatus.DRAFT)
-    throw new Error("Only draft orders can be confirmed");
+  if (!order) throw new NotFoundError("Sales Order", id);
+  if (order.status !== SalesOrderStatus.DRAFT) {
+    throw new BusinessRuleError(
+      "Only draft orders can be confirmed",
+      { status: order.status },
+    );
+  }
   if (!order.customerId) {
-    throw new Error(
+    throw new BusinessRuleError(
       "Sales Order without customer is treated as a legacy internal stock build. Assign a customer first, or use a Production Order for internal replenishment.",
     );
   }
   if (!order.sourceLocationId) {
-    throw new Error(
+    throw new BusinessRuleError(
       "Source location is required before confirming. Please edit the order and select a warehouse.",
     );
   }
@@ -567,8 +583,12 @@ export async function confirmOrder(id: string, userId: string) {
           select: { name: true },
         });
         const names = variants.map((v) => v.name).join(", ");
-        throw new Error(
+        // Must be BusinessRuleError so safeAction surfaces the message to the UI
+        // instead of masking it as "An unexpected error occurred".
+        throw new BusinessRuleError(
           `Cannot confirm order: Default BOM not found for products: ${names}. Please create a BOM first.`,
+          { productVariantIds: missingBoms },
+          "MISSING_DEFAULT_BOM",
         );
       }
     }
@@ -620,13 +640,17 @@ export async function confirmOrder(id: string, userId: string) {
 
 export async function cancelOrder(id: string, userId: string) {
   const order = await prisma.salesOrder.findUnique({ where: { id } });
-  if (!order) throw new Error("Order not found");
+  if (!order) throw new NotFoundError("Sales Order", id);
 
   if (
     order.status === SalesOrderStatus.SHIPPED ||
     order.status === SalesOrderStatus.DELIVERED
   ) {
-    throw new Error("Cannot cancel shipped or delivered orders");
+    throw new BusinessRuleError(
+      "Cannot cancel orders that have been shipped or delivered.",
+      { status: order.status, orderId: id },
+      "INVALID_ORDER_STATUS",
+    );
   }
 
   await prisma.$transaction(async (tx) => {
@@ -657,9 +681,13 @@ export async function cancelOrder(id: string, userId: string) {
 
 export async function deleteOrder(id: string) {
   const order = await prisma.salesOrder.findUnique({ where: { id } });
-  if (!order) throw new Error("Order not found");
+  if (!order) throw new NotFoundError("Sales Order", id);
   if (order.status !== SalesOrderStatus.DRAFT)
-    throw new Error("Only draft orders can be deleted");
+    throw new BusinessRuleError(
+      "Only draft orders can be deleted.",
+      { status: order.status, orderId: id },
+      "INVALID_ORDER_STATUS",
+    );
 
   await prisma.salesOrder.delete({ where: { id } });
 }
