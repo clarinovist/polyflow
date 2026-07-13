@@ -27,7 +27,11 @@ export default async function DashboardLayout({
     // Admin gets 'ALL' by default from the action logic, but let's be explicit if needed
     // The getMyPermissions action handles the 'ALL' logic for admins.
     const permissionsRes = await getMyPermissions();
-    const permissions = permissionsRes.success && permissionsRes.data ? permissionsRes.data : [];
+    // Fallback: use session's allowedResources (set at login from tenant DB) when server action fails
+    const sessionAllowed = (session.user as { allowedResources?: string[] })?.allowedResources || [];
+    const permissions = permissionsRes.success && permissionsRes.data
+        ? permissionsRes.data
+        : (sessionAllowed.length > 0 ? sessionAllowed : []);
     const reqHeaders = await headers();
     const pathname = reqHeaders.get('x-pathname') || '/dashboard';
 
