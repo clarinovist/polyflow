@@ -2,6 +2,11 @@ import { prisma } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { PurchaseOrderStatus, PurchaseRequestStatus, Prisma } from '@prisma/client';
 import { CreatePurchaseRequestValues } from '@/lib/schemas/purchasing';
+import {
+  BusinessRuleError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/errors/errors';
 
 export async function createPurchaseRequest(data: CreatePurchaseRequestValues, userId: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
@@ -50,8 +55,12 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
             include: { items: { include: { productVariant: true } } }
         });
 
-        if (!pr) throw new Error("Purchase Request not found");
-        if (pr.status === PurchaseRequestStatus.CONVERTED) throw new Error("Request already converted");
+        if (!pr) throw new NotFoundError("Purchase Request", requestId);
+        if (pr.status === PurchaseRequestStatus.CONVERTED) throw new BusinessRuleError(
+          "Request already converted",
+          { status: pr.status, requestId },
+          "INVALID_PURCHASE_REQUEST_STATUS",
+        );
 
         const year = new Date().getFullYear();
         const prefix = `PO-${year}-`;
@@ -124,7 +133,7 @@ export async function convertRequestToOrder(requestId: string, supplierId: strin
 }
 
 export async function consolidateRequestsToOrder(requestIds: string[], supplierId: string, userId: string) {
-    if (requestIds.length === 0) throw new Error("No requests selected for consolidation");
+    if (requestIds.length === 0) throw new ValidationError("No requests selected for consolidation");
 
     return await prisma.$transaction(async (tx) => {
         const prs = await tx.purchaseRequest.findMany({
@@ -132,9 +141,13 @@ export async function consolidateRequestsToOrder(requestIds: string[], supplierI
             include: { items: { include: { productVariant: true } } }
         });
 
-        if (prs.length !== requestIds.length) throw new Error("Some requests could not be found");
+        if (prs.length !== requestIds.length) throw new NotFoundError("Purchase Request", requestIds.join(', '));
         const alreadyConverted = prs.find(pr => pr.status === PurchaseRequestStatus.CONVERTED);
-        if (alreadyConverted) throw new Error(`Request ${alreadyConverted.requestNumber} is already converted`);
+        if (alreadyConverted) throw new BusinessRuleError(
+          `Request ${alreadyConverted.requestNumber} is already converted`,
+          { requestNumber: alreadyConverted.requestNumber, status: alreadyConverted.status },
+          "INVALID_PURCHASE_REQUEST_STATUS",
+        );
 
         const aggregatedItems = new Map<string, {
             productVariantId: string;

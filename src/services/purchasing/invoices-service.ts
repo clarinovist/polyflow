@@ -9,6 +9,10 @@ import {
 import { CreatePurchaseInvoiceValues } from "@/lib/schemas/purchasing";
 import { AutoJournalService } from "../finance/auto-journal-service";
 import { logger } from "@/lib/config/logger";
+import {
+  BusinessRuleError,
+  NotFoundError,
+} from "@/lib/errors/errors";
 
 export async function createInvoice(data: CreatePurchaseInvoiceValues) {
   const finalDueDate =
@@ -19,7 +23,7 @@ export async function createInvoice(data: CreatePurchaseInvoiceValues) {
     select: { totalAmount: true },
   });
 
-  if (!po) throw new Error("Purchase Order not found");
+  if (!po) throw new NotFoundError("Purchase Order", data.purchaseOrderId);
 
   const invoice = await prisma.purchaseInvoice.create({
     data: {
@@ -60,19 +64,25 @@ export async function recordPayment(
 ) {
   return await prisma.$transaction(async (tx) => {
     const invoice = await tx.purchaseInvoice.findUnique({ where: { id } });
-    if (!invoice) throw new Error("Invoice not found");
+    if (!invoice) throw new NotFoundError("Purchase Invoice", id);
 
     // Prevent payment on already paid invoices
     if (invoice.status === PurchaseInvoiceStatus.PAID) {
-      throw new Error("Invoice is already fully paid");
+      throw new BusinessRuleError(
+        "Invoice is already fully paid.",
+        { invoiceId: id, status: invoice.status },
+        "ALREADY_PAID",
+      );
     }
 
     // Validate payment amount does not exceed remaining balance
     const remainingBalance =
       invoice.totalAmount.toNumber() - invoice.paidAmount.toNumber();
     if (amount > remainingBalance) {
-      throw new Error(
+      throw new BusinessRuleError(
         `Payment amount (${amount}) exceeds remaining balance (${remainingBalance})`,
+        { amount, remainingBalance, invoiceId: id },
+        "PAYMENT_EXCEEDS_BALANCE",
       );
     }
 

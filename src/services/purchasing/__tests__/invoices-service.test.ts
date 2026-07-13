@@ -221,7 +221,7 @@ describe('createInvoice', () => {
             invoiceDate: new Date(),
             termOfPaymentDays: 0,
             notes: '',
-        })).rejects.toThrow('Purchase Order not found');
+        })).rejects.toThrow('Purchase Order');
     });
 });
 

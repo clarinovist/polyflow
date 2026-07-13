@@ -6,6 +6,10 @@ import {
   UpdatePurchaseOrderValues,
 } from "@/lib/schemas/purchasing";
 import { calculatePpn, type PpnMode } from "@/lib/utils/ppn";
+import {
+  BusinessRuleError,
+  NotFoundError,
+} from "@/lib/errors/errors";
 
 export async function createOrder(
   data: CreatePurchaseOrderValues,
@@ -91,7 +95,7 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
     },
   });
 
-  if (!currentOrder) throw new Error("Purchase Order not found");
+  if (!currentOrder) throw new NotFoundError("Purchase Order", data.id);
 
   const status = currentOrder.status;
 
@@ -102,7 +106,11 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
   // PARTIAL_RECEIVED: stricter — received items are locked
   // RECEIVED/CANCELLED: no editing allowed
   if (status === "RECEIVED" || status === "CANCELLED") {
-    throw new Error(`Tidak bisa mengedit PO dengan status ${status}.`);
+    throw new BusinessRuleError(
+      `Cannot edit Purchase Order with status ${status}.`,
+      { status, orderId: data.id },
+      "INVALID_ORDER_STATUS",
+    );
   }
 
   const hasInvoices = currentOrder.invoices.length > 0;
@@ -123,8 +131,9 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
 
       // If item has been received, quantity cannot be reduced below receivedQty
       if (receivedQty > 0 && submittedItem.quantity < receivedQty) {
-        throw new Error(
-          `Qty untuk "${existingItem.productVariantId}" tidak bisa kurang dari ${receivedQty} (sudah diterima).`,
+        throw new BusinessRuleError(
+          `Qty cannot be less than ${receivedQty} (already received).`,
+          { productVariantId: existingItem.productVariantId, receivedQty, submittedQty: submittedItem.quantity },
         );
       }
 
@@ -134,8 +143,9 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
         status === "SENT" &&
         submittedItem.quantity !== Number(existingItem.quantity)
       ) {
-        throw new Error(
-          `Qty untuk item yang sudah diterima tidak bisa diubah pada status SENT.`,
+        throw new BusinessRuleError(
+          "Qty for received items cannot be changed when PO status is SENT.",
+          { productVariantId: existingItem.productVariantId, orderId: data.id },
         );
       }
 
@@ -144,8 +154,9 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
         hasInvoices &&
         submittedItem.unitPrice !== Number(existingItem.unitPrice)
       ) {
-        throw new Error(
-          `Harga satuan tidak bisa diubah karena sudah ada invoice terkait.`,
+        throw new BusinessRuleError(
+          "Unit price cannot be changed because invoices already exist for this order.",
+          { orderId: data.id },
         );
       }
     }
@@ -265,19 +276,29 @@ export async function deleteOrder(id: string, userId: string) {
   });
 
   if (!order) {
-    throw new Error("Purchase Order not found");
+    throw new NotFoundError("Purchase Order", id);
   }
 
   if (order.status !== "DRAFT" && order.status !== "CANCELLED") {
-    throw new Error("Only DRAFT or CANCELLED orders can be deleted");
+    throw new BusinessRuleError(
+      "Only DRAFT or CANCELLED orders can be deleted.",
+      { status: order.status, orderId: id },
+      "INVALID_ORDER_STATUS",
+    );
   }
 
   if (order.goodsReceipts.length > 0) {
-    throw new Error("Cannot delete order with existing goods receipts");
+    throw new BusinessRuleError(
+      "Cannot delete order with existing goods receipts.",
+      { goodsReceiptCount: order.goodsReceipts.length, orderId: id },
+    );
   }
 
   if (order.invoices.length > 0) {
-    throw new Error("Cannot delete order with existing invoices");
+    throw new BusinessRuleError(
+      "Cannot delete order with existing invoices.",
+      { invoiceCount: order.invoices.length, orderId: id },
+    );
   }
 
   return await prisma.$transaction(async (tx) => {
