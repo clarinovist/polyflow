@@ -90,7 +90,7 @@ export function canAccessWorkspace(
   if (role === "PRODUCTION") {
     if (workspace === "production") return true;
     // Check DB-based permissions for cross-workspace access (e.g. /dashboard/boms)
-    if (pathname && user.allowedResources?.includes(pathname)) return true;
+    if (pathname && user.allowedResources?.some(res => pathname === res || pathname.startsWith(`${res}/`))) return true;
     return false;
   }
 

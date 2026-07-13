@@ -54,12 +54,15 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(warehouseUser, 'production')).toBe(false);
     });
 
-    it('strictly isolates Production users to the production workspace', () => {
-      const productionUser = { role: 'PRODUCTION' };
+    it('strictly isolates Production users to the production workspace unless allowed via database resource permission', () => {
+      const productionUser = { role: 'PRODUCTION', allowedResources: ['/dashboard/machines'] };
       expect(canAccessWorkspace(productionUser, 'production')).toBe(true);
       expect(canAccessWorkspace(productionUser, 'warehouse')).toBe(false);
-      expect(canAccessWorkspace(productionUser, 'dashboard')).toBe(false);
+      expect(canAccessWorkspace(productionUser, 'dashboard', '/dashboard/machines')).toBe(true);
+      expect(canAccessWorkspace(productionUser, 'dashboard', '/dashboard/machines/create')).toBe(true);
+      expect(canAccessWorkspace(productionUser, 'dashboard', '/dashboard/boms')).toBe(false);
     });
+
 
     it('allows Finance users in finance and dashboard', () => {
       const financeUser = { role: 'FINANCE' };
