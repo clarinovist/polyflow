@@ -14,6 +14,7 @@ import {
   Calendar,
   TrendingUp,
   Files,
+  Settings2,
 } from "lucide-react";
 import { PortalSidebarBase } from "@/components/layout/portal-sidebar-base";
 import { PortalNavGroup } from "@/components/layout/portal-nav-item";
@@ -132,6 +133,31 @@ const productionLinks = [
         href: "/kiosk",
         icon: ClipboardCheck,
         label: productionSidebarLabels.operatorKiosk,
+      },
+    ],
+  },
+  {
+    heading: "Master Data",
+    items: [
+      {
+        href: "/dashboard/machines",
+        icon: Settings2,
+        label: "Mesin (Master)",
+      },
+      {
+        href: "/dashboard/products",
+        icon: Boxes,
+        label: "Katalog Produk",
+      },
+      {
+        href: "/dashboard/boms",
+        icon: Files,
+        label: "BOM / Formula",
+      },
+      {
+        href: "/dashboard/employees",
+        icon: Users,
+        label: "Karyawan",
       },
     ],
   },
