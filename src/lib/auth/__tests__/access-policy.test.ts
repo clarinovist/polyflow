@@ -47,11 +47,13 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(tenantAdmin, 'finance')).toBe(true);
     });
 
-    it('strictly isolates Warehouse users to the warehouse workspace', () => {
-      const warehouseUser = { role: 'WAREHOUSE' };
+    it('strictly isolates Warehouse users to the warehouse workspace unless allowed via database resource permission', () => {
+      const warehouseUser = { role: 'WAREHOUSE', allowedResources: ['/dashboard/products'] };
       expect(canAccessWorkspace(warehouseUser, 'warehouse')).toBe(true);
-      expect(canAccessWorkspace(warehouseUser, 'dashboard')).toBe(false);
       expect(canAccessWorkspace(warehouseUser, 'production')).toBe(false);
+      expect(canAccessWorkspace(warehouseUser, 'dashboard', '/dashboard/products')).toBe(true);
+      expect(canAccessWorkspace(warehouseUser, 'dashboard', '/dashboard/products/create')).toBe(true);
+      expect(canAccessWorkspace(warehouseUser, 'dashboard', '/dashboard/boms')).toBe(false);
     });
 
     it('strictly isolates Production users to the production workspace unless allowed via database resource permission', () => {

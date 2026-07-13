@@ -83,7 +83,9 @@ export function canAccessWorkspace(
 
   // 4. Warehouse is strictly isolated to warehouse workspace
   if (role === "WAREHOUSE") {
-    return workspace === "warehouse";
+    if (workspace === "warehouse") return true;
+    if (pathname && user.allowedResources?.some(res => pathname === res || pathname.startsWith(`${res}/`))) return true;
+    return false;
   }
 
   // 5. Production is strictly isolated to production workspace
