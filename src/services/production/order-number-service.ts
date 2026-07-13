@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { ConflictError } from '@/lib/errors/errors';
 
 function buildOrderNumber(prefix: string, productVariantId?: string): string {
     const timestamp = Date.now().toString(36).toUpperCase();
@@ -46,5 +47,5 @@ export async function createProductionOrderWithGeneratedNumber(
         }
     }
 
-    throw new Error('Failed to generate a unique production order number.');
+    throw new ConflictError('Failed to generate a unique production order number after multiple attempts.');
 }

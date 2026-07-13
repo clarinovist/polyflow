@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { ProductionStatus, Prisma, ProductionOrder } from '@prisma/client';
 import { createProductionOrderWithGeneratedNumber } from './order-number-service';
+import { NotFoundError } from '@/lib/errors/errors';
 
 
 export interface MaterialRequirement {
@@ -53,7 +54,7 @@ export class MrpService {
             }
         });
 
-        if (!so) throw new Error("Sales Order not found");
+        if (!so) throw new NotFoundError("Sales Order", salesOrderId);
 
         const requirementsMap = new Map<string, AggregatedRequirement>();
         const missingBoms: { productName: string; productVariantId: string; }[] = [];
@@ -137,7 +138,7 @@ export class MrpService {
             include: { items: true }
         });
 
-        if (!so) throw new Error("Sales Order not found");
+        if (!so) throw new NotFoundError("Sales Order", salesOrderId);
 
         return await prisma.$transaction(async (tx) => {
             const createdOrders: ProductionOrder[] = [];

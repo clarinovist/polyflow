@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { withTenant } from '@/lib/core/tenant';
-import { safeAction } from '@/lib/errors/errors';
+import { safeAction, ConflictError, NotFoundError } from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -92,7 +92,7 @@ export const assignOperator = withTenant(
             });
 
             if (existing) {
-                throw new Error('Operator sudah di-assign ke mesin ini');
+                throw new ConflictError('Operator already assigned to this machine');
             }
 
             // If setting as primary, unset any existing primary
@@ -158,7 +158,7 @@ export const unassignOperator = withTenant(
             });
 
             if (!assignment) {
-                throw new Error('Assignment tidak ditemukan');
+                throw new NotFoundError("Machine Operator Assignment");
             }
 
             await prisma.machineOperator.delete({

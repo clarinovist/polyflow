@@ -16,6 +16,7 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { Prisma, Unit } from '@prisma/client';
+import { NotFoundError, ValidationError } from '@/lib/errors/errors';
 
 export interface ConversionInput {
   productionOrderId: string;
@@ -83,7 +84,7 @@ export async function resolveProductionOutputUnit(
   });
 
   if (!order?.bom?.productVariant) {
-    throw new Error('Production order or BOM not found');
+    throw new NotFoundError('Production Order', productionOrderId);
   }
 
   const variant = order.bom.productVariant;
@@ -107,8 +108,8 @@ export async function resolveProductionOutputUnit(
     conversionFactorSnapshot = toNumericConversionFactor(variant.conversionFactor);
 
     if (!Number.isFinite(conversionFactorSnapshot) || conversionFactorSnapshot <= 0) {
-      throw new Error(
-        `Invalid conversion factor (${conversionFactorSnapshot}) for unit ${enteredUnit} on variant`
+      throw new ValidationError(
+        `Invalid conversion factor (${conversionFactorSnapshot}) for unit ${enteredUnit}`,
       );
     }
 
@@ -120,8 +121,7 @@ export async function resolveProductionOutputUnit(
     };
   }
 
-  throw new Error(
-    `Entered unit "${enteredUnit}" is not valid for this product. ` +
-      `Expected "${primaryUnit}" or "${salesUnit ?? 'N/A'}".`
+  throw new ValidationError(
+    `Entered unit "${enteredUnit}" is not valid for this product. Expected "${primaryUnit}" or "${salesUnit ?? 'N/A'}".`,
   );
 }

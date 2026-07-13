@@ -3,7 +3,7 @@
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
-import { safeAction, BusinessRuleError } from "@/lib/errors/errors";
+import { safeAction, BusinessRuleError, NotFoundError } from "@/lib/errors/errors";
 import { requirePlanningRole } from "@/lib/tools/auth-checks";
 import { serializeData } from "@/lib/utils/utils";
 import { revalidatePath } from "next/cache";
@@ -25,15 +25,17 @@ export const createChildProductionOrder = withTenant(
             select: { salesOrderId: true, locationId: true, status: true },
           });
 
-          if (!parentOrder) throw new Error("Parent order not found");
+          if (!parentOrder) throw new NotFoundError("Production Order", parentOrderId);
 
           const bom = await tx.bom.findFirst({
             where: { productVariantId, isDefault: true },
           });
 
           if (!bom)
-            throw new Error(
+            throw new BusinessRuleError(
               "No default BOM found for this item. Please set a Primary Default Recipe first.",
+              { productVariantId },
+              "MISSING_DEFAULT_BOM",
             );
 
           const po = await createProductionOrderWithGeneratedNumber(

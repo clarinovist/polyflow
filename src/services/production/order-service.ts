@@ -12,6 +12,12 @@ import {
 } from "@prisma/client";
 
 import { WAREHOUSE_SLUGS } from "@/lib/constants/locations";
+import {
+  BusinessRuleError,
+  NotFoundError,
+  ProductionRuleViolationError,
+  ValidationError,
+} from "@/lib/errors/errors";
 import { Ok, Err, Result } from "@/lib/utils/result";
 import { createProductionOrderWithGeneratedNumber } from "./order-number-service";
 
@@ -240,8 +246,9 @@ export class ProductionOrderService {
                 machine.type === MachineType.MIXER)); // Standard fallback
 
           if (!isTypeMatch) {
-            throw new Error(
+            throw new ProductionRuleViolationError(
               `Machine type ${machine.type} is not compatible with stage ${bom.category}`,
+              { machineType: machine.type, bomCategory: bom.category },
             );
           }
         }
@@ -348,7 +355,7 @@ export class ProductionOrderService {
     quantity: number,
   ) {
     if (!salesOrderId || !productVariantId || quantity <= 0) {
-      throw new Error("Invalid parameters");
+      throw new ValidationError("Invalid parameters: salesOrderId, productVariantId, and quantity > 0 are required");
     }
 
     // 1. Find default BOM
@@ -360,8 +367,10 @@ export class ProductionOrderService {
     });
 
     if (!bom) {
-      throw new Error(
+      throw new BusinessRuleError(
         "No default BOM found for this product. Please create one first.",
+        { productVariantId },
+        "MISSING_DEFAULT_BOM",
       );
     }
 
@@ -376,7 +385,7 @@ export class ProductionOrderService {
       },
     });
 
-    if (!so) throw new Error("Sales Order not found");
+    if (!so) throw new NotFoundError("Sales Order", salesOrderId);
 
     const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
 
@@ -417,7 +426,7 @@ export class ProductionOrderService {
       data;
 
     if (!bomId || plannedQuantity <= 0 || !machineId || !locationId) {
-      throw new Error("BOM, quantity, machine, and location are required");
+      throw new ValidationError("BOM, quantity, machine, and location are required");
     }
 
     // Validate machine type vs BOM category (reuse logic from createOrder)
@@ -448,8 +457,9 @@ export class ProductionOrderService {
             machine.type === MachineType.MIXER));
 
       if (!isTypeMatch) {
-        throw new Error(
+        throw new ProductionRuleViolationError(
           `Machine type ${machine.type} is not compatible with stage ${bom.category}`,
+          { machineType: machine.type, bomCategory: bom.category },
         );
       }
     }
@@ -513,11 +523,15 @@ export class ProductionOrderService {
     });
 
     if (!order) {
-      throw new Error("Order not found");
+      throw new NotFoundError("Production Order", id);
     }
 
     if (order.status !== "DRAFT" && order.status !== "WAITING_MATERIAL") {
-      throw new Error("Only DRAFT or WAITING_MATERIAL orders can be deleted.");
+      throw new BusinessRuleError(
+        "Only DRAFT or WAITING_MATERIAL orders can be deleted.",
+        { status: order.status, orderId: id },
+        "INVALID_ORDER_STATUS",
+      );
     }
 
     await prisma.$transaction(async (tx) => {

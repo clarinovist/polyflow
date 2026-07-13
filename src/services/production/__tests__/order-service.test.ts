@@ -848,7 +848,7 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
       await expect(
         ProductionOrderService.createOrderFromSales("so-1", "pv-1", 100),
-      ).rejects.toThrow("Sales Order not found");
+      ).rejects.toThrow("Sales Order");
     });
 
     it("should create from standard SO", async () => {
@@ -1215,7 +1215,7 @@ describe("ProductionOrderService", () => {
     it("should throw when not found", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(null);
       await expect(ProductionOrderService.deleteOrder("x")).rejects.toThrow(
-        "Order not found",
+        "Production Order",
       );
     });
 
