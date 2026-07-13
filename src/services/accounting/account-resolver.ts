@@ -354,8 +354,6 @@ export async function resolveByPatterns(
     }
   }
 
-  const searchedCodes = patterns.filter((p) => p.code).map((p) => p.code).join(", ");
-  const searchedNames = patterns.filter((p) => p.nameContains).map((p) => p.nameContains).join(", ");
   throw new NotFoundError(`Account for role '${role}'`, role);
 }
 
@@ -447,9 +445,7 @@ export async function resolveAccount(
     const result = await resolveByPatterns(role);
     roleMap.set(role, { value: result, timestamp: Date.now() });
     return result;
-  } catch (originalError) {
-    // Improve error message with Phase 2 context
-    const msg = originalError instanceof Error ? originalError.message : String(originalError);
+  } catch {
     throw new NotFoundError(
       `Account for role '${role}'`,
       role,
