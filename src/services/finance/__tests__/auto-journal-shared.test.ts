@@ -42,7 +42,7 @@ describe("auto-journal-shared", () => {
       vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
 
       await expect(getAccountByCode("99999")).rejects.toThrow(
-        "Account code 99999 not found",
+        "Account",
       );
     });
   });

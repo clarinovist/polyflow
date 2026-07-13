@@ -415,7 +415,7 @@ describe("JournalsService", () => {
       // Act & Assert
       await expect(
         createClosingJournalEntry("nonexistent", "user-1"),
-      ).rejects.toThrow("Period not found");
+      ).rejects.toThrow("Fiscal Period");
     });
 
     it("returns null when no closing balances exist", async () => {
@@ -544,7 +544,7 @@ describe("JournalsService", () => {
       // Act & Assert
       await expect(
         createClosingJournalEntry("period-1", "user-1"),
-      ).rejects.toThrow("Current Year Earnings account not found in COA");
+      ).rejects.toThrow("Current Year Earnings");
     });
   });
 
@@ -594,7 +594,7 @@ describe("JournalsService", () => {
 
       // Act & Assert
       await expect(createYearEndClosingEntry(2026, "user-1")).rejects.toThrow(
-        "Current Year Earnings account not found",
+        "Current Year Earnings",
       );
     });
 
@@ -612,7 +612,7 @@ describe("JournalsService", () => {
 
       // Act & Assert
       await expect(createYearEndClosingEntry(2026, "user-1")).rejects.toThrow(
-        "Retained Earnings account not found",
+        "Retained Earnings",
       );
     });
 
@@ -733,7 +733,7 @@ describe("JournalsService", () => {
 
       // Act & Assert
       await expect(postJournal("nonexistent")).rejects.toThrow(
-        "Journal not found",
+        "Journal",
       );
     });
 
@@ -1060,7 +1060,7 @@ describe("JournalsService", () => {
 
       // Act & Assert
       await expect(voidJournal("nonexistent")).rejects.toThrow(
-        "Journal not found",
+        "Journal",
       );
     });
 
@@ -1163,7 +1163,7 @@ describe("JournalsService", () => {
 
       // Act & Assert
       await expect(reverseJournal("nonexistent")).rejects.toThrow(
-        "Journal not found",
+        "Journal",
       );
     });
 

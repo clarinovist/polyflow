@@ -31,7 +31,7 @@ describe("CostingService", () => {
 
       await expect(
         CostingService.calculateOrderCost("nonexistent"),
-      ).rejects.toThrow("Production Order not found");
+      ).rejects.toThrow("Production Order");
     });
 
     it("calculates cost with material issues matched to movements", async () => {

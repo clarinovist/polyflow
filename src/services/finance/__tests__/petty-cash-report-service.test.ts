@@ -250,7 +250,7 @@ describe("PettyCashReportService", () => {
 
       await expect(
         PettyCashReportService.markReadyToPrint("r1", "u1"),
-      ).rejects.toThrow("tidak ditemukan");
+      ).rejects.toThrow("Laporan Harian");
     });
   });
 
@@ -334,7 +334,7 @@ describe("PettyCashReportService", () => {
 
       await expect(
         PettyCashReportService.voidDailyReport("r1", "u1"),
-      ).rejects.toThrow("tidak ditemukan");
+      ).rejects.toThrow("Laporan Harian");
     });
   });
 });

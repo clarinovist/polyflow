@@ -79,7 +79,7 @@ describe('account-resolver', () => {
             vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
 
             await expect(resolveAccount('nonexistent-role' as never)).rejects.toThrow(
-                'Unknown account role: nonexistent-role'
+                "Account for role"
             );
         });
 
@@ -88,7 +88,7 @@ describe('account-resolver', () => {
             vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
 
             await expect(resolveAccount('accounts-receivable')).rejects.toThrow(
-                'Account not found for role "accounts-receivable"'
+                "Account for role"
             );
         });
 

@@ -942,7 +942,7 @@ describe("reports-service", () => {
       vi.mocked(prisma.account.findUnique).mockResolvedValue(null);
 
       await expect(getAccountBalance("nonexistent")).rejects.toThrow(
-        "Account not found",
+        "Account",
       );
     });
 

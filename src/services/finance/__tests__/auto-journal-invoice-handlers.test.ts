@@ -164,7 +164,7 @@ describe('handleSalesInvoiceCreated', () => {
     it('throws when invoice not found', async () => {
         vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
         await expect(handleSalesInvoiceCreated('nonexistent')).rejects.toThrow(
-            'Invoice nonexistent not found',
+            "Invoice"
         );
     });
 

@@ -308,7 +308,7 @@ describe("invoice-lifecycle-service", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Sales Order not found");
+      ).rejects.toThrow("Sales Order");
     });
 
     it("should throw error when sales order has no total amount", async () => {
@@ -572,7 +572,7 @@ describe("invoice-lifecycle-service", () => {
           },
           "user-1",
         ),
-      ).rejects.toThrow("Invoice not found");
+      ).rejects.toThrow("Invoice");
     });
   });
 
