@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/core/prisma";
 import { JournalStatus, Prisma, ReferenceType } from "@prisma/client";
+import { NotFoundError, BusinessRuleError } from "@/lib/errors/errors";
 import { CreateJournalEntryInput } from "@/services/accounting/types";
 import {
   createJournalEntry,
@@ -115,17 +116,17 @@ export class PettyCashService {
       include: { expenseAccount: true },
     });
 
-    if (!transaction) throw new Error("Transaction not found");
+    if (!transaction) throw new NotFoundError("Petty Cash Transaction", id);
     if (transaction.status !== "DRAFT")
-      throw new Error("Only draft transactions can be approved");
+      throw new BusinessRuleError("Only draft transactions can be approved", { transactionId: id, currentStatus: transaction.status });
     if (!transaction.expenseAccountId)
-      throw new Error("Expense account must be selected");
+      throw new BusinessRuleError("Expense account must be selected", { transactionId: id });
 
     const resolvedPettyCash = await resolveAccount("petty-cash");
     const pettyCashAccount = await prisma.account.findUnique({
       where: { id: resolvedPettyCash.id },
     });
-    if (!pettyCashAccount) throw new Error("Petty Cash account not found");
+    if (!pettyCashAccount) throw new NotFoundError("Account", "Petty Cash");
 
     return await prisma.$transaction(async (tx) => {
       // Update status
@@ -182,7 +183,7 @@ export class PettyCashService {
     const pettyCashAccount = await prisma.account.findUnique({
       where: { id: resolvedPettyCash.id },
     });
-    if (!pettyCashAccount) throw new Error("Petty Cash account not found");
+    if (!pettyCashAccount) throw new NotFoundError("Account", "Petty Cash");
 
     const maxRetries = 3;
     let lastError: unknown;

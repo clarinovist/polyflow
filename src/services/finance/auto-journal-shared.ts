@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/core/prisma';
+import { NotFoundError } from '@/lib/errors/errors';
 import { resolveAccount, AccountRole } from '@/services/accounting/account-resolver';
 
 /**
@@ -7,7 +8,7 @@ import { resolveAccount, AccountRole } from '@/services/accounting/account-resol
  */
 export async function getAccountByCode(code: string) {
     const account = await prisma.account.findUnique({ where: { code } });
-    if (!account) throw new Error(`Account code ${code} not found.`);
+    if (!account) throw new NotFoundError("Account", code);
     return account;
 }
 

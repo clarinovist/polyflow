@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { JournalStatus } from '@prisma/client';
+import { NotFoundError, BusinessRuleError, ConflictError } from '@/lib/errors/errors';
 import { resolveAccount } from '@/services/accounting/account-resolver';
 
 export type DailyReportStatus =
@@ -27,7 +28,7 @@ export class PettyCashReportService {
     private static async getPettyCashAccount() {
         const resolvedAccount = await resolveAccount('petty-cash');
         const account = await prisma.account.findUnique({ where: { id: resolvedAccount.id } });
-        if (!account) throw new Error('Petty Cash account not found');
+        if (!account) throw new NotFoundError("Account", "Petty Cash");
         return account;
     }
 
@@ -252,7 +253,7 @@ export class PettyCashReportService {
         const existing = await prisma.pettyCashDailyReport.findFirst({
             where: { reportDate: { gte: startOfDay, lte: endOfDay } }
         });
-        if (existing) throw new Error('Laporan untuk tanggal ini sudah ada.');
+        if (existing) throw new ConflictError('Laporan untuk tanggal ini sudah ada.', { reportDate: startOfDay });
 
         const account = await PettyCashReportService.getPettyCashAccount();
         const openingBalance = await PettyCashReportService.calcOpeningBalance(account.id, startOfDay);
@@ -303,10 +304,11 @@ export class PettyCashReportService {
         fields: Record<string, unknown>
     ) {
         const report = await prisma.pettyCashDailyReport.findUnique({ where: { id } });
-        if (!report) throw new Error('Laporan tidak ditemukan.');
+        if (!report) throw new NotFoundError("Laporan Harian", id);
         if (report.status !== allowedCurrentStatus) {
-            throw new Error(
-                `Aksi tidak valid. Status laporan saat ini adalah "${report.status}", bukan "${allowedCurrentStatus}".`
+            throw new BusinessRuleError(
+                `Aksi tidak valid. Status laporan saat ini adalah "${report.status}", bukan "${allowedCurrentStatus}".`,
+                { reportId: id, currentStatus: report.status, expectedStatus: allowedCurrentStatus }
             );
         }
         return await prisma.pettyCashDailyReport.update({
@@ -342,9 +344,9 @@ export class PettyCashReportService {
     /** Any non-FINALIZED → VOIDED */
     static async voidDailyReport(id: string, userId: string) {
         const report = await prisma.pettyCashDailyReport.findUnique({ where: { id } });
-        if (!report) throw new Error('Laporan tidak ditemukan.');
-        if (report.status === 'FINALIZED') throw new Error('Laporan yang sudah FINALIZED tidak dapat di-void.');
-        if (report.status === 'VOIDED') throw new Error('Laporan sudah VOIDED.');
+        if (!report) throw new NotFoundError("Laporan Harian", id);
+        if (report.status === 'FINALIZED') throw new BusinessRuleError('Laporan yang sudah FINALIZED tidak dapat di-void.', { reportId: id, currentStatus: report.status });
+        if (report.status === 'VOIDED') throw new BusinessRuleError('Laporan sudah VOIDED.', { reportId: id });
         return await prisma.pettyCashDailyReport.update({
             where: { id },
             data: {

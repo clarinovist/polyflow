@@ -5,6 +5,7 @@
  * Searches by exact code first (Kiyowo 5-digit format), then by name pattern
  * (Melindo "Piutang Dagang" format). Results are cached with TTL.
  */
+import { ValidationError, NotFoundError } from "@/lib/errors/errors";
 
 export type AccountRole =
   | "accounts-receivable"
@@ -337,7 +338,7 @@ export async function resolveByPatterns(
   const target = db ?? proxyPrisma;
 
   const patterns = ACCOUNT_ROLE_PATTERNS[role];
-  if (!patterns) throw new Error(`Unknown account role: ${role}`);
+  if (!patterns) throw new ValidationError(`Unknown account role: ${role}`, { role });
 
   for (const pattern of patterns) {
     let account = null;
@@ -355,9 +356,7 @@ export async function resolveByPatterns(
 
   const searchedCodes = patterns.filter((p) => p.code).map((p) => p.code).join(", ");
   const searchedNames = patterns.filter((p) => p.nameContains).map((p) => p.nameContains).join(", ");
-  throw new Error(
-    `Account not found for role "${role}". Searched codes: ${searchedCodes}. Searched names: ${searchedNames}.`,
-  );
+  throw new NotFoundError(`Account for role '${role}'`, role);
 }
 
 // ---------------------------------------------------------------------------
@@ -451,9 +450,9 @@ export async function resolveAccount(
   } catch (originalError) {
     // Improve error message with Phase 2 context
     const msg = originalError instanceof Error ? originalError.message : String(originalError);
-    throw new Error(
-      `${msg}\nHint: seed TenantAccountRole for tenant "${tenantId ?? 'unknown'}" ` +
-      `or configure at /finance/coa/roles.`,
+    throw new NotFoundError(
+      `Account for role '${role}'`,
+      role,
     );
   }
 }

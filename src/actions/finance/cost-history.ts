@@ -5,7 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { serializeData } from '@/lib/utils/utils';
 import { Prisma } from '@prisma/client';
-import { safeAction, NotFoundError } from '@/lib/errors/errors';
+import { safeAction, NotFoundError, AuthenticationError } from '@/lib/errors/errors';
 import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
 
 export type CostChangeReason = 'MANUAL' | 'PURCHASE_GR' | 'STOCK_OPNAME' | 'IMPORT' | 'BOM_UPDATE' | 'BOM_CASCADE';
@@ -53,7 +53,7 @@ async function updateStandardCost(
         const session = await requireAuth();
         const userId = session?.user?.id;
 
-        if (!userId) throw new Error('User ID missing');
+        if (!userId) throw new AuthenticationError('User ID missing');
 
         const db = (tx || prisma) as unknown as ExtendedClient;
 

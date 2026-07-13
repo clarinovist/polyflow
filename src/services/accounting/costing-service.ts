@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import type { Prisma } from '@prisma/client';
+import { NotFoundError } from '@/lib/errors/errors';
 
 export interface ProductionCost {
     productionOrderId: string;
@@ -111,7 +112,7 @@ export class CostingService {
             }
         });
 
-        if (!order) throw new Error("Production Order not found");
+        if (!order) throw new NotFoundError("Production Order", productionOrderId);
 
         // 2. Material Cost
         let materialCost = 0;

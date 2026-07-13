@@ -1,6 +1,7 @@
 import { JournalStatus, ReferenceType } from "@prisma/client";
 
 import { prisma, getTenantIdFromContext, getMainPrisma } from "@/lib/core/prisma";
+import { NotFoundError } from "@/lib/errors/errors";
 import { AccountingService } from "../accounting/accounting-service";
 import { resolveAccount } from "@/services/accounting/account-resolver";
 import { resolveRevenueAccount } from "@/services/accounting/revenue-account-resolver";
@@ -55,7 +56,7 @@ export async function handleSalesInvoiceCreated(invoiceId: string) {
     },
   });
 
-  if (!invoice) throw new Error(`Invoice ${invoiceId} not found`);
+  if (!invoice) throw new NotFoundError("Invoice", invoiceId);
 
   const arAccount = await resolveAccount("accounts-receivable");
   const vatAccount = await resolveAccount("vat-output");
@@ -219,7 +220,7 @@ export async function handlePurchaseInvoiceCreated(invoiceId: string) {
     include: { purchaseOrder: true },
   });
 
-  if (!invoice) throw new Error(`Purchase Invoice ${invoiceId} not found`);
+  if (!invoice) throw new NotFoundError("Purchase Invoice", invoiceId);
 
   const totalAmount = Number(invoice.totalAmount);
   const poTotal = Number(invoice.purchaseOrder.totalAmount || 0);

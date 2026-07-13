@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from "@/lib/core/prisma";
-import { safeAction } from "@/lib/errors/errors";
+import { safeAction, AuthenticationError } from "@/lib/errors/errors";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { CostingService } from "@/services/accounting/costing-service";
 import {
@@ -18,7 +18,7 @@ export const getHppReportData = withTenant(async function getHppReportData(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    if (!session) throw new Error("Unauthorized");
+    if (!session) throw new AuthenticationError();
 
     const now = new Date();
     const start = startDate ?? startOfMonth(now);
@@ -105,7 +105,7 @@ export const lockPeriod = withTenant(async function lockPeriod(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    if (!session) throw new Error("Unauthorized");
+    if (!session) throw new AuthenticationError();
 
     await prisma.periodLock.upsert({
       where: { year_month: { year, month } },
@@ -122,7 +122,7 @@ export const unlockPeriod = withTenant(async function unlockPeriod(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    if (!session) throw new Error("Unauthorized");
+    if (!session) throw new AuthenticationError();
 
     await prisma.periodLock.deleteMany({ where: { year, month } });
     return { success: true };
@@ -135,7 +135,7 @@ export const getPeriodLock = withTenant(async function getPeriodLock(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    if (!session) throw new Error("Unauthorized");
+    if (!session) throw new AuthenticationError();
 
     return prisma.periodLock.findUnique({
       where: { year_month: { year, month } },

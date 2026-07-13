@@ -12,7 +12,7 @@ import {
 } from '@prisma/client';
 
 import { prisma } from '@/lib/core/prisma';
-import { BusinessRuleError } from '@/lib/errors/errors';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { resolveAccount, type AccountRole } from '@/services/accounting/account-resolver';
 
@@ -90,7 +90,7 @@ export async function getSubLedgerAccountOrThrow(
     const role: AccountRole = type === 'AR' ? AR_ROLE : AP_ROLE;
     const resolved = await resolveAccount(role);
     const account = await db.account.findUnique({ where: { id: resolved.id } });
-    if (!account) throw new Error(`${type} Account (role: ${role}) not found.`);
+    if (!account) throw new NotFoundError(`${type} Account (role: ${role})`);
     return account;
 }
 

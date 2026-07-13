@@ -2,7 +2,8 @@
 
 import { MaklonReceiptService } from '@/services/maklon/maklon-receipt-service';
 import { revalidatePath } from 'next/cache';
-import { requireAuth } from '@/lib/tools/auth-checks';
+import { requireAuth } from "@/lib/tools/auth-checks";
+import { AuthenticationError } from "@/lib/errors/errors";
 import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { serializeData } from '@/lib/utils/utils';
@@ -20,7 +21,7 @@ export async function createMaklonReceiptAction(data: {
     try {
         const session = await requireAuth();
         const user = session?.user;
-        if (!user) throw new Error('Unauthorized');
+        if (!user) throw new AuthenticationError();
 
         const receipt = await MaklonReceiptService.createReceipt({
             ...data,

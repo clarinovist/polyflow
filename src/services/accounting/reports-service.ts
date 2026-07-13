@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { resolveAccount } from './account-resolver';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
@@ -333,7 +334,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
         where: { reference: periodRef, status: { not: 'VOIDED' } }
     });
     if (existing) {
-        throw new Error(`Closing entry already exists for ${periodRef} (JE: ${existing.entryNumber}). Void it first if you want to re-close.`);
+        throw new BusinessRuleError(`Closing entry already exists for ${periodRef} (JE: ${existing.entryNumber}). Void it first if you want to re-close.`, { periodRef, existingEntryNumber: existing.entryNumber, existingId: existing.id });
     }
 
     // Period: start of month to end of periodEndDate
@@ -393,7 +394,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
     }
 
     if (closingLines.length === 0) {
-        throw new Error(`No revenue or expense balances found for period ${periodRef}. Nothing to close.`);
+        throw new BusinessRuleError(`No revenue or expense balances found for period ${periodRef}. Nothing to close.`, { periodRef });
     }
 
     // Net income → Laba Berjalan (resolved by role, tenant-aware)
@@ -401,7 +402,7 @@ export async function closePeriod(periodEndDate: Date, userId: string) {
     const earningsResolved = await resolveAccount('current-year-earnings');
     const earningsAccount = await prisma.account.findUnique({ where: { id: earningsResolved.id } });
     if (!earningsAccount) {
-        throw new Error(`Account for role "current-year-earnings" (code: ${earningsResolved.code}) not found.`);
+        throw new NotFoundError("Account for role 'current-year-earnings'", earningsResolved.id);
     }
 
     if (netIncome >= 0) {
@@ -463,7 +464,7 @@ export async function getAccountBalance(accountId: string, startDate?: Date, end
     });
 
     const account = await prisma.account.findUnique({ where: { id: accountId } });
-    if (!account) throw new Error("Account not found");
+    if (!account) throw new NotFoundError("Account", accountId);
 
     const isDebitNormal = ['ASSET', 'EXPENSE'].includes(account.type);
 

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { getClosingBalances } from "./reports-service";
 import { resolveAccount } from "./account-resolver";
 import { createJournalEntry } from "./journal-posting";
+import { NotFoundError, BusinessRuleError } from "@/lib/errors/errors";
 
 export async function createClosingJournalEntry(
   periodId: string,
@@ -12,7 +13,7 @@ export async function createClosingJournalEntry(
   const db = tx || prisma;
 
   const period = await db.fiscalPeriod.findUnique({ where: { id: periodId } });
-  if (!period) throw new Error("Period not found");
+  if (!period) throw new NotFoundError("Fiscal Period", periodId);
 
   const reference = `CLOSING-${period.name.replace(/\s+/g, "-")}`;
 
@@ -57,7 +58,7 @@ export async function createClosingJournalEntry(
     where: { id: resolvedEarnings.id },
   });
   if (!earningsAccount)
-    throw new Error("Current Year Earnings account not found in COA");
+    throw new NotFoundError("Current Year Earnings account", resolvedEarnings.id);
 
   lines.push({
     accountId: earningsAccount.id,
@@ -106,14 +107,14 @@ export async function createYearEndClosingEntry(
     where: { id: resolvedEarnings.id },
   });
   if (!earningsAccount)
-    throw new Error("Current Year Earnings account not found");
+    throw new NotFoundError("Current Year Earnings account", resolvedEarnings.id);
 
   const resolvedRetained = await resolveAccount("retained-earnings");
   const retainedEarningsAccount = await db.account.findUnique({
     where: { id: resolvedRetained.id },
   });
   if (!retainedEarningsAccount)
-    throw new Error("Retained Earnings account not found");
+    throw new NotFoundError("Retained Earnings account", resolvedRetained.id);
 
   // Calculate sum of all journal lines for 33000 in this year
   const journalLines = await db.journalLine.findMany({
@@ -137,8 +138,9 @@ export async function createYearEndClosingEntry(
   const balance = totalCredit - totalDebit; // Credit Normal
 
   if (Math.abs(balance) < 0.01) {
-    throw new Error(
+    throw new BusinessRuleError(
       `No balance in Current Year Earnings (33000) for year ${year} to transfer.`,
+      { year, accountCode: "33000", balance },
     );
   }
 

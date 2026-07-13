@@ -3,6 +3,7 @@ import { InvoiceStatus, JournalStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/core/prisma";
 import { logger } from "@/lib/config/logger";
+import { NotFoundError, BusinessRuleError } from "@/lib/errors/errors";
 import {
   CreateInvoiceValues,
   UpdateInvoiceStatusValues,
@@ -48,16 +49,17 @@ export async function createInvoice(data: CreateInvoiceValues, userId: string) {
   });
 
   if (!salesOrder) {
-    throw new Error("Sales Order not found");
+    throw new NotFoundError("Sales Order", salesOrderId);
   }
 
   if (!salesOrder.totalAmount) {
-    throw new Error("Sales Order has no total amount");
+    throw new BusinessRuleError("Sales Order has no total amount", { salesOrderId });
   }
 
   if (!salesOrder.customerId) {
-    throw new Error(
+    throw new BusinessRuleError(
       "Cannot create invoice for a Sales Order without customer. Complete the customer first, or use Production Order for internal stock build.",
+      { salesOrderId }
     );
   }
 
@@ -109,7 +111,7 @@ export async function updateInvoiceStatus(
   });
 
   if (!invoice) {
-    throw new Error("Invoice not found");
+    throw new NotFoundError("Invoice", id);
   }
 
   await prisma.invoice.update({

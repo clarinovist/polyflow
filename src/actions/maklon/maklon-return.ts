@@ -3,6 +3,7 @@
 import { MaklonReturnService } from '@/services/maklon/maklon-return-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { AuthenticationError, NotFoundError } from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 
 export async function createMaklonReturnAction(data: {
@@ -20,7 +21,7 @@ export async function createMaklonReturnAction(data: {
     try {
         const session = await requireAuth();
         const user = session?.user;
-        if (!user) throw new Error('Unauthorized');
+        if (!user) throw new AuthenticationError();
 
         const ret = await MaklonReturnService.createReturn({
             ...data,
@@ -44,7 +45,7 @@ export async function getMaklonReturnsAction(params?: {
 }) {
     try {
         const session = await requireAuth();
-        if (!session?.user) throw new Error('Unauthorized');
+        if (!session?.user) throw new AuthenticationError();
         
         const returns = await MaklonReturnService.getReturns(params);
         return { success: true, data: serializeData(returns) };
@@ -56,10 +57,10 @@ export async function getMaklonReturnsAction(params?: {
 export async function getMaklonReturnByIdAction(id: string) {
     try {
         const session = await requireAuth();
-        if (!session?.user) throw new Error('Unauthorized');
+        if (!session?.user) throw new AuthenticationError();
         
         const ret = await MaklonReturnService.getReturnById(id);
-        if (!ret) throw new Error('Return not found');
+        if (!ret) throw new NotFoundError('Maklon Return', id);
         return { success: true, data: serializeData(ret) };
     } catch {
         return { success: false, error: 'Gagal memproses retur Maklon' };

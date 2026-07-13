@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { Prisma } from '@prisma/client';
+import { AuthorizationError } from '@/lib/errors/errors';
 
 interface GetAuditLogsParams {
     page?: number;
@@ -25,7 +26,7 @@ export async function getAuditLogs({
 }: GetAuditLogsParams) {
     const session = await auth();
     if (!session || session.user.role !== 'ADMIN') {
-        throw new Error('Unauthorized. Only ADMIN can view audit logs.');
+        throw new AuthorizationError('Only ADMIN can view audit logs.');
     }
 
     const where: Prisma.AuditLogWhereInput = {};
@@ -70,7 +71,7 @@ export async function getAuditLogs({
 export async function getAuditLogDetail(id: string) {
     const session = await auth();
     if (!session || session.user.role !== 'ADMIN') {
-        throw new Error('Unauthorized');
+        throw new AuthorizationError();
     }
 
     const log = await prisma.auditLog.findUnique({
@@ -91,7 +92,7 @@ export async function getAuditLogDetail(id: string) {
 export async function getAuditLogStats() {
     const session = await auth();
     if (!session || session.user.role !== 'ADMIN') {
-        throw new Error('Unauthorized');
+        throw new AuthorizationError();
     }
 
     const [actionStats, entityStats] = await Promise.all([

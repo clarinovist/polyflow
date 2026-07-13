@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { resolveByPatterns, getAllAccountRoles, clearAccountCache } from './account-resolver';
 import type { AccountRole } from './account-resolver';
+import { ValidationError, NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 
 export type SeedResult = {
     created: number;
@@ -162,16 +163,16 @@ export async function updateRoleMapping(
 ) {
     const knownRoles = getAllAccountRoles();
     if (!knownRoles.includes(role as AccountRole)) {
-        throw new Error(`Unknown account role: "${role}"`);
+        throw new ValidationError(`Unknown account role: "${role}"`, { role, knownRoles });
     }
 
     // Validate account exists and is active in tenant DB
     const account = await tenantDb.account.findUnique({ where: { id: accountId } });
     if (!account) {
-        throw new Error('Account not found in this tenant');
+        throw new NotFoundError("Account", accountId);
     }
     if (account.isActive === false) {
-        throw new Error('Account is inactive');
+        throw new BusinessRuleError('Account is inactive', { accountId, role, isActive: false });
     }
 
     const mainPrisma = getMainPrisma();
