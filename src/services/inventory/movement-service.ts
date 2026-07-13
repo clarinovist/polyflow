@@ -14,6 +14,9 @@ import {
 } from "@/lib/schemas/inventory";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { InventoryCoreService } from "./core-service";
+import {
+  InsufficientStockError,
+} from "@/lib/errors/errors";
 
 export class InventoryMovementService {
   static async transferStock(data: TransferStockValues, userId: string) {
@@ -38,8 +41,9 @@ export class InventoryMovementService {
         : null;
 
       if (sourceStockQty === null || sourceStockQty < quantity) {
-        throw new Error(
-          `Stok di lokasi sumber tidak mencukupi. Saat ini: ${sourceStockQty || 0}`,
+        throw new InsufficientStockError(
+          `Insufficient stock at source location. Available: ${sourceStockQty || 0}, Requested: ${quantity}`,
+          { sourceLocationId, productVariantId, available: sourceStockQty || 0, requested: quantity },
         );
       }
 
@@ -56,8 +60,9 @@ export class InventoryMovementService {
       const availableQty = (sourceStockQty || 0) - reservedQty;
 
       if (availableQty < quantity) {
-        throw new Error(
-          `Tidak dapat melakukan transfer. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`,
+        throw new InsufficientStockError(
+          `Cannot transfer. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+          { sourceLocationId, productVariantId, available: availableQty, requested: quantity },
         );
       }
 
@@ -225,8 +230,9 @@ export class InventoryMovementService {
         const sourceStockQty = stockMap.get(productVariantId);
 
         if (sourceStockQty === undefined || sourceStockQty < quantity) {
-          throw new Error(
-            `Stok tidak mencukupi untuk produk ${productVariantId} di lokasi sumber.`,
+          throw new InsufficientStockError(
+            `Insufficient stock for product at source location. Available: ${sourceStockQty || 0}, Requested: ${quantity}`,
+            { productVariantId, sourceLocationId, available: sourceStockQty || 0, requested: quantity },
           );
         }
 
@@ -234,8 +240,9 @@ export class InventoryMovementService {
         const availableQty = sourceStockQty - reservedQty;
 
         if (availableQty < quantity) {
-          throw new Error(
-            `Tidak dapat mentransfer produk ${productVariantId}. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`,
+          throw new InsufficientStockError(
+            `Cannot transfer product. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+            { productVariantId, sourceLocationId, available: availableQty, requested: quantity },
           );
         }
 
@@ -330,8 +337,9 @@ export class InventoryMovementService {
           ? Number(currentStockRow[0].quantity)
           : null;
         if (currentStockQty === null || currentStockQty < quantity) {
-          throw new Error(
-            `Stok tidak cukup untuk pengurangan (ADJUST OUT). Saat ini: ${currentStockQty || 0}`,
+          throw new InsufficientStockError(
+            `Insufficient stock for adjustment OUT. Available: ${currentStockQty || 0}, Requested: ${quantity}`,
+            { locationId, productVariantId, available: currentStockQty || 0, requested: quantity },
           );
         }
 
@@ -348,8 +356,9 @@ export class InventoryMovementService {
         const availableQty = currentStockQty - reservedQty;
 
         if (availableQty < quantity) {
-          throw new Error(
-            `Tidak dapat melakukan penyesuaian OUT. Barang terreservasi. Tersedia: ${availableQty}, Diminta: ${quantity}`,
+          throw new InsufficientStockError(
+            `Cannot adjust OUT. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+            { locationId, productVariantId, available: availableQty, requested: quantity },
           );
         }
       } else {
@@ -487,8 +496,9 @@ export class InventoryMovementService {
             ? Number(currentStockRow[0].quantity)
             : null;
           if (currentStockQty === null || currentStockQty < quantity) {
-            throw new Error(
-              `Insufficient stock to adjust OUT for product ${productVariantId}`,
+            throw new InsufficientStockError(
+              `Insufficient stock to adjust OUT for product ${productVariantId}. Available: ${currentStockQty || 0}, Requested: ${quantity}`,
+              { productVariantId, locationId, available: currentStockQty || 0, requested: quantity },
             );
           }
 
@@ -504,8 +514,9 @@ export class InventoryMovementService {
           const reservedQty = activeReservations._sum.quantity?.toNumber() || 0;
           const availableQty = currentStockQty - reservedQty;
           if (availableQty < quantity) {
-            throw new Error(
+            throw new InsufficientStockError(
               `Cannot adjust OUT for product ${productVariantId}. Stock is reserved. Available: ${availableQty}, Requested: ${quantity}`,
+              { productVariantId, locationId, available: availableQty, requested: quantity },
             );
           }
         }

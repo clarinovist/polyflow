@@ -4,6 +4,7 @@ import {
   CreateReservationValues,
   CancelReservationValues,
 } from "@/lib/schemas/inventory";
+import { BusinessRuleError, NotFoundError } from "@/lib/errors/errors";
 
 export async function createStockReservation(
   data: CreateReservationValues,
@@ -83,10 +84,12 @@ export async function cancelStockReservation(data: CancelReservationValues) {
         select: { status: true },
       });
       if (!reservation) {
-        throw new Error("Reservation not found");
+        throw new NotFoundError("Stock Reservation", data.reservationId);
       }
-      throw new Error(
+      throw new BusinessRuleError(
         `Cannot cancel reservation in ${reservation.status} status. Only ACTIVE or WAITING reservations can be cancelled.`,
+        { status: reservation.status, reservationId: data.reservationId },
+        "INVALID_RESERVATION_STATUS",
       );
     }
   });
