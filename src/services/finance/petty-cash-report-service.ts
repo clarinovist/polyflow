@@ -185,10 +185,11 @@ export class PettyCashReportService {
     static async getDailyReport(date: Date) {
         const { startOfDay, endOfDay } = PettyCashReportService.getDayBounds(date);
 
-        // Check if a saved report exists for this date
+        // Check if a saved report exists for this date (skip VOIDED — they hold stale balances)
         const savedReport = await prisma.pettyCashDailyReport.findFirst({
             where: {
-                reportDate: { gte: startOfDay, lte: endOfDay }
+                reportDate: { gte: startOfDay, lte: endOfDay },
+                status: { not: 'VOIDED' }
             },
             include: {
                 createdBy: { select: { id: true, name: true, role: true } },
@@ -249,9 +250,9 @@ export class PettyCashReportService {
     static async createDailyReport(date: Date, userId: string) {
         const { startOfDay, endOfDay } = PettyCashReportService.getDayBounds(date);
 
-        // Prevent duplicate reports
+        // Prevent duplicate reports (skip VOIDED — they don't block new reports)
         const existing = await prisma.pettyCashDailyReport.findFirst({
-            where: { reportDate: { gte: startOfDay, lte: endOfDay } }
+            where: { reportDate: { gte: startOfDay, lte: endOfDay }, status: { not: 'VOIDED' } }
         });
         if (existing) throw new ConflictError('Laporan untuk tanggal ini sudah ada.', { reportDate: startOfDay });
 
