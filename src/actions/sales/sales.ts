@@ -203,7 +203,7 @@ export const checkSalesOrderFulfillment = withTenant(
         },
       });
 
-      if (!order) throw new NotFoundError("Sales Order", "—");
+      if (!order) throw new NotFoundError("Sales Order", id);
 
       const productVariantIds = order.items.map(
         (item) => item.productVariantId,

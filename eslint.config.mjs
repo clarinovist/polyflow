@@ -32,7 +32,28 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-explicit-any": "off"
     }
-  }
+  },
+  // Phase F guardrail: business errors must use ApplicationError hierarchy so
+  // safeAction surfaces the real message (not "An unexpected error occurred").
+  // See docs/plans/2026-07-13-safeaction-business-error-surfacing.md
+  {
+    files: ["src/services/**/*.{ts,tsx}", "src/actions/**/*.{ts,tsx}"],
+    ignores: [
+      "**/__tests__/**",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ThrowStatement > NewExpression[callee.name='Error']",
+          message:
+            "Use ApplicationError subclasses (BusinessRuleError, NotFoundError, ValidationError, …) so safeAction surfaces the message to the UI. Do not throw new Error() for user-facing validation.",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { headers } from "next/headers";
 import { extractSubdomain } from "@/lib/core/tenant";
-import { BusinessRuleError } from "@/lib/errors/errors";
+import {
+  AuthorizationError,
+  BusinessRuleError,
+} from "@/lib/errors/errors";
 
 /**
  * Resolves the tenant DB for the current request (if on a tenant subdomain).
@@ -72,7 +75,7 @@ export async function requireRole(requiredRole: Role | Role[]) {
   const userRole = session.user.role;
 
   if (!userRole) {
-    throw new Error("Unauthorized: User has no role");
+    throw new AuthorizationError("Unauthorized: User has no role");
   }
 
   // Admin usually has access to everything
@@ -83,7 +86,7 @@ export async function requireRole(requiredRole: Role | Role[]) {
   const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
 
   if (!roles.includes(userRole as Role)) {
-    throw new Error(
+    throw new AuthorizationError(
       `Unauthorized: Insufficient permissions. Required: ${roles.join(" or ")}`,
     );
   }

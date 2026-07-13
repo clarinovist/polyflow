@@ -3,15 +3,25 @@
 import { auth } from "@/auth";
 import { PurchaseService } from "@/services/purchasing/purchase-service";
 import { revalidatePath } from "next/cache";
+import {
+  AuthenticationError,
+  safeAction,
+} from "@/lib/errors/errors";
 
 export async function convertToPo(requestId: string, supplierId: string) {
+  return safeAction(async () => {
     const session = await auth();
-    if (!session?.user) throw new Error("Unauthorized");
+    if (!session?.user) {
+      throw new AuthenticationError();
+    }
 
-    // Use session user ID or fallback
-    const userId = session.user.id || 'unknown';
-
-    const result = await PurchaseService.convertRequestToOrder(requestId, supplierId, userId);
-    revalidatePath('/purchasing/requests');
-    return { success: true, orderId: result.id };
+    const userId = session.user.id || "unknown";
+    const result = await PurchaseService.convertRequestToOrder(
+      requestId,
+      supplierId,
+      userId,
+    );
+    revalidatePath("/purchasing/requests");
+    return { orderId: result.id };
+  });
 }

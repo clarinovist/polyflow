@@ -4,6 +4,8 @@
  * not hardcoded in source.
  */
 
+import { ValidationError } from '@/lib/errors/errors';
+
 export const PAYMENT_METHODS = [
   'Transfer BCA',
   'Transfer Mandiri',
@@ -104,14 +106,14 @@ export interface NormalizedPaymentFields {
 
 /**
  * Validate and normalize payment method fields for create/update.
- * Throws Error with Indonesian message on validation failure.
+ * Throws ValidationError (ApplicationError) so safeAction surfaces the message.
  */
 export function normalizePaymentMethodFields(
   input: PaymentMethodFields,
 ): NormalizedPaymentFields {
   const method = (input.method || '').trim();
   if (!method) {
-    throw new Error('Metode pembayaran wajib diisi.');
+    throw new ValidationError('Metode pembayaran wajib diisi.');
   }
 
   // Allow legacy methods only if already stored — new forms should use selectable methods.
@@ -122,17 +124,19 @@ export function normalizePaymentMethodFields(
     method === 'Credit Card';
 
   if (!isKnown) {
-    throw new Error(`Metode pembayaran tidak dikenali: ${method}`);
+    throw new ValidationError(`Metode pembayaran tidak dikenali: ${method}`, {
+      method,
+    });
   }
 
   if (method === 'Check') {
     const ref = (input.referenceNumber || '').trim();
     if (!ref) {
-      throw new Error('Nomor Cek / Giro wajib diisi.');
+      throw new ValidationError('Nomor Cek / Giro wajib diisi.');
     }
     const bank = deriveDestinationBank(method, input.destinationBank);
     if (!bank) {
-      throw new Error(
+      throw new ValidationError(
         'Pilih bank tujuan clearing (BCA atau Mandiri) untuk Cek / Giro.',
       );
     }

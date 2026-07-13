@@ -3,6 +3,7 @@ import type {
   PaymentBankKey,
   TenantPaymentBanks,
 } from '@/lib/finance/payment-methods';
+import { ValidationError } from '@/lib/errors/errors';
 
 export const PAYMENT_BANKS_SETTING_KEY = 'payment.banks';
 
@@ -67,8 +68,9 @@ export async function savePaymentBanksSetting(
     { holder: string; account: string },
   ][]) {
     if (bank.account && !/^\d[\d\s-]*$/.test(bank.account)) {
-      throw new Error(
+      throw new ValidationError(
         `Nomor rekening ${key} tidak valid. Gunakan angka (boleh spasi/strip).`,
+        { bankKey: key },
       );
     }
   }
