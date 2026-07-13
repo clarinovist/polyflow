@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowLeft, Edit2, RefreshCw, Info } from 'lucide-react';
+import { ArrowLeft, Edit2, RefreshCw, Info, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ import { recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 import { useBomBasePath } from './useBomBasePath';
+import { DuplicateBomDialog } from './DuplicateBomDialog';
 
 interface BOMDetailsProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,6 +79,7 @@ const formatCurrency = (amount: number) => {
 export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     const router = useRouter();
     const [isRecalculating, setIsRecalculating] = React.useState(false);
+    const [showDuplicateDialog, setShowDuplicateDialog] = React.useState(false);
     const basePath = useBomBasePath();
     const ingredientDiagnostics = bom.items.map((item: { productVariant: { costDiagnostics?: CostDiagnosticsView } & VariantCostLike }) => {
         return resolveIngredientDiagnostics(item.productVariant);
@@ -144,6 +146,12 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                             Edit Recipe
                         </Button>
                     </Link>
+                    {bom.items.length > 0 && (
+                        <Button variant="outline" onClick={() => setShowDuplicateDialog(true)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplikat Formula
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -358,6 +366,20 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                     </div>
                 </CardContent>
             </Card>
+
+            <DuplicateBomDialog
+                open={showDuplicateDialog}
+                onOpenChange={setShowDuplicateDialog}
+                sourceBom={{
+                    id: bom.id,
+                    name: bom.name,
+                    productVariantId: bom.productVariantId,
+                    productVariantName: bom.productVariant?.name || '',
+                    outputQuantity: Number(bom.outputQuantity) || 1,
+                    itemCount: bom.items.length,
+                    category: bom.category || 'STANDARD',
+                }}
+            />
         </div>
     );
 }

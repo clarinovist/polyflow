@@ -109,6 +109,17 @@ export const createBomSchema = z.object({
 
 export type CreateBomValues = z.infer<typeof createBomSchema>;
 
+export const duplicateBomSchema = z.object({
+    sourceBomId: z.string().min(1, "Source recipe is required"),
+    productVariantId: z.string().min(1, "Output product is required"),
+    name: z.string().min(1, "Recipe name is required").transform(sanitizeHtml),
+    outputQuantity: z.coerce.number().positive("Output quantity must be positive").optional(),
+    quantityScale: z.coerce.number().positive("Scale must be greater than 0").default(1),
+    isDefault: z.boolean().default(true),
+});
+
+export type DuplicateBomValues = z.infer<typeof duplicateBomSchema>;
+
 export const productionOutputSchema = z.object({
     productionOrderId: z.string().min(1, "Production Order ID is required"),
     // Transform empty string '' → undefined to prevent FK constraint violations in DB

@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { createBomSchema, CreateBomValues } from '@/lib/schemas/production';
+import { createBomSchema, CreateBomValues, duplicateBomSchema, DuplicateBomValues } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
@@ -17,6 +17,28 @@ import {
     type VariantCostDiagnostics,
 } from '@/lib/utils/current-cost';
 import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
+
+/**
+ * Unset other default BOMs on the same variant so only one is default.
+ * Called inside a transaction; pass the transaction client `tx`.
+ */
+async function unsetOtherDefaultBoms(
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    productVariantId: string,
+    exceptBomId?: string
+) {
+    const where: Record<string, unknown> = {
+        productVariantId,
+        isDefault: true,
+    };
+    if (exceptBomId) {
+        where.id = { not: exceptBomId };
+    }
+    await tx.bom.updateMany({
+        where,
+        data: { isDefault: false },
+    });
+}
 
 function enrichVariantCurrentCost<T extends { inventories?: Array<{ quantity?: unknown; averageCost?: unknown }> } & Record<string, unknown>>(variant: T): T & {
     currentCost: number;
@@ -124,21 +146,28 @@ async function createBom(data: CreateBomValues) {
         });
 
         try {
-            const bom = await prisma.bom.create({
-                data: {
-                    name: validated.name,
-                    productVariant: { connect: { id: validated.productVariantId } },
-                    outputQuantity: validated.outputQuantity,
-                    isDefault: validated.isDefault,
-                    category: validated.category,
-                    items: {
-                        create: validated.items.map(item => ({
-                            productVariantId: item.productVariantId,
-                            quantity: item.quantity,
-                            scrapPercentage: item.scrapPercentage
-                        }))
-                    }
+            const bom = await prisma.$transaction(async (tx) => {
+                // Unset other default BOMs on target variant (atomic with create)
+                if (validated.isDefault) {
+                    await unsetOtherDefaultBoms(tx, validated.productVariantId);
                 }
+
+                return tx.bom.create({
+                    data: {
+                        name: validated.name,
+                        productVariant: { connect: { id: validated.productVariantId } },
+                        outputQuantity: validated.outputQuantity,
+                        isDefault: validated.isDefault,
+                        category: validated.category,
+                        items: {
+                            create: validated.items.map(item => ({
+                                productVariantId: item.productVariantId,
+                                quantity: item.quantity,
+                                scrapPercentage: item.scrapPercentage
+                            }))
+                        }
+                    }
+                });
             });
 
             const createdBom = await prisma.bom.findUnique({
@@ -253,6 +282,11 @@ async function updateBom(id: string, data: CreateBomValues) {
 
         try {
             const result = await prisma.$transaction(async (tx) => {
+                // Unset other default BOMs on target variant when updating to default
+                if (validated.isDefault) {
+                    await unsetOtherDefaultBoms(tx, validated.productVariantId, id);
+                }
+
                 const updatedBom = await tx.bom.update({
                     where: { id },
                     data: {
@@ -423,6 +457,162 @@ async function deleteBom(id: string) {
         } catch (error) {
             logger.error("Failed to delete BOM", { error, module: 'BomActions' });
             throw new BusinessRuleError("Failed to delete Recipe. It might be in use by a production order.");
+        }
+    });
+}
+);
+
+export const duplicateBom = withTenant(
+async function duplicateBom(data: DuplicateBomValues) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        const validated = duplicateBomSchema.parse(data);
+
+        // 1. Load source BOM with items
+        const sourceBom = await prisma.bom.findUnique({
+            where: { id: validated.sourceBomId },
+            include: {
+                items: true,
+            },
+        });
+
+        if (!sourceBom) {
+            throw new NotFoundError("Recipe", validated.sourceBomId);
+        }
+
+        if (sourceBom.items.length === 0) {
+            throw new BusinessRuleError("Source BOM has no ingredients to duplicate.");
+        }
+
+        // 2. Verify target variant exists
+        const targetVariant = await prisma.productVariant.findUnique({
+            where: { id: validated.productVariantId },
+        });
+
+        if (!targetVariant) {
+            throw new NotFoundError("ProductVariant", validated.productVariantId);
+        }
+
+        // 3. Validate no BOM cycle
+        await BomCostCascadeService.validateNoBomCycle({
+            outputVariantId: validated.productVariantId,
+            itemVariantIds: sourceBom.items.map((item) => item.productVariantId),
+        });
+
+        // 4. Scale quantities and validate results
+        const scale = Number(validated.quantityScale);
+        const scaledItems = sourceBom.items.map((item) => {
+            const rawQty = Number(item.quantity) * scale;
+            // Round to 4 decimal places (Decimal(10,4) precision)
+            const roundedQty = Math.round(rawQty * 10000) / 10000;
+            return {
+                productVariantId: item.productVariantId,
+                quantity: roundedQty,
+                scrapPercentage: item.scrapPercentage,
+            };
+        });
+
+        // Validate no zero-quantity items after scaling
+        const zeroItems = scaledItems.filter((item) => item.quantity <= 0);
+        if (zeroItems.length > 0) {
+            throw new BusinessRuleError(
+                "Some ingredients resulted in zero or negative quantity after scaling. Increase the scale factor."
+            );
+        }
+
+        try {
+            const outputQuantity = validated.outputQuantity ?? Number(sourceBom.outputQuantity);
+
+            const newBom = await prisma.$transaction(async (tx) => {
+                // 5. Unset other defaults on target variant if new BOM is default
+                if (validated.isDefault) {
+                    await unsetOtherDefaultBoms(tx, validated.productVariantId);
+                }
+
+                // 6. Create the duplicated BOM
+                return tx.bom.create({
+                    data: {
+                        name: validated.name,
+                        productVariant: { connect: { id: validated.productVariantId } },
+                        outputQuantity,
+                        isDefault: validated.isDefault,
+                        category: sourceBom.category,
+                        description: sourceBom.description,
+                        items: {
+                            create: scaledItems.map((item) => ({
+                                productVariantId: item.productVariantId,
+                                quantity: item.quantity,
+                                scrapPercentage: item.scrapPercentage,
+                            })),
+                        },
+                    },
+                });
+            });
+
+            // 7. Calculate cost and update standard cost
+            const createdBom = await prisma.bom.findUnique({
+                where: { id: newBom.id },
+                include: {
+                    items: {
+                        include: {
+                            productVariant: {
+                                include: {
+                                    inventories: {
+                                        select: {
+                                            quantity: true,
+                                            averageCost: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            if (createdBom) {
+                const totalCost = calculateBomCost(createdBom.items);
+                const unitCost = totalCost / Number(createdBom.outputQuantity || 1);
+
+                const rootCostUpdate = await updateStandardCost(
+                    validated.productVariantId,
+                    unitCost,
+                    'BOM_UPDATE',
+                    newBom.id
+                );
+                if (!rootCostUpdate.success) {
+                    throw new BusinessRuleError(rootCostUpdate.error);
+                }
+
+                await BomCostCascadeService.cascadeFromVariants({
+                    rootVariantIds: [validated.productVariantId],
+                    defaultOnly: true,
+                    referenceId: `root-bom:${newBom.id}`,
+                    userId: session.user.id,
+                });
+            }
+
+            // 8. Audit log
+            await logActivity({
+                userId: session.user.id,
+                action: 'DUPLICATE_BOM',
+                entityType: 'Bom',
+                entityId: newBom.id,
+                details: `Duplicated Recipe (BOM) from ${sourceBom.name} → ${validated.name} (scale: ${scale})`,
+            });
+
+            // 9. Revalidate paths
+            revalidatePath('/dashboard/boms');
+            revalidatePath('/production/boms');
+
+            return serializeData(newBom);
+        } catch (error) {
+            // Re-throw known business errors (NotFoundError, BusinessRuleError)
+            if (error instanceof NotFoundError || error instanceof BusinessRuleError) {
+                throw error;
+            }
+            logger.error("Failed to duplicate BOM", { error, module: 'BomActions' });
+            throw new BusinessRuleError("Failed to duplicate Recipe. Please verify the details.");
         }
     });
 }

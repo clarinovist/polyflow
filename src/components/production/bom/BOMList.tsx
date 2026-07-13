@@ -202,7 +202,15 @@ export function BOMList({ boms, showPrices }: BOMListProps) {
                                                             </TableCell>
                                                         )}
                                                         <TableCell className="text-right">
-                                                            <BOMActions id={bom.id} name={bom.name} />
+                                                            <BOMActions
+                                                                id={bom.id}
+                                                                name={bom.name}
+                                                                productVariantId={bom.productVariantId}
+                                                                productVariantName={bom.productVariant.name}
+                                                                outputQuantity={bom.outputQuantity}
+                                                                itemCount={bom.items.length}
+                                                                category={bom.category}
+                                                            />
                                                         </TableCell>
                                                     </TableRow>
                                                 );

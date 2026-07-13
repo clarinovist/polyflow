@@ -8,12 +8,13 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Eye, RefreshCw, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { deleteBom, recalculateBomCostChain } from '@/actions/production/boms';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { useBomBasePath } from './useBomBasePath';
+import { DuplicateBomDialog } from './DuplicateBomDialog';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,10 +29,16 @@ import {
 interface BOMActionsProps {
     id: string;
     name: string;
+    productVariantId?: string;
+    productVariantName?: string;
+    outputQuantity?: number;
+    itemCount?: number;
+    category?: string;
 }
 
-export function BOMActions({ id, name }: BOMActionsProps) {
+export function BOMActions({ id, name, productVariantId, productVariantName, outputQuantity, itemCount, category }: BOMActionsProps) {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isRecalculating, setIsRecalculating] = useState(false);
     const basePath = useBomBasePath();
@@ -95,6 +102,12 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                             Lihat Detail
                         </DropdownMenuItem>
                     </Link>
+                    {productVariantId && (itemCount ?? 0) > 0 && (
+                        <DropdownMenuItem onClick={() => setShowDuplicateDialog(true)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplikat Formula
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={handleRecalculateChain} disabled={isRecalculating}>
                         <RefreshCw className="mr-2 h-4 w-4" />
                         {isRecalculating ? 'Menghitung ulang...' : 'Hitung Ulang Rantai Biaya'}
@@ -133,6 +146,22 @@ export function BOMActions({ id, name }: BOMActionsProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {productVariantId && (itemCount ?? 0) > 0 && (
+                <DuplicateBomDialog
+                    open={showDuplicateDialog}
+                    onOpenChange={setShowDuplicateDialog}
+                    sourceBom={{
+                        id,
+                        name,
+                        productVariantId,
+                        productVariantName: productVariantName || '',
+                        outputQuantity: outputQuantity ?? 1,
+                        itemCount,
+                        category: category || 'STANDARD',
+                    }}
+                />
+            )}
         </>
     );
 }

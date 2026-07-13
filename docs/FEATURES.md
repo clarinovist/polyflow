@@ -287,9 +287,18 @@ Production recipe management:
     }
   ]
 }
-```
+}
 
-#### 2. **Production Cycle Example**
+#### 2. **Duplicate BOM (Salin Formula)**
+Copy an existing recipe to a new product variant with optional quantity scaling:
+
+- **Entry point:** "Duplikat Formula" menu in BOM list actions / detail page button
+- **Scale factor:** Multiply all ingredient quantities by a scale (e.g., 0.9 = 90%)
+- **Scrap %:** Preserved unchanged from source
+- **Default handling:** Automatically unsets previous default BOM on target variant
+- **Audit:** Logged as `DUPLICATE_BOM` with source + scale details
+
+#### 3. **Production Cycle Example**
 
 **Stage 1: Mixing**
 
