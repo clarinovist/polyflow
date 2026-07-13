@@ -10,6 +10,9 @@ import {
   createBulkJournalEntries,
   getJournals,
   getJournalById,
+  buildDirectLaborLines,
+  createDirectLaborJournal,
+  updateDirectLaborJournal,
 } from "@/services/accounting/journals-service";
 import { prisma } from "@/lib/core/prisma";
 import { isPeriodOpen } from "@/services/accounting/periods-service";
@@ -36,8 +39,14 @@ vi.mock("@/lib/core/prisma", () => ({
       count: vi.fn().mockResolvedValue(0),
     },
     journalLine: {
+      createMany: vi.fn(),
       deleteMany: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
+    },
+    journalEntryDetail: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
     account: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -117,6 +126,10 @@ describe("JournalsService", () => {
     vi.mocked(prisma.account.findMany).mockResolvedValue([]);
     // Default: period is open
     vi.mocked(isPeriodOpen).mockResolvedValue(true);
+    // Reset $transaction to default callback (clears mockRejectedValue overrides)
+    vi.mocked(prisma.$transaction).mockImplementation(
+      (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma),
+    );
     // Reset mocks whose implementations get overridden by individual tests
     // (clearAllMocks does NOT reset implementations)
     vi.mocked(prisma.account.findMany).mockResolvedValue([]);
@@ -1537,6 +1550,7 @@ describe("JournalsService", () => {
         where: { id: "je-1" },
         include: {
           lines: { include: { account: true } },
+          details: { orderBy: { sortOrder: "asc" } },
           createdBy: { select: { name: true } },
           approvedBy: { select: { name: true } },
         },
@@ -1552,6 +1566,245 @@ describe("JournalsService", () => {
 
       // Assert
       expect(result).toBeNull();
+    });
+  });
+
+  // ========================================================================
+  // buildDirectLaborLines
+  // ========================================================================
+  describe("buildDirectLaborLines", () => {
+    it("generates 2 balanced lines from detail rows", () => {
+      const input = {
+        entryDate: new Date(2026, 6, 4),
+        description: "BERITA ACARA CASH OPNAME 04 JULI 2026",
+        debitAccountId: "acc-debit",
+        creditAccountId: "acc-credit",
+        details: [
+          { description: "Triyono", amount: 836500 },
+          { description: "Supri", amount: 1076500 },
+          { description: "Respati", amount: 440000 },
+        ],
+      };
+
+      const lines = buildDirectLaborLines(input);
+
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toEqual({
+        accountId: "acc-debit",
+        debit: 2353000,
+        credit: 0,
+        description: "BERITA ACARA CASH OPNAME 04 JULI 2026",
+      });
+      expect(lines[1]).toEqual({
+        accountId: "acc-credit",
+        debit: 0,
+        credit: 2353000,
+        description: "Pembayaran BERITA ACARA CASH OPNAME 04 JULI 2026",
+      });
+    });
+
+    it("returns zero totals for empty details", () => {
+      const input = {
+        entryDate: new Date(2026, 6, 4),
+        description: "Empty",
+        debitAccountId: "acc-d",
+        creditAccountId: "acc-c",
+        details: [],
+      };
+
+      const lines = buildDirectLaborLines(input);
+      expect(lines[0].debit).toBe(0);
+      expect(lines[1].credit).toBe(0);
+    });
+  });
+
+  // ========================================================================
+  // createDirectLaborJournal
+  // ========================================================================
+  describe("createDirectLaborJournal", () => {
+    const makeDLInput = (overrides?: Record<string, unknown>) => ({
+      entryDate: new Date(2026, 6, 4),
+      description: "BERITA ACARA CASH OPNAME 04 JULI 2026",
+      reference: "BKK-16/07/26",
+      debitAccountId: "acc-debit",
+      creditAccountId: "acc-credit",
+      details: [
+        { description: "Triyono", amount: 836500 },
+        { description: "Supri", amount: 1076500 },
+      ],
+      ...overrides,
+    });
+
+    it("creates journal with 2 GL lines and detail rows", async () => {
+      const input = makeDLInput();
+      setupSequenceForYear(2026);
+
+      const mockCreated = {
+        id: "je-dl-1",
+        entryNumber: "JE - 2026 -00001",
+        entryDate: input.entryDate,
+        description: input.description,
+        lines: [
+          { accountId: "acc-debit", debit: 1913000, credit: 0 },
+          { accountId: "acc-credit", debit: 0, credit: 1913000 },
+        ],
+        details: [
+          { type: "DIRECT_LABOR", description: "Triyono", amount: 836500, sortOrder: 0 },
+          { type: "DIRECT_LABOR", description: "Supri", amount: 1076500, sortOrder: 1 },
+        ],
+      };
+      vi.mocked(prisma.journalEntry.create).mockResolvedValue(mockCreated as never);
+
+      const result = await createDirectLaborJournal(input, "user-1");
+
+      expect(result.id).toBe("je-dl-1");
+      expect(prisma.journalEntry.create).toHaveBeenCalledTimes(1);
+
+      // Verify the create call includes both lines and details
+      const createCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = createCall.data as any;
+      expect(data.lines.create).toHaveLength(2);
+      expect(data.details.create).toHaveLength(2);
+      expect(data.details.create[0]).toMatchObject({
+        type: "DIRECT_LABOR",
+        description: "Triyono",
+        amount: 836500,
+        sortOrder: 0,
+      });
+    });
+
+    it("rejects control accounts (AR code 112*)", async () => {
+      const input = makeDLInput({ debitAccountId: "acc-ar" });
+
+      // Mock account.findMany to return a control account
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        { id: "acc-ar", code: "11210", name: "Piutang Dagang" },
+      ] as never);
+
+      await expect(createDirectLaborJournal(input, "user-1")).rejects.toThrow(
+        "Control Accounts"
+      );
+    });
+
+    it("rejects closed fiscal period", async () => {
+      const input = makeDLInput();
+      vi.mocked(isPeriodOpen).mockResolvedValue(false);
+
+      await expect(createDirectLaborJournal(input, "user-1")).rejects.toThrow(
+        "closed fiscal period"
+      );
+    });
+
+    it("buildDirectLaborLines always produces balanced output", () => {
+      const input = makeDLInput({ details: [] });
+      const lines = buildDirectLaborLines(input);
+      const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+      const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+      expect(Math.abs(totalDebit - totalCredit)).toBeLessThan(0.01);
+    });
+  });
+
+  // ========================================================================
+  // updateDirectLaborJournal
+  // ========================================================================
+  describe("updateDirectLaborJournal", () => {
+    const makeDLInput = (overrides?: Record<string, unknown>) => ({
+      entryDate: new Date(2026, 6, 4),
+      description: "Updated Description",
+      reference: "BKK-17/07/26",
+      debitAccountId: "acc-debit",
+      creditAccountId: "acc-credit",
+      details: [
+        { description: "Triyono", amount: 900000 },
+        { description: "Supri", amount: 1100000 },
+      ],
+      ...overrides,
+    });
+
+    it("updates DRAFT journal atomically (lines + details)", async () => {
+      const input = makeDLInput();
+
+      vi.mocked(prisma.journalEntry.findUnique)
+        .mockResolvedValueOnce({
+          id: "je-dl-1",
+          status: JournalStatus.DRAFT,
+          isAutoGenerated: false,
+          lines: [{ accountId: "acc-old", debit: 1000000, credit: 0 }],
+          details: [{ id: "d1", type: "DIRECT_LABOR" }],
+        } as never)
+        .mockResolvedValueOnce({
+          id: "je-dl-1",
+          entryNumber: "JE - 2026 -00001",
+          lines: [
+            { accountId: "acc-debit", debit: 2000000, credit: 0 },
+            { accountId: "acc-credit", debit: 0, credit: 2000000 },
+          ],
+          details: [
+            { type: "DIRECT_LABOR", description: "Triyono", amount: 900000, sortOrder: 0 },
+            { type: "DIRECT_LABOR", description: "Supri", amount: 1100000, sortOrder: 1 },
+          ],
+        } as never);
+
+      const result = await updateDirectLaborJournal("je-dl-1", input, "user-1");
+
+      expect(result?.id).toBe("je-dl-1");
+      // Verify old lines/details were deleted
+      expect(prisma.journalLine.deleteMany).toHaveBeenCalledWith({
+        where: { journalEntryId: "je-dl-1" },
+      });
+      expect(prisma.journalEntryDetail.deleteMany).toHaveBeenCalledWith({
+        where: { journalEntryId: "je-dl-1" },
+      });
+      // Verify new lines/details were created
+      expect(prisma.journalLine.createMany).toHaveBeenCalledTimes(1);
+      expect(prisma.journalEntryDetail.createMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects update on non-DRAFT journal", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-dl-1",
+        status: JournalStatus.POSTED,
+        isAutoGenerated: false,
+        lines: [],
+        details: [],
+      } as never);
+
+      await expect(
+        updateDirectLaborJournal("je-dl-1", makeDLInput(), "user-1")
+      ).rejects.toThrow("DRAFT");
+    });
+
+    it("rejects update on auto-generated journal", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-dl-1",
+        status: JournalStatus.DRAFT,
+        isAutoGenerated: true,
+        lines: [],
+        details: [],
+      } as never);
+
+      await expect(
+        updateDirectLaborJournal("je-dl-1", makeDLInput(), "user-1")
+      ).rejects.toThrow("otomatis");
+    });
+
+    it("rejects control accounts on update", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-dl-1",
+        status: JournalStatus.DRAFT,
+        isAutoGenerated: false,
+        lines: [],
+        details: [],
+      } as never);
+
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        { id: "acc-inv", code: "11300", name: "Persediaan" },
+      ] as never);
+
+      await expect(
+        updateDirectLaborJournal("je-dl-1", makeDLInput({ creditAccountId: "acc-inv" }), "user-1")
+      ).rejects.toThrow("Control Accounts");
     });
   });
 });

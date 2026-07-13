@@ -4,6 +4,8 @@ import { withTenant } from "@/lib/core/tenant";
 import {
   manualJournalSchema,
   ManualJournalValues,
+  directLaborJournalSchema,
+  DirectLaborJournalValues,
 } from "@/lib/schemas/journal";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
@@ -274,6 +276,130 @@ export const updateManualJournal = withTenant(
       } catch (error) {
         throw new BusinessRuleError(
           error instanceof Error ? error.message : "Failed to update journal",
+        );
+      }
+    });
+  },
+);
+
+// --- Direct Labor Journal Actions ---
+
+export const createDirectLaborJournalAction = withTenant(
+  async function createDirectLaborJournalAction(
+    data: DirectLaborJournalValues,
+    post: boolean = false,
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Validate Input
+      const validation = directLaborJournalSchema.safeParse(data);
+      if (!validation.success) {
+        throw new ValidationError(validation.error.issues[0].message);
+      }
+
+      try {
+        const result = await AccountingService.createDirectLaborJournal(
+          {
+            entryDate: data.entryDate,
+            description: data.description,
+            reference: data.reference ?? "",
+            debitAccountId: data.debitAccountId,
+            creditAccountId: data.creditAccountId,
+            details: data.details,
+          },
+          session.user.id,
+        );
+
+        if (post && result?.id) {
+          await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        await logActivity({
+          userId: session.user.id,
+          action: post
+            ? "CREATE_AND_POST_DIRECT_LABOR_JOURNAL"
+            : "CREATE_DIRECT_LABOR_JOURNAL",
+          entityType: "JournalEntry",
+          entityId: result?.id ?? "",
+          details: `Created direct labor journal ${result?.entryNumber}`,
+        });
+
+        revalidatePath("/finance/journals");
+        revalidatePath("/finance/reports/balance-sheet");
+        revalidatePath("/finance/reports/trial-balance");
+
+        return {
+          message: `Direct labor journal ${post ? "created and posted" : "saved as draft"} successfully`,
+          id: result?.id,
+        };
+      } catch (error) {
+        throw new BusinessRuleError(
+          error instanceof Error
+            ? error.message
+            : "Failed to create direct labor journal",
+        );
+      }
+    });
+  },
+);
+
+export const updateDirectLaborJournalAction = withTenant(
+  async function updateDirectLaborJournalAction(
+    id: string,
+    data: DirectLaborJournalValues,
+    post: boolean = false,
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Validate Input
+      const validation = directLaborJournalSchema.safeParse(data);
+      if (!validation.success) {
+        throw new ValidationError(validation.error.issues[0].message);
+      }
+
+      try {
+        const result = await AccountingService.updateDirectLaborJournal(
+          id,
+          {
+            entryDate: data.entryDate,
+            description: data.description,
+            reference: data.reference ?? "",
+            debitAccountId: data.debitAccountId,
+            creditAccountId: data.creditAccountId,
+            details: data.details,
+          },
+          session.user.id,
+        );
+
+        if (post && result?.id) {
+          await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        await logActivity({
+          userId: session.user.id,
+          action: post
+            ? "UPDATE_AND_POST_DIRECT_LABOR_JOURNAL"
+            : "UPDATE_DIRECT_LABOR_JOURNAL",
+          entityType: "JournalEntry",
+          entityId: id,
+          details: `Updated direct labor journal ${result?.entryNumber}`,
+        });
+
+        revalidatePath("/finance/journals");
+        revalidatePath(`/finance/journals/${id}`);
+        revalidatePath("/finance/reports/balance-sheet");
+        revalidatePath("/finance/reports/trial-balance");
+
+        return {
+          message: `Direct labor journal ${post ? "updated and posted" : "updated"} successfully`,
+        };
+      } catch (error) {
+        throw new BusinessRuleError(
+          error instanceof Error
+            ? error.message
+            : "Failed to update direct labor journal",
         );
       }
     });

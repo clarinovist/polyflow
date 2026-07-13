@@ -2,6 +2,7 @@ import { getJournalById } from '@/actions/finance/journal';
 import { getChartOfAccounts } from '@/actions/finance/accounting';
 import { notFound, redirect } from 'next/navigation';
 import ManualJournalForm from '@/components/finance/accounting/manual-journal-form';
+import DirectLaborJournalForm from '@/components/finance/accounting/direct-labor-journal-form';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,8 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
 
     // Load journal
     const journalRes = await getJournalById(id);
-    const journal = journalRes.success && journalRes.data ? journalRes.data : null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const journal: any = journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -31,12 +33,68 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
     const accountsRes = await getChartOfAccounts();
     const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
-    // Prepare default values for the form
+    // Check if this is a direct labor journal (has details with type DIRECT_LABOR)
+    const isDirectLabor = journal.details && journal.details.length > 0
+        && journal.details.some((d: { type: string }) => d.type === 'DIRECT_LABOR');
+
+    if (isDirectLabor) {
+        // Find debit/credit accounts from the journal lines
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const debitLine = journal.lines.find((l: any) => Number(l.debit) > 0);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const creditLine = journal.lines.find((l: any) => Number(l.credit) > 0);
+
+        const defaultValues = {
+            entryDate: new Date(journal.entryDate),
+            description: journal.description,
+            reference: journal.reference || '',
+            debitAccountId: debitLine?.accountId || '',
+            creditAccountId: creditLine?.accountId || '',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            details: journal.details.map((d: any) => ({
+                description: d.description,
+                amount: Number(d.amount),
+            })),
+        };
+
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                    <Link href={`/finance/journals/${id}`}>
+                        <Button variant="outline" size="icon">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight">
+                                Edit Journal Entry #{journal.entryNumber}
+                            </h1>
+                            <p className="text-muted-foreground">
+                                Ubah detail jurnal tenaga kerja sebelum posting
+                            </p>
+                        </div>
+                        <Badge variant="secondary">{journal.status}</Badge>
+                    </div>
+                </div>
+
+                <DirectLaborJournalForm
+                    accounts={accounts}
+                    mode="edit"
+                    journalId={id}
+                    defaultValues={defaultValues}
+                />
+            </div>
+        );
+    }
+
+    // Default: render manual journal form
     const defaultValues = {
         entryDate: new Date(journal.entryDate),
         description: journal.description,
         reference: journal.reference || '',
-        lines: journal.lines.map((line) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        lines: journal.lines.map((line: any) => ({
             accountId: line.accountId,
             description: line.description || '',
             debit: Number(line.debit),

@@ -24,3 +24,26 @@ export const manualJournalSchema = z.object({
 });
 
 export type ManualJournalValues = z.infer<typeof manualJournalSchema>;
+
+// --- Direct Labor Journal Schema ---
+
+const journalDetailLineSchema = z.object({
+    description: z.string().min(1, "Nama pekerja wajib diisi"),
+    amount: z.coerce.number().positive("Nominal harus lebih dari 0"),
+});
+
+export const directLaborJournalSchema = z.object({
+    entryDate: z.date(),
+    description: z.string().min(3, "Description must be at least 3 characters"),
+    reference: z.string().optional(),
+    debitAccountId: z.string().min(1, "Akun biaya wajib dipilih"),
+    creditAccountId: z.string().min(1, "Akun pembayaran wajib dipilih"),
+    details: z.array(journalDetailLineSchema)
+        .min(1, "Minimal 1 detail pekerja")
+        .refine((details) => {
+            const total = details.reduce((sum, d) => sum + (d.amount || 0), 0);
+            return total > 0;
+        }, "Total nominal harus lebih dari 0"),
+});
+
+export type DirectLaborJournalValues = z.infer<typeof directLaborJournalSchema>;

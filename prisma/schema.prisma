@@ -960,6 +960,7 @@ model JournalEntry {
   approvedBy           User?                 @relation("JournalApprover", fields: [approvedById], references: [id])
   createdBy            User?                 @relation("JournalCreator", fields: [createdById], references: [id])
   lines                JournalLine[]
+  details              JournalEntryDetail[]
   pettyCashTransaction PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]
 
@@ -988,6 +989,23 @@ model JournalLine {
   @@index([journalEntryId])
   @@index([accountId])
   @@index([accountId, reconciledAt])
+}
+
+model JournalEntryDetail {
+  id             String      @id @default(cuid())
+  journalEntryId String
+  type           String      // e.g. DIRECT_LABOR
+  description    String
+  amount         Decimal     @db.Decimal(15, 2)
+  sortOrder      Int         @default(0)
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+  @@index([type])
 }
 
 model FiscalPeriod {

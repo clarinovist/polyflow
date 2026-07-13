@@ -17,6 +17,10 @@ export {
   reverseJournal,
   createBulkJournalEntries,
   updateDraftJournal,
+  createDirectLaborJournal,
+  updateDirectLaborJournal,
+  buildDirectLaborLines,
 } from "./journal-posting";
+export type { DirectLaborInput } from "./journal-posting";
 
 export { getJournals, getJournalById } from "./journal-queries";

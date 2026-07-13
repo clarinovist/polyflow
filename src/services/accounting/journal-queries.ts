@@ -52,6 +52,9 @@ export async function getJournalById(id: string) {
       lines: {
         include: { account: true },
       },
+      details: {
+        orderBy: { sortOrder: 'asc' },
+      },
       createdBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
     },

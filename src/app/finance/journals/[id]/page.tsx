@@ -19,7 +19,8 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
     const { id } = await params;
 
     const journalRes = await getJournalById(id);
-    const journal = journalRes.success && journalRes.data ? journalRes.data : null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const journal: any = journalRes.success && journalRes.data ? journalRes.data : null;
 
     if (!journal) {
         notFound();
@@ -47,8 +48,14 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
         partyLabel = 'Pemasok';
     }
 
-    const totalDebit = journal.lines.reduce((sum, line) => sum + Number(line.debit), 0);
-    const totalCredit = journal.lines.reduce((sum, line) => sum + Number(line.credit), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalDebit = journal.lines.reduce((sum: number, line: any) => sum + Number(line.debit), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalCredit = journal.lines.reduce((sum: number, line: any) => sum + Number(line.credit), 0);
+
+    // Check if this journal has detail entries (direct labor, etc.)
+    const hasDetails = journal.details && journal.details.length > 0;
+    const detailType = hasDetails ? journal.details[0].type : null;
 
     return (
         <div className="space-y-6">
@@ -95,7 +102,8 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {journal.lines.map((line) => (
+                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                    {journal.lines.map((line: any) => (
                                         <TableRow key={line.id}>
                                             <TableCell>
                                                 <div className="font-medium">{line.account.code}</div>
@@ -156,6 +164,51 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Detail Section — Direct Labor / Other Detail Types */}
+            {hasDetails && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>
+                            {detailType === 'DIRECT_LABOR' ? 'Rincian Tenaga Kerja Langsung' : 'Detail Rincian'}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[50px]">No</TableHead>
+                                        <TableHead>Nama / Keterangan</TableHead>
+                                        <TableHead className="text-right">Nominal</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                    {journal.details.map((detail: any) => (
+                                        <TableRow key={detail.id}>
+                                            <TableCell className="text-muted-foreground">
+                                                {detail.sortOrder + 1}
+                                            </TableCell>
+                                            <TableCell>{detail.description}</TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {formatRupiah(Number(detail.amount))}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/50 font-bold">
+                                        <TableCell colSpan={2} className="text-right">Total</TableCell>
+                                        <TableCell className="text-right">
+                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                            {formatRupiah(journal.details.reduce((sum: number, d: any) => sum + Number(d.amount), 0))}
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

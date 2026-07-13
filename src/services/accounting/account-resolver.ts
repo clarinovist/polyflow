@@ -47,7 +47,9 @@ export type AccountRole =
   // Phase 2.1: Bank reconciliation roles
   | "bank-charges"
   | "interest-income"
-  | "suspense-clearing";
+  | "suspense-clearing"
+  // Phase 3: Direct labor
+  | "direct-labor";
 
 interface AccountPattern {
   code?: string;
@@ -313,6 +315,15 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { nameContains: "Rekening Sementara" },
     { nameContains: "Suspense" },
     { nameContains: "Clearing" },
+  ],
+  // === Phase 3: Direct labor ===
+  "direct-labor": [
+    { code: "5-012b" },
+    { code: "5-012" },
+    { code: "51200" },
+    { nameContains: "Tenaga Kerja Langsung" },
+    { nameContains: "Direct Labor" },
+    { nameContains: "Upah Tenaga Kerja" },
   ],
 };
 

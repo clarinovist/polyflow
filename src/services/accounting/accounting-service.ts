@@ -9,7 +9,9 @@ import {
     updateDraftJournal,
     getJournals,
     getJournalById,
-    createYearEndClosingEntry
+    createYearEndClosingEntry,
+    createDirectLaborJournal,
+    updateDirectLaborJournal,
 } from './journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement, closePeriod } from './reports-service';
@@ -65,6 +67,34 @@ export class AccountingService {
         lines: { accountId: string; debit: number; credit: number; description?: string }[];
     }, userId?: string) {
         return updateDraftJournal(id, input, userId);
+    }
+
+    /**
+     * Create a Direct Labor journal: 2 GL lines + detail table (atomic).
+     */
+    static async createDirectLaborJournal(input: {
+        entryDate: Date;
+        description: string;
+        reference?: string;
+        debitAccountId: string;
+        creditAccountId: string;
+        details: { description: string; amount: number }[];
+    }, userId?: string) {
+        return createDirectLaborJournal(input, userId);
+    }
+
+    /**
+     * Update a DRAFT Direct Labor journal (atomic replace lines + details).
+     */
+    static async updateDirectLaborJournal(id: string, input: {
+        entryDate: Date;
+        description: string;
+        reference?: string;
+        debitAccountId: string;
+        creditAccountId: string;
+        details: { description: string; amount: number }[];
+    }, userId?: string) {
+        return updateDirectLaborJournal(id, input, userId);
     }
 
     static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
