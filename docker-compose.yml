@@ -16,6 +16,10 @@ services:
       - SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-0}
     depends_on:
       - db
+    volumes:
+      # Persist pre-migration DB snapshots (survives container recreate).
+      # Host dir must be owned by uid 1001 (nextjs) so the app can write.
+      - /opt/backups/polyflow-premigration:/app/backups
     networks:
       - default
       - ceritakita-network
