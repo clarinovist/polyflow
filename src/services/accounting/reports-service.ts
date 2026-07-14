@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { createJournalEntry } from './journals-service';
 import { resolveAccount } from './account-resolver';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { toBusinessDateString } from '@/lib/utils/timezone';
 
 export async function getTrialBalance(startDate?: Date, endDate?: Date) {
     const accounts = await prisma.account.findMany({
@@ -325,8 +326,8 @@ export async function getBalanceSheet(asOfDate: Date) {
  * Idempotent: skips if closing entry already exists for the period.
  */
 export async function closePeriod(periodEndDate: Date, userId: string) {
-    const year = periodEndDate.getFullYear();
-    const month = periodEndDate.getMonth() + 1;
+    const dateStr = toBusinessDateString(periodEndDate); // "YYYY-MM-DD" in WIB
+    const [year, month] = dateStr.split('-').map(Number);
     const periodRef = `CLOSING-${year}-${String(month).padStart(2, '0')}`;
 
     // Check if closing entry already exists

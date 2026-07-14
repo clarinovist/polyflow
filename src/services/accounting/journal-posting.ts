@@ -4,6 +4,7 @@ import type { CreateJournalEntryInput } from "./types";
 import type { DetailJournalDirection } from "@/lib/config/detail-journal-templates";
 import { isPeriodOpen } from "@/services/accounting/periods-service";
 import { NotFoundError, BusinessRuleError } from "@/lib/errors/errors";
+import { toBusinessDateString } from "@/lib/utils/timezone";
 
 export async function createJournalEntry(
   input: CreateJournalEntryInput,
@@ -566,7 +567,9 @@ async function generateEntryNumber(
 ): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = (tx || prisma) as any;
-  const year = date.getFullYear();
+  // Use WIB calendar year to match the user's intended date, not UTC
+  const dateStr = toBusinessDateString(date); // "YYYY-MM-DD" in WIB
+  const year = parseInt(dateStr.split('-')[0], 10);
   const key = `JOURNAL_ENTRY_${year}`;
   const MAX_RETRIES = 5;
 

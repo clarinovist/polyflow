@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/core/prisma";
+import { toBusinessDateString } from "@/lib/utils/timezone";
 
 export async function getFiscalPeriods() {
   return await prisma.fiscalPeriod.findMany({
@@ -42,13 +43,28 @@ export async function closeFiscalPeriod(id: string, userId: string) {
 
 import { Prisma } from "@prisma/client";
 
+/**
+ * Extract the calendar date in WIB (Asia/Jakarta, UTC+7) from a Date object.
+ *
+ * Problem: Dates serialized from the browser via Next.js server actions are
+ * stored as UTC ISO strings. A user in WIB picking "July 1" gets serialized as
+ * "2026-06-30T17:00:00.000Z" (June 30 in UTC). Using getFullYear/getMonth on
+ * the server (UTC) gives the wrong calendar date.
+ *
+ * Fix: Use Intl.DateTimeFormat with Asia/Jakarta to extract the correct
+ * calendar date regardless of server timezone.
+ */
+function getWibDateComponents(date: Date): { year: number; month: number } {
+  const dateStr = toBusinessDateString(date); // "YYYY-MM-DD" in WIB
+  const [year, month] = dateStr.split('-').map(Number);
+  return { year, month };
+}
+
 export async function isPeriodOpen(
   date: Date,
   tx?: Prisma.TransactionClient,
 ): Promise<boolean> {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
+  const { year, month } = getWibDateComponents(date);
   const db = tx || prisma;
 
   const period = await db.fiscalPeriod.findUnique({
