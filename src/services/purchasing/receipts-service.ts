@@ -6,6 +6,7 @@ import { MovementType, PurchaseOrderStatus, Prisma } from '@prisma/client';
 import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
     const year = new Date().getFullYear();
@@ -201,4 +202,210 @@ export async function getGoodsReceipts(filter?: { startDate?: Date, endDate?: Da
         },
         orderBy: { receivedDate: 'desc' } // Changed to receivedDate for better filtering context
     });
+}
+
+/**
+ * Reverse a GoodsReceipt: decrement inventory, delete stock movements + journal entries,
+ * reset PO items receivedQty, and recalculate PO status.
+ *
+ * Called when a Purchase Invoice is deleted (cascading revert).
+ * Must be called within a transaction or will create its own.
+ */
+export async function reverseGoodsReceipt(
+    goodsReceiptId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+) {
+    const run = async (db: Prisma.TransactionClient) => {
+        const gr = await db.goodsReceipt.findUnique({
+            where: { id: goodsReceiptId },
+            include: {
+                items: true,
+                movements: true,
+                purchaseOrder: {
+                    include: { items: true },
+                },
+            },
+        });
+
+        if (!gr) {
+            throw new BusinessRuleError(`GoodsReceipt ${goodsReceiptId} not found`);
+        }
+
+        // 1. Reverse inventory + delete stock movements + journal entries
+        for (const movement of gr.movements) {
+            // Find and delete the journal entry created by recordInventoryMovement
+            // (referenceType: 'GOODS_RECEIPT', referenceId: movement.id)
+            const journalEntry = await db.journalEntry.findFirst({
+                where: {
+                    referenceId: movement.id,
+                    referenceType: 'GOODS_RECEIPT',
+                },
+            });
+
+            if (journalEntry) {
+                // Delete journal lines first (cascade should handle this, but be explicit)
+                await db.journalLine.deleteMany({
+                    where: { journalEntryId: journalEntry.id },
+                });
+                await db.journalEntry.delete({
+                    where: { id: journalEntry.id },
+                });
+            }
+
+            // Delete CostHistory entries linked to this GR
+            await db.costHistory.deleteMany({
+                where: { referenceId: goodsReceiptId },
+            });
+
+            // Decrement inventory
+            if (movement.toLocationId) {
+                const qty = Number(movement.quantity);
+                if (qty > 0) {
+                    const inv = await db.inventory.findUnique({
+                        where: {
+                            locationId_productVariantId: {
+                                locationId: movement.toLocationId,
+                                productVariantId: movement.productVariantId,
+                            },
+                        },
+                    });
+
+                    if (inv) {
+                        const currentQty = Number(inv.quantity);
+                        if (currentQty < qty) {
+                            logger.warn(
+                                `Cannot fully reverse stock movement: current qty ${currentQty} < reversal qty ${qty}`,
+                                { movementId: movement.id, module: 'ReverseGR' },
+                            );
+                            // Set to 0 instead of going negative
+                            await db.inventory.update({
+                                where: {
+                                    locationId_productVariantId: {
+                                        locationId: movement.toLocationId,
+                                        productVariantId: movement.productVariantId,
+                                    },
+                                },
+                                data: { quantity: 0 },
+                            });
+                        } else {
+                            await db.inventory.update({
+                                where: {
+                                    locationId_productVariantId: {
+                                        locationId: movement.toLocationId,
+                                        productVariantId: movement.productVariantId,
+                                    },
+                                },
+                                data: { quantity: { decrement: qty } },
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Delete the stock movement
+            await db.stockMovement.delete({
+                where: { id: movement.id },
+            });
+        }
+
+        // 2. Reset PO items receivedQty
+        if (gr.purchaseOrderId && gr.purchaseOrder) {
+            for (const grItem of gr.items) {
+                const poItem = gr.purchaseOrder.items.find(
+                    (pi) => pi.productVariantId === grItem.productVariantId,
+                );
+                if (poItem) {
+                    const newReceivedQty = Math.max(
+                        0,
+                        Number(poItem.receivedQty) - Number(grItem.receivedQty),
+                    );
+                    await db.purchaseOrderItem.update({
+                        where: { id: poItem.id },
+                        data: { receivedQty: newReceivedQty },
+                    });
+                }
+            }
+
+            // 3. Recalculate PO status
+            const updatedItems = await db.purchaseOrderItem.findMany({
+                where: { purchaseOrderId: gr.purchaseOrderId },
+            });
+            const allReceived = updatedItems.every(
+                (item) => Number(item.receivedQty) >= Number(item.quantity),
+            );
+            const partialReceived = updatedItems.some(
+                (item) => Number(item.receivedQty) > 0,
+            );
+
+            let status: PurchaseOrderStatus;
+            if (allReceived) {
+                status = PurchaseOrderStatus.RECEIVED;
+            } else if (partialReceived) {
+                status = PurchaseOrderStatus.PARTIAL_RECEIVED;
+            } else {
+                // No items received — revert to SENT (the state before GR was created)
+                status = PurchaseOrderStatus.SENT;
+            }
+
+            await db.purchaseOrder.update({
+                where: { id: gr.purchaseOrderId },
+                data: { status },
+            });
+        }
+
+        // 4. Delete GR items (cascade should handle this, but be explicit)
+        await db.goodsReceiptItem.deleteMany({
+            where: { goodsReceiptId },
+        });
+
+        // 5. Delete the GoodsReceipt
+        await db.goodsReceipt.delete({
+            where: { id: goodsReceiptId },
+        });
+
+        await logActivity({
+            userId,
+            action: 'REVERSE_GOODS_RECEIPT',
+            entityType: 'GoodsReceipt',
+            entityId: goodsReceiptId,
+            details: `Reversed GR ${gr.receiptNumber}${gr.purchaseOrder ? ` for PO ${gr.purchaseOrder.orderNumber}` : ''}`,
+            tx: db,
+        });
+
+        return { success: true, receiptNumber: gr.receiptNumber };
+    };
+
+    if (tx) {
+        return run(tx);
+    }
+    return prisma.$transaction(run);
+}
+
+/**
+ * Reverse ALL GoodsReceipts for a PurchaseOrder.
+ * Used when a Purchase Invoice is deleted to cascade-revert PO state.
+ */
+export async function reverseAllGoodsReceiptsForPO(
+    purchaseOrderId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+) {
+    const run = async (db: Prisma.TransactionClient) => {
+        const receipts = await db.goodsReceipt.findMany({
+            where: { purchaseOrderId },
+            select: { id: true, receiptNumber: true },
+        });
+
+        for (const receipt of receipts) {
+            await reverseGoodsReceipt(receipt.id, userId, db);
+        }
+
+        return { reversedCount: receipts.length };
+    };
+
+    if (tx) {
+        return run(tx);
+    }
+    return prisma.$transaction(run);
 }

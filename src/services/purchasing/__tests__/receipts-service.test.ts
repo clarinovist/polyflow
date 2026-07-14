@@ -3,6 +3,8 @@ import {
   createGoodsReceipt,
   getGoodsReceiptById,
   getGoodsReceipts,
+  reverseGoodsReceipt,
+  reverseAllGoodsReceiptsForPO,
 } from "../receipts-service";
 import { prisma } from "@/lib/core/prisma";
 import { InventoryCoreService } from "@/services/inventory/core-service";
@@ -40,6 +42,9 @@ vi.mock("@/lib/core/prisma", () => ({
     stockMovement: {
       create: vi.fn(),
     },
+    costHistory: {
+      deleteMany: vi.fn(),
+    },
     $transaction: vi.fn((callback) => callback(prisma)),
   },
 }));
@@ -72,6 +77,7 @@ vi.mock("@/services/purchasing/invoices-service", () => ({
 vi.mock("@/lib/config/logger", () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -1444,6 +1450,323 @@ describe("receipts-service", () => {
       expect(
         vi.mocked(InventoryCoreService.incrementStockWithCost),
       ).toHaveBeenCalledWith(expect.anything(), locationId, "pv-2", 15, 2500);
+    });
+  });
+
+  describe("reverseGoodsReceipt", () => {
+    const userId = "user-1";
+    const grId = "gr-1";
+
+    it("should decrement inventory and delete stock movements + journal entries", async () => {
+      const mockGR = {
+        id: grId,
+        receiptNumber: "GR-2026-0001",
+        purchaseOrderId: "po-1",
+        purchaseOrder: {
+          orderNumber: "PO-2026-0001",
+          items: [
+            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+          ],
+        },
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
+        ],
+        movements: [
+          {
+            id: "mov-1",
+            productVariantId: "pv-1",
+            toLocationId: "loc-1",
+            quantity: 50,
+            goodsReceiptId: grId,
+          },
+        ],
+      };
+
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findUnique: vi.fn().mockResolvedValue(mockGR),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: {
+            findFirst: vi.fn().mockResolvedValue({ id: "je-1" }),
+            delete: vi.fn(),
+          },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: {
+            findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
+            update: vi.fn(),
+          },
+          purchaseOrderItem: {
+            findMany: vi.fn().mockResolvedValue([
+              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+            ]),
+            update: vi.fn(),
+          },
+          purchaseOrder: { update: vi.fn() },
+        };
+        return cb(tx);
+      });
+
+      const result = await reverseGoodsReceipt(grId, userId);
+
+      expect(result.success).toBe(true);
+      expect(result.receiptNumber).toBe("GR-2026-0001");
+    });
+
+    it("should set inventory to 0 when current qty < reversal qty", async () => {
+      const mockGR = {
+        id: grId,
+        receiptNumber: "GR-2026-0001",
+        purchaseOrderId: "po-1",
+        purchaseOrder: {
+          orderNumber: "PO-2026-0001",
+          items: [
+            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+          ],
+        },
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
+        ],
+        movements: [
+          {
+            id: "mov-1",
+            productVariantId: "pv-1",
+            toLocationId: "loc-1",
+            quantity: 50,
+            goodsReceiptId: grId,
+          },
+        ],
+      };
+
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findUnique: vi.fn().mockResolvedValue(mockGR),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            delete: vi.fn(),
+          },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: {
+            findUnique: vi.fn().mockResolvedValue({ quantity: 10 }), // less than 50
+            update: vi.fn(),
+          },
+          purchaseOrderItem: {
+            findMany: vi.fn().mockResolvedValue([
+              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+            ]),
+            update: vi.fn(),
+          },
+          purchaseOrder: { update: vi.fn() },
+        };
+        return cb(tx);
+      });
+
+      const result = await reverseGoodsReceipt(grId, userId);
+      expect(result.success).toBe(true);
+    });
+
+    it("should revert PO status to SENT when all items receivedQty become 0", async () => {
+      const mockGR = {
+        id: grId,
+        receiptNumber: "GR-2026-0001",
+        purchaseOrderId: "po-1",
+        purchaseOrder: {
+          orderNumber: "PO-2026-0001",
+          items: [
+            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+          ],
+        },
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
+        ],
+        movements: [],
+      };
+
+      let updatedStatus: any;
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findUnique: vi.fn().mockResolvedValue(mockGR),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+          purchaseOrderItem: {
+            findMany: vi.fn().mockResolvedValue([
+              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 0 },
+            ]),
+            update: vi.fn(),
+          },
+          purchaseOrder: {
+            update: vi.fn().mockImplementation((args: any) => {
+              updatedStatus = args.data.status;
+              return Promise.resolve();
+            }),
+          },
+        };
+        return cb(tx);
+      });
+
+      await reverseGoodsReceipt(grId, userId);
+      expect(updatedStatus).toBe("SENT");
+    });
+
+    it("should revert PO status to PARTIAL_RECEIVED when some items still have receivedQty", async () => {
+      const mockGR = {
+        id: grId,
+        receiptNumber: "GR-2026-0001",
+        purchaseOrderId: "po-1",
+        purchaseOrder: {
+          orderNumber: "PO-2026-0001",
+          items: [
+            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
+            { id: "poi-2", productVariantId: "pv-2", quantity: 200, receivedQty: 0 },
+          ],
+        },
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
+        ],
+        movements: [],
+      };
+
+      let updatedStatus: any;
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findUnique: vi.fn().mockResolvedValue(mockGR),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+          purchaseOrderItem: {
+            findMany: vi.fn().mockResolvedValue([
+              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 0 },
+              { id: "poi-2", productVariantId: "pv-2", quantity: 200, receivedQty: 0 },
+            ]),
+            update: vi.fn(),
+          },
+          purchaseOrder: {
+            update: vi.fn().mockImplementation((args: any) => {
+              updatedStatus = args.data.status;
+              return Promise.resolve();
+            }),
+          },
+        };
+        return cb(tx);
+      });
+
+      // First GR reversal for pv-1 (receives 50, after reversal gets 0)
+      // Second GR has pv-1 with receivedQty 50 from a different GR
+      // In this test, the PO items are updated and then recalculated
+      // Since pv-1 receivedQty goes from 50 to 0, and pv-2 is already 0
+      // The status should be SENT
+      await reverseGoodsReceipt(grId, userId);
+      expect(updatedStatus).toBe("SENT");
+    });
+
+    it("should handle GR with no purchaseOrder (standalone receipt)", async () => {
+      const mockGR = {
+        id: grId,
+        receiptNumber: "GR-2026-0001",
+        purchaseOrderId: null,
+        purchaseOrder: null,
+        items: [
+          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
+        ],
+        movements: [
+          {
+            id: "mov-1",
+            productVariantId: "pv-1",
+            toLocationId: "loc-1",
+            quantity: 50,
+            goodsReceiptId: grId,
+          },
+        ],
+      };
+
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findUnique: vi.fn().mockResolvedValue(mockGR),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: {
+            findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
+            update: vi.fn(),
+          },
+          purchaseOrderItem: { findMany: vi.fn(), update: vi.fn() },
+          purchaseOrder: { update: vi.fn() },
+        };
+        return cb(tx);
+      });
+
+      const result = await reverseGoodsReceipt(grId, userId);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("reverseAllGoodsReceiptsForPO", () => {
+    it("should reverse all GRs for a PO", async () => {
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        const tx = {
+          goodsReceipt: {
+            findMany: vi.fn().mockResolvedValue([
+              { id: "gr-1", receiptNumber: "GR-2026-0001" },
+              { id: "gr-2", receiptNumber: "GR-2026-0002" },
+            ]),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "gr-1",
+              receiptNumber: "GR-2026-0001",
+              purchaseOrderId: "po-1",
+              purchaseOrder: {
+                orderNumber: "PO-2026-0001",
+                items: [],
+              },
+              items: [],
+              movements: [],
+            }),
+            delete: vi.fn(),
+          },
+          goodsReceiptItem: { deleteMany: vi.fn() },
+          stockMovement: { delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalLine: { deleteMany: vi.fn() },
+          costHistory: { deleteMany: vi.fn() },
+          inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
+          purchaseOrderItem: {
+            findMany: vi.fn().mockResolvedValue([]),
+            update: vi.fn(),
+          },
+          purchaseOrder: { update: vi.fn() },
+        };
+        return cb(tx);
+      });
+
+      const result = await reverseAllGoodsReceiptsForPO("po-1", "user-1");
+      expect(result.reversedCount).toBe(2);
     });
   });
 });

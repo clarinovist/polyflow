@@ -312,7 +312,19 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
           // 3. Delete Payment records
           await tx.payment.deleteMany({ where: { purchaseInvoiceId: id } });
 
-          // 4. Delete Invoice
+          // 4. Reverse GoodsReceipts for linked PO (cascading revert)
+          if (invoice.purchaseOrderId) {
+            const { reverseAllGoodsReceiptsForPO } = await import(
+              "@/services/purchasing/receipts-service"
+            );
+            await reverseAllGoodsReceiptsForPO(
+              invoice.purchaseOrderId,
+              session.user.id,
+              tx,
+            );
+          }
+
+          // 5. Delete Invoice
           await tx.purchaseInvoice.delete({ where: { id } });
         }
       });
@@ -328,6 +340,8 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
       revalidatePath("/sales/invoices");
       revalidatePath("/finance/payables");
       revalidatePath("/finance/reports/balance-sheet");
+      revalidatePath("/purchasing/orders");
+      revalidatePath("/warehouse/inventory");
       return { message: "Invoice deleted successfully" };
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
