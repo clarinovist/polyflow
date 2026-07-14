@@ -397,6 +397,7 @@ export const updateProductionOrder = withTenant(
 
         revalidatePath(`/production/orders/${result.data.id}`);
         revalidatePath("/production");
+        revalidatePath("/production/schedule");
         return null;
       } catch (error) {
         if (error instanceof BusinessRuleError) throw error;

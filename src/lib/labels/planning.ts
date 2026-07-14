@@ -84,6 +84,15 @@ export const planningLabels = {
   pendingDispatchQueue: 'Antrian Dispatch',
   assignMachine: 'Tugaskan Mesin',
   allAssigned: 'Semua pesanan aktif sudah ditugaskan ke mesin.',
+  monthViewDisabled: 'Segera hadir',
+  optimizeBatchesDisabled: 'Segera hadir',
+  today: 'Hari Ini',
+  assignOrder: 'Tugaskan Order',
+  selectOrderToAssign: 'Pilih order untuk ditugaskan ke mesin ini.',
+  assignToMachine: 'Tugaskan ke Mesin',
+  selectMachineAndDate: 'Pilih mesin dan tanggal mulai produksi.',
+  chooseOrder: 'Pilih Order',
+  noOrdersToAssign: 'Tidak ada order yang bisa ditugaskan.',
 
   // MRP
   materialPlanning: 'Perencanaan Material (MRP)',
