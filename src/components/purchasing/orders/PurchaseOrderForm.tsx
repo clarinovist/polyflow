@@ -117,12 +117,15 @@ export function PurchaseOrderForm({
     return { 0: false };
   });
 
-  const form = useForm<CreatePurchaseOrderValues>({
+  // Edit mode validates against updatePurchaseOrderSchema which requires `id`.
+  // Without it in defaultValues, handleSubmit silently fails (button appears clickable but nothing happens).
+  const form = useForm<CreatePurchaseOrderValues & { id?: string }>({
     resolver: zodResolver(
       mode === "create" ? createPurchaseOrderSchema : updatePurchaseOrderSchema,
     ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     defaultValues: initialData
       ? {
+          id: initialData.id,
           supplierId: initialData.supplierId,
           orderDate: new Date(initialData.orderDate),
           expectedDate: initialData.expectedDate
@@ -225,7 +228,27 @@ export function PurchaseOrderForm({
     );
   }, [watchedItems]);
 
-  const onSubmit: SubmitHandler<CreatePurchaseOrderValues> = async (data) => {
+  const onInvalid = (errors: Record<string, unknown>) => {
+    // Walk nested RHF/zod error tree and surface the first message.
+    // Without this, edit-mode schema failures (e.g. missing id) fail silently.
+    const findFirstMessage = (node: unknown): string | undefined => {
+      if (!node || typeof node !== "object") return undefined;
+      const n = node as { message?: unknown; [key: string]: unknown };
+      if (typeof n.message === "string" && n.message) return n.message;
+      for (const value of Object.values(n)) {
+        const found = findFirstMessage(value);
+        if (found) return found;
+      }
+      return undefined;
+    };
+
+    toast.error(
+      findFirstMessage(errors) ||
+        "Form belum valid. Periksa data item, supplier, dan field wajib lainnya.",
+    );
+  };
+
+  const onSubmit: SubmitHandler<CreatePurchaseOrderValues & { id?: string }> = async (data) => {
     if (mode === "edit") {
       const confirmed = window.confirm(
         "Apakah Anda yakin ingin menyimpan perubahan pada PO ini? Perubahan harga/qty akan mempengaruhi total dan jurnal yang sudah terbentuk.",
@@ -238,7 +261,7 @@ export function PurchaseOrderForm({
       if (mode === "edit" && initialData?.id) {
         const result = await updatePurchaseOrder({
           ...data,
-          id: initialData.id,
+          id: data.id ?? initialData.id,
         } as UpdatePurchaseOrderValues);
         if (result.success) {
           toast.success("Purchase Order berhasil diupdate");
@@ -276,7 +299,7 @@ export function PurchaseOrderForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         {mode === "edit" && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-200">
             <p className="font-semibold">⚠️ Mode Edit PO</p>
