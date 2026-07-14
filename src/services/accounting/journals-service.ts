@@ -20,7 +20,10 @@ export {
   createDirectLaborJournal,
   updateDirectLaborJournal,
   buildDirectLaborLines,
+  createDetailJournal,
+  updateDetailJournal,
+  buildDetailJournalLines,
 } from "./journal-posting";
-export type { DirectLaborInput } from "./journal-posting";
+export type { DirectLaborInput, DetailJournalInput } from "./journal-posting";
 
 export { getJournals, getJournalById } from "./journal-queries";

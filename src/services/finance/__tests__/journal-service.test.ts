@@ -13,6 +13,9 @@ import {
   buildDirectLaborLines,
   createDirectLaborJournal,
   updateDirectLaborJournal,
+  buildDetailJournalLines,
+  createDetailJournal,
+  updateDetailJournal,
 } from "@/services/accounting/journals-service";
 import { prisma } from "@/lib/core/prisma";
 import { isPeriodOpen } from "@/services/accounting/periods-service";
@@ -1803,6 +1806,327 @@ describe("JournalsService", () => {
 
       await expect(
         updateDirectLaborJournal("je-dl-1", makeDLInput({ creditAccountId: "acc-inv" }), "user-1")
+      ).rejects.toThrow("Control Accounts");
+    });
+  });
+
+  // ========================================================================
+  // buildDetailJournalLines (generic)
+  // ========================================================================
+  describe("buildDetailJournalLines", () => {
+    it("generates 2 balanced OUTFLOW lines (debit primary, credit counter)", () => {
+      const lines = buildDetailJournalLines({
+        type: "DIRECT_LABOR",
+        entryDate: new Date(2026, 6, 4),
+        description: "Test OUTFLOW",
+        primaryAccountId: "acc-primary",
+        counterAccountId: "acc-counter",
+        direction: "OUTFLOW",
+        details: [
+          { description: "A", amount: 100000 },
+          { description: "B", amount: 200000 },
+        ],
+      });
+
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toEqual({
+        accountId: "acc-primary",
+        debit: 300000,
+        credit: 0,
+        description: "Test OUTFLOW",
+      });
+      expect(lines[1]).toEqual({
+        accountId: "acc-counter",
+        debit: 0,
+        credit: 300000,
+        description: "Test OUTFLOW",
+      });
+    });
+
+    it("generates 2 balanced INFLOW lines (debit counter, credit primary)", () => {
+      const lines = buildDetailJournalLines({
+        type: "BPJS_HEALTH",
+        entryDate: new Date(2026, 6, 4),
+        description: "Test INFLOW",
+        primaryAccountId: "acc-primary",
+        counterAccountId: "acc-counter",
+        direction: "INFLOW",
+        details: [
+          { description: "Triyono", amount: 27000 },
+          { description: "Sugeng", amount: 27000 },
+        ],
+      });
+
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toEqual({
+        accountId: "acc-counter",
+        debit: 54000,
+        credit: 0,
+        description: "Test INFLOW",
+      });
+      expect(lines[1]).toEqual({
+        accountId: "acc-primary",
+        debit: 0,
+        credit: 54000,
+        description: "Test INFLOW",
+      });
+    });
+
+    it("always produces balanced output (total = sum of details)", () => {
+      const lines = buildDetailJournalLines({
+        type: "EMPLOYEE_RECEIVABLE",
+        entryDate: new Date(2026, 6, 4),
+        description: "Kasbon",
+        primaryAccountId: "acc-piutang",
+        counterAccountId: "acc-kas",
+        direction: "OUTFLOW",
+        details: [
+          { description: "Deo", amount: 100000 },
+          { description: "Rizal", amount: 20000 },
+        ],
+      });
+
+      const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
+      const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+      expect(totalDebit).toBe(120000);
+      expect(totalCredit).toBe(120000);
+      expect(Math.abs(totalDebit - totalCredit)).toBeLessThan(0.01);
+    });
+
+    it("returns zero totals for empty details", () => {
+      const lines = buildDetailJournalLines({
+        type: "DIRECT_LABOR",
+        entryDate: new Date(2026, 6, 4),
+        description: "Empty",
+        primaryAccountId: "acc-p",
+        counterAccountId: "acc-c",
+        direction: "OUTFLOW",
+        details: [],
+      });
+
+      expect(lines[0].debit).toBe(0);
+      expect(lines[1].credit).toBe(0);
+    });
+  });
+
+  // ========================================================================
+  // createDetailJournal (generic)
+  // ========================================================================
+  describe("createDetailJournal", () => {
+    const makeDetailInput = (overrides?: Record<string, unknown>) => ({
+      type: "EMPLOYEE_RECEIVABLE",
+      entryDate: new Date(2026, 6, 4),
+      description: "Kasbon karyawan 04 Jul 2026",
+      reference: "BKK-16/07/26",
+      primaryAccountId: "acc-piutang",
+      counterAccountId: "acc-kas",
+      direction: "OUTFLOW" as const,
+      details: [
+        { description: "Deo", amount: 100000 },
+        { description: "Rizal", amount: 20000 },
+      ],
+      ...overrides,
+    });
+
+    it("creates journal with 2 GL lines and detail rows", async () => {
+      const input = makeDetailInput();
+      setupSequenceForYear(2026);
+
+      const mockCreated = {
+        id: "je-detail-1",
+        entryNumber: "JE - 2026 -00001",
+        entryDate: input.entryDate,
+        description: input.description,
+        lines: [
+          { accountId: "acc-piutang", debit: 120000, credit: 0 },
+          { accountId: "acc-kas", debit: 0, credit: 120000 },
+        ],
+        details: [
+          { type: "EMPLOYEE_RECEIVABLE", description: "Deo", amount: 100000, sortOrder: 0 },
+          { type: "EMPLOYEE_RECEIVABLE", description: "Rizal", amount: 20000, sortOrder: 1 },
+        ],
+      };
+      vi.mocked(prisma.journalEntry.create).mockResolvedValue(mockCreated as never);
+
+      const result = await createDetailJournal(input, "user-1");
+
+      expect(result.id).toBe("je-detail-1");
+      expect(prisma.journalEntry.create).toHaveBeenCalledTimes(1);
+
+      const createCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
+      const data = createCall.data as any;
+      expect(data.lines.create).toHaveLength(2);
+      expect(data.details.create).toHaveLength(2);
+      expect(data.details.create[0]).toMatchObject({
+        type: "EMPLOYEE_RECEIVABLE",
+        description: "Deo",
+        amount: 100000,
+        sortOrder: 0,
+      });
+    });
+
+    it("handles INFLOW direction (Dr counter, Cr primary)", async () => {
+      const input = makeDetailInput({
+        direction: "INFLOW",
+        details: [{ description: "Triyono", amount: 27000 }],
+      });
+      setupSequenceForYear(2026);
+
+      vi.mocked(prisma.journalEntry.create).mockResolvedValue({
+        id: "je-inf-1",
+        entryNumber: "JE - 2026 -00001",
+      } as never);
+
+      await createDetailJournal(input, "user-1");
+
+      const createCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
+      const data = createCall.data as any;
+      // INFLOW: debit counter, credit primary
+      expect(data.lines.create[0]).toMatchObject({
+        accountId: "acc-kas",
+        debit: 27000,
+        credit: 0,
+      });
+      expect(data.lines.create[1]).toMatchObject({
+        accountId: "acc-piutang",
+        debit: 0,
+        credit: 27000,
+      });
+    });
+
+    it("rejects control accounts (AR code 112*)", async () => {
+      const input = makeDetailInput({ primaryAccountId: "acc-ar" });
+
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        { id: "acc-ar", code: "11210", name: "Piutang Dagang" },
+      ] as never);
+
+      await expect(createDetailJournal(input, "user-1")).rejects.toThrow(
+        "Control Accounts"
+      );
+    });
+
+    it("rejects closed fiscal period", async () => {
+      const input = makeDetailInput();
+      vi.mocked(isPeriodOpen).mockResolvedValue(false);
+
+      await expect(createDetailJournal(input, "user-1")).rejects.toThrow(
+        "closed fiscal period"
+      );
+    });
+
+    it("allows account 1-117 (Piutang Karyawan) — not blocked by control guard", async () => {
+      const input = makeDetailInput({ primaryAccountId: "acc-piutang-karyawan" });
+
+      vi.mocked(prisma.account.findMany).mockResolvedValue([] as never);
+      setupSequenceForYear(2026);
+      vi.mocked(prisma.journalEntry.create).mockResolvedValue({
+        id: "je-piutang-1",
+        entryNumber: "JE - 2026 -00001",
+      } as never);
+
+      const result = await createDetailJournal(input, "user-1");
+      expect(result.id).toBe("je-piutang-1");
+    });
+  });
+
+  // ========================================================================
+  // updateDetailJournal (generic)
+  // ========================================================================
+  describe("updateDetailJournal", () => {
+    const makeDetailInput = (overrides?: Record<string, unknown>) => ({
+      type: "EMPLOYEE_RECEIVABLE",
+      entryDate: new Date(2026, 6, 4),
+      description: "Updated Description",
+      reference: "BKK-17/07/26",
+      primaryAccountId: "acc-piutang",
+      counterAccountId: "acc-kas",
+      direction: "OUTFLOW" as const,
+      details: [
+        { description: "Deo", amount: 150000 },
+      ],
+      ...overrides,
+    });
+
+    it("updates DRAFT journal atomically (lines + details)", async () => {
+      const input = makeDetailInput();
+
+      vi.mocked(prisma.journalEntry.findUnique)
+        .mockResolvedValueOnce({
+          id: "je-detail-1",
+          status: JournalStatus.DRAFT,
+          isAutoGenerated: false,
+          lines: [{ accountId: "acc-old", debit: 100000, credit: 0 }],
+          details: [{ id: "d1", type: "EMPLOYEE_RECEIVABLE" }],
+        } as never)
+        .mockResolvedValueOnce({
+          id: "je-detail-1",
+          entryNumber: "JE - 2026 -00001",
+          lines: [
+            { accountId: "acc-piutang", debit: 150000, credit: 0 },
+            { accountId: "acc-kas", debit: 0, credit: 150000 },
+          ],
+          details: [
+            { type: "EMPLOYEE_RECEIVABLE", description: "Deo", amount: 150000, sortOrder: 0 },
+          ],
+        } as never);
+
+      const result = await updateDetailJournal("je-detail-1", input, "user-1");
+
+      expect(result?.id).toBe("je-detail-1");
+      expect(prisma.journalLine.deleteMany).toHaveBeenCalledWith({
+        where: { journalEntryId: "je-detail-1" },
+      });
+      expect(prisma.journalEntryDetail.deleteMany).toHaveBeenCalledWith({
+        where: { journalEntryId: "je-detail-1" },
+      });
+      expect(prisma.journalLine.createMany).toHaveBeenCalledTimes(1);
+      expect(prisma.journalEntryDetail.createMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects update on non-DRAFT journal", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-detail-1",
+        status: JournalStatus.POSTED,
+        isAutoGenerated: false,
+        lines: [],
+        details: [],
+      } as never);
+
+      await expect(
+        updateDetailJournal("je-detail-1", makeDetailInput(), "user-1")
+      ).rejects.toThrow("DRAFT");
+    });
+
+    it("rejects update on auto-generated journal", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-detail-1",
+        status: JournalStatus.DRAFT,
+        isAutoGenerated: true,
+        lines: [],
+        details: [],
+      } as never);
+
+      await expect(
+        updateDetailJournal("je-detail-1", makeDetailInput(), "user-1")
+      ).rejects.toThrow("otomatis");
+    });
+
+    it("rejects control accounts on update", async () => {
+      vi.mocked(prisma.journalEntry.findUnique).mockResolvedValue({
+        id: "je-detail-1",
+        status: JournalStatus.DRAFT,
+        isAutoGenerated: false,
+        lines: [],
+        details: [],
+      } as never);
+
+      vi.mocked(prisma.account.findMany).mockResolvedValue([
+        { id: "acc-inv", code: "11300", name: "Persediaan" },
+      ] as never);
+
+      await expect(
+        updateDetailJournal("je-detail-1", makeDetailInput({ counterAccountId: "acc-inv" }), "user-1")
       ).rejects.toThrow("Control Accounts");
     });
   });

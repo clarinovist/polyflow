@@ -2,7 +2,8 @@ import { getJournalById } from '@/actions/finance/journal';
 import { getChartOfAccounts } from '@/actions/finance/accounting';
 import { notFound, redirect } from 'next/navigation';
 import ManualJournalForm from '@/components/finance/accounting/manual-journal-form';
-import DirectLaborJournalForm from '@/components/finance/accounting/direct-labor-journal-form';
+import DetailJournalForm from '@/components/finance/accounting/detail-journal-form';
+import { DETAIL_JOURNAL_TEMPLATES, type DetailJournalTemplateKey } from '@/lib/config/detail-journal-templates';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,23 +34,33 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
     const accountsRes = await getChartOfAccounts();
     const accounts = accountsRes.success && accountsRes.data ? accountsRes.data : [];
 
-    // Check if this is a direct labor journal (has details with type DIRECT_LABOR)
-    const isDirectLabor = journal.details && journal.details.length > 0
-        && journal.details.some((d: { type: string }) => d.type === 'DIRECT_LABOR');
+    const hasDetails = journal.details && journal.details.length > 0;
+    const detailType = hasDetails ? journal.details[0].type : null;
+    const isKnownTemplate = detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
 
-    if (isDirectLabor) {
-        // Find debit/credit accounts from the journal lines
+    if (isKnownTemplate) {
+        const template = DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey];
+
+        // Infer direction from GL lines: if primary account (first detail type's codes) has debit > 0 → OUTFLOW
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const debitLine = journal.lines.find((l: any) => Number(l.debit) > 0);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const creditLine = journal.lines.find((l: any) => Number(l.credit) > 0);
 
+        // Determine direction: if the primary account is the debit line → OUTFLOW
+        const primaryCodes = template.primaryAccountCodes;
+        const primaryAccount = accounts.find((a: { code: string }) => primaryCodes.includes(a.code));
+        const direction = debitLine?.accountId === primaryAccount?.id ? 'OUTFLOW' : 'INFLOW';
+
         const defaultValues = {
+            type: detailType,
             entryDate: new Date(journal.entryDate),
             description: journal.description,
             reference: journal.reference || '',
-            debitAccountId: debitLine?.accountId || '',
-            creditAccountId: creditLine?.accountId || '',
+            primaryAccountId: direction === 'OUTFLOW' ? debitLine?.accountId || '' : creditLine?.accountId || '',
+            counterAccountId: direction === 'OUTFLOW' ? creditLine?.accountId || '' : debitLine?.accountId || '',
+            direction: direction as 'OUTFLOW' | 'INFLOW',
+            templateKey: detailType,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             details: journal.details.map((d: any) => ({
                 description: d.description,
@@ -71,14 +82,14 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
                                 Edit Journal Entry #{journal.entryNumber}
                             </h1>
                             <p className="text-muted-foreground">
-                                Ubah detail jurnal tenaga kerja sebelum posting
+                                Ubah detail jurnal {template.label} sebelum posting
                             </p>
                         </div>
                         <Badge variant="secondary">{journal.status}</Badge>
                     </div>
                 </div>
 
-                <DirectLaborJournalForm
+                <DetailJournalForm
                     accounts={accounts}
                     mode="edit"
                     journalId={id}

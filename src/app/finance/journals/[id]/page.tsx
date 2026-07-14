@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { JournalActions } from './journal-actions';
+import { DETAIL_JOURNAL_TEMPLATES, type DetailJournalTemplateKey } from '@/lib/config/detail-journal-templates';
 
 interface JournalDetailPageProps {
     params: Promise<{ id: string }>;
@@ -53,9 +54,13 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalCredit = journal.lines.reduce((sum: number, line: any) => sum + Number(line.credit), 0);
 
-    // Check if this journal has detail entries (direct labor, etc.)
+    // Check if this journal has detail entries
     const hasDetails = journal.details && journal.details.length > 0;
     const detailType = hasDetails ? journal.details[0].type : null;
+    const isKnownTemplate = detailType && detailType in DETAIL_JOURNAL_TEMPLATES;
+    const detailSectionTitle = isKnownTemplate
+        ? DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey].detailSectionTitle
+        : 'Detail Rincian';
 
     return (
         <div className="space-y-6">
@@ -165,13 +170,11 @@ export default async function JournalDetailPage({ params }: JournalDetailPagePro
                 </Card>
             </div>
 
-            {/* Detail Section — Direct Labor / Other Detail Types */}
+            {/* Detail Section — uses template-aware title */}
             {hasDetails && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>
-                            {detailType === 'DIRECT_LABOR' ? 'Rincian Tenaga Kerja Langsung' : 'Detail Rincian'}
-                        </CardTitle>
+                        <CardTitle>{detailSectionTitle}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="rounded-md border">

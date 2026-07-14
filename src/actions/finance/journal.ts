@@ -6,6 +6,8 @@ import {
   ManualJournalValues,
   directLaborJournalSchema,
   DirectLaborJournalValues,
+  detailJournalSchema,
+  DetailJournalValues,
 } from "@/lib/schemas/journal";
 import { AccountingService } from "@/services/accounting/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
@@ -400,6 +402,134 @@ export const updateDirectLaborJournalAction = withTenant(
           error instanceof Error
             ? error.message
             : "Failed to update direct labor journal",
+        );
+      }
+    });
+  },
+);
+
+// --- Generic Detail Journal Actions (template-driven) ---
+
+export const createDetailJournalAction = withTenant(
+  async function createDetailJournalAction(
+    data: DetailJournalValues,
+    post: boolean = false,
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Validate Input
+      const validation = detailJournalSchema.safeParse(data);
+      if (!validation.success) {
+        throw new ValidationError(validation.error.issues[0].message);
+      }
+
+      try {
+        const result = await AccountingService.createDetailJournal(
+          {
+            type: data.type,
+            entryDate: data.entryDate,
+            description: data.description,
+            reference: data.reference ?? "",
+            primaryAccountId: data.primaryAccountId,
+            counterAccountId: data.counterAccountId,
+            direction: data.direction,
+            details: data.details,
+          },
+          session.user.id,
+        );
+
+        if (post && result?.id) {
+          await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        await logActivity({
+          userId: session.user.id,
+          action: post
+            ? "CREATE_AND_POST_DETAIL_JOURNAL"
+            : "CREATE_DETAIL_JOURNAL",
+          entityType: "JournalEntry",
+          entityId: result?.id ?? "",
+          details: `Created detail journal (${data.type}) ${result?.entryNumber}`,
+        });
+
+        revalidatePath("/finance/journals");
+        revalidatePath("/finance/reports/balance-sheet");
+        revalidatePath("/finance/reports/trial-balance");
+
+        return {
+          message: `Jurnal detail ${post ? "created and posted" : "saved as draft"} successfully`,
+          id: result?.id,
+        };
+      } catch (error) {
+        throw new BusinessRuleError(
+          error instanceof Error
+            ? error.message
+            : "Failed to create detail journal",
+        );
+      }
+    });
+  },
+);
+
+export const updateDetailJournalAction = withTenant(
+  async function updateDetailJournalAction(
+    id: string,
+    data: DetailJournalValues,
+    post: boolean = false,
+  ) {
+    return safeAction(async () => {
+      const session = await requireAuth();
+
+      // Validate Input
+      const validation = detailJournalSchema.safeParse(data);
+      if (!validation.success) {
+        throw new ValidationError(validation.error.issues[0].message);
+      }
+
+      try {
+        const result = await AccountingService.updateDetailJournal(
+          id,
+          {
+            type: data.type,
+            entryDate: data.entryDate,
+            description: data.description,
+            reference: data.reference ?? "",
+            primaryAccountId: data.primaryAccountId,
+            counterAccountId: data.counterAccountId,
+            direction: data.direction,
+            details: data.details,
+          },
+          session.user.id,
+        );
+
+        if (post && result?.id) {
+          await AccountingService.postJournal(result.id, session.user.id);
+        }
+
+        await logActivity({
+          userId: session.user.id,
+          action: post
+            ? "UPDATE_AND_POST_DETAIL_JOURNAL"
+            : "UPDATE_DETAIL_JOURNAL",
+          entityType: "JournalEntry",
+          entityId: id,
+          details: `Updated detail journal (${data.type}) ${result?.entryNumber}`,
+        });
+
+        revalidatePath("/finance/journals");
+        revalidatePath(`/finance/journals/${id}`);
+        revalidatePath("/finance/reports/balance-sheet");
+        revalidatePath("/finance/reports/trial-balance");
+
+        return {
+          message: `Jurnal detail ${post ? "updated and posted" : "updated"} successfully`,
+        };
+      } catch (error) {
+        throw new BusinessRuleError(
+          error instanceof Error
+            ? error.message
+            : "Failed to update detail journal",
         );
       }
     });

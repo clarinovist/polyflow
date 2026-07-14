@@ -12,6 +12,8 @@ import {
     createYearEndClosingEntry,
     createDirectLaborJournal,
     updateDirectLaborJournal,
+    createDetailJournal,
+    updateDetailJournal,
 } from './journals-service';
 import { getChartOfAccounts, createAccount, updateAccount, deleteAccount } from './coa-service';
 import { getTrialBalance, getIncomeStatement, getBalanceSheet, getAccountBalance, getCashFlowStatement, closePeriod } from './reports-service';
@@ -95,6 +97,40 @@ export class AccountingService {
         details: { description: string; amount: number }[];
     }, userId?: string) {
         return updateDirectLaborJournal(id, input, userId);
+    }
+
+    /**
+     * Create a detail journal: 2 GL lines + detail table (atomic).
+     * Generic version — works for all templates (BTKL, Piutang, BPJS).
+     */
+    static async createDetailJournal(input: {
+        type: string;
+        entryDate: Date;
+        description: string;
+        reference?: string;
+        primaryAccountId: string;
+        counterAccountId: string;
+        direction: 'OUTFLOW' | 'INFLOW';
+        details: { description: string; amount: number }[];
+    }, userId?: string) {
+        return createDetailJournal(input, userId);
+    }
+
+    /**
+     * Update a DRAFT detail journal (atomic replace lines + details).
+     * Generic version — works for all templates.
+     */
+    static async updateDetailJournal(id: string, input: {
+        type: string;
+        entryDate: Date;
+        description: string;
+        reference?: string;
+        primaryAccountId: string;
+        counterAccountId: string;
+        direction: 'OUTFLOW' | 'INFLOW';
+        details: { description: string; amount: number }[];
+    }, userId?: string) {
+        return updateDetailJournal(id, input, userId);
     }
 
     static async getJournals(params?: { startDate?: Date, endDate?: Date, status?: JournalStatus, reference?: string, page?: number, limit?: number }) {
