@@ -59,7 +59,7 @@ describe("PettyCashReportService", () => {
       );
 
       await expect(
-        PettyCashReportService.getDailyReport(new Date("2026-06-09")),
+        PettyCashReportService.getDailyReport("2026-06-09"),
       ).rejects.toThrow('Account not found for role "petty-cash"');
     });
 
@@ -115,7 +115,7 @@ describe("PettyCashReportService", () => {
       ] as never);
 
       const report = await PettyCashReportService.getDailyReport(
-        new Date("2026-06-09"),
+        "2026-06-09",
       );
 
       expect(report.openingBalance).toBe(400000);
@@ -158,7 +158,7 @@ describe("PettyCashReportService", () => {
       );
 
       const result = await PettyCashReportService.getDailyReport(
-        new Date("2026-06-09"),
+        "2026-06-09",
       );
 
       expect(result.savedReport).toEqual(mockReport);
@@ -166,6 +166,55 @@ describe("PettyCashReportService", () => {
       expect(result.totalIn).toBe(500);
       expect(result.totalOut).toBe(200);
       expect(result.closingBalance).toBe(1300);
+    });
+
+    // ── WIB day-boundary regression tests (the Feby bug) ──────────────
+
+    it("WIB: query Jul 1 EXCLUDES entry at 2026-07-01T17:00:00Z (= Jul 2 00:00 WIB)", async () => {
+      // This is the exact bug case from Feby's report
+      vi.mocked(prisma.pettyCashDailyReport.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "acc-123",
+      } as never);
+
+      // Opening balance: lt WIB start of Jul 1
+      // Jul 1 WIB start = 2026-06-30T17:00:00Z
+      vi.mocked(prisma.journalLine.aggregate)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never);
+
+      vi.mocked(prisma.journalLine.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+
+      await PettyCashReportService.getDailyReport("2026-07-01");
+
+      // The aggregate for daily totals should use WIB bounds:
+      // gte: 2026-06-30T17:00:00.000Z, lte: 2026-07-01T16:59:59.999Z
+      const dailyTotalsCall = vi.mocked(prisma.journalLine.aggregate).mock.calls[1][0] as any;
+      const entryDateFilter = dailyTotalsCall.where.journalEntry.entryDate as any;
+      expect(entryDateFilter.gte.toISOString()).toBe("2026-06-30T17:00:00.000Z");
+      expect(entryDateFilter.lte.toISOString()).toBe("2026-07-01T16:59:59.999Z");
+    });
+
+    it("WIB: query Jul 2 uses bounds that INCLUDE 2026-07-01T17:00:00Z", async () => {
+      vi.mocked(prisma.pettyCashDailyReport.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "acc-123",
+      } as never);
+
+      vi.mocked(prisma.journalLine.aggregate)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never);
+
+      vi.mocked(prisma.journalLine.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([]);
+
+      await PettyCashReportService.getDailyReport("2026-07-02");
+
+      const dailyTotalsCall = vi.mocked(prisma.journalLine.aggregate).mock.calls[1][0] as any;
+      const entryDateFilter = dailyTotalsCall.where.journalEntry.entryDate as any;
+      expect(entryDateFilter.gte.toISOString()).toBe("2026-07-01T17:00:00.000Z");
+      expect(entryDateFilter.lte.toISOString()).toBe("2026-07-02T16:59:59.999Z");
     });
   });
 
@@ -177,13 +226,13 @@ describe("PettyCashReportService", () => {
 
       await expect(
         PettyCashReportService.createDailyReport(
-          new Date("2026-06-09"),
+          "2026-06-09",
           "user-1",
         ),
       ).rejects.toThrow("sudah ada");
     });
 
-    it("creates report and links transactions", async () => {
+    it("creates report with correct PCRP number from business date string", async () => {
       vi.mocked(prisma.pettyCashDailyReport.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.account.findUnique).mockResolvedValue({
         id: "acc-123",
@@ -210,12 +259,50 @@ describe("PettyCashReportService", () => {
       );
 
       const report = await PettyCashReportService.createDailyReport(
-        new Date("2026-06-09"),
+        "2026-06-09",
         "user-1",
       );
 
       expect(report.id).toBe("report-new");
       expect(mockTx.pettyCashTransaction.updateMany).toHaveBeenCalled();
+
+      // Verify the report number uses the business date string, not UTC ISO
+      const createCall = mockTx.pettyCashDailyReport.create;
+      expect(createCall).toHaveBeenCalled();
+      const createData = createCall.mock.calls[0][0].data;
+      expect(createData.reportNumber).toMatch(/^PCRP-20260609-/);
+    });
+
+    it("report number key uses business date (not UTC iso slice)", async () => {
+      // Simulate: query "2026-07-02"
+      // WIB midnight = 2026-07-01T17:00:00Z
+      // Old bug: startOfDay.toISOString().slice(0,10) = "2026-07-01" (WRONG)
+      // Fixed: uses dateStr directly = "2026-07-02" (CORRECT)
+      vi.mocked(prisma.pettyCashDailyReport.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.account.findUnique).mockResolvedValue({
+        id: "acc-123",
+      } as never);
+      vi.mocked(prisma.journalLine.aggregate)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never)
+        .mockResolvedValueOnce({ _sum: { debit: 0, credit: 0 } } as never);
+      vi.mocked(prisma.pettyCashDailyReport.count).mockResolvedValue(0);
+
+      const mockTx = {
+        pettyCashDailyReport: {
+          create: vi.fn().mockResolvedValue({ id: "r" }),
+        },
+        pettyCashTransaction: {
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(
+        (async (fn: (tx: typeof mockTx) => Promise<unknown>) => fn(mockTx)) as any,
+      );
+
+      await PettyCashReportService.createDailyReport("2026-07-02", "u1");
+
+      const createData = mockTx.pettyCashDailyReport.create.mock.calls[0][0].data;
+      expect(createData.reportNumber).toMatch(/^PCRP-20260702-/);
     });
   });
 

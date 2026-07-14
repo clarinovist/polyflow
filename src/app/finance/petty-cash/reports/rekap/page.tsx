@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils/utils";
 import { format, subDays } from "date-fns";
 import { id as localeID } from "date-fns/locale";
+import { formatWibDate } from "@/lib/utils/timezone";
 import Link from "next/link";
 
 interface Transaction {
@@ -113,7 +114,7 @@ export default function RekapKasPage() {
             runningBalance += amt;
             rows.push({
                 id: t.id,
-                date: format(new Date(t.date), 'dd MMM yyyy', { locale: localeID }),
+                date: formatWibDate(t.date),
                 noInv: '',
                 voucherNumber: `BKM-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
                 memo: t.description,
@@ -130,7 +131,7 @@ export default function RekapKasPage() {
             runningBalance -= amt;
             rows.push({
                 id: t.id,
-                date: format(new Date(t.date), 'dd MMM yyyy', { locale: localeID }),
+                date: formatWibDate(t.date),
                 noInv: '',
                 voucherNumber: `BKK-${String(i + 1).padStart(2, '0')}/${format(date, 'MM/yy')}`,
                 memo: t.description,

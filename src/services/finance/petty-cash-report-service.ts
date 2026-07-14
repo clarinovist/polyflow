@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { JournalStatus } from '@prisma/client';
 import { NotFoundError, BusinessRuleError, ConflictError } from '@/lib/errors/errors';
 import { resolveAccount } from '@/services/accounting/account-resolver';
+import { getWibDayBounds } from '@/lib/utils/timezone';
 
 export type DailyReportStatus =
     | 'DRAFT'
@@ -11,17 +12,6 @@ export type DailyReportStatus =
     | 'VOIDED';
 
 export class PettyCashReportService {
-    /**
-     * Compute date boundaries for a given date at midnight
-     */
-    private static getDayBounds(date: Date) {
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
-        return { startOfDay, endOfDay };
-    }
-
     /**
      * Get the default Petty Cash account (11110) or throw
      */
@@ -33,7 +23,7 @@ export class PettyCashReportService {
     }
 
     /**
-     * Calculate opening balance from POSTED journal lines before startOfDay
+     * Calculate opening balance from POSTED journal lines before startOfDay (WIB)
      */
     private static async calcOpeningBalance(accountId: string, startOfDay: Date): Promise<number> {
         const raw = await prisma.journalLine.aggregate({
@@ -52,7 +42,7 @@ export class PettyCashReportService {
     }
 
     /**
-     * Calculate daily totals (In / Out) from POSTED journal lines on the given day
+     * Calculate daily totals (In / Out) from POSTED journal lines on the given day (WIB bounds)
      */
     private static async calcDailyTotals(
         accountId: string,
@@ -178,12 +168,15 @@ export class PettyCashReportService {
     }
 
     /**
-     * Get daily petty cash report for a given date.
+     * Get daily petty cash report for a given business date string (YYYY-MM-DD).
      * - If a saved report exists, return it with full relations.
      * - If not, compute balances on-the-fly and return savedReport: null.
+     *
+     * The dateStr is interpreted as a WIB business day — all bounds are
+     * calculated in Asia/Jakarta timezone regardless of server TZ.
      */
-    static async getDailyReport(date: Date) {
-        const { startOfDay, endOfDay } = PettyCashReportService.getDayBounds(date);
+    static async getDailyReport(dateStr: string) {
+        const { startOfDay, endOfDay } = getWibDayBounds(dateStr);
 
         // Check if a saved report exists for this date (skip VOIDED — they hold stale balances)
         const savedReport = await prisma.pettyCashDailyReport.findFirst({
@@ -220,7 +213,7 @@ export class PettyCashReportService {
             };
         }
 
-        // No saved report — compute on-the-fly (Phase 1 behaviour)
+        // No saved report — compute on-the-fly
         const account = await PettyCashReportService.getPettyCashAccount();
         const openingBalance = await PettyCashReportService.calcOpeningBalance(account.id, startOfDay);
         const { totalIn, totalOut } = await PettyCashReportService.calcDailyTotals(account.id, startOfDay, endOfDay);
@@ -244,11 +237,14 @@ export class PettyCashReportService {
     }
 
     /**
-     * Create (save) a new daily report for a given date.
+     * Create (save) a new daily report for a given business date string.
      * Calculates balances, generates report number, links existing transactions.
+     *
+     * Report number key uses the business date string (YYYYMMDD) — NOT
+     * startOfDay.toISOString().slice(0,10) which could shift at UTC boundaries.
      */
-    static async createDailyReport(date: Date, userId: string) {
-        const { startOfDay, endOfDay } = PettyCashReportService.getDayBounds(date);
+    static async createDailyReport(dateStr: string, userId: string) {
+        const { startOfDay, endOfDay } = getWibDayBounds(dateStr);
 
         // Prevent duplicate reports (skip VOIDED — they don't block new reports)
         const existing = await prisma.pettyCashDailyReport.findFirst({
@@ -262,7 +258,8 @@ export class PettyCashReportService {
         const closingBalance = openingBalance + totalIn - totalOut;
 
         // Generate a unique report number: PCRP-YYYYMMDD-XXX
-        const dateKey = startOfDay.toISOString().slice(0, 10).replace(/-/g, '');
+        // Use the business date string directly — stable regardless of TZ
+        const dateKey = dateStr.replace(/-/g, '');
         const countToday = await prisma.pettyCashDailyReport.count({
             where: { reportNumber: { startsWith: `PCRP-${dateKey}` } }
         });
