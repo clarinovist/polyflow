@@ -43,6 +43,7 @@ model User {
   reportedIssues          ProductionIssue[]      @relation("IssueReporter")
   costHistory             CostHistory[]
   apiKeys                 ApiKey[]
+  archivedBoms            Bom[]
   salesReturns            SalesReturn[]          @relation("SalesReturnCreator")
   purchaseReturns         PurchaseReturn[]       @relation("PurchaseReturnCreator")
   notifications           Notification[]
@@ -317,12 +318,20 @@ model Bom {
   productVariantId String
   outputQuantity   Decimal           @default(1.0) @db.Decimal(10, 4)
   isDefault        Boolean           @default(false)
+  isActive         Boolean           @default(true)
+  archivedAt       DateTime?
+  archivedById     String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   category         BomCategory       @default(STANDARD)
   productVariant   ProductVariant    @relation("ProductBom", fields: [productVariantId], references: [id])
+  archivedBy       User?             @relation(fields: [archivedById], references: [id])
   items            BomItem[]
   ProductionOrder  ProductionOrder[]
+
+  @@index([isActive])
+  @@index([productVariantId, isActive, isDefault])
+  @@index([archivedById])
 }
 
 model BomItem {

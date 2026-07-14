@@ -208,7 +208,7 @@ export class MrpService {
     ) {
         // 1. Find BOM
         const bom = await tx.bom.findFirst({
-            where: { productVariantId, isDefault: true }
+            where: { productVariantId, isDefault: true, isActive: true }
         });
 
         if (!bom) return;
@@ -296,7 +296,7 @@ export class MrpService {
 
         // 2. Find BOM
         const bom = await prisma.bom.findFirst({
-            where: { productVariantId, isDefault: true },
+            where: { productVariantId, isDefault: true, isActive: true },
             include: {
                 items: {
                     include: {

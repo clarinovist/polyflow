@@ -86,6 +86,17 @@ vi.mock("../order-number-service", () => ({
 /** Stub a Decimal-like object used by Prisma */
 const dec = (n: number) => ({ toNumber: () => n, valueOf: () => n });
 
+/** Active BOM stub for createOrder (requires isActive after lifecycle change) */
+const activeBom = (overrides: Record<string, unknown> = {}) =>
+  ({
+    id: "bom-1",
+    isActive: true,
+    category: BomCategory.STANDARD,
+    outputQuantity: dec(100),
+    items: [],
+    ...overrides,
+  }) as any;
+
 describe("ProductionOrderService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -393,14 +404,14 @@ describe("ProductionOrderService", () => {
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1", orderNumber: "WO-1" } as any,
       );
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       await ProductionOrderService.createOrder({ ...base, userId: "u1" });
       expect(mod.createProductionOrderWithGeneratedNumber).toHaveBeenCalled();
     });
 
     it("should create with provided orderNumber", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
         id: "po-1",
@@ -414,7 +425,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should skip machine validation when no machineId", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
         id: "po-1",
@@ -430,9 +441,9 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.MIXER,
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
-        category: BomCategory.EXTRUSION,
-      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({ category: BomCategory.EXTRUSION }),
+      );
       await expect(
         ProductionOrderService.createOrder({
           ...base,
@@ -447,7 +458,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.MIXER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.MIXING } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.MIXING }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -466,7 +477,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -486,7 +497,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.REWINDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -506,7 +517,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.PACKER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.PACKING } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.PACKING }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -526,7 +537,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.GRANULATOR,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.PACKING } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.PACKING }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -546,7 +557,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.MIXER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.REWORK } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.REWORK }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -566,7 +577,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.STANDARD } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.STANDARD }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -586,7 +597,7 @@ describe("ProductionOrderService", () => {
         type: MachineType.MIXER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.STANDARD } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.STANDARD }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
@@ -601,11 +612,32 @@ describe("ProductionOrderService", () => {
       ).toBeDefined();
     });
 
-    it("should skip validation when machine or BOM not found", async () => {
-      vi.mocked(prisma.machine.findUnique).mockResolvedValue({
-        type: MachineType.MIXER,
-      } as any);
+    it("should throw when BOM not found", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      await expect(
+        ProductionOrderService.createOrder({
+          ...base,
+          orderNumber: "WO-1",
+          machineId: "m-1",
+        }),
+      ).rejects.toThrow("Resep");
+    });
+
+    it("should throw when BOM is inactive", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({ isActive: false }),
+      );
+      await expect(
+        ProductionOrderService.createOrder({
+          ...base,
+          orderNumber: "WO-1",
+        }),
+      ).rejects.toThrow("nonaktif");
+    });
+
+    it("should skip machine validation when machine not found", async () => {
+      vi.mocked(prisma.machine.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
         id: "po-1",
@@ -620,14 +652,15 @@ describe("ProductionOrderService", () => {
     });
 
     it("should calculate materials from BOM when items not provided", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
-        id: "bom-1",
-        outputQuantity: dec(100),
-        items: [
-          { productVariantId: "pv-1", quantity: dec(200) },
-          { productVariantId: "pv-2", quantity: dec(50) },
-        ],
-      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({
+          outputQuantity: dec(100),
+          items: [
+            { productVariantId: "pv-1", quantity: dec(200) },
+            { productVariantId: "pv-2", quantity: dec(50) },
+          ],
+        }),
+      );
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
         { productVariantId: "pv-1", quantity: dec(500) },
         { productVariantId: "pv-2", quantity: dec(200) },
@@ -648,6 +681,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should use provided items instead of BOM items", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
         { productVariantId: "c-pv", quantity: dec(1000) },
       ] as any);
@@ -671,7 +705,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should set WAITING_MATERIAL when stock insufficient", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
         { productVariantId: "pv-1", quantity: dec(5) },
       ] as any);
@@ -687,7 +721,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should keep DRAFT when stock sufficient", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([
         { productVariantId: "pv-1", quantity: dec(1000) },
       ] as any);
@@ -703,7 +737,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should keep DRAFT when materials empty", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", status: a.data.status }) as any,
@@ -716,7 +750,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should connect salesOrder and machine", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", ...a.data }) as any,
@@ -736,7 +770,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should connect maklonCustomer when isMaklon", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", ...a.data }) as any,
@@ -756,7 +790,7 @@ describe("ProductionOrderService", () => {
     });
 
     it("should not connect salesOrder when not provided", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockImplementation(
         async (a: any) => ({ id: "po-1", ...a.data }) as any,
@@ -770,8 +804,8 @@ describe("ProductionOrderService", () => {
       });
     });
 
-    it("should not create materials when BOM is null", async () => {
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+    it("should not create materials when BOM has no items", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom({ items: [] }));
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(prisma.productionOrder.create).mockResolvedValue({
         id: "po-1",
@@ -785,7 +819,7 @@ describe("ProductionOrderService", () => {
 
     it("should not connect createdBy when userId absent", async () => {
       const mod = await import("../order-number-service");
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -796,7 +830,7 @@ describe("ProductionOrderService", () => {
 
     it("should include plannedEntered fields", async () => {
       const mod = await import("../order-number-service");
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -860,7 +894,7 @@ describe("ProductionOrderService", () => {
         orderType: "STANDARD",
         customerId: "c-1",
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -882,7 +916,7 @@ describe("ProductionOrderService", () => {
         orderType: SalesOrderType.MAKLON_JASA,
         customerId: "c-m",
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -904,7 +938,7 @@ describe("ProductionOrderService", () => {
         orderType: "STANDARD",
         customerId: "c-1",
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -923,7 +957,7 @@ describe("ProductionOrderService", () => {
         orderType: "STANDARD",
         customerId: "c-1",
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -942,7 +976,7 @@ describe("ProductionOrderService", () => {
         orderType: SalesOrderType.MAKLON_JASA,
         customerId: null,
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-1" } as any,
@@ -989,9 +1023,9 @@ describe("ProductionOrderService", () => {
       vi.mocked(prisma.machine.findUnique).mockResolvedValue({
         type: MachineType.PACKER,
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue({
-        category: BomCategory.EXTRUSION,
-      } as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(
+        activeBom({ category: BomCategory.EXTRUSION }),
+      );
       await expect(ProductionOrderService.quickCreateOrder(qd)).rejects.toThrow(
         "not compatible",
       );
@@ -1003,8 +1037,8 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
@@ -1029,8 +1063,8 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce({
           id: "bom-1",
           outputQuantity: dec(100),
@@ -1053,8 +1087,8 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
@@ -1069,8 +1103,8 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
@@ -1090,8 +1124,8 @@ describe("ProductionOrderService", () => {
         type: MachineType.EXTRUDER,
       } as any);
       vi.mocked(prisma.bom.findUnique)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
-        .mockResolvedValueOnce({ category: BomCategory.EXTRUSION } as any)
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
+        .mockResolvedValueOnce(activeBom({ category: BomCategory.EXTRUSION }))
         .mockResolvedValueOnce(null);
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
@@ -1104,10 +1138,10 @@ describe("ProductionOrderService", () => {
       expect(r).toBeDefined();
     });
 
-    it("should skip validation when machine or BOM not found", async () => {
+    it("should skip machine validation when machine not found", async () => {
       const mod = await import("../order-number-service");
       vi.mocked(prisma.machine.findUnique).mockResolvedValue(null);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
       vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
         { id: "po-q", status: ProductionStatus.DRAFT } as any,

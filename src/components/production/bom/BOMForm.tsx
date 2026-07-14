@@ -241,6 +241,20 @@ export function BOMForm({
                 </div>
             </div>
 
+            {/* Usage warning when editing */}
+            {bom && (bom._count?.ProductionOrder ?? 0) > 0 && (
+                <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                    <Info className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-700 dark:text-amber-400 font-semibold">
+                        Resep sudah dipakai di {bom._count.ProductionOrder} Work Order
+                    </AlertTitle>
+                    <AlertDescription className="text-amber-600/80 dark:text-amber-400/70 text-sm">
+                        Edit di sini akan mengubah formula yang sudah dipakai di produksi.
+                        Untuk formula baru, gunakan Duplikat.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     {/* Header Section: General Info & Summary */}

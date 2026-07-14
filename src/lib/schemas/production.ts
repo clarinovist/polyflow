@@ -120,6 +120,13 @@ export const duplicateBomSchema = z.object({
 
 export type DuplicateBomValues = z.infer<typeof duplicateBomSchema>;
 
+export const archiveBomSchema = z.object({
+    bomId: z.string().min(1, "Recipe ID is required"),
+    newDefaultBomId: z.string().optional(),
+});
+
+export type ArchiveBomValues = z.infer<typeof archiveBomSchema>;
+
 export const productionOutputSchema = z.object({
     productionOrderId: z.string().min(1, "Production Order ID is required"),
     // Transform empty string '' → undefined to prevent FK constraint violations in DB

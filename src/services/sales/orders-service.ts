@@ -569,6 +569,7 @@ export async function confirmOrder(id: string, userId: string) {
         where: {
           productVariantId: { in: shortageVariantIds },
           isDefault: true,
+          isActive: true,
         },
         select: { productVariantId: true },
       });

@@ -81,6 +81,8 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
     const [isRecalculating, setIsRecalculating] = React.useState(false);
     const [showDuplicateDialog, setShowDuplicateDialog] = React.useState(false);
     const basePath = useBomBasePath();
+    const usageCount = bom._count?.ProductionOrder ?? 0;
+    const isArchived = bom.isActive === false;
     const ingredientDiagnostics = bom.items.map((item: { productVariant: { costDiagnostics?: CostDiagnosticsView } & VariantCostLike }) => {
         return resolveIngredientDiagnostics(item.productVariant);
     });
@@ -155,6 +157,30 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                 </div>
             </div>
 
+            {/* Archived banner */}
+            {isArchived && (
+                <div className="mb-6 rounded-md border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-4">
+                    <p className="text-sm text-orange-700 dark:text-orange-400 font-medium">
+                        Resep nonaktif — tidak bisa dipilih untuk WO baru.
+                    </p>
+                    <p className="text-xs text-orange-600/80 dark:text-orange-400/70 mt-1">
+                        Resep ini hanya bisa dilihat di history. Untuk menggunakan kembali, aktifkan dari menu aksi.
+                    </p>
+                </div>
+            )}
+
+            {/* Usage warning when editing */}
+            {!isArchived && usageCount > 0 && (
+                <div className="mb-6 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4">
+                    <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
+                        Resep sudah dipakai di {usageCount} Work Order.
+                    </p>
+                    <p className="text-xs text-blue-600/80 dark:text-blue-400/70 mt-1">
+                        Untuk formula baru, gunakan Duplikat. Edit di sini tetap mengubah formula yang sudah dipakai.
+                    </p>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 {/* General Info */}
                 <Card className="lg:col-span-2">
@@ -185,17 +211,21 @@ export function BOMDetails({ bom, showPrices }: BOMDetailsProps) {
                             <div className="space-y-1">
                                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground border-b pb-1 mb-1">Status</div>
                                 <div>
-                                    {bom.isDefault ? (
+                                    {isArchived ? (
+                                        <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                            Nonaktif
+                                        </Badge>
+                                    ) : bom.isDefault ? (
                                         <Badge className="text-[10px] h-5 px-1.5 font-bold bg-green-500/15 text-green-600 hover:bg-green-500/25 border-green-500/20 gap-1">
                                             <span className="relative flex h-1.5 w-1.5 mr-0.5">
                                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
                                             </span>
-                                            ACTIVE RECIPE
+                                            DEFAULT
                                         </Badge>
                                     ) : (
                                         <Badge variant="outline">
-                                            Standard Recipe
+                                            Active
                                         </Badge>
                                     )}
                                 </div>

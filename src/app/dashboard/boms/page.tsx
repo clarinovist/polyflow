@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function BomsPage() {
-  const [bomsRes, showPrices] = await Promise.all([getBoms(), canViewPrices()]);
+  const [bomsRes, showPrices] = await Promise.all([getBoms(undefined, 'ALL'), canViewPrices()]);
 
   const boms = bomsRes.success && bomsRes.data ? bomsRes.data : [];
 

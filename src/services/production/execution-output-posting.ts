@@ -50,7 +50,7 @@ export async function recordFinishedGoodsOutput(params: {
     if (unitCost <= 0) {
         // Estimate from BOM recipe so production output is never zero-cost
         const bom = await tx.bom.findFirst({
-            where: { productVariantId: outputVariantId, isDefault: true },
+            where: { productVariantId: outputVariantId, isDefault: true, isActive: true },
             select: {
                 outputQuantity: true,
                 items: {

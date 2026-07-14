@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/core/tenant";
 import { prisma } from '@/lib/core/prisma';
-import { createBomSchema, CreateBomValues, duplicateBomSchema, DuplicateBomValues } from '@/lib/schemas/production';
+import { createBomSchema, CreateBomValues, duplicateBomSchema, DuplicateBomValues, archiveBomSchema } from '@/lib/schemas/production';
 import { revalidatePath } from 'next/cache';
 import { serializeData } from '@/lib/utils/utils';
 import { calculateBomCost } from '@/lib/utils/production-utils';
@@ -17,6 +17,7 @@ import {
     type VariantCostDiagnostics,
 } from '@/lib/utils/current-cost';
 import { BomCostCascadeService } from '@/services/production/bom-cost-cascade-service';
+import { BomLifecycleService } from '@/services/production/bom-lifecycle-service';
 
 /**
  * Unset other default BOMs on the same variant so only one is default.
@@ -69,13 +70,21 @@ function enrichBomCurrentCosts<T extends {
 }
 
 export const getBoms = withTenant(
-async function getBoms(category?: string) {
+async function getBoms(category?: string, status?: 'ACTIVE' | 'ARCHIVED' | 'ALL') {
     return safeAction(async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const where: any = {};
         if (category && category !== 'ALL') {
             where.category = category;
         }
+        // Status filter (default: ACTIVE only)
+        const effectiveStatus = status || 'ACTIVE';
+        if (effectiveStatus === 'ACTIVE') {
+            where.isActive = true;
+        } else if (effectiveStatus === 'ARCHIVED') {
+            where.isActive = false;
+        }
+        // ALL = no isActive filter
 
         const boms = await prisma.bom.findMany({
             where,
@@ -105,6 +114,9 @@ async function getBoms(category?: string) {
                             }
                         }
                     }
+                },
+                _count: {
+                    select: { ProductionOrder: true },
                 }
             },
             orderBy: { updatedAt: 'desc' }
@@ -257,6 +269,9 @@ async function getBom(id: string) {
                             }
                         }
                     }
+                },
+                _count: {
+                    select: { ProductionOrder: true },
                 }
             }
         });
@@ -440,24 +455,160 @@ export const deleteBom = withTenant(
 async function deleteBom(id: string) {
     return safeAction(async () => {
         const session = await requireAuth();
-        try {
-            await prisma.bom.delete({ where: { id } });
 
+        // Pre-check: if in use, throw BusinessRuleError (no logger.error)
+        const usage = await BomLifecycleService.canHardDelete(id);
+        if (!usage.ok) {
+            if (usage.reason === 'BOM_NOT_FOUND') {
+                throw new NotFoundError('Resep', id);
+            }
+            // BOM_IN_USE — business reject, not error
+            throw new BusinessRuleError(
+                `Resep tidak bisa dihapus karena sudah dipakai di ${usage.count} Production Order. Nonaktifkan saja agar tidak muncul di produksi baru.`,
+                { bomId: id, count: usage.count },
+                'BOM_IN_USE',
+            );
+        }
+
+        const bom = await prisma.bom.findUnique({ where: { id } });
+        const bomName = bom?.name || id;
+
+        await BomLifecycleService.hardDelete(id, { userId: session.user.id });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'DELETE_BOM',
+            entityType: 'Bom',
+            entityId: id,
+            details: `Deleted Recipe (BOM) ${bomName}`
+        });
+
+        revalidatePath('/dashboard/boms');
+        revalidatePath('/production/boms');
+        return null;
+    });
+}
+);
+
+export const archiveBom = withTenant(
+async function archiveBom(data: { bomId: string; newDefaultBomId?: string }) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        const validated = archiveBomSchema.parse(data);
+
+        const bom = await prisma.bom.findUnique({ where: { id: validated.bomId } });
+        if (!bom) throw new NotFoundError('Resep', validated.bomId);
+        const bomName = bom.name;
+
+        // Idempotent: if already archived, return success
+        if (!bom.isActive) {
+            return null;
+        }
+
+        await BomLifecycleService.archive(
+            validated.bomId,
+            { userId: session.user.id },
+            validated.newDefaultBomId,
+        );
+
+        const usage = await BomLifecycleService.getUsage(validated.bomId);
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'ARCHIVE_BOM',
+            entityType: 'Bom',
+            entityId: validated.bomId,
+            details: `Archived Recipe (BOM) ${bomName} (used in ${usage.productionOrderCount} PO, replacement: ${validated.newDefaultBomId || 'none'})`
+        });
+
+        revalidatePath('/dashboard/boms');
+        revalidatePath('/production/boms');
+        return null;
+    });
+}
+);
+
+export const reactivateBom = withTenant(
+async function reactivateBom(id: string) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+
+        const bom = await prisma.bom.findUnique({ where: { id } });
+        if (!bom) throw new NotFoundError('Resep', id);
+        const bomName = bom.name;
+
+        // Idempotent: if already active, return success
+        if (bom.isActive) {
+            return null;
+        }
+
+        await BomLifecycleService.reactivate(id, { userId: session.user.id });
+
+        await logActivity({
+            userId: session.user.id,
+            action: 'REACTIVATE_BOM',
+            entityType: 'Bom',
+            entityId: id,
+            details: `Reactivated Recipe (BOM) ${bomName}`
+        });
+
+        revalidatePath('/dashboard/boms');
+        revalidatePath('/production/boms');
+        return null;
+    });
+}
+);
+
+export const bulkArchiveBom = withTenant(
+async function bulkArchiveBom(ids: string[]) {
+    return safeAction(async () => {
+        const session = await requireAuth();
+        if (!ids || ids.length === 0) {
+            throw new BusinessRuleError('Pilih minimal satu resep untuk dinonaktifkan.', undefined, 'BULK_ARCHIVE_EMPTY');
+        }
+
+        const results: { success: string[]; failed: { id: string; reason: string }[] } = {
+            success: [],
+            failed: [],
+        };
+
+        for (const id of ids) {
+            try {
+                const bom = await prisma.bom.findUnique({ where: { id } });
+                if (!bom) {
+                    results.failed.push({ id, reason: 'Tidak ditemukan' });
+                    continue;
+                }
+                if (!bom.isActive) {
+                    results.failed.push({ id, reason: 'Sudah dinonaktifkan' });
+                    continue;
+                }
+                // If default, skip (needs manual replacement selection)
+                if (bom.isDefault) {
+                    results.failed.push({ id, reason: 'Default — pilih pengganti manual' });
+                    continue;
+                }
+                await BomLifecycleService.archive(id, { userId: session.user.id });
+                results.success.push(id);
+            } catch (error) {
+                const message = error instanceof BusinessRuleError ? error.message : 'Gagal menonaktifkan';
+                results.failed.push({ id, reason: message });
+            }
+        }
+
+        if (results.success.length > 0) {
             await logActivity({
                 userId: session.user.id,
-                action: 'DELETE_BOM',
+                action: 'ARCHIVE_BOM',
                 entityType: 'Bom',
-                entityId: id,
-                details: `Deleted Recipe (BOM) ${id}`
+                entityId: results.success.join(','),
+                details: `Bulk archived ${results.success.length} Recipes (BOM)`,
             });
-
-            revalidatePath('/dashboard/boms');
-            revalidatePath('/production/boms');
-            return null;
-        } catch (error) {
-            logger.error("Failed to delete BOM", { error, module: 'BomActions' });
-            throw new BusinessRuleError("Failed to delete Recipe. It might be in use by a production order.");
         }
+
+        revalidatePath('/dashboard/boms');
+        revalidatePath('/production/boms');
+        return serializeData(results);
     });
 }
 );

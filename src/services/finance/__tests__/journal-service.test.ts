@@ -1662,7 +1662,6 @@ describe("JournalsService", () => {
 
       // Verify the create call includes both lines and details
       const createCall = vi.mocked(prisma.journalEntry.create).mock.calls[0][0];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = createCall.data as any;
       expect(data.lines.create).toHaveLength(2);
       expect(data.details.create).toHaveLength(2);

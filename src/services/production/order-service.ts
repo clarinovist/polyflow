@@ -37,6 +37,7 @@ export class ProductionOrderService {
       customers,
     ] = await Promise.all([
       prisma.bom.findMany({
+        where: { isActive: true },
         include: {
           productVariant: {
             include: { product: true },
@@ -217,38 +218,49 @@ export class ProductionOrderService {
     } = data;
 
     return await prisma.$transaction(async (tx) => {
+      // 0. BOM must exist and be active for new production orders
+      const bomForOrder = await tx.bom.findUnique({
+        where: { id: bomId },
+        select: { id: true, isActive: true, category: true },
+      });
+      if (!bomForOrder) {
+        throw new NotFoundError("Resep", bomId);
+      }
+      if (!bomForOrder.isActive) {
+        throw new BusinessRuleError(
+          "Resep ini sudah nonaktif dan tidak bisa dipakai untuk Production Order baru. Aktifkan kembali atau pilih resep aktif lain.",
+          { bomId },
+          "BOM_INACTIVE",
+        );
+      }
+
       // 1. Validate Machine Type against BOM Category if machineId is provided
       if (machineId) {
-        const [machine, bom] = await Promise.all([
-          tx.machine.findUnique({
-            where: { id: machineId },
-            select: { type: true },
-          }),
-          tx.bom.findUnique({
-            where: { id: bomId },
-            select: { category: true },
-          }),
-        ]);
+        const machine = await tx.machine.findUnique({
+          where: { id: machineId },
+          select: { type: true },
+        });
 
-        if (machine && bom) {
+        if (machine) {
+          const bomCategory = bomForOrder.category;
           const isTypeMatch =
-            (bom.category === BomCategory.MIXING &&
+            (bomCategory === BomCategory.MIXING &&
               machine.type === MachineType.MIXER) ||
-            (bom.category === BomCategory.EXTRUSION &&
+            (bomCategory === BomCategory.EXTRUSION &&
               (machine.type === MachineType.EXTRUDER ||
                 machine.type === MachineType.REWINDER)) ||
-            (bom.category === BomCategory.PACKING &&
+            (bomCategory === BomCategory.PACKING &&
               (machine.type === MachineType.PACKER ||
                 machine.type === MachineType.GRANULATOR)) ||
-            bom.category === BomCategory.REWORK || // Rework is manual, any machine is OK
-            (bom.category === BomCategory.STANDARD &&
+            bomCategory === BomCategory.REWORK || // Rework is manual, any machine is OK
+            (bomCategory === BomCategory.STANDARD &&
               (machine.type === MachineType.EXTRUDER ||
                 machine.type === MachineType.MIXER)); // Standard fallback
 
           if (!isTypeMatch) {
             throw new ProductionRuleViolationError(
-              `Machine type ${machine.type} is not compatible with stage ${bom.category}`,
-              { machineType: machine.type, bomCategory: bom.category },
+              `Machine type ${machine.type} is not compatible with stage ${bomCategory}`,
+              { machineType: machine.type, bomCategory },
             );
           }
         }
@@ -363,6 +375,7 @@ export class ProductionOrderService {
       where: {
         productVariantId,
         isDefault: true,
+        isActive: true,
       },
     });
 

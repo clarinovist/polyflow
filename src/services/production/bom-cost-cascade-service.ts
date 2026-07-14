@@ -70,7 +70,7 @@ export class BomCostCascadeService {
 
             const parentBoms = await db.bom.findMany({
                 where: {
-                    ...(defaultOnly ? { isDefault: true } : {}),
+                    ...(defaultOnly ? { isDefault: true, isActive: true } : {}),
                     items: {
                         some: {
                             productVariantId: {
