@@ -92,6 +92,7 @@ export const planningLabels = {
   assignToMachine: 'Tugaskan ke Mesin',
   selectMachineAndDate: 'Pilih mesin dan tanggal mulai produksi.',
   chooseOrder: 'Pilih Order',
+  chooseMachine: 'Pilih Mesin',
   noOrdersToAssign: 'Tidak ada order yang bisa ditugaskan.',
 
   // MRP

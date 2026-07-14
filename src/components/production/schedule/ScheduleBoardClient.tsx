@@ -11,7 +11,6 @@ import type { OrderChip, Machine } from './MachineAllocationMatrix';
 
 /* ---------- Types ---------- */
 export type ScheduleOrder = OrderChip & {
-    machineId: string | null;
     plannedStartDate: string | Date;
 };
 
@@ -74,7 +73,6 @@ export function ScheduleBoardClient({
                     <CardContent className="pt-6">
                         <PendingDispatchQueue
                             orders={orders}
-                            machines={machines}
                             onAssignClick={handleAssignFromQueue}
                         />
                     </CardContent>

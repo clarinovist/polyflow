@@ -16,6 +16,7 @@ export type OrderChip = {
     bomName: string;
     status: string;
     plannedQuantity: number;
+    machineId: string | null;
 };
 
 export type Machine = {

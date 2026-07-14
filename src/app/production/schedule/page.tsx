@@ -80,10 +80,12 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" disabled>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {planningLabels.monthView}
-                                </Button>
+                                <span className="flex-1 sm:flex-none">
+                                    <Button variant="outline" size="sm" className="w-full" disabled>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {planningLabels.monthView}
+                                    </Button>
+                                </span>
                             </TooltipTrigger>
                             <TooltipContent>{planningLabels.monthViewDisabled}</TooltipContent>
                         </Tooltip>
@@ -91,10 +93,12 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 flex-1 sm:flex-none" disabled>
-                                    <Layers className="mr-2 h-4 w-4" />
-                                    {planningLabels.optimizeBatches}
-                                </Button>
+                                <span className="flex-1 sm:flex-none">
+                                    <Button className="bg-zinc-900 dark:bg-zinc-950 hover:bg-zinc-800 w-full" disabled>
+                                        <Layers className="mr-2 h-4 w-4" />
+                                        {planningLabels.optimizeBatches}
+                                    </Button>
+                                </span>
                             </TooltipTrigger>
                             <TooltipContent>{planningLabels.optimizeBatchesDisabled}</TooltipContent>
                         </Tooltip>

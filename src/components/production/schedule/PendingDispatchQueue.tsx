@@ -8,11 +8,10 @@ import { List } from 'lucide-react';
 import { planningLabels } from '@/lib/labels/planning';
 import type { OrderChip } from './MachineAllocationMatrix';
 
-type UnassignedOrder = OrderChip & { machineId: string | null; plannedStartDate: string | Date };
+type UnassignedOrder = OrderChip & { plannedStartDate: string | Date };
 
 interface PendingDispatchQueueProps {
     orders: UnassignedOrder[];
-    machines: { id: string; code: string; type: string }[];
     onAssignClick: (orderId: string) => void;
 }
 

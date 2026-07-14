@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -46,15 +46,20 @@ export function AssignOrderDialog({
     const [date, setDate] = useState<Date | undefined>(presetDate || new Date());
     const [isPending, setIsPending] = useState(false);
 
-    // Reset form when dialog opens with new presets
-    const handleOpenChange = (nextOpen: boolean) => {
-        if (nextOpen) {
-            setSelectedOrderId(presetOrderId || '');
-            setSelectedMachineId(presetMachineId || '');
-            setDate(presetDate || new Date());
-        }
-        onOpenChange(nextOpen);
-    };
+    // P0-fix: Sync prefill state every time dialog opens
+    useEffect(() => {
+        if (!open) return;
+        setSelectedOrderId(presetOrderId || '');
+        setSelectedMachineId(presetMachineId || '');
+        setDate(presetDate || new Date());
+    }, [open, presetOrderId, presetMachineId, presetDate]);
+
+    // Sort orders: unassigned first, then assigned (but still eligible for reassign)
+    const sortedOrders = [...orders].sort((a, b) => {
+        if (!a.machineId && b.machineId) return -1;
+        if (a.machineId && !b.machineId) return 1;
+        return 0;
+    });
 
     const handleSubmit = async () => {
         if (!selectedOrderId) {
@@ -72,26 +77,30 @@ export function AssignOrderDialog({
 
         setIsPending(true);
         try {
-            await updateProductionOrder({
+            // P0-fix: Check result.success like ReassignMachineDialog does
+            const result = await updateProductionOrder({
                 id: selectedOrderId,
                 machineId: selectedMachineId,
                 plannedStartDate: date,
             });
 
-            toast.success('Order berhasil ditugaskan ke mesin.');
-            onOpenChange(false);
-            router.refresh();
+            if (result.success) {
+                toast.success('Order berhasil ditugaskan ke mesin.');
+                onOpenChange(false);
+                router.refresh();
+            } else {
+                toast.error(result.error || 'Gagal menugaskan order');
+            }
         } catch (err) {
             console.error(err);
-            const message = err instanceof Error ? err.message : 'Gagal menugaskan order. Silakan coba lagi.';
-            toast.error(message);
+            toast.error('Gagal menugaskan order. Silakan coba lagi.');
         } finally {
             setIsPending(false);
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>{planningLabels.assignOrder}</DialogTitle>
@@ -112,11 +121,17 @@ export function AssignOrderDialog({
                                     <SelectValue placeholder={planningLabels.chooseOrder} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {orders.map(order => (
-                                        <SelectItem key={order.id} value={order.id}>
-                                            {order.orderNumber} — {order.bomName}
+                                    {sortedOrders.length === 0 ? (
+                                        <SelectItem value="__none__" disabled>
+                                            {planningLabels.noOrdersToAssign}
                                         </SelectItem>
-                                    ))}
+                                    ) : (
+                                        sortedOrders.map(order => (
+                                            <SelectItem key={order.id} value={order.id}>
+                                                {!order.machineId ? '📌 ' : ''}{order.orderNumber} — {order.bomName}
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -125,10 +140,10 @@ export function AssignOrderDialog({
                     {/* Machine selection (hidden when pre-selected from cell "+") */}
                     {!presetMachineId && (
                         <div className="grid gap-2">
-                            <Label htmlFor="machine">Mesin</Label>
+                            <Label htmlFor="machine">{planningLabels.machine}</Label>
                             <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
                                 <SelectTrigger id="machine">
-                                    <SelectValue placeholder="Pilih mesin" />
+                                    <SelectValue placeholder={planningLabels.chooseMachine} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {machines.map(machine => (
@@ -143,7 +158,7 @@ export function AssignOrderDialog({
 
                     {/* Date selection */}
                     <div className="grid gap-2">
-                        <Label>Tanggal Mulai</Label>
+                        <Label>{planningLabels.startDate}</Label>
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -154,7 +169,7 @@ export function AssignOrderDialog({
                                     )}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, 'PPP', { locale: localeID }) : <span>Pilih tanggal</span>}
+                                    {date ? format(date, 'PPP', { locale: localeID }) : <span>{planningLabels.startDate}</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
