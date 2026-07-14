@@ -654,6 +654,36 @@ export async function cancelOrder(id: string, userId: string) {
     );
   }
 
+  // Block cancel if material issues have been issued (physical stock already moved)
+  const issuedMaterialIssues = await prisma.materialIssue.count({
+    where: {
+      productionOrder: { salesOrderId: id },
+      status: "ISSUED",
+    },
+  });
+  if (issuedMaterialIssues > 0) {
+    throw new BusinessRuleError(
+      "Cannot cancel order: material issues have already been issued to production. Void the material issues first.",
+      { orderId: id, issuedCount: issuedMaterialIssues },
+      "MATERIAL_ISSUES_EXIST",
+    );
+  }
+
+  // Block cancel if delivery stock movements exist
+  const deliveryMovements = await prisma.stockMovement.count({
+    where: {
+      salesOrderId: id,
+      type: "OUT",
+    },
+  });
+  if (deliveryMovements > 0) {
+    throw new BusinessRuleError(
+      "Cannot cancel order: delivery stock movements already exist. Reverse deliveries first.",
+      { orderId: id, movementCount: deliveryMovements },
+      "DELIVERY_MOVEMENTS_EXIST",
+    );
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.stockReservation.updateMany({
       where: {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { confirmOrder, createOrder, updateOrder } from "../orders-service";
+import { confirmOrder, createOrder, updateOrder, cancelOrder } from "../orders-service";
 import { prisma } from "@/lib/core/prisma";
 import { ProductionService } from "@/services/production/production-service";
 import { checkCreditLimit } from "../credit-service";
@@ -28,9 +28,16 @@ vi.mock("@/lib/core/prisma", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    materialIssue: {
+      count: vi.fn(),
+    },
+    stockMovement: {
+      count: vi.fn(),
+    },
     stockReservation: {
       aggregate: vi.fn(),
       groupBy: vi.fn(),
+      updateMany: vi.fn(),
     },
     bom: {
       findFirst: vi.fn(),
@@ -294,5 +301,81 @@ describe("confirmOrder", () => {
       enteredUnitPrice: 1000,
       subtotal: 100000,
     });
+  });
+});
+
+describe("cancelOrder", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const mockOrder = {
+    id: "so-1",
+    orderNumber: "SO-2026-0001",
+    status: SalesOrderStatus.CONFIRMED,
+  };
+
+  it("should cancel order successfully when no material issues or deliveries", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
+    vi.mocked(prisma.materialIssue.count).mockResolvedValue(0);
+    vi.mocked(prisma.stockMovement.count).mockResolvedValue(0);
+    vi.mocked(prisma.stockReservation.updateMany).mockResolvedValue({ count: 1 } as any);
+    vi.mocked(prisma.salesOrder.update).mockResolvedValue({} as any);
+
+    await cancelOrder("so-1", "user-1");
+
+    expect(prisma.salesOrder.update).toHaveBeenCalledWith({
+      where: { id: "so-1" },
+      data: { status: SalesOrderStatus.CANCELLED },
+    });
+  });
+
+  it("should throw when SHIPPED order", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      ...mockOrder,
+      status: SalesOrderStatus.SHIPPED,
+    } as any);
+
+    await expect(cancelOrder("so-1", "user-1")).rejects.toThrow(
+      "Cannot cancel orders that have been shipped or delivered",
+    );
+  });
+
+  it("should throw when DELIVERED order", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+      ...mockOrder,
+      status: SalesOrderStatus.DELIVERED,
+    } as any);
+
+    await expect(cancelOrder("so-1", "user-1")).rejects.toThrow(
+      "Cannot cancel orders that have been shipped or delivered",
+    );
+  });
+
+  it("should throw when material issues are ISSUED", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
+    vi.mocked(prisma.materialIssue.count).mockResolvedValue(3);
+
+    await expect(cancelOrder("so-1", "user-1")).rejects.toThrow(
+      "material issues have already been issued",
+    );
+  });
+
+  it("should throw when delivery stock movements exist", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(mockOrder as any);
+    vi.mocked(prisma.materialIssue.count).mockResolvedValue(0);
+    vi.mocked(prisma.stockMovement.count).mockResolvedValue(2);
+
+    await expect(cancelOrder("so-1", "user-1")).rejects.toThrow(
+      "delivery stock movements already exist",
+    );
+  });
+
+  it("should throw when order not found", async () => {
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
+
+    await expect(cancelOrder("nonexistent", "user-1")).rejects.toThrow(
+      "Sales Order",
+    );
   });
 });
