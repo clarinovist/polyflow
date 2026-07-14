@@ -27,13 +27,15 @@ export type ManualJournalValues = z.infer<typeof manualJournalSchema>;
 
 // --- Detail Journal Schema (generic, template-driven) ---
 
+const DETAIL_JOURNAL_TYPE_KEYS = ['DIRECT_LABOR', 'EMPLOYEE_RECEIVABLE', 'BPJS_HEALTH', 'BPJS_EMPLOYMENT'] as const;
+
 const journalDetailLineSchema = z.object({
     description: z.string().min(1, "Nama wajib diisi"),
     amount: z.coerce.number().positive("Nominal harus lebih dari 0"),
 });
 
 export const detailJournalSchema = z.object({
-    type: z.string().min(1, "Template wajib dipilih"),
+    type: z.enum(DETAIL_JOURNAL_TYPE_KEYS),
     entryDate: z.date(),
     description: z.string().min(3, "Description must be at least 3 characters"),
     reference: z.string().optional(),
@@ -46,6 +48,9 @@ export const detailJournalSchema = z.object({
             const total = details.reduce((sum, d) => sum + (d.amount || 0), 0);
             return total > 0;
         }, "Total nominal harus lebih dari 0"),
+}).refine((data) => data.primaryAccountId !== data.counterAccountId, {
+    message: "Akun utama dan akun lawan tidak boleh sama",
+    path: ["counterAccountId"],
 });
 
 export type DetailJournalValues = z.infer<typeof detailJournalSchema>;

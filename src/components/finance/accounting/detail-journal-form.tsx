@@ -54,7 +54,7 @@ export default function DetailJournalForm({
   const [loading, setLoading] = useState(false);
 
   // Determine initial template
-  const initialTemplateKey = defaultValues?.templateKey || defaultValues?.type || 'DIRECT_LABOR';
+  const initialTemplateKey = (defaultValues?.templateKey || defaultValues?.type || 'DIRECT_LABOR') as DetailJournalTemplateKey;
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>(initialTemplateKey);
   const template = DETAIL_JOURNAL_TEMPLATES[selectedTemplateKey as DetailJournalTemplateKey];
 
@@ -73,7 +73,7 @@ export default function DetailJournalForm({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(detailJournalSchema) as any,
     defaultValues: defaultValues || {
-      type: initialTemplateKey,
+      type: initialTemplateKey as DetailJournalValues['type'],
       entryDate: new Date(),
       description: '',
       reference: '',
@@ -124,7 +124,8 @@ export default function DetailJournalForm({
     if (!newTemplate) return;
 
     setSelectedTemplateKey(newKey);
-    setValue('type', newKey);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue('type', newKey as any);
     setValue('direction', newTemplate.defaultDirection);
 
     // Set default accounts

@@ -41,16 +41,31 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
     if (isKnownTemplate) {
         const template = DETAIL_JOURNAL_TEMPLATES[detailType as DetailJournalTemplateKey];
 
-        // Infer direction from GL lines: if primary account (first detail type's codes) has debit > 0 → OUTFLOW
+        // Infer direction by matching journal lines against template primaryCodes.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const debitLine = journal.lines.find((l: any) => Number(l.debit) > 0);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const creditLine = journal.lines.find((l: any) => Number(l.credit) > 0);
 
-        // Determine direction: if the primary account is the debit line → OUTFLOW
+        // Resolve account codes from the two GL lines
+        const debitAccount = debitLine
+            ? accounts.find((a: { id: string }) => a.id === debitLine.accountId)
+            : null;
+        const creditAccount = creditLine
+            ? accounts.find((a: { id: string }) => a.id === creditLine.accountId)
+            : null;
+
         const primaryCodes = template.primaryAccountCodes;
-        const primaryAccount = accounts.find((a: { code: string }) => primaryCodes.includes(a.code));
-        const direction = debitLine?.accountId === primaryAccount?.id ? 'OUTFLOW' : 'INFLOW';
+
+        // Direction: if debit-line account matches primary codes → OUTFLOW
+        //            if credit-line account matches primary codes → INFLOW
+        //            fallback: template.defaultDirection
+        let direction: 'OUTFLOW' | 'INFLOW' = template.defaultDirection;
+        if (debitAccount && primaryCodes.includes(debitAccount.code)) {
+            direction = 'OUTFLOW';
+        } else if (creditAccount && primaryCodes.includes(creditAccount.code)) {
+            direction = 'INFLOW';
+        }
 
         const defaultValues = {
             type: detailType,
@@ -59,7 +74,7 @@ export default async function EditJournalPage({ params }: EditJournalPageProps) 
             reference: journal.reference || '',
             primaryAccountId: direction === 'OUTFLOW' ? debitLine?.accountId || '' : creditLine?.accountId || '',
             counterAccountId: direction === 'OUTFLOW' ? creditLine?.accountId || '' : debitLine?.accountId || '',
-            direction: direction as 'OUTFLOW' | 'INFLOW',
+            direction,
             templateKey: detailType,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             details: journal.details.map((d: any) => ({
