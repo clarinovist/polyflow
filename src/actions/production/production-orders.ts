@@ -116,10 +116,25 @@ export const quickCreateProductionOrder = withTenant(
           outputSlugByCategory[bom?.category || ""] ||
           WAREHOUSE_SLUGS.RAW_MATERIAL;
 
-        const location = await prisma.location.findUnique({
+        let location = await prisma.location.findUnique({
           where: { slug: outputSlug },
           select: { id: true },
         });
+
+        // Fallback for Melindo or databases with different warehouse layouts
+        if (!location) {
+          location = await prisma.location.findUnique({
+            where: { slug: "gudang-utama" },
+            select: { id: true },
+          });
+        }
+
+        // Final fallback to the first available location
+        if (!location) {
+          location = await prisma.location.findFirst({
+            select: { id: true },
+          });
+        }
 
         if (!location) {
           throw new BusinessRuleError(
