@@ -12,6 +12,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TransactionDateFilter } from '@/components/common/transaction-date-filter';
 import { DateRange } from 'react-day-picker';
+import { formatQuantity } from '@/lib/utils/utils';
 
 interface LedgerEntry {
     id: string;
@@ -201,7 +202,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">Opening Stock</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{summary.openingStock} <span className="text-sm font-normal text-muted-foreground">{product.primaryUnit}</span></div>
+                        <div className="text-2xl font-bold">{formatQuantity(summary.openingStock)} <span className="text-sm font-normal text-muted-foreground">{product.primaryUnit}</span></div>
                     </CardContent>
                 </Card>
                 <Card className="border-l-4 border-l-emerald-500">
@@ -209,7 +210,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider text-emerald-600">Total In</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-700">+{summary.totalIn}</div>
+                        <div className="text-2xl font-bold text-emerald-700">+{formatQuantity(summary.totalIn)}</div>
                     </CardContent>
                 </Card>
                 <Card className="border-l-4 border-l-rose-500">
@@ -217,7 +218,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                         <CardTitle className="text-xs font-semibold uppercase text-muted-foreground tracking-wider text-rose-600">Total Out</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-rose-700">-{summary.totalOut}</div>
+                        <div className="text-2xl font-bold text-rose-700">-{formatQuantity(summary.totalOut)}</div>
                     </CardContent>
                 </Card>
                 <Card className="bg-primary/5 border-primary">
@@ -225,7 +226,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                         <CardTitle className="text-xs font-semibold uppercase text-primary tracking-wider">Closing Stock</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">{summary.closingStock} <span className="text-sm font-normal opacity-70">{product.primaryUnit}</span></div>
+                        <div className="text-2xl font-bold text-primary">{formatQuantity(summary.closingStock)} <span className="text-sm font-normal opacity-70">{product.primaryUnit}</span></div>
                     </CardContent>
                 </Card>
             </div>
@@ -254,7 +255,7 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                             <TableBody>
                                 <TableRow className="bg-muted/20 font-medium">
                                     <TableCell colSpan={4}>Opening Balance</TableCell>
-                                    <TableCell className="text-right font-mono font-bold text-lg">{summary.openingStock}</TableCell>
+                                    <TableCell className="text-right font-mono font-bold text-lg">{formatQuantity(summary.openingStock)}</TableCell>
                                     <TableCell colSpan={2}></TableCell>
                                 </TableRow>
                                 {entries.length === 0 ? (
@@ -278,13 +279,13 @@ export function StockLedgerClient({ ledgerData, locations }: StockLedgerClientPr
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-emerald-600">
-                                                {e.qtyIn > 0 ? `+${e.qtyIn}` : '-'}
+                                                {e.qtyIn > 0 ? `+${formatQuantity(e.qtyIn)}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-right font-mono text-rose-600">
-                                                {e.qtyOut > 0 ? `-${e.qtyOut}` : '-'}
+                                                {e.qtyOut > 0 ? `-${formatQuantity(e.qtyOut)}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-right font-mono font-bold">
-                                                {e.balance}
+                                                {formatQuantity(e.balance)}
                                             </TableCell>
                                             <TableCell className="text-xs">
                                                 {e.fromLocation && e.toLocation ? (
