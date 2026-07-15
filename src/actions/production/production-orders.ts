@@ -206,6 +206,7 @@ export const getProductionOrders = withTenant(
         actualEndDate: true,
         createdAt: true,
         isMaklon: true,
+        machineId: true,
         bom: {
           select: {
             id: true,
