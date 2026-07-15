@@ -29,7 +29,7 @@ export default async function PpicSchedulePage({ searchParams }: PageProps) {
     const allOrders = ordersRes as any[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orders = allOrders.filter((o: any) =>
-        [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT].includes(o.status)
+        [ProductionStatus.RELEASED, ProductionStatus.IN_PROGRESS, ProductionStatus.DRAFT, ProductionStatus.WAITING_MATERIAL].includes(o.status)
     );
 
     // Parse ?from=YYYY-MM-DD for week navigation

@@ -512,6 +512,7 @@ export class ProductionOrderService {
       actualStartDate,
       actualEndDate,
       machineId,
+      plannedStartDate,
     } = data;
 
     return await prisma.productionOrder.update({
@@ -522,6 +523,7 @@ export class ProductionOrderService {
         actualStartDate,
         actualEndDate,
         machineId,
+        plannedStartDate,
       },
     });
   }

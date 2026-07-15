@@ -54,8 +54,13 @@ export function AssignOrderDialog({
         setDate(presetDate || new Date());
     }, [open, presetOrderId, presetMachineId, presetDate]);
 
+    // Filter out IN_PROGRESS, COMPLETED, CANCELLED from assignable list
+    const assignableOrders = orders.filter(order =>
+        ['DRAFT', 'RELEASED', 'WAITING_MATERIAL'].includes(order.status)
+    );
+
     // Sort orders: unassigned first, then assigned (but still eligible for reassign)
-    const sortedOrders = [...orders].sort((a, b) => {
+    const sortedOrders = [...assignableOrders].sort((a, b) => {
         if (!a.machineId && b.machineId) return -1;
         if (a.machineId && !b.machineId) return 1;
         return 0;
@@ -128,7 +133,10 @@ export function AssignOrderDialog({
                                     ) : (
                                         sortedOrders.map(order => (
                                             <SelectItem key={order.id} value={order.id}>
-                                                {!order.machineId ? '📌 ' : ''}{order.orderNumber} — {order.bomName}
+                                                {order.machineId 
+                                                    ? `🔄 [Pindah Mesin] ${order.orderNumber} — ${order.bomName}`
+                                                    : `📌 [Baru] ${order.orderNumber} — ${order.bomName}`
+                                                }
                                             </SelectItem>
                                         ))
                                     )}
@@ -146,7 +154,7 @@ export function AssignOrderDialog({
                                     <SelectValue placeholder={planningLabels.chooseMachine} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {machines.map(machine => (
+                                    {machines.filter(m => m.status === 'ACTIVE').map(machine => (
                                         <SelectItem key={machine.id} value={machine.id}>
                                             {machine.code} - {machine.type}
                                         </SelectItem>

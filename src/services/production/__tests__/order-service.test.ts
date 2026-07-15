@@ -1188,6 +1188,7 @@ describe("ProductionOrderService", () => {
           actualStartDate: s,
           actualEndDate: e,
           machineId: undefined,
+          plannedStartDate: undefined,
         },
       });
     });
@@ -1203,6 +1204,42 @@ describe("ProductionOrderService", () => {
       expect(prisma.productionOrder.update).toHaveBeenCalledWith({
         where: { id: "po-1" },
         data: expect.objectContaining({ machineId: "m-2" }),
+      });
+    });
+
+    it("should update machineId and plannedStartDate together", async () => {
+      const p = new Date("2026-07-15T00:00:00Z");
+      vi.mocked(prisma.productionOrder.update).mockResolvedValue({
+        id: "po-1",
+      } as any);
+      await ProductionOrderService.updateOrder({
+        id: "po-1",
+        machineId: "m-3",
+        plannedStartDate: p,
+      });
+      expect(prisma.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: "po-1" },
+        data: expect.objectContaining({
+          machineId: "m-3",
+          plannedStartDate: p,
+        }),
+      });
+    });
+
+    it("should update plannedStartDate only (reschedule scenario)", async () => {
+      const p = new Date("2026-07-16T00:00:00Z");
+      vi.mocked(prisma.productionOrder.update).mockResolvedValue({
+        id: "po-1",
+      } as any);
+      await ProductionOrderService.updateOrder({
+        id: "po-1",
+        plannedStartDate: p,
+      });
+      expect(prisma.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: "po-1" },
+        data: expect.objectContaining({
+          plannedStartDate: p,
+        }),
       });
     });
   });
