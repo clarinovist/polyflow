@@ -9,9 +9,9 @@ import { warehouseLabels } from '@/lib/labels';
 export const dynamic = 'force-dynamic';
 
 export default async function WarehousePage() {
-    // Fetch Job Queue (Existing Logic)
     const ordersRes = await getProductionOrders();
-    const orders = ordersRes;
+    const activeStatuses = ['RELEASED', 'IN_PROGRESS', 'WAITING_MATERIAL'];
+    const orders = ordersRes.filter(o => activeStatuses.includes(o.status));
 
     const formDataRes = await getProductionFormData();
     const formData = formDataRes.success && formDataRes.data ? formDataRes.data : { locations: [], operators: [], helpers: [], workShifts: [], boms: [], machines: [], rawMaterials: [] };
