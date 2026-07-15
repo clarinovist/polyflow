@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Employee, EmployeeStatus } from '@prisma/client';
 import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/admin/employees';
 import { getJobRoles, createJobRole } from '@/actions/admin/roles';
+import { setEmployeePin, clearEmployeePin } from '@/actions/admin/attendance';
 import { useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,15 +20,21 @@ import { productionComponentLabels } from '@/lib/labels';
 
 interface EmployeeFormProps {
     initialData?: Employee;
+    hasPin?: boolean;
 }
 
-export function EmployeeForm({ initialData }: EmployeeFormProps) {
+export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
     const [openRole, setOpenRole] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+
+    // PIN state (edit mode only)
+    const [hasPin, setHasPin] = useState(initialHasPin ?? false);
+    const [pin, setPin] = useState('');
+    const [pinLoading, setPinLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         name: initialData?.name || '',
@@ -67,6 +74,48 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
             toast.success('Peran pekerjaan berhasil dibuat.');
         } else {
             toast.error('Gagal membuat peran pekerjaan');
+        }
+    };
+
+    const handleSetPin = async () => {
+        if (!initialData) return;
+        if (!/^\d{4,6}$/.test(pin)) {
+            toast.error('PIN harus 4-6 digit angka');
+            return;
+        }
+        setPinLoading(true);
+        try {
+            const res = await setEmployeePin(initialData.id, pin);
+            if (res.success) {
+                setHasPin(true);
+                setPin('');
+                toast.success('PIN berhasil disimpan');
+            } else {
+                toast.error(res.error || 'Gagal menyimpan PIN');
+            }
+        } catch {
+            toast.error('Gagal menyimpan PIN');
+        } finally {
+            setPinLoading(false);
+        }
+    };
+
+    const handleClearPin = async () => {
+        if (!initialData) return;
+        setPinLoading(true);
+        try {
+            const res = await clearEmployeePin(initialData.id);
+            if (res.success) {
+                setHasPin(false);
+                setPin('');
+                toast.success('PIN berhasil dihapus');
+            } else {
+                toast.error(res.error || 'Gagal menghapus PIN');
+            }
+        } catch {
+            toast.error('Gagal menghapus PIN');
+        } finally {
+            setPinLoading(false);
         }
     };
 
@@ -231,6 +280,54 @@ export function EmployeeForm({ initialData }: EmployeeFormProps) {
                         <span className="text-[10px] text-muted-foreground">Allow operator to be assigned to work orders.</span>
                     </div>
                 </div>
+
+                {/* PIN Management — edit mode only */}
+                {initialData && (
+                    <div className="space-y-3 bg-muted/30 p-3 rounded-lg border border-white/5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <Label className="text-sm font-semibold tracking-tight">PIN Kiosk</Label>
+                                <p className="text-[10px] text-muted-foreground">4-6 digit untuk absensi di kiosk.</p>
+                            </div>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasPin ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                                {hasPin ? 'Aktif' : 'Belum diset'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="password"
+                                value={pin}
+                                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                placeholder={hasPin ? '••••' : '4-6 digit'}
+                                maxLength={6}
+                                className="h-9 text-sm font-mono tracking-widest"
+                                autoComplete="off"
+                            />
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleSetPin}
+                                disabled={pinLoading || !pin}
+                                className="shrink-0"
+                            >
+                                {pinLoading ? '...' : 'Simpan'}
+                            </Button>
+                            {hasPin && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleClearPin}
+                                    disabled={pinLoading}
+                                    className="shrink-0 text-destructive hover:text-destructive"
+                                >
+                                    Hapus
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="flex items-center gap-3 pt-4">

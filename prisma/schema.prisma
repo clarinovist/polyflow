@@ -83,6 +83,8 @@ model Employee {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   hourlyRate           Decimal               @default(0) @db.Decimal(10, 2)
+  pinHash              String?
+  attendanceRecords    AttendanceRecord[]
   executionsAsOperator ProductionExecution[] @relation("ExecutionOperator")
   executionsAsHelper   ProductionExecution[] @relation("ExecutionHelpers")
   shiftsAsOperator     ProductionShift[]     @relation("ShiftOperator")
@@ -662,13 +664,15 @@ model ProductionExecution {
 }
 
 model WorkShift {
-  id        String          @id @default(uuid())
-  name      String
-  startTime String
-  endTime   String
-  status    WorkShiftStatus @default(ACTIVE)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  name          String
+  startTime     String
+  endTime       String
+  plannedHours  Decimal?        @db.Decimal(4, 2)
+  status        WorkShiftStatus @default(ACTIVE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  attendanceRecords AttendanceRecord[]
 }
 
 model JobRole {
@@ -2135,4 +2139,42 @@ enum AdjustmentType {
   CORRECTION_ADD
   CORRECTION_SUBTRACT
   OTHER
+}
+
+// ==========================================
+// HRD - ATTENDANCE
+// ==========================================
+
+model AttendanceRecord {
+  id               String           @id @default(uuid())
+  employeeId       String
+  workDate         DateTime         @db.Date
+  workShiftId      String
+  clockInAt        DateTime?
+  clockOutAt       DateTime?
+  status           AttendanceStatus @default(PRESENT)
+  isOvertimeShift  Boolean          @default(false)
+  notes            String?
+  source           AttendanceSource @default(KIOSK)
+  createdById      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  workShift WorkShift @relation(fields: [workShiftId], references: [id])
+
+  @@unique([employeeId, workDate, workShiftId])
+  @@index([workDate, workShiftId])
+  @@index([employeeId, workDate])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  ON_LEAVE
+}
+
+enum AttendanceSource {
+  KIOSK
+  MANUAL
 }

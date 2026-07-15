@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MessageCircleHeart,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -102,6 +103,12 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
         href: "/dashboard/maklon/returns",
         icon: Package,
       },
+    ],
+  },
+  {
+    heading: "HRD",
+    items: [
+      { title: "Absensi", href: "/hrd/attendance", icon: Clock },
     ],
   },
 ];

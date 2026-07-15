@@ -28,6 +28,7 @@ async function createWorkShift(data: {
     startTime: string;
     endTime: string;
     status: WorkShiftStatus;
+    plannedHours?: number | null;
 }) {
     try {
         const shift = await db.workShift.create({
@@ -36,6 +37,7 @@ async function createWorkShift(data: {
                 startTime: data.startTime,
                 endTime: data.endTime,
                 status: data.status,
+                plannedHours: data.plannedHours ?? undefined,
             },
         });
         revalidatePath('/dashboard/settings/shifts');
@@ -55,6 +57,7 @@ async function updateWorkShift(
         startTime: string;
         endTime: string;
         status: WorkShiftStatus;
+        plannedHours?: number | null;
     }
 ) {
     try {
@@ -65,6 +68,7 @@ async function updateWorkShift(
                 startTime: data.startTime,
                 endTime: data.endTime,
                 status: data.status,
+                plannedHours: data.plannedHours ?? undefined,
             },
         });
         revalidatePath('/dashboard/settings/shifts');

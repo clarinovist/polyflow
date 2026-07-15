@@ -30,6 +30,7 @@ const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:mm)'),
     endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:mm)'),
+    plannedHours: z.number().min(0, 'Jam rencana minimal 0').max(24, 'Jam rencana maksimal 24').optional(),
     isActive: z.boolean(),
 });
 
@@ -56,6 +57,7 @@ export function ShiftDialog({
             name: '',
             startTime: '08:00',
             endTime: '16:00',
+            plannedHours: undefined,
             isActive: true,
         },
         values: shiftToEdit
@@ -63,6 +65,7 @@ export function ShiftDialog({
                 name: shiftToEdit.name,
                 startTime: shiftToEdit.startTime,
                 endTime: shiftToEdit.endTime,
+                plannedHours: shiftToEdit.plannedHours != null ? Number(shiftToEdit.plannedHours) : undefined,
                 isActive: shiftToEdit.status === 'ACTIVE',
             }
             : undefined,
@@ -83,6 +86,7 @@ export function ShiftDialog({
                     startTime: values.startTime,
                     endTime: values.endTime,
                     status,
+                    plannedHours: values.plannedHours ?? null,
                 });
             } else {
                 result = await createWorkShift({
@@ -90,6 +94,7 @@ export function ShiftDialog({
                     startTime: values.startTime,
                     endTime: values.endTime,
                     status,
+                    plannedHours: values.plannedHours ?? null,
                 });
             }
 
@@ -162,6 +167,31 @@ export function ShiftDialog({
                                 )}
                             />
                         </div>
+                        <FormField
+                            control={form.control}
+                            name="plannedHours"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Jam Rencana (opsional)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            step="0.5"
+                                            min="0"
+                                            max="24"
+                                            placeholder="auto dari jam mulai-selesai"
+                                            value={field.value ?? ''}
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                field.onChange(v === '' ? undefined : parseFloat(v));
+                                            }}
+                                        />
+                                    </FormControl>
+                                    <p className="text-xs text-muted-foreground">Kosongkan untuk auto dari start–end</p>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="isActive"

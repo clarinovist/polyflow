@@ -4,6 +4,7 @@ import { serializeData } from "@/lib/utils/utils";
 import { ProductionStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { RefreshCcw, Search } from "lucide-react";
+import Link from "next/link";
 import KioskRefreshWrapper, { Order } from './KioskRefreshWrapper';
 import { kioskLabels } from "@/lib/labels";
 import { refreshKioskData } from "@/actions/app/refresh-actions";
@@ -124,6 +125,11 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
                     <p className="text-xs md:text-base text-muted-foreground font-medium">{kioskLabels.selectJob}</p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
+                    <Link href="/kiosk/attendance" className="shrink-0">
+                        <Button variant="outline" size="lg" className="h-12 md:h-14 md:px-6 text-base md:text-lg font-bold border-2 active:scale-95">
+                            ABSENSI
+                        </Button>
+                    </Link>
                     {searchQuery && (
                         <div className="hidden sm:flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full text-xs md:text-sm font-bold border-2 border-primary/20 text-primary whitespace-nowrap">
                             <Search className="h-4 w-4" />

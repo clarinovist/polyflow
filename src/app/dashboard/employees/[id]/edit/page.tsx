@@ -2,6 +2,7 @@ import { getEmployeeById } from '@/actions/admin/employees';
 import { EmployeeForm } from '@/components/production/EmployeeForm';
 import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
+import { Employee } from '@prisma/client';
 
 interface EditEmployeePageProps {
     params: Promise<{ id: string }>;
@@ -15,11 +16,13 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
         notFound();
     }
 
-    const employee = result.data;
+    const employee = result.data as Employee;
+    const hasPin = Boolean(employee.pinHash);
 
-    // Convert decimal to number for the form
-    const employeeData = {
-        ...employee,
+    // Strip pinHash before passing to client component
+    const { pinHash: _pinHash, ...employeeData } = employee;
+    const formData = {
+        ...employeeData,
         hourlyRate: employee.hourlyRate ? Number(employee.hourlyRate) : 0,
     };
 
@@ -34,7 +37,7 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
 
             <Card className="bg-background/40 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-xl border-0 overflow-hidden">
                 <CardContent className="pt-6">
-                    <EmployeeForm initialData={employeeData as unknown as Parameters<typeof EmployeeForm>[0]['initialData']} />
+                    <EmployeeForm initialData={formData as unknown as Employee} hasPin={hasPin} />
                 </CardContent>
             </Card>
         </div>

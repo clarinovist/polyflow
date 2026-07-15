@@ -51,6 +51,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                         <TableHead className="font-semibold text-muted-foreground">Name</TableHead>
                         <TableHead className="font-semibold text-muted-foreground">Start Time</TableHead>
                         <TableHead className="font-semibold text-muted-foreground">End Time</TableHead>
+                        <TableHead className="font-semibold text-muted-foreground">Jam Rencana</TableHead>
                         <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
                         <TableHead className="text-right font-semibold text-muted-foreground">Actions</TableHead>
                     </TableRow>
@@ -58,7 +59,7 @@ export function ShiftList({ shifts }: ShiftListProps) {
                 <TableBody>
                     {shifts.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                            <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-2">
                                         <Edit className="h-5 w-5 text-muted-foreground" />
@@ -74,6 +75,9 @@ export function ShiftList({ shifts }: ShiftListProps) {
                                 <TableCell className="font-medium text-foreground">{shift.name}</TableCell>
                                 <TableCell className="text-muted-foreground">{shift.startTime}</TableCell>
                                 <TableCell className="text-muted-foreground">{shift.endTime}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                    {shift.plannedHours != null ? `${shift.plannedHours}j` : '-'}
+                                </TableCell>
                                 <TableCell>
                                     <Badge
                                         variant={shift.status === 'ACTIVE' ? 'default' : 'secondary'}

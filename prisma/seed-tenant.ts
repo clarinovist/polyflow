@@ -51,6 +51,7 @@ async function main() {
     await prisma.journalLine.deleteMany()
     await prisma.journalEntry.deleteMany()
     await prisma.account.deleteMany()
+    await prisma.workShift.deleteMany()
     await prisma.user.deleteMany()
 
     // 1. Setup Tenant Admin
@@ -72,6 +73,20 @@ async function main() {
     // 2. Chart of Accounts (Required for Auto-Journaling)
     console.log('Seeding Chart of Accounts...')
     await seedCoA();
+
+    // 3. Work Shifts (Required for Attendance/Kiosk)
+    console.log('Seeding work shifts...')
+    await prisma.workShift.createMany({
+        data: [
+            // 8-hour shifts (3-shift rotation)
+            { name: 'Shift 1 (08-16)', startTime: '08:00', endTime: '16:00', plannedHours: 8,  status: 'ACTIVE' },
+            { name: 'Shift 2 (16-24)', startTime: '16:00', endTime: '24:00', plannedHours: 8,  status: 'ACTIVE' },
+            { name: 'Shift 3 (00-08)', startTime: '00:00', endTime: '08:00', plannedHours: 8,  status: 'ACTIVE' },
+            // 12-hour shifts (2-shift rotation)
+            { name: 'Shift 1 (08-20)', startTime: '08:00', endTime: '20:00', plannedHours: 12, status: 'ACTIVE' },
+            { name: 'Shift 2 (20-08)', startTime: '20:00', endTime: '08:00', plannedHours: 12, status: 'ACTIVE' },
+        ],
+    });
 
     console.log('Minimal tenant seeding completed.')
 }
