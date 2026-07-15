@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from 'next-auth';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
 import { getWorkspaceFromPath, canAccessWorkspace, getDefaultRedirectForUser } from '@/lib/auth/access-policy';
+import { hasRole } from '@/lib/auth/roles';
 
 export const authConfig = {
     pages: {
@@ -100,8 +101,7 @@ export const authConfig = {
                     if (isLoggedIn) {
                         if (pathname === '/logout') return true;
 
-                        const user = auth.user as { role?: string; isSuperAdmin?: boolean; allowedResources?: string[] };
-                        const role = user?.role?.toUpperCase();
+                        const user = auth.user as { role?: string; roles?: string[]; isSuperAdmin?: boolean; allowedResources?: string[] };
 
                         // Mobile Sales Redirect logic
                         const userAgent = typeof headers.get === 'function' ? headers.get('user-agent') || '' : '';
@@ -109,7 +109,7 @@ export const authConfig = {
                         const cookies = typeof headers.get === 'function' ? headers.get('cookie') || '' : '';
                         const hasMobileBypass = cookies.includes('bypass_mobile=true');
 
-                        if (role === 'SALES' && isMobile && !hasMobileBypass) {
+                        if (hasRole(user, 'SALES') && isMobile && !hasMobileBypass) {
                             // If they are not already on mobile sales pages, redirect them to /sales/mobile
                             if (!pathname.startsWith('/sales/mobile')) {
                                 return Response.redirect(new URL('/sales/mobile', nextUrl));
@@ -176,8 +176,16 @@ export const authConfig = {
         },
         jwt({ token, user }) {
             if (user) {
-                const u = user as { id?: string; role?: string; rememberMe?: boolean; isSuperAdmin?: boolean; allowedResources?: string[] };
+                const u = user as {
+                    id?: string;
+                    role?: string;
+                    roles?: string[];
+                    rememberMe?: boolean;
+                    isSuperAdmin?: boolean;
+                    allowedResources?: string[];
+                };
                 token.role = u.role;
+                token.roles = u.roles;
                 token.id = u.id;
                 token.rememberMe = u.rememberMe;
                 token.isSuperAdmin = u.isSuperAdmin;
@@ -201,6 +209,7 @@ export const authConfig = {
         session({ session, token }) {
             if (session.user) {
                 (session.user as { role?: unknown }).role = token.role;
+                (session.user as { roles?: unknown }).roles = token.roles;
                 (session.user as { id?: unknown }).id = token.id;
                 (session.user as { isSuperAdmin?: unknown }).isSuperAdmin = token.isSuperAdmin;
                 (session.user as { allowedResources?: unknown }).allowedResources = token.allowedResources;

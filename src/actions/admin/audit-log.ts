@@ -4,6 +4,7 @@ import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import { Prisma } from '@prisma/client';
 import { AuthorizationError } from '@/lib/errors/errors';
+import { isTenantAdmin } from '@/lib/auth/roles';
 
 interface GetAuditLogsParams {
     page?: number;
@@ -25,7 +26,7 @@ export async function getAuditLogs({
     dateTo
 }: GetAuditLogsParams) {
     const session = await auth();
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !isTenantAdmin(session.user)) {
         throw new AuthorizationError('Only ADMIN can view audit logs.');
     }
 
@@ -70,7 +71,7 @@ export async function getAuditLogs({
 
 export async function getAuditLogDetail(id: string) {
     const session = await auth();
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !isTenantAdmin(session.user)) {
         throw new AuthorizationError();
     }
 
@@ -91,7 +92,7 @@ export async function getAuditLogDetail(id: string) {
 
 export async function getAuditLogStats() {
     const session = await auth();
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || !isTenantAdmin(session.user)) {
         throw new AuthorizationError();
     }
 

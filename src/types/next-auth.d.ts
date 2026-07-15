@@ -2,24 +2,33 @@ import { Role } from "@prisma/client"
 import { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
-    /**
-     * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
-     */
     interface Session {
         user: {
-            /** The user's role. */
-            role: Role
+            role: Role              // active role (login-selected)
+            roles: Role[]           // ALL assigned roles
             id: string
+            isSuperAdmin?: boolean
+            allowedResources?: string[]
         } & DefaultSession["user"]
     }
 
     interface User {
         role: Role
+        roles?: Role[]
+        isSuperAdmin?: boolean
+        allowedResources?: string[]
     }
 }
 
 declare module "next-auth/jwt" {
     interface JWT {
-        role: Role
+        role?: Role
+        roles?: Role[]
+        id?: string
+        isSuperAdmin?: boolean
+        allowedResources?: string[]
+        rememberMe?: boolean
+        lastActive?: number
     }
 }
+

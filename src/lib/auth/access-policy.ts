@@ -1,3 +1,5 @@
+import { getUserRoles } from "@/lib/auth/roles";
+
 export type WorkspaceKey =
   | "admin"
   | "dashboard"
@@ -57,13 +59,13 @@ export function getWorkspaceFromPath(pathname: string): WorkspaceKey | null {
  * Checks if a user has permission to access a workspace.
  */
 export function canAccessWorkspace(
-  user: { role?: string; isSuperAdmin?: boolean; allowedResources?: string[] } | null | undefined,
+  user: { role?: string; roles?: string[]; isSuperAdmin?: boolean; allowedResources?: string[] } | null | undefined,
   workspace: WorkspaceKey,
   pathname?: string,
 ): boolean {
   if (!user) return false;
 
-  const role = user.role?.toUpperCase();
+  const allRoles = getUserRoles(user);
   const isSuperAdmin = !!user.isSuperAdmin;
 
   // 1. Super Admin is strictly isolated to admin workspace
@@ -77,28 +79,59 @@ export function canAccessWorkspace(
   }
 
   // 3. Tenant Admin can access all tenant workspaces
-  if (role === "ADMIN") {
+  if (allRoles.includes("ADMIN")) {
     return true;
   }
 
-  // 4. Warehouse is strictly isolated to warehouse workspace
-  if (role === "WAREHOUSE") {
-    if (workspace === "warehouse") return true;
-    if (pathname && user.allowedResources?.some(res => pathname === res || pathname.startsWith(`${res}/`))) return true;
+  // Strictly isolate WAREHOUSE and PRODUCTION if they are the only assigned roles
+  const nonIsolatedRoles = allRoles.filter(r => r !== "WAREHOUSE" && r !== "PRODUCTION");
+  if (nonIsolatedRoles.length === 0) {
+    if (workspace === "warehouse" && allRoles.includes("WAREHOUSE")) return true;
+    if (workspace === "production" && allRoles.includes("PRODUCTION")) return true;
+    if (
+      pathname &&
+      user.allowedResources?.some(
+        (res) => pathname === res || pathname.startsWith(`${res}/`),
+      )
+    ) {
+      return true;
+    }
     return false;
   }
 
-  // 5. Production is strictly isolated to production workspace
-  if (role === "PRODUCTION") {
-    if (workspace === "production") return true;
-    // Check DB-based permissions for cross-workspace access (e.g. /dashboard/boms)
-    if (pathname && user.allowedResources?.some(res => pathname === res || pathname.startsWith(`${res}/`))) return true;
+  // 4. Workspace-specific gates (aligned with WORKSPACE_ACCESS_POLICY)
+  if (workspace === "warehouse") {
+    const warehouseRoles = ["WAREHOUSE", "PRODUCTION", "PLANNING"];
+    if (allRoles.some((r) => warehouseRoles.includes(r))) return true;
+    if (
+      pathname &&
+      user.allowedResources?.some(
+        (res) => pathname === res || pathname.startsWith(`${res}/`),
+      )
+    ) {
+      return true;
+    }
     return false;
   }
 
-  // 6. Other roles check policy mapping
+  if (workspace === "production") {
+    const productionRoles = ["PRODUCTION", "PLANNING", "PROCUREMENT"];
+    if (allRoles.some((r) => productionRoles.includes(r))) return true;
+    if (
+      pathname &&
+      user.allowedResources?.some(
+        (res) => pathname === res || pathname.startsWith(`${res}/`),
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 5. Other workspaces: ANY role in policy
   const allowed = WORKSPACE_ACCESS_POLICY[workspace];
-  return allowed ? allowed.includes(role || "") : false;
+  if (!allowed) return false;
+  return allRoles.some((r) => allowed.includes(r));
 }
 
 /**
@@ -106,13 +139,15 @@ export function canAccessWorkspace(
  */
 export function getDefaultRedirectForUser(user: {
   role?: string;
+  roles?: string[];
   isSuperAdmin?: boolean;
 }): string {
-  const role = user.role?.toUpperCase();
+  const activeRole = user.role?.toUpperCase();
   const isSuperAdmin = !!user.isSuperAdmin;
 
   if (isSuperAdmin) return "/admin/super-admin";
-  if (role === "WAREHOUSE") return "/warehouse";
-  if (role === "PRODUCTION") return "/production";
+  // Active role drives post-login landing (selected at login)
+  if (activeRole === "WAREHOUSE") return "/warehouse";
+  if (activeRole === "PRODUCTION") return "/production";
   return "/dashboard";
 }

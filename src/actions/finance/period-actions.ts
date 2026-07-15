@@ -11,6 +11,7 @@ import {
   NotFoundError,
   BusinessRuleError,
 } from "@/lib/errors/errors";
+import { hasAnyRole } from "@/lib/auth/roles";
 
 export const getFiscalPeriods = withTenant(async function getFiscalPeriods(
   year?: number,
@@ -93,8 +94,7 @@ export const closePeriod = withTenant(async function closePeriod(id: string) {
     const { logActivity } = await import("@/lib/tools/audit");
 
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can close fiscal periods",
       );
@@ -141,8 +141,7 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
     const { logActivity } = await import("@/lib/tools/audit");
 
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can reopen fiscal periods",
       );

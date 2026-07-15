@@ -13,6 +13,7 @@ import { AccountingService } from "@/services/accounting/accounting-service";
 import { ReferenceType, JournalStatus } from "@prisma/client";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { revalidatePath } from "next/cache";
+import { hasAnyRole } from "@/lib/auth/roles";
 import { logActivity } from "@/lib/tools/audit";
 import {
   safeAction,
@@ -163,8 +164,7 @@ export const postJournal = withTenant(async function postJournal(id: string) {
 export const voidJournal = withTenant(async function voidJournal(id: string) {
   return safeAction(async () => {
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can void journal entries",
       );
@@ -196,8 +196,7 @@ export const reverseJournal = withTenant(async function reverseJournal(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can reverse journal entries",
       );
@@ -541,8 +540,7 @@ export const closePeriod = withTenant(async function closePeriod(
 ) {
   return safeAction(async () => {
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can close fiscal periods",
       );

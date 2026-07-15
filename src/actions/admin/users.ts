@@ -9,6 +9,7 @@ import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';
 import { safeAction, AuthorizationError, ConflictError, BusinessRuleError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
+import { isTenantAdmin } from "@/lib/auth/roles";
 
 // Schema for creating a user
 const CreateUserSchema = z.object({
@@ -34,7 +35,7 @@ export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 // Helper to check ADMIN permission
 async function checkAdmin() {
     const session = await auth();
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !isTenantAdmin(session.user)) {
         throw new AuthorizationError('Unauthorized: Admin access required');
     }
 
@@ -60,23 +61,28 @@ function getActorId(session: Awaited<ReturnType<typeof checkAdmin>>): string {
 }
 
 async function assertNotLastActiveAdmin(userId: string) {
-    const targetUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { role: true, isActive: true },
-    });
-
-    if (targetUser?.role !== 'ADMIN' || !targetUser.isActive) return;
-
     const activeAdminCount = await prisma.user.count({
         where: {
-            role: 'ADMIN',
             isActive: true,
             isSuperAdmin: false,
+            OR: [
+                { roles: { some: { role: "ADMIN" } } },
+                { role: "ADMIN" },
+            ],
         },
     });
 
+    const targetIsAdmin = await prisma.user.findFirst({
+        where: {
+            id: userId,
+            OR: [{ roles: { some: { role: "ADMIN" } } }, { role: "ADMIN" }],
+        },
+        select: { id: true, isActive: true },
+    });
+
+    if (!targetIsAdmin?.isActive) return;
     if (activeAdminCount <= 1) {
-        throw new BusinessRuleError('Cannot remove or deactivate the last active admin');
+        throw new BusinessRuleError("Cannot remove or deactivate the last active admin");
     }
 }
 
@@ -91,12 +97,16 @@ export const getUsers = withTenant(
                     name: true,
                     email: true,
                     role: true,
+                    roles: { select: { role: true } },
                     isActive: true,
                     createdAt: true,
                 },
                 orderBy: { createdAt: 'desc' },
             });
-            return users;
+            return users.map((u) => ({
+                ...u,
+                roles: u.roles.map((r) => r.role),
+            }));
         });
     }
 );
@@ -118,13 +128,19 @@ export const createUser = withTenant(
 
             const hashedPassword = await bcrypt.hash(validated.password, 10);
 
-            const created = await prisma.user.create({
-                data: {
-                    name: validated.name,
-                    email: validated.email,
-                    password: hashedPassword,
-                    role: validated.role,
-                },
+            const created = await prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        name: validated.name,
+                        email: validated.email,
+                        password: hashedPassword,
+                        role: validated.role,
+                    },
+                });
+                await tx.userRole.create({
+                    data: { userId: user.id, role: validated.role },
+                });
+                return user;
             });
 
             await logActivity({
@@ -142,38 +158,88 @@ export const createUser = withTenant(
     }
 );
 
-export const updateUserRole = withTenant(
-    async function updateUserRole(userId: string, newRole: Role) {
+export const setUserRoles = withTenant(
+    async function setUserRoles(userId: string, newRoles: Role[]) {
         return safeAction(async () => {
             const session = await checkAdmin();
             const actorId = getActorId(session);
 
-            const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-            if (!targetUser || targetUser.isSuperAdmin) {
-                throw new BusinessRuleError('Cannot modify Super Admin role');
+            const uniqueRoles = [...new Set(newRoles)];
+            if (uniqueRoles.length === 0) {
+                throw new BusinessRuleError("User must have at least one role");
             }
 
-            if (targetUser.role === 'ADMIN' && newRole !== 'ADMIN') {
+            const targetUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { roles: { select: { role: true } } },
+            });
+            if (!targetUser || targetUser.isSuperAdmin) {
+                throw new BusinessRuleError("Cannot modify Super Admin roles");
+            }
+
+            const previouslyHadAdmin =
+                targetUser.role === "ADMIN" ||
+                targetUser.roles.some((r) => r.role === "ADMIN");
+
+            // Prevent removing ADMIN from self
+            if (
+                session.user?.id === userId &&
+                previouslyHadAdmin &&
+                !uniqueRoles.includes("ADMIN")
+            ) {
+                throw new BusinessRuleError("Cannot remove admin role from your own account");
+            }
+
+            if (previouslyHadAdmin && !uniqueRoles.includes("ADMIN")) {
                 await assertNotLastActiveAdmin(userId);
             }
 
-            await prisma.user.update({
-                where: { id: userId },
-                data: { role: newRole },
-            });
+            // Keep primary if still in list; else first role
+            const primaryRole = uniqueRoles.includes(targetUser.role)
+                ? targetUser.role
+                : uniqueRoles[0];
+
+            await prisma.$transaction([
+                prisma.userRole.deleteMany({
+                    where: { userId, role: { notIn: uniqueRoles } },
+                }),
+                ...uniqueRoles.map((role) =>
+                    prisma.userRole.upsert({
+                        where: { userId_role: { userId, role } },
+                        update: {},
+                        create: { userId, role },
+                    })
+                ),
+                prisma.user.update({
+                    where: { id: userId },
+                    data: { role: primaryRole },
+                }),
+            ]);
 
             await logActivity({
                 userId: actorId,
-                action: 'UPDATE_USER_ROLE',
-                entityType: 'User',
+                action: "UPDATE_USER_ROLES",
+                entityType: "User",
                 entityId: userId,
-                details: `Changed role for ${targetUser.email}`,
-                changes: { before: { role: targetUser.role }, after: { role: newRole } },
+                details: `Updated roles for ${targetUser.email}`,
+                changes: {
+                    before: {
+                        role: targetUser.role,
+                        roles: targetUser.roles.map((r) => r.role),
+                    },
+                    after: { roles: uniqueRoles, primaryRole },
+                },
             });
 
-            revalidatePath('/dashboard/settings');
+            revalidatePath("/dashboard/settings");
             return null;
         });
+    }
+);
+
+export const updateUserRole = withTenant(
+    async function updateUserRole(userId: string, newRole: Role) {
+        return setUserRoles(userId, [newRole]);
     }
 );
 
@@ -184,16 +250,28 @@ export const updateUser = withTenant(
             const actorId = getActorId(session);
             const validated = UpdateUserSchema.parse(data);
 
-            const targetUser = await prisma.user.findUnique({ where: { id: validated.id } });
+            const targetUser = await prisma.user.findUnique({
+                where: { id: validated.id },
+                include: { roles: { select: { role: true } } },
+            });
             if (!targetUser || targetUser.isSuperAdmin) {
                 throw new BusinessRuleError('Cannot modify Super Admin accounts');
             }
 
-            if (session.user?.id === validated.id && validated.role && validated.role !== 'ADMIN') {
+            const previouslyHadAdmin =
+                targetUser.role === 'ADMIN' ||
+                targetUser.roles.some((r) => r.role === 'ADMIN');
+
+            if (
+                session.user?.id === validated.id &&
+                validated.role &&
+                validated.role !== 'ADMIN' &&
+                previouslyHadAdmin
+            ) {
                 throw new BusinessRuleError('Cannot remove admin role from your own account');
             }
 
-            if (targetUser.role === 'ADMIN' && validated.role && validated.role !== 'ADMIN') {
+            if (previouslyHadAdmin && validated.role && validated.role !== 'ADMIN') {
                 await assertNotLastActiveAdmin(validated.id);
             }
 

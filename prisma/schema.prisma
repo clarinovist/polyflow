@@ -13,51 +13,65 @@ datasource db {
 // ==========================================
 
 model User {
-  id                      String                 @id @default(uuid())
-  email                   String                 @unique
-  name                    String?
-  password                String
-  role                    Role                   @default(WAREHOUSE)
-  isActive                Boolean                @default(true)
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  locale                  String                 @default("en")
-  isSuperAdmin            Boolean                @default(false)
-  auditLogs               AuditLog[]
-  deliveryOrders          DeliveryOrder[]        @relation("DeliveryCreator")
-  goodsReceipts           GoodsReceipt[]         @relation("GoodsReceiptCreator")
-  approvedJournals        JournalEntry[]         @relation("JournalApprover")
-  createdJournals         JournalEntry[]         @relation("JournalCreator")
-  downtimeLogs            MachineDowntime[]
-  materialIssues          MaterialIssue[]
-  productionCreator       ProductionOrder[]      @relation("ProductionCreator")
-  purchaseOrders          PurchaseOrder[]        @relation("PurchaseCreator")
-  purchasePayments        PurchasePayment[]      @relation("PaymentCreator")
-  createdPurchaseRequests PurchaseRequest[]
-  inspections             QualityInspection[]
-  salesOrders             SalesOrder[]           @relation("SalesCreator")
-  quotations              SalesQuotation[]       @relation("QuotationCreator")
-  scrapRecords            ScrapRecord[]
-  movements               StockMovement[]
-  opnames                 StockOpname[]
-  reportedIssues          ProductionIssue[]      @relation("IssueReporter")
-  costHistory             CostHistory[]
-  apiKeys                 ApiKey[]
-  archivedBoms            Bom[]
-  salesReturns            SalesReturn[]          @relation("SalesReturnCreator")
-  purchaseReturns         PurchaseReturn[]       @relation("PurchaseReturnCreator")
-  notifications           Notification[]
-  pettyCashTransactions   PettyCashTransaction[] @relation("PettyCashCreator")
-  maklonReturns           MaklonMaterialReturn[] @relation("MaklonReturnCreator")
-  createdPettyCashReports                  PettyCashDailyReport[] @relation("PettyCashReportCreator")
-  readyToPrintPettyCashReports             PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
-  physicalSignedPettyCashReports           PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
-  finalizedPettyCashReports                PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
-  bankReconciliations                      BankReconciliation[]
-  voidedPettyCashReports                   PettyCashDailyReport[] @relation("PettyCashReportVoider")
-  lockedPeriods                            PeriodLock[]
-  salesVisits                              SalesVisit[]           @relation("SalesVisitCreator")
-  schedulesCreated                         DeliverySchedule[]     @relation("ScheduleCreator")
+  id                             String                 @id @default(uuid())
+  email                          String                 @unique
+  name                           String?
+  password                       String
+  role                           Role                   @default(WAREHOUSE)
+  roles                          UserRole[]
+  isActive                       Boolean                @default(true)
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
+  locale                         String                 @default("en")
+  isSuperAdmin                   Boolean                @default(false)
+  auditLogs                      AuditLog[]
+  deliveryOrders                 DeliveryOrder[]        @relation("DeliveryCreator")
+  goodsReceipts                  GoodsReceipt[]         @relation("GoodsReceiptCreator")
+  approvedJournals               JournalEntry[]         @relation("JournalApprover")
+  createdJournals                JournalEntry[]         @relation("JournalCreator")
+  downtimeLogs                   MachineDowntime[]
+  materialIssues                 MaterialIssue[]
+  productionCreator              ProductionOrder[]      @relation("ProductionCreator")
+  purchaseOrders                 PurchaseOrder[]        @relation("PurchaseCreator")
+  purchasePayments               PurchasePayment[]      @relation("PaymentCreator")
+  createdPurchaseRequests        PurchaseRequest[]
+  inspections                    QualityInspection[]
+  salesOrders                    SalesOrder[]           @relation("SalesCreator")
+  quotations                     SalesQuotation[]       @relation("QuotationCreator")
+  scrapRecords                   ScrapRecord[]
+  movements                      StockMovement[]
+  opnames                        StockOpname[]
+  reportedIssues                 ProductionIssue[]      @relation("IssueReporter")
+  costHistory                    CostHistory[]
+  apiKeys                        ApiKey[]
+  archivedBoms                   Bom[]
+  salesReturns                   SalesReturn[]          @relation("SalesReturnCreator")
+  purchaseReturns                PurchaseReturn[]       @relation("PurchaseReturnCreator")
+  notifications                  Notification[]
+  pettyCashTransactions          PettyCashTransaction[] @relation("PettyCashCreator")
+  maklonReturns                  MaklonMaterialReturn[] @relation("MaklonReturnCreator")
+  createdPettyCashReports        PettyCashDailyReport[] @relation("PettyCashReportCreator")
+  readyToPrintPettyCashReports   PettyCashDailyReport[] @relation("PettyCashReportReadyToPrintMarker")
+  physicalSignedPettyCashReports PettyCashDailyReport[] @relation("PettyCashReportPhysicalSignedConfirmer")
+  finalizedPettyCashReports      PettyCashDailyReport[] @relation("PettyCashReportFinalizer")
+  bankReconciliations            BankReconciliation[]
+  voidedPettyCashReports         PettyCashDailyReport[] @relation("PettyCashReportVoider")
+  lockedPeriods                  PeriodLock[]
+  salesVisits                    SalesVisit[]           @relation("SalesVisitCreator")
+  schedulesCreated               DeliverySchedule[]     @relation("ScheduleCreator")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  role      Role
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+  @@index([role])
 }
 
 model Employee {
@@ -78,19 +92,19 @@ model Employee {
 }
 
 model ProductionShift {
-  id                String          @id @default(uuid())
+  id                String                @id @default(uuid())
   productionOrderId String
   shiftName         String
   startTime         DateTime
   endTime           DateTime
   operatorId        String?
-  outputQuantity    Decimal?        @db.Decimal(15, 4)
+  outputQuantity    Decimal?              @db.Decimal(15, 4)
   notes             String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  operator          Employee?       @relation("ShiftOperator", fields: [operatorId], references: [id])
-   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  helpers           Employee[]      @relation("ShiftHelpers")
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  operator          Employee?             @relation("ShiftOperator", fields: [operatorId], references: [id])
+  productionOrder   ProductionOrder       @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  helpers           Employee[]            @relation("ShiftHelpers")
   executions        ProductionExecution[]
 }
 
@@ -120,39 +134,39 @@ model Supplier {
 }
 
 model Customer {
-  id              String                 @id @default(uuid())
-  name            String
-  code            String?                @unique
-  phone           String?
-  email           String?
-  billingAddress  String?
-  shippingAddress String?
-  taxId           String?
-  creditLimit     Decimal?               @db.Decimal(15, 2)
-  paymentTermDays Int?
-  discountPercent Decimal?               @db.Decimal(5, 2)
-  notes           String?
-  isActive        Boolean                @default(true)
+  id               String                 @id @default(uuid())
+  name             String
+  code             String?                @unique
+  phone            String?
+  email            String?
+  billingAddress   String?
+  shippingAddress  String?
+  taxId            String?
+  creditLimit      Decimal?               @db.Decimal(15, 2)
+  paymentTermDays  Int?
+  discountPercent  Decimal?               @db.Decimal(5, 2)
+  notes            String?
+  isActive         Boolean                @default(true)
   // Location fields
-  latitude        Decimal?               @db.Decimal(10, 7)
-  longitude       Decimal?               @db.Decimal(10, 7)
-  photoUrl        String?
-  province        String?
-  city            String?
-  district        String?
-  village         String?
+  latitude         Decimal?               @db.Decimal(10, 7)
+  longitude        Decimal?               @db.Decimal(10, 7)
+  photoUrl         String?
+  province         String?
+  city             String?
+  district         String?
+  village          String?
   defaultVehicleId String?
-  defaultVehicle   Vehicle?  @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  salesOrders     SalesOrder[]
-  quotations      SalesQuotation[]
-  productPrices   CustomerProductPrice[]
-  salesReturns    SalesReturn[]
-  maklonOrders    ProductionOrder[]      @relation("MaklonCustomer")
-  maklonReceipts  GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
-  maklonReturns   MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
-  salesVisits     SalesVisit[]
+  defaultVehicle   Vehicle?               @relation("CustomerDefaultVehicle", fields: [defaultVehicleId], references: [id])
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  salesOrders      SalesOrder[]
+  quotations       SalesQuotation[]
+  productPrices    CustomerProductPrice[]
+  salesReturns     SalesReturn[]
+  maklonOrders     ProductionOrder[]      @relation("MaklonCustomer")
+  maklonReceipts   GoodsReceipt[]         @relation("MaklonGoodsReceiptCustomer")
+  maklonReturns    MaklonMaterialReturn[] @relation("MaklonReturnCustomer")
+  salesVisits      SalesVisit[]
 }
 
 model ApiKey {
@@ -233,8 +247,8 @@ model ProductVariant {
   reorderQuantity      Decimal?                   @db.Decimal(15, 4)
   costingMethod        CostingMethod              @default(WEIGHTED_AVERAGE)
   standardCost         Decimal?                   @db.Decimal(15, 4)
-  revenueAccountId     String?                    // Phase 2.3: per-variant revenue GL override
-  returnAccountId      String?                    // Phase 2.3c: per-variant return GL override
+  revenueAccountId     String? // Phase 2.3: per-variant revenue GL override
+  returnAccountId      String? // Phase 2.3c: per-variant return GL override
   Batch                Batch[]
   productionBoms       Bom[]                      @relation("ProductBom")
   ingredientInBoms     BomItem[]                  @relation("Ingredient")
@@ -468,48 +482,48 @@ model StockOpnameItem {
 }
 
 model ProductionOrder {
-  id                      String                @id @default(uuid())
-  orderNumber             String                @unique
-  bomId                   String
-  plannedQuantity         Decimal               @db.Decimal(15, 4)
-  plannedEnteredQuantity  Decimal?              @db.Decimal(15, 4)
-  plannedEnteredUnit      Unit?
-  plannedConversionFactorSnapshot Decimal?      @db.Decimal(10, 4)
-  plannedStartDate        DateTime
-  plannedEndDate          DateTime?
-  actualQuantity          Decimal?              @db.Decimal(15, 4)
-  actualStartDate         DateTime?
-  actualEndDate           DateTime?
-  status                  ProductionStatus      @default(DRAFT)
-  machineId               String?
-  locationId              String
-  createdById             String?
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  notes                   String?
-  salesOrderId            String?
-  estimatedConversionCost Decimal?              @db.Decimal(15, 2)
-  parentOrderId           String?
-  isMaklon                Boolean               @default(false)
-  maklonCustomerId        String?
-  maklonCustomer          Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
-  maklonCostItems         MaklonCostItem[]
-  materialIssues          MaterialIssue[]
-  executions              ProductionExecution[]
-  plannedMaterials        ProductionMaterial[]
-  bom                     Bom                   @relation(fields: [bomId], references: [id])
-  createdBy               User?                 @relation("ProductionCreator", fields: [createdById], references: [id])
-  location                Location              @relation(fields: [locationId], references: [id])
-  machine                 Machine?              @relation(fields: [machineId], references: [id])
-  parentOrder             ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
-  childOrders             ProductionOrder[]     @relation("OrderHierarchy")
-  salesOrder              SalesOrder?           @relation("SalesProduction", fields: [salesOrderId], references: [id])
-  shifts                  ProductionShift[]
-  inspections             QualityInspection[]
-  scrapRecords            ScrapRecord[]
-  issues                  ProductionIssue[]
-  stockMovements          StockMovement[]
-  helpers                 Employee[]            @relation("OrderHelpers")
+  id                              String                @id @default(uuid())
+  orderNumber                     String                @unique
+  bomId                           String
+  plannedQuantity                 Decimal               @db.Decimal(15, 4)
+  plannedEnteredQuantity          Decimal?              @db.Decimal(15, 4)
+  plannedEnteredUnit              Unit?
+  plannedConversionFactorSnapshot Decimal?              @db.Decimal(10, 4)
+  plannedStartDate                DateTime
+  plannedEndDate                  DateTime?
+  actualQuantity                  Decimal?              @db.Decimal(15, 4)
+  actualStartDate                 DateTime?
+  actualEndDate                   DateTime?
+  status                          ProductionStatus      @default(DRAFT)
+  machineId                       String?
+  locationId                      String
+  createdById                     String?
+  createdAt                       DateTime              @default(now())
+  updatedAt                       DateTime              @updatedAt
+  notes                           String?
+  salesOrderId                    String?
+  estimatedConversionCost         Decimal?              @db.Decimal(15, 2)
+  parentOrderId                   String?
+  isMaklon                        Boolean               @default(false)
+  maklonCustomerId                String?
+  maklonCustomer                  Customer?             @relation("MaklonCustomer", fields: [maklonCustomerId], references: [id])
+  maklonCostItems                 MaklonCostItem[]
+  materialIssues                  MaterialIssue[]
+  executions                      ProductionExecution[]
+  plannedMaterials                ProductionMaterial[]
+  bom                             Bom                   @relation(fields: [bomId], references: [id])
+  createdBy                       User?                 @relation("ProductionCreator", fields: [createdById], references: [id])
+  location                        Location              @relation(fields: [locationId], references: [id])
+  machine                         Machine?              @relation(fields: [machineId], references: [id])
+  parentOrder                     ProductionOrder?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders                     ProductionOrder[]     @relation("OrderHierarchy")
+  salesOrder                      SalesOrder?           @relation("SalesProduction", fields: [salesOrderId], references: [id])
+  shifts                          ProductionShift[]
+  inspections                     QualityInspection[]
+  scrapRecords                    ScrapRecord[]
+  issues                          ProductionIssue[]
+  stockMovements                  StockMovement[]
+  helpers                         Employee[]            @relation("OrderHelpers")
 
   @@index([actualEndDate])
   @@index([updatedAt, status])
@@ -544,7 +558,7 @@ model MaterialIssue {
   createdBy         User?           @relation(fields: [createdById], references: [id])
   location          Location?       @relation(fields: [locationId], references: [id])
   productVariant    ProductVariant  @relation(fields: [productVariantId], references: [id])
-   productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
 }
 
 model ProductionIssue {
@@ -579,7 +593,7 @@ model ScrapRecord {
   createdBy             User?                @relation(fields: [createdById], references: [id])
   location              Location?            @relation(fields: [locationId], references: [id])
   productVariant        ProductVariant       @relation(fields: [productVariantId], references: [id])
-   productionOrder       ProductionOrder      @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productionOrder       ProductionOrder      @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   productionExecution   ProductionExecution? @relation(fields: [productionExecutionId], references: [id])
 
   @@index([recordedAt])
@@ -594,7 +608,7 @@ model QualityInspection {
   notes             String?
   inspectedAt       DateTime         @default(now())
   inspector         User?            @relation(fields: [inspectorId], references: [id])
-   productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
 
   @@index([inspectedAt])
 }
@@ -614,47 +628,47 @@ model ProductionMaterial {
 }
 
 model ProductionExecution {
-  id                String          @id @default(uuid())
-  productionOrderId String
-  machineId         String?
-  operatorId        String?
-  shiftId           String?
-  quantityProduced  Decimal         @db.Decimal(15, 4)
-  scrapQuantity     Decimal         @default(0) @db.Decimal(15, 4)
-  enteredQuantity   Decimal?        @db.Decimal(15, 4)
-  enteredUnit       Unit?
-  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
-  bruto             Decimal?        @db.Decimal(15, 4)
-  bobin             Decimal?        @db.Decimal(15, 4)
-  cekGram           String?
-  startTime         DateTime
-  endTime           DateTime?
-  notes             String?
-  photoUrl          String?         @db.Text
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  status            String          @default("COMPLETED") // COMPLETED, VOIDED
-  scrapDaunQty      Decimal         @default(0) @db.Decimal(15, 4)
-  scrapProngkolQty  Decimal         @default(0) @db.Decimal(15, 4)
-  machine           Machine?        @relation(fields: [machineId], references: [id])
-  operator          Employee?       @relation("ExecutionOperator", fields: [operatorId], references: [id])
-  helpers           Employee[]      @relation("ExecutionHelpers")
-  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  shift             ProductionShift?  @relation(fields: [shiftId], references: [id])
-  scrapRecords      ScrapRecord[]
+  id                       String           @id @default(uuid())
+  productionOrderId        String
+  machineId                String?
+  operatorId               String?
+  shiftId                  String?
+  quantityProduced         Decimal          @db.Decimal(15, 4)
+  scrapQuantity            Decimal          @default(0) @db.Decimal(15, 4)
+  enteredQuantity          Decimal?         @db.Decimal(15, 4)
+  enteredUnit              Unit?
+  conversionFactorSnapshot Decimal?         @db.Decimal(10, 4)
+  bruto                    Decimal?         @db.Decimal(15, 4)
+  bobin                    Decimal?         @db.Decimal(15, 4)
+  cekGram                  String?
+  startTime                DateTime
+  endTime                  DateTime?
+  notes                    String?
+  photoUrl                 String?          @db.Text
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  status                   String           @default("COMPLETED") // COMPLETED, VOIDED
+  scrapDaunQty             Decimal          @default(0) @db.Decimal(15, 4)
+  scrapProngkolQty         Decimal          @default(0) @db.Decimal(15, 4)
+  machine                  Machine?         @relation(fields: [machineId], references: [id])
+  operator                 Employee?        @relation("ExecutionOperator", fields: [operatorId], references: [id])
+  helpers                  Employee[]       @relation("ExecutionHelpers")
+  productionOrder          ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  shift                    ProductionShift? @relation(fields: [shiftId], references: [id])
+  scrapRecords             ScrapRecord[]
 
   @@index([productionOrderId])
   @@index([startTime])
 }
 
 model WorkShift {
-  id                   String                @id @default(uuid())
-  name                 String
-  startTime            String
-  endTime              String
-  status               WorkShiftStatus       @default(ACTIVE)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  id        String          @id @default(uuid())
+  name      String
+  startTime String
+  endTime   String
+  status    WorkShiftStatus @default(ACTIVE)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model JobRole {
@@ -692,34 +706,34 @@ model AuditLog {
 // ==========================================
 
 model SalesOrder {
-  id               String            @id @default(uuid())
-  orderNumber      String            @unique
+  id               String                  @id @default(uuid())
+  orderNumber      String                  @unique
   customerId       String?
-  orderDate        DateTime          @default(now())
+  orderDate        DateTime                @default(now())
   expectedDate     DateTime?
-  orderType        SalesOrderType    @default(MAKE_TO_STOCK)
-  status           SalesOrderStatus  @default(DRAFT)
+  orderType        SalesOrderType          @default(MAKE_TO_STOCK)
+  status           SalesOrderStatus        @default(DRAFT)
   sourceLocationId String?
-  totalAmount      Decimal?          @db.Decimal(15, 2)
+  totalAmount      Decimal?                @db.Decimal(15, 2)
   notes            String?
   createdById      String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  discountAmount   Decimal?          @db.Decimal(15, 2)
-  taxAmount        Decimal?          @db.Decimal(15, 2)
-  shippingCost     Decimal?          @db.Decimal(15, 2)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  discountAmount   Decimal?                @db.Decimal(15, 2)
+  taxAmount        Decimal?                @db.Decimal(15, 2)
+  shippingCost     Decimal?                @db.Decimal(15, 2)
   quotationId      String?
   deliveryOrders   DeliveryOrder[]
   scheduleStops    DeliveryScheduleOrder[]
   invoices         Invoice[]
-  productionOrders ProductionOrder[] @relation("SalesProduction")
+  productionOrders ProductionOrder[]       @relation("SalesProduction")
   purchaseRequests PurchaseRequest[]
-  createdBy        User?             @relation("SalesCreator", fields: [createdById], references: [id])
-  customer         Customer?         @relation(fields: [customerId], references: [id])
-  quotation        SalesQuotation?   @relation(fields: [quotationId], references: [id])
-  sourceLocation   Location?         @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
+  createdBy        User?                   @relation("SalesCreator", fields: [createdById], references: [id])
+  customer         Customer?               @relation(fields: [customerId], references: [id])
+  quotation        SalesQuotation?         @relation(fields: [quotationId], references: [id])
+  sourceLocation   Location?               @relation("SalesSourceLocation", fields: [sourceLocationId], references: [id])
   items            SalesOrderItem[]
-  movements        StockMovement[]   @relation("SalesMovement")
+  movements        StockMovement[]         @relation("SalesMovement")
   salesReturns     SalesReturn[]
 
   @@index([orderDate])
@@ -750,46 +764,46 @@ model SalesQuotation {
 }
 
 model SalesQuotationItem {
-  id               String         @id @default(uuid())
-  salesQuotationId String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 2)
-  enteredQuantity  Decimal?       @db.Decimal(15, 4)
-  enteredUnit      Unit?
-  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
-  enteredUnitPrice Decimal?       @db.Decimal(15, 2)
-  discountPercent  Decimal?       @db.Decimal(15, 6)
-  taxPercent       Decimal?       @db.Decimal(5, 2)
-  taxAmount        Decimal?       @db.Decimal(15, 2)
-  subtotal         Decimal        @db.Decimal(15, 2)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-  salesQuotation   SalesQuotation @relation(fields: [salesQuotationId], references: [id], onDelete: Cascade)
+  id                       String         @id @default(uuid())
+  salesQuotationId         String
+  productVariantId         String
+  quantity                 Decimal        @db.Decimal(15, 4)
+  unitPrice                Decimal        @db.Decimal(15, 2)
+  enteredQuantity          Decimal?       @db.Decimal(15, 4)
+  enteredUnit              Unit?
+  conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)
+  enteredUnitPrice         Decimal?       @db.Decimal(15, 2)
+  discountPercent          Decimal?       @db.Decimal(15, 6)
+  taxPercent               Decimal?       @db.Decimal(5, 2)
+  taxAmount                Decimal?       @db.Decimal(15, 2)
+  subtotal                 Decimal        @db.Decimal(15, 2)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  productVariant           ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesQuotation           SalesQuotation @relation(fields: [salesQuotationId], references: [id], onDelete: Cascade)
 }
 
 model SalesOrderItem {
-  id               String         @id @default(uuid())
-  salesOrderId     String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  unitPrice        Decimal        @db.Decimal(15, 2)
-  enteredQuantity  Decimal?       @db.Decimal(15, 4)
-  enteredUnit      Unit?
-  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
-  enteredUnitPrice Decimal?       @db.Decimal(15, 2)
-  subtotal         Decimal        @db.Decimal(15, 2)
-  deliveredQty     Decimal        @default(0) @db.Decimal(15, 4)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  discountPercent  Decimal?       @db.Decimal(15, 6)
-  taxAmount        Decimal?       @db.Decimal(15, 2)
-  taxPercent       Decimal?       @db.Decimal(5, 2)
-  dppOtherAmount   Decimal?       @db.Decimal(15, 2)
-  ppnMode          PpnMode        @default(EXCLUDE)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
-  salesOrder       SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  id                       String         @id @default(uuid())
+  salesOrderId             String
+  productVariantId         String
+  quantity                 Decimal        @db.Decimal(15, 4)
+  unitPrice                Decimal        @db.Decimal(15, 2)
+  enteredQuantity          Decimal?       @db.Decimal(15, 4)
+  enteredUnit              Unit?
+  conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)
+  enteredUnitPrice         Decimal?       @db.Decimal(15, 2)
+  subtotal                 Decimal        @db.Decimal(15, 2)
+  deliveredQty             Decimal        @default(0) @db.Decimal(15, 4)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  discountPercent          Decimal?       @db.Decimal(15, 6)
+  taxAmount                Decimal?       @db.Decimal(15, 2)
+  taxPercent               Decimal?       @db.Decimal(5, 2)
+  dppOtherAmount           Decimal?       @db.Decimal(15, 2)
+  ppnMode                  PpnMode        @default(EXCLUDE)
+  productVariant           ProductVariant @relation(fields: [productVariantId], references: [id])
+  salesOrder               SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
 
   @@index([salesOrderId])
 }
@@ -952,25 +966,25 @@ model Account {
 }
 
 model JournalEntry {
-  id                   String                @id @default(uuid())
-  entryNumber          String                @unique
-  entryDate            DateTime
-  description          String
-  reference            String?
-  referenceType        ReferenceType?
-  referenceId          String?
-  status               JournalStatus         @default(DRAFT)
-  isAutoGenerated      Boolean               @default(false)
-  createdById          String?
-  approvedById         String?
-  approvedAt           DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  approvedBy           User?                 @relation("JournalApprover", fields: [approvedById], references: [id])
-  createdBy            User?                 @relation("JournalCreator", fields: [createdById], references: [id])
-  lines                JournalLine[]
-  details              JournalEntryDetail[]
-  pettyCashTransaction PettyCashTransaction?
+  id                        String                         @id @default(uuid())
+  entryNumber               String                         @unique
+  entryDate                 DateTime
+  description               String
+  reference                 String?
+  referenceType             ReferenceType?
+  referenceId               String?
+  status                    JournalStatus                  @default(DRAFT)
+  isAutoGenerated           Boolean                        @default(false)
+  createdById               String?
+  approvedById              String?
+  approvedAt                DateTime?
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
+  approvedBy                User?                          @relation("JournalApprover", fields: [approvedById], references: [id])
+  createdBy                 User?                          @relation("JournalCreator", fields: [createdById], references: [id])
+  lines                     JournalLine[]
+  details                   JournalEntryDetail[]
+  pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]
 
   @@index([entryDate])
@@ -979,19 +993,19 @@ model JournalEntry {
 }
 
 model JournalLine {
-  id             String       @id @default(uuid())
+  id             String    @id @default(uuid())
   journalEntryId String
   accountId      String
   description    String?
-  debit          Decimal      @default(0) @db.Decimal(15, 2)
-  credit         Decimal      @default(0) @db.Decimal(15, 2)
-  currency       String       @default("IDR")
-  exchangeRate   Decimal      @default(1) @db.Decimal(15, 6)
-  createdAt      DateTime     @default(now())
-  reconciledAt   DateTime?    // Set when confirmed during bank reconciliation
+  debit          Decimal   @default(0) @db.Decimal(15, 2)
+  credit         Decimal   @default(0) @db.Decimal(15, 2)
+  currency       String    @default("IDR")
+  exchangeRate   Decimal   @default(1) @db.Decimal(15, 6)
+  createdAt      DateTime  @default(now())
+  reconciledAt   DateTime? // Set when confirmed during bank reconciliation
 
-  account        Account      @relation(fields: [accountId], references: [id])
-  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
   bankReconciliationItems BankReconciliationItem[]
 
@@ -1001,17 +1015,17 @@ model JournalLine {
 }
 
 model JournalEntryDetail {
-  id             String      @id @default(cuid())
+  id             String   @id @default(cuid())
   journalEntryId String
-  type           String      // e.g. DIRECT_LABOR
+  type           String // e.g. DIRECT_LABOR
   description    String
-  amount         Decimal     @db.Decimal(15, 2)
-  sortOrder      Int         @default(0)
+  amount         Decimal  @db.Decimal(15, 2)
+  sortOrder      Int      @default(0)
   metadata       Json?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
   @@index([journalEntryId])
   @@index([type])
@@ -1069,128 +1083,129 @@ model Budget {
 }
 
 model DeliveryOrder {
-  id               String              @id @default(uuid())
-  orderNumber      String              @unique
-  salesOrderId     String
-  deliveryDate     DateTime            @default(now())
-  status           DeliveryStatus      @default(PENDING)
-  trackingNumber   String?
-  carrier          String?
-  sourceLocationId String
-  createdById      String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  notes            String?
-  vehicleId           String?
-  appliedRateType     RateType?
-  appliedCostRate     Decimal?  @db.Decimal(15, 2)
-  appliedChargeRate   Decimal?  @db.Decimal(15, 2)
-  totalCost           Decimal?  @db.Decimal(15, 2)
-  totalCharge         Decimal?  @db.Decimal(15, 2)
-  estimatedWeightKg   Decimal?  @db.Decimal(10, 2)
-  appliedRouteName    String?
-  destinationAddress  String?
-  vehiclePhotoUrl     String?
-  proofOfDeliveryUrl  String?
-  proofOfDeliveryAt   DateTime?
-  receivedBy          String?
-  createdBy        User?               @relation("DeliveryCreator", fields: [createdById], references: [id])
-  salesOrder       SalesOrder          @relation(fields: [salesOrderId], references: [id])
-  sourceLocation   Location            @relation(fields: [sourceLocationId], references: [id])
-  vehicle          Vehicle?            @relation(fields: [vehicleId], references: [id])
-  items            DeliveryOrderItem[]
-  salesReturns     SalesReturn[]
-  scheduleOrders   DeliveryScheduleOrder[]
+  id                 String                  @id @default(uuid())
+  orderNumber        String                  @unique
+  salesOrderId       String
+  deliveryDate       DateTime                @default(now())
+  status             DeliveryStatus          @default(PENDING)
+  trackingNumber     String?
+  carrier            String?
+  sourceLocationId   String
+  createdById        String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  notes              String?
+  vehicleId          String?
+  appliedRateType    RateType?
+  appliedCostRate    Decimal?                @db.Decimal(15, 2)
+  appliedChargeRate  Decimal?                @db.Decimal(15, 2)
+  totalCost          Decimal?                @db.Decimal(15, 2)
+  totalCharge        Decimal?                @db.Decimal(15, 2)
+  estimatedWeightKg  Decimal?                @db.Decimal(10, 2)
+  appliedRouteName   String?
+  destinationAddress String?
+  vehiclePhotoUrl    String?
+  proofOfDeliveryUrl String?
+  proofOfDeliveryAt  DateTime?
+  receivedBy         String?
+  createdBy          User?                   @relation("DeliveryCreator", fields: [createdById], references: [id])
+  salesOrder         SalesOrder              @relation(fields: [salesOrderId], references: [id])
+  sourceLocation     Location                @relation(fields: [sourceLocationId], references: [id])
+  vehicle            Vehicle?                @relation(fields: [vehicleId], references: [id])
+  items              DeliveryOrderItem[]
+  salesReturns       SalesReturn[]
+  scheduleOrders     DeliveryScheduleOrder[]
 
   @@index([salesOrderId])
   @@index([vehicleId])
 }
 
 model DeliveryOrderItem {
-  id               String         @id @default(uuid())
-  deliveryOrderId  String
-  productVariantId String
-  quantity         Decimal        @db.Decimal(15, 4)
-  enteredQuantity  Decimal?       @db.Decimal(15, 4)
-  enteredUnit      Unit?
-  conversionFactorSnapshot Decimal? @db.Decimal(10, 4)
-  notes            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  deliveryOrder    DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  id                       String         @id @default(uuid())
+  deliveryOrderId          String
+  productVariantId         String
+  quantity                 Decimal        @db.Decimal(15, 4)
+  enteredQuantity          Decimal?       @db.Decimal(15, 4)
+  enteredUnit              Unit?
+  conversionFactorSnapshot Decimal?       @db.Decimal(10, 4)
+  notes                    String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  deliveryOrder            DeliveryOrder  @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  productVariant           ProductVariant @relation(fields: [productVariantId], references: [id])
 }
+
 model Vehicle {
-  id              String          @id @default(uuid())
-  plateNumber     String          @unique
-  name            String
-  vehicleType     VehicleType     @default(OTHER)
-  ownershipType   OwnershipType   @default(PRIVATE)
-  ownerName       String?
-  driverName      String?
-  capacityKg      Decimal?        @db.Decimal(10, 2)
-  status          VehicleStatus   @default(ACTIVE)
-  notes           String?
-  photoUrl        String?
-  kirNumber       String?
-  kirExpireDate   DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  tariffs         VehicleTariff[]
-  deliveryOrders  DeliveryOrder[]
-  schedules       DeliveryScheduleVehicle[]
-  customerDefaults Customer[]           @relation("CustomerDefaultVehicle")
+  id               String                    @id @default(uuid())
+  plateNumber      String                    @unique
+  name             String
+  vehicleType      VehicleType               @default(OTHER)
+  ownershipType    OwnershipType             @default(PRIVATE)
+  ownerName        String?
+  driverName       String?
+  capacityKg       Decimal?                  @db.Decimal(10, 2)
+  status           VehicleStatus             @default(ACTIVE)
+  notes            String?
+  photoUrl         String?
+  kirNumber        String?
+  kirExpireDate    DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  tariffs          VehicleTariff[]
+  deliveryOrders   DeliveryOrder[]
+  schedules        DeliveryScheduleVehicle[]
+  customerDefaults Customer[]                @relation("CustomerDefaultVehicle")
 }
 
 model VehicleTariff {
-  id              String    @id @default(uuid())
-  vehicleId       String
-  rateType        RateType  @default(PER_KG)
-  costRate        Decimal   @db.Decimal(15, 2)
-  chargeRate      Decimal   @db.Decimal(15, 2)
-  routeName       String?
-  minKg           Decimal?  @db.Decimal(10, 2)
-  validFrom       DateTime  @default(now())
-  validUntil      DateTime?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id         String    @id @default(uuid())
+  vehicleId  String
+  rateType   RateType  @default(PER_KG)
+  costRate   Decimal   @db.Decimal(15, 2)
+  chargeRate Decimal   @db.Decimal(15, 2)
+  routeName  String?
+  minKg      Decimal?  @db.Decimal(10, 2)
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  vehicle         Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@index([vehicleId])
 }
 
 model DeliverySchedule {
-  id              String                @id @default(uuid())
-  scheduleNumber  String                @unique
-  weekStart       DateTime
-  weekEnd         DateTime
-  status          ScheduleStatus        @default(DRAFT)
-  notes           String?
-  createdById     String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id             String         @id @default(uuid())
+  scheduleNumber String         @unique
+  weekStart      DateTime
+  weekEnd        DateTime
+  status         ScheduleStatus @default(DRAFT)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  createdBy       User?                 @relation("ScheduleCreator", fields: [createdById], references: [id])
-  trips           DeliveryScheduleVehicle[]
+  createdBy User?                     @relation("ScheduleCreator", fields: [createdById], references: [id])
+  trips     DeliveryScheduleVehicle[]
 }
 
 model DeliveryScheduleVehicle {
-  id              String              @id @default(uuid())
-  scheduleId      String
-  vehicleId       String
-  departureDate   DateTime?           // required in UI for CONFIRMED+; nullable for backfill
-  routeName       String?             // optional trip-level route hint
-  status          TripStatus          @default(PLANNED)
-  sequence        Int                 @default(0)
-  notes           String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id            String     @id @default(uuid())
+  scheduleId    String
+  vehicleId     String
+  departureDate DateTime? // required in UI for CONFIRMED+; nullable for backfill
+  routeName     String? // optional trip-level route hint
+  status        TripStatus @default(PLANNED)
+  sequence      Int        @default(0)
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  schedule        DeliverySchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  vehicle         Vehicle             @relation(fields: [vehicleId], references: [id])
-  orders          DeliveryScheduleOrder[]
+  schedule DeliverySchedule        @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  vehicle  Vehicle                 @relation(fields: [vehicleId], references: [id])
+  orders   DeliveryScheduleOrder[]
 
   // Multi-trip allowed: same vehicle + same schedule OK if departureDate differs
   @@index([scheduleId])
@@ -1199,20 +1214,20 @@ model DeliveryScheduleVehicle {
 }
 
 model DeliveryScheduleOrder {
-  id                  String                    @id @default(uuid())
-  scheduleVehicleId   String
-  salesOrderId        String?                   // plan source — nullable for legacy rows
-  deliveryOrderId     String?                   // CHANGED: was required → nullable until SJ created
-  plannedWeightKg     Decimal?                  @db.Decimal(10, 2)
-  sequence            Int                       @default(0)
-  status              ScheduleStopStatus        @default(PLANNED)
-  notes               String?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+  id                String             @id @default(uuid())
+  scheduleVehicleId String
+  salesOrderId      String? // plan source — nullable for legacy rows
+  deliveryOrderId   String? // CHANGED: was required → nullable until SJ created
+  plannedWeightKg   Decimal?           @db.Decimal(10, 2)
+  sequence          Int                @default(0)
+  status            ScheduleStopStatus @default(PLANNED)
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  scheduleVehicle     DeliveryScheduleVehicle   @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
-  salesOrder          SalesOrder?               @relation(fields: [salesOrderId], references: [id])
-  deliveryOrder       DeliveryOrder?            @relation(fields: [deliveryOrderId], references: [id])
+  scheduleVehicle DeliveryScheduleVehicle @relation(fields: [scheduleVehicleId], references: [id], onDelete: Cascade)
+  salesOrder      SalesOrder?             @relation(fields: [salesOrderId], references: [id])
+  deliveryOrder   DeliveryOrder?          @relation(fields: [deliveryOrderId], references: [id])
 
   @@index([scheduleVehicleId])
   @@index([salesOrderId])
@@ -1312,11 +1327,11 @@ enum RateType {
 
 enum ScheduleStatus {
   DRAFT
-  CONFIRMED   // legacy
-  IN_TRANSIT  // legacy
-  COMPLETED   // legacy
-  ACTIVE      // new — week is live, trips can run
-  CLOSED      // new — week archived
+  CONFIRMED // legacy
+  IN_TRANSIT // legacy
+  COMPLETED // legacy
+  ACTIVE // new — week is live, trips can run
+  CLOSED // new — week archived
 }
 
 enum TripStatus {
@@ -1360,7 +1375,7 @@ enum Unit {
   KG
   ROLL
   BAL
-  PACK @map("PCS")
+  PACK   @map("PCS")
   ZAK
   KARTON
 }
@@ -1583,12 +1598,12 @@ model AppSetting {
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  paymentNumber String   @unique
-  paymentDate   DateTime
-  amount        Decimal  @db.Decimal(15, 2)
-  method        String // Transfer BCA, Transfer Mandiri, Cash, Check (+ legacy: Bank Transfer, Credit Card)
-  notes         String?  @db.Text
+  id              String   @id @default(uuid())
+  paymentNumber   String   @unique
+  paymentDate     DateTime
+  amount          Decimal  @db.Decimal(15, 2)
+  method          String // Transfer BCA, Transfer Mandiri, Cash, Check (+ legacy: Bank Transfer, Credit Card)
+  notes           String?  @db.Text
   /// Nomor Cek/Giro (or other instrument reference). Not the paymentNumber.
   referenceNumber String?
   /// Company bank destination for GL/clearing: BCA | MANDIRI
@@ -1726,14 +1741,14 @@ model PurchaseReturnItem {
 // PLATFORM AND MULTI-TENANT EXTENSIONS
 // ==========================================
 model Tenant {
-  id          String       @id @default(cuid())
-  name        String
-  subdomain   String       @unique // e.g., 'pt-abc'
-  dbUrl       String // PostgreSQL connection string
-  status      TenantStatus @default(ACTIVE)
-  plan        String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id        String       @id @default(cuid())
+  name      String
+  subdomain String       @unique // e.g., 'pt-abc'
+  dbUrl     String // PostgreSQL connection string
+  status    TenantStatus @default(ACTIVE)
+  plan      String       @default("TRIAL") // e.g., 'TRIAL', 'PRO'
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   accountRoles TenantAccountRole[]
   revenueRules TenantRevenueRule[]
@@ -1742,10 +1757,10 @@ model Tenant {
 model TenantAccountRole {
   id          String   @id @default(cuid())
   tenantId    String
-  role        String   // AccountRole value, app-validated whitelist
-  accountId   String   // Account.id in tenant DB — no FK (cross-DB)
-  accountCode String?  // Denormalized snapshot for admin UI when Account is deleted
-  accountName String?  // Denormalized snapshot for admin UI when Account is deleted
+  role        String // AccountRole value, app-validated whitelist
+  accountId   String // Account.id in tenant DB — no FK (cross-DB)
+  accountCode String? // Denormalized snapshot for admin UI when Account is deleted
+  accountName String? // Denormalized snapshot for admin UI when Account is deleted
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1759,11 +1774,11 @@ model TenantRevenueRule {
   id          String   @id @default(cuid())
   tenantId    String
   priority    Int      @default(100) // lower = higher priority
-  matchType   String   // PRODUCT_NAME | VARIANT_NAME_CONTAINS | SKU_PREFIX
-  matchValue  String   // e.g. "Super", "Sedotan", "RAF-"
-  accountId   String   // Account.id in tenant DB (no FK)
-  accountCode String?  // snapshot
-  accountName String?  // snapshot
+  matchType   String // PRODUCT_NAME | VARIANT_NAME_CONTAINS | SKU_PREFIX
+  matchValue  String // e.g. "Super", "Sedotan", "RAF-"
+  accountId   String // Account.id in tenant DB (no FK)
+  accountCode String? // snapshot
+  accountName String? // snapshot
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1826,9 +1841,9 @@ model PettyCashTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  expenseAccount Account?      @relation(fields: [expenseAccountId], references: [id])
-  createdBy      User          @relation("PettyCashCreator", fields: [createdById], references: [id])
-  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  expenseAccount         Account?              @relation(fields: [expenseAccountId], references: [id])
+  createdBy              User                  @relation("PettyCashCreator", fields: [createdById], references: [id])
+  journalEntry           JournalEntry?         @relation(fields: [journalEntryId], references: [id])
   pettyCashDailyReportId String?
   pettyCashDailyReport   PettyCashDailyReport? @relation(fields: [pettyCashDailyReportId], references: [id])
 
@@ -1919,40 +1934,40 @@ enum MaklonMaterialReturnStatus {
 }
 
 model PettyCashDailyReport {
-  id                         String   @id @default(uuid())
-  reportDate                 DateTime @unique
-  reportNumber               String   @unique
+  id           String   @id @default(uuid())
+  reportDate   DateTime @unique
+  reportNumber String   @unique
 
-  openingBalance             Decimal  @db.Decimal(15, 2)
-  totalIn                    Decimal  @db.Decimal(15, 2)
-  totalOut                   Decimal  @db.Decimal(15, 2)
-  closingBalance             Decimal  @db.Decimal(15, 2)
+  openingBalance Decimal @db.Decimal(15, 2)
+  totalIn        Decimal @db.Decimal(15, 2)
+  totalOut       Decimal @db.Decimal(15, 2)
+  closingBalance Decimal @db.Decimal(15, 2)
 
-  status                     String   @default("DRAFT") // DRAFT, READY_TO_PRINT, SIGNED_PHYSICAL, FINALIZED, VOIDED
-  notes                      String?
-  signedDocumentUrl          String?
+  status            String  @default("DRAFT") // DRAFT, READY_TO_PRINT, SIGNED_PHYSICAL, FINALIZED, VOIDED
+  notes             String?
+  signedDocumentUrl String?
 
-  createdById                  String
-  readyToPrintById             String?
-  physicalSignedConfirmedById  String?
-  finalizedById                String?
-  voidedById                   String?
+  createdById                 String
+  readyToPrintById            String?
+  physicalSignedConfirmedById String?
+  finalizedById               String?
+  voidedById                  String?
 
-  readyToPrintAt             DateTime?
-  physicalSignedConfirmedAt  DateTime?
-  finalizedAt                DateTime?
-  voidedAt                   DateTime?
+  readyToPrintAt            DateTime?
+  physicalSignedConfirmedAt DateTime?
+  finalizedAt               DateTime?
+  voidedAt                  DateTime?
 
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdBy                  User     @relation("PettyCashReportCreator", fields: [createdById], references: [id])
-  readyToPrintBy             User?    @relation("PettyCashReportReadyToPrintMarker", fields: [readyToPrintById], references: [id])
-  physicalSignedConfirmedBy  User?    @relation("PettyCashReportPhysicalSignedConfirmer", fields: [physicalSignedConfirmedById], references: [id])
-  finalizedBy                User?    @relation("PettyCashReportFinalizer", fields: [finalizedById], references: [id])
-  voidedBy                   User?    @relation("PettyCashReportVoider", fields: [voidedById], references: [id])
+  createdBy                 User  @relation("PettyCashReportCreator", fields: [createdById], references: [id])
+  readyToPrintBy            User? @relation("PettyCashReportReadyToPrintMarker", fields: [readyToPrintById], references: [id])
+  physicalSignedConfirmedBy User? @relation("PettyCashReportPhysicalSignedConfirmer", fields: [physicalSignedConfirmedById], references: [id])
+  finalizedBy               User? @relation("PettyCashReportFinalizer", fields: [finalizedById], references: [id])
+  voidedBy                  User? @relation("PettyCashReportVoider", fields: [voidedById], references: [id])
 
-  transactions               PettyCashTransaction[]
+  transactions PettyCashTransaction[]
 
   @@index([reportDate])
   @@index([status, reportDate])
@@ -1961,7 +1976,7 @@ model PettyCashDailyReport {
 model PeriodLock {
   id         String   @id @default(cuid())
   year       Int
-  month      Int      // 1-12
+  month      Int // 1-12
   lockedAt   DateTime @default(now())
   lockedById String?
   lockedBy   User?    @relation(fields: [lockedById], references: [id])
@@ -1972,20 +1987,20 @@ model PeriodLock {
 }
 
 enum PpnMode {
-  INCLUDE   // Harga sudah termasuk PPN
-  EXCLUDE   // Harga belum termasuk PPN (default)
+  INCLUDE // Harga sudah termasuk PPN
+  EXCLUDE // Harga belum termasuk PPN (default)
 }
 
 model MachineOperator {
-  id          String    @id @default(uuid())
-  machineId   String
-  employeeId  String
-  isPrimary   Boolean   @default(false)
-  assignedAt  DateTime  @default(now())
-  notes       String?
+  id         String   @id @default(uuid())
+  machineId  String
+  employeeId String
+  isPrimary  Boolean  @default(false)
+  assignedAt DateTime @default(now())
+  notes      String?
 
-  machine     Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  machine  Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([machineId, employeeId])
   @@index([employeeId])
@@ -1993,21 +2008,21 @@ model MachineOperator {
 }
 
 model SalesVisit {
-  id               String       @id @default(uuid())
-  customerId       String
-  customer         Customer     @relation(fields: [customerId], references: [id])
-  userId           String
-  user             User         @relation("SalesVisitCreator", fields: [userId], references: [id])
-  checkInTime      DateTime
-  checkOutTime     DateTime
-  durationSeconds  Int
-  latitude         Decimal      @db.Decimal(10, 7)
-  longitude        Decimal      @db.Decimal(10, 7)
-  distance         Float
-  notes            String?      @db.Text
-  photoUrl         String?      @db.Text
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  userId          String
+  user            User     @relation("SalesVisitCreator", fields: [userId], references: [id])
+  checkInTime     DateTime
+  checkOutTime    DateTime
+  durationSeconds Int
+  latitude        Decimal  @db.Decimal(10, 7)
+  longitude       Decimal  @db.Decimal(10, 7)
+  distance        Float
+  notes           String?  @db.Text
+  photoUrl        String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([userId])
   @@index([customerId])
@@ -2018,25 +2033,25 @@ model SalesVisit {
 // ==========================================
 
 model BankReconciliation {
-  id            String               @id @default(uuid())
-  accountId     String
-  account       Account              @relation(fields: [accountId], references: [id])
-  periodStart   DateTime
-  periodEnd     DateTime
-  bankBalance   Decimal              @db.Decimal(15, 2)
-  bookBalance   Decimal              @db.Decimal(15, 2)
-  adjustedBankBalance Decimal?        @db.Decimal(15, 2)
-  adjustedBookBalance Decimal?        @db.Decimal(15, 2)
-  status        ReconciliationStatus @default(DRAFT)
-  notes         String?
-  createdById   String
-  createdBy     User                 @relation(fields: [createdById], references: [id])
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  completedAt   DateTime?
+  id                  String               @id @default(uuid())
+  accountId           String
+  account             Account              @relation(fields: [accountId], references: [id])
+  periodStart         DateTime
+  periodEnd           DateTime
+  bankBalance         Decimal              @db.Decimal(15, 2)
+  bookBalance         Decimal              @db.Decimal(15, 2)
+  adjustedBankBalance Decimal?             @db.Decimal(15, 2)
+  adjustedBookBalance Decimal?             @db.Decimal(15, 2)
+  status              ReconciliationStatus @default(DRAFT)
+  notes               String?
+  createdById         String
+  createdBy           User                 @relation(fields: [createdById], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  completedAt         DateTime?
 
-  items         BankReconciliationItem[]
-  adjustments   BankReconciliationAdjustment[]
+  items       BankReconciliationItem[]
+  adjustments BankReconciliationAdjustment[]
 
   @@index([accountId])
   @@index([periodStart, periodEnd])
@@ -2051,30 +2066,30 @@ enum ReconciliationStatus {
 }
 
 model BankReconciliationItem {
-  id                String              @id @default(uuid())
-  reconciliationId  String
-  reconciliation    BankReconciliation  @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  reconciliationId String
+  reconciliation   BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
 
   // Bank statement side
-  bankDate          DateTime?
-  bankDescription   String?
-  bankAmount        Decimal?            @db.Decimal(15, 2)
-  bankRef           String?
+  bankDate        DateTime?
+  bankDescription String?
+  bankAmount      Decimal?  @db.Decimal(15, 2)
+  bankRef         String?
 
   // GL side (matched journal line)
-  journalLineId     String?
-  journalLine       JournalLine?        @relation(fields: [journalLineId], references: [id])
-  glDate            DateTime?
-  glDescription     String?
-  glDebit           Decimal?            @db.Decimal(15, 2)
-  glCredit          Decimal?            @db.Decimal(15, 2)
+  journalLineId String?
+  journalLine   JournalLine? @relation(fields: [journalLineId], references: [id])
+  glDate        DateTime?
+  glDescription String?
+  glDebit       Decimal?     @db.Decimal(15, 2)
+  glCredit      Decimal?     @db.Decimal(15, 2)
 
   // Matching
-  matchStatus       MatchStatus         @default(UNMATCHED_BANK_ONLY)
-  confidence        Int                 @default(0)
-  matchedBy         String?
-  matchedAt         DateTime?
-  notes             String?
+  matchStatus MatchStatus @default(UNMATCHED_BANK_ONLY)
+  confidence  Int         @default(0)
+  matchedBy   String?
+  matchedAt   DateTime?
+  notes       String?
 
   @@index([reconciliationId])
   @@index([journalLineId])
@@ -2089,18 +2104,18 @@ enum MatchStatus {
 }
 
 model BankReconciliationAdjustment {
-  id                String              @id @default(uuid())
-  reconciliationId  String
-  reconciliation    BankReconciliation  @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  reconciliationId String
+  reconciliation   BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
 
-  side              AdjustmentSide
-  type              AdjustmentType
-  description       String
-  amount            Decimal             @db.Decimal(15, 2)
-  journalEntryId    String?
-  journalEntry      JournalEntry?       @relation(fields: [journalEntryId], references: [id])
+  side           AdjustmentSide
+  type           AdjustmentType
+  description    String
+  amount         Decimal        @db.Decimal(15, 2)
+  journalEntryId String?
+  journalEntry   JournalEntry?  @relation(fields: [journalEntryId], references: [id])
 
-  createdAt         DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@index([reconciliationId])
 }

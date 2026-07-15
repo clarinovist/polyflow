@@ -1,13 +1,12 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/core/prisma";
-import { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { SuperAdminClient } from "./client";
 
 export default async function SuperAdminPage() {
     const session = await auth();
 
-    if (!session?.user || session.user.role !== Role.ADMIN) {
+    if (!session?.user || !session.user.isSuperAdmin) {
         redirect("/dashboard");
     }
 

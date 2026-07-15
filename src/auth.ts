@@ -4,6 +4,7 @@ import { authConfig } from './auth.config';
 import { z } from 'zod';
 import { prisma } from '@/lib/core/prisma';
 import { extractSubdomain } from '@/lib/core/tenant';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { SESSION_POLICY } from '@/lib/auth/session-policy';
 
@@ -87,35 +88,57 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                     const passwordsMatch = await bcrypt.compare(password, user.password);
 
                     if (passwordsMatch) {
-                        // Check if role matches if provided
-                        // ADMIN can bypass this and access all workspaces
-                        if (role && user.role !== role && user.role !== 'ADMIN') {
-                            throw new Error('RoleMismatch');
-                        }
-                        // Strictly enforce that if role isn't provided, we only allow access to root if they are SuperAdmin
-                        // For tenant logins, the role is always provided by the form.
-                        if (!role && !user.isSuperAdmin) {
-                            throw new Error('RoleMismatch');
+                        // Load ALL assigned roles for this user
+                        let userRoles: string[] = [];
+                        try {
+                            const roleDb = tenantDbRef || prisma;
+                            const userRoleRecords = await roleDb.userRole.findMany({
+                                where: { userId: user.id },
+                                select: { role: true },
+                            });
+                            userRoles = userRoleRecords.map((r: { role: string }) => r.role);
+                        } catch {
+                            // Non-fatal: fall back to single primary role
+                            userRoles = [user.role];
                         }
 
-                        // Load role permissions for this user
+                        // Empty UserRole (edge case) → fallback primary
+                        if (userRoles.length === 0) {
+                            userRoles = [user.role];
+                        }
+
+                        const isAssignedAdmin = userRoles.includes("ADMIN") || user.role === "ADMIN";
+
+                        // Validate: selected role must be in assigned roles (ADMIN bypass)
+                        if (role && !userRoles.includes(role) && !isAssignedAdmin) {
+                            throw new Error("RoleMismatch");
+                        }
+                        if (!role && !user.isSuperAdmin) {
+                            throw new Error("RoleMismatch");
+                        }
+
+                        // Active role = selected workspace role at login (not always DB primary)
+                        const activeRole = role || user.role;
+
+                        // Aggregate allowedResources from ALL assigned roles (used by middleware path checks)
                         let allowedResources: string[] = [];
                         try {
                             const permDb = tenantDbRef || prisma;
                             const perms = await permDb.rolePermission.findMany({
-                                where: { role: user.role, canAccess: true },
+                                where: { role: { in: userRoles as Role[] }, canAccess: true },
                                 select: { resource: true },
                             });
-                            allowedResources = perms.map((p: { resource: string }) => p.resource);
+                            allowedResources = Array.from(new Set(perms.map((p: { resource: string }) => p.resource)));
                         } catch {
-                            // Non-fatal: user just won't have DB-based permissions
+                            // Non-fatal
                         }
 
                         return {
                             id: user.id,
                             name: user.name,
                             email: user.email,
-                            role: user.role,
+                            role: activeRole as Role,     // ACTIVE role (login-selected)
+                            roles: userRoles as Role[],   // ALL assigned roles
                             rememberMe: remember,
                             isSuperAdmin: user.isSuperAdmin,
                             allowedResources,

@@ -84,6 +84,33 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(null, 'dashboard')).toBe(false);
       expect(canAccessWorkspace(undefined, 'dashboard')).toBe(false);
     });
+
+    it('allows access if any of the assigned roles matches the policy', () => {
+      const user = { role: 'PRODUCTION', roles: ['PRODUCTION', 'PLANNING'] };
+      expect(canAccessWorkspace(user, 'production')).toBe(true);
+      expect(canAccessWorkspace(user, 'warehouse')).toBe(true);
+      expect(canAccessWorkspace(user, 'purchasing')).toBe(true);
+    });
+
+    it('denies access if none of the assigned roles match', () => {
+      const user = { role: 'PRODUCTION', roles: ['PRODUCTION'] };
+      expect(canAccessWorkspace(user, 'production')).toBe(true);
+      expect(canAccessWorkspace(user, 'purchasing')).toBe(false);
+      expect(canAccessWorkspace(user, 'finance')).toBe(false);
+    });
+
+    it('allows access to multiple workspaces for user with multiple matching roles', () => {
+      const user = { role: 'SALES', roles: ['SALES', 'FINANCE'] };
+      expect(canAccessWorkspace(user, 'sales')).toBe(true);
+      expect(canAccessWorkspace(user, 'finance')).toBe(true);
+      expect(canAccessWorkspace(user, 'production')).toBe(false);
+    });
+
+    it('denies access to unauthorized workspace for single role user', () => {
+      const user = { role: 'WAREHOUSE', roles: ['WAREHOUSE'] };
+      expect(canAccessWorkspace(user, 'warehouse')).toBe(true);
+      expect(canAccessWorkspace(user, 'sales')).toBe(false);
+    });
   });
 
   describe('getDefaultRedirectForUser', () => {

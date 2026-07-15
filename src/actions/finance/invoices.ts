@@ -9,6 +9,7 @@ import {
   BusinessRuleError,
   NotFoundError,
 } from "@/lib/errors/errors";
+import { hasAnyRole } from "@/lib/auth/roles";
 
 export const getSalesInvoices = withTenant(
   async function getSalesInvoices(dateRange?: {
@@ -138,8 +139,7 @@ export const deleteInvoice = withTenant(async function deleteInvoice(
     const { logActivity } = await import("@/lib/tools/audit");
 
     const session = await requireAuth();
-    const user = session.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(session.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can delete invoices",
       );

@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/core/prisma';
 import { auth } from '@/auth';
 import os from 'os';
+import { isTenantAdmin } from '@/lib/auth/roles';
 
 export async function GET() {
     try {
         const session = await auth();
-        if (!session || session.user.role !== 'ADMIN') {
+        if (!session || !isTenantAdmin(session.user)) {
             return new NextResponse('Unauthorized. Only ADMIN can access diagnostics.', { status: 401 });
         }
 

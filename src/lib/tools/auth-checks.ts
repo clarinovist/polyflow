@@ -8,6 +8,7 @@ import {
   AuthorizationError,
   BusinessRuleError,
 } from "@/lib/errors/errors";
+import { getUserRoles, hasAnyRole } from "@/lib/auth/roles";
 
 /**
  * Resolves the tenant DB for the current request (if on a tenant subdomain).
@@ -49,12 +50,11 @@ export async function requireAuth() {
   }
 
   // Verify user exists in DB to prevent Foreign Key errors (stale sessions)
-  // and ensure role is up to date if needed
   // Use tenant-aware DB if available (important for multi-tenant setups)
   const tenantDb = await resolveTenantDb();
   const user = await (tenantDb || prisma).user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, role: true },
+    select: { id: true },
   });
 
   if (!user) {
@@ -72,20 +72,14 @@ export async function requireAuth() {
  */
 export async function requireRole(requiredRole: Role | Role[]) {
   const session = await requireAuth();
-  const userRole = session.user.role;
+  const userRoles = getUserRoles(session.user);
 
-  if (!userRole) {
+  if (userRoles.length === 0) {
     throw new AuthorizationError("Unauthorized: User has no role");
   }
 
-  // Admin usually has access to everything
-  if (userRole === "ADMIN") {
-    return session;
-  }
-
-  const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-
-  if (!roles.includes(userRole as Role)) {
+  if (!hasAnyRole(session.user, requiredRole)) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     throw new AuthorizationError(
       `Unauthorized: Insufficient permissions. Required: ${roles.join(" or ")}`,
     );
@@ -100,9 +94,7 @@ export async function requireRole(requiredRole: Role | Role[]) {
  */
 export async function requirePlanningRole() {
   const session = await requireAuth();
-  const role = session.user.role;
-
-  if (role !== "ADMIN" && role !== "PLANNING") {
+  if (!hasAnyRole(session.user, ["PLANNING", "ADMIN"])) {
     throw new BusinessRuleError(
       "Unauthorized: Only Planning can perform this action",
     );
@@ -117,9 +109,7 @@ export async function requirePlanningRole() {
  */
 export async function requireProductionLeaderRole() {
   const session = await requireAuth();
-  const role = session.user.role;
-
-  if (role !== "ADMIN" && role !== "PRODUCTION" && role !== "PLANNING") {
+  if (!hasAnyRole(session.user, ["ADMIN", "PRODUCTION", "PLANNING"])) {
     throw new BusinessRuleError(
       "Unauthorized: Only production leaders or admins can perform this action",
     );

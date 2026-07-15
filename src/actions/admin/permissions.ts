@@ -11,12 +11,13 @@ import {
   BusinessRuleError,
   AuthorizationError,
 } from "@/lib/errors/errors";
+import { getUserRoles, hasRole, isTenantAdmin } from "@/lib/auth/roles";
 
 export type ResourceKey = string;
 
 async function checkAdmin() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isTenantAdmin(session.user)) {
     throw new AuthorizationError("Unauthorized: Admin access required");
   }
 
@@ -141,7 +142,7 @@ export const seedDefaultPermissions = withTenant(
     return safeAction(async () => {
       try {
         const session = await auth();
-        if (session?.user?.role !== "ADMIN")
+        if (!session?.user || !isTenantAdmin(session.user))
           throw new AuthorizationError("Unauthorized");
 
         await seedDefaultPermissionsInternal(targetRole, defaultResources);
@@ -244,30 +245,34 @@ export const getMyPermissions = withTenant(async function getMyPermissions() {
       if (!currentUser?.isActive) return [];
     }
 
-    if (session.user.role === "ADMIN") {
+    if (hasRole(session.user, "ADMIN")) {
       return "ALL";
     }
 
-    const count = await prisma.rolePermission.count({
-      where: { role: session.user.role },
-    });
+    const userRoles = getUserRoles(session.user) as Role[];
 
-    if (count === 0) {
-      const defaults = DEFAULT_PERMISSIONS[session.user.role];
-      if (defaults && defaults.length > 0) {
-        await seedDefaultPermissionsInternal(session.user.role, defaults);
+    for (const r of userRoles) {
+      const count = await prisma.rolePermission.count({
+        where: { role: r },
+      });
+
+      if (count === 0) {
+        const defaults = DEFAULT_PERMISSIONS[r];
+        if (defaults && defaults.length > 0) {
+          await seedDefaultPermissionsInternal(r, defaults);
+        }
       }
     }
 
     const permissions = await prisma.rolePermission.findMany({
       where: {
-        role: session.user.role,
+        role: { in: userRoles },
         canAccess: true,
       },
       select: { resource: true },
     });
 
-    return permissions.map((p: { resource: string }) => p.resource);
+    return [...new Set(permissions.map((p: { resource: string }) => p.resource))];
   });
 });
 
@@ -284,17 +289,17 @@ export const canViewPrices = withTenant(async function canViewPrices() {
       if (!currentUser?.isActive) return false;
     }
 
-    if (session.user.role === "ADMIN") return true;
+    if (hasRole(session.user, "ADMIN")) return true;
 
-    const permission = await prisma.rolePermission.findUnique({
+    const userRoles = getUserRoles(session.user) as Role[];
+    const permission = await prisma.rolePermission.findFirst({
       where: {
-        role_resource: {
-          role: session.user.role,
-          resource: "feature:view-prices",
-        },
+        role: { in: userRoles },
+        resource: "feature:view-prices",
+        canAccess: true,
       },
     });
 
-    return !!permission?.canAccess;
+    return !!permission;
   });
 });

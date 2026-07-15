@@ -81,7 +81,7 @@ describe('requireAuth', () => {
         expect(result).toEqual(mockSession);
         expect(prisma.user.findUnique).toHaveBeenCalledWith({
             where: { id: 'user-123' },
-            select: { id: true, role: true },
+            select: { id: true },
         });
     });
 });

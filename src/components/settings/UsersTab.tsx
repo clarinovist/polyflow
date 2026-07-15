@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Role } from '@prisma/client';
-import { getUsers, createUser, updateUser, deleteUser, reactivateUser, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
+import { getUsers, createUser, updateUser, deleteUser, reactivateUser, setUserRoles, CreateUserInput, UpdateUserInput } from '@/actions/admin/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,6 +40,7 @@ interface UserData {
     name: string | null;
     email: string;
     role: Role;
+    roles: Role[];
     isActive: boolean;
     createdAt: Date;
 }
@@ -78,6 +79,8 @@ export function UsersTab() {
         role: 'WAREHOUSE',
     });
 
+    const [editRoles, setEditRoles] = useState<Role[]>([]);
+
     const [confirmPassword, setConfirmPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -88,7 +91,7 @@ export function UsersTab() {
     const fetchUsers = async () => {
         const result = await getUsers();
         if (result.success && result.data) {
-            setUsers(result.data);
+            setUsers(result.data as UserData[]);
         } else {
             toast.error('Gagal memuat pengguna');
         }
@@ -138,15 +141,32 @@ export function UsersTab() {
                 return;
             }
         }
+        if (editRoles.length === 0) {
+            toast.error('Pengguna harus memiliki minimal satu peran');
+            return;
+        }
         setIsSubmitting(true);
-        const result = await updateUser(editData);
-        if (result.success) {
-            toast.success('Pengguna berhasil diperbarui.');
-            setEditOpen(false);
-            setEditConfirmPassword('');
-            fetchUsers();
+        const primaryRole = editRoles.includes(editData.role as Role) ? editData.role : editRoles[0];
+        const updateResult = await updateUser({
+            id: editData.id,
+            name: editData.name,
+            email: editData.email,
+            password: editData.password,
+            role: primaryRole,
+        });
+
+        if (updateResult.success) {
+            const roleResult = await setUserRoles(editData.id, editRoles);
+            if (roleResult.success) {
+                toast.success('Pengguna berhasil diperbarui.');
+                setEditOpen(false);
+                setEditConfirmPassword('');
+                fetchUsers();
+            } else {
+                toast.error(roleResult.error || 'Gagal memperbarui peran pengguna');
+            }
         } else {
-            toast.error(result.error || 'Gagal memperbarui pengguna');
+            toast.error(updateResult.error || 'Gagal memperbarui informasi pengguna');
         }
         setIsSubmitting(false);
     };
@@ -181,6 +201,7 @@ export function UsersTab() {
             role: user.role,
             password: '', // Always start empty
         });
+        setEditRoles(user.roles?.length ? user.roles : [user.role]);
         setEditConfirmPassword('');
         setShowEditPassword(false);
         setShowEditConfirmPassword(false);
@@ -275,7 +296,7 @@ export function UsersTab() {
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="role">Role</Label>
+                                <Label htmlFor="role">Role Utama</Label>
                                 <Select
                                     value={formData.role}
                                     onValueChange={(val: Role) => setFormData({ ...formData, role: val })}
@@ -291,6 +312,9 @@ export function UsersTab() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    * Multi-role bisa ditambahkan setelah pengguna dibuat (Edit).
+                                </p>
                             </div>
                         </div>
                         <DialogFooter>
@@ -335,7 +359,13 @@ export function UsersTab() {
                                         </TableCell>
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">{user.role}</Badge>
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.roles?.map((role) => (
+                                                    <Badge key={role} variant={role === user.role ? "default" : "outline"}>
+                                                        {role}
+                                                    </Badge>
+                                                )) || <Badge variant="default">{user.role}</Badge>}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={user.isActive ? 'default' : 'secondary'}>
@@ -449,22 +479,35 @@ export function UsersTab() {
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="edit-role">Role</Label>
-                                        <Select
-                                            value={editData.role}
-                                            onValueChange={(val: Role) => setEditData({ ...editData, role: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pilih peran" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {USER_ROLES.map((role) => (
-                                                    <SelectItem key={role.value} value={role.value}>
-                                                        {role.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label>Peran Pengguna (Roles)</Label>
+                                        <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
+                                            {USER_ROLES.map((role) => {
+                                                const checked = editRoles.includes(role.value);
+                                                return (
+                                                    <div key={role.value} className="flex items-center space-x-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`edit-role-${role.value}`}
+                                                            checked={checked}
+                                                            onChange={() => {
+                                                                if (checked) {
+                                                                    setEditRoles(editRoles.filter((r) => r !== role.value));
+                                                                } else {
+                                                                    setEditRoles([...editRoles, role.value]);
+                                                                }
+                                                            }}
+                                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                        />
+                                                        <Label htmlFor={`edit-role-${role.value}`} className="cursor-pointer">
+                                                            {role.label}
+                                                        </Label>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Pilih satu atau lebih peran. Pengguna harus log out dan log in kembali agar perubahan peran aktif.
+                                        </p>
                                     </div>
                                 </div>
                                 <DialogFooter>

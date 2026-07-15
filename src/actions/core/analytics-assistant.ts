@@ -10,6 +10,7 @@ import {
   AuthorizationError,
   BusinessRuleError,
 } from "@/lib/errors/errors";
+import { hasAnyRole } from "@/lib/auth/roles";
 
 const prisma = new PrismaClient({
   datasources: {
@@ -45,7 +46,7 @@ export const generateAndRunQuery = withTenant(
       const session = await auth();
       if (
         !session ||
-        !["ADMIN", "FINANCE", "PLANNING"].includes(session.user.role)
+        !hasAnyRole(session.user, ["ADMIN", "FINANCE", "PLANNING"])
       ) {
         throw new AuthorizationError("Unauthorized");
       }

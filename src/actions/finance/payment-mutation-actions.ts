@@ -15,6 +15,7 @@ import {
   NotFoundError,
   safeAction,
 } from "@/lib/errors/errors";
+import { hasAnyRole } from "@/lib/auth/roles";
 import { requireAuth } from "@/lib/tools/auth-checks";
 import { logActivity } from "@/lib/tools/audit";
 import { formatRupiah } from "@/lib/utils/utils";
@@ -355,8 +356,7 @@ export const deletePayment = withTenant(async function deletePayment(
 ) {
   return safeAction(async () => {
     const authSession = await requireAuth();
-    const user = authSession.user as { role?: string };
-    if (user.role !== "ADMIN" && user.role !== "FINANCE") {
+    if (!hasAnyRole(authSession.user, ["ADMIN", "FINANCE"])) {
       throw new BusinessRuleError(
         "Only ADMIN or FINANCE roles can delete payments",
       );
