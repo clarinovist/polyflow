@@ -211,6 +211,7 @@ export const getProductionOrders = withTenant(
           select: {
             id: true,
             name: true,
+            category: true,
             productVariant: {
               select: {
                 id: true,
@@ -227,7 +228,7 @@ export const getProductionOrders = withTenant(
           },
         },
         machine: {
-          select: { id: true, name: true, code: true },
+          select: { id: true, name: true, code: true, locationId: true, type: true },
         },
         location: {
           select: { id: true, name: true },
@@ -253,6 +254,41 @@ export const getProductionOrders = withTenant(
             endTime: true,
             operator: { select: { id: true, name: true, code: true } },
             helpers: { select: { id: true, name: true, code: true } },
+          },
+        },
+        plannedMaterials: {
+          select: {
+            id: true,
+            productVariantId: true,
+            quantity: true,
+            productVariant: {
+              select: {
+                id: true,
+                name: true,
+                primaryUnit: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        materialIssues: {
+          select: {
+            id: true,
+            productVariantId: true,
+            quantity: true,
+            status: true,
+            productVariant: {
+              select: {
+                id: true,
+                name: true,
+                primaryUnit: true,
+              },
+            },
           },
         },
       },
