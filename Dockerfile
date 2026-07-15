@@ -29,13 +29,13 @@ RUN npx prisma generate
 
 
 # Compile seed script
-RUN npx tsc prisma/seed.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc prisma/seed-baseline.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc prisma/fix-coa.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc prisma/seed.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc prisma/seed-baseline.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc prisma/fix-coa.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 # Compile new multi-tenant CLI scripts
-RUN npx tsc scripts/provision-tenant.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
-RUN npx tsc scripts/migrate-all-tenants.ts --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc scripts/provision-tenant.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
+RUN npx tsc scripts/migrate-all-tenants.ts --ignoreConfig --types node --module CommonJS --target ES2020 --esModuleInterop --skipLibCheck
 
 RUN npm run build
 
