@@ -162,22 +162,37 @@ async function transferStock(tx, params) {
     }
   });
 
-  await tx.inventory.upsert({
-    where: {
-      locationId_productVariantId: {
+  // Upsert with retry guard for duplicate race (Inventory_locationId_productVariantId_key)
+  try {
+    await tx.inventory.upsert({
+      where: {
+        locationId_productVariantId: {
+          locationId: destinationLocationId,
+          productVariantId
+        }
+      },
+      update: {
+        quantity: { increment: moveQty }
+      },
+      create: {
         locationId: destinationLocationId,
-        productVariantId
+        productVariantId,
+        quantity: moveQty
       }
-    },
-    update: {
-      quantity: { increment: moveQty }
-    },
-    create: {
-      locationId: destinationLocationId,
-      productVariantId,
-      quantity: moveQty
-    }
-  });
+    });
+  } catch (e) {
+    const isDup = e.code === 'P2002' || String(e.message || '').includes('Inventory_locationId_productVariantId_key');
+    if (!isDup) throw e;
+    await tx.inventory.update({
+      where: {
+        locationId_productVariantId: {
+          locationId: destinationLocationId,
+          productVariantId
+        }
+      },
+      data: { quantity: { increment: moveQty } }
+    });
+  }
 
   await tx.stockMovement.create({
     data: {

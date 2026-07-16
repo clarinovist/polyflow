@@ -104,21 +104,34 @@ export class InventoryCoreService {
   }
 
   /**
-   * Increment Stock (Atomic Upsert)
-   */
+    * Increment Stock (Atomic Upsert with duplicate race guard)
+    */
   static async incrementStock(
     tx: Prisma.TransactionClient,
     locationId: string,
     productVariantId: string,
     quantity: number,
   ) {
-    await tx.inventory.upsert({
-      where: {
-        locationId_productVariantId: { locationId, productVariantId },
-      },
-      update: { quantity: { increment: quantity } },
-      create: { locationId, productVariantId, quantity },
-    });
+    try {
+      await tx.inventory.upsert({
+        where: {
+          locationId_productVariantId: { locationId, productVariantId },
+        },
+        update: { quantity: { increment: quantity } },
+        create: { locationId, productVariantId, quantity },
+      });
+    } catch (e: unknown) {
+      const prismaError = e as { code?: string; message?: string };
+      const isDuplicate =
+        prismaError.code === "P2002" ||
+        (typeof prismaError.message === "string" &&
+          prismaError.message.includes("Inventory_locationId_productVariantId_key"));
+      if (!isDuplicate) throw e;
+      await tx.inventory.update({
+        where: { locationId_productVariantId: { locationId, productVariantId } },
+        data: { quantity: { increment: quantity } },
+      });
+    }
   }
 
   static async incrementStockWithCost(
@@ -129,6 +142,8 @@ export class InventoryCoreService {
     unitCost: number,
   ) {
     // Lock the destination inventory row to prevent concurrent WAC corruption
+    // Note: FOR UPDATE on missing row acquires no lock (gap not locked), so concurrent
+    // creation can cause duplicate key on upsert. Handled via retry below.
     const inventoryRow = await tx.$queryRaw<
       Array<{ quantity: string; averageCost: string | null }>
     >`
@@ -148,21 +163,54 @@ export class InventoryCoreService {
         ? (currentQty * currentAvgCost + quantity * unitCost) / totalQty
         : unitCost;
 
-    await tx.inventory.upsert({
-      where: {
-        locationId_productVariantId: { locationId, productVariantId },
-      },
-      update: {
-        quantity: { increment: quantity },
-        averageCost: newAvgCost,
-      },
-      create: {
-        locationId,
-        productVariantId,
-        quantity,
-        averageCost: unitCost,
-      },
-    });
+    try {
+      await tx.inventory.upsert({
+        where: {
+          locationId_productVariantId: { locationId, productVariantId },
+        },
+        update: {
+          quantity: { increment: quantity },
+          averageCost: newAvgCost,
+        },
+        create: {
+          locationId,
+          productVariantId,
+          quantity,
+          averageCost: unitCost,
+        },
+      });
+    } catch (e: unknown) {
+      // Handle race where another tx created the row after our SELECT (gap race)
+      // P2002 = unique constraint violation
+      const prismaError = e as { code?: string; message?: string };
+      const isDuplicate =
+        prismaError.code === "P2002" ||
+        (typeof prismaError.message === "string" &&
+          prismaError.message.includes("Inventory_locationId_productVariantId_key"));
+      if (!isDuplicate) throw e;
+
+      // Retry: re-read with lock and apply increment
+      const retryRow = await tx.$queryRaw<
+        Array<{ quantity: string; averageCost: string | null }>
+      >`
+                SELECT "quantity"::text as quantity, "averageCost"::text as "averageCost"
+                FROM "Inventory"
+                WHERE "locationId" = ${locationId} AND "productVariantId" = ${productVariantId}
+                FOR UPDATE
+            `;
+      const retryQty = retryRow[0] ? Number(retryRow[0].quantity) : 0;
+      const retryAvgCost = retryRow[0]?.averageCost ? Number(retryRow[0].averageCost) : 0;
+      const retryTotal = retryQty + quantity;
+      const retryNewAvg =
+        retryTotal > 0
+          ? (retryQty * retryAvgCost + quantity * unitCost) / retryTotal
+          : unitCost;
+
+      await tx.inventory.update({
+        where: { locationId_productVariantId: { locationId, productVariantId } },
+        data: { quantity: { increment: quantity }, averageCost: retryNewAvg },
+      });
+    }
   }
 
   static async calculateWAC(

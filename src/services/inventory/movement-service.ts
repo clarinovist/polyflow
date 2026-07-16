@@ -107,22 +107,9 @@ export class InventoryMovementService {
           quantity,
           unitCost,
         );
-      } else {
-        await tx.inventory.upsert({
-          where: {
-            locationId_productVariantId: {
-              locationId: destinationLocationId,
-              productVariantId: productVariantId,
-            },
-          },
-          update: { quantity: { increment: quantity } },
-          create: {
-            locationId: destinationLocationId,
-            productVariantId: productVariantId,
-            quantity: quantity,
-          },
-        });
-      }
+        } else {
+          await InventoryCoreService.incrementStock(tx, destinationLocationId, productVariantId, quantity);
+        }
 
       await tx.stockMovement.create({
         data: {
@@ -270,20 +257,7 @@ export class InventoryMovementService {
             unitCost,
           );
         } else {
-          await tx.inventory.upsert({
-            where: {
-              locationId_productVariantId: {
-                locationId: destinationLocationId,
-                productVariantId: productVariantId,
-              },
-            },
-            update: { quantity: { increment: quantity } },
-            create: {
-              locationId: destinationLocationId,
-              productVariantId: productVariantId,
-              quantity: quantity,
-            },
-          });
+          await InventoryCoreService.incrementStock(tx, destinationLocationId, productVariantId, quantity);
         }
 
         await tx.stockMovement.create({

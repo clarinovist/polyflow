@@ -25,19 +25,25 @@ Database Schema (PostgreSQL/Prisma):
 - Customer(id, name, code, email, creditLimit, isActive)
 - SalesOrder(id, orderNumber, customerId, totalAmount, status, orderDate)
 - SalesOrderItem(id, salesOrderId, productVariantId, quantity, unitPrice)
-- Product(id, name, productType)
-- ProductVariant(id, productId, name, price)
-- Inventory(id, productVariantId, locationId, quantity)
+- Product(id, name, productType, createdAt)
+- ProductVariant(id, productId, name, skuCode, price, primaryUnit, salesUnit, conversionFactor, createdAt)
+  * IMPORTANT: SKU column is skuCode, NOT sku
+- Inventory(id, productVariantId, locationId, quantity, averageCost)
 - Machine(id, code, name, status, locationId)
 - ProductionOrder(id, orderNumber, machineId, bomId, plannedQuantity, status, createdAt, actualStartDate)
 - Bom(id, productVariantId, outputQuantity, createdAt)
 - BomItem(id, bomId, productVariantId, quantity)
-- Location(id, name, slug)
+- Location(id, name, slug, locationPurpose, locationType)
 - Invoice(id, invoiceNumber, salesOrderId, totalAmount, status)
 
 RELATIONSHIPS:
 - ProductionOrder linked to ProductVariant via Bom: ProductionOrder.bomId -> Bom.id, then Bom.productVariantId -> ProductVariant.id
 - Product stock is in Inventory table, NOT in ProductVariant.
+
+CRITICAL COLUMN RULES:
+- ProductVariant SKU = skuCode (e.g., pv."skuCode" when aliased as pv)
+- Never use pv.sku, pv."sku", or sku alone — always skuCode
+- Use double quotes for camelCase columns: "skuCode", "productVariantId", "orderNumber" etc.
 `;
 
 export const generateAndRunQuery = withTenant(
@@ -134,6 +140,15 @@ export const generateAndRunQuery = withTenant(
               `Generated query contains forbidden keyword: ${keyword}`,
             );
           }
+        }
+
+        // 4. Known column typo guard — prevent reoccurrence of pv.sku
+        const skuTypoRegex = /\b\w+\.sku\b/i;
+        const quotedSkuRegex = /"sku"\s*(?!=)/i; // "sku" not followed by Code
+        if (skuTypoRegex.test(sql) || quotedSkuRegex.test(sql)) {
+          throw new BusinessRuleError(
+            "Generated query uses invalid column 'sku'. Use skuCode instead (e.g., pv.\"skuCode\").",
+          );
         }
 
         const sqlUpper = sql.trim().toUpperCase();

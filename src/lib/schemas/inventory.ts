@@ -104,7 +104,17 @@ export const bulkTransferStockSchema = z
   .refine((data) => data.sourceLocationId !== data.destinationLocationId, {
     message: "Source and destination cannot be the same",
     path: ["destinationLocationId"],
-  });
+  })
+  .refine(
+    (data) => {
+      const ids = data.items.map((i) => i.productVariantId);
+      return ids.length === new Set(ids).size;
+    },
+    {
+      message: "Duplicate product variants are not allowed in bulk transfer",
+      path: ["items"],
+    },
+  );
 
 export const bulkAdjustStockSchema = z
   .object({
@@ -160,7 +170,10 @@ export const createLocationSchema = z.object({
       "SCRAP",
       "OPERATIONAL",
       "GENERAL_PURPOSE",
-    ] as const)
+    ] as const, {
+      message:
+        "Invalid locationPurpose. Valid: RAW_MATERIAL, FINISHED_GOOD, PACKING, WIP, MIXING, SCRAP, OPERATIONAL, GENERAL_PURPOSE. Note: AUXILIARY is ProductType, not LocationPurpose.",
+    })
     .optional()
     .default("GENERAL_PURPOSE"),
 });

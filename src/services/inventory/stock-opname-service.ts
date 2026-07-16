@@ -37,22 +37,38 @@ export class StockOpnameService {
 
         if (variance !== 0) {
           // 2. Upsert Inventory (create if doesn't exist — handles items added manually via addItemToOpname)
-          await tx.inventory.upsert({
-            where: {
-              locationId_productVariantId: {
+          // Upsert is atomic via ON CONFLICT, but guard duplicate race for safety similar to core-service
+          try {
+            await tx.inventory.upsert({
+              where: {
+                locationId_productVariantId: {
+                  locationId: opname.locationId,
+                  productVariantId: item.productVariantId,
+                },
+              },
+              update: {
+                quantity: item.countedQuantity,
+              },
+              create: {
                 locationId: opname.locationId,
                 productVariantId: item.productVariantId,
+                quantity: item.countedQuantity,
               },
-            },
-            update: {
-              quantity: item.countedQuantity,
-            },
-            create: {
-              locationId: opname.locationId,
-              productVariantId: item.productVariantId,
-              quantity: item.countedQuantity,
-            },
-          });
+            });
+          } catch (e: unknown) {
+            const pe = e as { code?: string; message?: string };
+            const isDup = pe.code === "P2002" || pe.message?.includes("Inventory_locationId_productVariantId_key");
+            if (!isDup) throw e;
+            await tx.inventory.update({
+              where: {
+                locationId_productVariantId: {
+                  locationId: opname.locationId,
+                  productVariantId: item.productVariantId,
+                },
+              },
+              data: { quantity: item.countedQuantity },
+            });
+          }
 
           // 3. Create Movement
           const movement = await tx.stockMovement.create({

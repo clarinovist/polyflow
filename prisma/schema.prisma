@@ -1897,6 +1897,10 @@ enum LocationType {
   CUSTOMER_OWNED
 }
 
+// LocationPurpose is DISTINCT from ProductType.
+// Do NOT add ProductType values like AUXILIARY, FIXED_ASSET, SERVICE here.
+// Previous error: invalid input value for enum "LocationPurpose": "AUXILIARY"
+// was caused by mixing ProductType with LocationPurpose.
 enum LocationPurpose {
   RAW_MATERIAL
   FINISHED_GOOD
