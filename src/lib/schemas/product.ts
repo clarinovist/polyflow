@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Unit, ProductType } from '@prisma/client';
+import { Unit, ProductType, AssetCategory } from '@prisma/client';
 import { PRODUCT_CONSTANTS } from '@/lib/constants/products';
 
 const consumptionRuleSchema = z.enum(['PROPORTIONAL', 'FLOOR_ENTERED_BAL', 'CEIL_ENTERED_BAL']);
@@ -24,6 +24,9 @@ export const productVariantSchema = z.object({
 export const createProductSchema = z.object({
     name: z.string().min(1, "Product name is required"),
     productType: z.nativeEnum(ProductType, { message: "Product type is required" }),
+    assetCategory: z.nativeEnum(AssetCategory).optional().nullable(),
+    usefulLifeMonths: z.coerce.number().int().min(1).max(1200).optional().nullable(),
+    inventoryAccountId: z.string().optional().nullable(),
     variants: z.array(productVariantSchema).min(1, "At least one variant is required"),
 }).superRefine((data, ctx) => {
     // Check for duplicate SKU codes within variants
@@ -36,6 +39,23 @@ export const createProductSchema = z.object({
             message: `Duplicate SKU codes found: ${duplicates.join(', ')}`,
             path: ['variants'],
         });
+    }
+
+    if (data.productType === ProductType.FIXED_ASSET) {
+        if (!data.assetCategory) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Kategori aset wajib untuk tipe Aset Tetap',
+                path: ['assetCategory'],
+            });
+        }
+        if (!data.inventoryAccountId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Akun Aset Tetap wajib untuk tipe Aset Tetap',
+                path: ['inventoryAccountId'],
+            });
+        }
     }
 
     // Smart logic: For SCRAP and RAW_MATERIAL, auto-set salesUnit = primaryUnit and conversionFactor = 1
@@ -57,6 +77,9 @@ export const updateProductSchema = z.object({
     id: z.string(),
     name: z.string().min(1, "Product name is required"),
     productType: z.nativeEnum(ProductType),
+    assetCategory: z.nativeEnum(AssetCategory).optional().nullable(),
+    usefulLifeMonths: z.coerce.number().int().min(1).max(1200).optional().nullable(),
+    inventoryAccountId: z.string().optional().nullable(),
     variants: z.array(productVariantSchema).min(1, "At least one variant is required"),
 }).superRefine((data, ctx) => {
     // Check for duplicate SKU codes
@@ -69,6 +92,23 @@ export const updateProductSchema = z.object({
             message: `Duplicate SKU codes found: ${duplicates.join(', ')}`,
             path: ['variants'],
         });
+    }
+
+    if (data.productType === ProductType.FIXED_ASSET) {
+        if (!data.assetCategory) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Kategori aset wajib untuk tipe Aset Tetap',
+                path: ['assetCategory'],
+            });
+        }
+        if (!data.inventoryAccountId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Akun Aset Tetap wajib untuk tipe Aset Tetap',
+                path: ['inventoryAccountId'],
+            });
+        }
     }
 
     // Smart logic for SCRAP and RAW_MATERIAL

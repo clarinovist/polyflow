@@ -175,6 +175,7 @@ export const getInventoryList = withTenant(async function getInventoryList() {
   return safeAction(async () => {
     await requireAuth();
     const inventory = await prisma.inventory.findMany({
+      where: { productVariant: { product: { productType: { not: 'FIXED_ASSET' } } } },
       include: {
         productVariant: {
           include: { product: true },

@@ -270,6 +270,41 @@ export async function reverseGoodsReceipt(
             throw new BusinessRuleError(`GoodsReceipt ${goodsReceiptId} not found`);
         }
 
+        // 0. Reverse FIXED_ASSET path: delete FixedAsset cards + journal for this GR
+        const linkedAssets = await db.fixedAsset.findMany({
+            where: { goodsReceiptId },
+            select: { id: true, assetCode: true, lastDepreciationDate: true },
+        });
+        if (linkedAssets.length > 0) {
+            // Block if any asset already depreciated
+            const depreciated = linkedAssets.find(a => a.lastDepreciationDate != null);
+            if (depreciated) {
+                throw new BusinessRuleError(`Tidak bisa reverse GR ${gr.receiptNumber}: aset ${depreciated.assetCode} sudah pernah didepresiasi`);
+            }
+            // Delete asset journal entries (referenceId = GR id, referenceType GOODS_RECEIPT)
+            const assetJournals = await db.journalEntry.findMany({
+                where: { referenceId: goodsReceiptId, referenceType: 'GOODS_RECEIPT' },
+                select: { id: true },
+            });
+            for (const j of assetJournals) {
+                await db.journalLine.deleteMany({ where: { journalEntryId: j.id } });
+                await db.journalEntry.delete({ where: { id: j.id } });
+            }
+            // Fallback: also check journals by asset id? Our GR path journals use referenceId=goodsReceiptId, so above enough.
+            // Extra safety: delete any journal referencing the asset itself (if ever created via other path)
+            for (const asset of linkedAssets) {
+                const aj = await db.journalEntry.findMany({
+                    where: { referenceId: asset.id },
+                    select: { id: true },
+                });
+                for (const j of aj) {
+                    await db.journalLine.deleteMany({ where: { journalEntryId: j.id } });
+                    await db.journalEntry.delete({ where: { id: j.id } });
+                }
+            }
+            await db.fixedAsset.deleteMany({ where: { goodsReceiptId } });
+        }
+
         // 1. Reverse inventory + delete stock movements + journal entries
         for (const movement of gr.movements) {
             // Find and delete the journal entry created by recordInventoryMovement

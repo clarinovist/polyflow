@@ -22,9 +22,11 @@ const { mockPrisma } = vi.hoisted(() => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
+      delete: vi.fn(),
     },
     goodsReceiptItem: {
       createMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
     purchaseOrder: {
       findFirst: vi.fn(),
@@ -38,9 +40,12 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     inventory: {
       upsert: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     stockMovement: {
       create: vi.fn(),
+      delete: vi.fn(),
     },
     costHistory: {
       deleteMany: vi.fn(),
@@ -53,6 +58,13 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     fixedAsset: {
       create: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      deleteMany: vi.fn(),
+    },
+    journalEntry: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      delete: vi.fn(),
     },
     account: {
       findUnique: vi.fn(),
@@ -60,6 +72,8 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
     journalLine: {
       aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }),
+      deleteMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     $transaction: vi.fn((callback) => callback(mockPrisma)),
   },
@@ -385,6 +399,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({ ...mockReceiptTx, items: [] }),
           },
@@ -446,6 +461,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-4",
@@ -483,6 +499,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -523,6 +540,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -562,6 +580,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -596,6 +615,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -646,6 +666,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -698,6 +719,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -734,6 +756,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -782,6 +805,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -830,6 +854,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -878,6 +903,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -926,6 +952,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -967,6 +994,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1006,6 +1034,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1049,6 +1078,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1082,6 +1112,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1127,6 +1158,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1171,6 +1203,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1228,6 +1261,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1268,6 +1302,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1300,6 +1335,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1334,6 +1370,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-5",
@@ -1383,6 +1420,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1424,6 +1462,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1473,6 +1512,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1542,6 +1582,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1550,6 +1591,7 @@ describe("receipts-service", () => {
           stockMovement: { delete: vi.fn() },
           journalEntry: {
             findFirst: vi.fn().mockResolvedValue({ id: "je-1" }),
+            findMany: vi.fn().mockResolvedValue([]),
             delete: vi.fn(),
           },
           journalLine: { deleteMany: vi.fn() },
@@ -1603,6 +1645,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1611,6 +1654,7 @@ describe("receipts-service", () => {
           stockMovement: { delete: vi.fn() },
           journalEntry: {
             findFirst: vi.fn().mockResolvedValue(null),
+            findMany: vi.fn().mockResolvedValue([]),
             delete: vi.fn(),
           },
           journalLine: { deleteMany: vi.fn() },
@@ -1655,13 +1699,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
           goodsReceiptItem: { deleteMany: vi.fn() },
           stockMovement: { delete: vi.fn() },
-          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
           journalLine: { deleteMany: vi.fn() },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
@@ -1707,13 +1752,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
           goodsReceiptItem: { deleteMany: vi.fn() },
           stockMovement: { delete: vi.fn() },
-          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
           journalLine: { deleteMany: vi.fn() },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },
@@ -1766,13 +1812,14 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
           },
           goodsReceiptItem: { deleteMany: vi.fn() },
           stockMovement: { delete: vi.fn() },
-          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
           journalLine: { deleteMany: vi.fn() },
           costHistory: { deleteMany: vi.fn() },
           inventory: {
@@ -1795,6 +1842,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
           productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
+          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
           goodsReceipt: {
             findMany: vi.fn().mockResolvedValue([
               { id: "gr-1", receiptNumber: "GR-2026-0001" },
@@ -1815,7 +1863,7 @@ describe("receipts-service", () => {
           },
           goodsReceiptItem: { deleteMany: vi.fn() },
           stockMovement: { delete: vi.fn() },
-          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+          journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), delete: vi.fn() },
           journalLine: { deleteMany: vi.fn() },
           costHistory: { deleteMany: vi.fn() },
           inventory: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() },

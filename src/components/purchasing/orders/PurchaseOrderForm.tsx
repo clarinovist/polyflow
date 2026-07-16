@@ -403,8 +403,11 @@ export function PurchaseOrderForm({
                                 )}
                               />
                               {selectedVariant && (
-                                <div className="text-[11px] text-muted-foreground mt-1 px-1">
-                                  {selectedVariant.skuCode}
+                                <div className="text-[11px] text-muted-foreground mt-1 px-1 flex items-center gap-1">
+                                  <span>{selectedVariant.skuCode}</span>
+                                  {(selectedVariant as { productType?: string; assetCategory?: string }).productType === 'FIXED_ASSET' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">Aset {(selectedVariant as { assetCategory?: string }).assetCategory ? `· ${(selectedVariant as { assetCategory?: string }).assetCategory}` : ''}</span>
+                                  )}
                                 </div>
                               )}
                             </TableCell>

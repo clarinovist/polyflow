@@ -9,6 +9,16 @@ export const metadata: Metadata = {
     title: 'New Purchase Order | PolyFlow',
 };
 
+type ProductVariantWithProduct = {
+    id: string;
+    name: string;
+    skuCode: string;
+    buyPrice?: { toNumber?: () => number } | number | null;
+    product?: { productType?: string; assetCategory?: string | null } | null;
+    productType?: string;
+    assetCategory?: string | null;
+};
+
 export default async function CreatePurchaseOrderPage() {
     const [suppliersRes, productsRes] = await Promise.all([
         getSuppliers(),
@@ -16,12 +26,13 @@ export default async function CreatePurchaseOrderPage() {
     ]);
 
     const suppliers = suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
-    const products = productsRes.success && productsRes.data ? productsRes.data : [];
+    const products = productsRes.success && productsRes.data ? (productsRes.data as ProductVariantWithProduct[]) : [];
 
-    // Format buyPrice (Decimal -> number) and ensure paymentTermDays is included
-    const formattedProducts = products.map(p => ({
+    const formattedProducts = products.map((p) => ({
         ...p,
-        buyPrice: p.buyPrice ? Number(p.buyPrice) : 0
+        buyPrice: p.buyPrice && typeof p.buyPrice === 'object' && 'toNumber' in p.buyPrice ? (p.buyPrice as { toNumber: () => number }).toNumber() : Number(p.buyPrice || 0),
+        productType: p.product?.productType || p.productType,
+        assetCategory: p.product?.assetCategory || null,
     }));
 
     const formattedSuppliers = suppliers.map(s => ({

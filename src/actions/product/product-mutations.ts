@@ -26,7 +26,7 @@ export const createProduct = withTenant(async function createProduct(
       throw new BusinessRuleError(result.error.issues[0].message);
     }
 
-    const { name, productType, variants } = result.data;
+    const { name, productType, variants, assetCategory, usefulLifeMonths, inventoryAccountId } = result.data as typeof result.data & { assetCategory?: unknown; usefulLifeMonths?: number | null; inventoryAccountId?: string | null };
 
     try {
       const existingSkus = await prisma.productVariant.findMany({
@@ -51,7 +51,12 @@ export const createProduct = withTenant(async function createProduct(
           data: {
             name,
             productType,
-          },
+            ...(productType === 'FIXED_ASSET' ? {
+              assetCategory: assetCategory as never || null,
+              inventoryAccountId: inventoryAccountId || null,
+              attributes: usefulLifeMonths ? { usefulLifeMonths } : undefined,
+            } : {}),
+          } as unknown as never,
         });
 
         await tx.productVariant.createMany({
@@ -108,7 +113,7 @@ export const updateProduct = withTenant(async function updateProduct(
       throw new BusinessRuleError(result.error.issues[0].message);
     }
 
-    const { id, name, productType, variants } = result.data;
+    const { id, name, productType, variants, assetCategory, usefulLifeMonths, inventoryAccountId } = result.data as typeof result.data & { assetCategory?: unknown; usefulLifeMonths?: number | null; inventoryAccountId?: string | null };
 
     try {
       const currentProduct = await prisma.product.findUnique({
@@ -150,7 +155,14 @@ export const updateProduct = withTenant(async function updateProduct(
           data: {
             name,
             productType,
-          },
+            ...(productType === 'FIXED_ASSET' ? {
+              assetCategory: assetCategory as never || null,
+              inventoryAccountId: inventoryAccountId || null,
+              attributes: usefulLifeMonths ? { usefulLifeMonths } : undefined,
+            } : {
+              assetCategory: null,
+            }),
+          } as unknown as never,
         });
 
         const existingVariantIds = currentProduct.variants.map((v) => v.id);

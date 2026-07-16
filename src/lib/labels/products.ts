@@ -1,4 +1,4 @@
-import { ProductType } from '@prisma/client';
+import { ProductType, AssetCategory } from '@prisma/client';
 
 /** Product type display labels */
 export const productTypeLabels: Record<ProductType, string> = {
@@ -26,6 +26,22 @@ export const productTypeBadgeLabels: Record<ProductType, string> = {
   SERVICE: 'Service',
   OPERATIONAL: 'Ops',
   FIXED_ASSET: 'Aset',
+};
+
+export const assetCategoryLabels: Record<AssetCategory, string> = {
+  MACHINERY: 'Mesin',
+  VEHICLE: 'Kendaraan',
+  BUILDING: 'Bangunan',
+  EQUIPMENT: 'Peralatan',
+  OTHER: 'Aset Lainnya',
+};
+
+export const defaultUsefulLifeMonths: Record<AssetCategory, number> = {
+  MACHINERY: 60,
+  VEHICLE: 48,
+  BUILDING: 240,
+  EQUIPMENT: 60,
+  OTHER: 60,
 };
 
 /** ProductForm component labels */

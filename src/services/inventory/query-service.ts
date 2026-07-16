@@ -117,8 +117,9 @@ export class InventoryQueryService {
         });
     }
 
-    static async getProductVariants() {
+    static async getProductVariants(includeFixedAsset = true) {
         return await prisma.productVariant.findMany({
+            where: includeFixedAsset ? {} : { product: { productType: { not: 'FIXED_ASSET' } } },
             include: {
                 product: true,
                 inventories: {
@@ -137,6 +138,10 @@ export class InventoryQueryService {
                 }
             }
         });
+    }
+
+    static async getProductVariantsForInventory() {
+        return this.getProductVariants(false);
     }
 
     static async getAvailableBatches(productVariantId: string, locationId: string) {

@@ -17,6 +17,16 @@ interface PageProps {
   }>;
 }
 
+type ProductVariantWithProduct = {
+  id: string;
+  name: string;
+  skuCode: string;
+  buyPrice?: { toNumber?: () => number } | number | null;
+  product?: { productType?: string; assetCategory?: string | null } | null;
+  productType?: string;
+  assetCategory?: string | null;
+};
+
 export default async function EditPurchaseOrderPage({ params }: PageProps) {
   const { id } = await params;
 
@@ -31,7 +41,7 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
   const suppliers =
     suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
   const products =
-    productsRes.success && productsRes.data ? productsRes.data : [];
+    productsRes.success && productsRes.data ? (productsRes.data as ProductVariantWithProduct[]) : [];
 
   if (!order) {
     notFound();
@@ -39,7 +49,9 @@ export default async function EditPurchaseOrderPage({ params }: PageProps) {
 
   const formattedProducts = products.map((p) => ({
     ...p,
-    buyPrice: p.buyPrice ? Number(p.buyPrice) : 0,
+    buyPrice: p.buyPrice && typeof p.buyPrice === 'object' && 'toNumber' in p.buyPrice ? (p.buyPrice as { toNumber: () => number }).toNumber() : Number(p.buyPrice || 0),
+    productType: p.product?.productType || p.productType,
+    assetCategory: p.product?.assetCategory || null,
   }));
 
   const formattedSuppliers = suppliers.map((s) => ({
