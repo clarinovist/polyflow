@@ -49,24 +49,30 @@ function getShiftByHour(h: number): string {
 }
 
 export function LiveClockBar({ onRefresh, isLoading, lastUpdated }: LiveClockBarProps) {
-  const [time, setTime] = useState<Date | null>(null);
+  const [time, setTime] = useState<Date>(() => new Date());
   const [secondsSinceUpdate, setSecondsSinceUpdate] = useState(0);
 
   useEffect(() => {
-    setTime(new Date());
-    const interval = setInterval(() => setTime(new Date()), 1000);
+    const interval = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (!lastUpdated) return;
-    setSecondsSinceUpdate(0);
-    const interval = setInterval(() => setSecondsSinceUpdate((p) => p + 1), 1000);
+    const base = lastUpdated.getTime();
+    const updateElapsed = () => {
+      const elapsed = Math.floor((Date.now() - base) / 1000);
+      setSecondsSinceUpdate(elapsed);
+    };
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
   }, [lastUpdated]);
 
-  const wibHour = time ? getWibHour(time) : null;
-  const shiftLabel = wibHour !== null ? getShiftByHour(wibHour) : 'Menghitung...';
+  const wibHour = getWibHour(time);
+  const shiftLabel = getShiftByHour(wibHour);
 
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md shadow-sm">
@@ -76,7 +82,7 @@ export function LiveClockBar({ onRefresh, isLoading, lastUpdated }: LiveClockBar
         </div>
         <div className="space-y-1">
           <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 font-mono">
-            {time ? formatWibClock(time) : 'Loading...'}
+            {formatWibClock(time)}
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-none">
