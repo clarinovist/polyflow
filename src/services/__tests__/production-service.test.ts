@@ -29,6 +29,8 @@ vi.mock("@/lib/core/prisma", () => {
     },
     stockMovement: {
       create: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     materialIssue: {
       create: vi.fn(),

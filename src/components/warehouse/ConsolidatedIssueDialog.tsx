@@ -79,12 +79,18 @@ export function ConsolidatedIssueDialog({
             });
             setSelectedOrderIds(initialSelection);
 
-            // Set default location (Raw Material Warehouse or first available warehouse)
+            // Prefer raw/gudang locations for default source (recomputed from locations)
+            const preferredWarehouses = locations.filter(loc =>
+                loc.slug.toLowerCase().includes('raw') ||
+                loc.slug.toLowerCase().includes('gudang') ||
+                loc.locationPurpose === 'RAW_MATERIAL' ||
+                loc.locationPurpose === 'PACKING'
+            );
             const rawMaterialLoc = locations.find(loc => loc.slug.toLowerCase().includes('raw'));
             if (rawMaterialLoc) {
                 setSourceLocationId(rawMaterialLoc.id);
-            } else if (warehouseLocations.length > 0) {
-                setSourceLocationId(warehouseLocations[0].id);
+            } else if (preferredWarehouses.length > 0) {
+                setSourceLocationId(preferredWarehouses[0].id);
             } else if (locations.length > 0) {
                 setSourceLocationId(locations[0].id);
             }
