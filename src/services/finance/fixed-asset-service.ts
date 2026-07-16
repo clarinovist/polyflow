@@ -99,9 +99,12 @@ export class FixedAssetService {
         });
         let seq = lastRow ? parseInt(lastRow.assetCode.replace(prefix, ''), 10) + 1 : 1;
 
-        // Useful life: product.attributes.usefulLifeMonths → category default → 60
-        const attrs = (product as Record<string, unknown>).attributes as Record<string, unknown> | null | undefined;
-        const customLife = attrs?.usefulLifeMonths != null ? Number(attrs.usefulLifeMonths) : null;
+        // Useful life: variant.attributes.usefulLifeMonths (we store custom here since Product has no attributes) → product.attributes (future) → category default → 60
+        const variantAttrs = (variant as unknown as { attributes?: Record<string, unknown> | null })?.attributes as Record<string, unknown> | null | undefined;
+        const productAttrs = (product as unknown as { attributes?: Record<string, unknown> | null })?.attributes as Record<string, unknown> | null | undefined;
+        const fromVariant = variantAttrs?.usefulLifeMonths != null ? Number(variantAttrs.usefulLifeMonths) : null;
+        const fromProduct = productAttrs?.usefulLifeMonths != null ? Number(productAttrs.usefulLifeMonths) : null;
+        const customLife = fromVariant ?? fromProduct;
         const usefulLifeMonths = (customLife && customLife > 0) ? customLife : catConfig.defaultLifeMonths;
 
         const createdAssets: string[] = [];

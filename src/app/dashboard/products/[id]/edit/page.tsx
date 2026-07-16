@@ -24,7 +24,7 @@ function resolveConsumptionRule(attributes: unknown): ProductVariantFormValues['
         : 'PROPORTIONAL';
 }
 
-type ProductWithExtra = Product & { variants: ProductVariant[]; assetCategory?: string | null; inventoryAccountId?: string | null; attributes?: { usefulLifeMonths?: number } | null };
+type ProductWithExtra = Product & { variants: (ProductVariant & { attributes?: { usefulLifeMonths?: number; consumptionRule?: string } | null })[]; assetCategory?: string | null; inventoryAccountId?: string | null };
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -47,13 +47,14 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
     const productData = productRes.data as unknown as ProductWithExtra;
 
+    const firstVariantUseful = (productData.variants[0]?.attributes as { usefulLifeMonths?: number } | null)?.usefulLifeMonths;
     const formData = {
         id: productData.id,
         name: productData.name,
         productType: productData.productType,
         assetCategory: productData.assetCategory || null,
         inventoryAccountId: productData.inventoryAccountId || null,
-        usefulLifeMonths: productData.attributes?.usefulLifeMonths ? Number(productData.attributes.usefulLifeMonths) : 60,
+        usefulLifeMonths: firstVariantUseful ? Number(firstVariantUseful) : 60,
         variants: productData.variants.map((variant) => ({
             id: variant.id,
             name: variant.name,

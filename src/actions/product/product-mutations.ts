@@ -54,13 +54,15 @@ export const createProduct = withTenant(async function createProduct(
             ...(productType === 'FIXED_ASSET' ? {
               assetCategory: assetCategory as never || null,
               inventoryAccountId: inventoryAccountId || null,
-              attributes: usefulLifeMonths ? { usefulLifeMonths } : undefined,
+              // ponytail: usefulLifeMonths currently stored via variant attributes / fallback category default.
+              // Product model has no attributes Json (only ProductVariant does). Storing here caused Prisma validation Unknown argument `attributes`.
+              // For now, save usefulLife into first variant's attributes in createMany below.
             } : {}),
           } as unknown as never,
         });
 
         await tx.productVariant.createMany({
-          data: variants.map((variant) => ({
+          data: variants.map((variant, idx) => ({
             productId: product.id,
             name: variant.name,
             skuCode: variant.skuCode,
@@ -74,6 +76,8 @@ export const createProduct = withTenant(async function createProduct(
             minStockAlert: variant.minStockAlert
               ? new Prisma.Decimal(variant.minStockAlert)
               : null,
+            // Store custom usefulLife in first variant attributes for FIXED_ASSET (since Product has no Json field)
+            ...(productType === 'FIXED_ASSET' && idx === 0 && usefulLifeMonths ? { attributes: { usefulLifeMonths } } : {}),
           })),
         });
         return product;
@@ -158,7 +162,6 @@ export const updateProduct = withTenant(async function updateProduct(
             ...(productType === 'FIXED_ASSET' ? {
               assetCategory: assetCategory as never || null,
               inventoryAccountId: inventoryAccountId || null,
-              attributes: usefulLifeMonths ? { usefulLifeMonths } : undefined,
             } : {
               assetCategory: null,
             }),
@@ -210,6 +213,7 @@ export const updateProduct = withTenant(async function updateProduct(
         }
 
         for (const variant of variants) {
+          const isFirst = variants.indexOf(variant) === 0;
           const variantData = {
             productId: id,
             name: variant.name,
@@ -224,7 +228,8 @@ export const updateProduct = withTenant(async function updateProduct(
             minStockAlert: variant.minStockAlert
               ? new Prisma.Decimal(variant.minStockAlert)
               : null,
-          };
+            ...(productType === 'FIXED_ASSET' && isFirst && usefulLifeMonths ? { attributes: { usefulLifeMonths } } : {}),
+          } as unknown as never;
 
           if (variant.id) {
             await tx.productVariant.update({
