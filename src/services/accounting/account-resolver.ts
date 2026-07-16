@@ -44,6 +44,10 @@ export type AccountRole =
   | "other-payables"
   | "fixed-asset-machinery"
   | "fixed-asset-vehicles"
+  | "fixed-asset-buildings"
+  | "fixed-asset-equipment"
+  | "depreciation-expense"
+  | "accumulated-depreciation"
   // Phase 2.1: Bank reconciliation roles
   | "bank-charges"
   | "interest-income"
@@ -292,6 +296,32 @@ const ACCOUNT_ROLE_PATTERNS: Record<AccountRole, AccountPattern[]> = {
     { code: "1-214" },
     { nameContains: "Vehicles" },
     { nameContains: "Kendaraan" },
+  ],
+  "fixed-asset-buildings": [
+    { code: "12200" },
+    { code: "1-212" },
+    { nameContains: "Buildings" },
+    { nameContains: "Bangunan" },
+  ],
+  "fixed-asset-equipment": [
+    { code: "12150" },
+    { code: "1-213a" },
+    { nameContains: "Office Equipment" },
+    { nameContains: "Peralatan Kantor" },
+    { nameContains: "Peralatan" },
+  ],
+  "depreciation-expense": [
+    { code: "61100" },
+    { code: "6-001" },
+    { nameContains: "Depreciation Expense" },
+    { nameContains: "Beban Depresiasi" },
+    { nameContains: "Penyusutan" },
+  ],
+  "accumulated-depreciation": [
+    { code: "12900" },
+    { code: "1-219" },
+    { nameContains: "Accumulated Depreciation" },
+    { nameContains: "Akumulasi Penyusutan" },
   ],
   // === Phase 2.1: Bank reconciliation ===
   "bank-charges": [

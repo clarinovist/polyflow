@@ -76,6 +76,7 @@ const productTypeBadgeColors: Record<ProductType, string> = {
     WIP: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/10 hover:bg-yellow-500/20',
     SERVICE: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/10 hover:bg-pink-500/20',
     OPERATIONAL: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/10 hover:bg-teal-500/20',
+    FIXED_ASSET: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/10 hover:bg-amber-500/20',
 };
 
 export function ProductTable({ products = [], showPrices = false }: ProductTableProps) {

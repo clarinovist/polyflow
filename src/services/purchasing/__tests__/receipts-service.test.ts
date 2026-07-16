@@ -15,8 +15,8 @@ import { logger } from "@/lib/config/logger";
 import { MovementType, PurchaseOrderStatus } from "@prisma/client";
 
 // Mock prisma
-vi.mock("@/lib/core/prisma", () => ({
-  prisma: {
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
     goodsReceipt: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -45,9 +45,26 @@ vi.mock("@/lib/core/prisma", () => ({
     costHistory: {
       deleteMany: vi.fn(),
     },
-    $transaction: vi.fn((callback) => callback(prisma)),
+    productVariant: {
+      findUnique: vi.fn().mockResolvedValue({
+        id: "pv-1",
+        product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" },
+      }),
+    },
+    fixedAsset: {
+      create: vi.fn(),
+    },
+    account: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    journalLine: {
+      aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }),
+    },
+    $transaction: vi.fn((callback) => callback(mockPrisma)),
   },
 }));
+vi.mock("@/lib/core/prisma", () => ({ prisma: mockPrisma }));
 
 // Mock audit
 vi.mock("@/lib/tools/audit", () => ({
@@ -73,6 +90,13 @@ vi.mock("@/services/purchasing/invoices-service", () => ({
   createDraftBillFromPo: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock FixedAssetService (only called for FIXED_ASSET products)
+vi.mock("@/services/finance/fixed-asset-service", () => ({
+  FixedAssetService: {
+    createFromGoodsReceipt: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 // Mock logger
 vi.mock("@/lib/config/logger", () => ({
   logger: {
@@ -84,6 +108,13 @@ vi.mock("@/lib/config/logger", () => ({
 describe("receipts-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-set $transaction mock (clearAllMocks resets implementations)
+    mockPrisma.$transaction.mockImplementation((callback) => callback(mockPrisma));
+    // Re-set productVariant mock (clearAllMocks resets implementations)
+    mockPrisma.productVariant.findUnique.mockResolvedValue({
+      id: "pv-1",
+      product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" },
+    });
   });
 
   describe("getGoodsReceiptById", () => {
@@ -353,6 +384,7 @@ describe("receipts-service", () => {
       };
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({ ...mockReceiptTx, items: [] }),
           },
@@ -413,6 +445,7 @@ describe("receipts-service", () => {
       } as never);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-4",
@@ -449,6 +482,7 @@ describe("receipts-service", () => {
       } as never);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -488,6 +522,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -526,6 +561,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -559,6 +595,7 @@ describe("receipts-service", () => {
       let createdMovement: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -608,6 +645,7 @@ describe("receipts-service", () => {
       const mockPoItemUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -659,6 +697,7 @@ describe("receipts-service", () => {
       const mockPoItemUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -694,6 +733,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -741,6 +781,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -788,6 +829,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -835,6 +877,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -882,6 +925,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -922,6 +966,7 @@ describe("receipts-service", () => {
       const mockPoUpdate = vi.fn();
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -960,6 +1005,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1002,6 +1048,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1034,6 +1081,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1078,6 +1126,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1121,6 +1170,7 @@ describe("receipts-service", () => {
       const movementCreates: any[] = [];
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1177,6 +1227,7 @@ describe("receipts-service", () => {
       let createdReceipt: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1216,6 +1267,7 @@ describe("receipts-service", () => {
       let createdReceipt: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1247,6 +1299,7 @@ describe("receipts-service", () => {
       let createdReceipt: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockImplementation((args: any) => {
               createdReceipt = args;
@@ -1280,6 +1333,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-5",
@@ -1328,6 +1382,7 @@ describe("receipts-service", () => {
       const movementCreates: any[] = [];
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1368,6 +1423,7 @@ describe("receipts-service", () => {
       const movementCreates: any[] = [];
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1416,6 +1472,7 @@ describe("receipts-service", () => {
       vi.mocked(prisma.goodsReceipt.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             create: vi.fn().mockResolvedValue({
               id: "gr-1",
@@ -1484,6 +1541,7 @@ describe("receipts-service", () => {
 
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1544,6 +1602,7 @@ describe("receipts-service", () => {
 
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1595,6 +1654,7 @@ describe("receipts-service", () => {
       let updatedStatus: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1646,6 +1706,7 @@ describe("receipts-service", () => {
       let updatedStatus: any;
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1704,6 +1765,7 @@ describe("receipts-service", () => {
 
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findUnique: vi.fn().mockResolvedValue(mockGR),
             delete: vi.fn(),
@@ -1732,6 +1794,7 @@ describe("receipts-service", () => {
     it("should reverse all GRs for a PO", async () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
         const tx = {
+          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
           goodsReceipt: {
             findMany: vi.fn().mockResolvedValue([
               { id: "gr-1", receiptNumber: "GR-2026-0001" },

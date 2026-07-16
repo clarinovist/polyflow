@@ -7,6 +7,7 @@ import { CreateGoodsReceiptValues } from '@/lib/schemas/purchasing';
 import { createDraftBillFromPo } from '@/services/purchasing/invoices-service';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import { FixedAssetService } from '@/services/finance/fixed-asset-service';
 
 export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId: string) {
     const year = new Date().getFullYear();
@@ -48,29 +49,66 @@ export async function createGoodsReceipt(data: CreateGoodsReceiptValues, userId:
         });
 
         for (const item of data.items) {
-            await InventoryCoreService.incrementStockWithCost(
-                tx,
-                data.locationId,
-                item.productVariantId,
-                item.receivedQty,
-                data.isMaklon ? 0 : item.unitCost
-            );
-
-            const movement = await tx.stockMovement.create({
-                data: {
-                    type: MovementType.PURCHASE,
-                    productVariantId: item.productVariantId,
-                    toLocationId: data.locationId,
-                    quantity: item.receivedQty,
-                    cost: item.unitCost,
-                    goodsReceiptId: receiptTx.id,
-                    createdById: userId,
-                    reference: data.isMaklon ? `GR: ${receiptNumber} for Maklon Customer` : `GR: ${receiptNumber} for PO`
-                }
+            // Load product to check type
+            const variant = await tx.productVariant.findUnique({
+                where: { id: item.productVariantId },
+                include: { product: true },
             });
+            const productType = variant?.product?.productType;
 
-            await AccountingService.recordInventoryMovement(movement, tx);
+            if (productType === 'FIXED_ASSET') {
+                // ===== FIXED ASSET PATH: no stock, create FixedAsset register + journal =====
+                // Find PO item ID for traceability
+                let poItemId: string | null = null;
+                if (data.purchaseOrderId) {
+                    const poItem = await tx.purchaseOrderItem.findFirst({
+                        where: {
+                            purchaseOrderId: data.purchaseOrderId,
+                            productVariantId: item.productVariantId,
+                        },
+                    });
+                    poItemId = poItem?.id ?? null;
+                }
 
+                await FixedAssetService.createFromGoodsReceipt({
+                    tx: tx as never,
+                    productVariantId: item.productVariantId,
+                    purchaseOrderId: data.purchaseOrderId || null,
+                    goodsReceiptId: receiptTx.id,
+                    purchaseOrderItemId: poItemId,
+                    receivedQty: item.receivedQty,
+                    unitCost: data.isMaklon ? 0 : item.unitCost,
+                    receivedDate: data.receivedDate,
+                    locationId: data.locationId,
+                    userId,
+                });
+            } else {
+                // ===== INVENTORY PATH: existing logic (stock + movement + journal) =====
+                await InventoryCoreService.incrementStockWithCost(
+                    tx,
+                    data.locationId,
+                    item.productVariantId,
+                    item.receivedQty,
+                    data.isMaklon ? 0 : item.unitCost
+                );
+
+                const movement = await tx.stockMovement.create({
+                    data: {
+                        type: MovementType.PURCHASE,
+                        productVariantId: item.productVariantId,
+                        toLocationId: data.locationId,
+                        quantity: item.receivedQty,
+                        cost: item.unitCost,
+                        goodsReceiptId: receiptTx.id,
+                        createdById: userId,
+                        reference: data.isMaklon ? `GR: ${receiptNumber} for Maklon Customer` : `GR: ${receiptNumber} for PO`
+                    }
+                });
+
+                await AccountingService.recordInventoryMovement(movement, tx);
+            }
+
+            // Update PO item receivedQty (both paths)
             if (data.purchaseOrderId) {
                 const poItem = await tx.purchaseOrderItem.findFirst({
                     where: {
