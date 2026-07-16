@@ -25,6 +25,12 @@ vi.mock('@/lib/core/prisma', () => {
         machineDowntime: {
             create: vi.fn(),
         },
+        employee: {
+            findUnique: vi.fn(),
+        },
+        processPieceRate: {
+            findFirst: vi.fn(),
+        },
     };
 
     const mockPrisma = {
@@ -154,7 +160,12 @@ describe('ProductionExecutionService.voidExecution', () => {
         });
         expect(tx.productionExecution.update).toHaveBeenCalledWith({
             where: { id: 'exec-1' },
-            data: { status: 'VOIDED' }
+            data: {
+                status: 'VOIDED',
+                pieceEarnings: null,
+                pieceMachineType: null,
+                pieceRateSnapshot: null,
+            }
         });
     });
 

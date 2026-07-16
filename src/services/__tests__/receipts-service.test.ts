@@ -15,6 +15,15 @@ vi.mock('@/lib/core/prisma', () => {
         stockMovement: {
             create: vi.fn(),
         },
+        productVariant: {
+            findUnique: vi.fn().mockResolvedValue({
+                id: "pv-1",
+                product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" },
+            }),
+        },
+        purchaseOrderItem: {
+            findFirst: vi.fn(),
+        },
     };
 
     return { prisma: mockPrisma };
@@ -38,6 +47,12 @@ vi.mock('@/lib/tools/audit', () => ({
 
 vi.mock('@/services/purchasing/invoices-service', () => ({
     createDraftBillFromPo: vi.fn(),
+}));
+
+vi.mock('@/services/finance/fixed-asset-service', () => ({
+    FixedAssetService: {
+        createFromGoodsReceipt: vi.fn().mockResolvedValue([]),
+    },
 }));
 
 vi.mock('@/lib/config/logger', () => ({

@@ -45,6 +45,12 @@ vi.mock("@/lib/core/prisma", () => {
     productVariant: {
       findUnique: vi.fn(),
     },
+    employee: {
+      findUnique: vi.fn(),
+    },
+    processPieceRate: {
+      findFirst: vi.fn(),
+    },
     stockReservation: {
       aggregate: vi
         .fn()
