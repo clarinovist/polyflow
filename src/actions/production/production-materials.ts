@@ -11,6 +11,8 @@ import {
   ScrapRecordValues,
   batchMaterialIssueSchema,
   BatchMaterialIssueValues,
+  consolidatedBatchMaterialIssueSchema,
+  ConsolidatedBatchMaterialIssueValues,
 } from "@/lib/schemas/production";
 import { revalidatePath } from "next/cache";
 import { ProductionService } from "@/services/production/production-service";
@@ -146,3 +148,36 @@ export const deleteScrap = withTenant(async function deleteScrap(
     }
   });
 });
+
+export const consolidatedBatchIssueMaterials = withTenant(
+  async function consolidatedBatchIssueMaterials(data: ConsolidatedBatchMaterialIssueValues) {
+    return safeAction(async () => {
+      const result = consolidatedBatchMaterialIssueSchema.safeParse(data);
+      if (!result.success) {
+        throw new BusinessRuleError(result.error.issues[0].message);
+      }
+
+      try {
+        const session = await requireAuth();
+
+        const issueIds = await ProductionService.consolidatedBatchIssueMaterials({
+          ...result.data,
+          userId: session?.user?.id,
+        });
+
+        revalidatePath("/production/orders");
+        revalidatePath("/warehouse");
+        return issueIds;
+      } catch (error) {
+        if (error instanceof BusinessRuleError) throw error;
+        logger.error("Failed to consolidated batch issue materials", {
+          error,
+          module: "ProductionActions",
+        });
+        throw new BusinessRuleError(
+          error instanceof Error ? error.message : "Failed to consolidated batch issue materials. Please try again.",
+        );
+      }
+    });
+  },
+);

@@ -14,6 +14,7 @@ export class ProductionService {
   static getBomWithInventory = ProductionOrderService.getBomWithInventory;
   static createOrder = ProductionOrderService.createOrder;
   static createOrderFromSales = ProductionOrderService.createOrderFromSales;
+  static splitOrdersFromSales = ProductionOrderService.splitOrdersFromSales;
   static quickCreateOrder = ProductionOrderService.quickCreateOrder;
   static updateOrder = ProductionOrderService.updateOrder;
   static deleteOrder = ProductionOrderService.deleteOrder;
@@ -31,6 +32,8 @@ export class ProductionService {
 
   // --- Materials & Quality ---
   static batchIssueMaterials = ProductionMaterialService.batchIssueMaterials;
+  static consolidatedBatchIssueMaterials =
+    ProductionMaterialService.consolidatedBatchIssueMaterials;
   static recordMaterialIssue = ProductionMaterialService.recordMaterialIssue;
   static deleteMaterialIssue = ProductionMaterialService.deleteMaterialIssue;
   static recordScrap = ProductionMaterialService.recordScrap;

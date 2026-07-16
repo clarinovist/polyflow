@@ -73,6 +73,9 @@ vi.mock("@/lib/core/prisma", () => ({
     salesOrder: {
       findUnique: vi.fn(),
     },
+    salesOrderItem: {
+      findFirst: vi.fn(),
+    },
     $transaction: vi.fn((callback: (tx: typeof prisma) => Promise<unknown>) =>
       callback(prisma),
     ),
@@ -948,8 +951,7 @@ describe("ProductionOrderService", () => {
       ).toBeDefined();
     });
 
-    it("should handle null sourceLocationId", async () => {
-      const mod = await import("../order-number-service");
+    it("should throw when sourceLocationId is null", async () => {
       vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "b-1" } as any);
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
         sourceLocationId: null,
@@ -957,14 +959,9 @@ describe("ProductionOrderService", () => {
         orderType: "STANDARD",
         customerId: "c-1",
       } as any);
-      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
-      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
-      vi.mocked(mod.createProductionOrderWithGeneratedNumber).mockResolvedValue(
-        { id: "po-1" } as any,
-      );
-      expect(
-        await ProductionOrderService.createOrderFromSales("so-1", "pv-1", 100),
-      ).toBeDefined();
+      await expect(
+        ProductionOrderService.createOrderFromSales("so-1", "pv-1", 100),
+      ).rejects.toThrow("does not have a source location");
     });
 
     it("should handle maklon with null customerId", async () => {
@@ -1392,6 +1389,131 @@ describe("ProductionOrderService", () => {
       expect(prisma.productionShift.delete).toHaveBeenCalledWith({
         where: { id: "s-1" },
       });
+    });
+  });
+
+  describe("splitOrdersFromSales", () => {
+    const splitData = {
+      salesOrderId: "so-1",
+      productVariantId: "pv-1",
+      batches: [
+        { plannedQuantity: 5, plannedStartDate: new Date("2026-07-20") },
+        { plannedQuantity: 10, plannedStartDate: new Date("2026-07-21") },
+      ],
+    };
+
+    it("should throw if default BOM is missing", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue(null);
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("No default BOM found");
+    });
+
+    it("should throw if Sales Order is missing", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("Sales Order 'so-1' not found");
+    });
+
+    it("should throw if Sales Order has no sourceLocationId", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+        sourceLocationId: null,
+        expectedDate: new Date(),
+        orderType: "MAKE_TO_STOCK",
+      } as any);
+
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("does not have a source location");
+    });
+
+    it("should throw if Sales Order Item is missing", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+        sourceLocationId: "loc-1",
+        expectedDate: new Date(),
+        orderType: "MAKE_TO_STOCK",
+      } as any);
+      vi.mocked(prisma.salesOrderItem.findFirst).mockResolvedValue(null);
+
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("Sales Order Item 'so-1/pv-1' not found");
+    });
+
+    it("should throw if sum of batch quantities exceeds remaining demand", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+        sourceLocationId: "loc-1",
+        expectedDate: new Date(),
+        orderType: "MAKE_TO_STOCK",
+      } as any);
+      // remaining = 12 - 0 delivered - 2 planned = 10; batches sum = 15 → reject
+      vi.mocked(prisma.salesOrderItem.findFirst).mockResolvedValue({
+        quantity: dec(12),
+        deliveredQty: dec(0),
+      } as any);
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+        { plannedQuantity: dec(2) },
+      ] as any);
+
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("exceeds the remaining demand to produce");
+    });
+
+    it("should throw if remaining demand is reduced by deliveredQty", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+        sourceLocationId: "loc-1",
+        expectedDate: new Date(),
+        orderType: "MAKE_TO_STOCK",
+      } as any);
+      // remaining = 20 - 10 delivered - 0 planned = 10; batches sum = 15 → reject
+      vi.mocked(prisma.salesOrderItem.findFirst).mockResolvedValue({
+        quantity: dec(20),
+        deliveredQty: dec(10),
+      } as any);
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([] as any);
+
+      await expect(
+        ProductionOrderService.splitOrdersFromSales(splitData),
+      ).rejects.toThrow("exceeds the remaining demand to produce");
+    });
+
+    it("should create sibling POs when validations pass", async () => {
+      vi.mocked(prisma.bom.findFirst).mockResolvedValue({ id: "bom-1", isActive: true, category: "EXTRUSION" } as any);
+      vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
+        sourceLocationId: "loc-1",
+        expectedDate: new Date(),
+        orderType: "MAKE_TO_STOCK",
+      } as any);
+      vi.mocked(prisma.salesOrderItem.findFirst).mockResolvedValue({
+        quantity: dec(20),
+        deliveredQty: dec(0),
+      } as any);
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([] as any);
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue({ id: "bom-1", isActive: true, category: "EXTRUSION" } as any);
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      
+      const createOrderSpy = vi.spyOn(ProductionOrderService, "createOrder").mockResolvedValue({ id: "created-po" } as any);
+
+      const res = await ProductionOrderService.splitOrdersFromSales(splitData);
+      expect(res).toHaveLength(2);
+      expect(createOrderSpy).toHaveBeenCalledTimes(2);
+      expect(createOrderSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          salesOrderId: "so-1",
+          locationId: "loc-1",
+          plannedQuantity: 5,
+        }),
+        expect.anything(),
+      );
+
+      createOrderSpy.mockRestore();
     });
   });
 });

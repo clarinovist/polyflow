@@ -67,6 +67,7 @@ export function SalesOrderDetailClient({
   order,
   basePath = "/sales/orders",
   warehouseMode = false,
+  currentUserRole,
 }: SalesOrderDetailClientProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -689,6 +690,7 @@ export function SalesOrderDetailClient({
             status={order.status}
             productionOrders={order.productionOrders}
             items={order.items}
+            currentUserRole={currentUserRole}
           />
 
           <Card>

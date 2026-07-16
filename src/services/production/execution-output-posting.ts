@@ -1,8 +1,9 @@
-import { MovementType, Prisma } from '@prisma/client';
+import { MovementType, Prisma, ReservationType } from '@prisma/client';
 
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { calculateBomCost } from '@/lib/utils/production-utils';
+import { createStockReservation, getSalesOrderResidualDemand } from '@/services/inventory/reservation-service';
 
 import { ProductionCostService } from './cost-service';
 import type { ProductionExecutionOrder } from './execution-types';
@@ -90,6 +91,33 @@ export async function recordFinishedGoodsOutput(params: {
         tx, locationId, outputVariantId, quantityProduced, unitCost,
     );
 
+    let reservationId: string | undefined;
+
+    // Hook auto-reserve for SalesOrder if linked (Fase A)
+    if (order.salesOrderId) {
+        const salesOrder = await tx.salesOrder.findUnique({
+            where: { id: order.salesOrderId },
+            select: { expectedDate: true },
+        });
+        const residualDemand = await getSalesOrderResidualDemand(order.salesOrderId, outputVariantId, tx);
+        const reserveQty = Math.min(quantityProduced, residualDemand);
+
+        if (reserveQty > 0) {
+            const reservation = await createStockReservation(
+                {
+                    productVariantId: outputVariantId,
+                    locationId,
+                    quantity: reserveQty,
+                    reservedFor: ReservationType.SALES_ORDER,
+                    referenceId: order.salesOrderId,
+                    reservedUntil: salesOrder?.expectedDate ?? undefined,
+                },
+                tx,
+            );
+            reservationId = reservation.id;
+        }
+    }
+
     const movement = await tx.stockMovement.create({
         data: {
             type: MovementType.IN,
@@ -97,7 +125,7 @@ export async function recordFinishedGoodsOutput(params: {
             toLocationId: locationId,
             quantity: quantityProduced,
             cost: unitCost,
-            reference,
+            reference: reservationId ? `${reference} | RESERVE:${reservationId}` : reference,
             productionOrderId,
         },
     });

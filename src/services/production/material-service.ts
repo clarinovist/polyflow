@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import {
     BatchMaterialIssueValues,
+    ConsolidatedBatchMaterialIssueValues,
     MaterialIssueValues,
     ScrapRecordValues,
     QualityInspectionValues
@@ -91,7 +92,7 @@ export class ProductionMaterialService {
                     const planItem = order.plannedMaterials.find(pm => pm.id === id);
                     if (planItem) {
                         const issued = order.materialIssues
-                            .filter(mi => mi.productVariantId === planItem.productVariantId)
+                            .filter(mi => mi.productVariantId === planItem.productVariantId && mi.status !== 'VOIDED')
                             .reduce((sum: number, mi) => sum + Number(mi.quantity), 0);
 
                         if (issued > 0.001) {
@@ -143,7 +144,7 @@ export class ProductionMaterialService {
                 const planItem = order.plannedMaterials.find(p => p.productVariantId === item.productVariantId);
                 const plannedQty = planItem ? Number(planItem.quantity) : 0;
                 const issuedSoFar = order.materialIssues
-                    .filter(mi => mi.productVariantId === item.productVariantId)
+                    .filter(mi => mi.productVariantId === item.productVariantId && mi.status !== 'VOIDED')
                     .reduce((sum, mi) => sum + Number(mi.quantity), 0);
 
                 const remaining = Math.max(0, plannedQty - issuedSoFar);
@@ -303,10 +304,232 @@ export class ProductionMaterialService {
                 }
             }
         });
+    }
 
-        // for (const id of issueIds) {
-        //     await AutoJournalService.handleMaterialIssue(id);
-        // }
+    static async consolidatedBatchIssueMaterials(data: ConsolidatedBatchMaterialIssueValues & { userId?: string }) {
+        const {
+            productionOrderIds,
+            locationId,
+            items,
+            requestId
+        } = data;
+        const userId = data.userId;
+
+        const issueIds: string[] = [];
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Idempotency Check
+            if (requestId) {
+                const existing = await tx.stockMovement.findFirst({
+                    where: { reference: { contains: `REQ:${requestId}` } }
+                });
+                if (existing) {
+                    console.log(`Idempotency: Request ${requestId} already processed. Skipping.`);
+                    return;
+                }
+            }
+
+            // 2. Fetch all Production Orders
+            const orders = await tx.productionOrder.findMany({
+                where: { id: { in: productionOrderIds } },
+                include: {
+                    materialIssues: true,
+                    plannedMaterials: {
+                        include: { productVariant: true }
+                    }
+                }
+            });
+
+            if (orders.length === 0) {
+                throw new ValidationError("No production orders found with the provided IDs.");
+            }
+
+            const idempotencySuffix = requestId ? ` REQ:${requestId}` : "";
+
+            // Helper for proportional split
+            const splitQuantityProportionally = (
+                totalQty: number,
+                poList: { id: string; need: number; originalPlan: number }[]
+            ) => {
+                const totalNeed = poList.reduce((sum, o) => sum + o.need, 0);
+                const shares: Record<string, number> = {};
+
+                if (totalNeed <= 0) {
+                    const totalPlan = poList.reduce((sum, o) => sum + o.originalPlan, 0);
+                    if (totalPlan <= 0) {
+                        const qtyPerOrder = Number((totalQty / poList.length).toFixed(4));
+                        let sum = 0;
+                        poList.forEach((o, i) => {
+                            if (i === poList.length - 1) {
+                                shares[o.id] = Number((totalQty - sum).toFixed(4));
+                            } else {
+                                shares[o.id] = qtyPerOrder;
+                                sum += qtyPerOrder;
+                            }
+                        });
+                        return shares;
+                    }
+
+                    let sum = 0;
+                    poList.forEach((o, i) => {
+                        if (i === poList.length - 1) {
+                            shares[o.id] = Number((totalQty - sum).toFixed(4));
+                        } else {
+                            const share = Number((totalQty * (o.originalPlan / totalPlan)).toFixed(4));
+                            shares[o.id] = share;
+                            sum += share;
+                        }
+                    });
+                    return shares;
+                }
+
+                let sum = 0;
+                const sortedOrders = [...poList].sort((a, b) => a.need - b.need);
+
+                sortedOrders.forEach((o, i) => {
+                    if (i === sortedOrders.length - 1) {
+                        shares[o.id] = Number((totalQty - sum).toFixed(4));
+                    } else {
+                        const share = Number((totalQty * (o.need / totalNeed)).toFixed(4));
+                        shares[o.id] = share;
+                        sum += share;
+                    }
+                });
+
+                return shares;
+            };
+
+            // 3. Process each material
+            for (const item of items) {
+                // Calculate remaining plan needs per PO
+                const poNeeds = orders.map(o => {
+                    const planItem = o.plannedMaterials.find(pm => pm.productVariantId === item.productVariantId);
+                    const plannedQty = planItem
+                        ? (typeof planItem.quantity === 'object' && planItem.quantity && 'toNumber' in planItem.quantity
+                            ? (planItem.quantity as { toNumber: () => number }).toNumber()
+                            : Number(planItem.quantity))
+                        : 0;
+                    const issuedSoFar = o.materialIssues
+                        .filter(mi => mi.productVariantId === item.productVariantId && mi.status !== 'VOIDED')
+                        .reduce((sum: number, mi) => sum + (typeof mi.quantity === 'object' && mi.quantity && 'toNumber' in mi.quantity
+                            ? (mi.quantity as { toNumber: () => number }).toNumber()
+                            : Number(mi.quantity)), 0);
+                    const need = Math.max(0, plannedQty - issuedSoFar);
+                    return {
+                        id: o.id,
+                        need,
+                        originalPlan: plannedQty
+                    };
+                });
+
+                const splitShares = splitQuantityProportionally(item.quantity, poNeeds);
+
+                // Convert shares to list of { poId, quantity }
+                const poShares = Object.entries(splitShares)
+                    .map(([poId, quantity]) => ({ poId, quantity }))
+                    .filter(s => s.quantity > 0);
+
+                if (poShares.length === 0) continue;
+
+                // 4. FIFO batch deduction for total picking qty
+                let remainingToDeduct = item.quantity;
+                const deductedBatches: { batchId: string | null; quantity: number }[] = [];
+
+                const batches = await tx.batch.findMany({
+                    where: {
+                        productVariantId: item.productVariantId,
+                        locationId,
+                        quantity: { gt: 0 }
+                    },
+                    orderBy: { manufacturingDate: 'asc' } // FIFO
+                });
+
+                // Validate and Lock Inventory Stock
+                await InventoryCoreService.validateAndLockStock(tx, locationId, item.productVariantId, item.quantity);
+                await InventoryCoreService.deductStock(tx, locationId, item.productVariantId, item.quantity);
+                const unitCost = await this.getIssueUnitCost(tx, locationId, item.productVariantId);
+
+                if (batches.length === 0) {
+                    deductedBatches.push({ batchId: null, quantity: item.quantity });
+                } else {
+                    for (const batch of batches) {
+                        if (remainingToDeduct <= 0) break;
+                        const deductFromBatch = Math.min(Number(batch.quantity), remainingToDeduct);
+
+                        await tx.batch.update({
+                            where: { id: batch.id },
+                            data: { quantity: { decrement: deductFromBatch } }
+                        });
+
+                        deductedBatches.push({ batchId: batch.id, quantity: deductFromBatch });
+                        remainingToDeduct -= deductFromBatch;
+                    }
+
+                    if (remainingToDeduct > 0.0001) {
+                        throw new InsufficientStockError(`Insufficient stock in batches for variant ${item.productVariantId}. Missing: ${remainingToDeduct}`);
+                    }
+                }
+
+                // 5. Match deducted batches with PO shares and record MaterialIssue + StockMovement
+                let batchIdx = 0;
+                let poIdx = 0;
+
+                // Deep copy so we can mutate safely inside greedy loop
+                const tempBatches = deductedBatches.map(b => ({ ...b }));
+                const tempPoShares = poShares.map(p => ({ ...p }));
+
+                while (batchIdx < tempBatches.length && poIdx < tempPoShares.length) {
+                    const currentBatch = tempBatches[batchIdx];
+                    const currentPo = tempPoShares[poIdx];
+
+                    const matchQty = Math.min(currentBatch.quantity, currentPo.quantity);
+                    if (matchQty > 0.0001) {
+                        const poOrder = orders.find(o => o.id === currentPo.poId)!;
+                        const refPrefix = `PROD-CONSOL-ISSUE-${poOrder.orderNumber}`;
+
+                        const newIssue = await tx.materialIssue.create({
+                            data: {
+                                productionOrderId: currentPo.poId,
+                                productVariantId: item.productVariantId,
+                                quantity: matchQty,
+                                batchId: currentBatch.batchId || undefined,
+                                locationId,
+                                createdById: userId
+                            }
+                        });
+                        issueIds.push(newIssue.id);
+
+                        const moveOut = await tx.stockMovement.create({
+                            data: {
+                                type: MovementType.OUT,
+                                productVariantId: item.productVariantId,
+                                fromLocationId: locationId,
+                                toLocationId: null,
+                                quantity: matchQty,
+                                cost: unitCost,
+                                reference: `${refPrefix}${idempotencySuffix}`,
+                                batchId: currentBatch.batchId || undefined,
+                                createdById: userId,
+                                productionOrderId: currentPo.poId
+                            }
+                        });
+                        await AccountingService.recordInventoryMovement(moveOut, tx);
+                    }
+
+                    currentBatch.quantity -= matchQty;
+                    currentPo.quantity -= matchQty;
+
+                    if (currentBatch.quantity <= 0.0001) {
+                        batchIdx++;
+                    }
+                    if (currentPo.quantity <= 0.0001) {
+                        poIdx++;
+                    }
+                }
+            }
+        });
+
+        return issueIds;
     }
 
     static async recordMaterialIssue(data: MaterialIssueValues & { userId?: string }) {

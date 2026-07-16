@@ -20,6 +20,7 @@ import {
 } from "@prisma/client";
 import { InventoryCoreService } from "@/services/inventory/core-service";
 import { AccountingService } from "../accounting/accounting-service";
+import { adjustReservationsForVoidOutput, cancelSpecificReservation } from "@/services/inventory/reservation-service";
 import {
   backflushMaterials,
   recordExecutionScrap,
@@ -714,7 +715,13 @@ export class ProductionExecutionService {
     await prisma.$transaction(async (tx) => {
       const execution = await tx.productionExecution.findUnique({
         where: { id: executionId },
-        include: { productionOrder: true },
+        include: {
+          productionOrder: {
+            include: {
+              bom: true,
+            },
+          },
+        },
       });
 
       if (!execution)
@@ -786,6 +793,14 @@ export class ProductionExecutionService {
             },
           });
           await AccountingService.recordInventoryMovement(rev, tx);
+
+          // Specific Reservation Cancel
+          if (move.reference && move.reference.includes("| RESERVE:")) {
+            const reservationId = move.reference.split("| RESERVE:")[1]?.trim();
+            if (reservationId) {
+              await cancelSpecificReservation(reservationId, tx);
+            }
+          }
         } else if (move.type === MovementType.OUT) {
           // Reversing Backflush OUT -> IN
           await InventoryCoreService.incrementStock(
@@ -859,6 +874,19 @@ export class ProductionExecutionService {
         where: { id: executionId },
         data: { status: "VOIDED", ...VOID_PIECE_SNAPSHOT },
       });
+
+      // Adjust/Cancel stock reservations created for this voided output (Fase A)
+      // Only as a fallback if the movement didn't have a linked reservation ID
+      const hasLinkedReservation = movements.some(m => m.type === MovementType.IN && m.reference && m.reference.includes("| RESERVE:"));
+      if (!hasLinkedReservation && execution.productionOrder.salesOrderId) {
+        await adjustReservationsForVoidOutput(
+          execution.productionOrder.salesOrderId,
+          execution.productionOrder.bom.productVariantId,
+          execution.productionOrder.locationId,
+          execution.quantityProduced.toNumber(),
+          tx,
+        );
+      }
     });
   }
 }

@@ -92,6 +92,18 @@ export type BatchMaterialIssueValues = z.infer<typeof batchMaterialIssueSchema>;
 export type ScrapRecordValues = z.infer<typeof scrapRecordSchema>;
 export type QualityInspectionValues = z.infer<typeof qualityInspectionSchema>;
 
+export const consolidatedBatchMaterialIssueSchema = z.object({
+    productionOrderIds: z.array(z.string().min(1)).min(1, "At least one Production Order is required"),
+    locationId: z.string().min(1, "Source location is required"),
+    items: z.array(z.object({
+        productVariantId: z.string().min(1, "Material variant is required"),
+        quantity: z.coerce.number().positive("Quantity must be positive"),
+    })).min(1, "At least one material item is required"),
+    requestId: z.string().optional(),
+});
+
+export type ConsolidatedBatchMaterialIssueValues = z.infer<typeof consolidatedBatchMaterialIssueSchema>;
+
 // BOM Management Schemas
 export const createBomSchema = z.object({
     name: z.string().min(1, "Recipe name is required").transform(sanitizeHtml),
@@ -206,3 +218,15 @@ export const logMachineDowntimeSchema = z.object({
 });
 
 export type LogMachineDowntimeValues = z.infer<typeof logMachineDowntimeSchema>;
+
+export const splitProductionOrdersSchema = z.object({
+    salesOrderId: z.string().min(1, "Sales Order ID is required"),
+    productVariantId: z.string().min(1, "Product variant is required"),
+    batches: z.array(z.object({
+        plannedQuantity: z.coerce.number().positive("Batch planned quantity must be positive"),
+        plannedStartDate: z.coerce.date(),
+        machineId: z.string().optional(),
+    })).min(1, "At least one batch is required"),
+});
+
+export type SplitProductionOrdersValues = z.infer<typeof splitProductionOrdersSchema>;

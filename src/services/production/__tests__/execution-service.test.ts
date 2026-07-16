@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 vi.mock('@/lib/core/prisma', () => {
     const mockTx = {
@@ -13,6 +14,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         productionOrder: {
             findUniqueOrThrow: vi.fn(),
+            findUnique: vi.fn().mockResolvedValue({ id: 'po-1', isMaklon: false }),
             update: vi.fn(),
         },
         stockMovement: {
@@ -30,6 +32,9 @@ vi.mock('@/lib/core/prisma', () => {
         },
         processPieceRate: {
             findFirst: vi.fn(),
+        },
+        productVariant: {
+            findUnique: vi.fn().mockResolvedValue({ id: 'pv-1', product: { type: 'FINISHED_GOOD' } }),
         },
     };
 
@@ -96,6 +101,11 @@ vi.mock('../execution-unit-conversion', () => ({
         baseQuantityProduced: 50,
         conversionFactorSnapshot: 1,
     }),
+}));
+
+vi.mock('@/services/inventory/reservation-service', () => ({
+    adjustReservationsForVoidOutput: vi.fn(),
+    cancelSpecificReservation: vi.fn(),
 }));
 
 // @ts-expect-error - __mockTx is provided by vi.mock above
@@ -218,6 +228,110 @@ describe('ProductionExecutionService.voidExecution', () => {
             },
             data: { status: 'VOIDED' }
         });
+    });
+
+    it('triggers cancelSpecificReservation when voiding an execution with linked reservation reference', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            quantityProduced: new Prisma.Decimal(10),
+            createdAt: new Date('2026-04-15T10:00:00.000Z'),
+            status: 'COMPLETED',
+            productionOrder: {
+                id: 'po-1',
+                salesOrderId: 'so-1',
+                locationId: 'loc-1',
+                bom: { productVariantId: 'pv-1' },
+            },
+        } as never);
+
+        vi.mocked(tx.stockMovement.findMany).mockResolvedValue([
+            {
+                type: 'IN',
+                productVariantId: 'pv-1',
+                toLocationId: 'loc-1',
+                quantity: 10,
+                reference: 'Production Output | RESERVE:res-123',
+            }
+        ] as never);
+        vi.mocked(tx.stockMovement.create).mockResolvedValue({
+            type: 'OUT',
+            productVariantId: 'pv-1',
+            fromLocationId: 'loc-1',
+            quantity: 10,
+            reference: 'VOID: Production Output | RESERVE:res-123',
+            productionOrderId: 'po-1',
+        } as any);
+
+        vi.mocked(tx.materialIssue.updateMany).mockResolvedValue({ count: 0 } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 10,
+            plannedQuantity: 20,
+            status: 'COMPLETED',
+        } as never);
+        vi.mocked(tx.productionExecution.count).mockResolvedValue(0 as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1', status: 'VOIDED' } as never);
+
+        const { cancelSpecificReservation, adjustReservationsForVoidOutput } = await import('@/services/inventory/reservation-service');
+
+        await ProductionExecutionService.voidExecution('exec-1');
+
+        expect(cancelSpecificReservation).toHaveBeenCalledWith('res-123', tx);
+        expect(adjustReservationsForVoidOutput).not.toHaveBeenCalled();
+    });
+
+    it('triggers adjustReservationsForVoidOutput as fallback when voiding an execution without linked reservation', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({
+            id: 'exec-1',
+            productionOrderId: 'po-1',
+            quantityProduced: new Prisma.Decimal(10),
+            createdAt: new Date('2026-04-15T10:00:00.000Z'),
+            status: 'COMPLETED',
+            productionOrder: {
+                id: 'po-1',
+                salesOrderId: 'so-1',
+                locationId: 'loc-1',
+                bom: { productVariantId: 'pv-1' },
+            },
+        } as never);
+
+        vi.mocked(tx.stockMovement.findMany).mockResolvedValue([
+            {
+                type: 'IN',
+                productVariantId: 'pv-1',
+                toLocationId: 'loc-1',
+                quantity: 10,
+                reference: 'Production Output', // No RESERVE: tag
+            }
+        ] as never);
+        vi.mocked(tx.stockMovement.create).mockResolvedValue({
+            type: 'OUT',
+            productVariantId: 'pv-1',
+            fromLocationId: 'loc-1',
+            quantity: 10,
+            reference: 'VOID: Production Output',
+            productionOrderId: 'po-1',
+        } as any);
+
+        vi.mocked(tx.materialIssue.updateMany).mockResolvedValue({ count: 0 } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            id: 'po-1',
+            actualQuantity: 10,
+            plannedQuantity: 20,
+            status: 'COMPLETED',
+        } as never);
+        vi.mocked(tx.productionExecution.count).mockResolvedValue(0 as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({ id: 'po-1' } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ id: 'exec-1', status: 'VOIDED' } as never);
+
+        const { cancelSpecificReservation, adjustReservationsForVoidOutput } = await import('@/services/inventory/reservation-service');
+
+        await ProductionExecutionService.voidExecution('exec-1');
+
+        expect(cancelSpecificReservation).not.toHaveBeenCalled();
+        expect(adjustReservationsForVoidOutput).toHaveBeenCalledWith('so-1', 'pv-1', 'loc-1', 10, tx);
     });
 });
 

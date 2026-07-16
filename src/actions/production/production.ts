@@ -27,6 +27,7 @@ export {
 
 export {
   batchIssueMaterials,
+  consolidatedBatchIssueMaterials,
   recordMaterialIssue,
   deleteMaterialIssue,
   recordScrap,

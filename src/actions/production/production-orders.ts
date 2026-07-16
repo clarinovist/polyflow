@@ -11,6 +11,8 @@ import {
   CreateProductionOrderValues,
   updateProductionOrderSchema,
   UpdateProductionOrderValues,
+  splitProductionOrdersSchema,
+  SplitProductionOrdersValues,
 } from "@/lib/schemas/production";
 import { serializeData } from "@/lib/utils/utils";
 import {
@@ -280,6 +282,7 @@ export const getProductionOrders = withTenant(
               select: {
                 id: true,
                 name: true,
+                skuCode: true,
                 primaryUnit: true,
                 product: {
                   select: {
@@ -532,5 +535,40 @@ export const getProductionOrderStats = withTenant(
       draftCount,
       lateCount,
     };
+  },
+);
+
+export const splitProductionOrders = withTenant(
+  async function splitProductionOrders(data: SplitProductionOrdersValues) {
+    return safeAction(async () => {
+      const result = splitProductionOrdersSchema.safeParse(data);
+      if (!result.success) {
+        throw new BusinessRuleError(result.error.issues[0].message);
+      }
+
+      try {
+        await requirePlanningRole();
+        const session = await auth();
+
+        const createdOrders = await ProductionService.splitOrdersFromSales({
+          ...result.data,
+          userId: session?.user?.id,
+        });
+
+        revalidatePath("/production");
+        revalidatePath(`/sales/orders/${result.data.salesOrderId}`);
+        return serializeData(createdOrders);
+      } catch (error) {
+        if (error instanceof BusinessRuleError) throw error;
+        logger.error("Failed to split production orders", {
+          error,
+          salesOrderId: data.salesOrderId,
+          module: "ProductionActions",
+        });
+        throw new BusinessRuleError(
+          error instanceof Error ? error.message : "An unknown error occurred",
+        );
+      }
+    });
   },
 );

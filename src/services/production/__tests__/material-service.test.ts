@@ -8,6 +8,7 @@ vi.mock("@/lib/core/prisma", () => ({
     productionOrder: {
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      findMany: vi.fn(),
     },
     productionMaterial: {
       deleteMany: vi.fn(),
@@ -409,6 +410,134 @@ describe("ProductionMaterialService", () => {
 
       // Assert
       expect(prisma.materialIssue.create).toHaveBeenCalled();
+    });
+  });
+
+  describe("consolidatedBatchIssueMaterials", () => {
+    it("should split consolidated quantity proportionally among target POs", async () => {
+      // Arrange
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+        {
+          id: "po-1",
+          orderNumber: "WO-001",
+          materialIssues: [],
+          plannedMaterials: [
+            {
+              productVariantId: "pv-1",
+              quantity: { toNumber: () => 30 },
+            },
+          ],
+        },
+        {
+          id: "po-2",
+          orderNumber: "WO-002",
+          materialIssues: [],
+          plannedMaterials: [
+            {
+              productVariantId: "pv-1",
+              quantity: { toNumber: () => 70 },
+            },
+          ],
+        },
+      ] as any);
+
+      vi.mocked(prisma.batch.findMany).mockResolvedValue([]); // No batches
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: { toNumber: () => 10 },
+      } as any);
+
+      // Act
+      await ProductionMaterialService.consolidatedBatchIssueMaterials({
+        productionOrderIds: ["po-1", "po-2"],
+        locationId: "loc-1",
+        items: [{ productVariantId: "pv-1", quantity: 50 }],
+        userId: "user-1",
+      });
+
+      // Assert
+      expect(prisma.materialIssue.create).toHaveBeenCalledTimes(2);
+      expect(prisma.materialIssue.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-1",
+            quantity: 15,
+          }),
+        })
+      );
+      expect(prisma.materialIssue.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-2",
+            quantity: 35,
+          }),
+        })
+      );
+    });
+
+    it("should handle rounding remainders and assign to the order with largest need", async () => {
+      // Arrange
+      vi.mocked(prisma.stockMovement.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+        {
+          id: "po-1",
+          orderNumber: "WO-001",
+          materialIssues: [],
+          plannedMaterials: [
+            {
+              productVariantId: "pv-1",
+              quantity: { toNumber: () => 30 },
+            },
+          ],
+        },
+        {
+          id: "po-2",
+          orderNumber: "WO-002",
+          materialIssues: [],
+          plannedMaterials: [
+            {
+              productVariantId: "pv-1",
+              quantity: { toNumber: () => 70 },
+            },
+          ],
+        },
+      ] as any);
+
+      vi.mocked(prisma.batch.findMany).mockResolvedValue([]); // No batches
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({
+        averageCost: { toNumber: () => 10 },
+      } as any);
+
+      // Act
+      await ProductionMaterialService.consolidatedBatchIssueMaterials({
+        productionOrderIds: ["po-1", "po-2"],
+        locationId: "loc-1",
+        items: [{ productVariantId: "pv-1", quantity: 50.1235 }],
+        userId: "user-1",
+      });
+
+      // Assert
+      expect(prisma.materialIssue.create).toHaveBeenCalledTimes(2);
+      expect(prisma.materialIssue.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-1",
+            quantity: 15.0370,
+          }),
+        })
+      );
+      expect(prisma.materialIssue.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productionOrderId: "po-2",
+            quantity: 35.0865,
+          }),
+        })
+      );
     });
   });
 });

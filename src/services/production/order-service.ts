@@ -197,6 +197,7 @@ export class ProductionOrderService {
    */
   static async createOrder(
     data: CreateProductionOrderValues & { userId?: string },
+    tx?: Prisma.TransactionClient,
   ) {
     const {
       bomId,
@@ -217,9 +218,9 @@ export class ProductionOrderService {
       plannedConversionFactorSnapshot,
     } = data;
 
-    return await prisma.$transaction(async (tx) => {
+    const execute = async (transaction: Prisma.TransactionClient) => {
       // 0. BOM must exist and be active for new production orders
-      const bomForOrder = await tx.bom.findUnique({
+      const bomForOrder = await transaction.bom.findUnique({
         where: { id: bomId },
         select: { id: true, isActive: true, category: true },
       });
@@ -236,7 +237,7 @@ export class ProductionOrderService {
 
       // 1. Validate Machine Type against BOM Category if machineId is provided
       if (machineId) {
-        const machine = await tx.machine.findUnique({
+        const machine = await transaction.machine.findUnique({
           where: { id: machineId },
           select: { type: true },
         });
@@ -270,7 +271,7 @@ export class ProductionOrderService {
 
       if (materialsToCreate.length === 0) {
         // Fetch BOM items to calculate defaults
-        const bom = await tx.bom.findUnique({
+        const bom = await transaction.bom.findUnique({
           where: { id: bomId },
           include: { items: true },
         });
@@ -289,7 +290,7 @@ export class ProductionOrderService {
       let initialStatus: ProductionStatus = ProductionStatus.DRAFT;
       if (materialsToCreate.length > 0) {
         const variantIds = materialsToCreate.map((m) => m.productVariantId);
-        const inventoryRows = await tx.inventory.findMany({
+        const inventoryRows = await transaction.inventory.findMany({
           where: {
             locationId: locationId,
             productVariantId: { in: variantIds },
@@ -335,17 +336,17 @@ export class ProductionOrderService {
       } satisfies Omit<Prisma.ProductionOrderCreateInput, "orderNumber">;
 
       const newOrder = orderNumber
-        ? await tx.productionOrder.create({
+        ? await transaction.productionOrder.create({
             data: {
               ...orderData,
               orderNumber,
             },
           })
-        : await createProductionOrderWithGeneratedNumber(tx, orderData);
+        : await createProductionOrderWithGeneratedNumber(transaction, orderData);
 
       // 5. Create Material Requirements
       if (materialsToCreate.length > 0) {
-        await tx.productionMaterial.createMany({
+        await transaction.productionMaterial.createMany({
           data: materialsToCreate.map((item) => ({
             productionOrderId: newOrder.id,
             productVariantId: item.productVariantId,
@@ -355,7 +356,13 @@ export class ProductionOrderService {
       }
 
       return newOrder;
-    });
+    };
+
+    if (tx) {
+      return await execute(tx);
+    } else {
+      return await prisma.$transaction(execute);
+    }
   }
 
   /**
@@ -399,6 +406,13 @@ export class ProductionOrderService {
     });
 
     if (!so) throw new NotFoundError("Sales Order", salesOrderId);
+    if (!so.sourceLocationId) {
+      throw new BusinessRuleError(
+        "Sales Order does not have a source location. A production location is required.",
+        { salesOrderId },
+        "MISSING_SOURCE_LOCATION",
+      );
+    }
 
     const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
 
@@ -411,12 +425,131 @@ export class ProductionOrderService {
       plannedConversionFactorSnapshot: undefined,
       plannedStartDate: new Date(),
       plannedEndDate: so.expectedDate || undefined,
-      locationId: so.sourceLocationId || "",
+      locationId: so.sourceLocationId!,
       salesOrderId,
       notes: `Auto-generated from Sales Order shortage${isMaklon ? " (Maklon; source location treated as production location/default consumption location)" : ""}.`,
       isMaklon: isMaklon,
       maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
       estimatedConversionCost: 0,
+    });
+  }
+
+  /**
+   * Split Demand shortage from Sales Order into sibling daily/batch Production Orders
+   */
+  static async splitOrdersFromSales(data: {
+    salesOrderId: string;
+    productVariantId: string;
+    batches: {
+      plannedQuantity: number;
+      plannedStartDate: Date;
+      machineId?: string;
+    }[];
+    userId?: string;
+  }) {
+    const { salesOrderId, productVariantId, batches, userId } = data;
+
+    if (!salesOrderId || !productVariantId || !batches || batches.length === 0) {
+      throw new ValidationError("salesOrderId, productVariantId, and at least one batch are required");
+    }
+
+    // 1. Find default BOM
+    const bom = await prisma.bom.findFirst({
+      where: {
+        productVariantId,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+
+    if (!bom) {
+      throw new BusinessRuleError(
+        "No default BOM found for this product. Please create one first.",
+        { productVariantId },
+        "MISSING_DEFAULT_BOM",
+      );
+    }
+
+    // 2. Fetch Sales Order
+    const so = await prisma.salesOrder.findUnique({
+      where: { id: salesOrderId },
+      select: {
+        sourceLocationId: true,
+        expectedDate: true,
+        orderType: true,
+        customerId: true,
+      },
+    });
+
+    if (!so) throw new NotFoundError("Sales Order", salesOrderId);
+    if (!so.sourceLocationId) {
+      throw new BusinessRuleError(
+        "Sales Order does not have a source location. A production location is required.",
+        { salesOrderId },
+        "MISSING_SOURCE_LOCATION",
+      );
+    }
+
+    const isMaklon = so.orderType === SalesOrderType.MAKLON_JASA;
+
+    return await prisma.$transaction(async (tx) => {
+      // 3. Validate quantities
+      const soItem = await tx.salesOrderItem.findFirst({
+        where: { salesOrderId, productVariantId },
+      });
+      if (!soItem) {
+        throw new NotFoundError("Sales Order Item", `${salesOrderId}/${productVariantId}`);
+      }
+
+      const existingPOs = await tx.productionOrder.findMany({
+        where: {
+          salesOrderId,
+          bom: { productVariantId },
+          status: { not: "CANCELLED" },
+        },
+        select: { plannedQuantity: true },
+      });
+
+      const totalPlannedQty = existingPOs.reduce((sum, po) => sum + po.plannedQuantity.toNumber(), 0);
+      const remainingToProduce = Math.max(0, soItem.quantity.toNumber() - soItem.deliveredQty.toNumber() - totalPlannedQty);
+
+      const sumBatchQty = batches.reduce((sum, b) => sum + b.plannedQuantity, 0);
+      if (sumBatchQty > remainingToProduce) {
+        throw new BusinessRuleError(
+          `Requested production quantity (${sumBatchQty}) exceeds the remaining demand to produce (${remainingToProduce}) for this Sales Order item.`,
+          { sumBatchQty, remainingToProduce },
+          "EXCEEDS_REMAINING_DEMAND"
+        );
+      }
+
+      // 4. Create sibling POs
+      const createdOrders = [];
+      for (const batch of batches) {
+        if (batch.plannedQuantity <= 0) {
+          throw new ValidationError("Batch planned quantity must be positive");
+        }
+
+        const po = await this.createOrder(
+          {
+            bomId: bom.id,
+            plannedQuantity: batch.plannedQuantity,
+            plannedStartDate: new Date(batch.plannedStartDate),
+            plannedEndDate: so.expectedDate || undefined,
+            locationId: so.sourceLocationId!,
+            salesOrderId,
+            machineId: batch.machineId,
+            notes: `Split batch from Sales Order shortage${isMaklon ? " (Maklon)" : ""}.`,
+            isMaklon: isMaklon,
+            maklonCustomerId: isMaklon ? so.customerId || undefined : undefined,
+            estimatedConversionCost: 0,
+            userId,
+          },
+          tx,
+        );
+        createdOrders.push(po);
+      }
+
+      return createdOrders;
     });
   }
 

@@ -101,6 +101,35 @@ export async function backflushMaterials(params: {
 
     for (const item of itemsToBackflush as MaterialLike[]) {
         const consumptionLocationId = await resolveMaterialLocation(tx, order, item.productVariantId);
+
+        // Check if this material has already been manually issued by the warehouse team (Fase C guard)
+        const manualIssueMovement = await tx.stockMovement.findFirst({
+            where: {
+                productionOrderId,
+                productVariantId: item.productVariantId,
+                type: MovementType.OUT,
+                reference: {
+                    startsWith: 'PROD-ISSUE-',
+                },
+            },
+        });
+
+        const consolIssueMovement = await tx.stockMovement.findFirst({
+            where: {
+                productionOrderId,
+                productVariantId: item.productVariantId,
+                type: MovementType.OUT,
+                reference: {
+                    startsWith: 'PROD-CONSOL-',
+                },
+            },
+        });
+
+        if (manualIssueMovement || consolIssueMovement) {
+            console.log(`Guard: Skipping backflush for ${item.productVariantId} on PO ${productionOrderId} because it was manually issued.`);
+            continue;
+        }
+
         const qtyToDeduct = resolveBackflushQuantity({
             item,
             order,

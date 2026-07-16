@@ -30,6 +30,7 @@ export interface OutputBackflushContext {
 export interface ProductionExecutionOrder extends BackflushOrder {
     id: string;
     orderNumber: string;
+    salesOrderId?: string | null;
     plannedQuantity: number | Prisma.Decimal;
     bom: {
         productVariantId: string;

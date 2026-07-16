@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
-import { Clock, MapPin, CheckCircle2, Copy } from 'lucide-react';
+import { Clock, MapPin, CheckCircle2, Copy, ClipboardList } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConsolidatedIssueDialog } from '@/components/warehouse/ConsolidatedIssueDialog';
 import { Location, Employee as PrismaEmployee, ProductVariant, Machine, WorkShift } from '@prisma/client';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ export default function WarehouseRefreshWrapper({
     formData
 }: WarehouseRefreshWrapperProps) {
     const router = useRouter();
+    const [isConsolDialogOpen, setIsConsolDialogOpen] = useState(false);
 
     // Auto-refresh logic (every 30 seconds)
     useEffect(() => {
@@ -57,23 +59,38 @@ export default function WarehouseRefreshWrapper({
 
     // --- Main Content UI ---
     return (
-        <Card className="h-full flex flex-col min-h-0 shadow-sm">
-            <CardContent className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                <div className="space-y-4">
-                    <Accordion type="single" collapsible className="w-full space-y-2">
+        <>
+            <Card className="h-full flex flex-col min-h-0 shadow-sm">
+                <CardContent className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center pb-2 border-b dark:border-slate-800">
+                            <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-amber-500" /> Antrean SPK Aktif
+                            </h2>
+                            <Button
+                                onClick={() => setIsConsolDialogOpen(true)}
+                                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 gap-1.5"
+                            >
+                                <ClipboardList className="w-3.5 h-3.5" /> Gabungkan Pengambilan
+                            </Button>
+                        </div>
+
+                        <Accordion type="single" collapsible className="w-full space-y-2">
                         {filteredOrders.map(order => {
                             const plannedMaterials = order.plannedMaterials || [];
                             const materialIssues = order.materialIssues || [];
 
                             // Calculate overall fulfillment progress
                             const totalRequired = plannedMaterials.reduce((sum, pm) => sum + Number(pm.quantity), 0);
-                            const totalIssued = materialIssues.reduce((sum, mi) => sum + Number(mi.quantity), 0);
+                            const totalIssued = materialIssues
+                                .filter(mi => mi.status !== 'VOIDED')
+                                .reduce((sum, mi) => sum + Number(mi.quantity), 0);
                             const fulfillmentProgress = totalRequired > 0 ? (totalIssued / totalRequired) * 100 : 0;
                             const isFullyIssued = fulfillmentProgress >= 99.9;
 
                             const materialItems = plannedMaterials.map(pm => {
                                 const issued = materialIssues
-                                    .filter(mi => mi.productVariantId === pm.productVariantId)
+                                    .filter(mi => mi.productVariantId === pm.productVariantId && mi.status !== 'VOIDED')
                                     .reduce((sum, mi) => sum + Number(mi.quantity), 0);
                                 return {
                                     name: pm.productVariant.name,
@@ -237,5 +254,13 @@ export default function WarehouseRefreshWrapper({
                 </div>
             </CardContent>
         </Card>
+
+        <ConsolidatedIssueDialog
+            isOpen={isConsolDialogOpen}
+            onClose={() => setIsConsolDialogOpen(false)}
+            orders={filteredOrders}
+            locations={formData.locations}
+        />
+        </>
     );
 }

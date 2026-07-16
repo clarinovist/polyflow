@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/core/prisma";
-import { Prisma, ReservationStatus } from "@prisma/client";
+import { Prisma, ReservationStatus, ReservationType } from "@prisma/client";
 import {
   CreateReservationValues,
   CancelReservationValues,
@@ -46,7 +46,7 @@ export async function createStockReservation(
         ? ReservationStatus.ACTIVE
         : ReservationStatus.WAITING;
 
-    await transaction.stockReservation.create({
+    return await transaction.stockReservation.create({
       data: {
         productVariantId,
         locationId,
@@ -60,9 +60,9 @@ export async function createStockReservation(
   };
 
   if (tx) {
-    await execute(tx);
+    return await execute(tx);
   } else {
-    await prisma.$transaction(execute);
+    return await prisma.$transaction(execute);
   }
 }
 
@@ -118,4 +118,106 @@ export async function getActiveReservations(
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function getSalesOrderResidualDemand(
+  soId: string,
+  productVariantId: string,
+  tx: Prisma.TransactionClient,
+): Promise<number> {
+  const soItem = await tx.salesOrderItem.findFirst({
+    where: {
+      salesOrderId: soId,
+      productVariantId,
+    },
+    select: {
+      quantity: true,
+      deliveredQty: true,
+    },
+  });
+
+  if (!soItem) {
+    return 0;
+  }
+
+  const orderedQty = soItem.quantity.toNumber();
+  const deliveredQty = soItem.deliveredQty.toNumber();
+
+  const reservations = await tx.stockReservation.aggregate({
+    where: {
+      reservedFor: ReservationType.SALES_ORDER,
+      referenceId: soId,
+      productVariantId,
+      status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+    },
+    _sum: {
+      quantity: true,
+    },
+  });
+
+  const reservedQty = reservations._sum.quantity?.toNumber() || 0;
+  return Math.max(0, orderedQty - deliveredQty - reservedQty);
+}
+
+export async function adjustReservationsForVoidOutput(
+  soId: string,
+  productVariantId: string,
+  locationId: string,
+  quantityToVoid: number,
+  tx: Prisma.TransactionClient,
+) {
+  if (quantityToVoid <= 0) return;
+
+  const reservations = await tx.stockReservation.findMany({
+    where: {
+      reservedFor: ReservationType.SALES_ORDER,
+      referenceId: soId,
+      productVariantId,
+      locationId,
+      status: { in: [ReservationStatus.ACTIVE, ReservationStatus.WAITING] },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  let remainingToVoid = quantityToVoid;
+
+  for (const reservation of reservations) {
+    if (remainingToVoid <= 0) break;
+
+    const resQty = reservation.quantity.toNumber();
+    if (resQty <= remainingToVoid) {
+      await tx.stockReservation.update({
+        where: { id: reservation.id },
+        data: { status: ReservationStatus.CANCELLED },
+      });
+      remainingToVoid -= resQty;
+    } else {
+      await tx.stockReservation.update({
+        where: { id: reservation.id },
+        data: {
+          quantity: new Prisma.Decimal(resQty - remainingToVoid),
+        },
+      });
+      remainingToVoid = 0;
+    }
+  }
+}
+
+export async function cancelSpecificReservation(
+  reservationId: string,
+  tx: Prisma.TransactionClient,
+) {
+  const reservation = await tx.stockReservation.findUnique({
+    where: { id: reservationId },
+  });
+  if (
+    reservation &&
+    (reservation.status === ReservationStatus.ACTIVE ||
+      reservation.status === ReservationStatus.WAITING)
+  ) {
+    await tx.stockReservation.update({
+      where: { id: reservationId },
+      data: { status: ReservationStatus.CANCELLED },
+    });
+  }
 }
