@@ -36,6 +36,7 @@ describe('AttendanceService', () => {
     code: 'EMP-001',
     pinHash: 'hashed',
     status: 'ACTIVE',
+    payType: 'DAILY',
     dailyRate: dec(100000),
     overtimeHourlyRate: dec(187500),
     standardDayHours: dec(8),

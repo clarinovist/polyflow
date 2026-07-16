@@ -42,11 +42,12 @@ export async function getHppBenchmarkByBomId(
                 select: {
                     startTime: true,
                     endTime: true,
+                    pieceEarnings: true,
                     machine: {
                         select: { costPerHour: true },
                     },
                     operator: {
-                        select: { dailyRate: true, standardDayHours: true },
+                        select: { dailyRate: true, standardDayHours: true, payType: true },
                     },
                 },
             },
@@ -75,7 +76,12 @@ export async function getHppBenchmarkByBomId(
                 const dailyRate = Number(exec.operator.dailyRate ?? 0);
                 const standardDayHours = Number(exec.operator.standardDayHours ?? 8);
                 const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
-                orderLabor += dayEquivalent * dailyRate;
+                // PIECE: use snapshot pieceEarnings (qty × rate) instead of time-based formula
+                if (exec.operator.payType === 'PIECE' && exec.pieceEarnings != null) {
+                    orderLabor += Number(exec.pieceEarnings);
+                } else {
+                    orderLabor += dayEquivalent * dailyRate;
+                }
             }
         }
 

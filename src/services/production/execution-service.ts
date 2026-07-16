@@ -27,6 +27,10 @@ import {
   type ProductionExecutionOrder,
 } from "./execution-helpers";
 import { resolveProductionOutputUnit } from "./execution-unit-conversion";
+import {
+  buildPieceSnapshotForOperator,
+  VOID_PIECE_SNAPSHOT,
+} from "@/services/hrd/piece-rate-helpers";
 
 type ResolvedOutputQuantity = {
   baseQty: number;
@@ -353,6 +357,16 @@ export class ProductionExecutionService {
         },
       });
 
+      const pieceSnap = await buildPieceSnapshotForOperator(tx, {
+        operatorId: finalExecution.operatorId,
+        machineId: finalExecution.machineId,
+        quantityProduced: Number(finalExecution.quantityProduced),
+      });
+      finalExecution = await tx.productionExecution.update({
+        where: { id: executionId },
+        data: pieceSnap,
+      });
+
       // Handle completion status separately (needs order update with status)
       if (data.completed) {
         await tx.productionOrder.update({
@@ -443,6 +457,11 @@ export class ProductionExecutionService {
       });
 
       // 3. CREATE a new completed execution (not update the running one!)
+      const pieceSnap = await buildPieceSnapshotForOperator(tx, {
+        operatorId: runningExecution.operatorId,
+        machineId: runningExecution.machineId,
+        quantityProduced: resolved.baseQty,
+      });
       const newExecution = await tx.productionExecution.create({
         data: {
           productionOrderId,
@@ -461,6 +480,9 @@ export class ProductionExecutionService {
           startTime: new Date(),
           endTime: new Date(),
           status: 'COMPLETED',
+          pieceRateSnapshot: pieceSnap.pieceRateSnapshot,
+          pieceEarnings: pieceSnap.pieceEarnings,
+          pieceMachineType: pieceSnap.pieceMachineType,
           helpers: helperIds && helperIds.length > 0
             ? { connect: helperIds.map((id) => ({ id })) }
             : undefined,
@@ -572,6 +594,9 @@ export class ProductionExecutionService {
         enteredQuantity?: number | null;
         enteredUnit?: Unit | null;
         conversionFactorSnapshot?: number | null;
+        pieceRateSnapshot?: Prisma.Decimal | null;
+        pieceEarnings?: Prisma.Decimal | null;
+        pieceMachineType?: import('@prisma/client').MachineType | null;
         helpers?: { connect: { id: string }[] };
       } = {
         productionOrderId,
@@ -597,6 +622,15 @@ export class ProductionExecutionService {
       if (helperIds && helperIds.length > 0) {
         executionData.helpers = { connect: helperIds.map((id) => ({ id })) };
       }
+
+      const pieceSnap = await buildPieceSnapshotForOperator(tx, {
+        operatorId,
+        machineId,
+        quantityProduced: resolvedBaseQty,
+      });
+      executionData.pieceRateSnapshot = pieceSnap.pieceRateSnapshot;
+      executionData.pieceEarnings = pieceSnap.pieceEarnings;
+      executionData.pieceMachineType = pieceSnap.pieceMachineType;
 
       const execution = await tx.productionExecution.create({
         data: executionData,
@@ -820,10 +854,10 @@ export class ProductionExecutionService {
         },
       });
 
-      // 5. Update Execution status to VOIDED
+      // 5. Update Execution status to VOIDED + clear piece pay snapshot
       await tx.productionExecution.update({
         where: { id: executionId },
-        data: { status: "VOIDED" },
+        data: { status: "VOIDED", ...VOID_PIECE_SNAPSHOT },
       });
     });
   }

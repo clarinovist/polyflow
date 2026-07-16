@@ -56,9 +56,18 @@ export function resolveWorkDate(clockInAt: Date, shiftStartTime: string, shiftEn
 
 /** Get today's date string in WIB (Asia/Jakarta, UTC+7). */
 export function todayWibDateString(): string {
-  const now = new Date();
-  const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return wibDateStringFrom(new Date());
+}
+
+/** Date string YYYY-MM-DD in WIB for an arbitrary timestamp. */
+export function wibDateStringFrom(date: Date): string {
+  const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   return wib.toISOString().slice(0, 10);
+}
+
+/** Date-only Date (UTC midnight) from a timestamp in WIB calendar. */
+export function wibDateFrom(date: Date): Date {
+  return new Date(wibDateStringFrom(date) + 'T00:00:00.000Z');
 }
 
 /**

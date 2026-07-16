@@ -49,6 +49,7 @@ async function createEmployee(data: {
     code: string;
     role: string;
     status?: EmployeeStatus;
+    payType?: 'DAILY' | 'PIECE';
     dailyRate?: number;
     overtimeHourlyRate?: number;
     standardDayHours?: number;
@@ -61,6 +62,7 @@ async function createEmployee(data: {
                     code: data.code,
                     role: data.role,
                     status: data.status || 'ACTIVE',
+                    payType: data.payType || 'DAILY',
                     dailyRate: data.dailyRate || 0,
                     overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
                     standardDayHours: data.standardDayHours ?? 8,
@@ -85,6 +87,7 @@ async function updateEmployee(
         code?: string;
         role?: string;
         status?: EmployeeStatus;
+        payType?: 'DAILY' | 'PIECE';
         dailyRate?: number;
         overtimeHourlyRate?: number;
         standardDayHours?: number;

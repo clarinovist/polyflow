@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Employee, EmployeeStatus } from '@prisma/client';
+import { Employee, EmployeeStatus, EmployeePayType } from '@prisma/client';
 import { createEmployee, updateEmployee, generateNextEmployeeCode } from '@/actions/admin/employees';
 import { getJobRoles, createJobRole } from '@/actions/admin/roles';
 import { setEmployeePin, clearEmployeePin } from '@/actions/admin/attendance';
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { productionComponentLabels } from '@/lib/labels';
 
@@ -41,6 +42,7 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
         code: initialData?.code || '',
         role: initialData?.role || '',
         status: initialData?.status || EmployeeStatus.ACTIVE,
+        payType: (initialData?.payType as EmployeePayType) || EmployeePayType.DAILY,
         dailyRate: initialData?.dailyRate ? Number(initialData.dailyRate) : 0,
         overtimeHourlyRate: initialData?.overtimeHourlyRate ? Number(initialData.overtimeHourlyRate) : 0,
         standardDayHours: initialData?.standardDayHours ? Number(initialData.standardDayHours) : 8,
@@ -249,6 +251,38 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                 </div>
 
                 <div className="space-y-2">
+                    <Label className="text-sm font-semibold tracking-tight">Skema Gaji</Label>
+                    <RadioGroup
+                        value={formData.payType}
+                        onValueChange={(v) => setFormData({ ...formData, payType: v as EmployeePayType })}
+                        className="grid grid-cols-2 gap-2"
+                    >
+                        <label htmlFor="pay-daily" className={cn(
+                            "flex items-center gap-2 rounded-lg border p-3 cursor-pointer",
+                            formData.payType === 'DAILY' ? "border-primary bg-primary/5" : "border-border"
+                        )}>
+                            <RadioGroupItem value="DAILY" id="pay-daily" />
+                            <div>
+                                <div className="text-sm font-medium">Harian</div>
+                                <div className="text-[11px] text-muted-foreground">Upah per hari + OT</div>
+                            </div>
+                        </label>
+                        <label htmlFor="pay-piece" className={cn(
+                            "flex items-center gap-2 rounded-lg border p-3 cursor-pointer",
+                            formData.payType === 'PIECE' ? "border-primary bg-primary/5" : "border-border"
+                        )}>
+                            <RadioGroupItem value="PIECE" id="pay-piece" />
+                            <div>
+                                <div className="text-sm font-medium">Borongan /kg</div>
+                                <div className="text-[11px] text-muted-foreground">Tarif per proses mesin</div>
+                            </div>
+                        </label>
+                    </RadioGroup>
+                </div>
+
+                {formData.payType === 'DAILY' ? (
+                <>
+                <div className="space-y-2">
                     <Label htmlFor="dailyRate" className="text-sm font-semibold tracking-tight">Upah Harian / Daily Rate (IDR)</Label>
                     <Input
                         id="dailyRate"
@@ -305,6 +339,16 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                     />
                     <p className="text-[11px] text-muted-foreground italic">Dasar perhitungan proporsional upah harian (biasanya 8 jam).</p>
                 </div>
+                </>
+                ) : (
+                <div className="rounded-lg border border-dashed p-3 space-y-1 bg-muted/20">
+                    <p className="text-sm font-medium">Borongan mengikuti tarif proses mesin</p>
+                    <p className="text-[11px] text-muted-foreground">
+                        Rate /kg diatur di menu HRD → Tarif Borongan (per tipe mesin).
+                        Absensi kiosk tetap wajib — tanpa absen, output tidak dibayar. Tidak ada OT.
+                    </p>
+                </div>
+                )}
 
                 <div className="flex items-center space-x-3 bg-muted/30 p-3 rounded-lg border border-white/5">
                     <Switch

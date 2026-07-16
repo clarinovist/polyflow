@@ -22,6 +22,8 @@ import {
   PanelLeftOpen,
   MessageCircleHeart,
   Clock,
+  Wallet,
+  Scale,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -109,6 +111,8 @@ const sidebarLinkGroups: SidebarLinkGroup[] = [
     heading: "HRD",
     items: [
       { title: "Absensi", href: "/hrd/attendance", icon: Clock },
+      { title: "Gaji Mingguan", href: "/hrd/payroll", icon: Wallet },
+      { title: "Tarif Borongan", href: "/hrd/piece-rates", icon: Scale },
     ],
   },
 ];
@@ -158,7 +162,7 @@ export function SidebarNav({ user, permissions }: SidebarNavProps) {
       ...group,
       items: group.items.filter((item) => {
         if (permissions === "ALL") return true;
-        return permissions.includes(item.href);
+        return permissions.includes(item.href) || permissions.some((p) => item.href.startsWith(p));
       }),
     }))
     .filter((group) => group.items.length > 0);

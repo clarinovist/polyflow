@@ -1,5 +1,7 @@
+import { ProductType } from '@prisma/client';
+
 /** Product type display labels */
-export const productTypeLabels = {
+export const productTypeLabels: Record<ProductType, string> = {
   RAW_MATERIAL: 'Bahan Baku',
   FINISHED_GOOD: 'Barang Jadi',
   SCRAP: 'Scrap',
@@ -9,10 +11,11 @@ export const productTypeLabels = {
   WIP: 'Dalam Proses',
   SERVICE: 'Jasa',
   OPERATIONAL: 'Barang Operasional',
-} as const;
+  FIXED_ASSET: 'Aset Tetap',
+};
 
 /** Product type badge abbreviations (compact) */
-export const productTypeBadgeLabels = {
+export const productTypeBadgeLabels: Record<ProductType, string> = {
   RAW_MATERIAL: 'RM',
   FINISHED_GOOD: 'FG',
   SCRAP: 'Scrap',
@@ -22,7 +25,8 @@ export const productTypeBadgeLabels = {
   WIP: 'WIP',
   SERVICE: 'Service',
   OPERATIONAL: 'Ops',
-} as const;
+  FIXED_ASSET: 'Aset',
+};
 
 /** ProductForm component labels */
 export const productFormLabels = {

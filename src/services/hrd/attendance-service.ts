@@ -73,7 +73,7 @@ export interface ListFilters {
 
 // ─── Helpers ───
 
-type EmployeeSelect = { id: string; name: string; code: string; pinHash: string | null; status: string; dailyRate: Prisma.Decimal; overtimeHourlyRate: Prisma.Decimal | null; standardDayHours: Prisma.Decimal };
+type EmployeeSelect = { id: string; name: string; code: string; pinHash: string | null; status: string; payType: string; dailyRate: Prisma.Decimal; overtimeHourlyRate: Prisma.Decimal | null; standardDayHours: Prisma.Decimal };
 type ShiftSelect = { id: string; name: string; startTime: string; endTime: string; plannedHours: Prisma.Decimal | null; status: string };
 type RecordWithRelations = {
   id: string; employeeId: string; workDate: Date; workShiftId: string;
@@ -93,7 +93,7 @@ function toNum(v: Prisma.Decimal | null | undefined): number {
 async function findEmployee(db: PrismaClient, code: string): Promise<EmployeeSelect | null> {
   return db.employee.findUnique({
     where: { code },
-    select: { id: true, name: true, code: true, pinHash: true, status: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true },
+    select: { id: true, name: true, code: true, pinHash: true, status: true, payType: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true },
   });
 }
 
@@ -225,6 +225,10 @@ function buildComputedData(record: RecordWithRelations): AttendanceComputedData 
 
 function getEmployeeRateSnapshots(employee: EmployeeSelect): { dailyRate: number; overtimeHourlyRate: number; standardDayHours: number } {
   const standardDayHours = toNum(employee.standardDayHours) > 0 ? toNum(employee.standardDayHours) : 8;
+  // PIECE workers still record hours for discipline, but attendance does not pay.
+  if (employee.payType === 'PIECE') {
+    return { dailyRate: 0, overtimeHourlyRate: 0, standardDayHours };
+  }
   const dailyRate = toNum(employee.dailyRate);
   const overtimeHourlyRate = toNum(employee.overtimeHourlyRate) > 0
     ? toNum(employee.overtimeHourlyRate)
@@ -493,13 +497,18 @@ export const AttendanceService = {
     });
     if (existing) throw new BusinessRuleError('Record sudah ada untuk shift ini');
 
-    const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { name: true, code: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true } });
+    const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { name: true, code: true, payType: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true } });
     if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
 
     const shift = await findShift(db, workShiftId);
     if (!shift) throw new NotFoundError('Shift tidak ditemukan');
 
-    const rates = getEmployeeRateSnapshots(employee as unknown as EmployeeSelect);
+    const rates = getEmployeeRateSnapshots({
+      id: employeeId,
+      pinHash: null,
+      status: 'ACTIVE',
+      ...employee,
+    } as EmployeeSelect);
     const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
 
     const record = await db.attendanceRecord.create({

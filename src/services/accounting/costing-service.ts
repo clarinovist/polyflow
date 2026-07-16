@@ -110,6 +110,7 @@ export class CostingService {
                             select: {
                                 dailyRate: true,
                                 standardDayHours: true,
+                                payType: true,
                             }
                         }
                     }
@@ -151,7 +152,12 @@ export class CostingService {
                 const dailyRate = Number(exec.operator.dailyRate || 0);
                 const standardDayHours = Number(exec.operator.standardDayHours || 8);
                 const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
-                laborCost += dayEquivalent * dailyRate;
+                // PIECE: use snapshot pieceEarnings (qty × rate) instead of time-based formula
+                if (exec.operator.payType === 'PIECE' && exec.pieceEarnings != null) {
+                    laborCost += Number(exec.pieceEarnings);
+                } else {
+                    laborCost += dayEquivalent * dailyRate;
+                }
             }
         }
 

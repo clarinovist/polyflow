@@ -80,6 +80,7 @@ model Employee {
   code                 String                @unique
   role                 String
   status               EmployeeStatus        @default(ACTIVE)
+  payType              EmployeePayType       @default(DAILY)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   dailyRate            Decimal               @default(0) @db.Decimal(12, 2)
@@ -93,6 +94,15 @@ model Employee {
   shiftsAsHelper       ProductionShift[]     @relation("ShiftHelpers")
   ordersAsHelper       ProductionOrder[]     @relation("OrderHelpers")
   machineAssignments   MachineOperator[]
+}
+
+model ProcessPieceRate {
+  id          String      @id @default(uuid())
+  machineType MachineType @unique
+  ratePerKg   Decimal     @db.Decimal(12, 2)
+  status      String      @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model ProductionShift {
@@ -221,10 +231,11 @@ model Product {
   id                 String           @id @default(uuid())
   name               String
   productType        ProductType
+  assetCategory      AssetCategory? // FIXED_ASSET only: MACHINERY, VEHICLE, BUILDING, EQUIPMENT, OTHER
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   cogsAccountId      String?
-  inventoryAccountId String?
+  inventoryAccountId String? // FIXED_ASSET: akun aset tetap (wajib); others: akun persediaan
   revenueAccountId   String?
   wipAccountId       String?
   variants           ProductVariant[]
@@ -654,6 +665,9 @@ model ProductionExecution {
   status                   String           @default("COMPLETED") // COMPLETED, VOIDED
   scrapDaunQty             Decimal          @default(0) @db.Decimal(15, 4)
   scrapProngkolQty         Decimal          @default(0) @db.Decimal(15, 4)
+  pieceRateSnapshot        Decimal?         @db.Decimal(12, 2)
+  pieceEarnings            Decimal?         @db.Decimal(12, 2)
+  pieceMachineType         MachineType?
   machine                  Machine?         @relation(fields: [machineId], references: [id])
   operator                 Employee?        @relation("ExecutionOperator", fields: [operatorId], references: [id])
   helpers                  Employee[]       @relation("ExecutionHelpers")
@@ -663,17 +677,18 @@ model ProductionExecution {
 
   @@index([productionOrderId])
   @@index([startTime])
+  @@index([operatorId, startTime])
 }
 
 model WorkShift {
-  id            String          @id @default(uuid())
-  name          String
-  startTime     String
-  endTime       String
-  plannedHours  Decimal?        @db.Decimal(4, 2)
-  status        WorkShiftStatus @default(ACTIVE)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                String             @id @default(uuid())
+  name              String
+  startTime         String
+  endTime           String
+  plannedHours      Decimal?           @db.Decimal(4, 2)
+  status            WorkShiftStatus    @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   attendanceRecords AttendanceRecord[]
 }
 
@@ -1069,6 +1084,11 @@ model FixedAsset {
   createdAt                        DateTime    @default(now())
   updatedAt                        DateTime    @updatedAt
   lastDepreciationDate             DateTime?
+  // PO/GR traceability (V1)
+  productVariantId                 String?
+  purchaseOrderId                  String?
+  goodsReceiptId                   String?
+  purchaseOrderItemId              String?
   accumDepreciationAccount         Account     @relation("AccumDeprAccount", fields: [accumulatedDepreciationAccountId], references: [id])
   assetAccount                     Account     @relation("AssetAccount", fields: [assetAccountId], references: [id])
   depreciationExpenseAccount       Account     @relation("DeprExpenseAccount", fields: [depreciationAccountId], references: [id])
@@ -1375,6 +1395,15 @@ enum ProductType {
   SCRAP
   SERVICE
   OPERATIONAL
+  FIXED_ASSET
+}
+
+enum AssetCategory {
+  MACHINERY
+  VEHICLE
+  BUILDING
+  EQUIPMENT
+  OTHER
 }
 
 enum Unit {
@@ -1460,6 +1489,11 @@ enum CostingMethod {
 enum EmployeeStatus {
   ACTIVE
   INACTIVE
+}
+
+enum EmployeePayType {
+  DAILY
+  PIECE
 }
 
 enum WorkShiftStatus {
@@ -2148,29 +2182,29 @@ enum AdjustmentType {
 // ==========================================
 
 model AttendanceRecord {
-  id                 String           @id @default(uuid())
-  employeeId         String
-  workDate           DateTime         @db.Date
-  workShiftId        String
-  clockInAt          DateTime?
-  clockOutAt         DateTime?
-  status             AttendanceStatus @default(PRESENT)
-  isOvertimeShift    Boolean          @default(false)
-  plannedHours       Decimal?         @db.Decimal(4, 2)
-  actualHours        Decimal?         @db.Decimal(5, 2)
-  regularHours       Decimal?         @db.Decimal(5, 2)
-  overtimeHours      Decimal?         @db.Decimal(5, 2)
-  standardDayHours   Decimal?         @db.Decimal(4, 2)
-  dailyRateSnapshot  Decimal?         @db.Decimal(12, 2)
-  overtimeRateSnapshot Decimal?       @db.Decimal(12, 2)
-  dailyEarnings      Decimal?         @db.Decimal(12, 2)
-  overtimeEarnings   Decimal?         @db.Decimal(12, 2)
-  totalEarnings      Decimal?         @db.Decimal(12, 2)
-  notes              String?
-  source             AttendanceSource @default(KIOSK)
-  createdById        String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                   String           @id @default(uuid())
+  employeeId           String
+  workDate             DateTime         @db.Date
+  workShiftId          String
+  clockInAt            DateTime?
+  clockOutAt           DateTime?
+  status               AttendanceStatus @default(PRESENT)
+  isOvertimeShift      Boolean          @default(false)
+  plannedHours         Decimal?         @db.Decimal(4, 2)
+  actualHours          Decimal?         @db.Decimal(5, 2)
+  regularHours         Decimal?         @db.Decimal(5, 2)
+  overtimeHours        Decimal?         @db.Decimal(5, 2)
+  standardDayHours     Decimal?         @db.Decimal(4, 2)
+  dailyRateSnapshot    Decimal?         @db.Decimal(12, 2)
+  overtimeRateSnapshot Decimal?         @db.Decimal(12, 2)
+  dailyEarnings        Decimal?         @db.Decimal(12, 2)
+  overtimeEarnings     Decimal?         @db.Decimal(12, 2)
+  totalEarnings        Decimal?         @db.Decimal(12, 2)
+  notes                String?
+  source               AttendanceSource @default(KIOSK)
+  createdById          String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   employee  Employee  @relation(fields: [employeeId], references: [id])
   workShift WorkShift @relation(fields: [workShiftId], references: [id])
