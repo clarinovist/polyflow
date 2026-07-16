@@ -2,6 +2,7 @@ import { PrismaClient, AttendanceSource, AttendanceStatus } from '@prisma/client
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { verifyPin } from './pin-helpers';
 import { resolveWorkDate, getEffectivePlannedHours, calcActualHours, calcOvertimeHours } from './shift-window';
+import { Prisma } from '@prisma/client';
 
 // ─── Input types ───
 
@@ -45,6 +46,11 @@ export interface AttendanceRecordResult {
   regularHours: number;
   status: AttendanceStatus;
   source: AttendanceSource;
+  dailyRateSnapshot: number;
+  overtimeRateSnapshot: number;
+  dailyEarnings: number;
+  overtimeEarnings: number;
+  totalEarnings: number;
 }
 
 export interface DailySummary {
@@ -54,6 +60,9 @@ export interface DailySummary {
   multiShiftCount: number;
   totalActualHours: number;
   totalOvertimeHours: number;
+  totalDailyEarnings: number;
+  totalOvertimeEarnings: number;
+  totalEarnings: number;
   records: AttendanceRecordResult[];
 }
 
@@ -64,30 +73,85 @@ export interface ListFilters {
 
 // ─── Helpers ───
 
-type EmployeeSelect = { id: string; name: string; code: string; pinHash: string | null; status: string };
-type ShiftSelect = { id: string; name: string; startTime: string; endTime: string; plannedHours: import('@prisma/client').Prisma.Decimal | null; status: string };
+type EmployeeSelect = { id: string; name: string; code: string; pinHash: string | null; status: string; dailyRate: Prisma.Decimal; overtimeHourlyRate: Prisma.Decimal | null; standardDayHours: Prisma.Decimal };
+type ShiftSelect = { id: string; name: string; startTime: string; endTime: string; plannedHours: Prisma.Decimal | null; status: string };
 type RecordWithRelations = {
   id: string; employeeId: string; workDate: Date; workShiftId: string;
   clockInAt: Date | null; clockOutAt: Date | null; isOvertimeShift: boolean;
   status: AttendanceStatus; source: AttendanceSource;
+  plannedHours: Prisma.Decimal | null; actualHours: Prisma.Decimal | null; regularHours: Prisma.Decimal | null; overtimeHours: Prisma.Decimal | null;
+  standardDayHours: Prisma.Decimal | null; dailyRateSnapshot: Prisma.Decimal | null; overtimeRateSnapshot: Prisma.Decimal | null;
+  dailyEarnings: Prisma.Decimal | null; overtimeEarnings: Prisma.Decimal | null; totalEarnings: Prisma.Decimal | null;
   employee: { name: string; code: string };
   workShift: ShiftSelect;
 };
 
+function toNum(v: Prisma.Decimal | null | undefined): number {
+  return v ? Number(v) : 0;
+}
+
 async function findEmployee(db: PrismaClient, code: string): Promise<EmployeeSelect | null> {
-  return db.employee.findUnique({ where: { code }, select: { id: true, name: true, code: true, pinHash: true, status: true } });
+  return db.employee.findUnique({
+    where: { code },
+    select: { id: true, name: true, code: true, pinHash: true, status: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true },
+  });
 }
 
 async function findShift(db: PrismaClient, shiftId: string): Promise<ShiftSelect | null> {
   return db.workShift.findUnique({ where: { id: shiftId }, select: { id: true, name: true, startTime: true, endTime: true, plannedHours: true, status: true } });
 }
 
+function calcRegularHours(actualHours: number, plannedHours: number): number {
+  return Math.round(Math.min(actualHours, plannedHours) * 100) / 100;
+}
+
+function computeEarnings(
+  actualHours: number,
+  plannedHours: number,
+  standardDayHours: number,
+  dailyRate: number,
+  overtimeHourlyRate: number,
+): { regularHours: number; overtimeHours: number; dailyEarnings: number; overtimeEarnings: number; totalEarnings: number } {
+  const regular = calcRegularHours(actualHours, plannedHours);
+  const overtime = calcOvertimeHours(actualHours, plannedHours);
+  const dailyEarnings = Math.round((dailyRate * (regular / standardDayHours)) * 100) / 100;
+  const overtimeEarnings = Math.round((overtime * overtimeHourlyRate) * 100) / 100;
+  return {
+    regularHours: regular,
+    overtimeHours: overtime,
+    dailyEarnings,
+    overtimeEarnings,
+    totalEarnings: dailyEarnings + overtimeEarnings,
+  };
+}
+
+function defaultOvertimeHourlyRate(dailyRate: number, standardDayHours: number): number {
+  if (standardDayHours <= 0) return 0;
+  return Math.round((dailyRate / standardDayHours) * 1.5 * 100) / 100;
+}
+
 function buildRecordResult(record: RecordWithRelations): AttendanceRecordResult {
   const shift = record.workShift;
-  const planned = getEffectivePlannedHours(shift.plannedHours != null ? Number(shift.plannedHours) : null, shift.startTime, shift.endTime);
+  const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
   const actual = record.clockInAt && record.clockOutAt ? calcActualHours(record.clockInAt, record.clockOutAt) : null;
-  const ot = actual !== null ? calcOvertimeHours(actual, planned) : 0;
-  const reg = actual !== null ? Math.round(Math.min(actual, planned) * 100) / 100 : 0;
+  const standardDayHours = toNum(record.standardDayHours) > 0 ? toNum(record.standardDayHours) : 8;
+  const dailyRate = toNum(record.dailyRateSnapshot);
+  const overtimeRate = toNum(record.overtimeRateSnapshot) > 0
+    ? toNum(record.overtimeRateSnapshot)
+    : defaultOvertimeHourlyRate(dailyRate, standardDayHours);
+
+  let regular = toNum(record.regularHours);
+  let overtime = toNum(record.overtimeHours);
+  let dailyEarnings = toNum(record.dailyEarnings);
+  let overtimeEarnings = toNum(record.overtimeEarnings);
+
+  if (actual !== null) {
+    const computed = computeEarnings(actual, planned, standardDayHours, dailyRate, overtimeRate);
+    regular = computed.regularHours;
+    overtime = computed.overtimeHours;
+    dailyEarnings = computed.dailyEarnings;
+    overtimeEarnings = computed.overtimeEarnings;
+  }
 
   return {
     id: record.id,
@@ -102,11 +166,70 @@ function buildRecordResult(record: RecordWithRelations): AttendanceRecordResult 
     isOvertimeShift: record.isOvertimeShift,
     plannedHours: planned,
     actualHours: actual,
-    overtimeHours: ot,
-    regularHours: reg,
+    overtimeHours: overtime,
+    regularHours: regular,
     status: record.status,
     source: record.source,
+    dailyRateSnapshot: dailyRate,
+    overtimeRateSnapshot: overtimeRate,
+    dailyEarnings,
+    overtimeEarnings,
+    totalEarnings: dailyEarnings + overtimeEarnings,
   };
+}
+
+type AttendanceComputedData = {
+  plannedHours: Prisma.Decimal;
+  actualHours: Prisma.Decimal | null;
+  regularHours: Prisma.Decimal;
+  overtimeHours: Prisma.Decimal;
+  standardDayHours: Prisma.Decimal;
+  dailyEarnings: Prisma.Decimal;
+  overtimeEarnings: Prisma.Decimal;
+  totalEarnings: Prisma.Decimal;
+};
+
+function buildComputedData(record: RecordWithRelations): AttendanceComputedData {
+  const shift = record.workShift;
+  const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
+  const standardDayHours = toNum(record.standardDayHours) > 0 ? toNum(record.standardDayHours) : 8;
+  const actual = record.clockInAt && record.clockOutAt ? calcActualHours(record.clockInAt, record.clockOutAt) : null;
+  if (actual === null || record.status !== 'PRESENT') {
+    return {
+      plannedHours: new Prisma.Decimal(planned),
+      actualHours: null,
+      regularHours: new Prisma.Decimal(0),
+      overtimeHours: new Prisma.Decimal(0),
+      standardDayHours: new Prisma.Decimal(standardDayHours),
+      dailyEarnings: new Prisma.Decimal(0),
+      overtimeEarnings: new Prisma.Decimal(0),
+      totalEarnings: new Prisma.Decimal(0),
+    };
+  }
+  const dailyRate = toNum(record.dailyRateSnapshot);
+  const overtimeRate = toNum(record.overtimeRateSnapshot) > 0
+    ? toNum(record.overtimeRateSnapshot)
+    : defaultOvertimeHourlyRate(dailyRate, standardDayHours);
+  const computed = computeEarnings(actual, planned, standardDayHours, dailyRate, overtimeRate);
+  return {
+    plannedHours: new Prisma.Decimal(planned),
+    actualHours: new Prisma.Decimal(actual),
+    regularHours: new Prisma.Decimal(computed.regularHours),
+    overtimeHours: new Prisma.Decimal(computed.overtimeHours),
+    standardDayHours: new Prisma.Decimal(standardDayHours),
+    dailyEarnings: new Prisma.Decimal(computed.dailyEarnings),
+    overtimeEarnings: new Prisma.Decimal(computed.overtimeEarnings),
+    totalEarnings: new Prisma.Decimal(computed.totalEarnings),
+  };
+}
+
+function getEmployeeRateSnapshots(employee: EmployeeSelect): { dailyRate: number; overtimeHourlyRate: number; standardDayHours: number } {
+  const standardDayHours = toNum(employee.standardDayHours) > 0 ? toNum(employee.standardDayHours) : 8;
+  const dailyRate = toNum(employee.dailyRate);
+  const overtimeHourlyRate = toNum(employee.overtimeHourlyRate) > 0
+    ? toNum(employee.overtimeHourlyRate)
+    : defaultOvertimeHourlyRate(dailyRate, standardDayHours);
+  return { dailyRate, overtimeHourlyRate, standardDayHours };
 }
 
 const includeRelations = {
@@ -155,6 +278,9 @@ export const AttendanceService = {
       where: { employeeId: employee.id, workDate, status: 'PRESENT' },
     });
 
+    const rates = getEmployeeRateSnapshots(employee);
+    const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
+
     const record = await db.attendanceRecord.create({
       data: {
         employeeId: employee.id,
@@ -164,11 +290,20 @@ export const AttendanceService = {
         isOvertimeShift: sameDayCount > 0,
         source: input.source ?? 'KIOSK',
         status: 'PRESENT',
+        plannedHours: new Prisma.Decimal(planned),
+        standardDayHours: new Prisma.Decimal(rates.standardDayHours),
+        dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
+        overtimeRateSnapshot: new Prisma.Decimal(rates.overtimeHourlyRate),
+        regularHours: new Prisma.Decimal(0),
+        overtimeHours: new Prisma.Decimal(0),
+        dailyEarnings: new Prisma.Decimal(0),
+        overtimeEarnings: new Prisma.Decimal(0),
+        totalEarnings: new Prisma.Decimal(0),
       },
       include: includeRelations,
     });
 
-    return buildRecordResult(record as RecordWithRelations);
+    return buildRecordResult(record as unknown as RecordWithRelations);
   },
 
   /**
@@ -196,12 +331,18 @@ export const AttendanceService = {
       include: includeRelations,
     });
 
-    return buildRecordResult(updated as RecordWithRelations);
+    const computed = buildComputedData(updated as unknown as RecordWithRelations);
+    const finalized = await db.attendanceRecord.update({
+      where: { id: updated.id },
+      data: computed,
+      include: includeRelations,
+    });
+
+    return buildRecordResult(finalized as unknown as RecordWithRelations);
   },
 
   /**
    * Admin manual clock-in — skips PIN verification.
-   * Caller must verify authorization (requireAuth/requireRole).
    */
   async clockInAsAdmin(db: PrismaClient, input: AdminClockInInput): Promise<AttendanceRecordResult> {
     const employee = await findEmployee(db, input.employeeCode);
@@ -232,6 +373,9 @@ export const AttendanceService = {
       where: { employeeId: employee.id, workDate, status: 'PRESENT' },
     });
 
+    const rates = getEmployeeRateSnapshots(employee);
+    const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
+
     const record = await db.attendanceRecord.create({
       data: {
         employeeId: employee.id,
@@ -241,16 +385,24 @@ export const AttendanceService = {
         isOvertimeShift: sameDayCount > 0,
         source: input.source ?? 'MANUAL',
         status: 'PRESENT',
+        plannedHours: new Prisma.Decimal(planned),
+        standardDayHours: new Prisma.Decimal(rates.standardDayHours),
+        dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
+        overtimeRateSnapshot: new Prisma.Decimal(rates.overtimeHourlyRate),
+        regularHours: new Prisma.Decimal(0),
+        overtimeHours: new Prisma.Decimal(0),
+        dailyEarnings: new Prisma.Decimal(0),
+        overtimeEarnings: new Prisma.Decimal(0),
+        totalEarnings: new Prisma.Decimal(0),
       },
       include: includeRelations,
     });
 
-    return buildRecordResult(record as RecordWithRelations);
+    return buildRecordResult(record as unknown as RecordWithRelations);
   },
 
   /**
    * Admin manual clock-out — skips PIN verification.
-   * Caller must verify authorization (requireAuth/requireRole).
    */
   async clockOutAsAdmin(db: PrismaClient, input: AdminClockOutInput): Promise<AttendanceRecordResult> {
     const employee = await findEmployee(db, input.employeeCode);
@@ -271,7 +423,14 @@ export const AttendanceService = {
       include: includeRelations,
     });
 
-    return buildRecordResult(updated as RecordWithRelations);
+    const computed = buildComputedData(updated as unknown as RecordWithRelations);
+    const finalized = await db.attendanceRecord.update({
+      where: { id: updated.id },
+      data: computed,
+      include: includeRelations,
+    });
+
+    return buildRecordResult(finalized as unknown as RecordWithRelations);
   },
 
   /**
@@ -288,7 +447,7 @@ export const AttendanceService = {
       orderBy: [{ employee: { code: 'asc' } }, { clockInAt: 'asc' }],
     });
 
-    let results = records.map(r => buildRecordResult(r as RecordWithRelations));
+    let results = records.map(r => buildRecordResult(r as unknown as RecordWithRelations));
 
     if (filters?.overtimeOnly) {
       results = results.filter(r => r.isOvertimeShift || r.overtimeHours > 0);
@@ -307,7 +466,7 @@ export const AttendanceService = {
       orderBy: [{ employee: { code: 'asc' } }, { clockInAt: 'asc' }],
     });
 
-    const results = records.map(r => buildRecordResult(r as RecordWithRelations));
+    const results = records.map(r => buildRecordResult(r as unknown as RecordWithRelations));
     const uniqueEmployees = new Set(results.map(r => r.employeeId));
     const multiShiftEmployees = new Set(results.filter(r => r.isOvertimeShift).map(r => r.employeeId));
 
@@ -318,6 +477,9 @@ export const AttendanceService = {
       multiShiftCount: multiShiftEmployees.size,
       totalActualHours: Math.round(results.reduce((sum, r) => sum + (r.actualHours ?? 0), 0) * 100) / 100,
       totalOvertimeHours: Math.round(results.reduce((sum, r) => sum + r.overtimeHours, 0) * 100) / 100,
+      totalDailyEarnings: Math.round(results.reduce((sum, r) => sum + r.dailyEarnings, 0) * 100) / 100,
+      totalOvertimeEarnings: Math.round(results.reduce((sum, r) => sum + r.overtimeEarnings, 0) * 100) / 100,
+      totalEarnings: Math.round(results.reduce((sum, r) => sum + r.totalEarnings, 0) * 100) / 100,
       records: results,
     };
   },
@@ -331,18 +493,37 @@ export const AttendanceService = {
     });
     if (existing) throw new BusinessRuleError('Record sudah ada untuk shift ini');
 
-    const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { name: true, code: true } });
+    const employee = await db.employee.findUnique({ where: { id: employeeId }, select: { name: true, code: true, dailyRate: true, overtimeHourlyRate: true, standardDayHours: true } });
     if (!employee) throw new NotFoundError('Karyawan tidak ditemukan');
 
     const shift = await findShift(db, workShiftId);
     if (!shift) throw new NotFoundError('Shift tidak ditemukan');
 
+    const rates = getEmployeeRateSnapshots(employee as unknown as EmployeeSelect);
+    const planned = getEffectivePlannedHours(toNum(shift.plannedHours), shift.startTime, shift.endTime);
+
     const record = await db.attendanceRecord.create({
-      data: { employeeId, workDate, workShiftId, status: 'ABSENT', source: 'MANUAL', notes },
+      data: {
+        employeeId,
+        workDate,
+        workShiftId,
+        status: 'ABSENT',
+        source: 'MANUAL',
+        notes,
+        plannedHours: new Prisma.Decimal(planned),
+        standardDayHours: new Prisma.Decimal(rates.standardDayHours),
+        dailyRateSnapshot: new Prisma.Decimal(rates.dailyRate),
+        overtimeRateSnapshot: new Prisma.Decimal(rates.overtimeHourlyRate),
+        regularHours: new Prisma.Decimal(0),
+        overtimeHours: new Prisma.Decimal(0),
+        dailyEarnings: new Prisma.Decimal(0),
+        overtimeEarnings: new Prisma.Decimal(0),
+        totalEarnings: new Prisma.Decimal(0),
+      },
       include: includeRelations,
     });
 
-    return buildRecordResult(record as RecordWithRelations);
+    return buildRecordResult(record as unknown as RecordWithRelations);
   },
 
   /**
@@ -353,6 +534,12 @@ export const AttendanceService = {
     if (!record) throw new NotFoundError('Record tidak ditemukan');
 
     const updated = await db.attendanceRecord.update({ where: { id: recordId }, data, include: includeRelations });
-    return buildRecordResult(updated as RecordWithRelations);
+    const computed = buildComputedData(updated as unknown as RecordWithRelations);
+    const finalized = await db.attendanceRecord.update({
+      where: { id: updated.id },
+      data: computed,
+      include: includeRelations,
+    });
+    return buildRecordResult(finalized as unknown as RecordWithRelations);
   },
 };

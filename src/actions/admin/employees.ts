@@ -49,7 +49,9 @@ async function createEmployee(data: {
     code: string;
     role: string;
     status?: EmployeeStatus;
-    hourlyRate?: number;
+    dailyRate?: number;
+    overtimeHourlyRate?: number;
+    standardDayHours?: number;
 }) {
     return safeAction(async () => {
         try {
@@ -59,7 +61,9 @@ async function createEmployee(data: {
                     code: data.code,
                     role: data.role,
                     status: data.status || 'ACTIVE',
-                    hourlyRate: data.hourlyRate || 0,
+                    dailyRate: data.dailyRate || 0,
+                    overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
+                    standardDayHours: data.standardDayHours ?? 8,
                 },
             });
             revalidatePath('/dashboard/employees');
@@ -81,14 +85,20 @@ async function updateEmployee(
         code?: string;
         role?: string;
         status?: EmployeeStatus;
-        hourlyRate?: number;
+        dailyRate?: number;
+        overtimeHourlyRate?: number;
+        standardDayHours?: number;
     }
 ) {
     return safeAction(async () => {
         try {
             const employee = await prisma.employee.update({
                 where: { id },
-                data,
+                data: {
+                    ...data,
+                    overtimeHourlyRate: data.overtimeHourlyRate ? data.overtimeHourlyRate : null,
+                    standardDayHours: data.standardDayHours && data.standardDayHours > 0 ? data.standardDayHours : 8,
+                },
             });
             revalidatePath('/dashboard/employees');
             revalidatePath('/production/resources');

@@ -179,7 +179,7 @@ describe("CostingService", () => {
             startTime: new Date("2026-01-15T08:00:00Z"),
             endTime: new Date("2026-01-15T10:00:00Z"),
             machine: { costPerHour: dec(100) },
-            operator: { hourlyRate: dec(50) },
+            operator: { dailyRate: dec(400), standardDayHours: dec(8) },
           },
         ],
       } as never);
@@ -187,7 +187,7 @@ describe("CostingService", () => {
       const result = await CostingService.calculateOrderCost("po-5");
 
       expect(result.machineCost).toBe(200); // 2 hours * 100
-      expect(result.laborCost).toBe(100); // 2 hours * 50
+      expect(result.laborCost).toBe(100); // (2/8 day) * 400 daily rate
     });
 
     it("skips voided executions", async () => {
@@ -204,7 +204,7 @@ describe("CostingService", () => {
             startTime: new Date("2026-01-15T08:00:00Z"),
             endTime: new Date("2026-01-15T10:00:00Z"),
             machine: { costPerHour: dec(100) },
-            operator: { hourlyRate: dec(50) },
+            operator: { dailyRate: dec(400), standardDayHours: dec(8) },
           },
         ],
       } as never);

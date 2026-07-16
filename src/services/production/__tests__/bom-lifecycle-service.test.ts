@@ -29,7 +29,13 @@ import { prisma } from '@/lib/core/prisma';
 import { BomLifecycleService } from '../bom-lifecycle-service';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 
-const mockPrisma = vi.mocked(prisma);
+type MockFn = ReturnType<typeof vi.fn>;
+interface MockPrisma {
+    bom: { findUnique: MockFn; update: MockFn; delete: MockFn };
+    productionOrder: { count: MockFn };
+    $transaction: MockFn;
+}
+const mockPrisma = prisma as unknown as MockPrisma;
 const ctx = { userId: 'user-1' };
 
 describe('BomLifecycleService', () => {

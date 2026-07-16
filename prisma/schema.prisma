@@ -82,7 +82,9 @@ model Employee {
   status               EmployeeStatus        @default(ACTIVE)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-  hourlyRate           Decimal               @default(0) @db.Decimal(10, 2)
+  dailyRate            Decimal               @default(0) @db.Decimal(12, 2)
+  overtimeHourlyRate   Decimal?              @db.Decimal(12, 2)
+  standardDayHours     Decimal               @default(8) @db.Decimal(4, 2)
   pinHash              String?
   attendanceRecords    AttendanceRecord[]
   executionsAsOperator ProductionExecution[] @relation("ExecutionOperator")
@@ -2146,19 +2148,29 @@ enum AdjustmentType {
 // ==========================================
 
 model AttendanceRecord {
-  id               String           @id @default(uuid())
-  employeeId       String
-  workDate         DateTime         @db.Date
-  workShiftId      String
-  clockInAt        DateTime?
-  clockOutAt       DateTime?
-  status           AttendanceStatus @default(PRESENT)
-  isOvertimeShift  Boolean          @default(false)
-  notes            String?
-  source           AttendanceSource @default(KIOSK)
-  createdById      String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                 String           @id @default(uuid())
+  employeeId         String
+  workDate           DateTime         @db.Date
+  workShiftId        String
+  clockInAt          DateTime?
+  clockOutAt         DateTime?
+  status             AttendanceStatus @default(PRESENT)
+  isOvertimeShift    Boolean          @default(false)
+  plannedHours       Decimal?         @db.Decimal(4, 2)
+  actualHours        Decimal?         @db.Decimal(5, 2)
+  regularHours       Decimal?         @db.Decimal(5, 2)
+  overtimeHours      Decimal?         @db.Decimal(5, 2)
+  standardDayHours   Decimal?         @db.Decimal(4, 2)
+  dailyRateSnapshot  Decimal?         @db.Decimal(12, 2)
+  overtimeRateSnapshot Decimal?       @db.Decimal(12, 2)
+  dailyEarnings      Decimal?         @db.Decimal(12, 2)
+  overtimeEarnings   Decimal?         @db.Decimal(12, 2)
+  totalEarnings      Decimal?         @db.Decimal(12, 2)
+  notes              String?
+  source             AttendanceSource @default(KIOSK)
+  createdById        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   employee  Employee  @relation(fields: [employeeId], references: [id])
   workShift WorkShift @relation(fields: [workShiftId], references: [id])

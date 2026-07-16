@@ -23,7 +23,9 @@ export default async function EditEmployeePage({ params }: EditEmployeePageProps
     const { pinHash: _pinHash, ...employeeData } = employee;
     const formData = {
         ...employeeData,
-        hourlyRate: employee.hourlyRate ? Number(employee.hourlyRate) : 0,
+        dailyRate: employee.dailyRate ? Number(employee.dailyRate) : 0,
+        overtimeHourlyRate: employee.overtimeHourlyRate ? Number(employee.overtimeHourlyRate) : 0,
+        standardDayHours: employee.standardDayHours ? Number(employee.standardDayHours) : 8,
     };
 
     return (

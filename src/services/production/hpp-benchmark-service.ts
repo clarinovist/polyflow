@@ -46,7 +46,7 @@ export async function getHppBenchmarkByBomId(
                         select: { costPerHour: true },
                     },
                     operator: {
-                        select: { hourlyRate: true },
+                        select: { dailyRate: true, standardDayHours: true },
                     },
                 },
             },
@@ -72,7 +72,10 @@ export async function getHppBenchmarkByBomId(
                 orderMachine += durationHours * Number(exec.machine.costPerHour ?? 0);
             }
             if (exec.operator) {
-                orderLabor += durationHours * Number(exec.operator.hourlyRate ?? 0);
+                const dailyRate = Number(exec.operator.dailyRate ?? 0);
+                const standardDayHours = Number(exec.operator.standardDayHours ?? 8);
+                const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
+                orderLabor += dayEquivalent * dailyRate;
             }
         }
 

@@ -41,7 +41,9 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
         code: initialData?.code || '',
         role: initialData?.role || '',
         status: initialData?.status || EmployeeStatus.ACTIVE,
-        hourlyRate: initialData?.hourlyRate ? Number(initialData.hourlyRate) : 0,
+        dailyRate: initialData?.dailyRate ? Number(initialData.dailyRate) : 0,
+        overtimeHourlyRate: initialData?.overtimeHourlyRate ? Number(initialData.overtimeHourlyRate) : 0,
+        standardDayHours: initialData?.standardDayHours ? Number(initialData.standardDayHours) : 8,
     });
 
     useEffect(() => {
@@ -247,22 +249,61 @@ export function EmployeeForm({ initialData, hasPin: initialHasPin }: EmployeeFor
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="hourlyRate" className="text-sm font-semibold tracking-tight">Hourly Rate (IDR)</Label>
+                    <Label htmlFor="dailyRate" className="text-sm font-semibold tracking-tight">Upah Harian / Daily Rate (IDR)</Label>
                     <Input
-                        id="hourlyRate"
+                        id="dailyRate"
                         type="number"
                         min="0"
                         step="1000"
-                        value={formData.hourlyRate}
+                        value={formData.dailyRate}
                         onChange={(e) => {
                                 const normalized = e.target.value.replace(',', '.');
                                 const num = Number(normalized);
-                                setFormData({ ...formData, hourlyRate: isNaN(num) ? 0 : num });
+                                setFormData({ ...formData, dailyRate: isNaN(num) ? 0 : num });
                             }}
-                        placeholder="e.g. 25000"
+                        placeholder="e.g. 100000"
                         className="bg-background/50"
                     />
-                    <p className="text-[11px] text-muted-foreground italic">Standard labor cost used for production costing.</p>
+                    <p className="text-[11px] text-muted-foreground italic">Upah standar untuk 1 hari kerja, dipakai untuk perhitungan gaji dan costing.</p>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="overtimeHourlyRate" className="text-sm font-semibold tracking-tight">Tarif Lembur per Jam (IDR) — Opsional</Label>
+                    <Input
+                        id="overtimeHourlyRate"
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={formData.overtimeHourlyRate}
+                        onChange={(e) => {
+                                const normalized = e.target.value.replace(',', '.');
+                                const num = Number(normalized);
+                                setFormData({ ...formData, overtimeHourlyRate: isNaN(num) ? 0 : num });
+                            }}
+                        placeholder="e.g. 187500"
+                        className="bg-background/50"
+                    />
+                    <p className="text-[11px] text-muted-foreground italic">Kosongkan untuk otomatis = dailyRate ÷ jam kerja standar × 1,5.</p>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="standardDayHours" className="text-sm font-semibold tracking-tight">Jam Kerja Standar per Hari</Label>
+                    <Input
+                        id="standardDayHours"
+                        type="number"
+                        min="1"
+                        max="24"
+                        step="0.5"
+                        value={formData.standardDayHours}
+                        onChange={(e) => {
+                                const normalized = e.target.value.replace(',', '.');
+                                const num = Number(normalized);
+                                setFormData({ ...formData, standardDayHours: isNaN(num) || num <= 0 ? 8 : num });
+                            }}
+                        placeholder="8"
+                        className="bg-background/50"
+                    />
+                    <p className="text-[11px] text-muted-foreground italic">Dasar perhitungan proporsional upah harian (biasanya 8 jam).</p>
                 </div>
 
                 <div className="flex items-center space-x-3 bg-muted/30 p-3 rounded-lg border border-white/5">

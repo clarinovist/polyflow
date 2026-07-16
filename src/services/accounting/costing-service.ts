@@ -106,7 +106,12 @@ export class CostingService {
                 executions: {
                     include: {
                         machine: true,
-                        operator: true
+                        operator: {
+                            select: {
+                                dailyRate: true,
+                                standardDayHours: true,
+                            }
+                        }
                     }
                 }
             }
@@ -143,7 +148,10 @@ export class CostingService {
                 machineCost += durationHours * Number(exec.machine.costPerHour || 0);
             }
             if (exec.operator) {
-                laborCost += durationHours * Number(exec.operator.hourlyRate || 0);
+                const dailyRate = Number(exec.operator.dailyRate || 0);
+                const standardDayHours = Number(exec.operator.standardDayHours || 8);
+                const dayEquivalent = standardDayHours > 0 ? durationHours / standardDayHours : 0;
+                laborCost += dayEquivalent * dailyRate;
             }
         }
 
